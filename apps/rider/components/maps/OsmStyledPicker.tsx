@@ -19,7 +19,7 @@ const markerIcon = L.divIcon({
   iconAnchor: [17, 32],
 });
 
-const KAMPALA: [number, number] = [0.3476, 32.5825];
+const UGANDA: [number, number] = [1.3733, 32.2903];
 
 type NominatimResult = {
   lat: string;
@@ -63,12 +63,12 @@ function ClickToPlace({ onPick }: { onPick: (lat: number, lng: number) => void }
   return null;
 }
 
-function RecenterOnChange({ center }: { center: [number, number] }) {
+function RecenterOnChange({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, map.getZoom());
+    map.setView(center, zoom);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [center[0], center[1]]);
+  }, [center[0], center[1], zoom]);
   return null;
 }
 
@@ -80,12 +80,35 @@ export type OsmStyledPickerProps = MapPickerProps & { tileUrl: string; attributi
  * tile layer URL/attribution differ. */
 export function OsmStyledPicker({ initial, onConfirm, onCancel, tileUrl, attribution }: OsmStyledPickerProps) {
   const [marker, setMarker] = useState<[number, number] | null>(initial ? [initial.lat, initial.lng] : null);
-  const [center, setCenter] = useState<[number, number]>(initial ? [initial.lat, initial.lng] : KAMPALA);
+  const [center, setCenter] = useState<[number, number]>(initial ? [initial.lat, initial.lng] : UGANDA);
+  const [zoom, setZoom] = useState(initial ? 14 : 7);
+  const [currentPosition, setCurrentPosition] = useState<[number, number] | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState(false);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<NominatimResult[]>([]);
   const [resolving, setResolving] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (initial || !navigator.geolocation) return;
+    let cancelled = false;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (cancelled) return;
+        const nearby: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setCurrentPosition(nearby);
+        setCenter(nearby);
+        setZoom(14);
+        setLocating(false);
+      },
+      () => { if (!cancelled) setLocating(false); },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
+    return () => { cancelled = true; };
+  }, [initial]);
 
   function place(lat: number, lng: number) {
     setMarker([lat, lng]);
@@ -93,12 +116,31 @@ export function OsmStyledPicker({ initial, onConfirm, onCancel, tileUrl, attribu
   }
 
   function useMyLocation() {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition((pos) => {
-      const next: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+    setLocationError(false);
+    const select = (next: [number, number]) => {
       setCenter(next);
+      setZoom(16);
       place(next[0], next[1]);
-    });
+      setLocating(false);
+    };
+    if (currentPosition) {
+      select(currentPosition);
+      return;
+    }
+    if (!navigator.geolocation) {
+      setLocationError(true);
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const next: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setCurrentPosition(next);
+        select(next);
+      },
+      () => { setLocating(false); setLocationError(true); },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
   }
 
   function onSearchChange(value: string) {
@@ -120,6 +162,7 @@ export function OsmStyledPicker({ initial, onConfirm, onCancel, tileUrl, attribu
     const lat = Number(r.lat);
     const lng = Number(r.lon);
     setCenter([lat, lng]);
+    setZoom(14);
     place(lat, lng);
     setQuery(r.display_name);
     setResults([]);
@@ -145,17 +188,17 @@ export function OsmStyledPicker({ initial, onConfirm, onCancel, tileUrl, attribu
             value={query}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search a place in Uganda…"
-            className="w-full rounded-full border border-[var(--border-faint)] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-gold"
+            className="min-h-12 w-full rounded-full border border-[var(--border-faint)] py-3 pl-10 pr-4 text-base outline-none focus:border-gold"
           />
         </div>
         {(searching || results.length > 0) && (
           <div className="absolute inset-x-3 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] shadow-lg">
-            {searching && <div className="p-3 text-xs text-ink-500">Searching…</div>}
+            {searching && <div className="p-3 text-sm text-ink-500">Searching…</div>}
             {results.map((r, i) => (
               <button
                 key={i}
                 onClick={() => chooseResult(r)}
-                className="block w-full truncate px-3 py-2 text-left text-sm text-ink hover:bg-[rgb(var(--surface-muted))]"
+                className="block min-h-12 w-full truncate px-4 py-3 text-left text-base text-ink hover:bg-[rgb(var(--surface-muted))]"
               >
                 {r.display_name}
               </button>
@@ -165,47 +208,37 @@ export function OsmStyledPicker({ initial, onConfirm, onCancel, tileUrl, attribu
       </div>
 
       <div className="relative flex-1">
-        <MapContainer center={center} zoom={14} className="tuma-map h-full w-full" attributionControl>
+        <MapContainer center={center} zoom={zoom} className="tuma-map h-full w-full" attributionControl>
           <TileLayer url={tileUrl} attribution={attribution} />
           <ClickToPlace onPick={place} />
-          <RecenterOnChange center={center} />
+          <RecenterOnChange center={center} zoom={zoom} />
           {marker && <Marker position={marker} icon={markerIcon} />}
           {/* Dark-mode recolor layer — see .tuma-map-tint in globals.css */}
           <div className="tuma-map-tint" aria-hidden />
         </MapContainer>
 
-        <button
-          onClick={useMyLocation}
-          className="absolute bottom-4 right-4 z-[1000] flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--surface-card))] text-ink shadow-lg"
-          aria-label="Use my current location"
-        >
-          <LocateFixed className="h-5 w-5 text-gold" strokeWidth={2.25} />
-        </button>
-
         {!marker && (
           <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
-            <span className="rounded-full bg-ink/80 px-3 py-1.5 text-xs font-medium text-cream">
+            <span className="rounded-full bg-ink/80 px-4 py-2 text-sm font-semibold text-cream">
               Tap the map to drop a pin
             </span>
           </div>
         )}
       </div>
 
-      <div className="flex shrink-0 gap-2 border-t border-[var(--border-faint)] bg-cream p-3">
-        <button
-          onClick={onCancel}
-          className="min-h-12 flex-1 rounded-full border border-[var(--border-faint)] text-sm font-bold text-ink"
-        >
-          Cancel
+      <div className="shrink-0 space-y-3 border-t border-[var(--border-faint)] bg-cream p-4">
+        <button onClick={useMyLocation} disabled={locating} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-gold text-base font-bold text-ink disabled:opacity-60">
+          {locating ? <Loader2 className="h-5 w-5 animate-spin text-gold" aria-hidden /> : <LocateFixed className="h-5 w-5 text-gold" strokeWidth={2.25} aria-hidden />}
+          {locating ? "Finding your location…" : "Select my current location"}
         </button>
-        <button
-          onClick={confirm}
-          disabled={!marker || resolving}
-          className="flex min-h-12 flex-[2] items-center justify-center gap-2 rounded-full bg-gold text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-50"
-        >
-          {resolving && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
-          {resolving ? "Finding address…" : "Use this location"}
-        </button>
+        {locationError && <p role="alert" className="text-center text-sm text-red-700">We couldn&apos;t get your location. Search or tap the map instead.</p>}
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="min-h-12 flex-1 rounded-full border border-[var(--border-faint)] text-base font-bold text-ink">Cancel</button>
+          <button onClick={confirm} disabled={!marker || resolving} className="flex min-h-12 flex-[2] items-center justify-center gap-2 rounded-full bg-gold text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-50">
+            {resolving && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
+            {resolving ? "Finding address…" : "Use selected location"}
+          </button>
+        </div>
       </div>
     </div>
   );

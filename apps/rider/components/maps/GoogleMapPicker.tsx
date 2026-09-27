@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { loadScript } from "../../lib/load-script";
 import type { MapPickerProps } from "./map-types";
 
-const KAMPALA = { lat: 0.3476, lng: 32.5825 };
+const UGANDA = { lat: 1.3733, lng: 32.2903 };
 
 // Minimal shape of the bits of the Google Maps JS API this component
 // touches — avoids pulling in @types/google.maps just for a handful of
@@ -23,7 +23,7 @@ type GoogleNamespace = {
     };
   };
 };
-type GoogleMap = { setCenter: (pos: { lat: number; lng: number }) => void; addListener: (event: string, handler: (e: { latLng: { lat: () => number; lng: () => number } }) => void) => void };
+type GoogleMap = { setCenter: (pos: { lat: number; lng: number }) => void; setZoom: (zoom: number) => void; addListener: (event: string, handler: (e: { latLng: { lat: () => number; lng: () => number } }) => void) => void };
 type GoogleMarker = { setPosition: (pos: { lat: number; lng: number }) => void; setMap: (map: GoogleMap | null) => void };
 type GeocoderResult = { address_components: { types: string[]; long_name: string }[]; formatted_address: string };
 
@@ -51,6 +51,9 @@ export function GoogleMapPicker({ initial, onConfirm, onCancel, apiKey }: MapPic
   const markerRef = useRef<GoogleMarker | null>(null);
   const [ready, setReady] = useState(false);
   const [marker, setMarker] = useState<{ lat: number; lng: number } | null>(initial ?? null);
+  const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
@@ -74,10 +77,11 @@ export function GoogleMapPicker({ initial, onConfirm, onCancel, apiKey }: MapPic
   useEffect(() => {
     const google = getGoogleMaps();
     if (!ready || !mapDivRef.current || !google) return;
-    const start = initial ?? KAMPALA;
+    let cancelled = false;
+    const start = initial ?? UGANDA;
     const map = new google.maps.Map(mapDivRef.current, {
       center: start,
-      zoom: 14,
+      zoom: initial ? 14 : 7,
       disableDefaultUI: true,
       zoomControl: true,
       clickableIcons: false,
@@ -86,6 +90,22 @@ export function GoogleMapPicker({ initial, onConfirm, onCancel, apiKey }: MapPic
 
     if (initial) {
       markerRef.current = new google.maps.Marker({ position: initial, map });
+    } else if (navigator.geolocation) {
+      setLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (cancelled) return;
+          const nearby = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setCurrentPosition(nearby);
+          map.setCenter(nearby);
+          map.setZoom(14);
+          setLocating(false);
+        },
+        () => {
+          if (!cancelled) setLocating(false);
+        },
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+      );
     }
 
     map.addListener("click", (e: { latLng: { lat: () => number; lng: () => number } }) => {
@@ -118,14 +138,15 @@ export function GoogleMapPicker({ initial, onConfirm, onCancel, apiKey }: MapPic
         markerRef.current = new google.maps.Marker({ position: { lat, lng }, map });
       }
     }
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
   function useMyLocation() {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition((pos) => {
-      const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    setLocationError(false);
+    const select = (next: { lat: number; lng: number }) => {
       mapRef.current?.setCenter(next);
+      mapRef.current?.setZoom(16);
       setMarker(next);
       const google = getGoogleMaps();
       if (markerRef.current) {
@@ -133,7 +154,26 @@ export function GoogleMapPicker({ initial, onConfirm, onCancel, apiKey }: MapPic
       } else if (google && mapRef.current) {
         markerRef.current = new google.maps.Marker({ position: next, map: mapRef.current });
       }
-    });
+      setLocating(false);
+    };
+    if (currentPosition) {
+      select(currentPosition);
+      return;
+    }
+    if (!navigator.geolocation) {
+      setLocationError(true);
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setCurrentPosition(next);
+        select(next);
+      },
+      () => { setLocating(false); setLocationError(true); },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
   }
 
   async function confirm() {
@@ -161,7 +201,7 @@ export function GoogleMapPicker({ initial, onConfirm, onCancel, apiKey }: MapPic
           <input
             ref={inputRef}
             placeholder="Search a place in Uganda…"
-            className="w-full rounded-full border border-[var(--border-faint)] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-gold"
+            className="min-h-12 w-full rounded-full border border-[var(--border-faint)] py-3 pl-10 pr-4 text-base outline-none focus:border-gold"
           />
         </div>
       </div>
@@ -179,40 +219,28 @@ export function GoogleMapPicker({ initial, onConfirm, onCancel, apiKey }: MapPic
         )}
         <div ref={mapDivRef} className="h-full w-full" />
 
-        {ready && (
-          <button
-            onClick={useMyLocation}
-            className="absolute bottom-4 right-4 z-[1000] flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--surface-card))] text-ink shadow-lg"
-            aria-label="Use my current location"
-          >
-            <LocateFixed className="h-5 w-5 text-gold" strokeWidth={2.25} />
-          </button>
-        )}
-
         {ready && !marker && (
           <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
-            <span className="rounded-full bg-ink/80 px-3 py-1.5 text-xs font-medium text-cream">
+            <span className="rounded-full bg-ink/80 px-4 py-2 text-sm font-semibold text-cream">
               Tap the map to drop a pin
             </span>
           </div>
         )}
       </div>
 
-      <div className="flex shrink-0 gap-2 border-t border-[var(--border-faint)] bg-cream p-3">
-        <button
-          onClick={onCancel}
-          className="min-h-12 flex-1 rounded-full border border-[var(--border-faint)] text-sm font-bold text-ink"
-        >
-          Cancel
+      <div className="shrink-0 space-y-3 border-t border-[var(--border-faint)] bg-cream p-4">
+        <button onClick={useMyLocation} disabled={locating} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-gold text-base font-bold text-ink disabled:opacity-60">
+          {locating ? <Loader2 className="h-5 w-5 animate-spin text-gold" aria-hidden /> : <LocateFixed className="h-5 w-5 text-gold" strokeWidth={2.25} aria-hidden />}
+          {locating ? "Finding your location…" : "Select my current location"}
         </button>
-        <button
-          onClick={confirm}
-          disabled={!marker || resolving}
-          className="flex min-h-12 flex-[2] items-center justify-center gap-2 rounded-full bg-gold text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-50"
-        >
-          {resolving && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
-          {resolving ? "Finding address…" : "Use this location"}
-        </button>
+        {locationError && <p role="alert" className="text-center text-sm text-red-700">We couldn&apos;t get your location. Search or tap the map instead.</p>}
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="min-h-12 flex-1 rounded-full border border-[var(--border-faint)] text-base font-bold text-ink">Cancel</button>
+          <button onClick={confirm} disabled={!marker || resolving} className="flex min-h-12 flex-[2] items-center justify-center gap-2 rounded-full bg-gold text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-50">
+            {resolving && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
+            {resolving ? "Finding address…" : "Use selected location"}
+          </button>
+        </div>
       </div>
     </div>
   );

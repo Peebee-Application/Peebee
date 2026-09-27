@@ -44,6 +44,7 @@
   --border-faint: rgba(247, 243, 238, 0.11);
 }
 
-body { background: rgb(var(--cream)); color: rgb(var(--ink)); }
-.home-card { border: 1px solid var(--border-faint); border-radius: 22px; background: rgb(var(--surface)); padding: 20px; box-shadow: 0 5px 18px rgba(8, 20, 38, 0.07); }
+html { font-size: 17px; }
+body { background: rgb(var(--cream)); color: rgb(var(--ink)); line-height: 1.55; }
+.home-card { border: 1px solid var(--border-faint); border-radius: 22px; background: rgb(var(--surface)); padding: 24px; box-shadow: 0 5px 18px rgba(8, 20, 38, 0.07); }
 input, select, textarea { background: rgb(var(--surface-input)); }
