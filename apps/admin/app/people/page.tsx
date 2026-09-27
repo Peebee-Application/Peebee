@@ -446,7 +446,7 @@ function MerchantsTab() {
       <ul className="space-y-2.5">
         {filtered.map((merchant) => (
           <li key={merchant.id} className="home-card space-y-2 !rounded-2xl !px-3 !py-3">
-            <div className="flex items-center gap-3">
+            <Link href={`/people/merchants/${merchant.id}`} className="flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">
               <Store className="h-5 w-5 shrink-0 text-ink-500" strokeWidth={1.75} aria-hidden />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-bold text-ink">{merchant.display_name}</span>
@@ -465,7 +465,8 @@ function MerchantsTab() {
               >
                 {MERCHANT_STATUS_LABEL[merchant.status]}
               </span>
-            </div>
+              <ChevronRight className="h-5 w-5 shrink-0 text-ink-500" strokeWidth={1.75} aria-hidden />
+            </Link>
             {canManage && (
               <div className="flex gap-2">
                 {merchant.status !== "active" && (

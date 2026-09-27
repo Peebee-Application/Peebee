@@ -3,6 +3,8 @@ import type {
   ActivityLogEntry,
   AdminMerchantSettlementAccount,
   AdminMerchant,
+  AdminMerchantProfileResponse,
+  AdminMerchantRange,
   AdminCustomer,
   AdminOrderRow,
   AdminRider,
@@ -1412,6 +1414,11 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async adminMerchants() {
       return request<{ merchants: AdminMerchant[] }>("/v1/admin/merchants");
+    },
+    async adminGetMerchant(id: string, range: AdminMerchantRange = "month") {
+      return request<AdminMerchantProfileResponse>(
+        `/v1/admin/merchants/${encodeURIComponent(id)}?range=${encodeURIComponent(range)}`,
+      );
     },
     async adminSetMerchantStatus(id: string, status: Merchant["status"]) {
       return request<{ merchant: Merchant }>(`/v1/admin/merchants/${id}/status`, {

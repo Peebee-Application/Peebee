@@ -525,6 +525,19 @@ export type AdminMerchant = Merchant & {
   settling: number | null;
 };
 
+export type AdminMerchantRange = "day" | "week" | "month" | "year";
+
+export type AdminMerchantProfile = AdminMerchant & {
+  phone_verified: number;
+  identity_verified: number;
+  business_verified: number;
+  risk_notes: string | null;
+  approved_at: string | null;
+  approved_by_name: string | null;
+  reviewed_at: string | null;
+  reviewed_by_name: string | null;
+};
+
 export type MerchantCategory = {
   id: string;
   slug: string;
@@ -623,6 +636,30 @@ export type MerchantSettlement = {
   provider?: string | null;
   provider_ref?: string | null;
   failure_code?: string | null;
+};
+
+export type AdminMerchantSettlement = MerchantSettlement & {
+  total_debit: number;
+  mode: "instant" | "scheduled";
+  provider: string | null;
+  provider_ref: string | null;
+  failure_code: string | null;
+  account_name: string | null;
+  network_or_bank: string | null;
+  masked_account_ref: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminMerchantProfileResponse = {
+  merchant: AdminMerchantProfile;
+  outlets: MerchantOutlet[];
+  members: MerchantMember[];
+  settlementAccounts: AdminMerchantSettlementAccount[];
+  payments: MerchantPaymentSummary[];
+  transactions: MerchantTransaction[];
+  settlements: AdminMerchantSettlement[];
+  range: AdminMerchantRange;
 };
 
 export type MerchantPayment = {

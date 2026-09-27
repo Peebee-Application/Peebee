@@ -934,6 +934,128 @@ merchantRoutes.get("/admin/merchants", requireAuth, requireRole("admin"), requir
   return c.json({ merchants: result.rows });
 });
 
+const adminMerchantRangeSchema = z.enum(["day", "week", "month", "year"]);
+const ADMIN_MERCHANT_RANGE_MODIFIER = {
+  day: "-1 day",
+  week: "-7 days",
+  month: "-1 month",
+  year: "-1 year",
+} as const;
+
+merchantRoutes.get("/admin/merchants/:id", requireAuth, requireRole("admin"), requirePermission("merchants.view"), async (c) => {
+  const merchantId = String(c.req.param("id"));
+  const parsedRange = adminMerchantRangeSchema.safeParse(c.req.query("range") ?? "month");
+  if (!parsedRange.success) return c.json({ error: "invalid_range" }, 400);
+  const range = parsedRange.data;
+  const rangeModifier = ADMIN_MERCHANT_RANGE_MODIFIER[range];
+
+  const merchantResult = await db.execute({
+    sql: `SELECT m.*, k.status AS kyc_status,
+                 COALESCE(k.phone_verified, 0) AS phone_verified,
+                 COALESCE(k.identity_verified, 0) AS identity_verified,
+                 COALESCE(k.business_verified, 0) AS business_verified,
+                 k.risk_notes, k.reviewed_at,
+                 CASE WHEN k.owner_id_key IS NULL THEN 0 ELSE 1 END AS has_owner_id_document,
+                 CASE WHEN k.business_document_key IS NULL THEN 0 ELSE 1 END AS has_business_document,
+                 (SELECT COUNT(*) FROM merchant_outlets o WHERE o.merchant_id = m.id) AS outlet_count,
+                 b.held, b.available, b.settling,
+                 approver.name AS approved_by_name, reviewer.name AS reviewed_by_name
+          FROM merchants m
+          LEFT JOIN merchant_kyc_cases k ON k.merchant_id = m.id
+          LEFT JOIN merchant_balances b ON b.merchant_id = m.id AND b.environment = m.environment
+          LEFT JOIN users approver ON approver.id = m.approved_by
+          LEFT JOIN users reviewer ON reviewer.id = k.reviewed_by
+          WHERE m.id = ?
+            AND NOT EXISTS (SELECT 1 FROM restaurants r WHERE r.merchant_id = m.id)`,
+    args: [merchantId],
+  });
+  const merchant = merchantResult.rows[0] as Row | undefined;
+  if (!merchant) return c.json({ error: "not_found" }, 404);
+
+  const [outletResult, memberResult, settlementAccountResult] = await Promise.all([
+    db.execute({
+      sql: `SELECT o.*, c.name AS category_name, c.slug AS category_slug
+            FROM merchant_outlets o
+            JOIN merchant_categories c ON c.id = o.category_id
+            WHERE o.merchant_id = ? ORDER BY o.created_at`,
+      args: [merchantId],
+    }),
+    db.execute({
+      sql: `SELECT mm.user_id, mm.role, mm.status, mm.outlet_id, mm.created_at,
+                   u.name, u.email, u.phone
+            FROM merchant_members mm JOIN users u ON u.id = mm.user_id
+            WHERE mm.merchant_id = ?
+            ORDER BY CASE mm.role WHEN 'owner' THEN 0 WHEN 'finance' THEN 1 WHEN 'manager' THEN 2 ELSE 3 END,
+                     mm.created_at`,
+      args: [merchantId],
+    }),
+    db.execute({
+      sql: `SELECT a.id, a.merchant_id, m.display_name, a.type, a.provider, a.account_name,
+                   a.network_or_bank, a.status, a.is_primary, a.verified_at, a.cooling_until,
+                   '••••' || a.account_ref_last4 AS masked_account_ref, a.created_at
+            FROM merchant_settlement_accounts a
+            JOIN merchants m ON m.id = a.merchant_id
+            WHERE a.merchant_id = ? ORDER BY a.created_at DESC`,
+      args: [merchantId],
+    }),
+  ]);
+
+  let payments: Row[] = [];
+  let transactions: Row[] = [];
+  let settlements: Row[] = [];
+  if (merchant.status === "active") {
+    const [paymentResult, transactionResult, settlementResult] = await Promise.all([
+      db.execute({
+        sql: `SELECT mp.id, mp.order_id, mp.outlet_id, o.name AS outlet_name, mp.amount, mp.status,
+                     mp.confirmation_mode, mp.risk_state, mp.receipt_reference, mp.rider_id,
+                     u.name AS rider_name, mp.created_at, mp.updated_at
+              FROM merchant_payments mp
+              JOIN merchant_outlets o ON o.id = mp.outlet_id
+              JOIN users u ON u.id = mp.rider_id
+              WHERE mp.merchant_id = ? AND mp.created_at >= datetime('now', ?)
+              ORDER BY mp.created_at DESC LIMIT 500`,
+        args: [merchantId, rangeModifier],
+      }),
+      db.execute({
+        sql: `SELECT t.id, t.kind, t.reference_type, t.reference_id, t.description, t.created_at,
+                     e.amount, a.purpose, a.currency, a.environment
+              FROM ledger_accounts a
+              JOIN ledger_entries e ON e.account_id = a.id
+              JOIN ledger_transactions t ON t.id = e.transaction_id
+              WHERE a.owner_type = 'merchant' AND a.owner_id = ?
+                AND t.created_at >= datetime('now', ?)
+              ORDER BY t.created_at DESC LIMIT 500`,
+        args: [merchantId, rangeModifier],
+      }),
+      db.execute({
+        sql: `SELECT s.id, s.amount, s.fee, s.total_debit, s.mode, s.status, s.provider,
+                     s.provider_ref, s.failure_code, s.created_at, s.updated_at,
+                     a.account_name, a.network_or_bank,
+                     '••••' || a.account_ref_last4 AS masked_account_ref
+              FROM merchant_settlements s
+              JOIN merchant_settlement_accounts a ON a.id = s.settlement_account_id
+              WHERE s.merchant_id = ? AND s.created_at >= datetime('now', ?)
+              ORDER BY s.created_at DESC LIMIT 500`,
+        args: [merchantId, rangeModifier],
+      }),
+    ]);
+    payments = paymentResult.rows as Row[];
+    transactions = transactionResult.rows as Row[];
+    settlements = settlementResult.rows as Row[];
+  }
+
+  return c.json({
+    merchant,
+    outlets: outletResult.rows,
+    members: memberResult.rows,
+    settlementAccounts: settlementAccountResult.rows,
+    payments,
+    transactions,
+    settlements,
+    range,
+  });
+});
+
 merchantRoutes.get("/admin/merchants/:id/kyc-documents/:type", requireAuth, requireRole("admin"), requirePermission("merchants.view"), async (c) => {
   const merchantId = String(c.req.param("id"));
   const type = String(c.req.param("type"));
