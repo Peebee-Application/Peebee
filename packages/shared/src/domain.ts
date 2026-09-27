@@ -384,6 +384,21 @@ export type ChatMessage = {
   call_id: string | null;
   call_status: "declined" | "missed" | "ended" | null;
   call_duration_seconds: number | null;
+  /** Set once "delete for everyone" clears the content — body/media_key
+   * are already emptied by then, so a client renders a tombstone off this
+   * instead. Never set by "delete for me" (hidden_for_*), which the
+   * server just filters out of the response entirely. */
+  deleted_at: string | null;
+  deleted_by: string | null;
+  /** The message this one quotes, and a snapshot of it (joined server-side
+   * — see THREAD_SELECT in apps/api/src/orders/routes.ts) so a client can
+   * render the quoted preview without a second fetch. All null together
+   * when this message isn't a reply. */
+  reply_to_id: string | null;
+  reply_to_body: string | null;
+  reply_to_type: "text" | "image" | "voice" | "call" | null;
+  reply_to_sender_role: "customer" | "rider" | "admin" | null;
+  reply_to_deleted_at: string | null;
 };
 
 /** One row in the Chat tab's conversation list — the other party in a customer/rider pair, and their last message. */
@@ -828,6 +843,18 @@ export type RestaurantChatMessage = {
   call_id: string | null;
   call_status: "declined" | "missed" | "ended" | null;
   call_duration_seconds: number | null;
+  /** Set once "delete for everyone" clears the content — body/media_key
+   * are already emptied by then. Never set by "delete for me", which the
+   * server just filters out of the response entirely. */
+  deleted_at: string | null;
+  deleted_by: string | null;
+  /** The message this one quotes, and a snapshot of it (joined server-side
+   * — see THREAD_SELECT in apps/api/src/restaurants/chat.ts). */
+  reply_to_id: string | null;
+  reply_to_body: string | null;
+  reply_to_type: "text" | "image" | "voice" | "call" | null;
+  reply_to_sender_role: "customer" | "restaurant" | null;
+  reply_to_deleted_at: string | null;
 };
 
 /** One row per customer who's messaged a restaurant — the owner's inbox list. */

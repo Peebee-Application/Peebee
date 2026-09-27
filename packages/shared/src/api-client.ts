@@ -600,23 +600,32 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
         `/v1/orders/${orderId}/chat`,
       );
     },
-    async sendChat(orderId: string, body: string) {
+    async sendChat(orderId: string, body: string, replyToId?: string) {
       return request<{ id: string }>(`/v1/orders/${orderId}/chat`, {
         method: "POST",
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({ body, replyToId }),
       });
     },
     /** Sends a photo or voice note as a chat message. `file` is a browser File/Blob. */
-    async sendChatMedia(orderId: string, type: "image" | "voice", file: Blob) {
+    async sendChatMedia(orderId: string, type: "image" | "voice", file: Blob, replyToId?: string) {
       const form = new FormData();
       form.append("type", type);
       form.append("file", file, type === "image" ? "photo.jpg" : "voice.webm");
+      if (replyToId) form.append("replyToId", replyToId);
       const res = await f(`${root}/v1/orders/${orderId}/chat`, {
         method: "POST",
         headers: authHeaders(),
         body: form,
       });
       return json<{ id: string }>(res);
+    },
+    /** Deletes a chat message — "me" hides it from just this account's own
+     * view, "everyone" clears its content for both sides (sender only). */
+    async deleteChatMessage(messageId: string, scope: "me" | "everyone") {
+      return request<{ ok: true; scope: "me" | "everyone" }>(`/v1/chat/${messageId}/delete`, {
+        method: "POST",
+        body: JSON.stringify({ scope }),
+      });
     },
     /** Fetches a chat message's photo/voice note as a Blob (not JSON — raw fetch). */
     async chatMediaBlob(messageId: string): Promise<Blob> {
@@ -1063,17 +1072,18 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
         `/v1/restaurants/${restaurantId}/chat`,
       );
     },
-    async sendRestaurantChat(restaurantId: string, body: string, menuItem?: { id: string; name: string }) {
+    async sendRestaurantChat(restaurantId: string, body: string, menuItem?: { id: string; name: string }, replyToId?: string) {
       return request<{ id: string }>(`/v1/restaurants/${restaurantId}/chat`, {
         method: "POST",
-        body: JSON.stringify({ body, menuItemId: menuItem?.id, menuItemName: menuItem?.name }),
+        body: JSON.stringify({ body, menuItemId: menuItem?.id, menuItemName: menuItem?.name, replyToId }),
       });
     },
     /** Mirrors sendChatMedia's own "type" + "file" multipart shape, so both composers behave identically. */
-    async sendRestaurantChatMedia(restaurantId: string, type: "image" | "voice", file: Blob) {
+    async sendRestaurantChatMedia(restaurantId: string, type: "image" | "voice", file: Blob, replyToId?: string) {
       const form = new FormData();
       form.append("type", type);
       form.append("file", file, type === "image" ? "photo.jpg" : "voice.webm");
+      if (replyToId) form.append("replyToId", replyToId);
       const res = await f(`${root}/v1/restaurants/${restaurantId}/chat`, {
         method: "POST",
         headers: authHeaders(),
@@ -1084,6 +1094,14 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async markRestaurantChatRead(restaurantId: string) {
       return request<{ ok: true }>(`/v1/restaurants/${restaurantId}/chat/read`, { method: "POST" });
     },
+    /** Deletes a restaurant-chat message — "me" hides it from just this
+     * account's own view, "everyone" clears its content for both sides. */
+    async deleteRestaurantChatMessage(messageId: string, scope: "me" | "everyone") {
+      return request<{ ok: true; scope: "me" | "everyone" }>(`/v1/restaurant-chat/${messageId}/delete`, {
+        method: "POST",
+        body: JSON.stringify({ scope }),
+      });
+    },
     /** Restaurant-owner side: every customer thread, and replying to one. */
     async myRestaurantChatThreads() {
       return request<{ threads: RestaurantChatThread[] }>("/v1/restaurants/me/chat/threads");
@@ -1093,16 +1111,17 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
         `/v1/restaurants/me/chat/${customerId}`,
       );
     },
-    async replyRestaurantChat(customerId: string, body: string) {
+    async replyRestaurantChat(customerId: string, body: string, replyToId?: string) {
       return request<{ id: string }>(`/v1/restaurants/me/chat/${customerId}`, {
         method: "POST",
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({ body, replyToId }),
       });
     },
-    async replyRestaurantChatMedia(customerId: string, type: "image" | "voice", file: Blob) {
+    async replyRestaurantChatMedia(customerId: string, type: "image" | "voice", file: Blob, replyToId?: string) {
       const form = new FormData();
       form.append("type", type);
       form.append("file", file, type === "image" ? "photo.jpg" : "voice.webm");
+      if (replyToId) form.append("replyToId", replyToId);
       const res = await f(`${root}/v1/restaurants/me/chat/${customerId}`, {
         method: "POST",
         headers: authHeaders(),

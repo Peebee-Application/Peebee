@@ -1,7 +1,22 @@
 "use client";
 
 import type { RestaurantChatMessage } from "@tuma/shared";
-import { ArrowLeft, Camera, Mic, Pause, Phone, PhoneMissed, PhoneOff, Play, Send, Square, Store, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Ban,
+  Camera,
+  Mic,
+  Pause,
+  Phone,
+  PhoneMissed,
+  PhoneOff,
+  Play,
+  Send,
+  Square,
+  Store,
+  Trash2,
+  X,
+} from "lucide-react";
 import { PhotoProvider, PhotoView } from "react-photo-view";
 import "react-photo-view/dist/react-photo-view.css";
 import Link from "next/link";
@@ -11,12 +26,48 @@ import { api, errorMessage } from "../../../../lib/api";
 import { useCalls } from "../../../../lib/calls-context";
 import { compressImage } from "../../../../lib/image-compress";
 import { useLivePolling } from "../../../../lib/use-live-polling";
+import { useLongPress } from "../../../../lib/use-long-press";
 import { useVoiceNoteMaxSeconds } from "../../../../lib/useVoiceNoteMaxSeconds";
+import { MessageActionSheet, type MessageInfoRow } from "../../../../components/MessageActionSheet";
+
+/** Converts an arbitrary image blob to PNG via canvas — some browsers'
+ * Clipboard API only accepts image/png for ClipboardItem, so this is the
+ * fallback when writing the blob's own mime type is rejected. */
+async function blobToPng(blob: Blob): Promise<Blob> {
+  const bitmap = await createImageBitmap(blob);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d");
+  ctx?.drawImage(bitmap, 0, 0);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png");
+  });
+}
+
+function replyPreviewText(m: RestaurantChatMessage): string {
+  if (m.reply_to_deleted_at) return "This message was deleted";
+  if (m.reply_to_type === "image") return "📷 Photo";
+  if (m.reply_to_type === "voice") return "🎤 Voice message";
+  return m.reply_to_body ?? "";
+}
+
+function mediaPreviewText(type: string): string {
+  if (type === "image") return "📷 Photo";
+  if (type === "voice") return "🎤 Voice message";
+  return "";
+}
 
 function formatTime(iso: string): string {
   const d = new Date(iso.includes("T") ? iso : `${iso.replace(" ", "T")}Z`);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function formatFullTime(iso: string): string {
+  const d = new Date(iso.includes("T") ? iso : `${iso.replace(" ", "T")}Z`);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
 }
 
 /** WhatsApp-style call-log entry — centered, not attributed to either
@@ -138,6 +189,63 @@ function VoiceBubble({ messageId }: { messageId: string }) {
   );
 }
 
+/** A single text/image/voice bubble — its own component (not inlined in
+ * the messages .map()) purely so it can call the useLongPress hook, which
+ * can't be called conditionally/in a loop. */
+function MessageBubble({
+  message,
+  mine,
+  onLongPress,
+}: {
+  message: RestaurantChatMessage;
+  mine: boolean;
+  onLongPress: (message: RestaurantChatMessage) => void;
+}) {
+  const longPress = useLongPress(() => onLongPress(message));
+  const isDeleted = !!message.deleted_at;
+
+  return (
+    <div className={`flex items-end gap-2 ${mine ? "justify-end" : "justify-start"}`}>
+      <div className={`flex max-w-[75%] flex-col ${mine ? "items-end" : "items-start"}`}>
+        {message.menu_item_name && !isDeleted && (
+          <span className="mb-1 rounded-full bg-[rgb(var(--surface-muted))] px-2.5 py-1 text-xs font-semibold text-ink-500">
+            Re: {message.menu_item_name}
+          </span>
+        )}
+        <div
+          {...longPress}
+          className={`select-none text-[14px] leading-snug shadow-sm ${
+            message.type === "text" || isDeleted ? "px-4 py-2.5" : "p-1.5"
+          } ${
+            mine
+              ? "rounded-[20px] rounded-br-md bg-gold text-[#0A0A0A]"
+              : "rounded-[20px] rounded-bl-md bg-[rgb(var(--surface-card))] text-ink"
+          }`}
+        >
+          {message.reply_to_id && !isDeleted && (
+            <div className="mb-1.5 rounded-lg border-l-4 border-gold/70 bg-black/5 px-2 py-1 text-xs">
+              <p className="truncate opacity-80">{replyPreviewText(message)}</p>
+            </div>
+          )}
+          {isDeleted ? (
+            <span className="flex items-center gap-1.5 italic text-ink-500">
+              <Ban className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              This message was deleted
+            </span>
+          ) : (
+            <>
+              {message.type === "image" && <ImageBubble messageId={message.id} />}
+              {message.type === "voice" && <VoiceBubble messageId={message.id} />}
+              {message.type === "text" && message.body}
+            </>
+          )}
+        </div>
+        <span className="mt-1 px-1 text-[10px] text-ink-500/70">{formatTime(message.created_at)}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function RestaurantChatPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -151,6 +259,8 @@ export default function RestaurantChatPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionSheetMessage, setActionSheetMessage] = useState<RestaurantChatMessage | null>(null);
+  const [replyTo, setReplyTo] = useState<RestaurantChatMessage | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [preview, setPreview] = useState<{ blob: Blob; url: string; duration: number } | null>(null);
@@ -208,9 +318,16 @@ export default function RestaurantChatPage() {
     if (!body) return;
     setSending(true);
     setError(null);
+    const replyToId = replyTo?.id;
     try {
-      await api.sendRestaurantChat(id, body, menuItemId && menuItemName ? { id: menuItemId, name: menuItemName } : undefined);
+      await api.sendRestaurantChat(
+        id,
+        body,
+        menuItemId && menuItemName ? { id: menuItemId, name: menuItemName } : undefined,
+        replyToId,
+      );
       setDraft("");
+      setReplyTo(null);
       if (menuItemId) router.replace(`/restaurants/${id}/chat`);
       await load();
     } catch (err) {
@@ -223,9 +340,11 @@ export default function RestaurantChatPage() {
   async function pickPhoto(file: File) {
     setSending(true);
     setError(null);
+    const replyToId = replyTo?.id;
     try {
       const compressed = await compressImage(file);
-      await api.sendRestaurantChatMedia(id, "image", compressed);
+      await api.sendRestaurantChatMedia(id, "image", compressed, replyToId);
+      setReplyTo(null);
       await load();
     } catch {
       setError("Couldn't send that photo. Please try again.");
@@ -295,8 +414,10 @@ export default function RestaurantChatPage() {
     const { blob, url } = preview;
     setSending(true);
     setError(null);
+    const replyToId = replyTo?.id;
     try {
-      await api.sendRestaurantChatMedia(id, "voice", blob);
+      await api.sendRestaurantChatMedia(id, "voice", blob, replyToId);
+      setReplyTo(null);
       await load();
       previewAudioRef.current?.pause();
       previewAudioRef.current = null;
@@ -308,6 +429,63 @@ export default function RestaurantChatPage() {
     } finally {
       setSending(false);
     }
+  }
+
+  async function handleCopy(m: RestaurantChatMessage) {
+    try {
+      if (m.type === "text" && m.body) {
+        await navigator.clipboard.writeText(m.body);
+        return;
+      }
+      if (m.type === "image") {
+        const blob = await api.restaurantChatMediaBlob(m.id);
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+        } catch {
+          const png = await blobToPng(blob);
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+        }
+      }
+    } catch {
+      setError("Couldn't copy that.");
+    }
+  }
+
+  async function handleShare(m: RestaurantChatMessage) {
+    try {
+      if (m.type === "text" && m.body) {
+        await navigator.share({ text: m.body });
+        return;
+      }
+      if (m.type === "image" || m.type === "voice") {
+        const blob = await api.restaurantChatMediaBlob(m.id);
+        const file = new File([blob], m.type === "image" ? "photo.jpg" : "voice.webm", { type: blob.type });
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file] });
+        } else {
+          setError("Sharing this file isn't supported on this device.");
+        }
+      }
+    } catch (err) {
+      // The user backing out of the native share sheet isn't a failure.
+      if ((err as Error)?.name !== "AbortError") setError("Couldn't share that.");
+    }
+  }
+
+  async function handleDelete(m: RestaurantChatMessage, scope: "me" | "everyone") {
+    try {
+      await api.deleteRestaurantChatMessage(m.id, scope);
+      await load();
+    } catch {
+      setError("Couldn't delete that message.");
+    }
+  }
+
+  function buildInfoRows(m: RestaurantChatMessage): MessageInfoRow[] {
+    return [
+      { label: "Sent", value: formatFullTime(m.created_at) },
+      { label: "Read", value: m.read ? "Yes" : "Not yet" },
+    ];
   }
 
   return (
@@ -334,7 +512,7 @@ export default function RestaurantChatPage() {
             <button
               type="button"
               onClick={() => startCall({ calleeId: restaurantOwnerId, restaurantId: id })}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green/15 text-green"
+              className="flex h-9 w-9 shrink-0 items-center justify-center text-green"
               aria-label="Call"
             >
               <Phone className="h-4.5 w-4.5" strokeWidth={2} aria-hidden />
@@ -355,29 +533,7 @@ export default function RestaurantChatPage() {
               if (m.type === "call") {
                 return <CallLogEntry key={m.id} message={m} mine={mine} />;
               }
-              return (
-                <div key={m.id} className={`flex items-end gap-2 ${mine ? "justify-end" : "justify-start"}`}>
-                  <div className={`flex max-w-[75%] flex-col ${mine ? "items-end" : "items-start"}`}>
-                    {m.menu_item_name && (
-                      <span className="mb-1 rounded-full bg-[rgb(var(--surface-muted))] px-2.5 py-1 text-xs font-semibold text-ink-500">
-                        Re: {m.menu_item_name}
-                      </span>
-                    )}
-                    <div
-                      className={`text-[14px] leading-snug shadow-sm ${m.type === "text" ? "px-4 py-2.5" : "p-1.5"} ${
-                        mine
-                          ? "rounded-[20px] rounded-br-md bg-gold text-[#0A0A0A]"
-                          : "rounded-[20px] rounded-bl-md bg-[rgb(var(--surface-card))] text-ink"
-                      }`}
-                    >
-                      {m.type === "image" && <ImageBubble messageId={m.id} />}
-                      {m.type === "voice" && <VoiceBubble messageId={m.id} />}
-                      {m.type === "text" && m.body}
-                    </div>
-                    <span className="mt-1 px-1 text-[10px] text-ink-500/70">{formatTime(m.created_at)}</span>
-                  </div>
-                </div>
-              );
+              return <MessageBubble key={m.id} message={m} mine={mine} onLongPress={setActionSheetMessage} />;
             })}
             <div ref={bottomRef} />
           </div>
@@ -400,6 +556,30 @@ export default function RestaurantChatPage() {
         <div className="shrink-0 border-t border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5">
           <div className="space-y-1.5">
             {error && <p className="px-1 text-xs text-red-600">{error}</p>}
+            {replyTo && (
+              <div className="flex items-center gap-2 rounded-xl bg-[rgb(var(--surface-muted))] px-3 py-2">
+                <div className="min-w-0 flex-1 border-l-2 border-gold pl-2">
+                  <p className="text-xs font-bold text-gold">
+                    Replying to {replyTo.sender_role === "customer" ? "yourself" : restaurantName ?? "the restaurant"}
+                  </p>
+                  <p className="truncate text-xs text-ink-500">
+                    {replyTo.deleted_at
+                      ? "This message was deleted"
+                      : replyTo.type === "text"
+                        ? replyTo.body
+                        : mediaPreviewText(replyTo.type)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyTo(null)}
+                  aria-label="Cancel reply"
+                  className="shrink-0 rounded-full p-1 text-ink-500"
+                >
+                  <X className="h-4 w-4" strokeWidth={2} aria-hidden />
+                </button>
+              </div>
+            )}
             <form onSubmit={sendText} className="flex items-center gap-2">
               <input
                 ref={photoInputRef}
@@ -511,6 +691,21 @@ export default function RestaurantChatPage() {
           </div>
         </div>
       </div>
+      {actionSheetMessage && (
+        <MessageActionSheet
+          open
+          onClose={() => setActionSheetMessage(null)}
+          mine={actionSheetMessage.sender_role === "customer"}
+          isDeleted={!!actionSheetMessage.deleted_at}
+          canCopy={actionSheetMessage.type === "text" || actionSheetMessage.type === "image"}
+          canShare={typeof navigator !== "undefined" && typeof navigator.share === "function"}
+          infoRows={buildInfoRows(actionSheetMessage)}
+          onReply={() => setReplyTo(actionSheetMessage)}
+          onCopy={() => handleCopy(actionSheetMessage)}
+          onShare={() => handleShare(actionSheetMessage)}
+          onDelete={(scope) => handleDelete(actionSheetMessage, scope)}
+        />
+      )}
     </div>
   );
 }

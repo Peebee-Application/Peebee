@@ -2151,15 +2151,35 @@ orderRoutes.post("/orders/:id/rate", async (c) => {
  * Only meaningful when the viewer is actually one of the two participants —
  * an admin browsing a thread doesn't move anyone's delivery/read state.
  */
+/** Every non-call message can quote an earlier one (reply_to_id) — joined
+ * in here so the client always has the quoted preview without a second
+ * round trip, and so a since-deleted original still shows correctly
+ * ("This message was deleted" rather than a broken/missing quote). */
+const THREAD_SELECT = `
+  SELECT cm.*,
+         reply.body AS reply_to_body, reply.type AS reply_to_type,
+         reply.sender_role AS reply_to_sender_role, reply.deleted_at AS reply_to_deleted_at
+  FROM chat_messages cm
+  LEFT JOIN chat_messages reply ON reply.id = cm.reply_to_id
+`;
+
 async function loadThreadMessages(customerId: string, riderId: string | null, viewerId: string): Promise<Row[]> {
+  // hidden_for_customer/hidden_for_rider is "delete for me" — filtered per
+  // viewer here rather than at read time elsewhere, since this is the one
+  // place both branches (with/without a matched rider) funnel through.
   const res = riderId
     ? await db.execute({
-        sql: "SELECT * FROM chat_messages WHERE customer_id = ? AND rider_id = ? ORDER BY created_at ASC",
-        args: [customerId, riderId],
+        sql: `${THREAD_SELECT} WHERE cm.customer_id = ? AND cm.rider_id = ?
+              AND NOT (cm.hidden_for_customer = 1 AND ? = cm.customer_id)
+              AND NOT (cm.hidden_for_rider = 1 AND ? = cm.rider_id)
+              ORDER BY cm.created_at ASC`,
+        args: [customerId, riderId, viewerId, viewerId],
       })
     : await db.execute({
-        sql: "SELECT * FROM chat_messages WHERE customer_id = ? AND rider_id IS NULL ORDER BY created_at ASC",
-        args: [customerId],
+        sql: `${THREAD_SELECT} WHERE cm.customer_id = ? AND cm.rider_id IS NULL
+              AND NOT (cm.hidden_for_customer = 1 AND ? = cm.customer_id)
+              ORDER BY cm.created_at ASC`,
+        args: [customerId, viewerId],
       });
   const messages = res.rows as Row[];
 
@@ -2219,8 +2239,9 @@ orderRoutes.get("/orders/:id/chat", async (c) => {
 
   if (!order.rider_id) {
     const res = await db.execute({
-      sql: "SELECT * FROM chat_messages WHERE order_id = ? ORDER BY created_at ASC",
-      args: [id],
+      sql: `${THREAD_SELECT} WHERE cm.order_id = ? AND NOT (cm.hidden_for_customer = 1 AND ? = cm.customer_id)
+            ORDER BY cm.created_at ASC`,
+      args: [id, user.sub],
     });
     return c.json({ messages: (res.rows as Row[]).map((m) => ({ ...m, read: false })), ...shared });
   }
@@ -2228,9 +2249,26 @@ orderRoutes.get("/orders/:id/chat", async (c) => {
   return c.json({ messages, ...shared });
 });
 
-const chatSchema = z.object({ body: z.string().min(1).max(2000) });
+const chatSchema = z.object({ body: z.string().min(1).max(2000), replyToId: z.string().optional() });
 const MAX_CHAT_IMAGE_BYTES = 6 * 1024 * 1024;
 const ALLOWED_CHAT_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+/** A reply must quote a message from this exact thread — otherwise a
+ * forged replyToId could leak a snippet of an unrelated conversation via
+ * the quoted-preview join in THREAD_SELECT. Returns null (silently
+ * dropping the quote) rather than erroring, so a stale/deleted quote
+ * target doesn't block sending the new message itself. */
+async function resolveReplyToId(rawReplyToId: unknown, order: Row): Promise<string | null> {
+  if (typeof rawReplyToId !== "string" || !rawReplyToId) return null;
+  const customerId = order.customer_id as string;
+  const riderId = (order.rider_id as string | null) ?? null;
+  const res = await db.execute({
+    sql: `SELECT id FROM chat_messages WHERE id = ? AND customer_id = ?
+          AND (rider_id = ? OR (rider_id IS NULL AND ? IS NULL))`,
+    args: [rawReplyToId, customerId, riderId, riderId],
+  });
+  return res.rows[0] ? rawReplyToId : null;
+}
 
 /** Every photo or voice message is up to 6-10MB kept in R2 indefinitely, and
  * nothing deletes it — so an ordinary signed-in account can run up storage
@@ -2275,6 +2313,7 @@ orderRoutes.post("/orders/:id/chat", async (c) => {
     const maxBytes = type === "image" ? MAX_CHAT_IMAGE_BYTES : MAX_VOICE_NOTE_BYTES;
     if (!allowed.has(baseMimeType(file.type))) return c.json({ error: "unsupported_file_type" }, 400);
     if (file.size > maxBytes) return c.json({ error: "file_too_large" }, 400);
+    const replyToId = await resolveReplyToId(form?.get("replyToId"), order);
 
     const messageId = newId("msg");
     const ext = extensionForMime(file.type, type === "image" ? "jpg" : "webm");
@@ -2283,9 +2322,19 @@ orderRoutes.post("/orders/:id/chat", async (c) => {
     await bucket.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
 
     await db.execute({
-      sql: `INSERT INTO chat_messages (id, order_id, sender_id, sender_role, body, type, media_key, customer_id, rider_id)
-            VALUES (?, ?, ?, ?, '', ?, ?, ?, ?)`,
-      args: [messageId, id, user.sub, user.role, type, key, order.customer_id as string, order.rider_id as string | null],
+      sql: `INSERT INTO chat_messages (id, order_id, sender_id, sender_role, body, type, media_key, customer_id, rider_id, reply_to_id)
+            VALUES (?, ?, ?, ?, '', ?, ?, ?, ?, ?)`,
+      args: [
+        messageId,
+        id,
+        user.sub,
+        user.role,
+        type,
+        key,
+        order.customer_id as string,
+        order.rider_id as string | null,
+        replyToId,
+      ],
     });
     for (const recipientId of chatRecipientIds(order, user.sub, user.role)) {
       background(
@@ -2303,12 +2352,22 @@ orderRoutes.post("/orders/:id/chat", async (c) => {
 
   const parsed = chatSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  const replyToId = await resolveReplyToId(parsed.data.replyToId, order);
 
   const messageId = newId("msg");
   await db.execute({
-    sql: `INSERT INTO chat_messages (id, order_id, sender_id, sender_role, body, type, customer_id, rider_id)
-          VALUES (?, ?, ?, ?, ?, 'text', ?, ?)`,
-    args: [messageId, id, user.sub, user.role, parsed.data.body, order.customer_id as string, order.rider_id as string | null],
+    sql: `INSERT INTO chat_messages (id, order_id, sender_id, sender_role, body, type, customer_id, rider_id, reply_to_id)
+          VALUES (?, ?, ?, ?, ?, 'text', ?, ?, ?)`,
+    args: [
+      messageId,
+      id,
+      user.sub,
+      user.role,
+      parsed.data.body,
+      order.customer_id as string,
+      order.rider_id as string | null,
+      replyToId,
+    ],
   });
   for (const recipientId of chatRecipientIds(order, user.sub, user.role)) {
     background(
@@ -2344,6 +2403,55 @@ orderRoutes.post("/orders/:id/chat/read", async (c) => {
     args: [user.sub, counterpartId],
   });
   return c.json({ ok: true });
+});
+
+const deleteChatSchema = z.object({ scope: z.enum(["me", "everyone"]) });
+
+/**
+ * Two WhatsApp-style scopes: "me" only hides the message from the caller's
+ * own view (hidden_for_customer/hidden_for_rider — see loadThreadMessages),
+ * "everyone" actually clears the content for both sides and is restricted
+ * to the message's own sender. Not order-scoped in the URL — same reasoning
+ * as GET /chat/media/:messageId below, a message's own denormalized
+ * customer_id/rider_id is what determines access, not whichever order
+ * happens to be open right now.
+ */
+orderRoutes.post("/chat/:messageId/delete", async (c) => {
+  const messageId = c.req.param("messageId") as string;
+  const user = c.get("user");
+  const parsed = deleteChatSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+
+  const res = await db.execute({ sql: "SELECT * FROM chat_messages WHERE id = ?", args: [messageId] });
+  const message = res.rows[0] as Row | undefined;
+  if (!message) return c.json({ error: "not_found" }, 404);
+  if (message.type === "call") return c.json({ error: "cannot_delete_call_log" }, 400);
+
+  const isParticipant = message.customer_id === user.sub || message.rider_id === user.sub || user.role === "admin";
+  if (!isParticipant) return c.json({ error: "forbidden" }, 403);
+
+  if (parsed.data.scope === "everyone") {
+    if (message.sender_id !== user.sub && user.role !== "admin") {
+      return c.json({ error: "forbidden", message: "You can only delete your own messages for everyone." }, 403);
+    }
+    if (message.media_key) {
+      await getR2Bucket()
+        .delete(message.media_key as string)
+        .catch(() => {});
+    }
+    await db.execute({
+      sql: "UPDATE chat_messages SET deleted_at = datetime('now'), deleted_by = ?, body = '', media_key = NULL WHERE id = ?",
+      args: [user.sub, messageId],
+    });
+    return c.json({ ok: true, scope: "everyone" });
+  }
+
+  if (user.sub === message.customer_id) {
+    await db.execute({ sql: "UPDATE chat_messages SET hidden_for_customer = 1 WHERE id = ?", args: [messageId] });
+  } else if (user.sub === message.rider_id) {
+    await db.execute({ sql: "UPDATE chat_messages SET hidden_for_rider = 1 WHERE id = ?", args: [messageId] });
+  }
+  return c.json({ ok: true, scope: "me" });
 });
 
 /**

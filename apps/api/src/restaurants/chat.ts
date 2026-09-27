@@ -36,6 +36,31 @@ function preview(type: string, body: string | null): string {
   return body && body.length > 60 ? `${body.slice(0, 60)}…` : body || "";
 }
 
+/** Every non-call message can quote an earlier one (reply_to_id) — joined
+ * in here so the client always has the quoted preview without a second
+ * round trip, mirroring orders/routes.ts's THREAD_SELECT for order chat. */
+const THREAD_SELECT = `
+  SELECT m.*,
+         reply.body AS reply_to_body, reply.type AS reply_to_type,
+         reply.sender_role AS reply_to_sender_role, reply.deleted_at AS reply_to_deleted_at
+  FROM restaurant_chat_messages m
+  LEFT JOIN restaurant_chat_messages reply ON reply.id = m.reply_to_id
+`;
+
+/** A reply must quote a message from this exact (restaurant, customer)
+ * thread — otherwise a forged replyToId could leak a snippet of an
+ * unrelated conversation via the quoted-preview join above. Returns null
+ * (silently dropping the quote) rather than erroring, so a stale/deleted
+ * quote target doesn't block sending the new message itself. */
+async function resolveReplyToId(rawReplyToId: unknown, restaurantId: string, customerId: string): Promise<string | null> {
+  if (typeof rawReplyToId !== "string" || !rawReplyToId) return null;
+  const res = await db.execute({
+    sql: "SELECT id FROM restaurant_chat_messages WHERE id = ? AND restaurant_id = ? AND customer_id = ?",
+    args: [rawReplyToId, restaurantId, customerId],
+  });
+  return res.rows[0] ? rawReplyToId : null;
+}
+
 async function restaurantByOwner(ownerId: string): Promise<Row | undefined> {
   const res = await db.execute({ sql: "SELECT * FROM restaurants WHERE owner_id = ?", args: [ownerId] });
   return res.rows[0] as Row | undefined;
@@ -49,7 +74,7 @@ async function restaurantById(id: string): Promise<Row | undefined> {
 async function storeMedia(
   c: Context,
   keyPrefix: string,
-): Promise<{ type: "image" | "voice"; key: string } | { error: string; status: 400 }> {
+): Promise<{ type: "image" | "voice"; key: string; replyToIdRaw: string | null } | { error: string; status: 400 }> {
   const form = await c.req.formData().catch(() => null);
   const file = form?.get("file");
   const type = form?.get("type");
@@ -66,7 +91,8 @@ async function storeMedia(
   const key = `${keyPrefix}/${messageId}.${ext}`;
   const bucket = getR2Bucket();
   await bucket.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
-  return { type, key };
+  const replyToIdRaw = form?.get("replyToId");
+  return { type, key, replyToIdRaw: typeof replyToIdRaw === "string" && replyToIdRaw ? replyToIdRaw : null };
 }
 
 // ---------------------------------------------------------------------------
@@ -80,7 +106,8 @@ restaurantChatRoutes.get("/restaurants/:id/chat", requireAuth, async (c) => {
   if (!restaurant) return c.json({ error: "not_found" }, 404);
 
   const res = await db.execute({
-    sql: `SELECT * FROM restaurant_chat_messages WHERE restaurant_id = ? AND customer_id = ? ORDER BY created_at ASC`,
+    sql: `${THREAD_SELECT} WHERE m.restaurant_id = ? AND m.customer_id = ? AND m.hidden_for_customer = 0
+          ORDER BY m.created_at ASC`,
     args: [restaurantId, user.sub],
   });
   return c.json({
@@ -94,6 +121,7 @@ const sendSchema = z.object({
   body: z.string().min(1).max(2000),
   menuItemId: z.string().optional(),
   menuItemName: z.string().optional(),
+  replyToId: z.string().optional(),
 });
 
 restaurantChatRoutes.post("/restaurants/:id/chat", requireAuth, requireRole("customer"), async (c) => {
@@ -105,12 +133,13 @@ restaurantChatRoutes.post("/restaurants/:id/chat", requireAuth, requireRole("cus
   if ((c.req.header("content-type") ?? "").includes("multipart/form-data")) {
     const stored = await storeMedia(c, `restaurants/${restaurantId}/chat/${user.sub}`);
     if ("error" in stored) return c.json({ error: stored.error }, stored.status);
+    const replyToId = await resolveReplyToId(stored.replyToIdRaw, restaurantId, user.sub);
 
     const messageId = newId("rmsg");
     await db.execute({
-      sql: `INSERT INTO restaurant_chat_messages (id, restaurant_id, customer_id, sender_role, type, media_key)
-            VALUES (?, ?, ?, 'customer', ?, ?)`,
-      args: [messageId, restaurantId, user.sub, stored.type, stored.key],
+      sql: `INSERT INTO restaurant_chat_messages (id, restaurant_id, customer_id, sender_role, type, media_key, reply_to_id)
+            VALUES (?, ?, ?, 'customer', ?, ?, ?)`,
+      args: [messageId, restaurantId, user.sub, stored.type, stored.key, replyToId],
     });
     notifyUser(restaurant.owner_id as string, {
       title: user.name || "New message",
@@ -123,12 +152,21 @@ restaurantChatRoutes.post("/restaurants/:id/chat", requireAuth, requireRole("cus
 
   const parsed = sendSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  const replyToId = await resolveReplyToId(parsed.data.replyToId, restaurantId, user.sub);
 
   const messageId = newId("rmsg");
   await db.execute({
-    sql: `INSERT INTO restaurant_chat_messages (id, restaurant_id, customer_id, sender_role, body, menu_item_id, menu_item_name)
-          VALUES (?, ?, ?, 'customer', ?, ?, ?)`,
-    args: [messageId, restaurantId, user.sub, parsed.data.body, parsed.data.menuItemId ?? null, parsed.data.menuItemName ?? null],
+    sql: `INSERT INTO restaurant_chat_messages (id, restaurant_id, customer_id, sender_role, body, menu_item_id, menu_item_name, reply_to_id)
+          VALUES (?, ?, ?, 'customer', ?, ?, ?, ?)`,
+    args: [
+      messageId,
+      restaurantId,
+      user.sub,
+      parsed.data.body,
+      parsed.data.menuItemId ?? null,
+      parsed.data.menuItemName ?? null,
+      replyToId,
+    ],
   });
   notifyUser(restaurant.owner_id as string, {
     title: user.name || "New message",
@@ -219,7 +257,8 @@ restaurantChatRoutes.get("/restaurants/me/chat/:customerId", requireAuth, requir
   if (!restaurant) return c.json({ error: "not_found" }, 404);
 
   const res = await db.execute({
-    sql: `SELECT * FROM restaurant_chat_messages WHERE restaurant_id = ? AND customer_id = ? ORDER BY created_at ASC`,
+    sql: `${THREAD_SELECT} WHERE m.restaurant_id = ? AND m.customer_id = ? AND m.hidden_for_restaurant = 0
+          ORDER BY m.created_at ASC`,
     args: [restaurant.id as string, customerId],
   });
   const nameRes = await db.execute({ sql: "SELECT name FROM users WHERE id = ?", args: [customerId] });
@@ -238,12 +277,13 @@ restaurantChatRoutes.post("/restaurants/me/chat/:customerId", requireAuth, requi
   if ((c.req.header("content-type") ?? "").includes("multipart/form-data")) {
     const stored = await storeMedia(c, `restaurants/${restaurant.id}/chat/${customerId}`);
     if ("error" in stored) return c.json({ error: stored.error }, stored.status);
+    const replyToId = await resolveReplyToId(stored.replyToIdRaw, restaurant.id as string, customerId);
 
     const messageId = newId("rmsg");
     await db.execute({
-      sql: `INSERT INTO restaurant_chat_messages (id, restaurant_id, customer_id, sender_role, type, media_key)
-            VALUES (?, ?, ?, 'restaurant', ?, ?)`,
-      args: [messageId, restaurant.id as string, customerId, stored.type, stored.key],
+      sql: `INSERT INTO restaurant_chat_messages (id, restaurant_id, customer_id, sender_role, type, media_key, reply_to_id)
+            VALUES (?, ?, ?, 'restaurant', ?, ?, ?)`,
+      args: [messageId, restaurant.id as string, customerId, stored.type, stored.key, replyToId],
     });
     notifyUser(customerId, {
       title: (restaurant.name as string) || "New message",
@@ -254,14 +294,17 @@ restaurantChatRoutes.post("/restaurants/me/chat/:customerId", requireAuth, requi
     return c.json({ id: messageId }, 201);
   }
 
-  const parsed = z.object({ body: z.string().min(1).max(2000) }).safeParse(await c.req.json().catch(() => ({})));
+  const parsed = z
+    .object({ body: z.string().min(1).max(2000), replyToId: z.string().optional() })
+    .safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  const replyToId = await resolveReplyToId(parsed.data.replyToId, restaurant.id as string, customerId);
 
   const messageId = newId("rmsg");
   await db.execute({
-    sql: `INSERT INTO restaurant_chat_messages (id, restaurant_id, customer_id, sender_role, body)
-          VALUES (?, ?, ?, 'restaurant', ?)`,
-    args: [messageId, restaurant.id as string, customerId, parsed.data.body],
+    sql: `INSERT INTO restaurant_chat_messages (id, restaurant_id, customer_id, sender_role, body, reply_to_id)
+          VALUES (?, ?, ?, 'restaurant', ?, ?)`,
+    args: [messageId, restaurant.id as string, customerId, parsed.data.body, replyToId],
   });
   notifyUser(customerId, {
     title: (restaurant.name as string) || "New message",
@@ -284,6 +327,61 @@ restaurantChatRoutes.post("/restaurants/me/chat/:customerId/read", requireAuth, 
     args: [restaurant.id as string, customerId],
   });
   return c.json({ ok: true });
+});
+
+const deleteChatSchema = z.object({ scope: z.enum(["me", "everyone"]) });
+
+/**
+ * Two WhatsApp-style scopes: "me" only hides the message from the caller's
+ * own view (hidden_for_customer/hidden_for_restaurant), "everyone" actually
+ * clears the content for both sides and is restricted to the message's own
+ * sender. `sender_role` on the row (not the caller's account role — an
+ * owner's account is itself role "customer") is what determines who sent
+ * it, matching how every other route here tells the two sides apart.
+ */
+restaurantChatRoutes.post("/restaurant-chat/:messageId/delete", requireAuth, async (c) => {
+  const messageId = c.req.param("messageId") as string;
+  const user = c.get("user");
+  const parsed = deleteChatSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+
+  const res = await db.execute({
+    sql: `SELECT m.*, r.owner_id FROM restaurant_chat_messages m
+          JOIN restaurants r ON r.id = m.restaurant_id WHERE m.id = ?`,
+    args: [messageId],
+  });
+  const message = res.rows[0] as Row | undefined;
+  if (!message) return c.json({ error: "not_found" }, 404);
+  if (message.type === "call") return c.json({ error: "cannot_delete_call_log" }, 400);
+
+  const isOwner = message.owner_id === user.sub;
+  const isParticipant = message.customer_id === user.sub || isOwner || user.role === "admin";
+  if (!isParticipant) return c.json({ error: "forbidden" }, 403);
+
+  const isSender = (message.sender_role === "customer" && message.customer_id === user.sub) || (message.sender_role === "restaurant" && isOwner);
+
+  if (parsed.data.scope === "everyone") {
+    if (!isSender && user.role !== "admin") {
+      return c.json({ error: "forbidden", message: "You can only delete your own messages for everyone." }, 403);
+    }
+    if (message.media_key) {
+      await getR2Bucket()
+        .delete(message.media_key as string)
+        .catch(() => {});
+    }
+    await db.execute({
+      sql: "UPDATE restaurant_chat_messages SET deleted_at = datetime('now'), deleted_by = ?, body = '', media_key = NULL WHERE id = ?",
+      args: [user.sub, messageId],
+    });
+    return c.json({ ok: true, scope: "everyone" });
+  }
+
+  if (message.customer_id === user.sub) {
+    await db.execute({ sql: "UPDATE restaurant_chat_messages SET hidden_for_customer = 1 WHERE id = ?", args: [messageId] });
+  } else if (isOwner) {
+    await db.execute({ sql: "UPDATE restaurant_chat_messages SET hidden_for_restaurant = 1 WHERE id = ?", args: [messageId] });
+  }
+  return c.json({ ok: true, scope: "me" });
 });
 
 // ---------------------------------------------------------------------------

@@ -93,7 +93,7 @@ export default function ChatThreadPage() {
           <button
             type="button"
             onClick={() => startCall({ calleeId: counterpartId, orderId: thread.orderId })}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green/15 text-green"
+            className="flex h-9 w-9 shrink-0 items-center justify-center text-green"
             aria-label="Call"
           >
             <Phone className="h-4.5 w-4.5" strokeWidth={2} aria-hidden />
