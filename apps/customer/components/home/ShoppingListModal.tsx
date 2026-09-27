@@ -1,18 +1,31 @@
 "use client";
 
 import { roundFare, type SavedLocation } from "@tuma/shared";
-import { Calculator, List, Mic, Plus, Trash2 } from "lucide-react";
+import { List, Mic, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LocationPicker, emptyPoint, resolvePoint, type PointState } from "../LocationPicker";
 import { Modal } from "../Modal";
 import { api, errorMessage } from "../../lib/api";
-import { useTranslate } from "../../lib/i18n";
-import { InlineMathInput } from "../InlineMathInput";
+import { useTranslate, type TranslationKey } from "../../lib/i18n";
 import { SwipeToConfirm } from "../SwipeToConfirm";
 import { OrderVoiceNoteRecorder } from "./OrderVoiceNoteRecorder";
 
-type Item = { name: string; quantity: string; unitCost: string };
+/** Uganda's everyday market units — produce and groceries are almost
+ * always sold by weight or volume rather than by piece, so a plain "Qty"
+ * number alone (the old UI) didn't match how people actually shop. */
+type Unit = "pcs" | "kg" | "g" | "l" | "ml" | "m";
+const UNIT_KEYS: Record<Unit, TranslationKey> = {
+  pcs: "unit_pcs",
+  kg: "unit_kg",
+  g: "unit_g",
+  l: "unit_l",
+  ml: "unit_ml",
+  m: "unit_m",
+};
+const UNIT_ABBR: Record<Unit, string> = { pcs: "", kg: "kg", g: "g", l: "L", ml: "ml", m: "m" };
+
+type Item = { name: string; quantity: string; unitCost: string; unit: Unit };
 /** "list": type each item with its own cost — today's flow. "voice": speak
  * the list instead (for anyone who reads numbers more easily than text) and
  * just key in the total, which is what escrow actually needs. */
@@ -22,13 +35,20 @@ function currency(n: number) {
   return `UGX ${n.toLocaleString("en-UG")}`;
 }
 
+/** Folds the unit into the item name (e.g. "Tomatoes (kg)") since the
+ * order schema only has a plain name + quantity multiplier — this is the
+ * least invasive way to carry "2 kg" through to the rider's shopping list
+ * without a backend/schema change. Plain pieces need no suffix. */
+function nameWithUnit(name: string, unit: Unit): string {
+  return unit === "pcs" ? name : `${name} (${UNIT_ABBR[unit]})`;
+}
+
 export function ShoppingListModal({ onClose }: { onClose: () => void }) {
   const t = useTranslate();
   const router = useRouter();
   const [step, setStep] = useState<"items" | "location">("items");
   const [mode, setMode] = useState<Mode>("list");
-  const [items, setItems] = useState<Item[]>([{ name: "", quantity: "1", unitCost: "" }]);
-  const [calcIndex, setCalcIndex] = useState<number | null>(null);
+  const [items, setItems] = useState<Item[]>([{ name: "", quantity: "1", unitCost: "", unit: "pcs" }]);
   const [voiceTotal, setVoiceTotal] = useState("");
 
   const [locations, setLocations] = useState<SavedLocation[]>([]);
@@ -59,7 +79,7 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   }
   function addItem() {
-    setItems((prev) => [...prev, { name: "", quantity: "1", unitCost: "" }]);
+    setItems((prev) => [...prev, { name: "", quantity: "1", unitCost: "", unit: "pcs" }]);
   }
   function removeItem(i: number) {
     setItems((prev) => prev.filter((_, idx) => idx !== i));
@@ -103,7 +123,7 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
       const cleanItems = items
         .filter((it) => it.name.trim())
         .map((it) => ({
-          name: it.name.trim(),
+          name: nameWithUnit(it.name.trim(), it.unit),
           quantity: Math.max(1, Number(it.quantity) || 1),
           unitCost: Number(it.unitCost) || 0,
         }));
@@ -159,73 +179,83 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {mode === "list" ? (
-            <div className="space-y-2">
+            <div className="space-y-4">
               {items.map((item, i) => (
-                <div key={i} className="space-y-1.5 rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-xs font-bold text-ink-500">
-                      {i + 1}
-                    </span>
+                <div key={i} className="space-y-3 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-base font-bold text-ink">{t("list_item_number", { n: i + 1 })}</span>
+                    {items.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeItem(i)}
+                        className="flex items-center gap-1 text-sm font-semibold text-ink-500/70 hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                        {t("list_remove_item")}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-ink-500">{t("list_item_name")}</label>
                     <input
                       value={item.name}
                       onChange={(e) => updateItem(i, { name: e.target.value })}
-                      placeholder={t("list_item_name")}
-                      className="min-w-0 flex-1 border-none bg-transparent text-sm outline-none"
+                      placeholder={t("list_item_name_placeholder")}
+                      className="w-full rounded-xl border border-[var(--border-faint)] px-4 py-3.5 text-lg text-ink outline-none focus:border-gold"
                     />
-                    <input
-                      value={item.quantity}
-                      onChange={(e) => updateItem(i, { quantity: e.target.value.replace(/[^\d]/g, "") })}
-                      inputMode="numeric"
-                      placeholder={t("list_qty")}
-                      className="w-12 shrink-0 rounded-lg border border-[var(--border-faint)] bg-transparent px-1.5 py-1 text-center text-sm text-ink outline-none"
-                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-ink-500">{t("list_price_per_unit")}</label>
                     <input
                       value={item.unitCost}
                       onChange={(e) => updateItem(i, { unitCost: e.target.value.replace(/[^\d]/g, "") })}
                       inputMode="numeric"
-                      placeholder={t("list_unit_cost")}
-                      className="w-20 shrink-0 rounded-lg border border-[var(--border-faint)] bg-transparent px-1.5 py-1 text-right text-sm text-ink outline-none"
+                      placeholder={t("list_price_placeholder")}
+                      className="w-full rounded-xl border border-[var(--border-faint)] px-4 py-3.5 text-lg text-ink outline-none focus:border-gold"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setCalcIndex(calcIndex === i ? null : i)}
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg active:scale-95 transition-all ${
-                        calcIndex === i
-                          ? "bg-gold text-ink-gold shadow-sm"
-                          : "bg-[rgb(var(--surface-muted))] text-ink-500 hover:text-ink"
-                      }`}
-                      title="Math calculator (e.g. 2500 × 4)"
-                    >
-                      <Calculator className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => removeItem(i)}
-                      className="flex h-6 w-6 shrink-0 items-center justify-center text-ink-500/60 hover:text-red-600"
-                      aria-label="Remove item"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    </button>
                   </div>
 
-                  {calcIndex === i && (
-                    <div className="pt-2 border-t border-[var(--border-faint)]">
-                      <InlineMathInput
-                        label={`Calculate cost for ${item.name || "Item " + (i + 1)}`}
-                        value={item.unitCost ? Number(item.unitCost) : undefined}
-                        onChange={(val) => {
-                          updateItem(i, { unitCost: val != null ? String(val) : "" });
-                        }}
-                        placeholder="e.g. 2500 × 4 or 3000 + 1500"
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-semibold text-ink-500">{t("list_quantity_label")}</label>
+                      <input
+                        value={item.quantity}
+                        onChange={(e) => updateItem(i, { quantity: e.target.value.replace(/[^\d]/g, "") })}
+                        inputMode="numeric"
+                        className="w-full rounded-xl border border-[var(--border-faint)] px-4 py-3.5 text-lg text-ink outline-none focus:border-gold"
                       />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-semibold text-ink-500">{t("list_unit_label")}</label>
+                      <select
+                        value={item.unit}
+                        onChange={(e) => updateItem(i, { unit: e.target.value as Unit })}
+                        className="w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3 py-3.5 text-lg text-ink outline-none focus:border-gold"
+                      >
+                        {(Object.keys(UNIT_KEYS) as Unit[]).map((u) => (
+                          <option key={u} value={u}>
+                            {t(UNIT_KEYS[u])}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {Number(item.quantity) > 0 && Number(item.unitCost) > 0 && (
+                    <div className="flex items-center justify-between rounded-xl bg-[rgb(var(--surface-muted))] px-4 py-2.5 text-base">
+                      <span className="font-semibold text-ink-500">{t("list_subtotal")}</span>
+                      <span className="font-bold text-ink">{currency(Number(item.quantity) * Number(item.unitCost))}</span>
                     </div>
                   )}
                 </div>
               ))}
               <button
                 onClick={addItem}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--border-faint)] py-2.5 text-sm font-semibold text-ink-500"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[var(--border-faint)] py-4 text-base font-bold text-ink-500"
               >
-                <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
+                <Plus className="h-5 w-5" strokeWidth={2} aria-hidden />
                 {t("list_add_item")}
               </button>
             </div>
@@ -233,27 +263,31 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
             <div className="space-y-3">
               <p className="text-xs text-ink-500">{t("list_record_desc")}</p>
               <OrderVoiceNoteRecorder blob={voiceNote} onChange={setVoiceNote} />
-              <InlineMathInput
-                label={t("list_total_amount")}
-                value={voiceTotal ? Number(voiceTotal) : undefined}
-                onChange={(val) => setVoiceTotal(val != null ? String(val) : "")}
-                placeholder="e.g. 25000 or 15000 + 4000 × 2"
-              />
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-ink-500">{t("list_total_amount")}</label>
+                <input
+                  value={voiceTotal}
+                  onChange={(e) => setVoiceTotal(e.target.value.replace(/[^\d]/g, ""))}
+                  inputMode="numeric"
+                  placeholder={t("list_price_placeholder")}
+                  className="w-full rounded-xl border border-[var(--border-faint)] px-4 py-3.5 text-lg text-ink outline-none focus:border-gold"
+                />
+              </div>
             </div>
           )}
 
-          <div className="space-y-1.5 rounded-xl bg-[rgb(var(--surface-muted))] px-4 py-3">
-            <div className="flex items-center justify-between text-sm text-ink-500">
+          <div className="space-y-2 rounded-2xl bg-[rgb(var(--surface-muted))] px-5 py-4">
+            <div className="flex items-center justify-between text-base text-ink-500">
               <span>{t("list_items_total")}</span>
               <span>{currency(itemsTotal)}</span>
             </div>
-            <div className="flex items-center justify-between text-sm text-ink-500">
+            <div className="flex items-center justify-between text-base text-ink-500">
               <span>{t("list_delivery_fee")}</span>
               <span>{currency(deliveryFee)}</span>
             </div>
-            <div className="flex items-center justify-between border-t border-[var(--border-faint)] pt-1.5">
-              <span className="text-sm font-semibold text-ink">{t("list_youll_pay")}</span>
-              <span className="text-base font-bold text-ink">{currency(total)}</span>
+            <div className="flex items-center justify-between border-t border-[var(--border-faint)] pt-2">
+              <span className="text-lg font-semibold text-ink">{t("list_youll_pay")}</span>
+              <span className="text-xl font-bold text-ink">{currency(total)}</span>
             </div>
           </div>
 
@@ -261,7 +295,7 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
 
           <button
             onClick={goToLocation}
-            className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)]"
+            className="min-h-14 w-full rounded-full bg-gold px-4 text-lg font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)]"
           >
             {t("list_next_delivery")}
           </button>
