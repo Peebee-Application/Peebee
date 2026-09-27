@@ -93,17 +93,18 @@ export const db: Client = new Proxy({} as Client, {
  * services use this instead of a sequence of independent `db.execute`
  * calls so a crash can never leave only half of a ledger transaction.
  */
-export async function executeBatch(statements: DbStatement[]): Promise<void> {
-  if (statements.length === 0) return;
+export async function executeBatch(statements: DbStatement[]): Promise<number[]> {
+  if (statements.length === 0) return [];
   if (d1Binding) {
     const prepared = statements.map((statement) =>
       d1Binding!.prepare(statement.sql).bind(...(statement.args ?? [])),
     );
-    await d1Binding.batch(prepared);
-    return;
+    const results = await d1Binding.batch(prepared);
+    return results.map((result) => result.meta.changes);
   }
-  await client().batch(
+  const results = await client().batch(
     statements.map((statement) => ({ sql: statement.sql, args: (statement.args ?? []) as InArgs })),
     "write",
   );
+  return results.map((result) => result.rowsAffected);
 }

@@ -205,7 +205,7 @@ riderRoutes.post("/riders/profile-photo", requireAuth, requireRole("rider"), asy
  * Streams a rider's profile photo. Broader than the National ID endpoint on
  * purpose — a face photo is meant to build trust, not stay hidden — but
  * still not open to just anyone: the rider themself, admins, and a customer
- * who has (or has had) an order matched to this rider.
+ * who has an order matched to this rider or an application from them.
  */
 riderRoutes.get("/riders/:userId/photo", requireAuth, async (c) => {
   const userId = c.req.param("userId") as string;
@@ -213,8 +213,11 @@ riderRoutes.get("/riders/:userId/photo", requireAuth, async (c) => {
 
   if (user.sub !== userId && user.role !== "admin") {
     const related = await db.execute({
-      sql: "SELECT 1 FROM orders WHERE customer_id = ? AND rider_id = ? LIMIT 1",
-      args: [user.sub, userId],
+      sql: `SELECT 1 FROM orders o WHERE o.customer_id = ?
+            AND (o.rider_id = ? OR EXISTS (
+              SELECT 1 FROM order_applications a WHERE a.order_id = o.id AND a.rider_id = ?
+            )) LIMIT 1`,
+      args: [user.sub, userId, userId],
     });
     if (related.rows.length === 0) return c.json({ error: "forbidden" }, 403);
   }

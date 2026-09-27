@@ -1,6 +1,6 @@
 "use client";
 
-import type { SavedLocation } from "@tuma/shared";
+import { roundFare, type SavedLocation } from "@tuma/shared";
 import { Route } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -34,7 +34,7 @@ export function ParcelModal({ onClose }: { onClose: () => void }) {
   const [paymentRail, setPaymentRail] = useState<"escrow" | "float">("escrow");
   const [voiceNote, setVoiceNote] = useState<Blob | null>(null);
   const [locations, setLocations] = useState<SavedLocation[]>([]);
-  const [ratePerKm, setRatePerKm] = useState<number | null>(null);
+  const [pricing, setPricing] = useState<{ ratePerKm: number; minimum: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +45,7 @@ export function ParcelModal({ onClose }: { onClose: () => void }) {
       .catch(() => {});
     api
       .getSettings()
-      .then((res) => setRatePerKm(res.settings.deliveryRatePerKm))
+      .then((res) => setPricing({ ratePerKm: res.settings.deliveryRatePerKm, minimum: res.settings.minimumDeliveryFee }))
       .catch(() => {});
   }, []);
 
@@ -55,7 +55,7 @@ export function ParcelModal({ onClose }: { onClose: () => void }) {
     pickupPoint.lat != null && pickupPoint.lng != null && deliveryPoint.lat != null && deliveryPoint.lng != null
       ? haversineKm(pickupPoint.lat, pickupPoint.lng, deliveryPoint.lat, deliveryPoint.lng)
       : null;
-  const liveEstimate = distanceKm != null && ratePerKm != null ? Math.round(distanceKm * ratePerKm) : null;
+  const liveEstimate = distanceKm != null && pricing != null ? roundFare(distanceKm * pricing.ratePerKm, pricing.minimum) : null;
 
   function next() {
     const p = resolvePoint(pickup, locations);
@@ -94,7 +94,7 @@ export function ParcelModal({ onClose }: { onClose: () => void }) {
         destinationLat: d.lat,
         destinationLng: d.lng,
         paymentRail,
-        estimatedTotal: liveEstimate ?? (estimatedTotal ? Number(estimatedTotal) : undefined),
+        estimatedTotal: liveEstimate ?? (estimatedTotal ? roundFare(Number(estimatedTotal), pricing?.minimum) : undefined),
       });
       if (voiceNote) {
         api.uploadOrderVoiceNote(order.id, voiceNote).catch(() => {});

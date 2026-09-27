@@ -74,6 +74,7 @@ import type {
   MobileNumberPurpose,
   Rider,
   RiderApplicant,
+  RiderApplicantProfile,
   RiderSubscriptionPayment,
   RiderSubscriptionView,
   SavedLocation,
@@ -448,6 +449,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async getApplicants(orderId: string) {
       return request<{ applicants: RiderApplicant[] }>(`/v1/orders/${orderId}/applicants`);
     },
+    async getApplicantProfile(orderId: string, riderId: string, offset = 0) {
+      return request<RiderApplicantProfile>(`/v1/orders/${orderId}/applicants/${riderId}/profile?offset=${offset}`);
+    },
     /** Customer's pick from the applicant pool — assigns that rider and turns away the rest. */
     async selectApplicant(orderId: string, riderId: string) {
       return request<{ order: OrderRow }>(`/v1/orders/${orderId}/applicants/${riderId}/select`, { method: "POST" });
@@ -459,8 +463,8 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     /** Customer backs out of their own order — only while it's still
      * unmatched (no rider, nothing paid). Stays in their order history as
      * "Cancelled". */
-    async customerCancelOrder(orderId: string) {
-      return request<{ order: OrderRow }>(`/v1/orders/${orderId}/customer-cancel`, { method: "POST" });
+    async customerCancelOrder(orderId: string, acceptedFee = 0) {
+      return request<{ order: OrderRow }>(`/v1/orders/${orderId}/customer-cancel`, { method: "POST", body: JSON.stringify({ acceptedFee }) });
     },
     /** Same eligibility as customerCancelOrder, but also drops it off the
      * customer's own Lists view — nothing is actually erased server-side. */

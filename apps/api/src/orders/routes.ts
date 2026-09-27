@@ -19,7 +19,11 @@ import { computeCheckoutFees, isCashDepositOk, riderPayout } from "../lib/moneti
 import { notifyUser } from "../lib/webpush.js";
 import { currentVisibilityRadiusKm, orderMatchPoint, parseDbTimestamp } from "./matching.js";
 import { redactOrder } from "./visibility.js";
+import { assignAvailableRider } from "./assignment.js";
+import { getApplicantProfile } from "./applicant-profile.js";
 import type { MatchingMode, MobileMoneyNetwork } from "@tuma/shared";
+import { roundFare } from "@tuma/shared";
+import { snapshotTimeFees, getOrderTimeFees, cancelCustomerOrder, finishWaiting, closeWaiting } from "./time-fees.js";
 import {
   initiateCollection,
   mobileMoneyNetworkLabel,
@@ -301,15 +305,17 @@ orderRoutes.post("/orders", async (c) => {
   // migrations/0025_order_delivery_fee.sql.
   let deliveryFee: number | null = null;
   const isRide = d.type === "parcel" && d.isRide === true;
-  if (d.type === "parcel" && d.pickupLat != null && d.pickupLng != null && d.destinationLat != null && d.destinationLng != null) {
-    distanceKm = haversineKm(d.pickupLat, d.pickupLng, d.destinationLat, d.destinationLng);
+  if (d.type === "parcel") {
+    if (d.pickupLat != null && d.pickupLng != null && d.destinationLat != null && d.destinationLng != null) {
+      distanceKm = haversineKm(d.pickupLat, d.pickupLng, d.destinationLat, d.destinationLng);
+    }
     const { deliveryRatePerKm, minimumDeliveryFee, rideRatePerKm, rideMinimumFare } = await getDeliverySettings();
     const rate = isRide ? rideRatePerKm : deliveryRatePerKm;
     const minimum = isRide ? rideMinimumFare : minimumDeliveryFee;
     // The rider still has to go collect and deliver the item (or carry the
     // passenger) even when pickup and destination are barely apart —
     // distance × rate is never allowed to round down toward a near-free ride.
-    estimatedTotal = Math.max(Math.round(distanceKm * rate), minimum);
+    estimatedTotal = roundFare(distanceKm != null ? distanceKm * rate : (d.estimatedTotal ?? 0), minimum);
     // A parcel ride (goods or passenger) has no items — its whole total IS the delivery fee.
     deliveryFee = estimatedTotal;
   } else if (d.type === "shopping") {
@@ -323,12 +329,12 @@ orderRoutes.post("/orders", async (c) => {
     const itemCount = Number(row?.total ?? 0);
     const pricedCount = Number(row?.priced ?? 0);
     const { shoppingDeliveryFee } = await getDeliverySettings();
-    deliveryFee = shoppingDeliveryFee;
+    deliveryFee = roundFare(shoppingDeliveryFee);
     // Every item carries a price → the list itself is the quote, and the
     // client's separate estimate is redundant at best. Either way, the
     // flat delivery fee is added on top of the items cost.
     const itemsTotal = itemCount > 0 && pricedCount === itemCount ? Number(row?.sum_priced ?? 0) : (d.estimatedTotal ?? 0);
-    estimatedTotal = itemsTotal + shoppingDeliveryFee;
+    estimatedTotal = itemsTotal + deliveryFee;
   }
 
   if (estimatedTotal != null) {
@@ -403,6 +409,7 @@ orderRoutes.post("/orders", async (c) => {
     args: [parsed.data.listId],
   });
   await logEvent(orderId, "Create", "Order created", user.sub);
+  await snapshotTimeFees(orderId, deliveryFee ?? estimatedTotal ?? 0);
 
   const order = await getOrder(orderId);
   return c.json({ order }, 201);
@@ -456,6 +463,7 @@ orderRoutes.get("/orders/:id", async (c) => {
     payments: payments.rows,
     rating: rating.rows[0] ?? null,
     feeProposals: feeProposals.rows,
+    timeFees: await getOrderTimeFees(order),
   });
 });
 
@@ -561,12 +569,8 @@ async function assignRider(
   outOfRange: boolean,
 ): Promise<boolean> {
   const nextStage = order.payment_rail === "float" ? "Shop" : "Match";
-  const result = await db.execute({
-    sql: `UPDATE orders SET rider_id = ?, stage = ?, matched_out_of_range = ?, updated_at = datetime('now')
-          WHERE id = ? AND rider_id IS NULL AND stage IN ('Create', 'Match')`,
-    args: [riderId, nextStage, outOfRange ? 1 : 0, id],
-  });
-  if (result.rowsAffected === 0) return false;
+  const assigned = await assignAvailableRider(id, riderId, nextStage, outOfRange, String(order.environment));
+  if (!assigned) return false;
 
   if (order.funds_model === "merchant_allocations_v1") {
     await db.execute({
@@ -624,7 +628,7 @@ async function findAutoMatchCandidate(
           WHERE r.verified = 1 AND r.is_online = 1
           ${subscriptionGate}
           AND u.id NOT IN (
-            SELECT rider_id FROM orders WHERE rider_id IS NOT NULL AND stage != 'Settle' AND environment = ?
+            SELECT rider_id FROM orders WHERE rider_id IS NOT NULL AND stage NOT IN ('Settle', 'Cancelled') AND environment = ?
           )
           AND u.id NOT IN (SELECT rider_id FROM order_rider_exclusions WHERE order_id = ?)`,
     args: [order.environment as string, id],
@@ -698,8 +702,11 @@ orderRoutes.post("/orders/:id/match", async (c) => {
     const applicants = await db.execute({
       sql: `SELECT oa.rider_id, u.name, oa.distance_km FROM order_applications oa
             JOIN users u ON u.id = oa.rider_id
-            WHERE oa.order_id = ? AND oa.status = 'pending' ORDER BY oa.distance_km ASC LIMIT 1`,
-      args: [id],
+            WHERE oa.order_id = ? AND oa.status = 'pending'
+            AND NOT EXISTS (SELECT 1 FROM orders busy WHERE busy.rider_id = oa.rider_id
+              AND busy.environment = ? AND busy.stage NOT IN ('Settle', 'Cancelled'))
+            ORDER BY oa.distance_km ASC LIMIT 1`,
+      args: [id, String(order.environment)],
     });
     const best = applicants.rows[0] as Row | undefined;
     if (best) {
@@ -708,17 +715,7 @@ orderRoutes.post("/orders/:id/match", async (c) => {
       const outOfRange = distanceKm != null && distanceKm > serviceRangeKm;
       const bestRiderId = best.rider_id as string;
       const assigned = await assignRider(id, order, bestRiderId, best.name as string, outOfRange);
-      if (assigned) {
-        await db.execute({
-          sql: "UPDATE order_applications SET status = 'selected' WHERE order_id = ? AND rider_id = ?",
-          args: [id, bestRiderId],
-        });
-        await db.execute({
-          sql: "UPDATE order_applications SET status = 'declined' WHERE order_id = ? AND rider_id != ? AND status = 'pending'",
-          args: [id, bestRiderId],
-        });
-      }
-      return c.json({ order: await getOrder(id) });
+      if (assigned) return c.json({ order: await getOrder(id) });
     }
     // Nobody's applied yet — extend the window rather than falling back
     // immediately, unless the overall SLA ceiling has now been reached.
@@ -757,7 +754,7 @@ orderRoutes.post("/orders/:id/claim", requireRole("rider"), async (c) => {
   const order = await getOrder(id);
   if (!order) return c.json({ error: "not_found" }, 404);
   if (order.rider_id) {
-    return c.json({ error: "already_claimed", message: "Another rider already took this job" }, 409);
+    return c.json({ error: "already_claimed", message: "This job is no longer available or you already have an active job" }, 409);
   }
   const canClaim = order.stage === "Create" || (order.stage === "Match" && !order.rider_id);
   if (!canClaim) {
@@ -822,7 +819,7 @@ orderRoutes.post("/orders/:id/claim", requireRole("rider"), async (c) => {
 
   const assigned = await assignRider(id, order, user.sub, rider.name as string, outOfRange);
   if (!assigned) {
-    return c.json({ error: "already_claimed", message: "Another rider already took this job" }, 409);
+    return c.json({ error: "rider_unavailable", message: "This job is no longer available or you already have an active job" }, 409);
   }
 
   return c.json({ order: await getOrder(id) });
@@ -907,12 +904,17 @@ orderRoutes.post("/orders/:id/apply", requireRole("rider"), async (c) => {
   // without this reset, anyone who applied the first time round would get an
   // "applied" confirmation while staying invisible to the customer, because
   // the applicant list only shows pending rows.
-  await db.execute({
+  const applicationResult = await db.execute({
     sql: `INSERT INTO order_applications (id, order_id, rider_id, distance_km, status)
-          VALUES (?, ?, ?, ?, 'pending')
+          SELECT ?, ?, ?, ?, 'pending'
+          WHERE EXISTS (SELECT 1 FROM orders WHERE id = ? AND rider_id IS NULL AND stage IN ('Create', 'Match'))
+            AND NOT EXISTS (SELECT 1 FROM orders WHERE rider_id = ? AND environment = ? AND stage NOT IN ('Settle', 'Cancelled'))
           ON CONFLICT(order_id, rider_id) DO UPDATE SET distance_km = excluded.distance_km, status = 'pending'`,
-    args: [newId("app"), id, user.sub, distanceKm],
+    args: [newId("app"), id, user.sub, distanceKm, id, user.sub, String(order.environment)],
   });
+  if (applicationResult.rowsAffected === 0) {
+    return c.json({ error: "rider_unavailable", message: "This job is no longer available or you already have an active job" }, 409);
+  }
 
   return c.json({ ok: true });
 });
@@ -934,8 +936,12 @@ orderRoutes.get("/orders/:id/applicants", async (c) => {
   const applications = await db.execute({
     sql: `SELECT oa.rider_id, u.name, oa.distance_km FROM order_applications oa
           JOIN users u ON u.id = oa.rider_id
-          WHERE oa.order_id = ? AND oa.status = 'pending' ORDER BY oa.distance_km ASC`,
-    args: [id],
+          WHERE oa.order_id = ? AND oa.status = 'pending'
+          AND EXISTS (SELECT 1 FROM orders target WHERE target.id = oa.order_id AND target.rider_id IS NULL AND target.stage IN ('Create', 'Match'))
+          AND NOT EXISTS (SELECT 1 FROM orders busy WHERE busy.rider_id = oa.rider_id
+            AND busy.environment = ? AND busy.stage NOT IN ('Settle', 'Cancelled'))
+          ORDER BY oa.distance_km ASC`,
+    args: [id, String(order.environment)],
   });
 
   const applicants = await Promise.all(
@@ -943,14 +949,15 @@ orderRoutes.get("/orders/:id/applicants", async (c) => {
       const riderId = row.rider_id as string;
       const [stats, comments] = await Promise.all([
         db.execute({
-          sql: `SELECT AVG(orr.rating) as avg_rating, COUNT(*) as review_count, SUM(orr.recommended) as recommend_count
-                FROM order_ratings orr JOIN orders o ON o.id = orr.order_id WHERE o.rider_id = ?`,
-          args: [riderId],
+          sql: `SELECT AVG(orr.rating) as avg_rating, COUNT(*) as review_count, SUM(orr.recommended) as recommend_count,
+                       SUM(CASE WHEN TRIM(COALESCE(orr.comment, '')) != '' THEN 1 ELSE 0 END) as comment_count
+                FROM order_ratings orr JOIN orders o ON o.id = orr.order_id WHERE orr.rider_id = ? AND o.environment = ?`,
+          args: [riderId, String(order.environment)],
         }),
         db.execute({
           sql: `SELECT orr.comment FROM order_ratings orr JOIN orders o ON o.id = orr.order_id
-                WHERE o.rider_id = ? AND orr.comment IS NOT NULL ORDER BY orr.created_at DESC LIMIT 3`,
-          args: [riderId],
+                WHERE orr.rider_id = ? AND o.environment = ? AND orr.comment IS NOT NULL ORDER BY orr.created_at DESC LIMIT 3`,
+          args: [riderId, String(order.environment)],
         }),
       ]);
       const statsRow = stats.rows[0] as Row | undefined;
@@ -963,12 +970,31 @@ orderRoutes.get("/orders/:id/applicants", async (c) => {
         avgRating: statsRow?.avg_rating != null ? Math.round((statsRow.avg_rating as number) * 10) / 10 : null,
         reviewCount: Number(statsRow?.review_count ?? 0),
         recommendCount: Number(statsRow?.recommend_count ?? 0),
+        commentCount: Number(statsRow?.comment_count ?? 0),
         recentComments: (comments.rows as Row[]).map((r) => r.comment as string),
       };
     }),
   );
 
   return c.json({ applicants });
+});
+
+/** Only the customer for this application can inspect the rider's public profile. */
+orderRoutes.get("/orders/:id/applicants/:riderId/profile", async (c) => {
+  const order = await getOrder(c.req.param("id"));
+  if (!order) return c.json({ error: "not_found" }, 404);
+  if (order.customer_id !== c.get("user").sub) return c.json({ error: "forbidden" }, 403);
+  const riderId = c.req.param("riderId");
+  const application = await db.execute({
+    sql: "SELECT 1 FROM order_applications WHERE order_id = ? AND rider_id = ?",
+    args: [String(order.id), riderId],
+  });
+  if (!application.rows.length) return c.json({ error: "not_found" }, 404);
+  const offset = Number(c.req.query("offset") ?? 0);
+  if (!Number.isSafeInteger(offset) || offset < 0) return c.json({ error: "invalid_offset" }, 400);
+  const profile = await getApplicantProfile(riderId, String(order.environment), offset);
+  if (!profile) return c.json({ error: "not_found" }, 404);
+  return c.json(profile);
 });
 
 /** The customer's pick, for a "customer_selects" order — assigns that rider and turns away the rest. */
@@ -1001,16 +1027,8 @@ orderRoutes.post("/orders/:id/applicants/:riderId/select", async (c) => {
 
   const assigned = await assignRider(id, order, riderId, row.name as string, outOfRange);
   if (!assigned) {
-    return c.json({ error: "already_claimed", message: "This order already has a rider" }, 409);
+    return c.json({ error: "rider_unavailable", message: "This rider or job is no longer available. Please choose another rider." }, 409);
   }
-  await db.execute({
-    sql: "UPDATE order_applications SET status = 'selected' WHERE order_id = ? AND rider_id = ?",
-    args: [id, riderId],
-  });
-  await db.execute({
-    sql: "UPDATE order_applications SET status = 'declined' WHERE order_id = ? AND rider_id != ? AND status = 'pending'",
-    args: [id, riderId],
-  });
 
   return c.json({ order: await getOrder(id) });
 });
@@ -1021,7 +1039,7 @@ orderRoutes.post("/orders/:id/applicants/:riderId/select", async (c) => {
 // and this rider is never offered it again.
 // ---------------------------------------------------------------------------
 
-const CANCELLABLE_STAGES = ["Match", "Fund", "Shop", "Substitute", "Approve", "Deliver"];
+const CANCELLABLE_STAGES = ["Match", "Shop", "Substitute", "Approve", "Deliver", "Arrived"];
 
 orderRoutes.post("/orders/:id/cancel", async (c) => {
   const id = c.req.param("id");
@@ -1052,7 +1070,9 @@ orderRoutes.post("/orders/:id/cancel", async (c) => {
   });
   const nextStage = paid.rows.length > 0 ? "Match" : "Create";
 
-  await touchOrder(id, { rider_id: null, stage: nextStage, matched_out_of_range: 0 });
+  if (order.stage === "Arrived") await closeWaiting(order, user.sub);
+
+  await touchOrder(id, { rider_id: null, stage: nextStage, matched_out_of_range: 0, rider_departed_at: null, rider_arrived_at: null, waiting_closed_at: null });
   await db.execute({ sql: "DELETE FROM rider_order_locks WHERE rider_id = ? AND order_id = ?", args: [user.sub, id] });
   await logEvent(id, nextStage, "Rider cancelled — order returned to the job pool", user.sub);
 
@@ -1082,18 +1102,15 @@ orderRoutes.post("/orders/:id/customer-cancel", async (c) => {
   if (!order) return c.json({ error: "not_found" }, 404);
   try {
     assertCustomer(order, user.sub);
-    assertCustomerCancellable(order);
   } catch (e) {
     if (e instanceof HttpError) return c.json({ error: "cannot_cancel", message: e.message }, e.status);
     throw e;
   }
 
-  await touchOrder(id, { stage: "Cancelled" });
-  await db.execute({
-    sql: "UPDATE lists SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?",
-    args: [order.list_id as string],
-  });
-  await logEvent(id, "Cancelled", "Cancelled by customer", user.sub);
+  const parsed = z.object({ acceptedFee: z.number().int().nonnegative().default(0) }).safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  const result = await cancelCustomerOrder(order, user.sub, parsed.data.acceptedFee);
+  if (result.error) return c.json({ error: "cannot_cancel", message: result.error }, 409);
 
   return c.json({ order: await getOrder(id) });
 });
@@ -1219,6 +1236,11 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
     }
     const sharedSpend = walletOwnerId !== user.sub;
 
+    // Reserve funding before debiting; cancellation and duplicate funding
+    // requests cannot race a wallet payment.
+    const funding = await db.execute({ sql: "UPDATE orders SET stage = 'Fund', updated_at = datetime('now') WHERE id = ? AND stage = 'Match'", args: [id] });
+    if (!funding.rowsAffected) return c.json({ error: "invalid_stage", message: "This order has changed. Refresh before paying." }, 409);
+
     const paymentId = await payFromWallet({
       userId: walletOwnerId,
       amount,
@@ -1228,7 +1250,10 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
       environment: order.environment as "live" | "sandbox",
       walletId,
     });
-    if (!paymentId) return c.json({ error: "insufficient_wallet_balance" }, 409);
+    if (!paymentId) {
+      await db.execute({ sql: "UPDATE orders SET stage = 'Match' WHERE id = ? AND stage = 'Fund'", args: [id] });
+      return c.json({ error: "insufficient_wallet_balance" }, 409);
+    }
 
     await touchOrder(id, { stage: "Shop" });
     await activateMerchantAllocationsForFundedOrder(id);
@@ -1237,14 +1262,16 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
   }
 
   const paymentId = newId("pay");
-  await executeBatch([
+  const fundingToken = newId("fund");
+  const funding = await executeBatch([
+    { sql: "UPDATE orders SET stage = 'Fund', time_action_token = ?, updated_at = datetime('now') WHERE id = ? AND stage = 'Match'", args: [fundingToken, id] },
     {
       sql: `INSERT INTO payments (id, order_id, type, provider, provider_ref, msisdn, amount, currency, status)
-            VALUES (?, ?, 'collection', 'unassigned', NULL, ?, ?, 'UGX', 'pending')`,
-      args: [paymentId, id, parsed.data.msisdn ?? null, amount],
+            SELECT ?, id, 'collection', 'unassigned', NULL, ?, ?, 'UGX', 'pending' FROM orders WHERE id = ? AND time_action_token = ?`,
+      args: [paymentId, parsed.data.msisdn ?? null, amount, id, fundingToken],
     },
-    { sql: "UPDATE orders SET stage = 'Fund', updated_at = datetime('now') WHERE id = ? AND stage = 'Match'", args: [id] },
   ]);
+  if (!funding[0]) return c.json({ error: "invalid_stage", message: "This order has changed. Refresh before paying." }, 409);
   let providerRef: string;
   let network: MobileMoneyNetwork | null;
   let provider: string;
@@ -1547,16 +1574,17 @@ orderRoutes.post("/orders/:id/fee-proposals", async (c) => {
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
 
   const previousTotal = (order.final_total as number | null) ?? (order.estimated_total as number | null) ?? 0;
+  const proposedTotal = order.type === "parcel" ? roundFare(parsed.data.proposedTotal) : parsed.data.proposedTotal;
   const proposalId = newId("fee");
   await db.execute({
     sql: `INSERT INTO fee_proposals (id, order_id, previous_total, proposed_total, reason)
           VALUES (?, ?, ?, ?, ?)`,
-    args: [proposalId, id, previousTotal, parsed.data.proposedTotal, parsed.data.reason ?? null],
+    args: [proposalId, id, previousTotal, proposedTotal, parsed.data.reason ?? null],
   });
   await logEvent(
     id,
     order.stage as string,
-    `Rider suggested a new total: ${formatAmount(parsed.data.proposedTotal)} (was ${formatAmount(previousTotal)})`,
+    `Rider suggested a new total: ${formatAmount(proposedTotal)} (was ${formatAmount(previousTotal)})`,
     user.sub,
   );
 
@@ -1593,7 +1621,10 @@ orderRoutes.post("/orders/:id/fee-proposals/:proposalId/decision", async (c) => 
   });
 
   if (parsed.data.approve) {
-    await touchOrder(id, { final_total: proposal.proposed_total });
+    await touchOrder(id, {
+      final_total: proposal.proposed_total,
+      ...(order.type === "parcel" ? { delivery_fee: proposal.proposed_total } : {}),
+    });
   }
   await logEvent(
     id,
@@ -1765,11 +1796,11 @@ orderRoutes.post("/orders/:id/deliver", async (c) => {
   }
 
   const pin = (order.pin_code as string | null) ?? newPin();
-  await touchOrder(id, {
-    stage: "Deliver",
-    eta_minutes: parsed.data.etaMinutes ?? order.eta_minutes ?? 15,
-    pin_code: pin,
+  const departed = await db.execute({
+    sql: "UPDATE orders SET stage = 'Deliver', eta_minutes = ?, pin_code = ?, rider_departed_at = ?, updated_at = datetime('now') WHERE id = ? AND rider_id = ? AND stage = ?",
+    args: [parsed.data.etaMinutes ?? order.eta_minutes ?? 15, pin, new Date().toISOString(), id, user.sub, String(order.stage)] as InArgs,
   });
+  if (!departed.rowsAffected) return c.json({ error: "invalid_stage", message: "This journey has changed. Refresh the order." }, 409);
   await logEvent(id, "Deliver", "Rider en route", user.sub);
 
   return c.json({ order: await getOrder(id) });
@@ -1793,7 +1824,11 @@ orderRoutes.post("/orders/:id/arrived", async (c) => {
     return c.json({ error: "invalid_stage", message: `Cannot mark arrived from stage ${order.stage}` }, 409);
   }
 
-  await touchOrder(id, { stage: "Arrived" });
+  const arrived = await db.execute({
+    sql: "UPDATE orders SET stage = 'Arrived', rider_arrived_at = ?, waiting_closed_at = NULL, updated_at = datetime('now') WHERE id = ? AND rider_id = ? AND stage = 'Deliver'",
+    args: [new Date().toISOString(), id, user.sub],
+  });
+  if (!arrived.rowsAffected) return c.json({ error: "invalid_stage", message: "This journey has changed. Refresh the order." }, 409);
   await logEvent(id, "Arrived", "Rider arrived", user.sub);
 
   if (order.customer_id) {
@@ -1835,7 +1870,7 @@ orderRoutes.post("/orders/:id/picked-up", async (c) => {
     return c.json({ error: "invalid_stage", message: `Cannot confirm pickup from stage ${order.stage}` }, 409);
   }
 
-  await touchOrder(id, { stage: "PickedUp" });
+  if (!await finishWaiting(order, "PickedUp", user.sub)) return c.json({ error: "invalid_stage" }, 409);
   await logEvent(id, "PickedUp", "Passenger picked up, heading to destination", user.sub);
 
   if (order.customer_id) {
@@ -1877,7 +1912,7 @@ orderRoutes.post("/orders/:id/handover", async (c) => {
     return c.json({ error: "pin_mismatch" }, 400);
   }
 
-  await touchOrder(id, { stage: "Handover" });
+  if (!await finishWaiting(order, "Handover", user.sub)) return c.json({ error: "invalid_stage" }, 409);
   await logEvent(id, "Handover", "PIN confirmed, handover complete", user.sub);
 
   return c.json({ order: await getOrder(id) });

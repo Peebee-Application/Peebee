@@ -18,6 +18,8 @@ import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
 import { getDeliverySettings, getMatchingSettings, getMaxOrderValue, getPlatformEnvironment } from "../lib/settings.js";
 import type { MatchingMode } from "@tuma/shared";
+import { roundFare } from "@tuma/shared";
+import { snapshotTimeFees } from "../orders/time-fees.js";
 
 export const customerRestaurantRoutes = new Hono();
 
@@ -211,9 +213,9 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
   let deliveryFee: number;
   if (restaurantLat != null && restaurantLng != null && d.destinationLat != null && d.destinationLng != null) {
     distanceKm = haversineKm(restaurantLat, restaurantLng, d.destinationLat, d.destinationLng);
-    deliveryFee = Math.max(Math.round(distanceKm * deliveryRatePerKm), minimumDeliveryFee);
+    deliveryFee = roundFare(distanceKm * deliveryRatePerKm, minimumDeliveryFee);
   } else {
-    deliveryFee = shoppingDeliveryFee;
+    deliveryFee = roundFare(shoppingDeliveryFee);
   }
   const estimatedTotal = itemsTotal + deliveryFee;
 
@@ -284,6 +286,7 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
     args: [newId("evt"), orderId, `Food order created from ${restaurant.name}`, user.sub],
   });
 
+  await snapshotTimeFees(orderId, deliveryFee);
   const orderRes = await db.execute({
     sql: `SELECT o.*, c.name as customer_name, r.name as rider_name FROM orders o
           LEFT JOIN users c ON c.id = o.customer_id

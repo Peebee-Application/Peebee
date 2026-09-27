@@ -1,6 +1,6 @@
 "use client";
 
-import type { SavedLocation } from "@tuma/shared";
+import { roundFare, type SavedLocation } from "@tuma/shared";
 import { Calculator, List, Mic, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -47,7 +47,7 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
       .catch(() => {});
     api
       .getSettings()
-      .then((res) => setDeliveryFee(res.settings.shoppingDeliveryFee))
+      .then((res) => setDeliveryFee(roundFare(res.settings.shoppingDeliveryFee)))
       .catch(() => {});
   }, []);
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { TimeFeeSettings } from "@tuma/shared";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
 import { api, errorMessage } from "../../../lib/api";
 
@@ -10,6 +11,7 @@ export default function DeliveryPricingPage() {
   const [shoppingDeliveryFee, setShoppingDeliveryFee] = useState("");
   const [rideRatePerKm, setRideRatePerKm] = useState("");
   const [rideMinimumFare, setRideMinimumFare] = useState("");
+  const [timeFees, setTimeFees] = useState<TimeFeeSettings | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +26,7 @@ export default function DeliveryPricingPage() {
         setShoppingDeliveryFee(String(settings.shoppingDeliveryFee));
         setRideRatePerKm(String(settings.rideRatePerKm));
         setRideMinimumFare(String(settings.rideMinimumFare));
+        setTimeFees(settings.timeFees);
       })
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false));
@@ -41,12 +44,14 @@ export default function DeliveryPricingPage() {
         shoppingDeliveryFee: Number(shoppingDeliveryFee),
         rideRatePerKm: Number(rideRatePerKm),
         rideMinimumFare: Number(rideMinimumFare),
+        ...(timeFees ? { timeFees } : {}),
       });
       setDeliveryRatePerKm(String(res.settings.deliveryRatePerKm));
       setMinimumDeliveryFee(String(res.settings.minimumDeliveryFee));
       setShoppingDeliveryFee(String(res.settings.shoppingDeliveryFee));
       setRideRatePerKm(String(res.settings.rideRatePerKm));
       setRideMinimumFare(String(res.settings.rideMinimumFare));
+      setTimeFees(res.settings.timeFees);
       setSaved(true);
     } catch (err) {
       setError(errorMessage(err));
@@ -76,6 +81,61 @@ export default function DeliveryPricingPage() {
               points are pinned on the map.
             </p>
           </div>
+          {timeFees && (
+            <div className="space-y-4 border-t border-[var(--border-faint)] pt-4">
+              <div>
+                <h2 className="text-sm font-bold text-ink">Cancellation and waiting fees</h2>
+                <p className="mt-1 text-xs text-ink-500">
+                  Customers get a simple warning before a fee is charged. Flat fees must use UGX 500 increments, starting at UGX 500.
+                </p>
+              </div>
+              {(["cancellation", "waiting"] as const).map((kind) => {
+                const enabledKey = `${kind}Enabled` as const;
+                const typeKey = `${kind}Type` as const;
+                const valueKey = `${kind}Value` as const;
+                return (
+                  <div key={kind} className="space-y-2 rounded-xl border border-[var(--border-faint)] p-3">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+                      <input
+                        type="checkbox"
+                        checked={timeFees[enabledKey]}
+                        onChange={(e) => setTimeFees({ ...timeFees, [enabledKey]: e.target.checked })}
+                      />
+                      {kind === "cancellation" ? "Cancellation fee" : "Waiting fee"}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={timeFees[typeKey]}
+                        onChange={(e) => setTimeFees({ ...timeFees, [typeKey]: e.target.value as "flat" | "percent" })}
+                        className="rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm"
+                      >
+                        <option value="flat">Flat UGX</option>
+                        <option value="percent">Fare percentage</option>
+                      </select>
+                      <input
+                        inputMode="decimal"
+                        value={timeFees[valueKey]}
+                        onChange={(e) => setTimeFees({ ...timeFees, [valueKey]: Number(e.target.value.replace(/[^\d.]/g, "")) || 0 })}
+                        className="rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm"
+                        aria-label={`${kind} fee value`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-ink-500" htmlFor="free-waiting-minutes">Free waiting time (minutes)</label>
+                <input
+                  id="free-waiting-minutes"
+                  inputMode="numeric"
+                  value={timeFees.freeWaitingMinutes}
+                  onChange={(e) => setTimeFees({ ...timeFees, freeWaitingMinutes: Number(e.target.value.replace(/[^\d]/g, "")) || 1 })}
+                  className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+                />
+                <p className="text-xs text-ink-500">Default: 5 free minutes, then one waiting fee.</p>
+              </div>
+            </div>
+          )}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-ink-500" htmlFor="minimum-delivery-fee">
               Minimum delivery fee (UGX)

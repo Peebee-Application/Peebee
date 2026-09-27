@@ -1,6 +1,7 @@
 /** Core domain DTOs — kept in sync with apps/api's real (non-stub) responses. */
 
 import type { AdminRole } from "./permissions.js";
+import type { TimeFeeSettings, OrderTimeFees } from "./time-fees.js";
 
 export type ListStatus = "draft" | "active" | "delivered" | "cancelled";
 
@@ -179,6 +180,7 @@ export type PlatformEnvironment = "live" | "sandbox";
 
 /** Admin-tunable delivery pricing/matching numbers (packages/shared/src/api-client.ts: getSettings/adminUpdateSettings). */
 export type DeliverySettings = {
+  timeFees: TimeFeeSettings;
   /** Which environment's orders/wallets/lists everyone currently sees —
    * read-only here (GET /settings); change it with
    * adminSetPlatformEnvironment. */
@@ -1078,7 +1080,20 @@ export type RiderApplicant = {
   avgRating: number | null;
   reviewCount: number;
   recommendCount: number;
+  commentCount: number;
   recentComments: string[];
+};
+
+export type RiderApplicantProfile = {
+  riderId: string;
+  riderName: string;
+  joinedAt: string;
+  verified: boolean;
+  vehicleInfo: string | null;
+  area: string | null;
+  completed: { total: number; rides: number; parcels: number; food: number; shopping: number };
+  reviews: { id: string; rating: number; comment: string | null; recommended: boolean; createdAt: string }[];
+  nextOffset: number | null;
 };
 
 /** A rider-suggested total (e.g. after an out-of-range match) awaiting the customer's accept/reject. */
@@ -1095,6 +1110,7 @@ export type FeeProposal = {
 };
 
 export type OrderDetail = {
+  timeFees?: OrderTimeFees;
   order: OrderRow;
   items: ListItem[];
   events: OrderEvent[];

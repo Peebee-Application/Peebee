@@ -1,7 +1,7 @@
 "use client";
 
 import type { MobileMoneyNetwork, OrderDetail, OrderRating, RiderApplicant, WalletShareReceived } from "@tuma/shared";
-import { detectMobileMoneyNetwork, mobileMoneyNetworkLabel } from "@tuma/shared";
+import { detectMobileMoneyNetwork, mobileMoneyNetworkLabel, timeFeeNotice } from "@tuma/shared";
 import { MapPin, MessageCircle, Star, ThumbsUp, TriangleAlert, User } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -11,6 +11,7 @@ import { LiveTrackingMap } from "../../../components/LiveTrackingMap";
 import { MobileNumberPicker } from "../../../components/MobileNumberPicker";
 import { OrderTimeline } from "../../../components/OrderTimeline";
 import { RateDeliveryCard } from "../../../components/RateDeliveryCard";
+import { RiderProfileModal } from "../../../components/RiderProfileModal";
 import { SwipeToConfirm } from "../../../components/SwipeToConfirm";
 import { VoiceNotePlayer } from "../../../components/VoiceNotePlayer";
 import { api, errorMessage } from "../../../lib/api";
@@ -92,6 +93,8 @@ function RiderSummaryCard({
 function ApplicantPicker({ orderId, onSelected }: { orderId: string; onSelected: () => void }) {
   const t = useTranslate();
   const [applicants, setApplicants] = useState<RiderApplicant[]>([]);
+  const [profileApplicant, setProfileApplicant] = useState<RiderApplicant | null>(null);
+  const selecting = useRef(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,69 +108,79 @@ function ApplicantPicker({ orderId, onSelected }: { orderId: string; onSelected:
   useLivePolling(load, 4000, [load]);
 
   async function choose(riderId: string) {
+    if (selecting.current) return;
+    selecting.current = true;
     setBusyId(riderId);
     setError(null);
     try {
       await api.selectApplicant(orderId, riderId);
+      setProfileApplicant(null);
       onSelected();
     } catch (err) {
       setError(errorMessage(err));
+      load();
     } finally {
+      selecting.current = false;
       setBusyId(null);
     }
   }
 
-  if (applicants.length === 0) {
-    return (
+  return (
+    <div className="space-y-2.5">
+      {applicants.length === 0 ? (
       <div className="flex items-center gap-3 py-2">
         <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-gold border-t-transparent" />
         <p className="text-sm text-ink-500">{t("order_waiting_riders")}</p>
       </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2.5">
+      ) : <>
       <p className="text-sm font-semibold text-ink">{t("order_choose_rider")}</p>
       {applicants.map((a) => (
         <div key={a.riderId} className="space-y-1.5 rounded-xl border border-[var(--border-faint)] p-3">
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-bold text-ink">{a.riderName}</span>
-            {a.distanceKm != null && (
+            {a.distanceKm != null && Number.isFinite(a.distanceKm) && a.distanceKm >= 0 && (
               <span className="text-xs text-ink-500">
-                {a.distanceKm} {t("order_km_away")}
+                {a.distanceKm < 1
+                  ? t("order_distance_under_km")
+                  : t("order_distance_about_km", { distance: Math.round(a.distanceKm * 10) / 10 })}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3 text-xs text-ink-500">
-            {a.avgRating != null && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-ink-500">
               <span className="flex items-center gap-1">
                 <Star className="h-3.5 w-3.5 fill-gold text-gold" strokeWidth={1.5} aria-hidden />
-                {a.avgRating} ({a.reviewCount})
+                {a.avgRating ?? "—"} · {t("rider_reviews_count", { count: a.reviewCount })}
               </span>
-            )}
-            {a.recommendCount > 0 && (
               <span className="flex items-center gap-1 text-green">
                 <ThumbsUp className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
                 {a.recommendCount} {t("order_recommends")}
               </span>
-            )}
+              <span className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" aria-hidden />{t("rider_comments_count", { count: a.commentCount })}</span>
           </div>
           {a.outOfServiceRange && <p className="text-xs text-gold">{t("order_out_of_range")}</p>}
-          {a.recentComments.length > 0 && (
-            <p className="text-xs italic text-ink-500">&ldquo;{a.recentComments[0]}&rdquo;</p>
-          )}
+          <button type="button" onClick={() => setProfileApplicant(a)} aria-haspopup="dialog" className="min-h-11 w-full rounded-full border border-[var(--border-faint)] px-3 text-xs font-semibold text-ink">{t("rider_view_profile")}</button>
           <button
             type="button"
             onClick={() => choose(a.riderId)}
-            disabled={busyId === a.riderId}
-            className="min-h-9 w-full rounded-full bg-gold px-3 text-xs font-bold text-ink-gold disabled:opacity-60"
+            disabled={busyId !== null}
+            className="min-h-11 w-full rounded-full bg-gold px-3 text-xs font-bold text-ink-gold disabled:opacity-60"
           >
             {busyId === a.riderId ? t("order_choosing") : t("order_choose_this_rider")}
           </button>
         </div>
       ))}
+      </>}
       {error && <p className="text-xs text-red-600">{error}</p>}
+      {profileApplicant && <RiderProfileModal
+        key={profileApplicant.riderId}
+        orderId={orderId}
+        applicant={applicants.find((a) => a.riderId === profileApplicant.riderId) ?? profileApplicant}
+        available={applicants.some((a) => a.riderId === profileApplicant.riderId)}
+        busy={busyId !== null}
+        selectionError={error}
+        onChoose={() => choose(profileApplicant.riderId)}
+        onClose={() => setProfileApplicant(null)}
+      />}
     </div>
   );
 }
@@ -193,7 +206,7 @@ export default function OrderDetailPage() {
     setBusy(true);
     setError(null);
     try {
-      await api.customerCancelOrder(orderId);
+      await api.customerCancelOrder(orderId, detail?.timeFees?.cancellationDue ?? 0);
       setCancelConfirm(null);
       await load();
     } catch (err) {
@@ -333,6 +346,7 @@ export default function OrderDetailPage() {
   }
 
   const { order, items, substitutions, feeProposals } = detail;
+  const timeFees = detail.timeFees;
   const pendingFeeProposal = feeProposals.find((f) => f.status === "pending");
   const currentItemsTotal = (order.final_total ?? order.estimated_total ?? 0) - (order.delivery_fee ?? 0);
   const pendingPayment = detail.payments.find((p) => p.status === "pending");
@@ -367,7 +381,8 @@ export default function OrderDetailPage() {
   // that's no longer true, backing out affects someone else's day and
   // goes through the API's own "cannot_cancel"/"cannot_delete" refusal
   // (surfaced via the normal error banner) rather than a button here.
-  const canCancel = !order.rider_id && ["Create", "Match"].includes(order.stage);
+  const canCancel = timeFees?.canCancel ?? (!order.rider_id && ["Create", "Match"].includes(order.stage));
+  const canDelete = !order.rider_id && ["Create", "Match"].includes(order.stage);
 
   return (
     <div className="space-y-6 px-4 pb-24 pt-4">
@@ -383,13 +398,15 @@ export default function OrderDetailPage() {
               >
                 {t("order_cancel")}
               </button>
-              <button
-                type="button"
-                onClick={() => setCancelConfirm("delete")}
-                className="rounded-full border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600"
-              >
-                {t("order_delete")}
-              </button>
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={() => setCancelConfirm("delete")}
+                  className="rounded-full border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600"
+                >
+                  {t("order_delete")}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -403,6 +420,13 @@ export default function OrderDetailPage() {
         </p>
         {order.stage === "Cancelled" && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{t("order_cancelled_note")}</p>
+        )}
+        {timeFees && (timeFees.cancellationFee > 0 || timeFees.waitingFee > 0) && order.stage !== "Cancelled" && (
+          <p className="rounded-lg bg-gold/10 px-3 py-2 text-sm text-ink-500">
+            {timeFees.waitingDue > 0
+              ? `Your rider has waited beyond the free time. A waiting fee of ${formatUgx(timeFees.waitingDue)} will be charged from your main wallet when this stop is completed.`
+              : timeFeeNotice(timeFees, !!order.is_ride)}
+          </p>
         )}
         {order.type === "parcel" && order.pickup_area && (
           <p className="flex items-center gap-1.5 text-sm text-ink-500">
@@ -740,7 +764,11 @@ export default function OrderDetailPage() {
         title={cancelConfirm === "delete" ? t("order_delete_title") : t("order_cancel_title")}
       >
         <p className="text-sm text-ink-500">
-          {cancelConfirm === "delete" ? t("order_delete_note") : t("order_cancel_note")}
+          {cancelConfirm === "delete"
+            ? t("order_delete_note")
+            : timeFees?.cancellationDue
+              ? `Your rider has already started the journey. Cancelling now will charge ${formatUgx(timeFees.cancellationDue)} from your main wallet. If your wallet is empty, it will show as money owed and your next top-up will clear it.`
+              : t("order_cancel_note")}
         </p>
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <div className="flex gap-2">

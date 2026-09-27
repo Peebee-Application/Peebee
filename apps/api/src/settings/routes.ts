@@ -10,6 +10,7 @@ import {
   getActiveMapsProvider,
   getActiveProviders,
   getDeliverySettings,
+  getTimeFeeSettings,
   getMatchingSettings,
   getMonetizationSettings,
   getNavMode,
@@ -103,6 +104,7 @@ async function fullSettings() {
   }
 
   return {
+    timeFees: await getTimeFeeSettings(),
     ...delivery,
     ...matching,
     paymentsActiveProviders: activeProviders,
@@ -205,6 +207,23 @@ settingsRoutes.post("/practice/:experience/dismiss", requireAuth, async (c) => {
 });
 
 const updateSchema = z.object({
+  timeFees: z.object({
+    cancellationEnabled: z.boolean(),
+    cancellationType: z.enum(["flat", "percent"]),
+    cancellationValue: z.number().nonnegative().max(1_000_000),
+    waitingEnabled: z.boolean(),
+    waitingType: z.enum(["flat", "percent"]),
+    waitingValue: z.number().nonnegative().max(1_000_000),
+    freeWaitingMinutes: z.number().int().min(1).max(120),
+  }).superRefine((fees, ctx) => {
+    for (const kind of ["cancellation", "waiting"] as const) {
+      const value = fees[`${kind}Value`];
+      if (!fees[`${kind}Enabled`]) continue;
+      if (fees[`${kind}Type`] === "percent" ? value > 100 : value < 500 || value % 500 !== 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${kind}Value`], message: "Use 0–100% or a flat fee in UGX 500 increments." });
+      }
+    }
+  }).optional(),
   deliveryRatePerKm: z.number().positive().max(1_000_000).optional(),
   minimumDeliveryFee: z.number().int().nonnegative().max(1_000_000).optional(),
   serviceRangeKm: z.number().positive().max(1000).optional(),
@@ -243,6 +262,7 @@ const updateSchema = z.object({
 });
 
 const PAYMENTS_FIELDS = [
+  "timeFees",
   "paymentsActiveProviders",
   "paymentsDemoMode",
   "merchantPaymentsEnabled",
@@ -286,6 +306,8 @@ settingsRoutes.put(
     }
 
     const before = await fullSettings();
+
+    if (parsed.data.timeFees) await setSetting("time_fees", JSON.stringify(parsed.data.timeFees));
 
     if (parsed.data.deliveryRatePerKm != null) {
       await setSetting("delivery_rate_per_km", String(parsed.data.deliveryRatePerKm));

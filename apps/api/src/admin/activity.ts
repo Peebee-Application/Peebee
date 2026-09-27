@@ -73,6 +73,7 @@ const REVERT_HANDLERS: Record<string, (entityId: string, before: Row) => Promise
     });
   },
   "settings.update": async (_entityId, before) => {
+    if (before.timeFees != null) await setSetting("time_fees", JSON.stringify(before.timeFees));
     if (before.deliveryRatePerKm != null) await setSetting("delivery_rate_per_km", String(before.deliveryRatePerKm));
     if (before.serviceRangeKm != null) await setSetting("service_range_km", String(before.serviceRangeKm));
     if (before.enabledModes != null) await setMatchingModesEnabled(before.enabledModes as never);

@@ -1,7 +1,9 @@
 import type { MatchingMode } from "@tuma/shared";
+import { DEFAULT_TIME_FEES, type TimeFeeSettings } from "@tuma/shared";
 import { db } from "../db/client.js";
 
 const DEFAULTS = {
+  time_fees: JSON.stringify(DEFAULT_TIME_FEES),
   /** Which dataset the whole platform — every customer, rider, and the
    * admin dashboard's default view — currently reads and writes against.
    * "live" is real orders/money; "sandbox" is demo/test data, fully
@@ -171,6 +173,10 @@ const DEFAULTS = {
 } as const;
 
 export type SettingKey = keyof typeof DEFAULTS;
+
+export async function getTimeFeeSettings(): Promise<TimeFeeSettings> {
+  return { ...DEFAULT_TIME_FEES, ...JSON.parse(await getSetting("time_fees")) };
+}
 
 export async function getSetting(key: SettingKey): Promise<string> {
   const res = await db.execute({ sql: "SELECT value FROM settings WHERE key = ?", args: [key] });

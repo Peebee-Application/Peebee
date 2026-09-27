@@ -1,6 +1,7 @@
 "use client";
 
 import type { MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, Restaurant, RestaurantMenu, SavedLocation } from "@tuma/shared";
+import { roundFare } from "@tuma/shared";
 import { ArrowUpRight, MessageCircle, Minus, Plus, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -331,9 +332,9 @@ export default function RestaurantPage() {
     const resolved = resolvePoint(delivery, locations);
     if (restaurant?.lat != null && restaurant?.lng != null && resolved.lat != null && resolved.lng != null) {
       const km = haversineKm(restaurant.lat, restaurant.lng, resolved.lat, resolved.lng);
-      return Math.max(Math.round(km * deliverySettings.deliveryRatePerKm), deliverySettings.minimumDeliveryFee);
+      return roundFare(km * deliverySettings.deliveryRatePerKm, deliverySettings.minimumDeliveryFee);
     }
-    return deliverySettings.shoppingDeliveryFee;
+    return roundFare(deliverySettings.shoppingDeliveryFee);
   }, [restaurant, delivery, locations, deliverySettings]);
 
   async function checkout() {

@@ -1,6 +1,9 @@
 export { OrderStage, ORDER_STAGES } from "./order-stage.js";
 export type { OrderStage as OrderStageValue } from "./order-stage.js";
 export { PaymentRail } from "./payment-rail.js";
+export { roundFare } from "./fare.js";
+export { DEFAULT_TIME_FEES, timeFeePolicy, timeFeeNotice } from "./time-fees.js";
+export type { TimeFeeSettings, TimeFeePolicy, OrderTimeFees } from "./time-fees.js";
 export type { PaymentRail as PaymentRailValue } from "./payment-rail.js";
 export { createApiClient, ApiError, friendlyErrorMessage } from "./api-client.js";
 export type { ApiValidationIssue } from "./api-client.js";
@@ -125,6 +128,7 @@ export type {
   AvailableJob,
   MatchingMode,
   RiderApplicant,
+  RiderApplicantProfile,
   ChatThread,
   ChatThreadDetail,
   StaffMember,

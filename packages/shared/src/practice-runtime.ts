@@ -1,4 +1,5 @@
 import { PRACTICE_MODE_STORAGE_KEY, type PracticeRole } from "./practice.js";
+import { roundFare } from "./fare.js";
 
 const PRACTICE_STATE_VERSION = 2;
 const PRACTICE_ORDER_ID = "practice-order";
@@ -409,8 +410,8 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
   if (method === "POST" && path === "/v1/orders") {
     const type = body.type === "parcel" ? "parcel" : "shopping";
     const estimated = Number(body.estimatedTotal ?? 30_000);
-    const deliveryFee = type === "parcel" ? Math.max(3_000, estimated) : 5_000;
-    save({ hasOrder: true, riderClaimed: false, stage: "Create", orderType: type, isRide: body.isRide === true, paymentRail: body.paymentRail === "float" ? "float" : "escrow", total: type === "shopping" ? estimated + deliveryFee : estimated, deliveryFee, destinationArea: String(body.destinationArea ?? "Entebbe City"), destinationAddress: String(body.destinationAddress ?? "Kitoro Road"), merchantPaymentStatus: "none", autoAdvanceAt: null });
+    const deliveryFee = type === "parcel" ? roundFare(estimated, 3_000) : 5_000;
+    save({ hasOrder: true, riderClaimed: false, stage: "Create", orderType: type, isRide: body.isRide === true, paymentRail: body.paymentRail === "float" ? "float" : "escrow", total: type === "shopping" ? estimated + deliveryFee : deliveryFee, deliveryFee, destinationArea: String(body.destinationArea ?? "Entebbe City"), destinationAddress: String(body.destinationAddress ?? "Kitoro Road"), merchantPaymentStatus: "none", autoAdvanceAt: null });
     return jsonResponse({ order: orderFor(state) });
   }
   if (method === "GET" && path === `/v1/orders/${PRACTICE_ORDER_ID}`) return jsonResponse(orderDetail(state));

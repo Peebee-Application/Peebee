@@ -39,6 +39,21 @@ test("customer practice runs the real order API contract without reaching live f
   assert.equal(liveCalls, 0);
 });
 
+test("practice parcel fare and stored total use the same rounded amount", async () => {
+  installStorage();
+  const practiceFetch = createPracticeFetch("customer", (async () => { throw new Error("live fetch must not be called"); }) as typeof fetch);
+  startPracticeMode("customer");
+  for (const [estimatedTotal, expected] of [[3_102, 3_000], [3_350, 3_000], [3_351, 3_500]]) {
+    const response = await practiceFetch("https://api.test/v1/orders", {
+      method: "POST",
+      body: JSON.stringify({ type: "parcel", estimatedTotal }),
+    });
+    const { order } = await response.json() as { order: { estimated_total: number; delivery_fee: number } };
+    assert.equal(order.delivery_fee, expected);
+    assert.equal(order.estimated_total, expected);
+  }
+});
+
 test("merchant practice confirmation marks that role's journey complete", async () => {
   installStorage();
   const practiceFetch = createPracticeFetch("merchant", (async () => { throw new Error("live fetch must not be called"); }) as typeof fetch);
