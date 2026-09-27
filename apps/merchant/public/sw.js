@@ -1,4 +1,4 @@
-const STATIC_CACHE = "tuma-merchant-static-v1";
+const STATIC_CACHE = "tuma-merchant-static-v2";
 const OFFLINE_URL = "/offline.html";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
@@ -8,7 +8,6 @@ const STATIC_ASSETS = [
   "/icons/icon-512.png",
   "/icons/apple-touch-icon.png",
   "/icons/favicon-32.png",
-  "/icons/merchant-icon-maskable.svg",
   OFFLINE_URL,
 ];
 

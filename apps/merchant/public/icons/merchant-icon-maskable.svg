@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Tuma Merchant">
-  <rect width="512" height="512" fill="#153A75"/>
-  <path d="M119 205h274l-25-74H144z" fill="#C9A227"/>
-  <path d="M132 205h248v176a28 28 0 0 1-28 28H160a28 28 0 0 1-28-28z" fill="#FFFFFF"/>
-  <path d="M204 277h104v132H204z" fill="#153A75"/>
-  <path d="M112 205h288" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round"/>
-  <circle cx="336" cy="329" r="15" fill="#C9A227"/>
-</svg>
