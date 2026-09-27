@@ -237,3 +237,37 @@ select {
 .tuma-map .leaflet-marker-icon {
   filter: drop-shadow(0 3px 6px rgba(10, 10, 10, 0.35));
 }
+
+/* Faint grocery/delivery doodle wallpaper behind chat messages (WhatsApp-style).
+   A pseudo-element rather than a background-image directly on the scrollable
+   container, so its low opacity doesn't fade the bubbles sitting on top of it. */
+.tuma-chat-bg {
+  position: relative;
+  isolation: isolate;
+}
+
+.tuma-chat-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: url("/images/chat-pattern.webp");
+  background-repeat: repeat;
+  background-size: 400px auto;
+  opacity: 0.05;
+  pointer-events: none;
+}
+
+/* Black line art reads as near-invisible on a dark navy background, so dark
+   mode inverts it to light strokes instead — same trick as .tuma-map-tint. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tuma-chat-bg::before {
+    filter: invert(1);
+    opacity: 0.07;
+  }
+}
+
+:root[data-theme="dark"] .tuma-chat-bg::before {
+  filter: invert(1);
+  opacity: 0.07;
+}

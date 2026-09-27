@@ -343,7 +343,7 @@ export default function RestaurantChatPage() {
         </header>
 
         <PhotoProvider>
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+          <div className="tuma-chat-bg min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {messages.length === 0 && (
               <p className="py-8 text-center text-xs text-ink-500">
                 No messages yet — ask about opening hours, an item, or anything else.

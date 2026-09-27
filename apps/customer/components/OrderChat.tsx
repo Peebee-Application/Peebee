@@ -595,7 +595,7 @@ export function OrderChat({ orderId, variant = "embedded" }: Props) {
       <PhotoProvider>
         <div className="flex min-h-0 flex-1 flex-col bg-cream">
           {order && <OrderSummaryCard order={order} items={items} />}
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">{bubbles}</div>
+          <div className="tuma-chat-bg min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">{bubbles}</div>
           <div className="shrink-0 border-t border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5">
             {composer}
           </div>
@@ -608,7 +608,7 @@ export function OrderChat({ orderId, variant = "embedded" }: Props) {
     <PhotoProvider>
       <section className="space-y-2.5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">Chat</h2>
-        <div className="max-h-80 space-y-3 overflow-y-auto rounded-[28px] bg-[rgb(var(--surface-muted))] p-4">
+        <div className="tuma-chat-bg max-h-80 space-y-3 overflow-y-auto rounded-[28px] bg-[rgb(var(--surface-muted))] p-4">
           {bubbles}
         </div>
         {composer}
