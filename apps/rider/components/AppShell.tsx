@@ -10,12 +10,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAuthPage = pathname === "/login" || pathname === "/forgot-password" || pathname.startsWith("/verify");
   // "/chat" itself is a normal list screen (conversations) with the usual
-  // header + nav; a specific thread ("/chat/<counterpartId>") takes over
-  // the header only — the bottom nav stays so people can jump straight
-  // back to the rest of the app without leaving chat first.
+  // header + nav; a specific thread ("/chat/<counterpartId>") is a
+  // full-screen takeover — its own header/footer replace
+  // BrandHeader/BottomNav so the conversation gets the full viewport
+  // with nothing floating over it.
   const isChatThread = pathname.startsWith("/chat/");
   const showHeader = !isAuthPage && !isChatThread;
-  const showNav = !isAuthPage;
+  const showNav = !isAuthPage && !isChatThread;
 
   return (
     <AuthGate>

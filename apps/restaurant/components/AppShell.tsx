@@ -9,12 +9,12 @@ import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./Pra
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAuthPage = pathname === "/login" || pathname === "/forgot-password" || pathname.startsWith("/verify");
-  // A specific chat thread ("/chat/<customerId>") is a full-screen takeover
-  // with its own header — the bottom nav stays so the owner can jump
-  // straight back to the rest of the app without leaving chat first.
+  // A specific chat thread ("/chat/<customerId>") is a full-screen
+  // takeover — its own header/footer replace BrandHeader/BottomNav so the
+  // conversation gets the full viewport with nothing floating over it.
   const isChatThread = pathname.startsWith("/chat/");
   const showHeader = !isAuthPage && !isChatThread;
-  const showNav = !isAuthPage;
+  const showNav = !isAuthPage && !isChatThread;
 
   return (
     <AuthGate>

@@ -63,13 +63,13 @@ export default function ChatThreadPage() {
   }
 
   return (
-    // Fixed to the true viewport edges (stopping above the bottom nav,
-    // which stays visible on this screen) rather than a dvh/JS height
-    // calc — those drift from the real visible viewport on some mobile
-    // browsers (address-bar show/hide, embedded WebViews), which let the
-    // page itself scroll and dragged this "sticky" header/composer away
-    // with it. `fixed` can't be scrolled away by an ancestor no matter what.
-    <div className="fixed inset-x-0 top-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 flex flex-col overflow-hidden bg-cream pt-[env(safe-area-inset-top)]">
+    // Fixed to the true viewport edges rather than a dvh/JS height calc —
+    // those drift from the real visible viewport on some mobile browsers
+    // (address-bar show/hide, embedded WebViews), which let the page
+    // itself scroll and dragged this "sticky" header/composer away with
+    // it. `fixed` can't be scrolled away by an ancestor no matter what.
+    // No bottom nav to leave room for — this screen is a full takeover.
+    <div className="fixed inset-0 z-40 flex flex-col overflow-hidden bg-cream pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col overflow-hidden">
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5">
           <button
