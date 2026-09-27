@@ -9,7 +9,6 @@ import { OrderChat } from "../../../components/OrderChat";
 import { api } from "../../../lib/api";
 import { useCalls } from "../../../lib/calls-context";
 import { useTranslate } from "../../../lib/i18n";
-import { useViewportHeight } from "../../../lib/use-viewport-height";
 
 export default function ChatThreadPage() {
   const t = useTranslate();
@@ -18,7 +17,6 @@ export default function ChatThreadPage() {
   const router = useRouter();
   const [thread, setThread] = useState<ChatThreadDetail | null | undefined>(undefined);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const viewportHeight = useViewportHeight();
   const { startCall } = useCalls();
 
   useEffect(() => {
@@ -65,11 +63,14 @@ export default function ChatThreadPage() {
   }
 
   return (
-    <div
-      className="h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))]"
-      style={viewportHeight != null ? { height: `calc(${viewportHeight}px - 3.5rem - env(safe-area-inset-bottom))` } : undefined}
-    >
-      <div className="mx-auto flex h-full max-w-lg flex-col bg-cream">
+    // Fixed to the true viewport edges (stopping above the bottom nav,
+    // which stays visible on this screen) rather than a dvh/JS height
+    // calc — those drift from the real visible viewport on some mobile
+    // browsers (address-bar show/hide, embedded WebViews), which let the
+    // page itself scroll and dragged this "sticky" header/composer away
+    // with it. `fixed` can't be scrolled away by an ancestor no matter what.
+    <div className="fixed inset-x-0 top-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 flex flex-col overflow-hidden bg-cream pt-[env(safe-area-inset-top)]">
+      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col overflow-hidden">
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5">
           <button
             type="button"
