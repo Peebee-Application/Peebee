@@ -42,7 +42,7 @@ export default function LoginPage() {
       {mode === "register" && <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"/>}
       <input required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="Email or phone" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"/>
       <input required minLength={6} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"/>
-      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       <button disabled={busy} className="min-h-12 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-50">{busy ? "Please wait…" : mode === "login" ? "Log in" : "Continue"}</button>
     </form>
     <GoogleSignInButton />

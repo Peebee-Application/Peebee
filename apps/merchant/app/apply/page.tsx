@@ -51,7 +51,7 @@ export default function ApplyPage() {
       <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Business phone" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"/>
       <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Outlet address" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"/>
       <button type="button" onClick={captureLocation} disabled={busy} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-gold font-bold text-gold"><LocateFixed className="h-4 w-4"/>{location ? `Location captured (${location.lat.toFixed(4)}, ${location.lng.toFixed(4)})` : "Capture outlet location"}</button>
-      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       <button disabled={busy || !location} className="min-h-12 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-50">{busy ? "Submitting…" : "Submit for review"}</button>
     </form>
     <button type="button" onClick={logout} className="w-full text-sm font-semibold text-ink-500">Use another account</button>

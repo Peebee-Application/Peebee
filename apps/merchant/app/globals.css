@@ -17,7 +17,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --cream: 13 32 61;
     --ink: 247 243 238;
@@ -29,6 +29,19 @@
     --surface-input: 33 63 106;
     --border-faint: rgba(247, 243, 238, 0.11);
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --cream: 13 32 61;
+  --ink: 247 243 238;
+  --ink-muted: 168 180 200;
+  --navy: 120 155 214;
+  --green: 47 168 106;
+  --surface: 22 48 88;
+  --surface-muted: 40 76 122;
+  --surface-input: 33 63 106;
+  --border-faint: rgba(247, 243, 238, 0.11);
 }
 
 body { background: rgb(var(--cream)); color: rgb(var(--ink)); }
