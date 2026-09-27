@@ -154,6 +154,16 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   wallet_to: { en: "To", lg: "Okutuuka" },
   wallet_choose_wallet: { en: "Choose a wallet", lg: "Londa ensawo" },
   wallet_moving: { en: "Moving…", lg: "Tusengeka…" },
+  wallet_shared_balance_hidden: { en: "Shared", lg: "Egabaniddwa" },
+  wallet_active_recipients: { en: "{count} active recipient{plural}", lg: "{count} afuna{plural} akola" },
+
+  // Bottom nav — active-order tracker
+  nav_tracker_title: { en: "Live Delivery Tracker", lg: "Endabika y'Ekiragiddwa mu Kaseera" },
+  nav_tracker_pin_label: { en: "PIN: {pin}", lg: "PIN: {pin}" },
+  nav_tracker_parcel: { en: "Parcel Dispatch", lg: "Okusindika Ekipakedde" },
+  nav_tracker_shopping: { en: "Shopping Order", lg: "Ekiragiddwa ky'Okugula" },
+  nav_tracker_handover_pin: { en: "Handover PIN", lg: "PIN y'Okuwaayo" },
+  nav_tracker_open_full: { en: "Open Full Tracking & Map →", lg: "Zibula Endabika Yonna & Mabu →" },
 
   // Restaurants
   restaurants_title: { en: "Restaurants", lg: "Amaduuka g'Emmere" },
