@@ -1,6 +1,6 @@
 "use client";
 
-import type { MerchantPayment, MerchantPaymentSummary } from "@tuma/shared";
+import { isPracticeMode, practicePaymentCode, type MerchantPayment, type MerchantPaymentSummary } from "@tuma/shared";
 import { CheckCircle2, Search, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
@@ -17,6 +17,8 @@ export default function PaymentsPage() {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => { if (isPracticeMode()) setCode(practicePaymentCode()); }, []);
 
   const load = useCallback(async () => { if (merchant) setPayments((await api.merchantPayments(merchant.id)).payments); }, [merchant]);
   useEffect(() => { load().catch((cause) => setError(errorMessage(cause))); }, [load]);

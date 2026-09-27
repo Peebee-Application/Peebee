@@ -1,9 +1,9 @@
 "use client";
 
-import type { MerchantPayment } from "@tuma/shared";
+import { isPracticeMode, practicePaymentCode, type MerchantPayment } from "@tuma/shared";
 import { CheckCircle2, ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 
 const money = (amount: number) => `UGX ${Number(amount).toLocaleString()}`;
@@ -13,6 +13,8 @@ export default function MerchantPaymentConfirmationPage() {
   const [payment, setPayment] = useState<MerchantPayment | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => { if (isPracticeMode()) setPaymentId(practicePaymentCode()); }, []);
 
   async function lookUp(event: React.FormEvent) {
     event.preventDefault();

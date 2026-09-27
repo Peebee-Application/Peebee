@@ -1,4 +1,5 @@
 import type { AdminRole } from "./permissions.js";
+import type { PracticeRole } from "./practice.js";
 import type {
   ActivityLogEntry,
   AdminMerchantSettlementAccount,
@@ -1341,6 +1342,18 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     // Delivery pricing settings (rate per km, service range) — public read, admin write.
     async getSettings() {
       return request<{ settings: DeliverySettings }>("/v1/settings");
+    },
+    async getPracticeStatus(experience: PracticeRole) {
+      return request<{ practice: { experience: PracticeRole; available: boolean; completed: boolean; optedOut: boolean; lastPromptedAt: string | null; shouldPrompt: boolean; reminderDays: number } }>(`/v1/practice/${experience}/status`);
+    },
+    async markPracticePrompted(experience: PracticeRole) {
+      return request<{ ok: true }>(`/v1/practice/${experience}/prompted`, { method: "POST" });
+    },
+    async completePractice(experience: PracticeRole) {
+      return request<{ ok: true }>(`/v1/practice/${experience}/completed`, { method: "POST" });
+    },
+    async dismissPracticeReminder(experience: PracticeRole) {
+      return request<{ ok: true }>(`/v1/practice/${experience}/dismiss`, { method: "POST" });
     },
     async adminUpdateSettings(input: Partial<DeliverySettings>) {
       return request<{ settings: DeliverySettings }>("/v1/admin/settings", {

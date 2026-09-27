@@ -1,6 +1,6 @@
 "use client";
 
-import type { MerchantPayment, OrderDetail } from "@tuma/shared";
+import { isPracticeMode, type MerchantPayment, type OrderDetail } from "@tuma/shared";
 import { MapPin, MessageCircle, Pencil, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -41,6 +41,13 @@ export default function JobDetailPage() {
   const [merchantAmount, setMerchantAmount] = useState("");
   const [receiptReference, setReceiptReference] = useState("");
   const [merchantPayment, setMerchantPayment] = useState<MerchantPayment | null>(null);
+
+  useEffect(() => {
+    if (!isPracticeMode()) return;
+    setOutletCode("TUMA-DEMO");
+    setMerchantAmount("28000");
+    setReceiptReference("PRACTICE-001");
+  }, []);
 
   const load = useCallback(async () => {
     const res = await api.getOrder(orderId);

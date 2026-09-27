@@ -3,6 +3,7 @@ import { z } from "zod";
 import { logActivity } from "../admin/activity.js";
 import { hasPermission, requirePermission } from "../admin/permissions.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
+import { db } from "../db/client.js";
 import { clientIp } from "../lib/ratelimit.js";
 import {
   getActiveCallProvider,
@@ -137,6 +138,70 @@ async function fullSettings() {
  * /v1 router, which covers everything mounted after it, this included. */
 settingsRoutes.get("/settings", async (c) => {
   return c.json({ settings: await fullSettings() });
+});
+
+const practiceExperienceSchema = z.enum(["customer", "rider", "restaurant", "merchant"]);
+const PRACTICE_REMINDER_DAYS = 7;
+
+settingsRoutes.get("/practice/:experience/status", requireAuth, async (c) => {
+  const experience = practiceExperienceSchema.safeParse(c.req.param("experience"));
+  if (!experience.success) return c.json({ error: "invalid_experience" }, 400);
+  const user = c.get("user");
+  const result = await db.execute({
+    sql: `SELECT completed_at, opted_out_at, last_prompted_at
+          FROM user_practice_preferences WHERE user_id = ? AND experience = ?`,
+    args: [user.sub, experience.data],
+  });
+  const row = result.rows[0] as { completed_at?: string | null; opted_out_at?: string | null; last_prompted_at?: string | null } | undefined;
+  const completed = !!row?.completed_at;
+  const optedOut = !!row?.opted_out_at;
+  const lastPromptedAt = row?.last_prompted_at ?? null;
+  const lastPromptedMs = lastPromptedAt ? Date.parse(`${lastPromptedAt.replace(" ", "T")}Z`) : 0;
+  const reminderDue = !lastPromptedAt || Date.now() - lastPromptedMs >= PRACTICE_REMINDER_DAYS * 86_400_000;
+  const available = (await getSetting("user_practice_mode_enabled")) === "1";
+  return c.json({ practice: { experience: experience.data, available, completed, optedOut, lastPromptedAt, shouldPrompt: available && !completed && !optedOut && reminderDue, reminderDays: PRACTICE_REMINDER_DAYS } });
+});
+
+settingsRoutes.post("/practice/:experience/prompted", requireAuth, async (c) => {
+  const experience = practiceExperienceSchema.safeParse(c.req.param("experience"));
+  if (!experience.success) return c.json({ error: "invalid_experience" }, 400);
+  const user = c.get("user");
+  await db.execute({
+    sql: `INSERT INTO user_practice_preferences (user_id, experience, last_prompted_at)
+          VALUES (?, ?, datetime('now'))
+          ON CONFLICT(user_id, experience) DO UPDATE SET
+            last_prompted_at = datetime('now'), updated_at = datetime('now')`,
+    args: [user.sub, experience.data],
+  });
+  return c.json({ ok: true });
+});
+
+settingsRoutes.post("/practice/:experience/completed", requireAuth, async (c) => {
+  const experience = practiceExperienceSchema.safeParse(c.req.param("experience"));
+  if (!experience.success) return c.json({ error: "invalid_experience" }, 400);
+  const user = c.get("user");
+  await db.execute({
+    sql: `INSERT INTO user_practice_preferences (user_id, experience, completed_at)
+          VALUES (?, ?, datetime('now'))
+          ON CONFLICT(user_id, experience) DO UPDATE SET
+            completed_at = datetime('now'), updated_at = datetime('now')`,
+    args: [user.sub, experience.data],
+  });
+  return c.json({ ok: true });
+});
+
+settingsRoutes.post("/practice/:experience/dismiss", requireAuth, async (c) => {
+  const experience = practiceExperienceSchema.safeParse(c.req.param("experience"));
+  if (!experience.success) return c.json({ error: "invalid_experience" }, 400);
+  const user = c.get("user");
+  await db.execute({
+    sql: `INSERT INTO user_practice_preferences (user_id, experience, opted_out_at)
+          VALUES (?, ?, datetime('now'))
+          ON CONFLICT(user_id, experience) DO UPDATE SET
+            opted_out_at = datetime('now'), updated_at = datetime('now')`,
+    args: [user.sub, experience.data],
+  });
+  return c.json({ ok: true });
 });
 
 const updateSchema = z.object({

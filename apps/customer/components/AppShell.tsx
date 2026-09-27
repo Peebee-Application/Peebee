@@ -5,7 +5,7 @@ import { AuthGate } from "./AuthGate";
 import { BottomNav } from "./BottomNav";
 import { BrandHeader } from "./BrandHeader";
 import { OfflineBanner } from "./OfflineBanner";
-import { PracticeModeRedirect } from "./PracticeMode";
+import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./PracticeMode";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,15 +16,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // whole screen — its own header/footer replace BrandHeader/BottomNav so
   // the conversation gets the full viewport with nothing floating over it.
   const isChatThread = pathname.startsWith("/chat/") || /^\/restaurants\/[^/]+\/chat$/.test(pathname);
-  const isPracticePage = pathname === "/practice";
-  const showHeader = !isAuthPage && !isChatThread && !isPracticePage;
-  const showNav = !isAuthPage && !isChatThread && !isPracticePage;
+  const showHeader = !isAuthPage && !isChatThread;
+  const showNav = !isAuthPage && !isChatThread;
 
   return (
     <AuthGate>
-      <PracticeModeRedirect pathname={pathname} />
-      {!isAuthPage && !isPracticePage && <OfflineBanner />}
+      <PracticeModeGuard role="customer" pathname={pathname} />
+      {!isAuthPage && <PracticeModePrompt role="customer" />}
+      {!isAuthPage && <OfflineBanner />}
       {showHeader && <BrandHeader />}
+      {!isAuthPage && <PracticeModeBanner role="customer" />}
       <main
         className={`mx-auto max-w-lg ${showHeader ? "min-h-[calc(100dvh-3.5rem)]" : "min-h-dvh"} ${
           showNav ? "pb-[calc(5rem+env(safe-area-inset-bottom))]" : ""

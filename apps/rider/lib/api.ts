@@ -1,4 +1,4 @@
-import { createApiClient, friendlyErrorMessage } from "@tuma/shared";
+import { createApiClient, createPracticeFetch, friendlyErrorMessage } from "@tuma/shared";
 
 export const TOKEN_KEY = "tuma_rider_token";
 export const USER_KEY = "tuma_rider_user";
@@ -21,6 +21,7 @@ function onUnauthorized() {
 
 export const api = createApiClient({
   baseUrl: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:10000",
+  fetchImpl: createPracticeFetch("rider"),
   getToken: getStoredToken,
   onUnauthorized,
 });

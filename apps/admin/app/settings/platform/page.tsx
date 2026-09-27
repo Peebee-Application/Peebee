@@ -74,7 +74,8 @@ function PracticeModeAvailability({ current, onChanged }: { current: boolean; on
         </span>
       </div>
       <p className="text-xs text-ink-500">
-        Lets customers, riders, restaurants and merchants launch isolated guided simulations from their account page.
+        Lets customers, riders, restaurants and merchants practise inside their real app screens using isolated sample data.
+        New or incomplete users are reminded every seven days unless they finish or choose not to be reminded again.
         Practice never creates live orders, changes balances, notifies other users or calls a payment provider.
       </p>
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}

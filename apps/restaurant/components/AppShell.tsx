@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { AuthGate } from "./AuthGate";
 import { BottomNav } from "./BottomNav";
 import { BrandHeader } from "./BrandHeader";
-import { PracticeModeRedirect } from "./PracticeMode";
+import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./PracticeMode";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -13,14 +13,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // with its own header — the bottom nav stays so the owner can jump
   // straight back to the rest of the app without leaving chat first.
   const isChatThread = pathname.startsWith("/chat/");
-  const isPracticePage = pathname === "/practice";
-  const showHeader = !isAuthPage && !isChatThread && !isPracticePage;
-  const showNav = !isAuthPage && !isPracticePage;
+  const showHeader = !isAuthPage && !isChatThread;
+  const showNav = !isAuthPage;
 
   return (
     <AuthGate>
-      <PracticeModeRedirect pathname={pathname} />
+      <PracticeModeGuard role="restaurant" pathname={pathname} />
+      {!isAuthPage && <PracticeModePrompt role="restaurant" />}
       {showHeader && <BrandHeader />}
+      {!isAuthPage && <PracticeModeBanner role="restaurant" />}
       <main
         className={`mx-auto max-w-lg ${showHeader ? "min-h-[calc(100dvh-3.5rem)]" : "min-h-dvh"} ${
           showNav ? "pb-[calc(3.5rem+env(safe-area-inset-bottom))]" : ""

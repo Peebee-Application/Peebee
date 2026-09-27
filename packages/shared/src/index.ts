@@ -25,6 +25,15 @@ export {
 export type { AdminRole, Permission } from "./permissions.js";
 export { PRACTICE_JOURNEYS, PRACTICE_MODE_STORAGE_KEY } from "./practice.js";
 export type { PracticeJourney, PracticeRole, PracticeStep } from "./practice.js";
+export {
+  createPracticeFetch,
+  exitPracticeMode,
+  isPracticeJourneyComplete,
+  isPracticeMode,
+  practicePaymentCode,
+  practiceStartPath,
+  startPracticeMode,
+} from "./practice-runtime.js";
 export type {
   ListStatus,
   ListSummary,

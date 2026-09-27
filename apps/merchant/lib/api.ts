@@ -1,4 +1,4 @@
-import { createApiClient, friendlyErrorMessage } from "@tuma/shared";
+import { createApiClient, createPracticeFetch, friendlyErrorMessage } from "@tuma/shared";
 
 export const TOKEN_KEY = "tuma_merchant_token";
 export const USER_KEY = "tuma_merchant_user";
@@ -9,6 +9,7 @@ export function getStoredToken() {
 
 export const api = createApiClient({
   baseUrl: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:10000",
+  fetchImpl: createPracticeFetch("merchant"),
   getToken: getStoredToken,
   onUnauthorized() {
     if (typeof window === "undefined") return;
