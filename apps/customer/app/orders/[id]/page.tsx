@@ -1,8 +1,8 @@
 "use client";
 
 import type { MobileMoneyNetwork, OrderDetail, OrderRating, RiderApplicant, WalletShareReceived } from "@tuma/shared";
-import { detectMobileMoneyNetwork, mobileMoneyNetworkLabel, timeFeeNotice } from "@tuma/shared";
-import { MapPin, MessageCircle, Star, ThumbsUp, TriangleAlert, User } from "lucide-react";
+import { detectMobileMoneyNetwork, mobileMoneyNetworkLabel } from "@tuma/shared";
+import { MapPin, MessageCircle, Star, ThumbsUp, TriangleAlert, User, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BottomDrawer } from "../../../components/BottomDrawer";
@@ -197,6 +197,7 @@ export default function OrderDetailPage() {
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [sharedWallets, setSharedWallets] = useState<WalletShareReceived[]>([]);
   const [cancelConfirm, setCancelConfirm] = useState<"cancel" | "delete" | null>(null);
+  const [dismissedWaitingNotice, setDismissedWaitingNotice] = useState<string | null>(null);
   const online = useNetworkStatus();
   const { markUpdated, label: staleLabel } = useFreshness();
   const detectedNetwork = useMemo(() => detectMobileMoneyNetwork(msisdn), [msisdn]);
@@ -384,8 +385,39 @@ export default function OrderDetailPage() {
   const canCancel = timeFees?.canCancel ?? (!order.rider_id && ["Create", "Match"].includes(order.stage));
   const canDelete = !order.rider_id && ["Create", "Match"].includes(order.stage);
 
+  // Only pop up once the free window is genuinely closing (last 90s) or has
+  // just charged — not on every load, and not as a permanent banner.
+  const msToWaitingEnd = timeFees?.waitingEndsAt ? Date.parse(timeFees.waitingEndsAt) - Date.now() : null;
+  const waitingNoticeKind: "warn" | "due" | null =
+    !timeFees || order.stage !== "Arrived"
+      ? null
+      : timeFees.waitingDue > 0
+        ? "due"
+        : msToWaitingEnd !== null && msToWaitingEnd > 0 && msToWaitingEnd <= 90_000
+          ? "warn"
+          : null;
+  const waitingNoticeKey = waitingNoticeKind ? `${timeFees?.waitingStartedAt}:${waitingNoticeKind}` : null;
+  const showWaitingNotice = waitingNoticeKey !== null && dismissedWaitingNotice !== waitingNoticeKey;
+
   return (
     <div className="space-y-6 px-4 pb-24 pt-4">
+      {showWaitingNotice && (
+        <div className="fixed inset-x-4 top-4 z-40 flex items-start gap-2 rounded-2xl border border-gold/30 bg-[rgb(var(--surface))] px-4 py-3 text-sm text-ink shadow-lg">
+          <p className="flex-1">
+            {waitingNoticeKind === "due"
+              ? `Free waiting is over — a ${formatUgx(timeFees!.waitingFee)} fee applies.`
+              : "Free waiting time is almost up."}
+          </p>
+          <button
+            type="button"
+            onClick={() => setDismissedWaitingNotice(waitingNoticeKey)}
+            className="shrink-0 text-ink-500"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       <header className="space-y-1">
         <div className="flex items-start justify-between gap-3">
           <h1 className="text-xl font-bold text-ink">{orderTitle(order)}</h1>
@@ -420,13 +452,6 @@ export default function OrderDetailPage() {
         </p>
         {order.stage === "Cancelled" && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{t("order_cancelled_note")}</p>
-        )}
-        {timeFees && (timeFees.cancellationFee > 0 || timeFees.waitingFee > 0) && order.stage !== "Cancelled" && (
-          <p className="rounded-lg bg-gold/10 px-3 py-2 text-sm text-ink-500">
-            {timeFees.waitingDue > 0
-              ? `Your rider has waited beyond the free time. A waiting fee of ${formatUgx(timeFees.waitingDue)} will be charged from your main wallet when this stop is completed.`
-              : timeFeeNotice(timeFees, !!order.is_ride)}
-          </p>
         )}
         {order.type === "parcel" && order.pickup_area && (
           <p className="flex items-center gap-1.5 text-sm text-ink-500">
