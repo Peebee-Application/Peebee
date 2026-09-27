@@ -23,6 +23,8 @@ export {
   permissionsFor,
 } from "./permissions.js";
 export type { AdminRole, Permission } from "./permissions.js";
+export { PRACTICE_JOURNEYS, PRACTICE_MODE_STORAGE_KEY } from "./practice.js";
+export type { PracticeJourney, PracticeRole, PracticeStep } from "./practice.js";
 export type {
   ListStatus,
   ListSummary,

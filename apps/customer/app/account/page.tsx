@@ -8,6 +8,7 @@ import { AppearanceSettings } from "../../components/AppearanceSettings";
 import { ChangePasswordPanel } from "../../components/ChangePasswordPanel";
 import { LanguageSettings } from "../../components/LanguageSettings";
 import { ProfilePhoto } from "../../components/ProfilePhoto";
+import { PracticeModeCard } from "../../components/PracticeMode";
 import { SavedLocations } from "../../components/SavedLocations";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
@@ -99,6 +100,8 @@ export default function AccountPage() {
       </Link>
 
       <MatchingPreference />
+
+      <PracticeModeCard role="customer" />
 
       <AppearanceSettings />
 

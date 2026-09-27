@@ -12,6 +12,9 @@ const DEFAULTS = {
    * doesn't delete or move anything — it just changes which environment's
    * rows every read/write path in the app targets. */
   platform_environment: "live",
+  /** Allows users to launch isolated guided practice journeys. Unlike
+   * platform_environment this never redirects operational API traffic. */
+  user_practice_mode_enabled: "1",
   delivery_rate_per_km: "1000",
   /** Floor on a parcel ride's distance-priced delivery fee (UGX) — a rider
    * still has to go collect and deliver the item even when pickup and

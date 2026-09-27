@@ -14,6 +14,7 @@ import { AppearanceSettings } from "../../components/AppearanceSettings";
 import { ChangePasswordPanel } from "../../components/ChangePasswordPanel";
 import { LanguageSettings } from "../../components/LanguageSettings";
 import { MobileNumberManager } from "../../components/MobileNumberManager";
+import { PracticeModeCard } from "../../components/PracticeMode";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { compressImage } from "../../lib/image-compress";
@@ -257,6 +258,8 @@ export default function AccountPage() {
       </section>
 
       <SubscriptionCard />
+
+      <PracticeModeCard role="rider" />
 
       <AppearanceSettings />
 

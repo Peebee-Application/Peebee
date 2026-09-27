@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { AppearanceSettings } from "../../components/AppearanceSettings";
 import { ChangePasswordPanel } from "../../components/ChangePasswordPanel";
 import { LanguageSettings } from "../../components/LanguageSettings";
+import { PracticeModeCard } from "../../components/PracticeMode";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 
@@ -237,6 +238,7 @@ export default function AccountPage() {
         </button>
       </form>
 
+      <PracticeModeCard role="restaurant" />
       <AppearanceSettings />
       <LanguageSettings />
       <ChangePasswordPanel />

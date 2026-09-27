@@ -54,7 +54,7 @@ import { paymentsIntegrationStatus } from "../payments/service.js";
 export const settingsRoutes = new Hono();
 
 async function fullSettings() {
-  const [delivery, matching, activeProviders, demoMode, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen] =
+  const [delivery, matching, activeProviders, demoMode, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen] =
     await Promise.all([
       getDeliverySettings(),
       getMatchingSettings(),
@@ -64,6 +64,7 @@ async function fullSettings() {
       getVoiceNoteMaxSeconds(),
       getMonetizationSettings(),
       getPlatformEnvironment(),
+      getSetting("user_practice_mode_enabled"),
       getRiderReserveSettings(),
       getActiveCallProvider(),
       getActiveMapsProvider(),
@@ -113,6 +114,7 @@ async function fullSettings() {
     walletMaxTopup: wallet.maxTopup,
     voiceNoteMaxSeconds,
     platformEnvironment,
+    practiceModeEnabled: practiceModeEnabled === "1",
     riderMinimumBalanceEnabled: riderReserve.enabled,
     riderMinimumBalanceAmount: riderReserve.amount,
     callsActiveProvider,
@@ -149,6 +151,7 @@ const updateSchema = z.object({
   maxAssignmentMinutes: z.number().int().positive().max(120).optional(),
   paymentsActiveProviders: z.array(z.enum(["yo", "flutterwave", "mtn", "airtel"])).min(1).max(4).optional(),
   paymentsDemoMode: z.boolean().optional(),
+  practiceModeEnabled: z.boolean().optional(),
   merchantPaymentsEnabled: z.boolean().optional(),
   walletUnverifiedCap: z.number().int().positive().max(100_000_000).optional(),
   walletVerifiedCap: z.number().int().positive().max(100_000_000).optional(),
@@ -251,6 +254,9 @@ settingsRoutes.put(
     }
     if (parsed.data.paymentsDemoMode != null) {
       await setPaymentsDemoMode(parsed.data.paymentsDemoMode);
+    }
+    if (parsed.data.practiceModeEnabled != null) {
+      await setSetting("user_practice_mode_enabled", parsed.data.practiceModeEnabled ? "1" : "0");
     }
     if (parsed.data.merchantPaymentsEnabled != null) {
       if (parsed.data.merchantPaymentsEnabled && before.platformEnvironment === "live") {

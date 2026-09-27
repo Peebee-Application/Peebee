@@ -183,6 +183,9 @@ export type DeliverySettings = {
    * read-only here (GET /settings); change it with
    * adminSetPlatformEnvironment. */
   platformEnvironment: PlatformEnvironment;
+  /** Whether signed-in users may launch isolated, browser-local guided
+   * practice journeys. This does not change platformEnvironment. */
+  practiceModeEnabled: boolean;
   deliveryRatePerKm: number;
   /** Floor on a parcel ride's distance-priced fee (UGX) — never lets a very
    * short ride round down toward a near-free delivery. */
