@@ -147,4 +147,9 @@ export type {
   MapsCredentialFieldStatus,
   MapsAdminSettings,
   NavMode,
+  VslaSettings,
+  VslaStageCreationMode,
+  VslaContributionRecorderRole,
+  VslaAdminLedgerVisibility,
+  VslaFeaturePlacement,
 } from "./domain.js";

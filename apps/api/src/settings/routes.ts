@@ -19,6 +19,7 @@ import {
   getPlatformEnvironment,
   getRiderReserveSettings,
   getVoiceNoteMaxSeconds,
+  getVslaSettings,
   getWalletSettings,
   setActiveCallProvider,
   setActiveMapsProvider,
@@ -30,6 +31,7 @@ import {
   setPlatformEnvironment,
   setRiderReserveSettings,
   setSetting,
+  setVslaSettings,
   type CallProviderIdentity,
   type MapsProviderIdentity,
   type NavMode,
@@ -56,7 +58,7 @@ import { paymentsIntegrationStatus } from "../payments/service.js";
 export const settingsRoutes = new Hono();
 
 async function fullSettings() {
-  const [delivery, matching, activeProviders, demoMode, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen] =
+  const [delivery, matching, activeProviders, demoMode, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla] =
     await Promise.all([
       getDeliverySettings(),
       getMatchingSettings(),
@@ -75,6 +77,7 @@ async function fullSettings() {
       getSetting("merchant_sandbox_enabled"),
       getSetting("merchant_live_custody_approved"),
       getSetting("merchant_withdrawals_frozen"),
+      getVslaSettings(),
     ]);
 
   // The active provider's own key/token, handed to every signed-in client
@@ -130,6 +133,17 @@ async function fullSettings() {
     mapsJawgAccessToken,
     navMode,
     ...monetization,
+    vslaStageCreationMode: vsla.stageCreationMode,
+    vslaLoanInterestEnabled: vsla.loanInterestEnabled,
+    vslaDefaultInterestRate: vsla.defaultInterestRate,
+    vslaDefaultLoanableMultiple: vsla.defaultLoanableMultiple,
+    vslaDefaultCycleMonths: vsla.defaultCycleMonths,
+    vslaDefaultMaxLoanMonths: vsla.defaultMaxLoanMonths,
+    vslaContributionRecorderRole: vsla.contributionRecorderRole,
+    vslaCashDoubleCheckRequired: vsla.cashDoubleCheckRequired,
+    vslaAdminLedgerVisibility: vsla.adminLedgerVisibility,
+    vslaUnconfirmedIntentEscalationHours: vsla.unconfirmedIntentEscalationHours,
+    vslaFeaturePlacement: vsla.featurePlacement,
   };
 }
 
@@ -259,6 +273,18 @@ const updateSchema = z.object({
   subscriptionMode: z.enum(["recurring", "once"]).optional(),
   subscriptionAmount: z.number().min(0).max(1_000_000).optional(),
   subscriptionCadence: z.enum(["daily", "weekly", "monthly"]).optional(),
+  // Rider Stage Savings Circles — see ../lib/settings.ts getVslaSettings.
+  vslaStageCreationMode: z.enum(["admin_only", "self_service"]).optional(),
+  vslaLoanInterestEnabled: z.boolean().optional(),
+  vslaDefaultInterestRate: z.number().min(0).max(100).optional(),
+  vslaDefaultLoanableMultiple: z.number().positive().max(10).optional(),
+  vslaDefaultCycleMonths: z.number().int().positive().max(60).optional(),
+  vslaDefaultMaxLoanMonths: z.number().int().positive().max(24).optional(),
+  vslaContributionRecorderRole: z.enum(["any_officer", "treasurer_only"]).optional(),
+  vslaCashDoubleCheckRequired: z.boolean().optional(),
+  vslaAdminLedgerVisibility: z.enum(["read_only_all", "private_per_stage"]).optional(),
+  vslaUnconfirmedIntentEscalationHours: z.number().int().positive().max(168).optional(),
+  vslaFeaturePlacement: z.enum(["home_card_and_screen", "bottom_nav_tab", "account_only"]).optional(),
 });
 
 const PAYMENTS_FIELDS = [
@@ -390,6 +416,20 @@ settingsRoutes.put(
       subscriptionMode: parsed.data.subscriptionMode,
       subscriptionAmount: parsed.data.subscriptionAmount,
       subscriptionCadence: parsed.data.subscriptionCadence,
+    });
+
+    await setVslaSettings({
+      stageCreationMode: parsed.data.vslaStageCreationMode,
+      loanInterestEnabled: parsed.data.vslaLoanInterestEnabled,
+      defaultInterestRate: parsed.data.vslaDefaultInterestRate,
+      defaultLoanableMultiple: parsed.data.vslaDefaultLoanableMultiple,
+      defaultCycleMonths: parsed.data.vslaDefaultCycleMonths,
+      defaultMaxLoanMonths: parsed.data.vslaDefaultMaxLoanMonths,
+      contributionRecorderRole: parsed.data.vslaContributionRecorderRole,
+      cashDoubleCheckRequired: parsed.data.vslaCashDoubleCheckRequired,
+      adminLedgerVisibility: parsed.data.vslaAdminLedgerVisibility,
+      unconfirmedIntentEscalationHours: parsed.data.vslaUnconfirmedIntentEscalationHours,
+      featurePlacement: parsed.data.vslaFeaturePlacement,
     });
 
     const after = await fullSettings();

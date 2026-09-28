@@ -245,7 +245,38 @@ export type DeliverySettings = {
    * Maps ("external", the default) or renders navigation in-app using the
    * active maps provider ("in_app"). Change with PUT /admin/nav-mode. */
   navMode: NavMode;
-} & MonetizationSettings;
+} & MonetizationSettings &
+  VslaSettings;
+
+/** Rider Stage Savings Circles — a VSLA-style group savings/loans feature.
+ * See apps/api/src/stages/routes.ts and apps/api/src/lib/settings.ts
+ * getVslaSettings for how each of these is enforced. */
+export type VslaStageCreationMode = "admin_only" | "self_service";
+export type VslaContributionRecorderRole = "any_officer" | "treasurer_only";
+export type VslaAdminLedgerVisibility = "read_only_all" | "private_per_stage";
+export type VslaFeaturePlacement = "home_card_and_screen" | "bottom_nav_tab" | "account_only";
+
+export type VslaSettings = {
+  /** Whether a rider can start a new stage circle themselves, or only
+   * Tuma admin can (the default, until stage self-service is switched on). */
+  vslaStageCreationMode: VslaStageCreationMode;
+  vslaLoanInterestEnabled: boolean;
+  vslaDefaultInterestRate: number;
+  vslaDefaultLoanableMultiple: number;
+  vslaDefaultCycleMonths: number;
+  vslaDefaultMaxLoanMonths: number;
+  /** Who's allowed to confirm a declared contribution/repayment as
+   * actually received. */
+  vslaContributionRecorderRole: VslaContributionRecorderRole;
+  /** Whether a second officer must also confirm a cash amount before it
+   * counts, on top of the one who recorded it. */
+  vslaCashDoubleCheckRequired: boolean;
+  vslaAdminLedgerVisibility: VslaAdminLedgerVisibility;
+  /** Hours an unconfirmed contribution/repayment intent sits before the
+   * rider app prompts the member to call/message the treasurer. */
+  vslaUnconfirmedIntentEscalationHours: number;
+  vslaFeaturePlacement: VslaFeaturePlacement;
+};
 
 export type NavMode = "external" | "in_app";
 

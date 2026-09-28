@@ -6,6 +6,7 @@ import {
   FlaskConical,
   Mic,
   Map as MapIcon,
+  PiggyBank,
   Phone,
   Route,
   Store,
@@ -95,6 +96,13 @@ export const SETTINGS_LINKS: SettingsLink[] = [
     label: "Monetization",
     description: "Commission, service fee, processing fee, cash orders, subscription.",
     icon: Banknote,
+    show: (role) => hasPermission(role, "payments.manage"),
+  },
+  {
+    href: "/settings/stage-savings",
+    label: "Stage savings circles",
+    description: "Stage creation, loan interest, recorder role, admin visibility.",
+    icon: PiggyBank,
     show: (role) => hasPermission(role, "payments.manage"),
   },
   {
