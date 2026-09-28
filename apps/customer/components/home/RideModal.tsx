@@ -32,7 +32,6 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [pickup, setPickup] = useState<PointState>(emptyPoint);
   const [destination, setDestination] = useState<PointState>(emptyPoint);
   const [estimatedTotal, setEstimatedTotal] = useState("");
-  const [paymentRail, setPaymentRail] = useState<"escrow" | "float">("escrow");
   const [locations, setLocations] = useState<SavedLocation[]>([]);
   const [pricing, setPricing] = useState<{ ratePerKm: number; minimum: number } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -90,11 +89,11 @@ export function RideModal({ onClose }: { onClose: () => void }) {
         destinationAddress: d.address,
         destinationLat: d.lat,
         destinationLng: d.lng,
-        paymentRail,
+        paymentRail: "escrow",
         estimatedTotal: liveEstimate ?? (estimatedTotal ? roundFare(Number(estimatedTotal), pricing?.minimum) : undefined),
       });
       onClose();
-      router.push(`/orders/${order.id}`);
+      router.push(`/orders/${order.id}/pay`);
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -146,25 +145,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
             />
           )}
 
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{t("restaurant_payment")}</p>
-            <div className="flex gap-2">
-              {(["escrow", "float"] as const).map((rail) => (
-                <button
-                  key={rail}
-                  onClick={() => setPaymentRail(rail)}
-                  className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold ${
-                    paymentRail === rail ? "border-gold bg-gold/10 text-ink" : "border-[var(--border-faint)] text-ink-500"
-                  }`}
-                >
-                  {rail === "float" ? t("restaurant_cash") : t("restaurant_escrow")}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-ink-500">
-              {paymentRail === "float" ? t("restaurant_pay_rider_direct") : t("ride_pay_upfront")}
-            </p>
-          </div>
+
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -180,7 +161,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
               disabled={busy}
               className="min-h-12 flex-[2] rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
             >
-              {busy ? t("ride_requesting") : t("ride_request")}
+              {busy ? "Please wait…" : "Next: payment"}
             </button>
           </div>
         </div>

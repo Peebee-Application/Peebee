@@ -31,6 +31,11 @@ D1 binding is present, e.g. under plain `pnpm dev`) — see `TURSO_DATABASE_URL`
 
 ## Deploy
 
+Deployments are accepted only from a clean local `main` at the exact same
+commit as `origin/main`. See `COLLABORATION.md` for the Claude Code/Codex
+branch and handoff workflow. Each deploy command performs this check before
+building or publishing.
+
 ```bash
 # API (Hono → Worker)
 pnpm --filter api deploy          # wrangler deploy

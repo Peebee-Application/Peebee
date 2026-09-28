@@ -8,7 +8,6 @@ import { LocationPicker, emptyPoint, resolvePoint, type PointState } from "../Lo
 import { Modal } from "../Modal";
 import { api, errorMessage } from "../../lib/api";
 import { useTranslate, type TranslationKey } from "../../lib/i18n";
-import { SwipeToConfirm } from "../SwipeToConfirm";
 import { OrderVoiceNoteRecorder } from "./OrderVoiceNoteRecorder";
 
 /** Uganda's everyday market units — produce and groceries are almost
@@ -53,7 +52,6 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
 
   const [locations, setLocations] = useState<SavedLocation[]>([]);
   const [delivery, setDelivery] = useState<PointState>(emptyPoint);
-  const [paymentRail, setPaymentRail] = useState<"escrow" | "float">("escrow");
   const [voiceNote, setVoiceNote] = useState<Blob | null>(null);
   const [deliveryFee, setDeliveryFee] = useState(0);
 
@@ -107,10 +105,6 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
   }
 
   async function submit() {
-    // Thrown, not just set as an error string — this runs inside
-    // SwipeToConfirm's onConfirm, which only shows its "confirmed"
-    // checkmark once this promise resolves. Returning normally here would
-    // make it show success on a validation failure nobody actually fixed.
     const d = resolvePoint(delivery, locations);
     if (!d.area && !d.address) {
       setError(t("restaurant_choose_delivery_location"));
@@ -137,7 +131,7 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
         destinationAddress: d.address,
         destinationLat: d.lat,
         destinationLng: d.lng,
-        paymentRail,
+        paymentRail: "escrow",
         // The delivery fee is added server-side (see the API's shoppingDeliveryFee) —
         // this is just the items estimate, not itemsTotal + deliveryFee.
         estimatedTotal: itemsTotal || undefined,
@@ -146,7 +140,7 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
         api.uploadOrderVoiceNote(order.id, voiceNote).catch(() => {});
       }
       onClose();
-      router.push(`/orders/${order.id}`);
+      router.push(`/orders/${order.id}/pay`);
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -307,35 +301,12 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
           {/* Voice mode already recorded the list itself as this same voice note — asking again here would be redundant. */}
           {mode === "list" && <OrderVoiceNoteRecorder blob={voiceNote} onChange={setVoiceNote} />}
 
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{t("restaurant_payment")}</p>
-            <div className="flex gap-2">
-              {(["escrow", "float"] as const).map((rail) => (
-                <button
-                  key={rail}
-                  onClick={() => setPaymentRail(rail)}
-                  className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold ${
-                    paymentRail === rail ? "border-gold bg-gold/10 text-ink" : "border-[var(--border-faint)] text-ink-500"
-                  }`}
-                >
-                  {rail === "float" ? t("restaurant_cash") : t("restaurant_escrow")}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-ink-500">
-              {paymentRail === "float" ? t("restaurant_pay_rider_direct") : t("restaurant_pay_upfront")}
-            </p>
-          </div>
+
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
           <div className="space-y-3 pt-2">
-            <SwipeToConfirm
-              label={t("list_slide_to_send")}
-              confirmedLabel={t("list_order_sent")}
-              onConfirm={submit}
-              disabled={busy}
-            />
+            <button type="button" onClick={() => void submit().catch(() => {})} disabled={busy} className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold disabled:opacity-60">{busy ? "Please wait…" : "Next: payment"}</button>
             <button
               type="button"
               onClick={() => setStep("items")}

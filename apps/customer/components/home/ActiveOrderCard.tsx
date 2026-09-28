@@ -49,7 +49,7 @@ export function ActiveOrderCard() {
       </div>
 
       <Link
-        href={`/orders/${order.id}`}
+        href={needsPayment ? `/orders/${order.id}/pay` : `/orders/${order.id}`}
         className="home-card block overflow-hidden !border-l-0 !p-0"
       >
         <div className="flex">

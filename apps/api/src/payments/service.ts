@@ -71,17 +71,21 @@ function mockOf(identity: PaymentProviderIdentity): PaymentsProvider {
  */
 export async function resolveProvider(
   capability: "collection" | "disbursement",
-  options?: { forceMock?: boolean },
+  options?: { forceMock?: boolean; network?: MobileMoneyNetwork | null },
 ): Promise<PaymentsProvider> {
   const active = await getActiveProviders();
+  const candidates = active.filter((identity) =>
+    !options?.network ||
+    (identity !== "mtn" || options.network === "mtn_momo") &&
+    (identity !== "airtel" || options.network === "airtel_money"));
   const demoMode = (await getPaymentsDemoMode()) || !!options?.forceMock;
   if (demoMode) {
     const simulatedIdentity =
-      active.find((identity) => capability !== "disbursement" || ADAPTERS[identity].supportsDisbursement) ?? "yo";
-    return mockOf(simulatedIdentity);
+      candidates.find((identity) => capability !== "disbursement" || ADAPTERS[identity].supportsDisbursement);
+    if (simulatedIdentity) return mockOf(simulatedIdentity);
   }
 
-  for (const identity of active) {
+  for (const identity of demoMode ? [] : candidates) {
     const adapter = ADAPTERS[identity];
     if (!(await adapter.isConfigured())) continue;
     if (capability === "disbursement" && !adapter.supportsDisbursement) continue;
@@ -199,7 +203,7 @@ async function initiate(
   input: InitiateInput,
   defaultNarrative: string,
 ): Promise<InitiateResult> {
-  const provider = await resolveProvider(capability, { forceMock: input.forceMock });
+  const provider = await resolveProvider(capability, { forceMock: input.forceMock, network: input.msisdn ? detectMobileMoneyNetwork(input.msisdn) : null });
   const adapter = ADAPTERS[provider];
 
   let network: MobileMoneyNetwork | null = null;

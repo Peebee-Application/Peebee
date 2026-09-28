@@ -9,7 +9,7 @@
     "lint": "next lint",
     "build:worker": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && wrangler dev",
-    "deploy": "opennextjs-cloudflare build && wrangler deploy"
+    "deploy": "node ../../scripts/preflight-deploy.mjs && opennextjs-cloudflare build && wrangler deploy"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
