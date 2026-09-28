@@ -32,18 +32,26 @@ function ordinal(index: number): string {
  * unit price ("...buli emu") and the line total ("...awamu") separately.
  */
 export async function buildLugandaListNarration(items: Row[]): Promise<string> {
+  // Translated concurrently rather than one at a time — a list of any real
+  // size turns this into several sequential Sunbird round-trips, and a
+  // single slow one in the chain was enough to trip a platform-level
+  // timeout in production (confirmed live: an otherwise-identical retry
+  // succeeded in well under half the time a sequential run took).
+  const namePhrases = items.map((item) => {
+    const quantity = Number(item.quantity) || 1;
+    const name = String(item.name);
+    return quantity > 1 ? `${quantity} ${name}` : name;
+  });
+  const lugandaNames = await Promise.all(namePhrases.map((phrase) => translateToLuganda(phrase)));
+
   const parts: string[] = [];
   let grandTotal = 0;
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     const quantity = Number(item.quantity) || 1;
-    const name = String(item.name);
-    const namePhrase = quantity > 1 ? `${quantity} ${name}` : name;
-    const lugandaName = await translateToLuganda(namePhrase);
-
     const unitPrice = item.unit_price != null ? Number(item.unit_price) : null;
-    let line = `${ordinal(i)}, ${lugandaName}.`;
+    let line = `${ordinal(i)}, ${lugandaNames[i]}.`;
     if (unitPrice != null) {
       if (quantity > 1) {
         const lineTotal = quantity * unitPrice;
