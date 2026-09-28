@@ -22,8 +22,8 @@ import { currentVisibilityRadiusKm, orderMatchPoint, parseDbTimestamp } from "./
 import { redactOrder } from "./visibility.js";
 import { assignAvailableRider } from "./assignment.js";
 import { getApplicantProfile } from "./applicant-profile.js";
-import { buildListSentence } from "./list-narration.js";
-import { synthesizeLuganda, translateToLuganda } from "../speech/sunbird.js";
+import { buildLugandaListNarration } from "./list-narration.js";
+import { synthesizeLuganda } from "../speech/sunbird.js";
 import type { MatchingMode, MobileMoneyNetwork } from "@tuma/shared";
 import { roundFare } from "@tuma/shared";
 import { snapshotTimeFees, getOrderTimeFees, cancelCustomerOrder, finishWaiting, closeWaiting } from "./time-fees.js";
@@ -560,8 +560,11 @@ orderRoutes.get("/orders/:id/list-audio", async (c) => {
   }
 
   const itemsRes = await db.execute({ sql: "SELECT * FROM list_items WHERE list_id = ?", args: [order.list_id as string] });
-  const sentence = buildListSentence(itemsRes.rows as Row[]);
-  const textHash = `${voice}:${sentence}`;
+  const items = itemsRes.rows as Row[];
+  // Hashes the raw item data rather than the built narration text, since
+  // building it now involves network calls (per-item name translation) —
+  // this lets the cache check happen before any of that runs.
+  const textHash = `${voice}:${JSON.stringify(items.map((i) => [i.id, i.quantity, i.name, i.unit_price]))}`;
 
   const bucket = getR2Bucket();
   if (order.list_audio_key && order.list_audio_text_hash === textHash) {
@@ -571,7 +574,7 @@ orderRoutes.get("/orders/:id/list-audio", async (c) => {
     }
   }
 
-  const lugandaText = await translateToLuganda(sentence);
+  const lugandaText = await buildLugandaListNarration(items);
   const audio = await synthesizeLuganda(lugandaText, voice);
   const key = `orders/${id}/list-audio-${voice}.wav`;
   await bucket.put(key, audio, { httpMetadata: { contentType: "audio/wav" } });
