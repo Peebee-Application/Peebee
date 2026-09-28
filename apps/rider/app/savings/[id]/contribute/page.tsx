@@ -1,14 +1,12 @@
 "use client";
 
 import type { StageContribution } from "@tuma/shared";
-import { Camera, Phone } from "lucide-react";
+import { Camera, MessageCircle, Phone } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../../../../lib/api";
 import { formatUgx } from "../../../../lib/order-display";
 import { useCalls } from "../../../../lib/calls-context";
-
-const ESCALATION_HOURS = 6;
 
 function hoursSince(iso: string): number {
   return (Date.now() - new Date(iso.replace(" ", "T") + "Z").getTime()) / 3_600_000;
@@ -27,15 +25,18 @@ export default function ContributePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
   const [treasurerId, setTreasurerId] = useState<string | null>(null);
+  const [escalationHours, setEscalationHours] = useState(6);
 
   async function loadPending() {
-    const [contributions, stage] = await Promise.all([
+    const [contributions, stage, settings] = await Promise.all([
       api.getStageContributions(stageId),
       api.getStage(stageId).catch(() => null),
+      api.getSettings().catch(() => null),
     ]);
     setPending(contributions.contributions.filter((c) => c.status === "pending"));
     const treasurer = stage?.members.find((m) => m.role === "treasurer");
     setTreasurerId(treasurer?.rider_id ?? null);
+    if (settings) setEscalationHours(settings.settings.vslaUnconfirmedIntentEscalationHours);
   }
 
   useEffect(() => {
@@ -136,7 +137,7 @@ export default function ContributePage() {
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Waiting on your treasurer</p>
           {pending.map((c) => {
-            const overdue = hoursSince(c.created_at) >= ESCALATION_HOURS;
+            const overdue = hoursSince(c.created_at) >= escalationHours;
             return (
               <div key={c.id} className="home-card space-y-2 !py-3">
                 <div className="flex items-center justify-between">
@@ -146,17 +147,28 @@ export default function ContributePage() {
                   </span>
                 </div>
                 {overdue && (
-                  <div className="flex items-center justify-between rounded-lg bg-gold/10 px-2.5 py-2">
-                    <span className="text-xs font-semibold text-ink">Still not confirmed after {ESCALATION_HOURS}h</span>
+                  <div className="space-y-1.5 rounded-lg bg-gold/10 px-2.5 py-2">
+                    <span className="block text-xs font-semibold text-ink">
+                      Still not confirmed after {escalationHours}h — check in with your treasurer
+                    </span>
                     {treasurerId && (
-                      <button
-                        type="button"
-                        onClick={() => startCall({ calleeId: treasurerId })}
-                        className="flex items-center gap-1 rounded-full bg-gold px-2.5 py-1 text-xs font-bold text-ink-gold"
-                      >
-                        <Phone className="h-3 w-3" strokeWidth={2.5} aria-hidden />
-                        Call
-                      </button>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => startCall({ calleeId: treasurerId })}
+                          className="flex flex-1 items-center justify-center gap-1 rounded-full bg-gold px-2.5 py-1.5 text-xs font-bold text-ink-gold"
+                        >
+                          <Phone className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+                          Call
+                        </button>
+                        <a
+                          href={`/savings/${stageId}/chat?with=${treasurerId}`}
+                          className="flex flex-1 items-center justify-center gap-1 rounded-full border border-gold/50 px-2.5 py-1.5 text-xs font-bold text-ink"
+                        >
+                          <MessageCircle className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+                          Message
+                        </a>
+                      </div>
                     )}
                   </div>
                 )}
