@@ -3,7 +3,7 @@
 import type { MobileNumberPurpose, SavedMobileNumber } from "@tuma/shared";
 import { detectMobileMoneyNetwork, mobileMoneyNetworkLabel } from "@tuma/shared";
 import { Check, Plus, Star, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../lib/api";
 
 /**
@@ -16,15 +16,19 @@ export function MobileNumberPicker({
   purpose,
   value,
   onChange,
+  prominent = false,
+  autoSave = false,
 }: {
   purpose: MobileNumberPurpose;
   value: string;
   onChange: (phone: string) => void;
+  prominent?: boolean;
+  autoSave?: boolean;
 }) {
   const [numbers, setNumbers] = useState<SavedMobileNumber[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | "custom" | null>(null);
   const [customPhone, setCustomPhone] = useState("");
-  const [saveCustom, setSaveCustom] = useState(false);
+  const saving = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,7 +63,8 @@ export function MobileNumberPicker({
   }
 
   async function saveThisNumber() {
-    if (!customPhone.trim()) return;
+    if (!customPhone.trim() || saving.current) return;
+    saving.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -68,10 +73,10 @@ export function MobileNumberPicker({
       setSelectedId(res.number.id);
       onChange(res.number.phone);
       setCustomPhone("");
-      setSaveCustom(false);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   }
@@ -138,7 +143,7 @@ export function MobileNumberPicker({
               {!!n.is_primary && (
                 <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-bold text-gold">
                   <Star className="h-3 w-3 fill-current" strokeWidth={0} aria-hidden />
-                  Primary
+                  Default
                 </span>
               )}
               {!n.is_primary && (
@@ -148,7 +153,7 @@ export function MobileNumberPicker({
                   disabled={busy}
                   className="shrink-0 text-[11px] font-semibold text-ink-500 underline disabled:opacity-50"
                 >
-                  Set primary
+                  Set as default
                 </button>
               )}
               <button
@@ -183,16 +188,25 @@ export function MobileNumberPicker({
           </span>
         </button>
         {selectedId === "custom" && (
-          <div className="space-y-1.5 pl-7">
+          <div className={prominent ? "space-y-3 pt-2" : "space-y-1.5 pl-7"}>
+            <label htmlFor={`mobile-number-${purpose}`} className={prominent ? "block text-sm font-semibold text-ink" : "sr-only"}>Mobile money phone number</label>
             <input
+              id={`mobile-number-${purpose}`}
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
               value={customPhone}
               onChange={(e) => {
                 setCustomPhone(e.target.value);
                 onChange(e.target.value);
               }}
+              onBlur={() => {
+                if (autoSave && numbers !== null && !atLimit && detectMobileMoneyNetwork(customPhone)) void saveThisNumber();
+              }}
               placeholder="e.g. 0772345678"
-              className="w-full rounded-lg border border-[var(--border-faint)] px-3 py-2 text-[15px] outline-none focus:border-gold"
+              className={prominent ? "min-h-16 w-full rounded-xl border-2 border-gold bg-[rgb(var(--surface-card))] px-4 py-4 text-xl font-semibold outline-none focus:ring-2 focus:ring-gold/30" : "w-full rounded-lg border border-[var(--border-faint)] px-3 py-2 text-[15px] outline-none focus:border-gold"}
             />
+            {autoSave && !atLimit && <p className="text-xs text-ink-500">Your number is saved automatically for next time. You can choose which saved number is your default.</p>}
             {network && <p className="text-xs font-semibold text-ink-500">{mobileMoneyNetworkLabel(network)} detected</p>}
             {!atLimit && customPhone.trim().length >= 6 && (
               <button

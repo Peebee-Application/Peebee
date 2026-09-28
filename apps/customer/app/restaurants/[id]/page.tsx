@@ -275,7 +275,6 @@ export default function RestaurantPage() {
 
   const [locations, setLocations] = useState<SavedLocation[]>([]);
   const [delivery, setDelivery] = useState<PointState>(emptyPoint);
-  const [paymentRail, setPaymentRail] = useState<"escrow" | "float">("escrow");
   const [busy, setBusy] = useState(false);
   const [deliverySettings, setDeliverySettings] = useState<{
     deliveryRatePerKm: number;
@@ -352,9 +351,9 @@ export default function RestaurantPage() {
         destinationAddress: d.address,
         destinationLat: d.lat,
         destinationLng: d.lng,
-        paymentRail,
+        paymentRail: "escrow",
       });
-      router.push(`/orders/${order.id}`);
+      router.push(`/orders/${order.id}/pay`);
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -375,25 +374,7 @@ export default function RestaurantPage() {
 
         <LocationPicker point={delivery} setPoint={setDelivery} locations={locations} />
 
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{t("restaurant_payment")}</p>
-          <div className="flex gap-2">
-            {(["escrow", "float"] as const).map((rail) => (
-              <button
-                key={rail}
-                onClick={() => setPaymentRail(rail)}
-                className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold ${
-                  paymentRail === rail ? "border-gold bg-gold/10 text-ink" : "border-[var(--border-faint)] text-ink-500"
-                }`}
-              >
-                {rail === "float" ? t("restaurant_cash") : t("restaurant_escrow")}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-ink-500">
-            {paymentRail === "float" ? t("restaurant_pay_rider_direct") : t("restaurant_pay_upfront")}
-          </p>
-        </div>
+
 
         <div className="space-y-1.5 rounded-xl bg-[rgb(var(--surface-muted))] px-4 py-3">
           <div className="flex items-center justify-between text-sm text-ink-500">
@@ -424,7 +405,7 @@ export default function RestaurantPage() {
             disabled={busy}
             className="min-h-12 flex-[2] rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
           >
-            {busy ? t("restaurant_placing_order") : t("restaurant_place_order")}
+            {busy ? "Please wait…" : "Next: payment"}
           </button>
         </div>
       </div>

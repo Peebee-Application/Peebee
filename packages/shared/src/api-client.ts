@@ -471,9 +471,12 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async customerDeleteOrder(orderId: string) {
       return request<{ ok: true }>(`/v1/orders/${orderId}/customer-delete`, { method: "POST" });
     },
+    async getOrderCheckout(orderId: string) {
+      return request<{ baseAmount: number; mobileMoney: number; wallet: number; cash: number }>(`/v1/orders/${orderId}/checkout`);
+    },
     async fundOrder(
       orderId: string,
-      input: { msisdn?: string; useWallet?: boolean; walletOwnerId?: string; walletId?: string } = {},
+      input: { paymentMethod?: "mobile_money" | "wallet" | "cash"; acceptedAmount?: number; msisdn?: string; useWallet?: boolean; walletOwnerId?: string; walletId?: string } = {},
     ) {
       return request<{
         order: OrderRow;

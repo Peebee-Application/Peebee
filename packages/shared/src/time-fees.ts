@@ -8,14 +8,15 @@ export type TimeFeeSettings = {
   waitingType: "flat" | "percent";
   waitingValue: number;
   freeWaitingMinutes: number;
+  waitingWarningMinutes: number;
 };
 
 export const DEFAULT_TIME_FEES: TimeFeeSettings = {
   cancellationEnabled: true, cancellationType: "flat", cancellationValue: 500,
-  waitingEnabled: true, waitingType: "flat", waitingValue: 500, freeWaitingMinutes: 5,
+  waitingEnabled: true, waitingType: "flat", waitingValue: 500, freeWaitingMinutes: 5, waitingWarningMinutes: 2,
 };
 
-export type TimeFeePolicy = { cancellationFee: number; waitingFee: number; freeWaitingMinutes: number };
+export type TimeFeePolicy = { cancellationFee: number; waitingFee: number; freeWaitingMinutes: number; waitingWarningMinutes: number };
 export type OrderTimeFees = TimeFeePolicy & {
   canCancel: boolean;
   cancellationDue: number;
@@ -32,6 +33,7 @@ export function timeFeePolicy(settings: TimeFeeSettings, fare: number): TimeFeeP
     cancellationFee: fee(settings.cancellationEnabled, settings.cancellationType, settings.cancellationValue),
     waitingFee: fee(settings.waitingEnabled, settings.waitingType, settings.waitingValue),
     freeWaitingMinutes: settings.freeWaitingMinutes,
+    waitingWarningMinutes: Math.min(settings.freeWaitingMinutes, Math.max(0, settings.waitingWarningMinutes)),
   };
 }
 

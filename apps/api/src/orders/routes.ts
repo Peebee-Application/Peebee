@@ -42,7 +42,7 @@ import {
 } from "../merchants/service.js";
 
 function paymentReturnUrl(orderId: string): string {
-  return `${appBaseUrl("customer")}/orders/${orderId}?payment_return=1`;
+  return `${appBaseUrl("customer")}/orders/${orderId}/pay?payment_return=1`;
 }
 
 export const orderRoutes = new Hono();
@@ -1147,6 +1147,8 @@ orderRoutes.post("/orders/:id/customer-delete", async (c) => {
 
 const fundSchema = z
   .object({
+    paymentMethod: z.enum(["mobile_money", "wallet", "cash"]).optional(),
+    acceptedAmount: z.number().nonnegative().optional(),
     msisdn: z.string().min(6).max(20).optional(),
     useWallet: z.boolean().optional(),
     // Pay from someone else's wallet instead of your own — only valid
@@ -1156,7 +1158,25 @@ const fundSchema = z
     // omitted or "primary" means their original wallet.
     walletId: z.string().optional(),
   })
-  .refine((data) => !!data.msisdn || !!data.useWallet, { message: "Provide a mobile money number or pay from wallet" });
+  .refine((data) => data.paymentMethod === "cash" || !!data.msisdn || !!data.useWallet, { message: "Provide a mobile money number or pay from wallet" })
+  .refine((data) => !data.paymentMethod || data.paymentMethod === "cash" ||
+    (data.paymentMethod === "wallet" ? data.useWallet === true : !data.useWallet && !!data.msisdn),
+    { message: "The payment details must match the selected method" });
+
+orderRoutes.get("/orders/:id/checkout", async (c) => {
+  const order = await getOrder(c.req.param("id"));
+  if (!order) return c.json({ error: "not_found" }, 404);
+  if (order.customer_id !== c.get("user").sub) return c.json({ error: "forbidden" }, 403);
+  const baseAmount = Number(order.final_total ?? order.estimated_total ?? 0);
+  const settings = await getMonetizationSettings();
+  const input = { baseAmount, deliveryFee: Number(order.delivery_fee ?? 0), orderType: order.type as "parcel" | "shopping" };
+  return c.json({
+    baseAmount,
+    mobileMoney: baseAmount + computeCheckoutFees(settings, { ...input, payingWithWallet: false }).totalSurcharge,
+    wallet: baseAmount + computeCheckoutFees(settings, { ...input, payingWithWallet: true }).totalSurcharge,
+    cash: baseAmount,
+  });
+});
 
 orderRoutes.post("/orders/:id/fund", async (c) => {
   const id = c.req.param("id");
@@ -1178,7 +1198,12 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
   // change is actually what gets collected, not the original estimate.
   const baseAmount = (order.final_total as number | null) ?? (order.estimated_total as number | null) ?? 0;
 
-  if (order.payment_rail === "float") {
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = fundSchema.safeParse(order.payment_rail === "float" && !body?.paymentMethod ? { ...body, paymentMethod: "cash" } : body);
+  if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  if (!order.rider_id) return c.json({ error: "invalid_stage", message: "Please select a rider before confirming payment." }, 409);
+
+  if (parsed.data.paymentMethod === "cash") {
     // Float rail: the customer hands the rider the full cash amount —
     // items, delivery fee, and the platform's own cut all together, same
     // as if nothing about monetization existed. The platform's share of
@@ -1186,13 +1211,17 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
     // here — see POST /orders/:id/settle, which computes it and notifies
     // the rider once the order actually completes (the fee only makes
     // sense once the final total is locked in).
-    await touchOrder(id, { stage: "Shop" });
+    if (parsed.data.acceptedAmount != null && parsed.data.acceptedAmount !== baseAmount) {
+      return c.json({ error: "amount_changed", message: "The total has changed. Review the updated amount before continuing." }, 409);
+    }
+    const confirmed = await db.execute({
+      sql: "UPDATE orders SET payment_rail = 'float', stage = 'Shop', updated_at = datetime('now') WHERE id = ? AND stage = 'Match' AND rider_id = ? AND COALESCE(final_total, estimated_total, 0) = ? AND NOT EXISTS (SELECT 1 FROM payments WHERE order_id = ? AND status IN ('pending', 'unknown', 'successful'))",
+      args: [id, String(order.rider_id), baseAmount, id],
+    });
+    if (!confirmed.rowsAffected) return c.json({ error: "invalid_stage", message: "This order has changed. Refresh before continuing." }, 409);
     await logEvent(id, "Fund", "Cash rail — rider collects full payment from the customer on delivery", user.sub);
     return c.json({ order: await getOrder(id), funded: true, rail: "float" });
   }
-
-  const parsed = fundSchema.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
 
   // Fee breakdown is computed once, here, and persisted — Settle reads it
   // back rather than recomputing against whatever the admin-configured
@@ -1206,6 +1235,9 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
     payingWithWallet: !!parsed.data.useWallet,
   });
   const amount = baseAmount + fees.totalSurcharge;
+  if (parsed.data.acceptedAmount != null && parsed.data.acceptedAmount !== amount) {
+    return c.json({ error: "amount_changed", message: "The total has changed. Review the updated amount before paying." }, 409);
+  }
   const hasFees = fees.serviceFee > 0 || fees.processingFeeCustomer > 0 || fees.processingFeeRider > 0 || fees.deliveryCommission > 0;
   if (hasFees) {
     await db.execute({
@@ -1238,7 +1270,7 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
 
     // Reserve funding before debiting; cancellation and duplicate funding
     // requests cannot race a wallet payment.
-    const funding = await db.execute({ sql: "UPDATE orders SET stage = 'Fund', updated_at = datetime('now') WHERE id = ? AND stage = 'Match'", args: [id] });
+    const funding = await db.execute({ sql: "UPDATE orders SET payment_rail = 'escrow', stage = 'Fund', updated_at = datetime('now') WHERE id = ? AND stage = 'Match' AND rider_id = ? AND COALESCE(final_total, estimated_total, 0) = ? AND NOT EXISTS (SELECT 1 FROM payments WHERE order_id = ? AND status IN ('pending', 'unknown', 'successful'))", args: [id, String(order.rider_id), baseAmount, id] });
     if (!funding.rowsAffected) return c.json({ error: "invalid_stage", message: "This order has changed. Refresh before paying." }, 409);
 
     const paymentId = await payFromWallet({
@@ -1264,7 +1296,7 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
   const paymentId = newId("pay");
   const fundingToken = newId("fund");
   const funding = await executeBatch([
-    { sql: "UPDATE orders SET stage = 'Fund', time_action_token = ?, updated_at = datetime('now') WHERE id = ? AND stage = 'Match'", args: [fundingToken, id] },
+    { sql: "UPDATE orders SET payment_rail = 'escrow', stage = 'Fund', time_action_token = ?, updated_at = datetime('now') WHERE id = ? AND stage = 'Match' AND rider_id = ? AND COALESCE(final_total, estimated_total, 0) = ? AND NOT EXISTS (SELECT 1 FROM payments WHERE order_id = ? AND status IN ('pending', 'unknown', 'successful'))", args: [fundingToken, id, String(order.rider_id), baseAmount, id] },
     {
       sql: `INSERT INTO payments (id, order_id, type, provider, provider_ref, msisdn, amount, currency, status)
             SELECT ?, id, 'collection', 'unassigned', NULL, ?, ?, 'UGX', 'pending' FROM orders WHERE id = ? AND time_action_token = ?`,
