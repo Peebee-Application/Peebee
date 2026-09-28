@@ -163,6 +163,21 @@ stageRoutes.get("/stages/mine", async (c) => {
   return c.json({ stages: res.rows });
 });
 
+/** Every active stage this rider hasn't joined yet — how they discover and
+ * join a circle admin already registered for their stage. */
+stageRoutes.get("/stages/discover", async (c) => {
+  const user = c.get("user");
+  const res = await db.execute({
+    sql: `SELECT s.*, (SELECT COUNT(*) FROM stage_members m2 WHERE m2.stage_id = s.id AND m2.status = 'active') AS member_count
+          FROM stages s
+          WHERE s.status = 'active'
+            AND NOT EXISTS (SELECT 1 FROM stage_members m WHERE m.stage_id = s.id AND m.rider_id = ? AND m.status = 'active')
+          ORDER BY s.created_at DESC LIMIT 100`,
+    args: [user.sub],
+  });
+  return c.json({ stages: res.rows });
+});
+
 const createStageSchema = z.object({
   name: z.string().trim().min(2),
   area: z.string().trim().optional(),
@@ -859,6 +874,39 @@ stageAdminRoutes.get("/admin/stages", async (c) => {
     args: [],
   });
   return c.json({ stages: res.rows });
+});
+
+const adminCreateStageSchema = z.object({
+  name: z.string().trim().min(2),
+  area: z.string().trim().optional(),
+  address: z.string().trim().optional(),
+  description: z.string().trim().optional(),
+  /** Optional — a rider to seat as founding chairman right away. Without
+   * one, the stage just has no officers until its first election. */
+  chairmanRiderId: z.string().optional(),
+});
+
+/** Not gated by vslaAdminLedgerVisibility — that setting is about who can
+ * *see* a stage's money, not whether admin can register one in the first
+ * place. This is the only way to create a stage while
+ * vslaStageCreationMode is "admin_only" (the default), since the rider-
+ * facing POST /stages is deliberately rider-role-only. */
+stageAdminRoutes.post("/admin/stages", async (c) => {
+  const parsed = adminCreateStageSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+
+  const id = newId("stage");
+  await db.execute({
+    sql: `INSERT INTO stages (id, name, area, address, description) VALUES (?, ?, ?, ?, ?)`,
+    args: [id, parsed.data.name, parsed.data.area ?? null, parsed.data.address ?? null, parsed.data.description ?? null],
+  });
+  if (parsed.data.chairmanRiderId) {
+    await db.execute({
+      sql: `INSERT INTO stage_members (id, stage_id, rider_id, role) VALUES (?, ?, ?, 'chairman')`,
+      args: [newId("smem"), id, parsed.data.chairmanRiderId],
+    });
+  }
+  return c.json({ stageId: id });
 });
 
 stageAdminRoutes.get("/admin/stages/:id", async (c) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Stage } from "@tuma/shared";
+import type { AdminStageSummary, Stage } from "@tuma/shared";
 import { ChevronRight, PiggyBank, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -8,16 +8,31 @@ import { api, errorMessage } from "../../lib/api";
 
 export default function SavingsIndexPage() {
   const [stages, setStages] = useState<Stage[] | null>(null);
+  const [discoverable, setDiscoverable] = useState<AdminStageSummary[]>([]);
+  const [joiningId, setJoiningId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [selfServiceEnabled, setSelfServiceEnabled] = useState(true);
 
-  useEffect(() => {
+  function loadAll() {
     api
       .getMyStages()
       .then((res) => setStages(res.stages))
       .catch((err) => setError(errorMessage(err)));
+    api
+      .discoverStages()
+      .then((res) => setDiscoverable(res.stages))
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    loadAll();
+    api
+      .getSettings()
+      .then(({ settings }) => setSelfServiceEnabled(settings.vslaStageCreationMode === "self_service"))
+      .catch(() => {});
   }, []);
 
   async function createStage(e: React.FormEvent) {
@@ -31,6 +46,18 @@ export default function SavingsIndexPage() {
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
+    }
+  }
+
+  async function join(stageId: string) {
+    setJoiningId(stageId);
+    setError(null);
+    try {
+      await api.joinStage(stageId);
+      window.location.href = `/savings/${stageId}`;
+    } catch (err) {
+      setError(errorMessage(err));
+      setJoiningId(null);
     }
   }
 
@@ -62,11 +89,39 @@ export default function SavingsIndexPage() {
         </ul>
       ) : (
         <div className="home-card space-y-2 text-center">
-          <p className="text-sm text-ink-500">You&apos;re not part of a stage savings circle yet.</p>
+          <p className="text-sm text-ink-500">
+            You&apos;re not part of a stage savings circle yet
+            {!selfServiceEnabled && " — ask Tuma support to set one up for your stage"}.
+          </p>
         </div>
       )}
 
-      {!showCreate ? (
+      {discoverable.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Stages you can join</p>
+          {discoverable.map((s) => (
+            <div key={s.id} className="home-card flex items-center gap-3 !rounded-2xl !py-3.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
+                <PiggyBank className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-ink">{s.name}</span>
+                <span className="block text-xs text-ink-500">{s.member_count} members</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => join(s.id)}
+                disabled={joiningId === s.id}
+                className="shrink-0 rounded-full bg-gold px-4 py-2 text-xs font-bold text-ink-gold disabled:opacity-60"
+              >
+                {joiningId === s.id ? "Joining…" : "Join"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!selfServiceEnabled ? null : !showCreate ? (
         <button
           type="button"
           onClick={() => setShowCreate(true)}
