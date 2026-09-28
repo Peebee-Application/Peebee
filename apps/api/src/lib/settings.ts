@@ -170,6 +170,21 @@ const DEFAULTS = {
   monetization_subscription_mode: "recurring",
   monetization_subscription_amount: "0",
   monetization_subscription_cadence: "weekly",
+
+  /** Rider Stage Savings Circles — a VSLA-style group savings/loans
+   * feature. Every knob here exists so admin can change behavior without
+   * a redeploy; see apps/api/src/stages/routes.ts for where each is read. */
+  vsla_stage_creation_mode: "admin_only", // "admin_only" | "self_service"
+  vsla_loan_interest_enabled: "1",
+  vsla_default_interest_rate: "8",
+  vsla_default_loanable_multiple: "2",
+  vsla_default_cycle_months: "12",
+  vsla_default_max_loan_months: "3",
+  vsla_contribution_recorder_role: "any_officer", // "any_officer" | "treasurer_only"
+  vsla_cash_double_check_required: "0",
+  vsla_admin_ledger_visibility: "read_only_all", // "read_only_all" | "private_per_stage"
+  vsla_unconfirmed_intent_escalation_hours: "6",
+  vsla_feature_placement: "home_card_and_screen", // "home_card_and_screen" | "bottom_nav_tab" | "account_only"
 } as const;
 
 export type SettingKey = keyof typeof DEFAULTS;
@@ -520,5 +535,98 @@ export async function setMonetizationSettings(input: Partial<MonetizationSetting
   if (input.subscriptionCadence != null) {
     writes.push(setSetting("monetization_subscription_cadence", input.subscriptionCadence));
   }
+  await Promise.all(writes);
+}
+
+export type VslaStageCreationMode = "admin_only" | "self_service";
+export type VslaContributionRecorderRole = "any_officer" | "treasurer_only";
+export type VslaAdminLedgerVisibility = "read_only_all" | "private_per_stage";
+export type VslaFeaturePlacement = "home_card_and_screen" | "bottom_nav_tab" | "account_only";
+
+export type VslaSettings = {
+  stageCreationMode: VslaStageCreationMode;
+  loanInterestEnabled: boolean;
+  defaultInterestRate: number;
+  defaultLoanableMultiple: number;
+  defaultCycleMonths: number;
+  defaultMaxLoanMonths: number;
+  contributionRecorderRole: VslaContributionRecorderRole;
+  cashDoubleCheckRequired: boolean;
+  adminLedgerVisibility: VslaAdminLedgerVisibility;
+  unconfirmedIntentEscalationHours: number;
+  featurePlacement: VslaFeaturePlacement;
+};
+
+export async function getVslaSettings(): Promise<VslaSettings> {
+  const [
+    stageCreationMode,
+    loanInterestEnabled,
+    defaultInterestRate,
+    defaultLoanableMultiple,
+    defaultCycleMonths,
+    defaultMaxLoanMonths,
+    contributionRecorderRole,
+    cashDoubleCheckRequired,
+    adminLedgerVisibility,
+    unconfirmedIntentEscalationHours,
+    featurePlacement,
+  ] = await Promise.all([
+    getSetting("vsla_stage_creation_mode"),
+    getSetting("vsla_loan_interest_enabled"),
+    getSetting("vsla_default_interest_rate"),
+    getSetting("vsla_default_loanable_multiple"),
+    getSetting("vsla_default_cycle_months"),
+    getSetting("vsla_default_max_loan_months"),
+    getSetting("vsla_contribution_recorder_role"),
+    getSetting("vsla_cash_double_check_required"),
+    getSetting("vsla_admin_ledger_visibility"),
+    getSetting("vsla_unconfirmed_intent_escalation_hours"),
+    getSetting("vsla_feature_placement"),
+  ]);
+  return {
+    stageCreationMode: stageCreationMode === "self_service" ? "self_service" : "admin_only",
+    loanInterestEnabled: loanInterestEnabled === "1",
+    defaultInterestRate: Number(defaultInterestRate) || 0,
+    defaultLoanableMultiple: Number(defaultLoanableMultiple) || 2,
+    defaultCycleMonths: Number(defaultCycleMonths) || 12,
+    defaultMaxLoanMonths: Number(defaultMaxLoanMonths) || 3,
+    contributionRecorderRole: contributionRecorderRole === "treasurer_only" ? "treasurer_only" : "any_officer",
+    cashDoubleCheckRequired: cashDoubleCheckRequired === "1",
+    adminLedgerVisibility: adminLedgerVisibility === "private_per_stage" ? "private_per_stage" : "read_only_all",
+    unconfirmedIntentEscalationHours: Number(unconfirmedIntentEscalationHours) || 6,
+    featurePlacement:
+      featurePlacement === "bottom_nav_tab" || featurePlacement === "account_only"
+        ? featurePlacement
+        : "home_card_and_screen",
+  };
+}
+
+export async function setVslaSettings(input: Partial<VslaSettings>): Promise<void> {
+  const writes: Promise<void>[] = [];
+  if (input.stageCreationMode != null) writes.push(setSetting("vsla_stage_creation_mode", input.stageCreationMode));
+  if (input.loanInterestEnabled != null) {
+    writes.push(setSetting("vsla_loan_interest_enabled", input.loanInterestEnabled ? "1" : "0"));
+  }
+  if (input.defaultInterestRate != null) writes.push(setSetting("vsla_default_interest_rate", String(input.defaultInterestRate)));
+  if (input.defaultLoanableMultiple != null) {
+    writes.push(setSetting("vsla_default_loanable_multiple", String(input.defaultLoanableMultiple)));
+  }
+  if (input.defaultCycleMonths != null) writes.push(setSetting("vsla_default_cycle_months", String(input.defaultCycleMonths)));
+  if (input.defaultMaxLoanMonths != null) {
+    writes.push(setSetting("vsla_default_max_loan_months", String(input.defaultMaxLoanMonths)));
+  }
+  if (input.contributionRecorderRole != null) {
+    writes.push(setSetting("vsla_contribution_recorder_role", input.contributionRecorderRole));
+  }
+  if (input.cashDoubleCheckRequired != null) {
+    writes.push(setSetting("vsla_cash_double_check_required", input.cashDoubleCheckRequired ? "1" : "0"));
+  }
+  if (input.adminLedgerVisibility != null) {
+    writes.push(setSetting("vsla_admin_ledger_visibility", input.adminLedgerVisibility));
+  }
+  if (input.unconfirmedIntentEscalationHours != null) {
+    writes.push(setSetting("vsla_unconfirmed_intent_escalation_hours", String(input.unconfirmedIntentEscalationHours)));
+  }
+  if (input.featurePlacement != null) writes.push(setSetting("vsla_feature_placement", input.featurePlacement));
   await Promise.all(writes);
 }
