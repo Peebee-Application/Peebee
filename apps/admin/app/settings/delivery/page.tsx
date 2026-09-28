@@ -134,6 +134,17 @@ export default function DeliveryPricingPage() {
                 />
                 <p className="text-xs text-ink-500">Default: 5 free minutes, then one waiting fee.</p>
               </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-ink-500" htmlFor="waiting-warning-minutes">Waiting fee warning before limit (minutes)</label>
+                <input
+                  id="waiting-warning-minutes"
+                  inputMode="numeric"
+                  value={timeFees.waitingWarningMinutes}
+                  onChange={(e) => setTimeFees({ ...timeFees, waitingWarningMinutes: Number(e.target.value.replace(/[^\d]/g, "")) || 0 })}
+                  className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+                />
+                <p className="text-xs text-ink-500">Default: warn 2 minutes before the free waiting time ends. Set 0 to warn only when the fee starts.</p>
+              </div>
             </div>
           )}
           <div className="space-y-1">

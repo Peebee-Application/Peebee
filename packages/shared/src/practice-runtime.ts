@@ -415,6 +415,7 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
     return jsonResponse({ order: orderFor(state) });
   }
   if (method === "GET" && path === `/v1/orders/${PRACTICE_ORDER_ID}`) return jsonResponse(orderDetail(state));
+  if (method === "GET" && path === `/v1/orders/${PRACTICE_ORDER_ID}/checkout`) return jsonResponse({ baseAmount: state.total, mobileMoney: state.total, wallet: state.total, cash: state.total });
   if (method === "POST" && path === `/v1/orders/${PRACTICE_ORDER_ID}/match`) {
     save({ riderClaimed: true, stage: "Match" });
     return jsonResponse({ order: orderFor(state) });
@@ -424,7 +425,7 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
     return jsonResponse({ order: orderFor(state) });
   }
   if (method === "POST" && path === `/v1/orders/${PRACTICE_ORDER_ID}/fund`) {
-    save({ stage: "Shop", autoAdvanceAt: Date.now() });
+    save({ stage: "Shop", paymentRail: body.paymentMethod === "cash" ? "float" : "escrow", autoAdvanceAt: Date.now() });
     return jsonResponse({ order: orderFor(state), funded: true, rail: state.paymentRail, payment: { id: "practice-collection", status: "successful", network: "mtn" } });
   }
   if (method === "POST" && path === `/v1/orders/${PRACTICE_ORDER_ID}/deliver`) {

@@ -229,6 +229,7 @@ const updateSchema = z.object({
     waitingType: z.enum(["flat", "percent"]),
     waitingValue: z.number().nonnegative().max(1_000_000),
     freeWaitingMinutes: z.number().int().min(1).max(120),
+    waitingWarningMinutes: z.number().int().min(0).max(120),
   }).superRefine((fees, ctx) => {
     for (const kind of ["cancellation", "waiting"] as const) {
       const value = fees[`${kind}Value`];
@@ -236,6 +237,9 @@ const updateSchema = z.object({
       if (fees[`${kind}Type`] === "percent" ? value > 100 : value < 500 || value % 500 !== 0) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${kind}Value`], message: "Use 0–100% or a flat fee in UGX 500 increments." });
       }
+    }
+    if (fees.waitingWarningMinutes > fees.freeWaitingMinutes) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["waitingWarningMinutes"], message: "The warning must be at or before the free waiting limit." });
     }
   }).optional(),
   deliveryRatePerKm: z.number().positive().max(1_000_000).optional(),

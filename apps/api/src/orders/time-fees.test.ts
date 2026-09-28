@@ -4,7 +4,7 @@ import { DEFAULT_TIME_FEES, timeFeeNotice, timeFeePolicy } from "@tuma/shared";
 
 test("default cancellation and waiting fees are simple UGX 500 charges", () => {
   const policy = timeFeePolicy(DEFAULT_TIME_FEES, 2_102);
-  assert.deepEqual(policy, { cancellationFee: 500, waitingFee: 500, freeWaitingMinutes: 5 });
+  assert.deepEqual(policy, { cancellationFee: 500, waitingFee: 500, freeWaitingMinutes: 5, waitingWarningMinutes: 2 });
   assert.match(timeFeeNotice(policy, true), /UGX 500/);
   assert.match(timeFeeNotice(policy, true), /5 minutes/);
 });

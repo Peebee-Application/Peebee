@@ -12,7 +12,9 @@ export async function snapshotTimeFees(orderId: string, fare: number) {
 }
 
 function policyFor(order: Row): TimeFeePolicy {
-  return order.time_fee_policy ? JSON.parse(String(order.time_fee_policy)) : { cancellationFee: 0, waitingFee: 0, freeWaitingMinutes: 5 };
+  return order.time_fee_policy
+    ? { waitingWarningMinutes: 2, ...JSON.parse(String(order.time_fee_policy)) }
+    : { cancellationFee: 0, waitingFee: 0, freeWaitingMinutes: 5, waitingWarningMinutes: 2 };
 }
 
 export function waitingDue(order: Row, now = Date.now()): number {
@@ -24,7 +26,10 @@ export function waitingDue(order: Row, now = Date.now()): number {
 function cancellationEligible(order: Row): boolean {
   if (order.rider_departed_at) return ["Deliver", "Arrived"].includes(String(order.stage));
   if (order.is_ride) return ["Create", "Match", "Fund", "Shop"].includes(String(order.stage));
-  return !order.rider_id && ["Create", "Match"].includes(String(order.stage));
+  // A paid parcel can still be cancelled before the rider sets off. The
+  // collected amount is returned to the Tuma wallet; a fee only becomes due
+  // once rider_departed_at has been recorded above.
+  return ["Create", "Match", "Fund", "Shop"].includes(String(order.stage));
 }
 
 export async function getOrderTimeFees(order: Row): Promise<OrderTimeFees> {
@@ -39,7 +44,7 @@ export async function getOrderTimeFees(order: Row): Promise<OrderTimeFees> {
     ...policy,
     canCancel: cancellationEligible(order) && payments.rows.length === 0,
     // One charge on cancellation, never stack two fees for the same wait.
-    cancellationDue: Math.max(order.is_ride && order.rider_departed_at ? policy.cancellationFee : 0, wait),
+    cancellationDue: Math.max(order.rider_departed_at ? policy.cancellationFee : 0, wait),
     waitingStartedAt: start,
     waitingEndsAt: start && !order.waiting_closed_at ? new Date(Date.parse(start) + policy.freeWaitingMinutes * 60_000).toISOString() : null,
     waitingDue: wait,
@@ -119,9 +124,10 @@ export async function cancelCustomerOrder(order: Row, actorId: string, acceptedF
   const id = String(order.id);
   const column = order.environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
 
-  // A wallet refund must return to its original owner and wallet, including
-  // shared/secondary wallets. A mobile-money collection returns to the
-  // customer's primary Tuma wallet; it is not an external mobile-money refund.
+  // Wallet payments return to the wallet that originally paid. A Mobile Money
+  // collection has no wallet ledger owner, so it returns to the customer's
+  // primary Tuma wallet. The refund provider is always `wallet`; it must
+  // never initiate a second Mobile Money transaction.
   const source = await db.execute({ sql: "SELECT user_id, wallet_id FROM wallet_ledger WHERE order_id = ? AND type = 'order_payment' ORDER BY created_at", args: [id] });
   if (source.rows.length > 1) return { error: "This order has multiple wallet payments. Please contact support to cancel it." };
   const owner = String(source.rows[0]?.user_id ?? order.customer_id);
@@ -153,7 +159,7 @@ export async function cancelCustomerOrder(order: Row, actorId: string, acceptedF
     {
       sql: `INSERT INTO wallet_ledger (id, user_id, type, amount, balance_after, order_id, note, actor_id, environment, wallet_id)
             SELECT ?, ?, 'refund', amount, ${walletId ? `(SELECT ${refundColumn} FROM wallets WHERE id = ?)` : `(SELECT ${column} FROM users WHERE id = ?)`},
-              ?, 'Cancelled ride: fare returned to wallet', ?, ?, ? FROM payments WHERE id = ?`,
+              ?, 'Cancelled order: payment returned to your Tuma wallet', ?, ?, ? FROM payments WHERE id = ?`,
       args: [newId("wl"), owner, walletId ?? owner, id, actorId, String(order.environment), walletId ?? null, refundId],
     },
     ...chargeStatements(order, token, "cancellation", quote.cancellationDue, actorId),
