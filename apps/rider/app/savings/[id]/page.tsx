@@ -25,14 +25,23 @@ export default function StageDetailPage() {
   }, [stageId]);
 
   async function startCycle() {
+    if (startingCycle) return;
     setStartingCycle(true);
     setError(null);
     try {
       await api.startStageCycle(stageId, { startDate: new Date().toISOString().slice(0, 10) });
-      setDetail(await api.getStage(stageId));
     } catch (err) {
       setError(errorMessage(err));
     } finally {
+      // Refetch regardless of outcome — a "cycle already active" failure
+      // (e.g. from a double-tap) means the cycle exists anyway, so this
+      // picks up the real state instead of leaving a stale error on screen
+      // over a page that's actually already up to date.
+      try {
+        const fresh = await api.getStage(stageId);
+        setDetail(fresh);
+        if (fresh.cycle) setError(null);
+      } catch {}
       setStartingCycle(false);
     }
   }

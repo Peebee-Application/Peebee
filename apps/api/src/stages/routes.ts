@@ -211,11 +211,11 @@ stageRoutes.get("/stages/:id", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
   const membership = await getMembership(stageId, user.sub);
-  if (!membership) return c.json({ error: "not_a_member" }, 403);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
 
   const stageRes = await db.execute({ sql: "SELECT * FROM stages WHERE id = ?", args: [stageId] });
   const stage = stageRes.rows[0];
-  if (!stage) return c.json({ error: "not_found" }, 404);
+  if (!stage) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
 
   const membersRes = await db.execute({
     sql: `SELECT m.rider_id, m.role, u.name FROM stage_members m
@@ -275,7 +275,7 @@ stageRoutes.post("/stages/:id/elections", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
   const membership = await getMembership(stageId, user.sub);
-  if (!membership) return c.json({ error: "not_a_member" }, 403);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
   const parsed = electionSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
 
@@ -298,7 +298,7 @@ stageRoutes.get("/stages/:id/elections", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
   const membership = await getMembership(stageId, user.sub);
-  if (!membership) return c.json({ error: "not_a_member" }, 403);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
 
   const electionsRes = await db.execute({
     sql: "SELECT * FROM stage_officer_elections WHERE stage_id = ? ORDER BY opened_at DESC LIMIT 50",
@@ -352,7 +352,7 @@ stageRoutes.post("/stages/elections/:electionId/vote", async (c) => {
 
   const electionRes = await db.execute({ sql: "SELECT * FROM stage_officer_elections WHERE id = ?", args: [electionId] });
   const election = electionRes.rows[0] as unknown as { id: string; stage_id: string; role: string; status: string } | undefined;
-  if (!election || election.status !== "open") return c.json({ error: "election_closed" }, 400);
+  if (!election || election.status !== "open") return c.json({ error: "election_closed", message: "This vote isn't open anymore." }, 400);
 
   await db.execute({
     sql: `INSERT INTO stage_officer_votes (id, election_id, candidate_rider_id, voter_rider_id) VALUES (?, ?, ?, ?)
@@ -400,10 +400,12 @@ stageRoutes.post("/stages/:id/cycles", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
   const membership = await getMembership(stageId, user.sub);
-  if (!isOfficer(membership)) return c.json({ error: "officers_only" }, 403);
+  if (!isOfficer(membership)) return c.json({ error: "officers_only", message: "Only an elected officer can do that." }, 403);
 
   const existing = await getActiveCycle(stageId);
-  if (existing) return c.json({ error: "cycle_already_active", cycleId: existing.id }, 400);
+  if (existing) {
+    return c.json({ error: "cycle_already_active", message: "This circle already has an active savings cycle.", cycleId: existing.id }, 400);
+  }
 
   const parsed = createCycleSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
@@ -445,9 +447,9 @@ stageRoutes.post("/stages/:id/contributions", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
   const membership = await getMembership(stageId, user.sub);
-  if (!membership) return c.json({ error: "not_a_member" }, 403);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
   const cycle = await getActiveCycle(stageId);
-  if (!cycle) return c.json({ error: "no_active_cycle" }, 400);
+  if (!cycle) return c.json({ error: "no_active_cycle", message: "This circle hasn't started a savings cycle yet." }, 400);
 
   const parsed = contributionSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
@@ -486,14 +488,14 @@ stageRoutes.post("/stages/contributions/:id/proof", async (c) => {
   const user = c.get("user");
   const res = await db.execute({ sql: "SELECT * FROM stage_contributions WHERE id = ?", args: [id] });
   const contribution = res.rows[0] as unknown as { id: string; stage_id: string; member_id: string; status: string } | undefined;
-  if (!contribution) return c.json({ error: "not_found" }, 404);
-  if (contribution.member_id !== user.sub) return c.json({ error: "forbidden" }, 403);
+  if (!contribution) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  if (contribution.member_id !== user.sub) return c.json({ error: "forbidden", message: "You don't have permission to do that." }, 403);
 
   const form = await c.req.formData().catch(() => null);
   const file = form?.get("file");
-  if (!(file instanceof File)) return c.json({ error: "missing_file" }, 400);
-  if (!ALLOWED_PROOF_MIME.has(baseMimeType(file.type))) return c.json({ error: "unsupported_file_type" }, 400);
-  if (file.size > MAX_PROOF_BYTES) return c.json({ error: "file_too_large" }, 400);
+  if (!(file instanceof File)) return c.json({ error: "missing_file", message: "Choose a photo to upload." }, 400);
+  if (!ALLOWED_PROOF_MIME.has(baseMimeType(file.type))) return c.json({ error: "unsupported_file_type", message: "Use a JPEG, PNG, or WEBP image." }, 400);
+  if (file.size > MAX_PROOF_BYTES) return c.json({ error: "file_too_large", message: "That image is too large." }, 400);
 
   const ext = extensionForMime(file.type, "jpg");
   const key = `stages/${contribution.stage_id}/contributions/${id}.${ext}`;
@@ -517,9 +519,9 @@ stageRoutes.post("/stages/contributions/:id/confirm", async (c) => {
   const contribution = res.rows[0] as unknown as
     | { id: string; stage_id: string; cycle_id: string; member_id: string; amount: number; status: string }
     | undefined;
-  if (!contribution) return c.json({ error: "not_found" }, 404);
-  if (contribution.status !== "pending") return c.json({ error: "not_pending" }, 400);
-  if (!(await canRecordCash(contribution.stage_id, user.sub))) return c.json({ error: "forbidden" }, 403);
+  if (!contribution) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  if (contribution.status !== "pending") return c.json({ error: "not_pending", message: "This has already been handled." }, 400);
+  if (!(await canRecordCash(contribution.stage_id, user.sub))) return c.json({ error: "forbidden", message: "You don't have permission to do that." }, 403);
 
   await db.execute({
     sql: "UPDATE stage_contributions SET status = 'confirmed', confirmed_by = ?, confirmed_at = datetime('now') WHERE id = ?",
@@ -539,9 +541,9 @@ stageRoutes.post("/stages/contributions/:id/cancel", async (c) => {
   const user = c.get("user");
   const res = await db.execute({ sql: "SELECT * FROM stage_contributions WHERE id = ?", args: [id] });
   const contribution = res.rows[0] as unknown as { id: string; stage_id: string; member_id: string; status: string } | undefined;
-  if (!contribution) return c.json({ error: "not_found" }, 404);
-  if (contribution.member_id !== user.sub) return c.json({ error: "forbidden" }, 403);
-  if (contribution.status !== "pending") return c.json({ error: "not_pending" }, 400);
+  if (!contribution) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  if (contribution.member_id !== user.sub) return c.json({ error: "forbidden", message: "You don't have permission to do that." }, 403);
+  if (contribution.status !== "pending") return c.json({ error: "not_pending", message: "This has already been handled." }, 400);
   await db.execute({
     sql: "UPDATE stage_contributions SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?",
     args: [id],
@@ -553,7 +555,7 @@ stageRoutes.get("/stages/:id/contributions", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
   const membership = await getMembership(stageId, user.sub);
-  if (!membership) return c.json({ error: "not_a_member" }, 403);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
   const res = await db.execute({
     sql: `SELECT sc.*, u.name AS member_name FROM stage_contributions sc
           JOIN users u ON u.id = sc.member_id
@@ -575,15 +577,15 @@ stageRoutes.post("/stages/:id/loans", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
   const membership = await getMembership(stageId, user.sub);
-  if (!membership) return c.json({ error: "not_a_member" }, 403);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
   const cycle = await getActiveCycle(stageId);
-  if (!cycle) return c.json({ error: "no_active_cycle" }, 400);
+  if (!cycle) return c.json({ error: "no_active_cycle", message: "This circle hasn't started a savings cycle yet." }, 400);
 
   const existingLoan = await db.execute({
     sql: "SELECT 1 FROM stage_loans WHERE member_id = ? AND cycle_id = ? AND status IN ('pending', 'approved', 'disbursed')",
     args: [user.sub, cycle.id],
   });
-  if (existingLoan.rows.length > 0) return c.json({ error: "existing_loan" }, 400);
+  if (existingLoan.rows.length > 0) return c.json({ error: "existing_loan", message: "You already have a loan in progress this cycle." }, 400);
 
   const parsed = requestLoanSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
@@ -635,10 +637,10 @@ stageRoutes.post("/stages/loans/:id/vote", async (c) => {
   const user = c.get("user");
   const loanRes = await db.execute({ sql: "SELECT * FROM stage_loans WHERE id = ?", args: [id] });
   const loan = loanRes.rows[0] as unknown as { id: string; stage_id: string; status: string } | undefined;
-  if (!loan) return c.json({ error: "not_found" }, 404);
-  if (loan.status !== "pending") return c.json({ error: "not_pending" }, 400);
+  if (!loan) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  if (loan.status !== "pending") return c.json({ error: "not_pending", message: "This has already been handled." }, 400);
   const membership = await getMembership(loan.stage_id, user.sub);
-  if (!isOfficer(membership)) return c.json({ error: "officers_only" }, 403);
+  if (!isOfficer(membership)) return c.json({ error: "officers_only", message: "Only an elected officer can do that." }, 403);
 
   const parsed = voteLoanSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
@@ -657,9 +659,9 @@ stageRoutes.post("/stages/loans/:id/disbursement-confirm", async (c) => {
   const user = c.get("user");
   const loanRes = await db.execute({ sql: "SELECT * FROM stage_loans WHERE id = ?", args: [id] });
   const loan = loanRes.rows[0] as unknown as { id: string; stage_id: string; cycle_id: string; member_id: string; amount: number; status: string } | undefined;
-  if (!loan) return c.json({ error: "not_found" }, 404);
-  if (loan.member_id !== user.sub) return c.json({ error: "forbidden" }, 403);
-  if (loan.status !== "approved") return c.json({ error: "not_approved" }, 400);
+  if (!loan) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  if (loan.member_id !== user.sub) return c.json({ error: "forbidden", message: "You don't have permission to do that." }, 403);
+  if (loan.status !== "approved") return c.json({ error: "not_approved", message: "This loan hasn't been approved yet." }, 400);
 
   await db.execute({
     sql: "UPDATE stage_loans SET status = 'disbursed', disbursement_confirmed_at = datetime('now') WHERE id = ?",
@@ -678,7 +680,7 @@ stageRoutes.get("/stages/:id/loans", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
   const membership = await getMembership(stageId, user.sub);
-  if (!membership) return c.json({ error: "not_a_member" }, 403);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
   const res = await db.execute({
     sql: `SELECT l.*, u.name AS member_name FROM stage_loans l JOIN users u ON u.id = l.member_id
           WHERE l.stage_id = ? ORDER BY l.requested_at DESC LIMIT 200`,
@@ -696,9 +698,9 @@ stageRoutes.post("/stages/loans/:id/repayments", async (c) => {
   const user = c.get("user");
   const loanRes = await db.execute({ sql: "SELECT * FROM stage_loans WHERE id = ?", args: [loanId] });
   const loan = loanRes.rows[0] as unknown as { id: string; stage_id: string; member_id: string; status: string } | undefined;
-  if (!loan) return c.json({ error: "not_found" }, 404);
-  if (loan.member_id !== user.sub) return c.json({ error: "forbidden" }, 403);
-  if (!["disbursed", "defaulted"].includes(loan.status)) return c.json({ error: "not_repayable" }, 400);
+  if (!loan) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  if (loan.member_id !== user.sub) return c.json({ error: "forbidden", message: "You don't have permission to do that." }, 403);
+  if (!["disbursed", "defaulted"].includes(loan.status)) return c.json({ error: "not_repayable", message: "This loan isn't in a repayable state." }, 400);
 
   const parsed = repaymentSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
@@ -730,14 +732,14 @@ stageRoutes.post("/stages/repayments/:id/proof", async (c) => {
     args: [id],
   });
   const repayment = res.rows[0] as unknown as { id: string; stage_id: string; member_id: string } | undefined;
-  if (!repayment) return c.json({ error: "not_found" }, 404);
-  if (repayment.member_id !== user.sub) return c.json({ error: "forbidden" }, 403);
+  if (!repayment) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  if (repayment.member_id !== user.sub) return c.json({ error: "forbidden", message: "You don't have permission to do that." }, 403);
 
   const form = await c.req.formData().catch(() => null);
   const file = form?.get("file");
-  if (!(file instanceof File)) return c.json({ error: "missing_file" }, 400);
-  if (!ALLOWED_PROOF_MIME.has(baseMimeType(file.type))) return c.json({ error: "unsupported_file_type" }, 400);
-  if (file.size > MAX_PROOF_BYTES) return c.json({ error: "file_too_large" }, 400);
+  if (!(file instanceof File)) return c.json({ error: "missing_file", message: "Choose a photo to upload." }, 400);
+  if (!ALLOWED_PROOF_MIME.has(baseMimeType(file.type))) return c.json({ error: "unsupported_file_type", message: "Use a JPEG, PNG, or WEBP image." }, 400);
+  if (file.size > MAX_PROOF_BYTES) return c.json({ error: "file_too_large", message: "That image is too large." }, 400);
 
   const ext = extensionForMime(file.type, "jpg");
   const key = `stages/${repayment.stage_id}/repayments/${id}.${ext}`;
@@ -765,9 +767,9 @@ stageRoutes.post("/stages/repayments/:id/confirm", async (c) => {
   const repayment = res.rows[0] as unknown as
     | { id: string; loan_id: string; stage_id: string; cycle_id: string; amount: number; status: string; total_repayment: number }
     | undefined;
-  if (!repayment) return c.json({ error: "not_found" }, 404);
-  if (repayment.status !== "pending") return c.json({ error: "not_pending" }, 400);
-  if (!(await canRecordCash(repayment.stage_id, user.sub))) return c.json({ error: "forbidden" }, 403);
+  if (!repayment) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  if (repayment.status !== "pending") return c.json({ error: "not_pending", message: "This has already been handled." }, 400);
+  if (!(await canRecordCash(repayment.stage_id, user.sub))) return c.json({ error: "forbidden", message: "You don't have permission to do that." }, 403);
 
   await db.execute({
     sql: "UPDATE stage_repayments SET status = 'confirmed', confirmed_by = ?, confirmed_at = datetime('now') WHERE id = ?",
@@ -796,7 +798,7 @@ stageRoutes.get("/stages/:id/ledger", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
   const membership = await getMembership(stageId, user.sub);
-  if (!membership) return c.json({ error: "not_a_member" }, 403);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
   const res = await db.execute({
     sql: `SELECT t.*, u.name AS member_name FROM stage_transactions t
           LEFT JOIN users u ON u.id = t.member_id
@@ -812,7 +814,7 @@ stageRoutes.get("/stages/:id/messages", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
   const membership = await getMembership(stageId, user.sub);
-  if (!membership) return c.json({ error: "not_a_member" }, 403);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
   const withRiderId = c.req.query("with");
 
   const res = await db.execute(
@@ -837,7 +839,7 @@ stageRoutes.post("/stages/:id/messages", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
   const membership = await getMembership(stageId, user.sub);
-  if (!membership) return c.json({ error: "not_a_member" }, 403);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
   const parsed = sendMessageSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
 
@@ -914,7 +916,7 @@ stageAdminRoutes.get("/admin/stages/:id", async (c) => {
   if (denied) return denied;
   const stageId = c.req.param("id");
   const stageRes = await db.execute({ sql: "SELECT * FROM stages WHERE id = ?", args: [stageId] });
-  if (!stageRes.rows[0]) return c.json({ error: "not_found" }, 404);
+  if (!stageRes.rows[0]) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
   const membersRes = await db.execute({
     sql: `SELECT m.rider_id, m.role, u.name FROM stage_members m JOIN users u ON u.id = m.rider_id
           WHERE m.stage_id = ? AND m.status = 'active'`,
