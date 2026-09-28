@@ -17,7 +17,8 @@ export default function ContributePage() {
   const stageId = params.id;
   const router = useRouter();
   const { startCall } = useCalls();
-  const [amount, setAmount] = useState("");
+  const [shares, setShares] = useState("");
+  const [sharePrice, setSharePrice] = useState(1000);
   const [method, setMethod] = useState<"cash" | "momo">("cash");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +37,7 @@ export default function ContributePage() {
     setPending(contributions.contributions.filter((c) => c.status === "pending"));
     const treasurer = stage?.members.find((m) => m.role === "treasurer");
     setTreasurerId(treasurer?.rider_id ?? null);
+    if (stage?.cycle) setSharePrice(stage.cycle.share_price);
     if (settings) setEscalationHours(settings.settings.vslaUnconfirmedIntentEscalationHours);
   }
 
@@ -43,17 +45,19 @@ export default function ContributePage() {
     loadPending().catch(() => {});
   }, [stageId]);
 
+  const shareCount = Number(shares);
+  const previewAmount = shareCount > 0 ? Math.round(shareCount * sharePrice) : 0;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const value = Number(amount);
-    if (!value || value <= 0) return;
+    if (!shareCount || shareCount <= 0) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await api.createStageContribution(stageId, { amount: value, method });
-      setAmount("");
+      const res = await api.createStageContribution(stageId, { shares: shareCount, method });
+      setShares("");
       if (method === "momo" && res.momoRecipientMsisdn) {
-        window.location.href = `tel:*165*3*${res.momoRecipientMsisdn}*${value}%23`;
+        window.location.href = `tel:*165*3*${res.momoRecipientMsisdn}*${res.amount}%23`;
       }
       await loadPending();
     } catch (err) {
@@ -91,17 +95,18 @@ export default function ContributePage() {
 
       <form onSubmit={submit} className="home-card space-y-3">
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-ink-500" htmlFor="amount">
-            Amount to save (UGX)
+          <label className="text-xs font-semibold text-ink-500" htmlFor="shares">
+            Shares to save ({formatUgx(sharePrice)} per share)
           </label>
           <input
-            id="amount"
+            id="shares"
             inputMode="numeric"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
-            placeholder="e.g. 20,000"
+            value={shares}
+            onChange={(e) => setShares(e.target.value.replace(/[^\d]/g, ""))}
+            placeholder="e.g. 2"
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-lg font-bold text-ink outline-none focus:border-gold"
           />
+          {previewAmount > 0 && <p className="text-xs font-semibold text-ink-500">= {formatUgx(previewAmount)}</p>}
         </div>
         <div className="flex gap-2">
           {(["cash", "momo"] as const).map((m) => (
@@ -124,7 +129,7 @@ export default function ContributePage() {
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <button
           type="submit"
-          disabled={busy || !amount}
+          disabled={busy || !shares}
           className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold disabled:opacity-60"
         >
           {busy ? "Saving…" : method === "momo" ? "Continue to mobile money" : "Save intent"}
@@ -141,7 +146,10 @@ export default function ContributePage() {
             return (
               <div key={c.id} className="home-card space-y-2 !py-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-ink">{formatUgx(c.amount)}</span>
+                  <span className="text-sm font-bold text-ink">
+                    {formatUgx(c.amount)}
+                    {c.shares != null && <span className="ml-1 font-normal text-ink-500">({c.shares} sh)</span>}
+                  </span>
                   <span className="rounded-full bg-[rgb(var(--surface-muted))] px-2 py-0.5 text-xs font-semibold text-ink-500">
                     {c.method === "momo" ? "Mobile money" : "Cash"}
                   </span>

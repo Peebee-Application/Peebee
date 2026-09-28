@@ -16,6 +16,12 @@ export default function StageDetailPage() {
   const [detail, setDetail] = useState<StageDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [startingCycle, setStartingCycle] = useState(false);
+  const [sharePrice, setSharePrice] = useState("1000");
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState<string | null>(null);
+  const [transferTarget, setTransferTarget] = useState("");
+  const [transferBusy, setTransferBusy] = useState(false);
 
   useEffect(() => {
     api
@@ -29,7 +35,10 @@ export default function StageDetailPage() {
     setStartingCycle(true);
     setError(null);
     try {
-      await api.startStageCycle(stageId, { startDate: new Date().toISOString().slice(0, 10) });
+      await api.startStageCycle(stageId, {
+        startDate: new Date().toISOString().slice(0, 10),
+        sharePrice: Number(sharePrice) || undefined,
+      });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -50,6 +59,41 @@ export default function StageDetailPage() {
   if (!detail) return <div className="p-4 text-sm text-ink-500">Loading…</div>;
 
   const officers = detail.members.filter((m) => (OFFICER_ROLES as readonly string[]).includes(m.role));
+  const canManage = detail.isGroupAdmin || (OFFICER_ROLES as readonly string[]).includes(detail.myRole);
+
+  async function invite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!invitePhone.trim()) return;
+    setInviteBusy(true);
+    setInviteMessage(null);
+    try {
+      const res = await api.inviteToStage(stageId, invitePhone.trim());
+      setInviteMessage(`${res.name} added.`);
+      setInvitePhone("");
+      const fresh = await api.getStage(stageId);
+      setDetail(fresh);
+    } catch (err) {
+      setInviteMessage(errorMessage(err));
+    } finally {
+      setInviteBusy(false);
+    }
+  }
+
+  async function transferAdmin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!transferTarget) return;
+    setTransferBusy(true);
+    try {
+      await api.transferStageAdmin(stageId, transferTarget);
+      const fresh = await api.getStage(stageId);
+      setDetail(fresh);
+      setTransferTarget("");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setTransferBusy(false);
+    }
+  }
 
   return (
     <div className="space-y-5 px-4 pb-6 pt-4">
@@ -77,15 +121,29 @@ export default function StageDetailPage() {
       ) : (
         <div className="home-card space-y-3 text-center">
           <p className="text-sm text-ink-500">This circle hasn&apos;t started a savings cycle yet.</p>
-          {(OFFICER_ROLES as readonly string[]).includes(detail.myRole) && (
-            <button
-              type="button"
-              onClick={startCycle}
-              disabled={startingCycle}
-              className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
-            >
-              {startingCycle ? "Starting…" : "Start a savings cycle"}
-            </button>
+          {canManage && (
+            <>
+              <div className="flex items-center gap-2 text-left">
+                <label className="text-xs font-semibold text-ink-500" htmlFor="share-price">
+                  Share price (UGX)
+                </label>
+                <input
+                  id="share-price"
+                  inputMode="numeric"
+                  value={sharePrice}
+                  onChange={(e) => setSharePrice(e.target.value.replace(/[^\d]/g, ""))}
+                  className="w-24 rounded-lg border border-[var(--border-faint)] px-2 py-1 text-sm font-bold text-ink outline-none focus:border-gold"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={startCycle}
+                disabled={startingCycle}
+                className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
+              >
+                {startingCycle ? "Starting…" : "Start a savings cycle"}
+              </button>
+            </>
           )}
         </div>
       )}
@@ -142,6 +200,12 @@ export default function StageDetailPage() {
           Ledger
         </Link>
         <Link
+          href={`/savings/${stageId}/reports`}
+          className="flex-1 rounded-full border border-[var(--border-faint)] py-2.5 text-center text-xs font-bold text-ink-500"
+        >
+          Reports
+        </Link>
+        <Link
           href={`/savings/${stageId}/chat`}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-[var(--border-faint)] py-2.5 text-center text-xs font-bold text-ink-500"
         >
@@ -149,6 +213,65 @@ export default function StageDetailPage() {
           Circle chat
         </Link>
       </div>
+
+      {detail.isGroupAdmin && (
+        <div className="home-card space-y-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Group admin</p>
+
+          <form onSubmit={invite} className="space-y-2">
+            <label className="text-xs font-semibold text-ink-500" htmlFor="invite-phone">
+              Add a member by phone
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="invite-phone"
+                value={invitePhone}
+                onChange={(e) => setInvitePhone(e.target.value)}
+                placeholder="07XXXXXXXX"
+                className="flex-1 rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-gold"
+              />
+              <button
+                type="submit"
+                disabled={inviteBusy}
+                className="rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
+              >
+                {inviteBusy ? "Adding…" : "Add"}
+              </button>
+            </div>
+            {inviteMessage && <p className="text-xs text-ink-500">{inviteMessage}</p>}
+          </form>
+
+          <form onSubmit={transferAdmin} className="space-y-2">
+            <label className="text-xs font-semibold text-ink-500" htmlFor="transfer-target">
+              Transfer group admin to
+            </label>
+            <div className="flex gap-2">
+              <select
+                id="transfer-target"
+                value={transferTarget}
+                onChange={(e) => setTransferTarget(e.target.value)}
+                className="flex-1 rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-gold"
+              >
+                <option value="">Choose a member…</option>
+                {detail.members
+                  .filter((m) => m.rider_id !== detail.groupAdminId)
+                  .map((m) => (
+                    <option key={m.rider_id} value={m.rider_id}>
+                      {m.name}
+                    </option>
+                  ))}
+              </select>
+              <button
+                type="submit"
+                disabled={transferBusy || !transferTarget}
+                className="rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink disabled:opacity-60"
+              >
+                {transferBusy ? "…" : "Transfer"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

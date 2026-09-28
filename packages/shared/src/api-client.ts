@@ -89,6 +89,8 @@ import type {
   StageMemberRole,
   StageMessage,
   StageTransaction,
+  StageLoanApprovalWorkflowRow,
+  StageReports,
   StaffMember,
   UserStatus,
   Wallet,
@@ -1666,11 +1668,28 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
         body: JSON.stringify({ candidateRiderId }),
       });
     },
-    async startStageCycle(stageId: string, input: { startDate: string; interestRate?: number; loanableContributionMultiple?: number; maxLoanDurationMonths?: number; cycleMonths?: number }) {
+    async startStageCycle(stageId: string, input: { startDate: string; interestRate?: number; loanableContributionMultiple?: number; maxLoanDurationMonths?: number; cycleMonths?: number; sharePrice?: number }) {
       return request<{ cycleId: string }>(`/v1/stages/${stageId}/cycles`, { method: "POST", body: JSON.stringify(input) });
     },
-    async createStageContribution(stageId: string, input: { amount: number; method: "cash" | "momo" }) {
-      return request<{ contributionId: string; momoRecipientMsisdn: string | null }>(`/v1/stages/${stageId}/contributions`, {
+    async setStageLoanWorkflow(stageId: string, cycleId: string, workflow: StageLoanApprovalWorkflowRow[]) {
+      return request<{ ok: true }>(`/v1/stages/${stageId}/cycles/${cycleId}/workflow`, {
+        method: "PUT",
+        body: JSON.stringify({
+          workflow: workflow.map((w) => ({ role: w.role, approvalsRequired: w.approvals_required, rejectionsRequired: w.rejections_required })),
+        }),
+      });
+    },
+    async transferStageAdmin(stageId: string, targetRiderId: string) {
+      return request<{ ok: true }>(`/v1/stages/${stageId}/transfer-admin`, { method: "POST", body: JSON.stringify({ targetRiderId }) });
+    },
+    async inviteToStage(stageId: string, phone: string) {
+      return request<{ ok: true; riderId: string; name: string }>(`/v1/stages/${stageId}/invite`, { method: "POST", body: JSON.stringify({ phone }) });
+    },
+    async getStageReports(stageId: string) {
+      return request<StageReports>(`/v1/stages/${stageId}/reports`);
+    },
+    async createStageContribution(stageId: string, input: { shares: number; method: "cash" | "momo" }) {
+      return request<{ contributionId: string; amount: number; momoRecipientMsisdn: string | null }>(`/v1/stages/${stageId}/contributions`, {
         method: "POST",
         body: JSON.stringify(input),
       });
@@ -1743,7 +1762,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async adminGetStages() {
       return request<{ stages: AdminStageSummary[] }>("/v1/admin/stages");
     },
-    async adminCreateStage(input: { name: string; area?: string; address?: string; description?: string }) {
+    async adminCreateStage(input: { name: string; area?: string; address?: string; description?: string; chairmanRiderId?: string; groupAdminRiderId?: string }) {
       return request<{ stageId: string }>("/v1/admin/stages", { method: "POST", body: JSON.stringify(input) });
     },
     async adminGetStage(stageId: string) {

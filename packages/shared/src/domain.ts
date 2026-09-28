@@ -281,6 +281,8 @@ export type VslaSettings = {
   vslaDefaultLoanableMultiple: number;
   vslaDefaultCycleMonths: number;
   vslaDefaultMaxLoanMonths: number;
+  /** UGX per share when a stage's officers don't set their own. */
+  vslaDefaultSharePrice: number;
   /** Who's allowed to confirm a declared contribution/repayment as
    * actually received. */
   vslaContributionRecorderRole: VslaContributionRecorderRole;
@@ -1437,6 +1439,11 @@ export type Stage = {
   description: string | null;
   constitution: string | null;
   created_by: string | null;
+  /** The rider responsible for onboarding fellow stage members — distinct
+   * from the elected chairman/secretary/treasurer roles. Whoever creates
+   * the stage starts as its group admin; transferable to any other active
+   * member via POST /stages/:id/transfer-admin. */
+  group_admin_id: string | null;
   status: "active" | "archived";
   created_at: string;
   updated_at: string;
@@ -1446,6 +1453,12 @@ export type Stage = {
 
 export type StageMemberSummary = { rider_id: string; role: StageMemberRole; name: string };
 
+export type StageLoanApprovalWorkflowRow = {
+  role: StageMemberRole;
+  approvals_required: number;
+  rejections_required: number;
+};
+
 export type StageCycle = {
   id: string;
   stage_id: string;
@@ -1454,6 +1467,9 @@ export type StageCycle = {
   interest_rate: number;
   loanable_contribution_multiple: number;
   max_loan_duration_months: number;
+  /** UGX cost of one share — contributions are bought in whole shares at
+   * this fixed price, standardizing savings across members within a cycle. */
+  share_price: number;
   status: "active" | "closed";
 };
 
@@ -1461,9 +1477,24 @@ export type StageDetail = {
   stage: Stage;
   members: StageMemberSummary[];
   myRole: StageMemberRole;
+  groupAdminId: string | null;
+  isGroupAdmin: boolean;
   cycle: StageCycle | null;
+  approvalWorkflow: StageLoanApprovalWorkflowRow[];
   pot: number;
   outOnLoan: number;
+};
+
+/** A stage circle's savings/loan performance — see GET /stages/:id/reports. */
+export type StageReports = {
+  cycle: StageCycle | null;
+  totalSaved: number;
+  totalDisbursed: number;
+  totalRepaid: number;
+  outstandingLoans: number;
+  loansCount: { pending: number; approved: number; disbursed: number; repaid: number; rejected: number; defaulted: number };
+  topSavers: { rider_id: string; name: string; saved: number; shares: number }[];
+  cycleHistory: { id: string; start_date: string; end_date: string; status: string; totalSaved: number; sharePrice: number }[];
 };
 
 export type StageContributionStatus = "pending" | "confirmed" | "cancelled" | "disputed";
@@ -1475,6 +1506,7 @@ export type StageContribution = {
   member_id: string;
   member_name: string;
   amount: number;
+  shares: number | null;
   method: "cash" | "momo";
   momo_recipient_msisdn: string | null;
   status: StageContributionStatus;

@@ -28,6 +28,7 @@ export default function StageSavingsSettingsPage() {
   const [adminLedgerVisibility, setAdminLedgerVisibility] = useState<VslaAdminLedgerVisibility>("read_only_all");
   const [unconfirmedIntentEscalationHours, setUnconfirmedIntentEscalationHours] = useState("6");
   const [featurePlacement, setFeaturePlacement] = useState<VslaFeaturePlacement>("home_card_and_screen");
+  const [defaultSharePrice, setDefaultSharePrice] = useState("1000");
 
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,6 +50,7 @@ export default function StageSavingsSettingsPage() {
         setAdminLedgerVisibility(settings.vslaAdminLedgerVisibility);
         setUnconfirmedIntentEscalationHours(String(settings.vslaUnconfirmedIntentEscalationHours));
         setFeaturePlacement(settings.vslaFeaturePlacement);
+        setDefaultSharePrice(String(settings.vslaDefaultSharePrice));
       })
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false));
@@ -72,6 +74,7 @@ export default function StageSavingsSettingsPage() {
         vslaAdminLedgerVisibility: adminLedgerVisibility,
         vslaUnconfirmedIntentEscalationHours: Number(unconfirmedIntentEscalationHours),
         vslaFeaturePlacement: featurePlacement,
+        vslaDefaultSharePrice: Number(defaultSharePrice),
       });
       setStageCreationMode(res.settings.vslaStageCreationMode);
       setLoanInterestEnabled(res.settings.vslaLoanInterestEnabled);
@@ -84,6 +87,7 @@ export default function StageSavingsSettingsPage() {
       setAdminLedgerVisibility(res.settings.vslaAdminLedgerVisibility);
       setUnconfirmedIntentEscalationHours(String(res.settings.vslaUnconfirmedIntentEscalationHours));
       setFeaturePlacement(res.settings.vslaFeaturePlacement);
+      setDefaultSharePrice(String(res.settings.vslaDefaultSharePrice));
       setSaved(true);
     } catch (err) {
       setError(errorMessage(err));
@@ -192,6 +196,19 @@ export default function StageSavingsSettingsPage() {
                 onChange={(e) => setDefaultMaxLoanMonths(e.target.value.replace(/[^\d]/g, ""))}
                 className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
               />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-ink-500" htmlFor="sharePrice">
+                Default share price (UGX)
+              </label>
+              <input
+                id="sharePrice"
+                inputMode="numeric"
+                value={defaultSharePrice}
+                onChange={(e) => setDefaultSharePrice(e.target.value.replace(/[^\d]/g, ""))}
+                className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+              />
+              <p className="text-[11px] text-ink-500">Contributions are declared in shares × this price.</p>
             </div>
           </div>
         </section>

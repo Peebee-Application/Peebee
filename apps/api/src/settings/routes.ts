@@ -147,6 +147,7 @@ async function fullSettings() {
     vslaAdminLedgerVisibility: vsla.adminLedgerVisibility,
     vslaUnconfirmedIntentEscalationHours: vsla.unconfirmedIntentEscalationHours,
     vslaFeaturePlacement: vsla.featurePlacement,
+    vslaDefaultSharePrice: vsla.defaultSharePrice,
     lugandaAudioEnabled: lugandaAudio.enabled,
     lugandaAudioVoices: lugandaAudio.voices,
     lugandaAudioDefaultVoice: lugandaAudio.defaultVoice,
@@ -295,6 +296,7 @@ const updateSchema = z.object({
   vslaAdminLedgerVisibility: z.enum(["read_only_all", "private_per_stage"]).optional(),
   vslaUnconfirmedIntentEscalationHours: z.number().int().positive().max(168).optional(),
   vslaFeaturePlacement: z.enum(["home_card_and_screen", "bottom_nav_tab", "account_only"]).optional(),
+  vslaDefaultSharePrice: z.number().int().positive().optional(),
   // Luganda list-reading — see ../lib/settings.ts getLugandaAudioSettings.
   lugandaAudioEnabled: z.boolean().optional(),
   lugandaAudioVoices: z.array(z.object({ id: z.string().min(1).max(60), label: z.string().min(1).max(60) })).max(20).optional(),
@@ -444,6 +446,7 @@ settingsRoutes.put(
       adminLedgerVisibility: parsed.data.vslaAdminLedgerVisibility,
       unconfirmedIntentEscalationHours: parsed.data.vslaUnconfirmedIntentEscalationHours,
       featurePlacement: parsed.data.vslaFeaturePlacement,
+      defaultSharePrice: parsed.data.vslaDefaultSharePrice,
     });
 
     await setLugandaAudioSettings({

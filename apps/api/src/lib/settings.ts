@@ -180,6 +180,8 @@ const DEFAULTS = {
   vsla_default_loanable_multiple: "2",
   vsla_default_cycle_months: "12",
   vsla_default_max_loan_months: "3",
+  /** UGX per share when a cycle doesn't set its own — see stage_cycles.share_price. */
+  vsla_default_share_price: "1000",
   vsla_contribution_recorder_role: "any_officer", // "any_officer" | "treasurer_only"
   vsla_cash_double_check_required: "0",
   vsla_admin_ledger_visibility: "read_only_all", // "read_only_all" | "private_per_stage"
@@ -561,6 +563,7 @@ export type VslaSettings = {
   defaultLoanableMultiple: number;
   defaultCycleMonths: number;
   defaultMaxLoanMonths: number;
+  defaultSharePrice: number;
   contributionRecorderRole: VslaContributionRecorderRole;
   cashDoubleCheckRequired: boolean;
   adminLedgerVisibility: VslaAdminLedgerVisibility;
@@ -576,6 +579,7 @@ export async function getVslaSettings(): Promise<VslaSettings> {
     defaultLoanableMultiple,
     defaultCycleMonths,
     defaultMaxLoanMonths,
+    defaultSharePrice,
     contributionRecorderRole,
     cashDoubleCheckRequired,
     adminLedgerVisibility,
@@ -588,6 +592,7 @@ export async function getVslaSettings(): Promise<VslaSettings> {
     getSetting("vsla_default_loanable_multiple"),
     getSetting("vsla_default_cycle_months"),
     getSetting("vsla_default_max_loan_months"),
+    getSetting("vsla_default_share_price"),
     getSetting("vsla_contribution_recorder_role"),
     getSetting("vsla_cash_double_check_required"),
     getSetting("vsla_admin_ledger_visibility"),
@@ -601,6 +606,7 @@ export async function getVslaSettings(): Promise<VslaSettings> {
     defaultLoanableMultiple: Number(defaultLoanableMultiple) || 2,
     defaultCycleMonths: Number(defaultCycleMonths) || 12,
     defaultMaxLoanMonths: Number(defaultMaxLoanMonths) || 3,
+    defaultSharePrice: Number(defaultSharePrice) || 1000,
     contributionRecorderRole: contributionRecorderRole === "treasurer_only" ? "treasurer_only" : "any_officer",
     cashDoubleCheckRequired: cashDoubleCheckRequired === "1",
     adminLedgerVisibility: adminLedgerVisibility === "private_per_stage" ? "private_per_stage" : "read_only_all",
@@ -626,6 +632,7 @@ export async function setVslaSettings(input: Partial<VslaSettings>): Promise<voi
   if (input.defaultMaxLoanMonths != null) {
     writes.push(setSetting("vsla_default_max_loan_months", String(input.defaultMaxLoanMonths)));
   }
+  if (input.defaultSharePrice != null) writes.push(setSetting("vsla_default_share_price", String(input.defaultSharePrice)));
   if (input.contributionRecorderRole != null) {
     writes.push(setSetting("vsla_contribution_recorder_role", input.contributionRecorderRole));
   }

@@ -48,6 +48,23 @@ async function canRecordCash(stageId: string, riderId: string): Promise<boolean>
   return true;
 }
 
+async function getGroupAdminId(stageId: string): Promise<string | null> {
+  const res = await db.execute({ sql: "SELECT group_admin_id FROM stages WHERE id = ?", args: [stageId] });
+  return (res.rows[0]?.group_admin_id as string | null) ?? null;
+}
+
+/** The group admin — the person responsible for onboarding fellow stage
+ * members and configuring cycles — is a distinct standing role from the
+ * elected chairman/secretary/treasurer/etc, though usually the same person
+ * at first (whoever created the stage). Cycle/workflow setup is allowed by
+ * either: an elected officer, or the group admin even if not one. */
+async function canManageStage(stageId: string, riderId: string): Promise<boolean> {
+  const membership = await getMembership(stageId, riderId);
+  if (isOfficer(membership)) return true;
+  const groupAdminId = await getGroupAdminId(stageId);
+  return !!membership && groupAdminId === riderId;
+}
+
 async function getActiveCycle(stageId: string) {
   const res = await db.execute({
     sql: "SELECT * FROM stage_cycles WHERE stage_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1",
@@ -62,6 +79,7 @@ async function getActiveCycle(stageId: string) {
         interest_rate: number;
         loanable_contribution_multiple: number;
         max_loan_duration_months: number;
+        share_price: number;
         status: string;
       }
     | undefined;
@@ -203,9 +221,9 @@ stageRoutes.post("/stages", async (c) => {
 
   const id = newId("stage");
   await db.execute({
-    sql: `INSERT INTO stages (id, name, area, address, description, created_by)
-          VALUES (?, ?, ?, ?, ?, ?)`,
-    args: [id, parsed.data.name, parsed.data.area ?? null, parsed.data.address ?? null, parsed.data.description ?? null, user.sub],
+    sql: `INSERT INTO stages (id, name, area, address, description, created_by, group_admin_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    args: [id, parsed.data.name, parsed.data.area ?? null, parsed.data.address ?? null, parsed.data.description ?? null, user.sub, user.sub],
   });
   await db.execute({
     sql: `INSERT INTO stage_members (id, stage_id, rider_id, role) VALUES (?, ?, ?, 'chairman')`,
@@ -252,7 +270,85 @@ stageRoutes.get("/stages/:id", async (c) => {
     outOnLoan = Math.max(0, total - repaid);
   }
 
-  return c.json({ stage, members: membersRes.rows, myRole: membership.role, cycle: cycle ?? null, pot, outOnLoan });
+  const groupAdminId = (stage as unknown as { group_admin_id: string | null }).group_admin_id ?? null;
+  let approvalWorkflow: { role: string; approvals_required: number; rejections_required: number }[] = [];
+  if (cycle) {
+    const wfRes = await db.execute({
+      sql: "SELECT role, approvals_required, rejections_required FROM stage_loan_approval_workflow WHERE cycle_id = ?",
+      args: [cycle.id],
+    });
+    approvalWorkflow = wfRes.rows as unknown as typeof approvalWorkflow;
+  }
+
+  return c.json({
+    stage,
+    members: membersRes.rows,
+    myRole: membership.role,
+    cycle: cycle ?? null,
+    pot,
+    outOnLoan,
+    groupAdminId,
+    isGroupAdmin: groupAdminId === user.sub,
+    approvalWorkflow,
+  });
+});
+
+const transferAdminSchema = z.object({ targetRiderId: z.string() });
+
+/** Onboarding + succession lever: the group admin invites members directly
+ * rather than relying only on self-discovery, and can hand the role to
+ * anyone else who is still an active member (e.g. before they leave the
+ * stage or the app). */
+stageRoutes.post("/stages/:id/transfer-admin", async (c) => {
+  const stageId = c.req.param("id");
+  const user = c.get("user");
+  const groupAdminId = await getGroupAdminId(stageId);
+  if (groupAdminId !== user.sub) return c.json({ error: "forbidden", message: "Only the current group admin can do that." }, 403);
+
+  const parsed = transferAdminSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+  const target = await getMembership(stageId, parsed.data.targetRiderId);
+  if (!target) return c.json({ error: "not_a_member", message: "That rider isn't an active member of this circle." }, 400);
+
+  await db.execute({ sql: "UPDATE stages SET group_admin_id = ? WHERE id = ?", args: [parsed.data.targetRiderId, stageId] });
+  await postSystemMessage(stageId, user.sub, "group_admin_transferred", "Group admin rights were transferred to another member.", parsed.data.targetRiderId);
+  return c.json({ ok: true });
+});
+
+const inviteSchema = z.object({ phone: z.string().trim().min(6) });
+
+/** Group-admin-only direct onboarding by phone number, alongside the
+ * existing self-serve discover/join path. */
+stageRoutes.post("/stages/:id/invite", async (c) => {
+  const stageId = c.req.param("id");
+  const user = c.get("user");
+  const groupAdminId = await getGroupAdminId(stageId);
+  if (groupAdminId !== user.sub) return c.json({ error: "forbidden", message: "Only the group admin can invite members." }, 403);
+
+  const parsed = inviteSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+
+  const riderRes = await db.execute({
+    sql: "SELECT id, name FROM users WHERE phone = ? AND role = 'rider' AND status = 'active' LIMIT 1",
+    args: [parsed.data.phone],
+  });
+  const rider = riderRes.rows[0] as unknown as { id: string; name: string } | undefined;
+  if (!rider) return c.json({ error: "not_found", message: "No active rider found with that phone number." }, 404);
+
+  const existing = await db.execute({ sql: "SELECT status FROM stage_members WHERE stage_id = ? AND rider_id = ?", args: [stageId, rider.id] });
+  if ((existing.rows[0] as unknown as { status: string } | undefined)?.status === "active") {
+    return c.json({ error: "already_member", message: `${rider.name} is already a member of this circle.` }, 400);
+  }
+  if (existing.rows.length > 0) {
+    await db.execute({
+      sql: "UPDATE stage_members SET status = 'active', joined_at = datetime('now'), left_at = NULL WHERE stage_id = ? AND rider_id = ?",
+      args: [stageId, rider.id],
+    });
+  } else {
+    await db.execute({ sql: "INSERT INTO stage_members (id, stage_id, rider_id) VALUES (?, ?, ?)", args: [newId("smem"), stageId, rider.id] });
+  }
+  await postSystemMessage(stageId, user.sub, "member_invited", `${rider.name} was added to the circle by the group admin.`);
+  return c.json({ ok: true, riderId: rider.id, name: rider.name });
 });
 
 stageRoutes.post("/stages/:id/join", async (c) => {
@@ -270,6 +366,12 @@ stageRoutes.post("/stages/:id/join", async (c) => {
       args: [newId("smem"), stageId, user.sub],
     });
   }
+  // A stage registered by admin has no group admin yet — the first rider to
+  // join one becomes it, mirroring "usually the first person to open that VSLA."
+  await db.execute({
+    sql: "UPDATE stages SET group_admin_id = ? WHERE id = ? AND group_admin_id IS NULL",
+    args: [user.sub, stageId],
+  });
   await postSystemMessage(stageId, user.sub, "member_joined", `${user.name} joined the circle.`);
   return c.json({ ok: true });
 });
@@ -401,13 +503,19 @@ const createCycleSchema = z.object({
   loanableContributionMultiple: z.number().positive().optional(),
   maxLoanDurationMonths: z.number().int().positive().optional(),
   cycleMonths: z.number().int().positive().optional(),
+  sharePrice: z.number().int().positive().optional(),
 });
 
+/** Cycle setup — duration, share price, interest, loanable multiple — is
+ * the group admin's call as much as the elected officers', per the group
+ * admin owning "cycle details like cycle duration, share price, approval
+ * workflows." */
 stageRoutes.post("/stages/:id/cycles", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
-  const membership = await getMembership(stageId, user.sub);
-  if (!isOfficer(membership)) return c.json({ error: "officers_only", message: "Only an elected officer can do that." }, 403);
+  if (!(await canManageStage(stageId, user.sub))) {
+    return c.json({ error: "officers_only", message: "Only the group admin or an elected officer can do that." }, 403);
+  }
 
   const existing = await getActiveCycle(stageId);
   if (existing) {
@@ -426,8 +534,8 @@ stageRoutes.post("/stages/:id/cycles", async (c) => {
   const id = newId("cycle");
   await db.execute({
     sql: `INSERT INTO stage_cycles
-            (id, stage_id, start_date, end_date, interest_rate, loanable_contribution_multiple, max_loan_duration_months)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            (id, stage_id, start_date, end_date, interest_rate, loanable_contribution_multiple, max_loan_duration_months, share_price)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id,
       stageId,
@@ -436,6 +544,7 @@ stageRoutes.post("/stages/:id/cycles", async (c) => {
       settings.loanInterestEnabled ? parsed.data.interestRate ?? settings.defaultInterestRate : 0,
       parsed.data.loanableContributionMultiple ?? settings.defaultLoanableMultiple,
       parsed.data.maxLoanDurationMonths ?? settings.defaultMaxLoanMonths,
+      parsed.data.sharePrice ?? settings.defaultSharePrice,
     ],
   });
   await ensureDefaultLoanWorkflow(id);
@@ -443,13 +552,56 @@ stageRoutes.post("/stages/:id/cycles", async (c) => {
   return c.json({ cycleId: id });
 });
 
+const setWorkflowSchema = z.object({
+  workflow: z
+    .array(
+      z.object({
+        role: z.enum(OFFICER_ROLES),
+        approvalsRequired: z.number().int().min(0),
+        rejectionsRequired: z.number().int().min(1),
+      }),
+    )
+    .min(1),
+});
+
+/** Lets the group admin (or an officer) redefine the per-role loan approval
+ * quorum for the active cycle, replacing the default seeded by
+ * ensureDefaultLoanWorkflow. */
+stageRoutes.put("/stages/:id/cycles/:cycleId/workflow", async (c) => {
+  const stageId = c.req.param("id");
+  const cycleId = c.req.param("cycleId");
+  const user = c.get("user");
+  if (!(await canManageStage(stageId, user.sub))) {
+    return c.json({ error: "officers_only", message: "Only the group admin or an elected officer can do that." }, 403);
+  }
+  const cycleRes = await db.execute({ sql: "SELECT id FROM stage_cycles WHERE id = ? AND stage_id = ?", args: [cycleId, stageId] });
+  if (!cycleRes.rows[0]) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+
+  const parsed = setWorkflowSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+
+  await db.execute({ sql: "DELETE FROM stage_loan_approval_workflow WHERE cycle_id = ?", args: [cycleId] });
+  for (const row of parsed.data.workflow) {
+    await db.execute({
+      sql: `INSERT INTO stage_loan_approval_workflow (id, cycle_id, role, approvals_required, rejections_required)
+            VALUES (?, ?, ?, ?, ?)`,
+      args: [newId("wf"), cycleId, row.role, row.approvalsRequired, row.rejectionsRequired],
+    });
+  }
+  await postSystemMessage(stageId, user.sub, "workflow_updated", "The loan approval workflow was updated.", cycleId);
+  return c.json({ ok: true });
+});
+
 // ---- Contributions (intent -> confirm) ---------------------------------
 
 const contributionSchema = z.object({
-  amount: z.number().int().positive(),
+  shares: z.number().positive(),
   method: z.enum(["cash", "momo"]),
 });
 
+/** Standardized-share contributions, per the reference VSLA design: a
+ * member declares how many shares they intend to buy this round, and the
+ * amount is always share price × shares — never a client-supplied amount. */
 stageRoutes.post("/stages/:id/contributions", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
@@ -460,6 +612,7 @@ stageRoutes.post("/stages/:id/contributions", async (c) => {
 
   const parsed = contributionSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+  const amount = Math.round(parsed.data.shares * cycle.share_price);
 
   let momoRecipient: string | null = null;
   if (parsed.data.method === "momo") {
@@ -473,18 +626,18 @@ stageRoutes.post("/stages/:id/contributions", async (c) => {
 
   const id = newId("scontr");
   await db.execute({
-    sql: `INSERT INTO stage_contributions (id, stage_id, cycle_id, member_id, amount, method, momo_recipient_msisdn)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    args: [id, stageId, cycle.id, user.sub, parsed.data.amount, parsed.data.method, momoRecipient],
+    sql: `INSERT INTO stage_contributions (id, stage_id, cycle_id, member_id, amount, shares, method, momo_recipient_msisdn)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [id, stageId, cycle.id, user.sub, amount, parsed.data.shares, parsed.data.method, momoRecipient],
   });
   await postSystemMessage(
     stageId,
     user.sub,
     "contribution_intent",
-    `${user.name} intends to save UGX ${parsed.data.amount.toLocaleString("en-UG")} via ${methodLabel(parsed.data.method)}.`,
+    `${user.name} intends to save UGX ${amount.toLocaleString("en-UG")} (${parsed.data.shares} share${parsed.data.shares === 1 ? "" : "s"}) via ${methodLabel(parsed.data.method)}.`,
     id,
   );
-  return c.json({ contributionId: id, momoRecipientMsisdn: momoRecipient });
+  return c.json({ contributionId: id, amount, momoRecipientMsisdn: momoRecipient });
 });
 
 const MAX_PROOF_BYTES = 8 * 1024 * 1024;
@@ -815,6 +968,95 @@ stageRoutes.get("/stages/:id/ledger", async (c) => {
   return c.json({ transactions: res.rows });
 });
 
+// ---- Reports / analytics --------------------------------------------------
+
+stageRoutes.get("/stages/:id/reports", async (c) => {
+  const stageId = c.req.param("id");
+  const user = c.get("user");
+  const membership = await getMembership(stageId, user.sub);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
+
+  const cycle = await getActiveCycle(stageId);
+
+  const savedRes = await db.execute({
+    sql: "SELECT COALESCE(SUM(amount), 0) AS total FROM stage_contributions WHERE stage_id = ? AND status = 'confirmed' AND (? IS NULL OR cycle_id = ?)",
+    args: [stageId, cycle?.id ?? null, cycle?.id ?? null],
+  });
+  const totalSaved = Number(savedRes.rows[0]?.total) || 0;
+
+  const disbursedRes = await db.execute({
+    sql: "SELECT COALESCE(SUM(amount), 0) AS total FROM stage_loans WHERE stage_id = ? AND status IN ('disbursed', 'repaid', 'defaulted') AND (? IS NULL OR cycle_id = ?)",
+    args: [stageId, cycle?.id ?? null, cycle?.id ?? null],
+  });
+  const totalDisbursed = Number(disbursedRes.rows[0]?.total) || 0;
+
+  const repaidRes = await db.execute({
+    sql: `SELECT COALESCE(SUM(r.amount), 0) AS total FROM stage_repayments r
+          JOIN stage_loans l ON l.id = r.loan_id
+          WHERE l.stage_id = ? AND r.status = 'confirmed' AND (? IS NULL OR l.cycle_id = ?)`,
+    args: [stageId, cycle?.id ?? null, cycle?.id ?? null],
+  });
+  const totalRepaid = Number(repaidRes.rows[0]?.total) || 0;
+
+  const loansCountRes = await db.execute({
+    sql: "SELECT status, COUNT(*) AS n FROM stage_loans WHERE stage_id = ? GROUP BY status",
+    args: [stageId],
+  });
+  const loansCount = { pending: 0, approved: 0, disbursed: 0, repaid: 0, rejected: 0, defaulted: 0 };
+  for (const row of loansCountRes.rows as unknown as { status: keyof typeof loansCount; n: number }[]) {
+    if (row.status in loansCount) loansCount[row.status] = Number(row.n) || 0;
+  }
+
+  const topSaversRes = await db.execute({
+    sql: `SELECT sc.member_id AS rider_id, u.name, COALESCE(SUM(sc.amount), 0) AS saved, COALESCE(SUM(sc.shares), 0) AS shares
+          FROM stage_contributions sc JOIN users u ON u.id = sc.member_id
+          WHERE sc.stage_id = ? AND sc.status = 'confirmed' AND (? IS NULL OR sc.cycle_id = ?)
+          GROUP BY sc.member_id ORDER BY saved DESC LIMIT 10`,
+    args: [stageId, cycle?.id ?? null, cycle?.id ?? null],
+  });
+
+  const cycleHistoryRes = await db.execute({
+    sql: `SELECT sc.id, sc.start_date, sc.end_date, sc.status, sc.share_price,
+                 (SELECT COALESCE(SUM(amount), 0) FROM stage_contributions WHERE cycle_id = sc.id AND status = 'confirmed') AS total_saved
+          FROM stage_cycles sc WHERE sc.stage_id = ? ORDER BY sc.created_at DESC LIMIT 20`,
+    args: [stageId],
+  });
+
+  const outstandingRes = await db.execute({
+    sql: `SELECT COALESCE(SUM(total_repayment), 0) AS total,
+                 (SELECT COALESCE(SUM(r.amount), 0) FROM stage_repayments r
+                  JOIN stage_loans l2 ON l2.id = r.loan_id WHERE l2.stage_id = ? AND r.status = 'confirmed') AS repaid
+          FROM stage_loans WHERE stage_id = ? AND status = 'disbursed'`,
+    args: [stageId, stageId],
+  });
+  const outstandingTotal = Number(outstandingRes.rows[0]?.total) || 0;
+  const outstandingRepaid = Number(outstandingRes.rows[0]?.repaid) || 0;
+
+  return c.json({
+    cycle: cycle ?? null,
+    totalSaved,
+    totalDisbursed,
+    totalRepaid,
+    outstandingLoans: Math.max(0, outstandingTotal - outstandingRepaid),
+    loansCount,
+    topSavers: topSaversRes.rows.map((r) => {
+      const row = r as unknown as { rider_id: string; name: string; saved: number; shares: number };
+      return { rider_id: row.rider_id, name: row.name, saved: Number(row.saved) || 0, shares: Number(row.shares) || 0 };
+    }),
+    cycleHistory: cycleHistoryRes.rows.map((r) => {
+      const row = r as unknown as { id: string; start_date: string; end_date: string; status: string; total_saved: number; share_price: number };
+      return {
+        id: row.id,
+        start_date: row.start_date,
+        end_date: row.end_date,
+        status: row.status,
+        totalSaved: Number(row.total_saved) || 0,
+        sharePrice: Number(row.share_price) || 0,
+      };
+    }),
+  });
+});
+
 // ---- Chat (group + direct) -------------------------------------------------
 
 stageRoutes.get("/stages/:id/messages", async (c) => {
@@ -893,6 +1135,9 @@ const adminCreateStageSchema = z.object({
   /** Optional — a rider to seat as founding chairman right away. Without
    * one, the stage just has no officers until its first election. */
   chairmanRiderId: z.string().optional(),
+  /** Optional — distinct from chairmanRiderId. Without one, the first rider
+   * to join self-assigns as group admin (see POST /stages/:id/join). */
+  groupAdminRiderId: z.string().optional(),
 });
 
 /** Not gated by vslaAdminLedgerVisibility — that setting is about who can
@@ -906,13 +1151,20 @@ stageAdminRoutes.post("/admin/stages", async (c) => {
 
   const id = newId("stage");
   await db.execute({
-    sql: `INSERT INTO stages (id, name, area, address, description) VALUES (?, ?, ?, ?, ?)`,
-    args: [id, parsed.data.name, parsed.data.area ?? null, parsed.data.address ?? null, parsed.data.description ?? null],
+    sql: `INSERT INTO stages (id, name, area, address, description, group_admin_id) VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [id, parsed.data.name, parsed.data.area ?? null, parsed.data.address ?? null, parsed.data.description ?? null, parsed.data.groupAdminRiderId ?? null],
   });
   if (parsed.data.chairmanRiderId) {
     await db.execute({
       sql: `INSERT INTO stage_members (id, stage_id, rider_id, role) VALUES (?, ?, ?, 'chairman')`,
       args: [newId("smem"), id, parsed.data.chairmanRiderId],
+    });
+  }
+  if (parsed.data.groupAdminRiderId && parsed.data.groupAdminRiderId !== parsed.data.chairmanRiderId) {
+    await db.execute({
+      sql: `INSERT INTO stage_members (id, stage_id, rider_id) VALUES (?, ?, ?)
+            ON CONFLICT(stage_id, rider_id) DO NOTHING`,
+      args: [newId("smem"), id, parsed.data.groupAdminRiderId],
     });
   }
   return c.json({ stageId: id });
