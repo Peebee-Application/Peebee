@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { JobPreviewModal } from "../components/JobPreviewModal";
+import { StageSavingsCard } from "../components/StageSavingsCard";
 import { api, errorMessage } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { useTranslate } from "../lib/i18n";
@@ -170,6 +171,8 @@ export default function JobsHomePage() {
       </header>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
+      <StageSavingsCard />
 
       <section className="space-y-2.5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">{t("home_available_jobs")}</h2>

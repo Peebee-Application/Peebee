@@ -1395,3 +1395,119 @@ export type ActivityLogEntry = {
   reverted_by: string | null;
   created_at: string;
 };
+
+// ---- Rider Stage Savings Circles -------------------------------------
+// See apps/api/src/stages/routes.ts and its migration for the source of
+// truth these mirror.
+
+export type StageMemberRole =
+  | "member"
+  | "chairman"
+  | "vice_chairman"
+  | "secretary"
+  | "treasurer"
+  | "money_counter"
+  | "mobilizer";
+
+export type Stage = {
+  id: string;
+  name: string;
+  area: string | null;
+  address: string | null;
+  description: string | null;
+  constitution: string | null;
+  created_by: string | null;
+  status: "active" | "archived";
+  created_at: string;
+  updated_at: string;
+  /** Only present on GET /stages/mine. */
+  role?: StageMemberRole;
+};
+
+export type StageMemberSummary = { rider_id: string; role: StageMemberRole; name: string };
+
+export type StageCycle = {
+  id: string;
+  stage_id: string;
+  start_date: string;
+  end_date: string;
+  interest_rate: number;
+  loanable_contribution_multiple: number;
+  max_loan_duration_months: number;
+  status: "active" | "closed";
+};
+
+export type StageDetail = {
+  stage: Stage;
+  members: StageMemberSummary[];
+  myRole: StageMemberRole;
+  cycle: StageCycle | null;
+  pot: number;
+  outOnLoan: number;
+};
+
+export type StageContributionStatus = "pending" | "confirmed" | "cancelled" | "disputed";
+
+export type StageContribution = {
+  id: string;
+  stage_id: string;
+  cycle_id: string;
+  member_id: string;
+  member_name: string;
+  amount: number;
+  method: "cash" | "momo";
+  momo_recipient_msisdn: string | null;
+  status: StageContributionStatus;
+  proof_photo_key: string | null;
+  proof_reminder_dismissed: number;
+  confirmed_by: string | null;
+  created_at: string;
+  confirmed_at: string | null;
+  cancelled_at: string | null;
+};
+
+export type StageLoanStatus = "pending" | "approved" | "rejected" | "disbursed" | "repaid" | "defaulted";
+
+export type StageLoan = {
+  id: string;
+  stage_id: string;
+  cycle_id: string;
+  member_id: string;
+  member_name: string;
+  amount: number;
+  interest_rate: number;
+  number_of_installments: number;
+  total_repayment: number;
+  reason: string | null;
+  status: StageLoanStatus;
+  due_date: string | null;
+  requested_at: string;
+  decided_at: string | null;
+  disbursement_confirmed_at: string | null;
+};
+
+export type StageTransaction = {
+  id: string;
+  stage_id: string;
+  cycle_id: string;
+  member_id: string | null;
+  member_name: string | null;
+  type: "contribution" | "loan_disbursement" | "repayment" | "share_out" | "fine" | "expense";
+  amount: number;
+  narrative: string | null;
+  related_id: string | null;
+  created_at: string;
+};
+
+export type StageMessage = {
+  id: string;
+  stage_id: string;
+  sender_id: string;
+  recipient_id: string | null;
+  body: string | null;
+  type: "text" | "image" | "voice" | "system";
+  media_key: string | null;
+  system_event_type: string | null;
+  related_id: string | null;
+  created_at: string;
+};

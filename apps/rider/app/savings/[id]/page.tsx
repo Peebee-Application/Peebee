@@ -1,0 +1,139 @@
+"use client";
+
+import type { StageDetail } from "@tuma/shared";
+import { MessageCircle } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { api, errorMessage } from "../../../lib/api";
+import { formatUgx } from "../../../lib/order-display";
+
+const OFFICER_ROLES = ["chairman", "vice_chairman", "secretary", "treasurer", "money_counter", "mobilizer"] as const;
+
+export default function StageDetailPage() {
+  const params = useParams<{ id: string }>();
+  const stageId = params.id;
+  const [detail, setDetail] = useState<StageDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [startingCycle, setStartingCycle] = useState(false);
+
+  useEffect(() => {
+    api
+      .getStage(stageId)
+      .then(setDetail)
+      .catch((err) => setError(errorMessage(err)));
+  }, [stageId]);
+
+  async function startCycle() {
+    setStartingCycle(true);
+    setError(null);
+    try {
+      await api.startStageCycle(stageId, { startDate: new Date().toISOString().slice(0, 10) });
+      setDetail(await api.getStage(stageId));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setStartingCycle(false);
+    }
+  }
+
+  if (!detail && error) return <div className="p-4 text-sm text-red-700">{error}</div>;
+  if (!detail) return <div className="p-4 text-sm text-ink-500">Loading…</div>;
+
+  const officers = detail.members.filter((m) => (OFFICER_ROLES as readonly string[]).includes(m.role));
+
+  return (
+    <div className="space-y-5 px-4 pb-6 pt-4">
+      <div>
+        <h1 className="text-xl font-bold text-ink">{detail.stage.name}</h1>
+        <p className="text-sm text-ink-500">
+          {detail.cycle ? `Cycle · ${detail.cycle.start_date} – ${detail.cycle.end_date}` : "No active cycle yet"} ·{" "}
+          {detail.members.length} members
+        </p>
+      </div>
+
+      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
+      {detail.cycle ? (
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="home-card !py-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Group pot</p>
+            <p className="text-lg font-extrabold text-ink">{formatUgx(detail.pot)}</p>
+          </div>
+          <div className="home-card !py-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Out on loan</p>
+            <p className="text-lg font-extrabold text-ink">{formatUgx(detail.outOnLoan)}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="home-card space-y-3 text-center">
+          <p className="text-sm text-ink-500">This circle hasn&apos;t started a savings cycle yet.</p>
+          {(OFFICER_ROLES as readonly string[]).includes(detail.myRole) && (
+            <button
+              type="button"
+              onClick={startCycle}
+              disabled={startingCycle}
+              className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
+            >
+              {startingCycle ? "Starting…" : "Start a savings cycle"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {officers.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">Officers</p>
+          <div className="flex gap-2">
+            {officers.map((o) => (
+              <Link
+                key={o.rider_id}
+                href={`/savings/${stageId}/chat?with=${o.rider_id}`}
+                className="flex-1 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-2.5 text-center"
+              >
+                <span className="mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-full bg-gold/20 text-xs font-bold text-ink">
+                  {o.name.slice(0, 2).toUpperCase()}
+                </span>
+                <span className="block truncate text-xs font-bold text-ink">{o.name}</span>
+                <span className="block text-[10px] capitalize text-ink-500">{o.role.replace("_", " ")}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {detail.cycle && (
+        <div className="space-y-2">
+          <Link
+            href={`/savings/${stageId}/contribute`}
+            className="flex min-h-12 w-full items-center justify-center rounded-full bg-gold px-4 text-sm font-bold text-ink-gold"
+          >
+            Log a contribution
+          </Link>
+          <Link
+            href={`/savings/${stageId}/loan`}
+            className="flex min-h-12 w-full items-center justify-center rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4 text-sm font-bold text-ink"
+          >
+            Loans
+          </Link>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Link
+          href={`/savings/${stageId}/ledger`}
+          className="flex-1 rounded-full border border-[var(--border-faint)] py-2.5 text-center text-xs font-bold text-ink-500"
+        >
+          Ledger
+        </Link>
+        <Link
+          href={`/savings/${stageId}/chat`}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-[var(--border-faint)] py-2.5 text-center text-xs font-bold text-ink-500"
+        >
+          <MessageCircle className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+          Circle chat
+        </Link>
+      </div>
+    </div>
+  );
+}

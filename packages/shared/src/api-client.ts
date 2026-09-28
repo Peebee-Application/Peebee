@@ -79,6 +79,13 @@ import type {
   RiderSubscriptionView,
   SavedLocation,
   SavedMobileNumber,
+  Stage,
+  StageContribution,
+  StageDetail,
+  StageLoan,
+  StageMemberRole,
+  StageMessage,
+  StageTransaction,
   StaffMember,
   UserStatus,
   Wallet,
@@ -1597,6 +1604,108 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       const res = await f(`${root}/v1/users/${userId}/photo`, { headers: authHeaders() });
       if (!res.ok) throw new Error(`API ${res.status}: failed to load photo`);
       return res.blob();
+    },
+
+    // Rider Stage Savings Circles — cash-first, non-custodial group
+    // savings/loans. See apps/api/src/stages/routes.ts.
+    async getMyStages() {
+      return request<{ stages: Stage[] }>("/v1/stages/mine");
+    },
+    async createStage(input: { name: string; area?: string; address?: string; description?: string }) {
+      return request<{ stageId: string }>("/v1/stages", { method: "POST", body: JSON.stringify(input) });
+    },
+    async getStage(stageId: string) {
+      return request<StageDetail>(`/v1/stages/${stageId}`);
+    },
+    async joinStage(stageId: string) {
+      return request<{ ok: true }>(`/v1/stages/${stageId}/join`, { method: "POST" });
+    },
+    async openStageElection(stageId: string, role: StageMemberRole) {
+      return request<{ electionId: string }>(`/v1/stages/${stageId}/elections`, {
+        method: "POST",
+        body: JSON.stringify({ role }),
+      });
+    },
+    async nominateForElection(electionId: string, candidateRiderId: string) {
+      return request<{ ok: true }>(`/v1/stages/elections/${electionId}/nominate`, {
+        method: "POST",
+        body: JSON.stringify({ candidateRiderId }),
+      });
+    },
+    async voteInElection(electionId: string, candidateRiderId: string) {
+      return request<{ ok: true }>(`/v1/stages/elections/${electionId}/vote`, {
+        method: "POST",
+        body: JSON.stringify({ candidateRiderId }),
+      });
+    },
+    async startStageCycle(stageId: string, input: { startDate: string; interestRate?: number; loanableContributionMultiple?: number; maxLoanDurationMonths?: number; cycleMonths?: number }) {
+      return request<{ cycleId: string }>(`/v1/stages/${stageId}/cycles`, { method: "POST", body: JSON.stringify(input) });
+    },
+    async createStageContribution(stageId: string, input: { amount: number; method: "cash" | "momo" }) {
+      return request<{ contributionId: string; momoRecipientMsisdn: string | null }>(`/v1/stages/${stageId}/contributions`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+    },
+    async uploadStageContributionProof(contributionId: string, file: Blob) {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await f(`${root}/v1/stages/contributions/${contributionId}/proof`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: form,
+      });
+      return json<{ ok: true }>(res);
+    },
+    async confirmStageContribution(contributionId: string) {
+      return request<{ ok: true }>(`/v1/stages/contributions/${contributionId}/confirm`, { method: "POST" });
+    },
+    async cancelStageContribution(contributionId: string) {
+      return request<{ ok: true }>(`/v1/stages/contributions/${contributionId}/cancel`, { method: "POST" });
+    },
+    async getStageContributions(stageId: string) {
+      return request<{ contributions: StageContribution[] }>(`/v1/stages/${stageId}/contributions`);
+    },
+    async requestStageLoan(stageId: string, input: { amount: number; reason?: string; numberOfInstallments?: number }) {
+      return request<{ loanId: string }>(`/v1/stages/${stageId}/loans`, { method: "POST", body: JSON.stringify(input) });
+    },
+    async voteStageLoan(loanId: string, input: { status: "approved" | "rejected"; comment?: string }) {
+      return request<{ ok: true }>(`/v1/stages/loans/${loanId}/vote`, { method: "POST", body: JSON.stringify(input) });
+    },
+    async confirmStageLoanDisbursement(loanId: string) {
+      return request<{ ok: true }>(`/v1/stages/loans/${loanId}/disbursement-confirm`, { method: "POST" });
+    },
+    async getStageLoans(stageId: string) {
+      return request<{ loans: StageLoan[] }>(`/v1/stages/${stageId}/loans`);
+    },
+    async requestStageRepayment(loanId: string, input: { amount: number; method: "cash" | "momo" }) {
+      return request<{ repaymentId: string; momoRecipientMsisdn: string | null }>(`/v1/stages/loans/${loanId}/repayments`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+    },
+    async uploadStageRepaymentProof(repaymentId: string, file: Blob) {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await f(`${root}/v1/stages/repayments/${repaymentId}/proof`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: form,
+      });
+      return json<{ ok: true }>(res);
+    },
+    async confirmStageRepayment(repaymentId: string) {
+      return request<{ ok: true }>(`/v1/stages/repayments/${repaymentId}/confirm`, { method: "POST" });
+    },
+    async getStageLedger(stageId: string) {
+      return request<{ transactions: StageTransaction[] }>(`/v1/stages/${stageId}/ledger`);
+    },
+    async getStageMessages(stageId: string, withRiderId?: string) {
+      const qs = withRiderId ? `?with=${encodeURIComponent(withRiderId)}` : "";
+      return request<{ messages: StageMessage[] }>(`/v1/stages/${stageId}/messages${qs}`);
+    },
+    async sendStageMessage(stageId: string, input: { body: string; recipientId?: string }) {
+      return request<{ messageId: string }>(`/v1/stages/${stageId}/messages`, { method: "POST", body: JSON.stringify(input) });
     },
   };
 }
