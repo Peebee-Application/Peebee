@@ -67,6 +67,13 @@ async function getActiveCycle(stageId: string) {
     | undefined;
 }
 
+/** "momo" is the internal/schema value (matches the MTN MoMo API this
+ * mirrors) — never shown to a user as-is, since "Mobile Money" also covers
+ * Airtel Money and any other network, not just MTN's own product. */
+function methodLabel(method: "cash" | "momo"): string {
+  return method === "momo" ? "mobile money" : "cash";
+}
+
 /** Every stage financial event also lands in the group chat as a system
  * pill, mirroring how order_events drive the WhatsApp-style timeline on
  * an order's chat thread. */
@@ -474,7 +481,7 @@ stageRoutes.post("/stages/:id/contributions", async (c) => {
     stageId,
     user.sub,
     "contribution_intent",
-    `${user.name} intends to save UGX ${parsed.data.amount.toLocaleString("en-UG")} via ${parsed.data.method}.`,
+    `${user.name} intends to save UGX ${parsed.data.amount.toLocaleString("en-UG")} via ${methodLabel(parsed.data.method)}.`,
     id,
   );
   return c.json({ contributionId: id, momoRecipientMsisdn: momoRecipient });

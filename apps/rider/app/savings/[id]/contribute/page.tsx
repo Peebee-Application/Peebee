@@ -142,8 +142,8 @@ export default function ContributePage() {
               <div key={c.id} className="home-card space-y-2 !py-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold text-ink">{formatUgx(c.amount)}</span>
-                  <span className="rounded-full bg-[rgb(var(--surface-muted))] px-2 py-0.5 text-xs font-semibold text-ink-500 capitalize">
-                    {c.method}
+                  <span className="rounded-full bg-[rgb(var(--surface-muted))] px-2 py-0.5 text-xs font-semibold text-ink-500">
+                    {c.method === "momo" ? "Mobile money" : "Cash"}
                   </span>
                 </div>
                 {overdue && (
