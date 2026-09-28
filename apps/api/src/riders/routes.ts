@@ -9,7 +9,7 @@ import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { clientIp } from "../lib/ratelimit.js";
-import { getDeliverySettings, getMonetizationSettings, getPlatformEnvironment, getRiderReserveSettings } from "../lib/settings.js";
+import { getDeliverySettings, getLugandaAudioSettings, getMonetizationSettings, getPlatformEnvironment, getRiderReserveSettings } from "../lib/settings.js";
 import { currentVisibilityRadiusKm, orderMatchPoint } from "../orders/matching.js";
 import { redactOrders, toOpenJob } from "../orders/visibility.js";
 import {
@@ -245,6 +245,31 @@ riderRoutes.post("/riders/status", requireAuth, requireRole("rider"), async (c) 
   await db.execute({
     sql: "UPDATE riders SET is_online = ?, updated_at = datetime('now') WHERE user_id = ?",
     args: [parsed.data.online ? 1 : 0, user.sub],
+  });
+  const res = await db.execute({ sql: "SELECT * FROM riders WHERE user_id = ?", args: [user.sub] });
+  if (res.rows.length === 0) return c.json({ error: "not_a_rider" }, 404);
+  return c.json({ rider: res.rows[0] });
+});
+
+const voicePreferenceSchema = z.object({ voice: z.string().max(60).nullable() });
+
+/** A rider's one standing Luganda-voice choice — applies to every list/order
+ * they listen to from then on (see GET /orders/:id/list-audio). Deliberately
+ * a narrow endpoint of its own rather than folded into POST /riders/apply:
+ * that flow is KYC profile data awaiting admin verification, and this isn't. */
+riderRoutes.put("/riders/me/voice-preference", requireAuth, requireRole("rider"), async (c) => {
+  const user = c.get("user");
+  const parsed = voicePreferenceSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+
+  if (parsed.data.voice != null) {
+    const { voices } = await getLugandaAudioSettings();
+    if (!voices.some((v) => v.id === parsed.data.voice)) return c.json({ error: "unknown_voice" }, 400);
+  }
+
+  await db.execute({
+    sql: "UPDATE riders SET preferred_lug_voice = ?, updated_at = datetime('now') WHERE user_id = ?",
+    args: [parsed.data.voice, user.sub],
   });
   const res = await db.execute({ sql: "SELECT * FROM riders WHERE user_id = ?", args: [user.sub] });
   if (res.rows.length === 0) return c.json({ error: "not_a_rider" }, 404);

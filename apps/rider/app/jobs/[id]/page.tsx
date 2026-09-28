@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CustomerAvatar } from "../../../components/CustomerAvatar";
 import { DeliveryNavigation } from "../../../components/DeliveryNavigation";
 import { FeeProposalVoicePlayer } from "../../../components/FeeProposalVoicePlayer";
+import { LugandaListPlayer } from "../../../components/LugandaListPlayer";
 import { VoiceNotePlayer } from "../../../components/VoiceNotePlayer";
 import { VoiceReasonRecorder } from "../../../components/VoiceReasonRecorder";
 import { api, errorMessage } from "../../../lib/api";
@@ -41,6 +42,14 @@ export default function JobDetailPage() {
   const [merchantAmount, setMerchantAmount] = useState("");
   const [receiptReference, setReceiptReference] = useState("");
   const [merchantPayment, setMerchantPayment] = useState<MerchantPayment | null>(null);
+  const [lugandaAudioEnabled, setLugandaAudioEnabled] = useState(false);
+
+  useEffect(() => {
+    api
+      .getSettings()
+      .then(({ settings }) => setLugandaAudioEnabled(settings.lugandaAudioEnabled))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!isPracticeMode()) return;
@@ -262,6 +271,8 @@ export default function JobDetailPage() {
       </header>
 
       {order.voice_note_key && <VoiceNotePlayer orderId={orderId} />}
+
+      {lugandaAudioEnabled && items.length > 0 && <LugandaListPlayer orderId={orderId} />}
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 

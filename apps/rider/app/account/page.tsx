@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppearanceSettings } from "../../components/AppearanceSettings";
 import { ChangePasswordPanel } from "../../components/ChangePasswordPanel";
 import { LanguageSettings } from "../../components/LanguageSettings";
+import { LugandaVoiceSettings } from "../../components/LugandaVoiceSettings";
 import { MobileNumberManager } from "../../components/MobileNumberManager";
 import { PracticeModeCard } from "../../components/PracticeMode";
 import { api, errorMessage } from "../../lib/api";
@@ -273,6 +274,8 @@ export default function AccountPage() {
       <AppearanceSettings />
 
       <LanguageSettings />
+
+      <LugandaVoiceSettings rider={rider} onUpdated={setRider} />
 
       <ChangePasswordPanel />
 

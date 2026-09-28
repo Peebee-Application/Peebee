@@ -79,6 +79,13 @@ export type OrderRow = {
   distance_km: number | null;
   matched_out_of_range: number;
   voice_note_key: string | null;
+  /** Which voice the cached Luganda list-audio was generated with, its R2
+   * object key, and a fingerprint of the list contents used to detect when
+   * the cache is stale (list changed, or the rider changed their voice
+   * preference) — see GET /orders/:id/list-audio. */
+  list_audio_voice: string | null;
+  list_audio_key: string | null;
+  list_audio_text_hash: string | null;
   pin_code: string | null;
   eta_minutes: number | null;
   /** Set only for restaurant food orders — type stays 'shopping' (see
@@ -245,8 +252,17 @@ export type DeliverySettings = {
    * Maps ("external", the default) or renders navigation in-app using the
    * active maps provider ("in_app"). Change with PUT /admin/nav-mode. */
   navMode: NavMode;
+  /** Reads a rider's shopping list aloud in Luganda (see
+   * apps/api/src/speech/sunbird.ts) — off by default, since it needs a
+   * working Sunbird AI API key. `lugandaAudioVoices` is the admin-curated
+   * catalog a rider picks from in their own settings. */
+  lugandaAudioEnabled: boolean;
+  lugandaAudioVoices: LugandaVoice[];
+  lugandaAudioDefaultVoice: string;
 } & MonetizationSettings &
   VslaSettings;
+
+export type LugandaVoice = { id: string; label: string };
 
 /** Rider Stage Savings Circles — a VSLA-style group savings/loans feature.
  * See apps/api/src/stages/routes.ts and apps/api/src/lib/settings.ts
@@ -474,6 +490,10 @@ export type Rider = {
   national_id_key: string | null;
   profile_photo_key: string | null;
   profile_completed_at: string | null;
+  /** This rider's own standing Luganda-voice choice — applies to every
+   * list/order they listen to (see PUT /riders/me/voice-preference). Null
+   * until they pick one, falling back to the admin's default voice. */
+  preferred_lug_voice: string | null;
 };
 
 /** The fields a rider must fill in (incl. their motorcycle reg. via `vehicle_info`,

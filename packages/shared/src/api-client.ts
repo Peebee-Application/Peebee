@@ -444,6 +444,20 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       if (!res.ok) throw new Error(`API ${res.status}: failed to load voice note`);
       return res.blob();
     },
+    /** Fetches (generating and caching server-side on first call) the
+     * order's shopping list read aloud in Luganda. */
+    async orderListAudioBlob(orderId: string): Promise<Blob> {
+      const res = await f(`${root}/v1/orders/${orderId}/list-audio`, { headers: authHeaders() });
+      if (!res.ok) throw new Error(`API ${res.status}: failed to load list audio`);
+      return res.blob();
+    },
+    /** A short canned phrase spoken in the given catalog voice, so a rider
+     * can hear it before picking it in settings. */
+    async voicePreviewBlob(voice: string): Promise<Blob> {
+      const res = await f(`${root}/v1/speech/voice-preview?voice=${encodeURIComponent(voice)}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error(`API ${res.status}: failed to load voice preview`);
+      return res.blob();
+    },
     async matchOrder(orderId: string) {
       return request<{ order: OrderRow }>(`/v1/orders/${orderId}/match`, { method: "POST" });
     },
@@ -699,6 +713,11 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       emergencyContactPhone?: string;
     }) {
       return request<{ rider: Rider }>("/v1/riders/apply", { method: "POST", body: JSON.stringify(input) });
+    },
+    /** Sets (or clears, with `null`) the rider's own standing Luganda voice —
+     * used for every order's list audio from then on. */
+    async updateVoicePreference(voice: string | null) {
+      return request<{ rider: Rider }>("/v1/riders/me/voice-preference", { method: "PUT", body: JSON.stringify({ voice }) });
     },
     /** Uploads the rider's National ID scan (verification only). `file` is a browser File/Blob. */
     async uploadRiderIdDocument(file: Blob) {
@@ -1614,6 +1633,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async getMyStages() {
       return request<{ stages: Stage[] }>("/v1/stages/mine");
     },
+    async discoverStages() {
+      return request<{ stages: AdminStageSummary[] }>("/v1/stages/discover");
+    },
     async createStage(input: { name: string; area?: string; address?: string; description?: string }) {
       return request<{ stageId: string }>("/v1/stages", { method: "POST", body: JSON.stringify(input) });
     },
@@ -1717,6 +1739,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     // Admin oversight — read-only, gated by the vslaAdminLedgerVisibility setting.
     async adminGetStages() {
       return request<{ stages: AdminStageSummary[] }>("/v1/admin/stages");
+    },
+    async adminCreateStage(input: { name: string; area?: string; address?: string; description?: string }) {
+      return request<{ stageId: string }>("/v1/admin/stages", { method: "POST", body: JSON.stringify(input) });
     },
     async adminGetStage(stageId: string) {
       return request<AdminStageDetail>(`/v1/admin/stages/${stageId}`);

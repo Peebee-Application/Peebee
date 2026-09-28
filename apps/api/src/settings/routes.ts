@@ -11,6 +11,7 @@ import {
   getActiveProviders,
   getDeliverySettings,
   getTimeFeeSettings,
+  getLugandaAudioSettings,
   getMatchingSettings,
   getMonetizationSettings,
   getNavMode,
@@ -24,6 +25,7 @@ import {
   setActiveCallProvider,
   setActiveMapsProvider,
   setActiveProviders,
+  setLugandaAudioSettings,
   setMatchingModesEnabled,
   setMonetizationSettings,
   setNavMode,
@@ -58,7 +60,7 @@ import { paymentsIntegrationStatus } from "../payments/service.js";
 export const settingsRoutes = new Hono();
 
 async function fullSettings() {
-  const [delivery, matching, activeProviders, demoMode, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla] =
+  const [delivery, matching, activeProviders, demoMode, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla, lugandaAudio] =
     await Promise.all([
       getDeliverySettings(),
       getMatchingSettings(),
@@ -78,6 +80,7 @@ async function fullSettings() {
       getSetting("merchant_live_custody_approved"),
       getSetting("merchant_withdrawals_frozen"),
       getVslaSettings(),
+      getLugandaAudioSettings(),
     ]);
 
   // The active provider's own key/token, handed to every signed-in client
@@ -144,6 +147,9 @@ async function fullSettings() {
     vslaAdminLedgerVisibility: vsla.adminLedgerVisibility,
     vslaUnconfirmedIntentEscalationHours: vsla.unconfirmedIntentEscalationHours,
     vslaFeaturePlacement: vsla.featurePlacement,
+    lugandaAudioEnabled: lugandaAudio.enabled,
+    lugandaAudioVoices: lugandaAudio.voices,
+    lugandaAudioDefaultVoice: lugandaAudio.defaultVoice,
   };
 }
 
@@ -285,6 +291,10 @@ const updateSchema = z.object({
   vslaAdminLedgerVisibility: z.enum(["read_only_all", "private_per_stage"]).optional(),
   vslaUnconfirmedIntentEscalationHours: z.number().int().positive().max(168).optional(),
   vslaFeaturePlacement: z.enum(["home_card_and_screen", "bottom_nav_tab", "account_only"]).optional(),
+  // Luganda list-reading — see ../lib/settings.ts getLugandaAudioSettings.
+  lugandaAudioEnabled: z.boolean().optional(),
+  lugandaAudioVoices: z.array(z.object({ id: z.string().min(1).max(60), label: z.string().min(1).max(60) })).max(20).optional(),
+  lugandaAudioDefaultVoice: z.string().min(1).max(60).optional(),
 });
 
 const PAYMENTS_FIELDS = [
@@ -430,6 +440,12 @@ settingsRoutes.put(
       adminLedgerVisibility: parsed.data.vslaAdminLedgerVisibility,
       unconfirmedIntentEscalationHours: parsed.data.vslaUnconfirmedIntentEscalationHours,
       featurePlacement: parsed.data.vslaFeaturePlacement,
+    });
+
+    await setLugandaAudioSettings({
+      enabled: parsed.data.lugandaAudioEnabled,
+      voices: parsed.data.lugandaAudioVoices,
+      defaultVoice: parsed.data.lugandaAudioDefaultVoice,
     });
 
     const after = await fullSettings();

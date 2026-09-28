@@ -4,6 +4,7 @@ import {
   Compass,
   CreditCard,
   FlaskConical,
+  Languages,
   Mic,
   Map as MapIcon,
   PiggyBank,
@@ -41,6 +42,12 @@ export const SETTINGS_LINKS: SettingsLink[] = [
     label: "Voice recordings",
     description: "Max recording length across the app.",
     icon: Mic,
+  },
+  {
+    href: "/settings/luganda-audio",
+    label: "Luganda list reading",
+    description: "Read a rider's shopping list aloud in Luganda, and which voices they can pick from.",
+    icon: Languages,
   },
   {
     href: "/settings/payments",

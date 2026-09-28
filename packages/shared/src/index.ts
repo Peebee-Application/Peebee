@@ -167,4 +167,5 @@ export type {
   StageElection,
   AdminStageSummary,
   AdminStageDetail,
+  LugandaVoice,
 } from "./domain.js";

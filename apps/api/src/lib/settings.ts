@@ -185,6 +185,17 @@ const DEFAULTS = {
   vsla_admin_ledger_visibility: "read_only_all", // "read_only_all" | "private_per_stage"
   vsla_unconfirmed_intent_escalation_hours: "6",
   vsla_feature_placement: "home_card_and_screen", // "home_card_and_screen" | "bottom_nav_tab" | "account_only"
+
+  /** Reads a rider's shopping list aloud in Luganda via Sunbird AI (see
+   * ../speech/sunbird.ts) — for riders who aren't comfortable reading the
+   * typed list themselves. Off by default since it needs a working
+   * SUNBIRD_API_KEY. `luganda_audio_voices` is the admin-curated catalog a
+   * rider picks from in their own settings (JSON array of {id, label},
+   * `id` being one of Sunbird's own "lug" speaker tags); the default voice
+   * covers a rider who hasn't picked one yet. */
+  luganda_audio_enabled: "0",
+  luganda_audio_voices: '[{"id":"waxal_lug_0004","label":"Voice 1"}]',
+  luganda_audio_default_voice: "waxal_lug_0004",
 } as const;
 
 export type SettingKey = keyof typeof DEFAULTS;
@@ -628,5 +639,42 @@ export async function setVslaSettings(input: Partial<VslaSettings>): Promise<voi
     writes.push(setSetting("vsla_unconfirmed_intent_escalation_hours", String(input.unconfirmedIntentEscalationHours)));
   }
   if (input.featurePlacement != null) writes.push(setSetting("vsla_feature_placement", input.featurePlacement));
+  await Promise.all(writes);
+}
+
+export type LugandaVoice = { id: string; label: string };
+
+export type LugandaAudioSettings = {
+  enabled: boolean;
+  voices: LugandaVoice[];
+  defaultVoice: string;
+};
+
+function parseLugandaVoices(raw: string): LugandaVoice[] {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    const voices = Array.isArray(parsed)
+      ? parsed.filter((v): v is LugandaVoice => !!v && typeof v === "object" && typeof (v as LugandaVoice).id === "string" && typeof (v as LugandaVoice).label === "string")
+      : [];
+    return voices.length > 0 ? voices : parseLugandaVoices(DEFAULTS.luganda_audio_voices);
+  } catch {
+    return [{ id: "waxal_lug_0004", label: "Voice 1" }];
+  }
+}
+
+export async function getLugandaAudioSettings(): Promise<LugandaAudioSettings> {
+  const [enabled, voicesRaw, defaultVoice] = await Promise.all([
+    getSetting("luganda_audio_enabled"),
+    getSetting("luganda_audio_voices"),
+    getSetting("luganda_audio_default_voice"),
+  ]);
+  return { enabled: enabled === "1", voices: parseLugandaVoices(voicesRaw), defaultVoice };
+}
+
+export async function setLugandaAudioSettings(input: Partial<LugandaAudioSettings>): Promise<void> {
+  const writes: Promise<void>[] = [];
+  if (input.enabled != null) writes.push(setSetting("luganda_audio_enabled", input.enabled ? "1" : "0"));
+  if (input.voices != null) writes.push(setSetting("luganda_audio_voices", JSON.stringify(input.voices)));
+  if (input.defaultVoice != null) writes.push(setSetting("luganda_audio_default_voice", input.defaultVoice));
   await Promise.all(writes);
 }

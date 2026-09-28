@@ -9,6 +9,7 @@ import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { consume, tooManyRequests } from "../lib/ratelimit.js";
 import {
   getDeliverySettings,
+  getLugandaAudioSettings,
   getMatchingSettings,
   getMaxOrderValue,
   getMonetizationSettings,
@@ -21,6 +22,8 @@ import { currentVisibilityRadiusKm, orderMatchPoint, parseDbTimestamp } from "./
 import { redactOrder } from "./visibility.js";
 import { assignAvailableRider } from "./assignment.js";
 import { getApplicantProfile } from "./applicant-profile.js";
+import { buildListSentence } from "./list-narration.js";
+import { synthesizeLuganda, translateToLuganda } from "../speech/sunbird.js";
 import type { MatchingMode, MobileMoneyNetwork } from "@tuma/shared";
 import { roundFare } from "@tuma/shared";
 import { snapshotTimeFees, getOrderTimeFees, cancelCustomerOrder, finishWaiting, closeWaiting } from "./time-fees.js";
@@ -523,6 +526,58 @@ orderRoutes.get("/orders/:id/voice-note", async (c) => {
   return new Response(object.body, {
     headers: uploadResponseHeaders(object.httpMetadata?.contentType, "audio/webm"),
   });
+});
+
+// ---------------------------------------------------------------------------
+// Luganda list audio — reads a rider's own preferred voice (see
+// riders.preferred_lug_voice, set in apps/rider's account settings) the
+// shopping list, for a rider who isn't comfortable reading the typed list
+// themselves. Cached in R2 per order; regenerated whenever the list
+// contents or the rider's chosen voice change. See ../speech/sunbird.ts and
+// ./list-narration.ts.
+// ---------------------------------------------------------------------------
+
+orderRoutes.get("/orders/:id/list-audio", async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const order = await getOrder(id);
+  if (!order) return c.json({ error: "not_found" }, 404);
+  if (order.customer_id !== user.sub && order.rider_id !== user.sub && user.role !== "admin") {
+    return c.json({ error: "forbidden" }, 403);
+  }
+
+  const lugandaSettings = await getLugandaAudioSettings();
+  if (!lugandaSettings.enabled) return c.json({ error: "feature_disabled" }, 404);
+
+  let voice = lugandaSettings.defaultVoice;
+  if (order.rider_id) {
+    const riderRow = await db.execute({
+      sql: "SELECT preferred_lug_voice FROM riders WHERE user_id = ?",
+      args: [order.rider_id as string],
+    });
+    const preferred = riderRow.rows[0]?.preferred_lug_voice as string | null | undefined;
+    if (preferred) voice = preferred;
+  }
+
+  const itemsRes = await db.execute({ sql: "SELECT * FROM list_items WHERE list_id = ?", args: [order.list_id as string] });
+  const sentence = buildListSentence(itemsRes.rows as Row[]);
+  const textHash = `${voice}:${sentence}`;
+
+  const bucket = getR2Bucket();
+  if (order.list_audio_key && order.list_audio_text_hash === textHash) {
+    const cached = await bucket.get(order.list_audio_key as string);
+    if (cached) {
+      return new Response(cached.body, { headers: uploadResponseHeaders(cached.httpMetadata?.contentType, "audio/wav") });
+    }
+  }
+
+  const lugandaText = await translateToLuganda(sentence);
+  const audio = await synthesizeLuganda(lugandaText, voice);
+  const key = `orders/${id}/list-audio-${voice}.wav`;
+  await bucket.put(key, audio, { httpMetadata: { contentType: "audio/wav" } });
+  await touchOrder(id, { list_audio_voice: voice, list_audio_key: key, list_audio_text_hash: textHash });
+
+  return new Response(audio, { headers: uploadResponseHeaders("audio/wav", "audio/wav") });
 });
 
 // ---------------------------------------------------------------------------
