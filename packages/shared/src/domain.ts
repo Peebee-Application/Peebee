@@ -1511,3 +1511,18 @@ export type StageMessage = {
   related_id: string | null;
   created_at: string;
 };
+
+export type StageElectionNominee = { candidate_rider_id: string; name: string; votes: number };
+
+export type StageElection = {
+  id: string;
+  stage_id: string;
+  role: StageMemberRole;
+  status: "open" | "resolved" | "cancelled";
+  winner_rider_id: string | null;
+  nominees: StageElectionNominee[];
+};
+
+export type AdminStageSummary = Stage & { member_count: number };
+
+export type AdminStageDetail = { stage: Stage; members: StageMemberSummary[]; cycle: StageCycle | null };

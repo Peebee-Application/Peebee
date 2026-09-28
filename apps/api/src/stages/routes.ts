@@ -1,7 +1,8 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
+import { requirePermission } from "../admin/permissions.js";
 import { newId } from "../lib/ids.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { getR2Bucket } from "../storage/r2.js";
@@ -17,7 +18,7 @@ import { getVslaSettings } from "../lib/settings.js";
  */
 
 export const stageRoutes = new Hono();
-stageRoutes.use("*", requireAuth, requireRole("rider"));
+stageRoutes.use("/stages/*", requireAuth, requireRole("rider"));
 
 const OFFICER_ROLES = ["chairman", "vice_chairman", "secretary", "treasurer", "money_counter", "mobilizer"] as const;
 type OfficerRole = (typeof OFFICER_ROLES)[number];
@@ -276,6 +277,39 @@ stageRoutes.post("/stages/:id/elections", async (c) => {
   });
   await postSystemMessage(stageId, user.sub, "election_opened", `Voting opened for ${parsed.data.role.replace("_", " ")}.`, id);
   return c.json({ electionId: id });
+});
+
+stageRoutes.get("/stages/:id/elections", async (c) => {
+  const stageId = c.req.param("id");
+  const user = c.get("user");
+  const membership = await getMembership(stageId, user.sub);
+  if (!membership) return c.json({ error: "not_a_member" }, 403);
+
+  const electionsRes = await db.execute({
+    sql: "SELECT * FROM stage_officer_elections WHERE stage_id = ? ORDER BY opened_at DESC LIMIT 50",
+    args: [stageId],
+  });
+  const elections = electionsRes.rows as unknown as {
+    id: string;
+    stage_id: string;
+    role: string;
+    status: string;
+    winner_rider_id: string | null;
+  }[];
+
+  const withDetail = await Promise.all(
+    elections.map(async (election) => {
+      const nomineesRes = await db.execute({
+        sql: `SELECT n.candidate_rider_id, u.name,
+                     (SELECT COUNT(*) FROM stage_officer_votes v WHERE v.election_id = n.election_id AND v.candidate_rider_id = n.candidate_rider_id) AS votes
+              FROM stage_officer_nominations n JOIN users u ON u.id = n.candidate_rider_id
+              WHERE n.election_id = ?`,
+        args: [election.id],
+      });
+      return { ...election, nominees: nomineesRes.rows };
+    }),
+  );
+  return c.json({ elections: withDetail });
 });
 
 const nominateSchema = z.object({ candidateRiderId: z.string() });
@@ -798,4 +832,59 @@ stageRoutes.post("/stages/:id/messages", async (c) => {
     args: [id, stageId, user.sub, parsed.data.recipientId ?? null, parsed.data.body],
   });
   return c.json({ messageId: id });
+});
+
+// ---- Admin oversight ------------------------------------------------------
+// Read-only, gated by the vslaAdminLedgerVisibility setting (default
+// "read_only_all") — support/technical visibility only. Money disagreements
+// between members are the group's own to resolve, never Tuma's to referee.
+
+export const stageAdminRoutes = new Hono();
+stageAdminRoutes.use("/admin/stages/*", requireAuth, requireRole("admin"), requirePermission("riders.view"));
+
+async function assertAdminLedgerVisible(c: Context) {
+  const settings = await getVslaSettings();
+  if (settings.adminLedgerVisibility === "private_per_stage") {
+    return c.json({ error: "forbidden", message: "Stage ledgers are set to fully private right now." }, 403);
+  }
+  return null;
+}
+
+stageAdminRoutes.get("/admin/stages", async (c) => {
+  const denied = await assertAdminLedgerVisible(c);
+  if (denied) return denied;
+  const res = await db.execute({
+    sql: `SELECT s.*, (SELECT COUNT(*) FROM stage_members m WHERE m.stage_id = s.id AND m.status = 'active') AS member_count
+          FROM stages s ORDER BY s.created_at DESC LIMIT 200`,
+    args: [],
+  });
+  return c.json({ stages: res.rows });
+});
+
+stageAdminRoutes.get("/admin/stages/:id", async (c) => {
+  const denied = await assertAdminLedgerVisible(c);
+  if (denied) return denied;
+  const stageId = c.req.param("id");
+  const stageRes = await db.execute({ sql: "SELECT * FROM stages WHERE id = ?", args: [stageId] });
+  if (!stageRes.rows[0]) return c.json({ error: "not_found" }, 404);
+  const membersRes = await db.execute({
+    sql: `SELECT m.rider_id, m.role, u.name FROM stage_members m JOIN users u ON u.id = m.rider_id
+          WHERE m.stage_id = ? AND m.status = 'active'`,
+    args: [stageId],
+  });
+  const cycle = await getActiveCycle(stageId);
+  return c.json({ stage: stageRes.rows[0], members: membersRes.rows, cycle: cycle ?? null });
+});
+
+stageAdminRoutes.get("/admin/stages/:id/ledger", async (c) => {
+  const denied = await assertAdminLedgerVisible(c);
+  if (denied) return denied;
+  const stageId = c.req.param("id");
+  const res = await db.execute({
+    sql: `SELECT t.*, u.name AS member_name FROM stage_transactions t
+          LEFT JOIN users u ON u.id = t.member_id
+          WHERE t.stage_id = ? ORDER BY t.created_at DESC LIMIT 500`,
+    args: [stageId],
+  });
+  return c.json({ transactions: res.rows });
 });

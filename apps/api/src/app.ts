@@ -15,7 +15,7 @@ import { menuRoutes } from "./restaurants/menu.js";
 import { restaurantRoutes } from "./restaurants/routes.js";
 import { riderRoutes } from "./riders/routes.js";
 import { settingsRoutes } from "./settings/routes.js";
-import { stageRoutes } from "./stages/routes.js";
+import { stageAdminRoutes, stageRoutes } from "./stages/routes.js";
 import { userRoutes } from "./users/routes.js";
 import { verifyRoutes } from "./verify/routes.js";
 import { voiceRoutes } from "./voice/routes.js";
@@ -193,6 +193,7 @@ app.route("/v1", settingsRoutes);
 app.route("/v1", walletRoutes);
 app.route("/v1", walletsRoutes);
 app.route("/v1", stageRoutes);
+app.route("/v1", stageAdminRoutes);
 app.route("/v1", merchantRoutes);
 // adminRoutes' admin gate is scoped to /admin/* (see admin/routes.ts), so
 // mount order here is no longer load-bearing — it used to be registered as

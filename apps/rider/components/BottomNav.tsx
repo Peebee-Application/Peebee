@@ -1,15 +1,17 @@
 "use client";
 
-import { Briefcase, MessageCircle, Navigation, User, Wallet } from "lucide-react";
+import { Briefcase, MessageCircle, Navigation, PiggyBank, User, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
 import { useTranslate, type TranslationKey } from "../lib/i18n";
 import { useLivePolling } from "../lib/use-live-polling";
 
-const tabs: { href: string; labelKey: TranslationKey; icon: LucideIcon }[] = [
+type Tab = { href: string; label: string; icon: LucideIcon };
+
+const BASE_TABS: { href: string; labelKey: TranslationKey; icon: LucideIcon }[] = [
   { href: "/", labelKey: "nav_jobs", icon: Briefcase },
   { href: "/active", labelKey: "nav_active", icon: Navigation },
   { href: "/chat", labelKey: "nav_chat", icon: MessageCircle },
@@ -22,6 +24,7 @@ const UNREAD_POLL_MS = 15000;
 export function BottomNav() {
   const pathname = usePathname();
   const [hasUnread, setHasUnread] = useState(false);
+  const [showSavingsTab, setShowSavingsTab] = useState(false);
   const t = useTranslate();
 
   useLivePolling(
@@ -34,6 +37,18 @@ export function BottomNav() {
     UNREAD_POLL_MS,
     [],
   );
+
+  useEffect(() => {
+    api
+      .getSettings()
+      .then(({ settings }) => setShowSavingsTab(settings.vslaFeaturePlacement === "bottom_nav_tab"))
+      .catch(() => {});
+  }, []);
+
+  const tabs: Tab[] = BASE_TABS.map((tab) => ({ href: tab.href, label: t(tab.labelKey), icon: tab.icon }));
+  if (showSavingsTab) {
+    tabs.splice(4, 0, { href: "/savings", label: "Savings", icon: PiggyBank });
+  }
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--border-faint)] bg-[rgb(var(--surface-card))] pb-[env(safe-area-inset-bottom)]">
@@ -56,7 +71,7 @@ export function BottomNav() {
                     <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-gold" aria-hidden />
                   )}
                 </span>
-                <span>{t(tab.labelKey)}</span>
+                <span>{tab.label}</span>
               </Link>
             </li>
           );

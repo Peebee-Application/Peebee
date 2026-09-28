@@ -13,13 +13,15 @@ import { formatUgx } from "../lib/order-display";
 export function StageSavingsCard() {
   const [stage, setStage] = useState<Stage | null>(null);
   const [pot, setPot] = useState<number | null>(null);
+  const [placement, setPlacement] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .getMyStages()
-      .then(async (res) => {
-        if (cancelled || res.stages.length === 0) return;
+    Promise.all([api.getMyStages(), api.getSettings().catch(() => null)])
+      .then(async ([res, settingsRes]) => {
+        if (cancelled) return;
+        if (settingsRes) setPlacement(settingsRes.settings.vslaFeaturePlacement);
+        if (res.stages.length === 0) return;
         const mine = res.stages[0];
         setStage(mine);
         const detail = await api.getStage(mine.id).catch(() => null);
@@ -31,7 +33,7 @@ export function StageSavingsCard() {
     };
   }, []);
 
-  if (!stage) return null;
+  if (!stage || placement === "bottom_nav_tab" || placement === "account_only") return null;
 
   return (
     <Link

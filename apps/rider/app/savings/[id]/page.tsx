@@ -121,6 +121,12 @@ export default function StageDetailPage() {
 
       <div className="flex gap-2">
         <Link
+          href={`/savings/${stageId}/elections`}
+          className="flex-1 rounded-full border border-[var(--border-faint)] py-2.5 text-center text-xs font-bold text-ink-500"
+        >
+          Elections
+        </Link>
+        <Link
           href={`/savings/${stageId}/ledger`}
           className="flex-1 rounded-full border border-[var(--border-faint)] py-2.5 text-center text-xs font-bold text-ink-500"
         >

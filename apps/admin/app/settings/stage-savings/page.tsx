@@ -7,6 +7,7 @@ import {
   type VslaFeaturePlacement,
   type VslaStageCreationMode,
 } from "@tuma/shared";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
 import { api, errorMessage } from "../../../lib/api";
@@ -267,6 +268,12 @@ export default function StageSavingsSettingsPage() {
 
         <SettingsSaveBar busy={busy} error={error} saved={saved} />
       </form>
+
+      {adminLedgerVisibility === "read_only_all" && (
+        <Link href="/stages" className="mt-5 block text-center text-sm font-bold text-gold">
+          View all stage circles →
+        </Link>
+      )}
     </SettingsPageShell>
   );
 }

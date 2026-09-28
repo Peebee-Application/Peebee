@@ -7,8 +7,9 @@ import {
   type Rider,
   type RiderSubscriptionView,
 } from "@tuma/shared";
-import { CheckCircle2, LogOut, MapPin, TriangleAlert, Upload, User } from "lucide-react";
+import { CheckCircle2, LogOut, MapPin, PiggyBank, TriangleAlert, Upload, User } from "lucide-react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppearanceSettings } from "../../components/AppearanceSettings";
 import { ChangePasswordPanel } from "../../components/ChangePasswordPanel";
@@ -62,6 +63,14 @@ export default function AccountPage() {
   const t = useTranslate();
   const { user, rider: authRider, refreshRider, logout } = useAuth();
   const [rider, setRider] = useState<Rider | null>(authRider);
+  const [showSavingsLink, setShowSavingsLink] = useState(false);
+
+  useEffect(() => {
+    api
+      .getSettings()
+      .then(({ settings }) => setShowSavingsLink(settings.vslaFeaturePlacement === "account_only"))
+      .catch(() => {});
+  }, []);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -479,6 +488,16 @@ export default function AccountPage() {
           {uploadingId ? t("acc_uploading") : rider?.national_id_key ? t("acc_uploaded_replace") : t("acc_attach_id")}
         </button>
       </section>
+
+      {showSavingsLink && (
+        <Link
+          href="/savings"
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink"
+        >
+          <PiggyBank className="h-4 w-4" strokeWidth={2} aria-hidden />
+          Stage savings
+        </Link>
+      )}
 
       <button
         onClick={logout}

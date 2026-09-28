@@ -82,6 +82,9 @@ import type {
   Stage,
   StageContribution,
   StageDetail,
+  AdminStageDetail,
+  AdminStageSummary,
+  StageElection,
   StageLoan,
   StageMemberRole,
   StageMessage,
@@ -1706,6 +1709,20 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async sendStageMessage(stageId: string, input: { body: string; recipientId?: string }) {
       return request<{ messageId: string }>(`/v1/stages/${stageId}/messages`, { method: "POST", body: JSON.stringify(input) });
+    },
+    async getStageElections(stageId: string) {
+      return request<{ elections: StageElection[] }>(`/v1/stages/${stageId}/elections`);
+    },
+
+    // Admin oversight — read-only, gated by the vslaAdminLedgerVisibility setting.
+    async adminGetStages() {
+      return request<{ stages: AdminStageSummary[] }>("/v1/admin/stages");
+    },
+    async adminGetStage(stageId: string) {
+      return request<AdminStageDetail>(`/v1/admin/stages/${stageId}`);
+    },
+    async adminGetStageLedger(stageId: string) {
+      return request<{ transactions: StageTransaction[] }>(`/v1/admin/stages/${stageId}/ledger`);
     },
   };
 }

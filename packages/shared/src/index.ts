@@ -163,4 +163,8 @@ export type {
   StageLoan,
   StageTransaction,
   StageMessage,
+  StageElectionNominee,
+  StageElection,
+  AdminStageSummary,
+  AdminStageDetail,
 } from "./domain.js";
