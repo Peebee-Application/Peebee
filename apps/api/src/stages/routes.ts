@@ -235,7 +235,7 @@ stageRoutes.get("/stages/:id", async (c) => {
     pot = Number(potRes.rows[0]?.pot) || 0;
     const loanRes = await db.execute({
       sql: `SELECT COALESCE(SUM(total_repayment), 0) AS total,
-                   (SELECT COALESCE(SUM(amount), 0) FROM stage_repayments r
+                   (SELECT COALESCE(SUM(r.amount), 0) FROM stage_repayments r
                     JOIN stage_loans l2 ON l2.id = r.loan_id WHERE l2.cycle_id = ? AND r.status = 'confirmed') AS repaid
             FROM stage_loans WHERE cycle_id = ? AND status IN ('disbursed')`,
       args: [cycle.id, cycle.id],
