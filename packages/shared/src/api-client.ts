@@ -1692,6 +1692,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async startStageCycle(stageId: string, input: { startDate: string; interestRate?: number; loanableContributionMultiple?: number; maxLoanDurationMonths?: number; cycleMonths?: number; sharePrice?: number }) {
       return request<{ cycleId: string }>(`/v1/stages/${stageId}/cycles`, { method: "POST", body: JSON.stringify(input) });
     },
+    async updateStageCycle(stageId: string, cycleId: string, input: { endDate?: string; interestRate?: number; loanableContributionMultiple?: number; maxLoanDurationMonths?: number; sharePrice?: number }) {
+      return request<{ ok: true }>(`/v1/stages/${stageId}/cycles/${cycleId}`, { method: "PUT", body: JSON.stringify(input) });
+    },
     async setStageLoanWorkflow(stageId: string, cycleId: string, workflow: StageLoanApprovalWorkflowRow[]) {
       return request<{ ok: true }>(`/v1/stages/${stageId}/cycles/${cycleId}/workflow`, {
         method: "PUT",

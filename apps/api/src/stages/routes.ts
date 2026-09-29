@@ -590,6 +590,46 @@ stageRoutes.post("/stages/:id/cycles", async (c) => {
   return c.json({ cycleId: id });
 });
 
+const updateCycleSchema = z.object({
+  endDate: z.string().optional(),
+  interestRate: z.number().nonnegative().optional(),
+  loanableContributionMultiple: z.number().positive().optional(),
+  maxLoanDurationMonths: z.number().int().positive().optional(),
+  sharePrice: z.number().int().positive().optional(),
+});
+
+/** Lets the group admin (or an officer) adjust an already-started cycle's
+ * numbers — share price, interest rate, loanable multiple, max loan
+ * duration, end date — rather than only being able to set them once at
+ * creation. Existing contributions/loans keep the amounts they were
+ * recorded with; this only changes what applies going forward. */
+stageRoutes.put("/stages/:id/cycles/:cycleId", async (c) => {
+  const stageId = c.req.param("id");
+  const cycleId = c.req.param("cycleId");
+  const user = c.get("user");
+  if (!(await canManageStage(stageId, user.sub))) {
+    return c.json({ error: "officers_only", message: "Only the group admin or an elected officer can do that." }, 403);
+  }
+  const cycleRes = await db.execute({ sql: "SELECT id FROM stage_cycles WHERE id = ? AND stage_id = ?", args: [cycleId, stageId] });
+  if (!cycleRes.rows[0]) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+
+  const parsed = updateCycleSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+
+  const sets: string[] = [];
+  const args: (string | number)[] = [];
+  if (parsed.data.endDate != null) { sets.push("end_date = ?"); args.push(parsed.data.endDate); }
+  if (parsed.data.interestRate != null) { sets.push("interest_rate = ?"); args.push(parsed.data.interestRate); }
+  if (parsed.data.loanableContributionMultiple != null) { sets.push("loanable_contribution_multiple = ?"); args.push(parsed.data.loanableContributionMultiple); }
+  if (parsed.data.maxLoanDurationMonths != null) { sets.push("max_loan_duration_months = ?"); args.push(parsed.data.maxLoanDurationMonths); }
+  if (parsed.data.sharePrice != null) { sets.push("share_price = ?"); args.push(parsed.data.sharePrice); }
+  if (sets.length === 0) return c.json({ ok: true });
+
+  await db.execute({ sql: `UPDATE stage_cycles SET ${sets.join(", ")} WHERE id = ?`, args: [...args, cycleId] });
+  await postSystemMessage(stageId, user.sub, "cycle_updated", "The active cycle's settings were updated.", cycleId);
+  return c.json({ ok: true });
+});
+
 const setWorkflowSchema = z.object({
   workflow: z
     .array(
