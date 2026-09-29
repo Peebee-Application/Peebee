@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { formatUgx } from "../../lib/order-display";
 import { useTranslate, type TranslationKey } from "../../lib/i18n";
+import { StageSavingsCard } from "../../components/StageSavingsCard";
 
 const WITHDRAWAL_STATUS_KEYS: Record<Wallet["withdrawals"][number]["status"], TranslationKey> = {
   pending: "wallet_withdrawal_processing",
@@ -245,6 +246,8 @@ export default function WalletPage() {
         </div>
         {needsNumberChoice && <p className="text-xs text-red-600">{t("wallet_choose_number")}</p>}
       </section>
+
+      <StageSavingsCard context="wallet" />
 
       {wallet && wallet.withdrawals.length > 0 && (
         <section className="space-y-2.5">

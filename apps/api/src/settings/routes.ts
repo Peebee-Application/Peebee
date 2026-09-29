@@ -295,7 +295,7 @@ const updateSchema = z.object({
   vslaCashDoubleCheckRequired: z.boolean().optional(),
   vslaAdminLedgerVisibility: z.enum(["read_only_all", "private_per_stage"]).optional(),
   vslaUnconfirmedIntentEscalationHours: z.number().int().positive().max(168).optional(),
-  vslaFeaturePlacement: z.enum(["home_card_and_screen", "bottom_nav_tab", "account_only"]).optional(),
+  vslaFeaturePlacement: z.enum(["home_card_and_screen", "bottom_nav_tab", "account_only", "wallet_card"]).optional(),
   vslaDefaultSharePrice: z.number().int().positive().optional(),
   // Luganda list-reading — see ../lib/settings.ts getLugandaAudioSettings.
   lugandaAudioEnabled: z.boolean().optional(),

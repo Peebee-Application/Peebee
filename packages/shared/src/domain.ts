@@ -270,7 +270,7 @@ export type LugandaVoice = { id: string; label: string };
 export type VslaStageCreationMode = "admin_only" | "self_service";
 export type VslaContributionRecorderRole = "any_officer" | "treasurer_only";
 export type VslaAdminLedgerVisibility = "read_only_all" | "private_per_stage";
-export type VslaFeaturePlacement = "home_card_and_screen" | "bottom_nav_tab" | "account_only";
+export type VslaFeaturePlacement = "home_card_and_screen" | "bottom_nav_tab" | "account_only" | "wallet_card";
 
 export type VslaSettings = {
   /** Whether a rider can start a new stage circle themselves, or only
@@ -1449,6 +1449,10 @@ export type Stage = {
   updated_at: string;
   /** Only present on GET /stages/mine. */
   role?: StageMemberRole;
+  /** Only present on GET /stages/mine — lets callers show the current pot
+   * without a follow-up GET /stages/:id round trip. */
+  active_cycle_id?: string | null;
+  pot?: number;
 };
 
 export type StageMemberSummary = { rider_id: string; role: StageMemberRole; name: string };

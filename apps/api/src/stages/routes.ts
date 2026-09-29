@@ -177,10 +177,17 @@ async function stageIdForLoan(loanId: string): Promise<string> {
 
 // ---- Stages ----------------------------------------------------------
 
+/** Includes each stage's current pot inline (via its active cycle) so
+ * callers like the rider Home/Wallet teaser card can render in one round
+ * trip instead of following up with a per-stage GET /stages/:id. */
 stageRoutes.get("/stages/mine", async (c) => {
   const user = c.get("user");
   const res = await db.execute({
-    sql: `SELECT s.*, m.role FROM stages s
+    sql: `SELECT s.*, m.role,
+                 (SELECT id FROM stage_cycles WHERE stage_id = s.id AND status = 'active' ORDER BY created_at DESC LIMIT 1) AS active_cycle_id,
+                 (SELECT COALESCE(SUM(amount), 0) FROM stage_transactions
+                  WHERE cycle_id = (SELECT id FROM stage_cycles WHERE stage_id = s.id AND status = 'active' ORDER BY created_at DESC LIMIT 1)) AS pot
+          FROM stages s
           JOIN stage_members m ON m.stage_id = s.id
           WHERE m.rider_id = ? AND m.status = 'active'`,
     args: [user.sub],

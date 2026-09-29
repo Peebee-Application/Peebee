@@ -554,7 +554,7 @@ export async function setMonetizationSettings(input: Partial<MonetizationSetting
 export type VslaStageCreationMode = "admin_only" | "self_service";
 export type VslaContributionRecorderRole = "any_officer" | "treasurer_only";
 export type VslaAdminLedgerVisibility = "read_only_all" | "private_per_stage";
-export type VslaFeaturePlacement = "home_card_and_screen" | "bottom_nav_tab" | "account_only";
+export type VslaFeaturePlacement = "home_card_and_screen" | "bottom_nav_tab" | "account_only" | "wallet_card";
 
 export type VslaSettings = {
   stageCreationMode: VslaStageCreationMode;
@@ -612,7 +612,7 @@ export async function getVslaSettings(): Promise<VslaSettings> {
     adminLedgerVisibility: adminLedgerVisibility === "private_per_stage" ? "private_per_stage" : "read_only_all",
     unconfirmedIntentEscalationHours: Number(unconfirmedIntentEscalationHours) || 6,
     featurePlacement:
-      featurePlacement === "bottom_nav_tab" || featurePlacement === "account_only"
+      featurePlacement === "bottom_nav_tab" || featurePlacement === "account_only" || featurePlacement === "wallet_card"
         ? featurePlacement
         : "home_card_and_screen",
   };

@@ -280,6 +280,7 @@ export default function StageSavingsSettingsPage() {
             <option value="home_card_and_screen">A card on Home, plus its own screen</option>
             <option value="bottom_nav_tab">Its own bottom-nav tab</option>
             <option value="account_only">Tucked under Account</option>
+            <option value="wallet_card">A card on Wallet, below the balance</option>
           </select>
         </section>
 
