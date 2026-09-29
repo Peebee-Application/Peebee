@@ -1795,6 +1795,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async getStageLedger(stageId: string) {
       return request<{ transactions: StageTransaction[] }>(`/v1/stages/${stageId}/ledger`);
     },
+    async createStageTransaction(stageId: string, input: { type: StageTransaction["type"]; amount: number; memberId?: string | null; narrative: string }) {
+      return request<{ transactionId: string }>(`/v1/stages/${stageId}/transactions`, { method: "POST", body: JSON.stringify(input) });
+    },
     async getStageMessages(stageId: string, withRiderId?: string) {
       const qs = withRiderId ? `?with=${encodeURIComponent(withRiderId)}` : "";
       return request<{ messages: StageMessage[] }>(`/v1/stages/${stageId}/messages${qs}`);

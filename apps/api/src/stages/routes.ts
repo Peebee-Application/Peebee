@@ -1313,6 +1313,46 @@ stageRoutes.get("/stages/:id/ledger", async (c) => {
   return c.json({ transactions: res.rows });
 });
 
+const reconcileTransactionSchema = z.object({
+  type: z.enum(["contribution", "loan_disbursement", "repayment", "share_out", "fine", "expense"]),
+  amount: z.number().int(),
+  memberId: z.string().nullable().optional(),
+  narrative: z.string().trim().max(240),
+});
+
+/** Manual reconciliation — the group admin (or an officer) inserts a
+ * ledger entry directly for a transaction that happened but was never
+ * recorded the normal way (e.g. a confirmation step got missed). Requires
+ * an active cycle to attach it to. Every entry made this way is tagged in
+ * its own narrative prefix so it's clearly distinguishable in the ledger
+ * from the ordinary intent-confirmed flow. */
+stageRoutes.post("/stages/:id/transactions", async (c) => {
+  const stageId = c.req.param("id");
+  const user = c.get("user");
+  if (!(await canManageStage(stageId, user.sub))) {
+    return c.json({ error: "officers_only", message: "Only the group admin or an elected officer can do that." }, 403);
+  }
+  const cycle = await getActiveCycle(stageId);
+  if (!cycle) return c.json({ error: "no_active_cycle", message: "This circle hasn't started a savings cycle yet." }, 400);
+
+  const parsed = reconcileTransactionSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+
+  if (parsed.data.memberId) {
+    const target = await getMembership(stageId, parsed.data.memberId);
+    if (!target) return c.json({ error: "not_a_member", message: "That rider isn't an active member of this circle." }, 400);
+  }
+
+  const id = newId("stxn");
+  await db.execute({
+    sql: `INSERT INTO stage_transactions (id, stage_id, cycle_id, member_id, type, amount, narrative, related_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`,
+    args: [id, stageId, cycle.id, parsed.data.memberId ?? null, parsed.data.type, parsed.data.amount, `Reconciled by ${user.name}: ${parsed.data.narrative}`],
+  });
+  await postSystemMessage(stageId, user.sub, "transaction_reconciled", `A ${parsed.data.type.replace("_", " ")} was manually recorded by ${user.name}.`, id);
+  return c.json({ transactionId: id });
+});
+
 // ---- Reports / analytics --------------------------------------------------
 
 stageRoutes.get("/stages/:id/reports", async (c) => {
