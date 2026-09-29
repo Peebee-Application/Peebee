@@ -300,7 +300,7 @@ export default function StageSavingsSettingsPage() {
               <span className="block text-sm font-semibold text-ink">Require a Pro subscription</span>
               <span className="block text-xs text-ink-500">
                 Only affects joining or creating a stage from here on — a rider who already belongs to a stage
-                keeps free access, forever. Set the Pro price under Settings → Rider Pro.
+                keeps free access, forever. Set the Pro price under Settings → Monetization.
               </span>
             </span>
           </label>

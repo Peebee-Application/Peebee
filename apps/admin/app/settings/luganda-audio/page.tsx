@@ -84,7 +84,7 @@ export default function LugandaAudioSettingsPage() {
             Require a Pro subscription
           </label>
           <p className="text-xs text-ink-500">
-            Set the Pro price under Settings → Rider Pro. Off by default — nothing changes until you turn this on.
+            Set the Pro price under Settings → Monetization. Off by default — nothing changes until you turn this on.
           </p>
         </section>
 

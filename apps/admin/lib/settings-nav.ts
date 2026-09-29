@@ -3,7 +3,6 @@ import {
   Banknote,
   Compass,
   CreditCard,
-  Crown,
   FlaskConical,
   Languages,
   Mic,
@@ -102,7 +101,7 @@ export const SETTINGS_LINKS: SettingsLink[] = [
   {
     href: "/settings/monetization",
     label: "Monetization",
-    description: "Commission, service fee, processing fee, cash orders, subscription.",
+    description: "Commission, service fee, processing fee, cash orders, rider subscription, Rider Pro.",
     icon: Banknote,
     show: (role) => hasPermission(role, "payments.manage"),
   },
@@ -111,13 +110,6 @@ export const SETTINGS_LINKS: SettingsLink[] = [
     label: "Stage savings circles",
     description: "Stage creation, loan interest, recorder role, admin visibility.",
     icon: PiggyBank,
-    show: (role) => hasPermission(role, "payments.manage"),
-  },
-  {
-    href: "/settings/rider-pro",
-    label: "Rider Pro",
-    description: "The paid tier that unlocks Luganda list reading, Stage Savings, and future perks.",
-    icon: Crown,
     show: (role) => hasPermission(role, "payments.manage"),
   },
   {

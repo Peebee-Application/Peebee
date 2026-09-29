@@ -31,6 +31,12 @@ export default function MonetizationSettingsPage() {
   const [subscriptionMode, setSubscriptionMode] = useState<SubscriptionMode>("recurring");
   const [subscriptionAmount, setSubscriptionAmount] = useState("0");
   const [subscriptionCadence, setSubscriptionCadence] = useState<SubscriptionCadence>("weekly");
+  const [proEnabled, setProEnabled] = useState(false);
+  const [proRecurringEnabled, setProRecurringEnabled] = useState(false);
+  const [proRecurringAmount, setProRecurringAmount] = useState("0");
+  const [proRecurringCadence, setProRecurringCadence] = useState<SubscriptionCadence>("weekly");
+  const [proOnetimeEnabled, setProOnetimeEnabled] = useState(false);
+  const [proOnetimeAmount, setProOnetimeAmount] = useState("0");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +61,12 @@ export default function MonetizationSettingsPage() {
         setSubscriptionMode(settings.subscriptionMode);
         setSubscriptionAmount(String(settings.subscriptionAmount));
         setSubscriptionCadence(settings.subscriptionCadence);
+        setProEnabled(settings.proSubscriptionEnabled);
+        setProRecurringEnabled(settings.proRecurringEnabled);
+        setProRecurringAmount(String(settings.proRecurringAmount));
+        setProRecurringCadence(settings.proRecurringCadence);
+        setProOnetimeEnabled(settings.proOnetimeEnabled);
+        setProOnetimeAmount(String(settings.proOnetimeAmount));
       })
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false));
@@ -82,6 +94,12 @@ export default function MonetizationSettingsPage() {
         subscriptionMode,
         subscriptionAmount: Number(subscriptionAmount),
         subscriptionCadence,
+        proSubscriptionEnabled: proEnabled,
+        proRecurringEnabled,
+        proRecurringAmount: Number(proRecurringAmount),
+        proRecurringCadence,
+        proOnetimeEnabled,
+        proOnetimeAmount: Number(proOnetimeAmount),
       });
       setDeliveryCommissionEnabled(res.settings.deliveryCommissionEnabled);
       setDeliveryCommissionParcelPercent(String(res.settings.deliveryCommissionParcelPercent));
@@ -98,6 +116,12 @@ export default function MonetizationSettingsPage() {
       setSubscriptionMode(res.settings.subscriptionMode);
       setSubscriptionAmount(String(res.settings.subscriptionAmount));
       setSubscriptionCadence(res.settings.subscriptionCadence);
+      setProEnabled(res.settings.proSubscriptionEnabled);
+      setProRecurringEnabled(res.settings.proRecurringEnabled);
+      setProRecurringAmount(String(res.settings.proRecurringAmount));
+      setProRecurringCadence(res.settings.proRecurringCadence);
+      setProOnetimeEnabled(res.settings.proOnetimeEnabled);
+      setProOnetimeAmount(String(res.settings.proOnetimeAmount));
       setSaved(true);
     } catch (err) {
       setError(errorMessage(err));
@@ -379,6 +403,120 @@ export default function MonetizationSettingsPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* Rider Pro — a separate, optional paid tier from the rider
+              subscription above, which gates job matching itself. Pro
+              instead unlocks premium perks (Luganda list reading, Stage
+              Savings) that each have their own "Require a Pro subscription"
+              switch on their own settings page. */}
+          <div className="rounded-xl border border-[var(--border-faint)] p-3 space-y-2.5">
+            <label className="flex items-start gap-2.5">
+              <input
+                type="checkbox"
+                checked={proEnabled}
+                onChange={(e) => setProEnabled(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-gold"
+              />
+              <span>
+                <span className="text-sm font-semibold text-ink">Rider Pro</span>
+                <span className="block text-xs text-ink-500">
+                  A separate paid tier from the rider subscription above — unlocks premium perks rather than
+                  gating job matching. Charged to the rider&apos;s own mobile money number.
+                </span>
+              </span>
+            </label>
+            {proEnabled && (
+              <div className="space-y-3 pl-6.5">
+                <div className="rounded-xl border border-[var(--border-faint)] p-2.5 space-y-2">
+                  <label className="flex items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={proRecurringEnabled}
+                      onChange={(e) => setProRecurringEnabled(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-gold"
+                    />
+                    <span>
+                      <span className="text-sm font-semibold text-ink">Recurring plan</span>
+                      <span className="block text-xs text-ink-500">Bills every cadence until cancelled.</span>
+                    </span>
+                  </label>
+                  {proRecurringEnabled && (
+                    <div className="grid grid-cols-2 gap-3 pl-6.5">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-ink-500" htmlFor="proRecurringAmount">
+                          Amount (UGX)
+                        </label>
+                        <input
+                          id="proRecurringAmount"
+                          inputMode="numeric"
+                          value={proRecurringAmount}
+                          onChange={(e) => setProRecurringAmount(e.target.value.replace(/[^\d.]/g, ""))}
+                          className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-ink-500" htmlFor="proRecurringCadence">
+                          Cadence
+                        </label>
+                        <select
+                          id="proRecurringCadence"
+                          value={proRecurringCadence}
+                          onChange={(e) => setProRecurringCadence(e.target.value as SubscriptionCadence)}
+                          className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+                        >
+                          <option value="daily">Daily</option>
+                          <option value="weekly">Weekly</option>
+                          <option value="monthly">Monthly</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-[var(--border-faint)] p-2.5 space-y-2">
+                  <label className="flex items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={proOnetimeEnabled}
+                      onChange={(e) => setProOnetimeEnabled(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-gold"
+                    />
+                    <span>
+                      <span className="text-sm font-semibold text-ink">One-time plan</span>
+                      <span className="block text-xs text-ink-500">
+                        A single lifetime charge — a rider who pays never needs to renew.
+                      </span>
+                    </span>
+                  </label>
+                  {proOnetimeEnabled && (
+                    <div className="pl-6.5">
+                      <label className="text-xs font-semibold text-ink-500" htmlFor="proOnetimeAmount">
+                        Amount (UGX)
+                      </label>
+                      <input
+                        id="proOnetimeAmount"
+                        inputMode="numeric"
+                        value={proOnetimeAmount}
+                        onChange={(e) => setProOnetimeAmount(e.target.value.replace(/[^\d.]/g, ""))}
+                        className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {proRecurringEnabled && proOnetimeEnabled && (
+                  <p className="text-xs text-ink-500">
+                    Both plans are on — a rider will see both prices and choose which one to buy.
+                  </p>
+                )}
+                {!proRecurringEnabled && !proOnetimeEnabled && (
+                  <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                    Turn on at least one plan, or riders won&apos;t be able to buy Pro at all.
+                  </p>
+                )}
               </div>
             )}
           </div>
