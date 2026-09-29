@@ -9,7 +9,7 @@ import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { clientIp } from "../lib/ratelimit.js";
-import { getDeliverySettings, getLugandaAudioSettings, getMonetizationSettings, getPlatformEnvironment, getRiderReserveSettings } from "../lib/settings.js";
+import { getDeliverySettings, getLugandaAudioSettings, getMonetizationSettings, getPlatformEnvironment, getProSettings, getRiderReserveSettings } from "../lib/settings.js";
 import { currentVisibilityRadiusKm, orderMatchPoint } from "../orders/matching.js";
 import { redactOrders, toOpenJob } from "../orders/visibility.js";
 import {
@@ -22,6 +22,7 @@ import {
 } from "../payments/service.js";
 import { isCashDepositOk } from "../lib/monetization.js";
 import { getRiderSubscriptionView, isSubscriptionCurrent, nextPaidThrough } from "./subscription.js";
+import { getRiderProSubscriptionView, nextProPaidThrough } from "./pro-subscription.js";
 import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
 
 export const riderRoutes = new Hono();
@@ -973,6 +974,136 @@ riderRoutes.get("/riders/me/subscription/payments/:id/refresh", requireAuth, req
     return c.json({ payment: updated.rows[0] });
   } catch (err) {
     console.error("Subscription payment status check failed:", err);
+    return c.json(
+      { error: "status_check_failed", message: "Couldn't check the payment status just now. Please try again." },
+      502,
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Pro subscription — a separate, optional paid tier (see ./pro-subscription.ts)
+// unlocking premium features that individually opt into requiring it, distinct
+// from the job-activation subscription above. Admin may offer either pricing
+// mode or both; when both are on, the rider picks which to buy.
+// ---------------------------------------------------------------------------
+
+riderRoutes.get("/riders/me/pro-subscription", requireAuth, requireRole("rider"), async (c) => {
+  const user = c.get("user");
+  const view = await getRiderProSubscriptionView(user.sub);
+  const paymentsRes = await db.execute({
+    sql: "SELECT * FROM rider_pro_subscription_payments WHERE rider_id = ? ORDER BY created_at DESC LIMIT 10",
+    args: [user.sub],
+  });
+  return c.json({ subscription: view, payments: paymentsRes.rows });
+});
+
+const payProSchema = z.object({ mode: z.enum(["recurring", "once"]).optional() });
+
+riderRoutes.post("/riders/me/pro-subscription/pay", requireAuth, requireRole("rider"), async (c) => {
+  const user = c.get("user");
+  const settings = await getProSettings();
+  if (!settings.enabled) {
+    return c.json({ error: "pro_not_available", message: "Pro isn't available right now" }, 409);
+  }
+  const parsed = payProSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+
+  let mode = parsed.data.mode;
+  if (!mode) {
+    // Only one mode on offer — no need to make the rider say which.
+    if (settings.recurringEnabled && !settings.onetimeEnabled) mode = "recurring";
+    else if (settings.onetimeEnabled && !settings.recurringEnabled) mode = "once";
+    else return c.json({ error: "mode_required", message: "Choose recurring or one-time" }, 400);
+  }
+  if (mode === "recurring" && !settings.recurringEnabled) return c.json({ error: "mode_not_available" }, 409);
+  if (mode === "once" && !settings.onetimeEnabled) return c.json({ error: "mode_not_available" }, 409);
+  const amount = mode === "once" ? settings.onetimeAmount : settings.recurringAmount;
+  if (amount <= 0) return c.json({ error: "invalid_amount", message: "Ask an admin to set a Pro price first" }, 409);
+
+  const riderRes = await db.execute({ sql: "SELECT momo_msisdn FROM riders WHERE user_id = ?", args: [user.sub] });
+  const rider = riderRes.rows[0] as Row | undefined;
+  if (!rider) return c.json({ error: "not_a_rider" }, 404);
+  const msisdn = rider.momo_msisdn as string | null;
+  if (!msisdn) {
+    return c.json({ error: "no_mobile_money", message: "Add a mobile money number in your profile first" }, 409);
+  }
+
+  const environment = await getPlatformEnvironment();
+  const paymentId = newId("rpp");
+  try {
+    const initiated = await initiateCollection({
+      referenceId: paymentId,
+      msisdn,
+      amount,
+      name: user.name,
+      narrative: mode === "once" ? "Tuma rider Pro (lifetime)" : "Tuma rider Pro",
+      forceMock: environment === "sandbox",
+    });
+    await db.execute({
+      sql: `INSERT INTO rider_pro_subscription_payments (id, rider_id, mode, amount, provider, provider_ref, msisdn, status, period_start, period_end, environment)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', datetime('now'), ?, ?)`,
+      args: [
+        paymentId,
+        user.sub,
+        mode,
+        amount,
+        initiated.provider,
+        initiated.providerRef,
+        msisdn,
+        nextProPaidThrough(mode, settings.recurringCadence),
+        environment,
+      ],
+    });
+    return c.json({ paymentId, amount, mode, status: "pending", network: initiated.network }, 201);
+  } catch (err) {
+    if (err instanceof UnsupportedNetworkError) {
+      return c.json({ error: "unsupported_network", message: err.message }, 400);
+    }
+    console.error("Pro subscription payment request failed:", err);
+    return c.json(
+      paymentProviderErrorResponse(err, "Couldn't reach mobile money just now. Please try again."),
+      paymentProviderHttpStatus(err),
+    );
+  }
+});
+
+riderRoutes.get("/riders/me/pro-subscription/payments/:id/refresh", requireAuth, requireRole("rider"), async (c) => {
+  const id = c.req.param("id") as string;
+  const user = c.get("user");
+  const res = await db.execute({
+    sql: "SELECT * FROM rider_pro_subscription_payments WHERE id = ? AND rider_id = ?",
+    args: [id, user.sub],
+  });
+  const payment = res.rows[0] as Row | undefined;
+  if (!payment) return c.json({ error: "not_found" }, 404);
+  if (payment.status !== "pending") return c.json({ payment });
+
+  try {
+    const status = await checkPaymentStatus({
+      provider: payment.provider as string,
+      provider_ref: payment.provider_ref as string | null,
+      created_at: payment.created_at as string,
+    });
+    if (status === "successful") {
+      await db.execute({
+        sql: "UPDATE rider_pro_subscription_payments SET status = 'successful', updated_at = datetime('now') WHERE id = ?",
+        args: [id],
+      });
+      await db.execute({
+        sql: "UPDATE riders SET pro_status = 'active', pro_paid_through = ?, pro_mode = ?, updated_at = datetime('now') WHERE user_id = ?",
+        args: [payment.period_end as string, payment.mode as string, user.sub],
+      });
+    } else if (status === "failed") {
+      await db.execute({
+        sql: "UPDATE rider_pro_subscription_payments SET status = 'failed', updated_at = datetime('now') WHERE id = ?",
+        args: [id],
+      });
+    }
+    const updated = await db.execute({ sql: "SELECT * FROM rider_pro_subscription_payments WHERE id = ?", args: [id] });
+    return c.json({ payment: updated.rows[0] });
+  } catch (err) {
+    console.error("Pro subscription payment status check failed:", err);
     return c.json(
       { error: "status_check_failed", message: "Couldn't check the payment status just now. Please try again." },
       502,

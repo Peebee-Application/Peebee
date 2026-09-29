@@ -7,6 +7,7 @@ import { newId } from "../lib/ids.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { getR2Bucket } from "../storage/r2.js";
 import { getVslaSettings } from "../lib/settings.js";
+import { isProSubscriptionCurrent } from "../riders/pro-subscription.js";
 
 /**
  * Rider Stage Savings Circles — a VSLA-style group savings/loans feature,
@@ -51,6 +52,32 @@ async function canRecordCash(stageId: string, riderId: string): Promise<boolean>
 async function getGroupAdminId(stageId: string): Promise<string | null> {
   const res = await db.execute({ sql: "SELECT group_admin_id FROM stages WHERE id = ?", args: [stageId] });
   return (res.rows[0]?.group_admin_id as string | null) ?? null;
+}
+
+/** Whether this rider already belongs to any stage circle — the
+ * grandfather clause for vsla_requires_pro: a rider who already has the
+ * feature keeps free access to it, including joining/creating further
+ * circles, even after an admin turns the Pro requirement on. */
+async function hasAnyStageMembership(riderId: string): Promise<boolean> {
+  const res = await db.execute({
+    sql: "SELECT 1 FROM stage_members WHERE rider_id = ? AND status = 'active' LIMIT 1",
+    args: [riderId],
+  });
+  return res.rows.length > 0;
+}
+
+/** Gate on the two actions that grant a rider *new* stage membership
+ * (create, join) — every other action inside a stage a rider already
+ * belongs to stays exactly as ungated as it is today. Returns a 403
+ * Response to return directly, or null when the action may proceed. */
+async function assertProIfRequired(c: Context, riderId: string): Promise<Response | null> {
+  const settings = await getVslaSettings();
+  if (!settings.requiresPro) return null;
+  if (await hasAnyStageMembership(riderId)) return null;
+  const riderRes = await db.execute({ sql: "SELECT pro_status, pro_paid_through FROM riders WHERE user_id = ?", args: [riderId] });
+  const rider = riderRes.rows[0] as { pro_status?: string; pro_paid_through?: string } | undefined;
+  if (rider && isProSubscriptionCurrent(rider)) return null;
+  return c.json({ error: "pro_required", message: "Stage Savings now requires a Pro subscription." }, 403);
 }
 
 /** The group admin — the person responsible for onboarding fellow stage
@@ -216,6 +243,8 @@ stageRoutes.post("/stages", async (c) => {
   if (settings.stageCreationMode === "admin_only") {
     return c.json({ error: "forbidden", message: "Stages are created by Tuma admin right now." }, 403);
   }
+  const proGate = await assertProIfRequired(c, user.sub);
+  if (proGate) return proGate;
   const parsed = createStageSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
 
@@ -354,6 +383,8 @@ stageRoutes.post("/stages/:id/invite", async (c) => {
 stageRoutes.post("/stages/:id/join", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
+  const proGate = await assertProIfRequired(c, user.sub);
+  if (proGate) return proGate;
   const existing = await db.execute({ sql: "SELECT 1 FROM stage_members WHERE stage_id = ? AND rider_id = ?", args: [stageId, user.sub] });
   if (existing.rows.length > 0) {
     await db.execute({

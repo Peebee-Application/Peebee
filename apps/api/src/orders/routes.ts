@@ -24,6 +24,7 @@ import { assignAvailableRider } from "./assignment.js";
 import { getApplicantProfile } from "./applicant-profile.js";
 import { buildLugandaListNarration } from "./list-narration.js";
 import { synthesizeLuganda } from "../speech/sunbird.js";
+import { isProSubscriptionCurrent } from "../riders/pro-subscription.js";
 import type { MatchingMode, MobileMoneyNetwork } from "@tuma/shared";
 import { roundFare } from "@tuma/shared";
 import { snapshotTimeFees, getOrderTimeFees, cancelCustomerOrder, finishWaiting, closeWaiting } from "./time-fees.js";
@@ -550,13 +551,18 @@ orderRoutes.get("/orders/:id/list-audio", async (c) => {
   if (!lugandaSettings.enabled) return c.json({ error: "feature_disabled" }, 404);
 
   let voice = lugandaSettings.defaultVoice;
+  let riderRow: Row | undefined;
   if (order.rider_id) {
-    const riderRow = await db.execute({
-      sql: "SELECT preferred_lug_voice FROM riders WHERE user_id = ?",
+    const riderRes = await db.execute({
+      sql: "SELECT preferred_lug_voice, pro_status, pro_paid_through FROM riders WHERE user_id = ?",
       args: [order.rider_id as string],
     });
-    const preferred = riderRow.rows[0]?.preferred_lug_voice as string | null | undefined;
+    riderRow = riderRes.rows[0] as Row | undefined;
+    const preferred = riderRow?.preferred_lug_voice as string | null | undefined;
     if (preferred) voice = preferred;
+  }
+  if (lugandaSettings.requiresPro && !isProSubscriptionCurrent(riderRow ?? {})) {
+    return c.json({ error: "pro_required", message: "Listening to lists in Luganda now requires a Pro subscription." }, 403);
   }
 
   const itemsRes = await db.execute({ sql: "SELECT * FROM list_items WHERE list_id = ?", args: [order.list_id as string] });

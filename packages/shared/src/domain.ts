@@ -259,8 +259,25 @@ export type DeliverySettings = {
   lugandaAudioEnabled: boolean;
   lugandaAudioVoices: LugandaVoice[];
   lugandaAudioDefaultVoice: string;
+  /** When on, listening to a list's audio requires the rider to have an
+   * active Pro subscription (see ProSettings below). Off by default. */
+  lugandaAudioRequiresPro: boolean;
 } & MonetizationSettings &
-  VslaSettings;
+  VslaSettings &
+  ProSettings;
+
+/** Rider "Pro" — a separate, optional paid tier from MonetizationSettings'
+ * own subscriptionEnabled/Mode/Amount/Cadence, which gate job matching
+ * itself. Admin may enable either pricing mode or both; when both are on,
+ * a rider picks which to buy. See apps/api/src/riders/pro-subscription.ts. */
+export type ProSettings = {
+  proSubscriptionEnabled: boolean;
+  proRecurringEnabled: boolean;
+  proRecurringAmount: number;
+  proRecurringCadence: SubscriptionCadence;
+  proOnetimeEnabled: boolean;
+  proOnetimeAmount: number;
+};
 
 export type LugandaVoice = { id: string; label: string };
 
@@ -294,6 +311,10 @@ export type VslaSettings = {
    * rider app prompts the member to call/message the treasurer. */
   vslaUnconfirmedIntentEscalationHours: number;
   vslaFeaturePlacement: VslaFeaturePlacement;
+  /** When on, joining or creating a new stage requires an active Pro
+   * subscription — except a rider who already has a stage membership,
+   * grandfathered so nothing is taken away from existing members. */
+  vslaRequiresPro: boolean;
 };
 
 export type NavMode = "external" | "in_app";
@@ -359,6 +380,40 @@ export type RiderSubscriptionView = {
 };
 
 export type RiderSubscriptionPayment = {
+  id: string;
+  rider_id: string;
+  mode: SubscriptionMode;
+  amount: number;
+  provider: string;
+  provider_ref: string | null;
+  msisdn: string | null;
+  status: "pending" | "successful" | "failed";
+  period_start: string | null;
+  period_end: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Rider "Pro" — a separate, optional paid tier from RiderSubscriptionView
+ * above, which gates job matching itself. Pro instead unlocks whichever
+ * premium features individually opt into requiring it (Luganda list-audio,
+ * Stage Savings). Unlike the base subscription, both pricing modes may be
+ * offered at once — the rider then picks which to buy (`mode` is null
+ * until they've bought either). See apps/api/src/riders/pro-subscription.ts. */
+export type RiderProSubscriptionView = {
+  enabled: boolean;
+  recurringEnabled: boolean;
+  recurringAmount: number;
+  recurringCadence: SubscriptionCadence;
+  onetimeEnabled: boolean;
+  onetimeAmount: number;
+  status: "inactive" | "active" | "past_due";
+  current: boolean;
+  mode: SubscriptionMode | null;
+  paidThrough: string | null;
+};
+
+export type RiderProSubscriptionPayment = {
   id: string;
   rider_id: string;
   mode: SubscriptionMode;
@@ -496,7 +551,25 @@ export type Rider = {
    * list/order they listen to (see PUT /riders/me/voice-preference). Null
    * until they pick one, falling back to the admin's default voice. */
   preferred_lug_voice: string | null;
+  /** Rider "Pro" state — a separate, optional paid tier from
+   * subscription_status/subscription_paid_through above, which gate job
+   * matching itself. See RiderProSubscriptionView and
+   * apps/api/src/riders/pro-subscription.ts. */
+  pro_status: "inactive" | "active" | "past_due";
+  pro_paid_through: string | null;
+  pro_mode: SubscriptionMode | null;
 };
+
+/** Same lifetime-sentinel-aware "is this rider currently Pro" check the API
+ * uses server-side (apps/api/src/riders/pro-subscription.ts), exposed here
+ * so a client can decide whether to show a Pro upsell without waiting on a
+ * network round trip — the server endpoint remains the actual enforcement. */
+export function isProSubscriptionCurrent(rider: Pick<Rider, "pro_status" | "pro_paid_through"> | null | undefined): boolean {
+  if (!rider || rider.pro_status !== "active" || !rider.pro_paid_through) return false;
+  const raw = rider.pro_paid_through;
+  const normalized = /Z|[+-]\d\d:\d\d$/.test(raw) ? raw : `${raw.replace(" ", "T")}Z`;
+  return new Date(normalized).getTime() >= Date.now();
+}
 
 /** The fields a rider must fill in (incl. their motorcycle reg. via `vehicle_info`,
  * a National ID scan, a face photo, and a stage location picked on the map)

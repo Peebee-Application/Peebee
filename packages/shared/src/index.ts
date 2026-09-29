@@ -10,7 +10,7 @@ export type { ApiValidationIssue } from "./api-client.js";
 export type { CreateApiClientOptions, ApiClient } from "./api-client.js";
 export { CallEngine } from "./call-engine.js";
 export type { CallEngineState, CallEnginePhase, CallEngineOptions } from "./call-engine.js";
-export { isRiderProfileComplete, isUserVerified, MATCHING_MODE_LABELS, MATCHING_MODE_DESCRIPTIONS } from "./domain.js";
+export { isRiderProfileComplete, isUserVerified, isProSubscriptionCurrent, MATCHING_MODE_LABELS, MATCHING_MODE_DESCRIPTIONS } from "./domain.js";
 export {
   detectMobileMoneyNetwork,
   mobileMoneyNetworkLabel,
@@ -92,6 +92,9 @@ export type {
   CashFeeSource,
   RiderSubscriptionView,
   RiderSubscriptionPayment,
+  RiderProSubscriptionView,
+  RiderProSubscriptionPayment,
+  ProSettings,
   PlatformEnvironment,
   RestaurantStatus,
   Restaurant,

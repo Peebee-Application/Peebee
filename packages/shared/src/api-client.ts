@@ -77,6 +77,8 @@ import type {
   RiderApplicantProfile,
   RiderSubscriptionPayment,
   RiderSubscriptionView,
+  RiderProSubscriptionPayment,
+  RiderProSubscriptionView,
   SavedLocation,
   SavedMobileNumber,
   Stage,
@@ -1186,6 +1188,25 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async refreshSubscriptionPayment(id: string) {
       return request<{ payment: RiderSubscriptionPayment }>(`/v1/riders/me/subscription/payments/${id}/refresh`);
+    },
+
+    // Rider "Pro" — a separate, optional paid tier from the subscription
+    // above; see apps/api/src/riders/pro-subscription.ts.
+    async myRiderProSubscription() {
+      return request<{ subscription: RiderProSubscriptionView; payments: RiderProSubscriptionPayment[] }>(
+        "/v1/riders/me/pro-subscription",
+      );
+    },
+    /** `mode` is only required when the admin has both recurring and
+     * one-time pricing enabled at once; omit it when just one is offered. */
+    async payProSubscription(mode?: "recurring" | "once") {
+      return request<{ paymentId: string; amount: number; mode: "recurring" | "once"; status: "pending"; network: string | null }>(
+        "/v1/riders/me/pro-subscription/pay",
+        { method: "POST", body: JSON.stringify({ mode }) },
+      );
+    },
+    async refreshProSubscriptionPayment(id: string) {
+      return request<{ payment: RiderProSubscriptionPayment }>(`/v1/riders/me/pro-subscription/payments/${id}/refresh`);
     },
 
     // Saved locations

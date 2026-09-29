@@ -1,12 +1,14 @@
 "use client";
 
-import type { AdminStageSummary, Stage } from "@tuma/shared";
-import { ChevronRight, PiggyBank, Plus } from "lucide-react";
+import { isProSubscriptionCurrent, type AdminStageSummary, type Stage } from "@tuma/shared";
+import { ChevronRight, Crown, PiggyBank, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
+import { useAuth } from "../../lib/auth-context";
 
 export default function SavingsIndexPage() {
+  const { rider } = useAuth();
   const [stages, setStages] = useState<Stage[] | null>(null);
   const [discoverable, setDiscoverable] = useState<AdminStageSummary[]>([]);
   const [joiningId, setJoiningId] = useState<string | null>(null);
@@ -15,6 +17,7 @@ export default function SavingsIndexPage() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [selfServiceEnabled, setSelfServiceEnabled] = useState(true);
+  const [requiresPro, setRequiresPro] = useState(false);
 
   function loadAll() {
     api
@@ -31,9 +34,17 @@ export default function SavingsIndexPage() {
     loadAll();
     api
       .getSettings()
-      .then(({ settings }) => setSelfServiceEnabled(settings.vslaStageCreationMode === "self_service"))
+      .then(({ settings }) => {
+        setSelfServiceEnabled(settings.vslaStageCreationMode === "self_service");
+        setRequiresPro(settings.vslaRequiresPro);
+      })
       .catch(() => {});
   }, []);
+
+  // A rider who already belongs to at least one stage is grandfathered —
+  // this only ever blocks *joining or creating a new* circle, matching the
+  // server's own check in apps/api/src/stages/routes.ts.
+  const needsPro = requiresPro && (stages?.length ?? 0) === 0 && !isProSubscriptionCurrent(rider);
 
   async function createStage(e: React.FormEvent) {
     e.preventDefault();
@@ -108,20 +119,39 @@ export default function SavingsIndexPage() {
                 <span className="block text-sm font-bold text-ink">{s.name}</span>
                 <span className="block text-xs text-ink-500">{s.member_count} members</span>
               </span>
-              <button
-                type="button"
-                onClick={() => join(s.id)}
-                disabled={joiningId === s.id}
-                className="shrink-0 rounded-full bg-gold px-4 py-2 text-xs font-bold text-ink-gold disabled:opacity-60"
-              >
-                {joiningId === s.id ? "Joining…" : "Join"}
-              </button>
+              {needsPro ? (
+                <Link
+                  href="/account#rider-pro"
+                  className="shrink-0 rounded-full border border-gold px-4 py-2 text-xs font-bold text-ink"
+                >
+                  Requires Pro
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => join(s.id)}
+                  disabled={joiningId === s.id}
+                  className="shrink-0 rounded-full bg-gold px-4 py-2 text-xs font-bold text-ink-gold disabled:opacity-60"
+                >
+                  {joiningId === s.id ? "Joining…" : "Join"}
+                </button>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      {!selfServiceEnabled ? null : !showCreate ? (
+      {needsPro && (stages?.length ?? 0) === 0 && (
+        <Link
+          href="/account#rider-pro"
+          className="flex items-center justify-center gap-2 rounded-full border border-gold bg-gold/10 py-3 text-sm font-bold text-ink"
+        >
+          <Crown className="h-4 w-4 text-gold" strokeWidth={2} aria-hidden />
+          Upgrade to Pro to join or start a stage circle
+        </Link>
+      )}
+
+      {needsPro || !selfServiceEnabled ? null : !showCreate ? (
         <button
           type="button"
           onClick={() => setShowCreate(true)}
