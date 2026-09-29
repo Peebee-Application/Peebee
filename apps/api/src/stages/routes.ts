@@ -166,7 +166,7 @@ async function ensureDefaultLoanWorkflow(cycleId: string) {
 
 async function recomputeLoanStatus(loanId: string) {
   const loanRes = await db.execute({ sql: "SELECT * FROM stage_loans WHERE id = ?", args: [loanId] });
-  const loan = loanRes.rows[0] as unknown as { id: string; cycle_id: string; status: string } | undefined;
+  const loan = loanRes.rows[0] as unknown as { id: string; stage_id: string; cycle_id: string; member_id: string; amount: number; status: string } | undefined;
   if (!loan || loan.status !== "pending") return;
 
   const workflowRes = await db.execute({
@@ -200,19 +200,56 @@ async function recomputeLoanStatus(loanId: string) {
       sql: "UPDATE stage_loans SET status = 'rejected', decided_at = datetime('now') WHERE id = ?",
       args: [loanId],
     });
-    await postSystemMessage(await stageIdForLoan(loanId), "system", "loan_rejected", "A loan request was rejected.", loanId);
+    await postSystemMessage(loan.stage_id, "system", "loan_rejected", "A loan request was rejected.", loanId);
+    await notifyUser(loan.member_id, {
+      title: "Loan request declined",
+      body: "Your loan request wasn't approved this time.",
+      url: `/savings/${loan.stage_id}/loan`,
+      tag: `stage-loan-decided-${loanId}`,
+    }).catch(() => {});
   } else if (allApproved) {
     await db.execute({
       sql: "UPDATE stage_loans SET status = 'approved', decided_at = datetime('now') WHERE id = ?",
       args: [loanId],
     });
-    await postSystemMessage(await stageIdForLoan(loanId), "system", "loan_approved", "A loan request was approved.", loanId);
+    await postSystemMessage(loan.stage_id, "system", "loan_approved", "A loan request was approved.", loanId);
+    await notifyUser(loan.member_id, {
+      title: "Loan approved",
+      body: "Your loan was approved — coordinate with your treasurer to receive it.",
+      url: `/savings/${loan.stage_id}/loan`,
+      tag: `stage-loan-decided-${loanId}`,
+    }).catch(() => {});
+    for (const treasurerId of await getTreasurerIds(loan.stage_id)) {
+      await notifyUser(treasurerId, {
+        title: "Loan cleared to disburse",
+        body: `A UGX ${loan.amount.toLocaleString("en-UG")} loan was approved — it's ready to send.`,
+        url: `/savings/${loan.stage_id}/loan`,
+        tag: `stage-loan-cleared-${loanId}`,
+      }).catch(() => {});
+    }
   }
 }
 
-async function stageIdForLoan(loanId: string): Promise<string> {
-  const res = await db.execute({ sql: "SELECT stage_id FROM stage_loans WHERE id = ?", args: [loanId] });
-  return (res.rows[0]?.stage_id as string) ?? "";
+/** Every active member whose role is named in this cycle's approval
+ * workflow — i.e. everyone eligible to cast a vote that actually counts
+ * toward a loan decision. Used to notify the right people the moment a
+ * loan request comes in. */
+async function getEligibleApproverIds(stageId: string, cycleId: string): Promise<string[]> {
+  const res = await db.execute({
+    sql: `SELECT DISTINCT m.rider_id FROM stage_members m
+          JOIN stage_loan_approval_workflow w ON w.role = m.role AND w.cycle_id = ?
+          WHERE m.stage_id = ? AND m.status = 'active'`,
+    args: [cycleId, stageId],
+  });
+  return (res.rows as unknown as { rider_id: string }[]).map((r) => r.rider_id);
+}
+
+async function getTreasurerIds(stageId: string): Promise<string[]> {
+  const res = await db.execute({
+    sql: "SELECT rider_id FROM stage_members WHERE stage_id = ? AND status = 'active' AND role = 'treasurer'",
+    args: [stageId],
+  });
+  return (res.rows as unknown as { rider_id: string }[]).map((r) => r.rider_id);
 }
 
 // ---- Stages ----------------------------------------------------------
@@ -715,7 +752,10 @@ const setWorkflowSchema = z.object({
   workflow: z
     .array(
       z.object({
-        role: z.enum(OFFICER_ROLES),
+        // "member" here means any rank-and-file member (not just elected
+        // officers) can be designated as an approver pool — e.g. "any 2 of
+        // our members can approve," per the group admin's own choice.
+        role: z.enum(["member", ...OFFICER_ROLES]),
         approvalsRequired: z.number().int().min(0),
         rejectionsRequired: z.number().int().min(1),
       }),
@@ -909,6 +949,17 @@ stageRoutes.post("/stages/:id/loans", async (c) => {
   const parsed = requestLoanSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
 
+  // System pre-check: a member with a defaulted loan on record can't
+  // request another until the group's officers sort that out directly —
+  // the "poor repayment record" screen, ahead of the human approval step.
+  const defaultedRes = await db.execute({
+    sql: "SELECT 1 FROM stage_loans WHERE stage_id = ? AND member_id = ? AND status = 'defaulted' LIMIT 1",
+    args: [stageId, user.sub],
+  });
+  if (defaultedRes.rows.length > 0) {
+    return c.json({ error: "poor_repayment_record", message: "You have a defaulted loan on record — talk to your officers before requesting another." }, 400);
+  }
+
   const savedRes = await db.execute({
     sql: "SELECT COALESCE(SUM(amount), 0) AS saved FROM stage_contributions WHERE member_id = ? AND cycle_id = ? AND status = 'confirmed'",
     args: [user.sub, cycle.id],
@@ -946,6 +997,26 @@ stageRoutes.post("/stages/:id/loans", async (c) => {
     ],
   });
   await postSystemMessage(stageId, user.sub, "loan_requested", `${user.name} requested a loan of UGX ${parsed.data.amount.toLocaleString("en-UG")}.`, id);
+
+  const approverIds = await getEligibleApproverIds(stageId, cycle.id);
+  for (const approverId of approverIds) {
+    if (approverId === user.sub) continue;
+    await notifyUser(approverId, {
+      title: "Loan approval needed",
+      body: `${user.name} requested UGX ${parsed.data.amount.toLocaleString("en-UG")} — your vote is needed.`,
+      url: `/savings/${stageId}/loan`,
+      tag: `stage-loan-vote-${id}`,
+    }).catch(() => {});
+  }
+  for (const treasurerId of await getTreasurerIds(stageId)) {
+    if (approverIds.includes(treasurerId) || treasurerId === user.sub) continue;
+    await notifyUser(treasurerId, {
+      title: "Loan requested",
+      body: `${user.name} requested UGX ${parsed.data.amount.toLocaleString("en-UG")} — waiting on approval before it can be sent.`,
+      url: `/savings/${stageId}/loan`,
+      tag: `stage-loan-vote-${id}`,
+    }).catch(() => {});
+  }
   return c.json({ loanId: id });
 });
 
@@ -959,7 +1030,12 @@ stageRoutes.post("/stages/loans/:id/vote", async (c) => {
   if (!loan) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
   if (loan.status !== "pending") return c.json({ error: "not_pending", message: "This has already been handled." }, 400);
   const membership = await getMembership(loan.stage_id, user.sub);
-  if (!isOfficer(membership)) return c.json({ error: "officers_only", message: "Only an elected officer can do that." }, 403);
+  // Whoever the group's workflow names as an approver may vote — not just
+  // elected officers, since a cycle's workflow can also designate a pool of
+  // rank-and-file members (role: "member") as approvers. A vote from
+  // someone whose role isn't in the workflow simply won't count toward any
+  // quorum in recomputeLoanStatus, so this only needs to gate membership.
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
 
   const parsed = voteLoanSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);

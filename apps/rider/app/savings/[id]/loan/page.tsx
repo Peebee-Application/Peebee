@@ -7,8 +7,6 @@ import { api, errorMessage } from "../../../../lib/api";
 import { formatUgx } from "../../../../lib/order-display";
 import { useAuth } from "../../../../lib/auth-context";
 
-const OFFICER_ROLES = ["chairman", "vice_chairman", "secretary", "treasurer", "money_counter", "mobilizer"] as const;
-
 const STATUS_LABEL: Record<StageLoan["status"], string> = {
   pending: "Awaiting votes",
   approved: "Approved — collect it",
@@ -40,7 +38,10 @@ export default function StageLoanPage() {
     load().catch((err) => setError(errorMessage(err)));
   }, [stageId]);
 
-  const isOfficer = detail ? (OFFICER_ROLES as readonly string[]).includes(detail.myRole) : false;
+  // Whether this rider's role is named anywhere in the cycle's approval
+  // workflow — covers the officer roles above and, when the group admin has
+  // added it, a "member" approver pool any regular member can vote through.
+  const canVote = detail ? detail.approvalWorkflow.some((w) => w.role === detail.myRole) : false;
 
   async function requestLoan(e: React.FormEvent) {
     e.preventDefault();
@@ -124,7 +125,7 @@ export default function StageLoanPage() {
             <p className="text-lg font-extrabold text-ink">{formatUgx(loan.amount)}</p>
             {loan.reason && <p className="text-xs text-ink-500">{loan.reason}</p>}
 
-            {loan.status === "pending" && isOfficer && (
+            {loan.status === "pending" && canVote && (
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => vote(loan.id, "approved")}

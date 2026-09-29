@@ -6,6 +6,11 @@ import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../../../lib/api";
 
 const OFFICER_ROLES = ["chairman", "vice_chairman", "secretary", "treasurer", "money_counter", "mobilizer"] as const;
+/** "member" designates a pool of rank-and-file members as loan approvers —
+ * e.g. "any 2 of our members can approve" — alongside the elected officer
+ * roles. Only used for the workflow row list below, not the manage-access
+ * gate (which stays officer-or-group-admin only). */
+const WORKFLOW_ROLES = ["member", ...OFFICER_ROLES] as const;
 
 /** Group-admin-owned cycle configuration — duration, share price, interest,
  * loanable multiple, max loan duration, and the per-role loan approval
@@ -253,9 +258,10 @@ export default function CycleSetupPage() {
         <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Loan approval workflow</p>
         <p className="text-xs text-ink-500">
           Choose which officer roles must vote on a loan request, and how many approvals or rejections decide it.
+          Add &quot;Member&quot; to let any of the circle&apos;s regular members approve too — e.g. any 2 of them.
         </p>
         <div className="space-y-2">
-          {OFFICER_ROLES.map((role) => {
+          {WORKFLOW_ROLES.map((role) => {
             const row = workflow.find((w) => w.role === role);
             return (
               <div key={role} className="rounded-xl border border-[var(--border-faint)] p-2.5">
@@ -266,7 +272,9 @@ export default function CycleSetupPage() {
                     onChange={() => toggleRole(role)}
                     className="h-4 w-4 accent-gold"
                   />
-                  <span className="text-sm font-semibold capitalize text-ink">{role.replace("_", " ")}</span>
+                  <span className="text-sm font-semibold capitalize text-ink">
+                    {role === "member" ? "Member (any of them)" : role.replace("_", " ")}
+                  </span>
                 </label>
                 {row && (
                   <div className="mt-2 grid grid-cols-2 gap-2 pl-6">
