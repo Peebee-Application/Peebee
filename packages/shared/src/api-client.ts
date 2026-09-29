@@ -94,6 +94,7 @@ import type {
   StageLoanApprovalWorkflowRow,
   StageFineType,
   StageFineSchedule,
+  StageMemberProfile,
   StageReports,
   StaffMember,
   UserStatus,
@@ -1705,6 +1706,12 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async deleteStageFineType(stageId: string, fineTypeId: string) {
       return request<{ ok: true }>(`/v1/stages/${stageId}/fine-types/${fineTypeId}`, { method: "DELETE" });
+    },
+    async getMyStageMemberProfile(stageId: string) {
+      return request<StageMemberProfile>(`/v1/stages/${stageId}/members/me/profile`);
+    },
+    async updateMyStageMemberProfile(stageId: string, input: Partial<Omit<StageMemberProfile, "profile_completed_at">>) {
+      return request<{ ok: true }>(`/v1/stages/${stageId}/members/me/profile`, { method: "PUT", body: JSON.stringify(input) });
     },
     async setStageLoanWorkflow(stageId: string, cycleId: string, workflow: StageLoanApprovalWorkflowRow[]) {
       return request<{ ok: true }>(`/v1/stages/${stageId}/cycles/${cycleId}/workflow`, {

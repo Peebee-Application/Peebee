@@ -11,6 +11,8 @@ export type { CreateApiClientOptions, ApiClient } from "./api-client.js";
 export { CallEngine } from "./call-engine.js";
 export type { CallEngineState, CallEnginePhase, CallEngineOptions } from "./call-engine.js";
 export { isRiderProfileComplete, isUserVerified, isProSubscriptionCurrent, MATCHING_MODE_LABELS, MATCHING_MODE_DESCRIPTIONS } from "./domain.js";
+export { UGANDA_DISTRICTS } from "./uganda-locations.js";
+export type { UgandaDistrict } from "./uganda-locations.js";
 export {
   detectMobileMoneyNetwork,
   mobileMoneyNetworkLabel,
@@ -172,6 +174,7 @@ export type {
   StageLoanApprovalWorkflowRow,
   StageFineSchedule,
   StageFineType,
+  StageMemberProfile,
   StageReports,
   LugandaVoice,
 } from "./domain.js";

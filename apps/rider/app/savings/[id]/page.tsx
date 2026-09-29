@@ -21,12 +21,17 @@ export default function StageDetailPage() {
   const [transferTarget, setTransferTarget] = useState("");
   const [transferBusy, setTransferBusy] = useState(false);
   const [view, setView] = useState<"member" | "admin">("member");
+  const [profileComplete, setProfileComplete] = useState(true);
 
   useEffect(() => {
     api
       .getStage(stageId)
       .then(setDetail)
       .catch((err) => setError(errorMessage(err)));
+    api
+      .getMyStageMemberProfile(stageId)
+      .then((p) => setProfileComplete(!!p.profile_completed_at))
+      .catch(() => {});
   }, [stageId]);
 
   if (!detail && error) return <div className="p-4 text-sm text-red-700">{error}</div>;
@@ -219,6 +224,15 @@ export default function StageDetailPage() {
           Circle chat
         </Link>
       </div>
+
+      {!profileComplete && (
+        <Link
+          href={`/savings/${stageId}/profile`}
+          className="flex min-h-11 w-full items-center justify-center rounded-full border border-gold bg-gold/10 px-4 text-sm font-bold text-ink"
+        >
+          Complete your RSLA membership profile
+        </Link>
+      )}
 
       {canManage && (!detail.isGroupAdmin || showAdminView) && (
         <>

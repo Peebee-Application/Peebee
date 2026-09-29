@@ -1546,6 +1546,21 @@ export type Stage = {
 
 export type StageMemberSummary = { rider_id: string; role: StageMemberRole; name: string };
 
+/** RSLA-specific membership profile details — kept separate from a
+ * member's core Tuma rider profile (see the migration comment on
+ * stage_members for why). Read/written only for the requesting member's
+ * own row (GET/PUT /stages/:id/members/me/profile), not exposed for other
+ * members via the general member list. */
+export type StageMemberProfile = {
+  nationality: string | null;
+  district: string | null;
+  gender: "male" | "female" | "other" | null;
+  date_of_birth: string | null;
+  household_size: number | null;
+  literate: 0 | 1 | null;
+  profile_completed_at: string | null;
+};
+
 export type StageLoanApprovalWorkflowRow = {
   role: StageMemberRole;
   approvals_required: number;

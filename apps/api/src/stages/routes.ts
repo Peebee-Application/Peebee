@@ -330,6 +330,55 @@ stageRoutes.post("/stages", async (c) => {
   return c.json({ stageId: id, status: "pending" });
 });
 
+const stageMemberProfileSchema = z.object({
+  nationality: z.string().trim().max(60).nullable().optional(),
+  district: z.string().trim().max(60).nullable().optional(),
+  gender: z.enum(["male", "female", "other"]).nullable().optional(),
+  date_of_birth: z.string().nullable().optional(),
+  household_size: z.number().int().positive().nullable().optional(),
+  literate: z.union([z.literal(0), z.literal(1)]).nullable().optional(),
+});
+
+/** RSLA-specific membership details — separate from the rider's core Tuma
+ * profile (see migration 0062). Self-service only: a member reads/writes
+ * their own row, never another member's. */
+stageRoutes.get("/stages/:id/members/me/profile", async (c) => {
+  const stageId = c.req.param("id");
+  const user = c.get("user");
+  const membership = await getMembership(stageId, user.sub);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
+  const res = await db.execute({
+    sql: `SELECT nationality, district, gender, date_of_birth, household_size, literate, profile_completed_at
+          FROM stage_members WHERE stage_id = ? AND rider_id = ?`,
+    args: [stageId, user.sub],
+  });
+  return c.json(res.rows[0] ?? {});
+});
+
+stageRoutes.put("/stages/:id/members/me/profile", async (c) => {
+  const stageId = c.req.param("id");
+  const user = c.get("user");
+  const membership = await getMembership(stageId, user.sub);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
+  const parsed = stageMemberProfileSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+
+  const sets: string[] = [];
+  const args: (string | number | null)[] = [];
+  for (const [key, value] of Object.entries(parsed.data)) {
+    if (value === undefined) continue;
+    sets.push(`${key} = ?`);
+    args.push(value);
+  }
+  if (sets.length === 0) return c.json({ ok: true });
+  sets.push("profile_completed_at = datetime('now')");
+  await db.execute({
+    sql: `UPDATE stage_members SET ${sets.join(", ")} WHERE stage_id = ? AND rider_id = ?`,
+    args: [...args, stageId, user.sub],
+  });
+  return c.json({ ok: true });
+});
+
 stageRoutes.get("/stages/:id", async (c) => {
   const stageId = c.req.param("id");
   const user = c.get("user");
