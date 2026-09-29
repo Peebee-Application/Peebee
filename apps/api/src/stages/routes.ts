@@ -1191,6 +1191,32 @@ stageRoutes.get("/stages/:id/reports", async (c) => {
   const outstandingTotal = Number(outstandingRes.rows[0]?.total) || 0;
   const outstandingRepaid = Number(outstandingRes.rows[0]?.repaid) || 0;
 
+  const memberCountRes = await db.execute({
+    sql: "SELECT COUNT(*) AS n FROM stage_members WHERE stage_id = ? AND status = 'active'",
+    args: [stageId],
+  });
+  const totalMembers = Number(memberCountRes.rows[0]?.n) || 0;
+
+  // Interest is only "earned" once a loan is fully repaid — this counts
+  // realized interest (repaid loans' total_repayment minus principal), not
+  // interest still outstanding on active loans.
+  const interestRes = await db.execute({
+    sql: "SELECT COALESCE(SUM(total_repayment - amount), 0) AS total FROM stage_loans WHERE stage_id = ? AND status = 'repaid'",
+    args: [stageId],
+  });
+  const totalInterestEarned = Number(interestRes.rows[0]?.total) || 0;
+
+  const activeContributorsRes = await db.execute({
+    sql: `SELECT strftime('%Y-%m', created_at) AS month, COUNT(DISTINCT member_id) AS n
+          FROM stage_contributions WHERE stage_id = ? AND status = 'confirmed'
+            AND created_at >= date('now', '-11 months', 'start of month')
+          GROUP BY month`,
+    args: [stageId],
+  });
+  const activeContributorsMap = new Map(
+    (activeContributorsRes.rows as unknown as { month: string; n: number }[]).map((r) => [r.month, Number(r.n) || 0]),
+  );
+
   const [contribByMonth, loansByMonth, repayByMonth] = await Promise.all([
     db.execute({
       sql: `SELECT strftime('%Y-%m', created_at) AS month, COALESCE(SUM(amount), 0) AS total
@@ -1220,7 +1246,7 @@ stageRoutes.get("/stages/:id/reports", async (c) => {
   const contribMap = byMonth(contribByMonth.rows as unknown as { month: string; total: number }[]);
   const loansMap = byMonth(loansByMonth.rows as unknown as { month: string; total: number }[]);
   const repayMap = byMonth(repayByMonth.rows as unknown as { month: string; total: number }[]);
-  const monthlySeries: { month: string; contributions: number; loans: number; repayments: number }[] = [];
+  const monthlySeries: { month: string; contributions: number; loans: number; repayments: number; activeContributors: number }[] = [];
   const cursor = new Date();
   cursor.setDate(1);
   for (let i = 11; i >= 0; i--) {
@@ -1232,14 +1258,17 @@ stageRoutes.get("/stages/:id/reports", async (c) => {
       contributions: contribMap.get(key) ?? 0,
       loans: loansMap.get(key) ?? 0,
       repayments: repayMap.get(key) ?? 0,
+      activeContributors: activeContributorsMap.get(key) ?? 0,
     });
   }
 
   return c.json({
     cycle: cycle ?? null,
+    totalMembers,
     totalSaved,
     totalDisbursed,
     totalRepaid,
+    totalInterestEarned,
     outstandingLoans: Math.max(0, outstandingTotal - outstandingRepaid),
     loansCount,
     topSavers: topSaversRes.rows.map((r) => {

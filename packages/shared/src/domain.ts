@@ -1581,17 +1581,23 @@ export type StageDetail = {
 /** A stage circle's savings/loan performance — see GET /stages/:id/reports. */
 export type StageReports = {
   cycle: StageCycle | null;
+  totalMembers: number;
   totalSaved: number;
   totalDisbursed: number;
   totalRepaid: number;
+  /** Realized interest only — repaid loans' total_repayment minus
+   * principal. Excludes interest still outstanding on active loans. */
+  totalInterestEarned: number;
   outstandingLoans: number;
   loansCount: { pending: number; approved: number; disbursed: number; repaid: number; rejected: number; defaulted: number };
   topSavers: { rider_id: string; name: string; saved: number; shares: number }[];
   cycleHistory: { id: string; start_date: string; end_date: string; status: string; totalSaved: number; sharePrice: number }[];
   /** Last 12 months, oldest first — powers the Contributions/Loans/Repayments
    * trend charts on the rider Reports screen, mirroring the reference VSLA
-   * platform's "Contributions Per Month" / "Loans Per Month" charts. */
-  monthlySeries: { month: string; contributions: number; loans: number; repayments: number }[];
+   * platform's "Contributions Per Month" / "Loans Per Month" charts.
+   * activeContributors = distinct members who confirmed a contribution
+   * that month, the Member Activity tab's engagement proxy. */
+  monthlySeries: { month: string; contributions: number; loans: number; repayments: number; activeContributors: number }[];
 };
 
 export type StageContributionStatus = "pending" | "confirmed" | "cancelled" | "disputed";
