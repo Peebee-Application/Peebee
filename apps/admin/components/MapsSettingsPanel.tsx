@@ -13,6 +13,7 @@ const PROVIDER_LABELS: Record<MapsProviderIdentity, string> = {
   stadia: "Stadia Maps",
   thunderforest: "Thunderforest",
   jawg: "Jawg Maps",
+  tomtom: "TomTom",
 };
 
 const PROVIDER_DESCRIPTIONS: Record<MapsProviderIdentity, string> = {
@@ -23,9 +24,10 @@ const PROVIDER_DESCRIPTIONS: Record<MapsProviderIdentity, string> = {
   stadia: "OpenStreetMap data with Stadia's custom tile styling — fully wired, just needs an API key.",
   thunderforest: "OpenStreetMap data with Thunderforest's custom tile styling — fully wired, just needs an API key.",
   jawg: "OpenStreetMap data with Jawg's custom tile styling — fully wired, just needs an access token.",
+  tomtom: "TomTom's own map tiles (search still uses free OpenStreetMap geocoding) — fully wired, just needs an API key.",
 };
 
-const MAPS_PROVIDER_ORDER: MapsProviderIdentity[] = ["streetmaps", "google", "mapbox", "maptiler", "stadia", "thunderforest", "jawg"];
+const MAPS_PROVIDER_ORDER: MapsProviderIdentity[] = ["streetmaps", "google", "mapbox", "maptiler", "stadia", "thunderforest", "jawg", "tomtom"];
 
 function MapsCredentialFieldsForm({
   provider,

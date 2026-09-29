@@ -19,7 +19,13 @@ export function loadScript(src: string, id: string): Promise<void> {
     s.src = src;
     s.async = true;
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+    s.onerror = () => {
+      // Forget the failed attempt so the next mount retries instead of
+      // resolving against this dead tag or the cached rejection.
+      s.remove();
+      delete loaded[id];
+      reject(new Error(`Failed to load script: ${src}`));
+    };
     document.head.appendChild(s);
   });
   return loaded[id];

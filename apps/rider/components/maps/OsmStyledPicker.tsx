@@ -75,7 +75,7 @@ function RecenterOnChange({ center, zoom }: { center: [number, number]; zoom: nu
 export type OsmStyledPickerProps = MapPickerProps & { tileUrl: string; attribution: string };
 
 /** Shared core behind every OSM-data picker (StreetMapsPicker and the
- * branded-tile providers — MapTiler/Stadia/Thunderforest/Jawg): same
+ * branded-tile providers — MapTiler/Stadia/Thunderforest/Jawg/TomTom): same
  * Leaflet map, same free Nominatim search/reverse-geocoding, only the
  * tile layer URL/attribution differ. */
 export function OsmStyledPicker({ initial, onConfirm, onCancel, tileUrl, attribution }: OsmStyledPickerProps) {

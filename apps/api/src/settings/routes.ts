@@ -95,6 +95,7 @@ async function fullSettings() {
   let mapsStadiaApiKey: string | null = null;
   let mapsThunderforestApiKey: string | null = null;
   let mapsJawgAccessToken: string | null = null;
+  let mapsTomtomApiKey: string | null = null;
   if (mapsActiveProvider === "google") {
     mapsGoogleApiKey = (await getMapsCredential("google", "apiKey")) ?? null;
   } else if (mapsActiveProvider === "mapbox") {
@@ -107,6 +108,8 @@ async function fullSettings() {
     mapsThunderforestApiKey = (await getMapsCredential("thunderforest", "apiKey")) ?? null;
   } else if (mapsActiveProvider === "jawg") {
     mapsJawgAccessToken = (await getMapsCredential("jawg", "accessToken")) ?? null;
+  } else if (mapsActiveProvider === "tomtom") {
+    mapsTomtomApiKey = (await getMapsCredential("tomtom", "apiKey")) ?? null;
   }
 
   return {
@@ -134,6 +137,7 @@ async function fullSettings() {
     mapsStadiaApiKey,
     mapsThunderforestApiKey,
     mapsJawgAccessToken,
+    mapsTomtomApiKey,
     navMode,
     ...monetization,
     vslaStageCreationMode: vsla.stageCreationMode,
@@ -736,8 +740,8 @@ settingsRoutes.delete(
 // ../maps/credentials.ts.
 // ---------------------------------------------------------------------------
 
-const mapsProviderParam = z.enum(["streetmaps", "google", "mapbox", "maptiler", "stadia", "thunderforest", "jawg"]);
-const configurableMapsProvider = z.enum(["google", "mapbox", "maptiler", "stadia", "thunderforest", "jawg"]);
+const mapsProviderParam = z.enum(["streetmaps", "google", "mapbox", "maptiler", "stadia", "thunderforest", "jawg", "tomtom"]);
+const configurableMapsProvider = z.enum(["google", "mapbox", "maptiler", "stadia", "thunderforest", "jawg", "tomtom"]);
 const CONFIGURABLE_MAPS_PROVIDERS = configurableMapsProvider.options;
 
 settingsRoutes.get(

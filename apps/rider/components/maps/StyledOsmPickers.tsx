@@ -49,3 +49,11 @@ export function JawgMapsPicker({ accessToken, ...props }: MapPickerProps & { acc
     />
   );
 }
+
+/** TomTom's own "basic" raster tiles (TomTom map data, not OSM) — search
+ * and reverse-geocoding still go through the same free Nominatim as the
+ * other Leaflet pickers. */
+export function TomTomPicker({ apiKey, ...props }: MapPickerProps & { apiKey: string }) {
+  const tileUrl = `https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=${encodeURIComponent(apiKey)}`;
+  return <OsmStyledPicker {...props} tileUrl={tileUrl} attribution={`&copy; <a href="https://www.tomtom.com/">TomTom</a>`} />;
+}
