@@ -170,6 +170,8 @@ export type {
   AdminStageSummary,
   AdminStageDetail,
   StageLoanApprovalWorkflowRow,
+  StageFineSchedule,
+  StageFineType,
   StageReports,
   LugandaVoice,
 } from "./domain.js";

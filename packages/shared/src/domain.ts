@@ -1552,6 +1552,17 @@ export type StageLoanApprovalWorkflowRow = {
   rejections_required: number;
 };
 
+export type StageFineSchedule = "flat" | "daily" | "weekly" | "monthly";
+
+export type StageFineType = {
+  id: string;
+  cycle_id: string;
+  name: string;
+  schedule: StageFineSchedule;
+  amount: number;
+  created_at: string;
+};
+
 export type StageCycle = {
   id: string;
   stage_id: string;

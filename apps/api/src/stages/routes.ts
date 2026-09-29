@@ -748,6 +748,67 @@ stageRoutes.put("/stages/:id/cycles/:cycleId", async (c) => {
   return c.json({ ok: true });
 });
 
+const createFineTypeSchema = z.object({
+  name: z.string().trim().min(1),
+  schedule: z.enum(["flat", "daily", "weekly", "monthly"]),
+  amount: z.number().int().positive(),
+});
+
+/** Fine types belong to a cycle, not the stage — a new cycle starts with
+ * none, matching "each cycle has its own fines." Applied automatically by
+ * sweepStageFines (apps/api/src/stages/escalation.ts) against loans still
+ * overdue on repayment. */
+stageRoutes.post("/stages/:id/cycles/:cycleId/fine-types", async (c) => {
+  const stageId = c.req.param("id");
+  const cycleId = c.req.param("cycleId");
+  const user = c.get("user");
+  if (!(await canManageStage(stageId, user.sub))) {
+    return c.json({ error: "officers_only", message: "Only the group admin or an elected officer can do that." }, 403);
+  }
+  const cycleRes = await db.execute({ sql: "SELECT id FROM stage_cycles WHERE id = ? AND stage_id = ?", args: [cycleId, stageId] });
+  if (!cycleRes.rows[0]) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+
+  const parsed = createFineTypeSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+
+  const id = newId("fine");
+  await db.execute({
+    sql: `INSERT INTO stage_fine_types (id, cycle_id, name, schedule, amount, created_by) VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [id, cycleId, parsed.data.name, parsed.data.schedule, parsed.data.amount, user.sub],
+  });
+  return c.json({ fineTypeId: id });
+});
+
+stageRoutes.get("/stages/:id/cycles/:cycleId/fine-types", async (c) => {
+  const stageId = c.req.param("id");
+  const cycleId = c.req.param("cycleId");
+  const user = c.get("user");
+  const membership = await getMembership(stageId, user.sub);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
+  const cycleRes = await db.execute({ sql: "SELECT id FROM stage_cycles WHERE id = ? AND stage_id = ?", args: [cycleId, stageId] });
+  if (!cycleRes.rows[0]) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+
+  const res = await db.execute({
+    sql: "SELECT id, cycle_id, name, schedule, amount, created_at FROM stage_fine_types WHERE cycle_id = ? ORDER BY created_at ASC",
+    args: [cycleId],
+  });
+  return c.json({ fineTypes: res.rows });
+});
+
+stageRoutes.delete("/stages/:id/fine-types/:fineTypeId", async (c) => {
+  const stageId = c.req.param("id");
+  const fineTypeId = c.req.param("fineTypeId");
+  const user = c.get("user");
+  if (!(await canManageStage(stageId, user.sub))) {
+    return c.json({ error: "officers_only", message: "Only the group admin or an elected officer can do that." }, 403);
+  }
+  await db.execute({
+    sql: `DELETE FROM stage_fine_types WHERE id = ? AND cycle_id IN (SELECT id FROM stage_cycles WHERE stage_id = ?)`,
+    args: [fineTypeId, stageId],
+  });
+  return c.json({ ok: true });
+});
+
 const setWorkflowSchema = z.object({
   workflow: z
     .array(

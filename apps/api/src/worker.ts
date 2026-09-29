@@ -5,7 +5,7 @@ import { renewSubscriptions } from "./riders/subscription.js";
 import { renewProSubscriptions } from "./riders/pro-subscription.js";
 import { sweepProviderOperations } from "./payments/reconciliation.js";
 import { setR2Binding, type R2Bucket } from "./storage/r2.js";
-import { sweepStageEscalations } from "./stages/escalation.js";
+import { sweepStageEscalations, sweepStageFines } from "./stages/escalation.js";
 
 /** Minimal local stand-in so we don't need @cloudflare/workers-types (which
  * conflicts with @types/node's DOM-lib globals) just for one field. */
@@ -46,6 +46,11 @@ export default {
       sweepStageEscalations()
         .then((result) => console.log("Stage savings escalation sweep:", JSON.stringify(result)))
         .catch((err) => console.error("Stage savings escalation sweep failed:", err)),
+    );
+    ctx.waitUntil(
+      sweepStageFines()
+        .then((result) => console.log("Stage savings fines sweep:", JSON.stringify(result)))
+        .catch((err) => console.error("Stage savings fines sweep failed:", err)),
     );
     if (event.cron === "0 3 * * *") {
       ctx.waitUntil(

@@ -92,6 +92,8 @@ import type {
   StageMessage,
   StageTransaction,
   StageLoanApprovalWorkflowRow,
+  StageFineType,
+  StageFineSchedule,
   StageReports,
   StaffMember,
   UserStatus,
@@ -1694,6 +1696,15 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async updateStageCycle(stageId: string, cycleId: string, input: { endDate?: string; interestRate?: number; loanableContributionMultiple?: number; maxLoanDurationMonths?: number; sharePrice?: number }) {
       return request<{ ok: true }>(`/v1/stages/${stageId}/cycles/${cycleId}`, { method: "PUT", body: JSON.stringify(input) });
+    },
+    async createStageFineType(stageId: string, cycleId: string, input: { name: string; schedule: StageFineSchedule; amount: number }) {
+      return request<{ fineTypeId: string }>(`/v1/stages/${stageId}/cycles/${cycleId}/fine-types`, { method: "POST", body: JSON.stringify(input) });
+    },
+    async getStageFineTypes(stageId: string, cycleId: string) {
+      return request<{ fineTypes: StageFineType[] }>(`/v1/stages/${stageId}/cycles/${cycleId}/fine-types`);
+    },
+    async deleteStageFineType(stageId: string, fineTypeId: string) {
+      return request<{ ok: true }>(`/v1/stages/${stageId}/fine-types/${fineTypeId}`, { method: "DELETE" });
     },
     async setStageLoanWorkflow(stageId: string, cycleId: string, workflow: StageLoanApprovalWorkflowRow[]) {
       return request<{ ok: true }>(`/v1/stages/${stageId}/cycles/${cycleId}/workflow`, {

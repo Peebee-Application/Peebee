@@ -1,6 +1,6 @@
 "use client";
 
-import type { StageDetail, StageLoanApprovalWorkflowRow, StageMemberRole } from "@tuma/shared";
+import type { StageDetail, StageFineSchedule, StageFineType, StageLoanApprovalWorkflowRow, StageMemberRole } from "@tuma/shared";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../../../lib/api";
@@ -42,6 +42,12 @@ export default function CycleSetupPage() {
   const [cycleBusy, setCycleBusy] = useState(false);
   const [cycleSaved, setCycleSaved] = useState(false);
 
+  const [fineTypes, setFineTypes] = useState<StageFineType[]>([]);
+  const [fineName, setFineName] = useState("");
+  const [fineSchedule, setFineSchedule] = useState<StageFineSchedule>("flat");
+  const [fineAmount, setFineAmount] = useState("");
+  const [fineBusy, setFineBusy] = useState(false);
+
   async function load() {
     try {
       const fresh = await api.getStage(stageId);
@@ -53,9 +59,41 @@ export default function CycleSetupPage() {
         setLoanableMultiple(String(fresh.cycle.loanable_contribution_multiple));
         setMaxLoanMonths(String(fresh.cycle.max_loan_duration_months));
         setEndDate(fresh.cycle.end_date);
+        const fines = await api.getStageFineTypes(stageId, fresh.cycle.id);
+        setFineTypes(fines.fineTypes);
       }
     } catch (err) {
       setError(errorMessage(err));
+    }
+  }
+
+  async function addFineType(e: React.FormEvent) {
+    e.preventDefault();
+    if (!detail?.cycle || !fineName.trim() || !fineAmount) return;
+    setFineBusy(true);
+    setError(null);
+    try {
+      await api.createStageFineType(stageId, detail.cycle.id, { name: fineName.trim(), schedule: fineSchedule, amount: Number(fineAmount) });
+      setFineName("");
+      setFineAmount("");
+      await load();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setFineBusy(false);
+    }
+  }
+
+  async function removeFineType(fineTypeId: string) {
+    setFineBusy(true);
+    setError(null);
+    try {
+      await api.deleteStageFineType(stageId, fineTypeId);
+      await load();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setFineBusy(false);
     }
   }
 
@@ -311,6 +349,75 @@ export default function CycleSetupPage() {
           {!detail.cycle ? "Start a cycle first" : workflowBusy ? "Saving…" : "Save approval workflow"}
         </button>
         {workflowSaved && <p className="text-center text-xs text-green">Saved.</p>}
+      </div>
+
+      <div className="home-card space-y-3">
+        <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Fines</p>
+        <p className="text-xs text-ink-500">
+          Applied automatically to a member still overdue on a loan repayment — flat (once), or repeating for as
+          long as it stays overdue.
+        </p>
+
+        {fineTypes.length > 0 && (
+          <ul className="space-y-2">
+            {fineTypes.map((f) => (
+              <li key={f.id} className="flex items-center justify-between rounded-xl border border-[var(--border-faint)] p-2.5">
+                <span>
+                  <span className="block text-sm font-semibold text-ink">{f.name}</span>
+                  <span className="block text-xs text-ink-500">
+                    UGX {f.amount.toLocaleString("en-UG")} · {f.schedule}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeFineType(f.id)}
+                  disabled={fineBusy}
+                  className="text-xs font-bold text-red-600 disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <form onSubmit={addFineType} className="space-y-2">
+          <input
+            value={fineName}
+            onChange={(e) => setFineName(e.target.value)}
+            placeholder="e.g. Late repayment"
+            disabled={!detail.cycle}
+            className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm outline-none focus:border-gold disabled:opacity-50"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              value={fineSchedule}
+              onChange={(e) => setFineSchedule(e.target.value as StageFineSchedule)}
+              disabled={!detail.cycle}
+              className="rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm outline-none focus:border-gold disabled:opacity-50"
+            >
+              <option value="flat">Flat (once)</option>
+              <option value="daily">Every day overdue</option>
+              <option value="weekly">Every week overdue</option>
+              <option value="monthly">Every month overdue</option>
+            </select>
+            <input
+              inputMode="numeric"
+              value={fineAmount}
+              onChange={(e) => setFineAmount(e.target.value.replace(/[^\d]/g, ""))}
+              placeholder="Amount (UGX)"
+              disabled={!detail.cycle}
+              className="rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm outline-none focus:border-gold disabled:opacity-50"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={fineBusy || !detail.cycle || !fineName.trim() || !fineAmount}
+            className="min-h-11 w-full rounded-full border border-gold px-4 text-sm font-bold text-gold disabled:opacity-50"
+          >
+            {!detail.cycle ? "Start a cycle first" : fineBusy ? "Adding…" : "Add fine"}
+          </button>
+        </form>
       </div>
 
       <button type="button" onClick={() => router.back()} className="w-full py-2 text-center text-xs font-semibold text-ink-500">
