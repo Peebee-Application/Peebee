@@ -32,6 +32,11 @@ export default function CycleSetupPage() {
   const [workflowBusy, setWorkflowBusy] = useState(false);
   const [workflowSaved, setWorkflowSaved] = useState(false);
 
+  const [endDate, setEndDate] = useState("");
+  const [editingCycle, setEditingCycle] = useState(false);
+  const [cycleBusy, setCycleBusy] = useState(false);
+  const [cycleSaved, setCycleSaved] = useState(false);
+
   async function load() {
     try {
       const fresh = await api.getStage(stageId);
@@ -42,6 +47,7 @@ export default function CycleSetupPage() {
         setInterestRate(String(fresh.cycle.interest_rate));
         setLoanableMultiple(String(fresh.cycle.loanable_contribution_multiple));
         setMaxLoanMonths(String(fresh.cycle.max_loan_duration_months));
+        setEndDate(fresh.cycle.end_date);
       }
     } catch (err) {
       setError(errorMessage(err));
@@ -93,6 +99,30 @@ export default function CycleSetupPage() {
     );
   }
 
+  async function saveCycle(e: React.FormEvent) {
+    e.preventDefault();
+    if (!detail?.cycle) return;
+    setCycleBusy(true);
+    setCycleSaved(false);
+    setError(null);
+    try {
+      await api.updateStageCycle(stageId, detail.cycle.id, {
+        endDate: endDate || undefined,
+        sharePrice: Number(sharePrice) || undefined,
+        interestRate: interestRate === "" ? undefined : Number(interestRate),
+        loanableContributionMultiple: Number(loanableMultiple) || undefined,
+        maxLoanDurationMonths: Number(maxLoanMonths) || undefined,
+      });
+      setCycleSaved(true);
+      setEditingCycle(false);
+      await load();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setCycleBusy(false);
+    }
+  }
+
   async function saveWorkflow() {
     if (!detail?.cycle) return;
     setWorkflowBusy(true);
@@ -122,15 +152,67 @@ export default function CycleSetupPage() {
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       {detail.cycle ? (
-        <div className="home-card space-y-1 !py-3">
-          <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Active cycle</p>
-          <p className="text-sm text-ink">
-            {detail.cycle.start_date} – {detail.cycle.end_date}
-          </p>
-          <p className="text-xs text-ink-500">
-            {detail.cycle.share_price.toLocaleString("en-UG")} UGX/share · {detail.cycle.interest_rate}% interest ·
-            loanable ×{detail.cycle.loanable_contribution_multiple} · max {detail.cycle.max_loan_duration_months}mo loans
-          </p>
+        <div className="home-card space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Active cycle</p>
+            {!editingCycle && (
+              <button type="button" onClick={() => setEditingCycle(true)} className="text-xs font-bold text-gold">
+                Edit
+              </button>
+            )}
+          </div>
+          <p className="text-sm text-ink">Started {detail.cycle.start_date}</p>
+
+          {editingCycle ? (
+            <form onSubmit={saveCycle} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-ink-500" htmlFor="end-date">
+                  End date
+                </label>
+                <input
+                  id="end-date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-gold"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Share price (UGX)" value={sharePrice} onChange={setSharePrice} />
+                <Field label="Interest rate (%)" value={interestRate} onChange={setInterestRate} />
+                <Field label="Loanable multiple" value={loanableMultiple} onChange={setLoanableMultiple} hint="Max loan = savings × this" />
+                <Field label="Max loan duration (months)" value={maxLoanMonths} onChange={setMaxLoanMonths} />
+              </div>
+              <p className="rounded-lg bg-[rgb(var(--surface-muted))] px-3 py-2 text-xs text-ink-500">
+                Changes apply going forward only — already-recorded contributions and loans keep their original amounts.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingCycle(false)}
+                  className="flex-1 rounded-full border border-[var(--border-faint)] py-2.5 text-sm font-bold text-ink-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={cycleBusy}
+                  className="flex-1 rounded-full bg-gold py-2.5 text-sm font-bold text-ink-gold disabled:opacity-60"
+                >
+                  {cycleBusy ? "Saving…" : "Save changes"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <p className="text-sm text-ink">Ends {detail.cycle.end_date}</p>
+              <p className="text-xs text-ink-500">
+                {detail.cycle.share_price.toLocaleString("en-UG")} UGX/share · {detail.cycle.interest_rate}% interest ·
+                loanable ×{detail.cycle.loanable_contribution_multiple} · max {detail.cycle.max_loan_duration_months}mo loans
+              </p>
+              {cycleSaved && <p className="text-xs text-green">Saved.</p>}
+            </>
+          )}
         </div>
       ) : (
         <form onSubmit={startCycle} className="home-card space-y-4">
