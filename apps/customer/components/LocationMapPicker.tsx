@@ -6,7 +6,7 @@ import { api } from "../lib/api";
 import { GoogleMapPicker } from "./maps/GoogleMapPicker";
 import { MapboxMapPicker } from "./maps/MapboxMapPicker";
 import { StreetMapsPicker } from "./maps/StreetMapsPicker";
-import { JawgMapsPicker, MapTilerPicker, StadiaMapsPicker, ThunderforestPicker } from "./maps/StyledOsmPickers";
+import { JawgMapsPicker, MapTilerPicker, StadiaMapsPicker, ThunderforestPicker, TomTomPicker } from "./maps/StyledOsmPickers";
 import type { MapPickerProps, PickedLocation } from "./maps/map-types";
 
 export type { PickedLocation };
@@ -18,11 +18,12 @@ type ResolvedProvider =
   | { kind: "maptiler"; apiKey: string }
   | { kind: "stadia"; apiKey: string }
   | { kind: "thunderforest"; apiKey: string }
-  | { kind: "jawg"; accessToken: string };
+  | { kind: "jawg"; accessToken: string }
+  | { kind: "tomtom"; apiKey: string };
 
 /** Picks which map implementation to render based on the admin's active
  * maps provider — Streetmaps (OpenStreetMap/Leaflet, free, no key) by
- * default, or Google/Mapbox/MapTiler/Stadia/Thunderforest/Jawg once an
+ * default, or Google/Mapbox/MapTiler/Stadia/Thunderforest/Jawg/TomTom once an
  * admin has saved a working key and switched to it. Always falls back to
  * Streetmaps if the chosen provider's key is missing, so this can never
  * render a broken map. Every call site imports this exact
@@ -50,6 +51,8 @@ export function LocationMapPicker(props: MapPickerProps) {
           setProvider({ kind: "thunderforest", apiKey: s.mapsThunderforestApiKey });
         } else if (s.mapsActiveProvider === "jawg" && s.mapsJawgAccessToken) {
           setProvider({ kind: "jawg", accessToken: s.mapsJawgAccessToken });
+        } else if (s.mapsActiveProvider === "tomtom" && s.mapsTomtomApiKey) {
+          setProvider({ kind: "tomtom", apiKey: s.mapsTomtomApiKey });
         } else {
           setProvider({ kind: "streetmaps" });
         }
@@ -83,6 +86,8 @@ export function LocationMapPicker(props: MapPickerProps) {
       return <ThunderforestPicker {...props} apiKey={provider.apiKey} />;
     case "jawg":
       return <JawgMapsPicker {...props} accessToken={provider.accessToken} />;
+    case "tomtom":
+      return <TomTomPicker {...props} apiKey={provider.apiKey} />;
     default:
       return <StreetMapsPicker {...props} />;
   }

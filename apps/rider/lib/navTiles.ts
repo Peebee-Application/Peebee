@@ -46,6 +46,14 @@ export function resolveNavTiles(settings: DeliverySettings): { tileUrl: string; 
         };
       }
       break;
+    case "tomtom":
+      if (settings.mapsTomtomApiKey) {
+        return {
+          tileUrl: `https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=${encodeURIComponent(settings.mapsTomtomApiKey)}`,
+          attribution: `&copy; <a href="https://www.tomtom.com/">TomTom</a>`,
+        };
+      }
+      break;
   }
   return { tileUrl: OSM_URL, attribution: OSM_ATTR };
 }

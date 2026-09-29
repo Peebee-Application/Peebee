@@ -87,6 +87,18 @@ export const MAPS_PROVIDER_CREDENTIAL_FIELDS: Record<Exclude<MapsProviderIdentit
       helpText: "From your Jawg Maps account's Access tokens page.",
     },
   ],
+  tomtom: [
+    {
+      key: "apiKey",
+      label: "API key",
+      secret: true,
+      required: true,
+      envVar: "TOMTOM_API_KEY",
+      helpText:
+        "From your TomTom Developer Portal dashboard — a key with the Map Display API enabled. " +
+        "Restrict it to this app's domains, since it's sent to the browser to load map tiles.",
+    },
+  ],
 };
 
 type Row = { value: string };

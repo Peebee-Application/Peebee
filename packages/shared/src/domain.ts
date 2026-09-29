@@ -248,6 +248,7 @@ export type DeliverySettings = {
   mapsStadiaApiKey: string | null;
   mapsThunderforestApiKey: string | null;
   mapsJawgAccessToken: string | null;
+  mapsTomtomApiKey: string | null;
   /** Whether the rider app's "Start Navigation" sends riders out to Google
    * Maps ("external", the default) or renders navigation in-app using the
    * active maps provider ("in_app"). Change with PUT /admin/nav-mode. */
@@ -1022,7 +1023,7 @@ export type CallsAdminSettings = {
  * are selectable in admin and fully wired to their real SDKs, but only
  * actually take over once an admin saves a working key — see
  * apps/api/src/maps/credentials.ts and apps/*\/components/LocationMapPicker.tsx. */
-export type MapsProviderIdentity = "streetmaps" | "google" | "mapbox" | "maptiler" | "stadia" | "thunderforest" | "jawg";
+export type MapsProviderIdentity = "streetmaps" | "google" | "mapbox" | "maptiler" | "stadia" | "thunderforest" | "jawg" | "tomtom";
 
 export type MapsCredentialFieldStatus = {
   key: string;
