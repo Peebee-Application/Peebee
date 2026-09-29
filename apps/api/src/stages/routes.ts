@@ -5,7 +5,7 @@ import { requireAuth, requireRole } from "../auth/middleware.js";
 import { requirePermission } from "../admin/permissions.js";
 import { newId } from "../lib/ids.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
-import { getR2Bucket } from "../storage/r2.js";
+import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
 import { getVslaSettings } from "../lib/settings.js";
 import { isProSubscriptionCurrent } from "../riders/pro-subscription.js";
 import { notifyUser } from "../lib/webpush.js";
@@ -581,78 +581,243 @@ stageRoutes.post("/stages/:id/join", async (c) => {
   return c.json({ ok: true });
 });
 
-// ---- Officer elections -------------------------------------------------
+// ---- Officer elections (session-based) ------------------------------------
+// An election is a deliberate, time-boxed event the group admin activates —
+// not an always-open self-nomination. Phases: nominating -> voting -> closed
+// (results tallied but hidden) -> published (admin makes it public).
 
-const electionSchema = z.object({ role: z.enum(OFFICER_ROLES) });
+const MAX_VOICE_BYTES = 8 * 1024 * 1024;
+const ALLOWED_VOICE_MIME = new Set(["audio/mpeg", "audio/mp4", "audio/aac", "audio/ogg", "audio/webm", "audio/wav", "audio/x-m4a"]);
 
-stageRoutes.post("/stages/:id/elections", async (c) => {
-  const stageId = c.req.param("id");
-  const user = c.get("user");
-  const membership = await getMembership(stageId, user.sub);
-  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
-  const parsed = electionSchema.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+type ElectionSession = {
+  id: string;
+  stage_id: string;
+  roles: string;
+  status: "nominating" | "voting" | "closed" | "published";
+  nomination_deadline: string;
+  voting_deadline: string | null;
+  vote_change_grace_seconds: number;
+};
 
-  const open = await db.execute({
-    sql: "SELECT id FROM stage_officer_elections WHERE stage_id = ? AND role = ? AND status = 'open'",
-    args: [stageId, parsed.data.role],
-  });
-  if (open.rows.length > 0) return c.json({ electionId: open.rows[0].id });
-
-  const id = newId("elec");
-  await db.execute({
-    sql: "INSERT INTO stage_officer_elections (id, stage_id, role) VALUES (?, ?, ?)",
-    args: [id, stageId, parsed.data.role],
-  });
-  await postSystemMessage(stageId, user.sub, "election_opened", `Voting opened for ${parsed.data.role.replace("_", " ")}.`, id);
-  return c.json({ electionId: id });
-});
-
-stageRoutes.get("/stages/:id/elections", async (c) => {
-  const stageId = c.req.param("id");
-  const user = c.get("user");
-  const membership = await getMembership(stageId, user.sub);
-  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
-
-  const electionsRes = await db.execute({
-    sql: "SELECT * FROM stage_officer_elections WHERE stage_id = ? ORDER BY opened_at DESC LIMIT 50",
+async function getActiveElectionSession(stageId: string): Promise<ElectionSession | undefined> {
+  const res = await db.execute({
+    sql: `SELECT * FROM stage_election_sessions WHERE stage_id = ? AND status != 'published' ORDER BY created_at DESC LIMIT 1`,
     args: [stageId],
   });
-  const elections = electionsRes.rows as unknown as {
-    id: string;
-    stage_id: string;
-    role: string;
-    status: string;
-    winner_rider_id: string | null;
-  }[];
+  return res.rows[0] as unknown as ElectionSession | undefined;
+}
+
+const createSessionSchema = z.object({
+  roles: z.array(z.enum(OFFICER_ROLES)).min(1),
+  nominationDeadline: z.string(),
+  voteChangeGraceSeconds: z.number().int().min(0).max(3600).optional(),
+});
+
+/** Starts a new election — the group admin (or an officer) names which
+ * roles are up for election and when self-nominations close. Only one
+ * non-published session may exist per stage at a time. */
+stageRoutes.post("/stages/:id/elections/sessions", async (c) => {
+  const stageId = c.req.param("id");
+  const user = c.get("user");
+  if (!(await canManageStage(stageId, user.sub))) {
+    return c.json({ error: "officers_only", message: "Only the group admin or an elected officer can do that." }, 403);
+  }
+  const existing = await getActiveElectionSession(stageId);
+  if (existing) return c.json({ error: "session_active", message: "An election is already in progress.", sessionId: existing.id }, 400);
+
+  const parsed = createSessionSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+
+  const sessionId = newId("esess");
+  await db.execute({
+    sql: `INSERT INTO stage_election_sessions (id, stage_id, roles, nomination_deadline, vote_change_grace_seconds, created_by)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [sessionId, stageId, JSON.stringify(parsed.data.roles), parsed.data.nominationDeadline, parsed.data.voteChangeGraceSeconds ?? 120, user.sub],
+  });
+  for (const role of parsed.data.roles) {
+    await db.execute({
+      sql: "INSERT INTO stage_officer_elections (id, stage_id, role, session_id) VALUES (?, ?, ?, ?)",
+      args: [newId("elec"), stageId, role, sessionId],
+    });
+  }
+  await postSystemMessage(
+    stageId,
+    user.sub,
+    "election_opened",
+    `An election was opened for: ${parsed.data.roles.map((r) => r.replace("_", " ")).join(", ")}. Apply before ${parsed.data.nominationDeadline}.`,
+    sessionId,
+  );
+  return c.json({ sessionId });
+});
+
+/** The active (non-published) session, its per-role elections, and every
+ * applicant's rich profile — enough for a voter to review before choosing.
+ * Vote counts are only included once the requester is allowed to see them:
+ * the group admin/officers any time, everyone else only once published. */
+stageRoutes.get("/stages/:id/elections/sessions/active", async (c) => {
+  const stageId = c.req.param("id");
+  const user = c.get("user");
+  const membership = await getMembership(stageId, user.sub);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
+
+  const session = await getActiveElectionSession(stageId);
+  if (!session) return c.json({ session: null, elections: [], isManager: await canManageStage(stageId, user.sub) });
+
+  const canSeeCounts = session.status === "published" || (await canManageStage(stageId, user.sub));
+
+  const electionsRes = await db.execute({
+    sql: "SELECT id, role, status, winner_rider_id FROM stage_officer_elections WHERE session_id = ?",
+    args: [session.id],
+  });
+  const elections = electionsRes.rows as unknown as { id: string; role: string; status: string; winner_rider_id: string | null }[];
 
   const withDetail = await Promise.all(
     elections.map(async (election) => {
       const nomineesRes = await db.execute({
-        sql: `SELECT n.candidate_rider_id, u.name,
-                     (SELECT COUNT(*) FROM stage_officer_votes v WHERE v.election_id = n.election_id AND v.candidate_rider_id = n.candidate_rider_id) AS votes
-              FROM stage_officer_nominations n JOIN users u ON u.id = n.candidate_rider_id
+        sql: `SELECT n.candidate_rider_id, u.name, r.profile_photo_key, r.rating, r.vehicle_info, u.created_at AS member_since,
+                     n.statement, n.voice_note_key
+              FROM stage_officer_nominations n
+              JOIN users u ON u.id = n.candidate_rider_id
+              LEFT JOIN riders r ON r.user_id = n.candidate_rider_id
               WHERE n.election_id = ?`,
         args: [election.id],
       });
-      return { ...election, nominees: nomineesRes.rows };
+      let myVote: string | null = null;
+      const myVoteRes = await db.execute({
+        sql: "SELECT candidate_rider_id, updated_at FROM stage_officer_votes WHERE election_id = ? AND voter_rider_id = ?",
+        args: [election.id, user.sub],
+      });
+      const myVoteRow = myVoteRes.rows[0] as unknown as { candidate_rider_id: string; updated_at: string } | undefined;
+      let canChangeVote = true;
+      if (myVoteRow) {
+        myVote = myVoteRow.candidate_rider_id;
+        const votedAt = new Date(myVoteRow.updated_at.replace(" ", "T") + "Z").getTime();
+        canChangeVote = (Date.now() - votedAt) / 1000 <= session.vote_change_grace_seconds;
+      }
+      let tallies: Record<string, number> | undefined;
+      if (canSeeCounts) {
+        const tallyRes = await db.execute({
+          sql: "SELECT candidate_rider_id, COUNT(*) AS n FROM stage_officer_votes WHERE election_id = ? GROUP BY candidate_rider_id",
+          args: [election.id],
+        });
+        tallies = Object.fromEntries((tallyRes.rows as unknown as { candidate_rider_id: string; n: number }[]).map((r) => [r.candidate_rider_id, Number(r.n) || 0]));
+      }
+      return { ...election, nominees: nomineesRes.rows, myVote, canChangeVote, tallies: tallies ?? null };
     }),
   );
-  return c.json({ elections: withDetail });
+
+  return c.json({
+    session: { ...session, roles: JSON.parse(session.roles) as string[] },
+    elections: withDetail,
+    isManager: await canManageStage(stageId, user.sub),
+  });
 });
 
-const nominateSchema = z.object({ candidateRiderId: z.string() });
+const applySchema = z.object({ statement: z.string().trim().max(1000).optional() });
 
-stageRoutes.post("/stages/elections/:electionId/nominate", async (c) => {
+/** Self-application ("nomination") during the session's nominating phase.
+ * Anyone eligible can apply for themselves — this isn't one member
+ * nominating another. */
+stageRoutes.post("/stages/elections/:electionId/apply", async (c) => {
   const electionId = c.req.param("electionId");
   const user = c.get("user");
-  const parsed = nominateSchema.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
-  await db.execute({
-    sql: `INSERT OR IGNORE INTO stage_officer_nominations (id, election_id, candidate_rider_id, nominated_by)
-          VALUES (?, ?, ?, ?)`,
-    args: [newId("nom"), electionId, parsed.data.candidateRiderId, user.sub],
+  const electionRes = await db.execute({
+    sql: `SELECT e.id, e.stage_id, e.role, s.id AS session_id, s.status, s.nomination_deadline
+          FROM stage_officer_elections e JOIN stage_election_sessions s ON s.id = e.session_id
+          WHERE e.id = ?`,
+    args: [electionId],
   });
+  const election = electionRes.rows[0] as unknown as { id: string; stage_id: string; status: string; nomination_deadline: string } | undefined;
+  if (!election) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  const membership = await getMembership(election.stage_id, user.sub);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
+  if (election.status !== "nominating" || new Date() > new Date(election.nomination_deadline.replace(" ", "T") + "Z")) {
+    return c.json({ error: "nominations_closed", message: "Applications for this role are closed." }, 400);
+  }
+
+  const parsed = applySchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+
+  await db.execute({
+    sql: `INSERT INTO stage_officer_nominations (id, election_id, candidate_rider_id, nominated_by, statement)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(election_id, candidate_rider_id) DO UPDATE SET statement = excluded.statement`,
+    args: [newId("nom"), electionId, user.sub, user.sub, parsed.data.statement ?? null],
+  });
+  await postSystemMessage(election.stage_id, user.sub, "election_application", `${user.name} applied to run.`, electionId);
+  return c.json({ ok: true });
+});
+
+/** Uploads/replaces the applicant's own voice-note pitch — same R2 pattern
+ * as contribution/repayment proof photos, just an audio mime allowlist. */
+stageRoutes.post("/stages/elections/:electionId/apply/voice", async (c) => {
+  const electionId = c.req.param("electionId");
+  const user = c.get("user");
+  const nomRes = await db.execute({
+    sql: `SELECT n.id, e.stage_id FROM stage_officer_nominations n JOIN stage_officer_elections e ON e.id = n.election_id
+          WHERE n.election_id = ? AND n.candidate_rider_id = ?`,
+    args: [electionId, user.sub],
+  });
+  const nomination = nomRes.rows[0] as unknown as { id: string; stage_id: string } | undefined;
+  if (!nomination) return c.json({ error: "not_found", message: "Apply with a statement first." }, 404);
+
+  const form = await c.req.formData().catch(() => null);
+  const file = form?.get("file");
+  if (!(file instanceof File)) return c.json({ error: "missing_file", message: "Choose an audio file." }, 400);
+  if (!ALLOWED_VOICE_MIME.has(baseMimeType(file.type))) return c.json({ error: "unsupported_file_type", message: "Use a common audio format (mp3, m4a, ogg, wav)." }, 400);
+  if (file.size > MAX_VOICE_BYTES) return c.json({ error: "file_too_large", message: "That audio file is too large." }, 400);
+
+  const ext = extensionForMime(file.type, "m4a");
+  const key = `stages/${nomination.stage_id}/elections/${electionId}/${user.sub}.${ext}`;
+  await getR2Bucket().put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+  await db.execute({ sql: "UPDATE stage_officer_nominations SET voice_note_key = ? WHERE election_id = ? AND candidate_rider_id = ?", args: [key, electionId, user.sub] });
+  return c.json({ ok: true });
+});
+
+/** Streams a nominee's voice-note pitch — same "only fetch the blob when
+ * the listener actually taps play" pattern as GET /chat/media/:messageId. */
+stageRoutes.get("/stages/elections/:electionId/voice/:candidateRiderId", async (c) => {
+  const electionId = c.req.param("electionId");
+  const candidateRiderId = c.req.param("candidateRiderId");
+  const user = c.get("user");
+  const nomRes = await db.execute({
+    sql: `SELECT n.voice_note_key, e.stage_id FROM stage_officer_nominations n JOIN stage_officer_elections e ON e.id = n.election_id
+          WHERE n.election_id = ? AND n.candidate_rider_id = ?`,
+    args: [electionId, candidateRiderId],
+  });
+  const nomination = nomRes.rows[0] as unknown as { voice_note_key: string | null; stage_id: string } | undefined;
+  if (!nomination?.voice_note_key) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  const membership = await getMembership(nomination.stage_id, user.sub);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
+
+  const object = await getR2Bucket().get(nomination.voice_note_key);
+  if (!object) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  return new Response(object.body, { headers: uploadResponseHeaders(object.httpMetadata?.contentType, "application/octet-stream") });
+});
+
+/** Starts the voting phase — closes nominations early if need be, opens
+ * voting for votingHours. */
+stageRoutes.post("/stages/:id/elections/sessions/:sessionId/start-voting", async (c) => {
+  const stageId = c.req.param("id");
+  const sessionId = c.req.param("sessionId");
+  const user = c.get("user");
+  if (!(await canManageStage(stageId, user.sub))) {
+    return c.json({ error: "officers_only", message: "Only the group admin or an elected officer can do that." }, 403);
+  }
+  const sessionRes = await db.execute({ sql: "SELECT id, status FROM stage_election_sessions WHERE id = ? AND stage_id = ?", args: [sessionId, stageId] });
+  const session = sessionRes.rows[0] as unknown as { id: string; status: string } | undefined;
+  if (!session) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  if (session.status !== "nominating") return c.json({ error: "not_nominating", message: "This election isn't in its nomination phase." }, 400);
+
+  const parsed = z.object({ votingHours: z.number().positive().max(168) }).safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+
+  const votingDeadline = new Date(Date.now() + parsed.data.votingHours * 3_600_000).toISOString();
+  await db.execute({
+    sql: "UPDATE stage_election_sessions SET status = 'voting', voting_deadline = ?, voting_started_at = datetime('now') WHERE id = ?",
+    args: [votingDeadline, sessionId],
+  });
+  await postSystemMessage(stageId, user.sub, "election_voting_started", `Voting is open — closes in ${parsed.data.votingHours}h.`, sessionId);
   return c.json({ ok: true });
 });
 
@@ -664,38 +829,75 @@ stageRoutes.post("/stages/elections/:electionId/vote", async (c) => {
   const parsed = voteElectionSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
 
-  const electionRes = await db.execute({ sql: "SELECT * FROM stage_officer_elections WHERE id = ?", args: [electionId] });
-  const election = electionRes.rows[0] as unknown as { id: string; stage_id: string; role: string; status: string } | undefined;
-  if (!election || election.status !== "open") return c.json({ error: "election_closed", message: "This vote isn't open anymore." }, 400);
-
-  await db.execute({
-    sql: `INSERT INTO stage_officer_votes (id, election_id, candidate_rider_id, voter_rider_id) VALUES (?, ?, ?, ?)
-          ON CONFLICT(election_id, voter_rider_id) DO UPDATE SET candidate_rider_id = excluded.candidate_rider_id`,
-    args: [newId("evote"), electionId, parsed.data.candidateRiderId, user.sub],
-  });
-
-  const memberCountRes = await db.execute({
-    sql: "SELECT COUNT(*) AS n FROM stage_members WHERE stage_id = ? AND status = 'active'",
-    args: [election.stage_id],
-  });
-  const memberCount = Number(memberCountRes.rows[0]?.n) || 0;
-
-  const tallyRes = await db.execute({
-    sql: "SELECT candidate_rider_id, COUNT(*) AS votes FROM stage_officer_votes WHERE election_id = ? GROUP BY candidate_rider_id ORDER BY votes DESC LIMIT 1",
+  const electionRes = await db.execute({
+    sql: `SELECT e.id, e.stage_id, e.role, s.id AS session_id, s.status, s.voting_deadline, s.vote_change_grace_seconds
+          FROM stage_officer_elections e JOIN stage_election_sessions s ON s.id = e.session_id
+          WHERE e.id = ?`,
     args: [electionId],
   });
-  const top = tallyRes.rows[0] as unknown as { candidate_rider_id: string; votes: number } | undefined;
-  if (top && memberCount > 0 && Number(top.votes) > memberCount / 2) {
-    await db.execute({
-      sql: "UPDATE stage_officer_elections SET status = 'resolved', winner_rider_id = ?, resolved_at = datetime('now') WHERE id = ?",
-      args: [top.candidate_rider_id, electionId],
-    });
-    await db.execute({
-      sql: `INSERT INTO stage_members (id, stage_id, rider_id, role) VALUES (?, ?, ?, ?)
-            ON CONFLICT(stage_id, rider_id) DO UPDATE SET role = excluded.role`,
-      args: [newId("smem"), election.stage_id, top.candidate_rider_id, election.role],
-    });
-    await postSystemMessage(election.stage_id, "system", "election_resolved", `A new ${election.role.replace("_", " ")} was elected.`, electionId);
+  const election = electionRes.rows[0] as unknown as
+    | { id: string; stage_id: string; role: string; session_id: string; status: string; voting_deadline: string | null; vote_change_grace_seconds: number }
+    | undefined;
+  if (!election || election.status !== "voting" || (election.voting_deadline && new Date() > new Date(election.voting_deadline.replace(" ", "T") + "Z"))) {
+    return c.json({ error: "election_closed", message: "This vote isn't open anymore." }, 400);
+  }
+  const membership = await getMembership(election.stage_id, user.sub);
+  if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
+  const nomineeCheck = await db.execute({
+    sql: "SELECT 1 FROM stage_officer_nominations WHERE election_id = ? AND candidate_rider_id = ?",
+    args: [electionId, parsed.data.candidateRiderId],
+  });
+  if (nomineeCheck.rows.length === 0) return c.json({ error: "not_a_nominee", message: "That person isn't running for this role." }, 400);
+
+  const existingVoteRes = await db.execute({
+    sql: "SELECT updated_at FROM stage_officer_votes WHERE election_id = ? AND voter_rider_id = ?",
+    args: [electionId, user.sub],
+  });
+  const existingVote = existingVoteRes.rows[0] as unknown as { updated_at: string } | undefined;
+  if (existingVote) {
+    const votedAt = new Date(existingVote.updated_at.replace(" ", "T") + "Z").getTime();
+    if ((Date.now() - votedAt) / 1000 > election.vote_change_grace_seconds) {
+      return c.json({ error: "vote_locked", message: "You can no longer change this vote." }, 400);
+    }
+  }
+
+  await db.execute({
+    sql: `INSERT INTO stage_officer_votes (id, election_id, candidate_rider_id, voter_rider_id, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+          ON CONFLICT(election_id, voter_rider_id) DO UPDATE SET candidate_rider_id = excluded.candidate_rider_id, updated_at = CURRENT_TIMESTAMP`,
+    args: [newId("evote"), electionId, parsed.data.candidateRiderId, user.sub],
+  });
+  return c.json({ ok: true });
+});
+
+/** Tallies every role's votes (highest count wins; ties stay unresolved
+ * for the admin to break manually via direct role assignment) and reveals
+ * the results to every member. Only callable once the session is
+ * 'closed' — see sweepElectionSessions for the automatic voting_deadline
+ * -> closed transition. */
+stageRoutes.post("/stages/:id/elections/sessions/:sessionId/publish", async (c) => {
+  const stageId = c.req.param("id");
+  const sessionId = c.req.param("sessionId");
+  const user = c.get("user");
+  if (!(await canManageStage(stageId, user.sub))) {
+    return c.json({ error: "officers_only", message: "Only the group admin or an elected officer can do that." }, 403);
+  }
+  const sessionRes = await db.execute({ sql: "SELECT id, status FROM stage_election_sessions WHERE id = ? AND stage_id = ?", args: [sessionId, stageId] });
+  const session = sessionRes.rows[0] as unknown as { id: string; status: string } | undefined;
+  if (!session) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  if (session.status !== "closed") return c.json({ error: "not_closed", message: "Voting hasn't finished yet." }, 400);
+
+  await db.execute({ sql: "UPDATE stage_election_sessions SET status = 'published', published_at = datetime('now') WHERE id = ?", args: [sessionId] });
+  const electionsRes = await db.execute({ sql: "SELECT id, role, winner_rider_id FROM stage_officer_elections WHERE session_id = ?", args: [sessionId] });
+  for (const election of electionsRes.rows as unknown as { id: string; role: string; winner_rider_id: string | null }[]) {
+    if (election.winner_rider_id) {
+      await postSystemMessage(stageId, "system", "election_resolved", `${election.role.replace("_", " ")}: results are in.`, election.id);
+      await notifyUser(election.winner_rider_id, {
+        title: "You were elected",
+        body: `You're the new ${election.role.replace("_", " ")}.`,
+        url: `/savings/${stageId}/elections`,
+        tag: `stage-election-won-${election.id}`,
+      }).catch(() => {});
+    }
   }
   return c.json({ ok: true });
 });

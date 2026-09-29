@@ -1699,15 +1699,49 @@ export type StageMessage = {
   created_at: string;
 };
 
-export type StageElectionNominee = { candidate_rider_id: string; name: string; votes: number };
+export type StageElectionNominee = {
+  candidate_rider_id: string;
+  name: string;
+  profile_photo_key: string | null;
+  rating: number | null;
+  vehicle_info: string | null;
+  member_since: string;
+  statement: string | null;
+  voice_note_key: string | null;
+};
 
-export type StageElection = {
+export type StageElectionRoleStatus = {
   id: string;
-  stage_id: string;
   role: StageMemberRole;
-  status: "open" | "resolved" | "cancelled";
+  status: "open" | "voting" | "resolved" | "cancelled";
   winner_rider_id: string | null;
   nominees: StageElectionNominee[];
+  /** The requesting rider's own current vote for this role, if any. */
+  myVote: string | null;
+  /** Whether they're still within the admin-set grace window to change it. */
+  canChangeVote: boolean;
+  /** candidate_rider_id -> vote count. Null until the requester is allowed
+   * to see counts (group admin/officers any time; everyone else only once
+   * the session is published). */
+  tallies: Record<string, number> | null;
+};
+
+export type StageElectionSessionStatus = "nominating" | "voting" | "closed" | "published";
+
+export type StageElectionSession = {
+  id: string;
+  stage_id: string;
+  roles: StageMemberRole[];
+  status: StageElectionSessionStatus;
+  nomination_deadline: string;
+  voting_deadline: string | null;
+  vote_change_grace_seconds: number;
+};
+
+export type StageElectionSessionDetail = {
+  session: StageElectionSession | null;
+  elections: StageElectionRoleStatus[];
+  isManager: boolean;
 };
 
 export type AdminStageSummary = Stage & { member_count: number };

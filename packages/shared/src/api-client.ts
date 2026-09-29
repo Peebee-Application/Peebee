@@ -86,7 +86,7 @@ import type {
   StageDetail,
   AdminStageDetail,
   AdminStageSummary,
-  StageElection,
+  StageElectionSessionDetail,
   StageLoan,
   StageMemberRole,
   StageMessage,
@@ -1674,23 +1674,38 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async joinStage(stageId: string) {
       return request<{ ok: true }>(`/v1/stages/${stageId}/join`, { method: "POST" });
     },
-    async openStageElection(stageId: string, role: StageMemberRole) {
-      return request<{ electionId: string }>(`/v1/stages/${stageId}/elections`, {
-        method: "POST",
-        body: JSON.stringify({ role }),
-      });
+    async startElectionSession(stageId: string, input: { roles: StageMemberRole[]; nominationDeadline: string; voteChangeGraceSeconds?: number }) {
+      return request<{ sessionId: string }>(`/v1/stages/${stageId}/elections/sessions`, { method: "POST", body: JSON.stringify(input) });
     },
-    async nominateForElection(electionId: string, candidateRiderId: string) {
-      return request<{ ok: true }>(`/v1/stages/elections/${electionId}/nominate`, {
-        method: "POST",
-        body: JSON.stringify({ candidateRiderId }),
-      });
+    async getActiveElectionSession(stageId: string) {
+      return request<StageElectionSessionDetail>(`/v1/stages/${stageId}/elections/sessions/active`);
+    },
+    async applyForElection(electionId: string, statement?: string) {
+      return request<{ ok: true }>(`/v1/stages/elections/${electionId}/apply`, { method: "POST", body: JSON.stringify({ statement }) });
+    },
+    async uploadElectionVoiceNote(electionId: string, file: Blob) {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await f(`${root}/v1/stages/elections/${electionId}/apply/voice`, { method: "POST", headers: authHeaders(), body: form });
+      return json<{ ok: true }>(res);
+    },
+    /** Fetches a nominee's voice-note pitch as a Blob (not JSON — raw fetch), same pattern as chatMediaBlob. */
+    async electionVoiceNoteBlob(electionId: string, candidateRiderId: string): Promise<Blob> {
+      const res = await f(`${root}/v1/stages/elections/${electionId}/voice/${candidateRiderId}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error(`API ${res.status}: failed to load voice note`);
+      return res.blob();
+    },
+    async startElectionVoting(stageId: string, sessionId: string, votingHours: number) {
+      return request<{ ok: true }>(`/v1/stages/${stageId}/elections/sessions/${sessionId}/start-voting`, { method: "POST", body: JSON.stringify({ votingHours }) });
     },
     async voteInElection(electionId: string, candidateRiderId: string) {
       return request<{ ok: true }>(`/v1/stages/elections/${electionId}/vote`, {
         method: "POST",
         body: JSON.stringify({ candidateRiderId }),
       });
+    },
+    async publishElectionResults(stageId: string, sessionId: string) {
+      return request<{ ok: true }>(`/v1/stages/${stageId}/elections/sessions/${sessionId}/publish`, { method: "POST" });
     },
     async startStageCycle(stageId: string, input: { startDate: string; interestRate?: number; loanableContributionMultiple?: number; maxLoanDurationMonths?: number; cycleMonths?: number; sharePrice?: number }) {
       return request<{ cycleId: string }>(`/v1/stages/${stageId}/cycles`, { method: "POST", body: JSON.stringify(input) });
@@ -1805,10 +1820,6 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async sendStageMessage(stageId: string, input: { body: string; recipientId?: string }) {
       return request<{ messageId: string }>(`/v1/stages/${stageId}/messages`, { method: "POST", body: JSON.stringify(input) });
     },
-    async getStageElections(stageId: string) {
-      return request<{ elections: StageElection[] }>(`/v1/stages/${stageId}/elections`);
-    },
-
     // Admin oversight — read-only, gated by the vslaAdminLedgerVisibility setting.
     async adminGetStages() {
       return request<{ stages: AdminStageSummary[] }>("/v1/admin/stages");

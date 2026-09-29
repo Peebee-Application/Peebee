@@ -148,3 +148,62 @@ export async function sweepStageFines(): Promise<{ applied: number }> {
 
   return { applied };
 }
+
+/** Auto-closes any election session whose voting_deadline has passed:
+ * tallies each role's votes (highest count wins; a tie is left
+ * unresolved for the group admin to break by hand via direct role
+ * assignment), writes the winner into stage_members.role, and moves the
+ * session to 'closed' — results stay hidden from ordinary members until
+ * the group admin explicitly calls POST .../publish. */
+export async function sweepElectionSessions(): Promise<{ closed: number }> {
+  const dueRes = await db.execute({
+    sql: `SELECT id, stage_id FROM stage_election_sessions
+          WHERE status = 'voting' AND voting_deadline IS NOT NULL AND voting_deadline < datetime('now')`,
+    args: [],
+  });
+  const dueSessions = dueRes.rows as unknown as { id: string; stage_id: string }[];
+
+  for (const session of dueSessions) {
+    const electionsRes = await db.execute({
+      sql: "SELECT id, role FROM stage_officer_elections WHERE session_id = ?",
+      args: [session.id],
+    });
+    for (const election of electionsRes.rows as unknown as { id: string; role: string }[]) {
+      const tallyRes = await db.execute({
+        sql: `SELECT candidate_rider_id, COUNT(*) AS n FROM stage_officer_votes
+              WHERE election_id = ? GROUP BY candidate_rider_id ORDER BY n DESC LIMIT 2`,
+        args: [election.id],
+      });
+      const rows = tallyRes.rows as unknown as { candidate_rider_id: string; n: number }[];
+      const top = rows[0];
+      const runnerUp = rows[1];
+      const tied = !!top && !!runnerUp && top.n === runnerUp.n;
+      const winner = top && !tied ? top.candidate_rider_id : null;
+
+      await db.execute({
+        sql: "UPDATE stage_officer_elections SET status = 'resolved', winner_rider_id = ?, resolved_at = datetime('now') WHERE id = ?",
+        args: [winner, election.id],
+      });
+      if (winner) {
+        await db.execute({
+          sql: `INSERT INTO stage_members (id, stage_id, rider_id, role) VALUES (?, ?, ?, ?)
+                ON CONFLICT(stage_id, rider_id) DO UPDATE SET role = excluded.role`,
+          args: [newId("smem"), session.stage_id, winner, election.role],
+        });
+      }
+    }
+    await db.execute({ sql: "UPDATE stage_election_sessions SET status = 'closed' WHERE id = ?", args: [session.id] });
+    const adminRes = await db.execute({ sql: "SELECT group_admin_id FROM stages WHERE id = ?", args: [session.stage_id] });
+    const groupAdminId = (adminRes.rows[0] as unknown as { group_admin_id: string | null } | undefined)?.group_admin_id;
+    if (groupAdminId) {
+      await notifyUser(groupAdminId, {
+        title: "Election results ready",
+        body: "Voting has closed — publish the results when you're ready.",
+        url: `/savings/${session.stage_id}/elections`,
+        tag: `stage-election-closed-${session.id}`,
+      }).catch(() => {});
+    }
+  }
+
+  return { closed: dueSessions.length };
+}
