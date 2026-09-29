@@ -15,8 +15,6 @@ export default function StageDetailPage() {
   const stageId = params.id;
   const [detail, setDetail] = useState<StageDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [startingCycle, setStartingCycle] = useState(false);
-  const [sharePrice, setSharePrice] = useState("1000");
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteMessage, setInviteMessage] = useState<string | null>(null);
@@ -29,31 +27,6 @@ export default function StageDetailPage() {
       .then(setDetail)
       .catch((err) => setError(errorMessage(err)));
   }, [stageId]);
-
-  async function startCycle() {
-    if (startingCycle) return;
-    setStartingCycle(true);
-    setError(null);
-    try {
-      await api.startStageCycle(stageId, {
-        startDate: new Date().toISOString().slice(0, 10),
-        sharePrice: Number(sharePrice) || undefined,
-      });
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      // Refetch regardless of outcome — a "cycle already active" failure
-      // (e.g. from a double-tap) means the cycle exists anyway, so this
-      // picks up the real state instead of leaving a stale error on screen
-      // over a page that's actually already up to date.
-      try {
-        const fresh = await api.getStage(stageId);
-        setDetail(fresh);
-        if (fresh.cycle) setError(null);
-      } catch {}
-      setStartingCycle(false);
-    }
-  }
 
   if (!detail && error) return <div className="p-4 text-sm text-red-700">{error}</div>;
   if (!detail) return <div className="p-4 text-sm text-ink-500">Loading…</div>;
@@ -122,28 +95,12 @@ export default function StageDetailPage() {
         <div className="home-card space-y-3 text-center">
           <p className="text-sm text-ink-500">This circle hasn&apos;t started a savings cycle yet.</p>
           {canManage && (
-            <>
-              <div className="flex items-center gap-2 text-left">
-                <label className="text-xs font-semibold text-ink-500" htmlFor="share-price">
-                  Share price (UGX)
-                </label>
-                <input
-                  id="share-price"
-                  inputMode="numeric"
-                  value={sharePrice}
-                  onChange={(e) => setSharePrice(e.target.value.replace(/[^\d]/g, ""))}
-                  className="w-24 rounded-lg border border-[var(--border-faint)] px-2 py-1 text-sm font-bold text-ink outline-none focus:border-gold"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={startCycle}
-                disabled={startingCycle}
-                className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
-              >
-                {startingCycle ? "Starting…" : "Start a savings cycle"}
-              </button>
-            </>
+            <Link
+              href={`/savings/${stageId}/cycle-setup`}
+              className="flex min-h-11 w-full items-center justify-center rounded-full bg-gold px-4 text-sm font-bold text-ink-gold"
+            >
+              Set up and start a cycle
+            </Link>
           )}
         </div>
       )}
@@ -213,6 +170,15 @@ export default function StageDetailPage() {
           Circle chat
         </Link>
       </div>
+
+      {canManage && (
+        <Link
+          href={`/savings/${stageId}/cycle-setup`}
+          className="flex min-h-11 w-full items-center justify-center rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4 text-sm font-bold text-ink"
+        >
+          Cycle & loan approval settings
+        </Link>
+      )}
 
       {detail.isGroupAdmin && (
         <div className="home-card space-y-4">
