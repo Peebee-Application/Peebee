@@ -5,7 +5,6 @@ import {
   type VslaAdminLedgerVisibility,
   type VslaContributionRecorderRole,
   type VslaFeaturePlacement,
-  type VslaStageCreationMode,
 } from "@tuma/shared";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -17,7 +16,6 @@ export default function StageSavingsSettingsPage() {
   const { user } = useAuth();
   const canManagePayments = hasPermission(user?.adminRole ?? null, "payments.manage");
 
-  const [stageCreationMode, setStageCreationMode] = useState<VslaStageCreationMode>("admin_only");
   const [loanInterestEnabled, setLoanInterestEnabled] = useState(true);
   const [defaultInterestRate, setDefaultInterestRate] = useState("8");
   const [defaultLoanableMultiple, setDefaultLoanableMultiple] = useState("2");
@@ -40,7 +38,6 @@ export default function StageSavingsSettingsPage() {
     api
       .getSettings()
       .then(({ settings }) => {
-        setStageCreationMode(settings.vslaStageCreationMode);
         setLoanInterestEnabled(settings.vslaLoanInterestEnabled);
         setDefaultInterestRate(String(settings.vslaDefaultInterestRate));
         setDefaultLoanableMultiple(String(settings.vslaDefaultLoanableMultiple));
@@ -65,7 +62,6 @@ export default function StageSavingsSettingsPage() {
     setSaved(false);
     try {
       const res = await api.adminUpdateSettings({
-        vslaStageCreationMode: stageCreationMode,
         vslaLoanInterestEnabled: loanInterestEnabled,
         vslaDefaultInterestRate: Number(defaultInterestRate),
         vslaDefaultLoanableMultiple: Number(defaultLoanableMultiple),
@@ -79,7 +75,6 @@ export default function StageSavingsSettingsPage() {
         vslaDefaultSharePrice: Number(defaultSharePrice),
         vslaRequiresPro: requiresPro,
       });
-      setStageCreationMode(res.settings.vslaStageCreationMode);
       setLoanInterestEnabled(res.settings.vslaLoanInterestEnabled);
       setDefaultInterestRate(String(res.settings.vslaDefaultInterestRate));
       setDefaultLoanableMultiple(String(res.settings.vslaDefaultLoanableMultiple));
@@ -111,20 +106,10 @@ export default function StageSavingsSettingsPage() {
   return (
     <SettingsPageShell title="Stage savings circles" loading={loading}>
       <form onSubmit={onSubmit} className="space-y-5">
-        <section className="home-card space-y-3">
-          <h2 className="text-sm font-semibold text-ink">Stage creation</h2>
-          <select
-            value={stageCreationMode}
-            onChange={(e) => setStageCreationMode(e.target.value as VslaStageCreationMode)}
-            className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
-          >
-            <option value="admin_only">Admin creates every stage circle</option>
-            <option value="self_service">Riders can create their own stage circle</option>
-          </select>
-          <p className="text-xs text-ink-500">
-            Whether a rider can start a new stage circle themselves, or only Tuma admin can register one.
-          </p>
-        </section>
+        <p className="rounded-lg bg-[rgb(var(--surface-muted))] px-3 py-2 text-xs text-ink-500">
+          A rider can propose any stage; every proposal goes through the <Link href="/stages/pending" className="font-bold text-gold">pending stages</Link> approval
+          queue before it can have an RSLA. There&apos;s no separate on/off switch for that anymore.
+        </p>
 
         <section className="home-card space-y-3">
           <label className="flex items-start gap-2.5">

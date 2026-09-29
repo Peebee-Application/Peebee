@@ -1795,6 +1795,17 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async adminGetStageLedger(stageId: string) {
       return request<{ transactions: StageTransaction[] }>(`/v1/admin/stages/${stageId}/ledger`);
     },
+    async adminGetPendingStages() {
+      return request<{ stages: (AdminStageSummary & { proposer_name: string | null; proposer_phone: string | null })[] }>(
+        "/v1/admin/stages/pending",
+      );
+    },
+    async adminApproveStage(stageId: string) {
+      return request<{ ok: true }>(`/v1/admin/stages/${stageId}/approve`, { method: "POST" });
+    },
+    async adminRejectStage(stageId: string, reason: string) {
+      return request<{ ok: true }>(`/v1/admin/stages/${stageId}/reject`, { method: "POST", body: JSON.stringify({ reason }) });
+    },
   };
 }
 

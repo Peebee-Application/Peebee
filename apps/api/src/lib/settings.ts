@@ -187,7 +187,6 @@ const DEFAULTS = {
   /** Rider Stage Savings Circles — a VSLA-style group savings/loans
    * feature. Every knob here exists so admin can change behavior without
    * a redeploy; see apps/api/src/stages/routes.ts for where each is read. */
-  vsla_stage_creation_mode: "admin_only", // "admin_only" | "self_service"
   vsla_loan_interest_enabled: "1",
   vsla_default_interest_rate: "8",
   vsla_default_loanable_multiple: "2",
@@ -617,13 +616,11 @@ export async function setProSettings(input: Partial<ProSettings>): Promise<void>
   await Promise.all(writes);
 }
 
-export type VslaStageCreationMode = "admin_only" | "self_service";
 export type VslaContributionRecorderRole = "any_officer" | "treasurer_only";
 export type VslaAdminLedgerVisibility = "read_only_all" | "private_per_stage";
 export type VslaFeaturePlacement = "home_card_and_screen" | "bottom_nav_tab" | "account_only" | "wallet_card";
 
 export type VslaSettings = {
-  stageCreationMode: VslaStageCreationMode;
   loanInterestEnabled: boolean;
   defaultInterestRate: number;
   defaultLoanableMultiple: number;
@@ -644,7 +641,6 @@ export type VslaSettings = {
 
 export async function getVslaSettings(): Promise<VslaSettings> {
   const [
-    stageCreationMode,
     loanInterestEnabled,
     defaultInterestRate,
     defaultLoanableMultiple,
@@ -658,7 +654,6 @@ export async function getVslaSettings(): Promise<VslaSettings> {
     featurePlacement,
     requiresPro,
   ] = await Promise.all([
-    getSetting("vsla_stage_creation_mode"),
     getSetting("vsla_loan_interest_enabled"),
     getSetting("vsla_default_interest_rate"),
     getSetting("vsla_default_loanable_multiple"),
@@ -673,7 +668,6 @@ export async function getVslaSettings(): Promise<VslaSettings> {
     getSetting("vsla_requires_pro"),
   ]);
   return {
-    stageCreationMode: stageCreationMode === "self_service" ? "self_service" : "admin_only",
     loanInterestEnabled: loanInterestEnabled === "1",
     defaultInterestRate: Number(defaultInterestRate) || 0,
     defaultLoanableMultiple: Number(defaultLoanableMultiple) || 2,
@@ -694,7 +688,6 @@ export async function getVslaSettings(): Promise<VslaSettings> {
 
 export async function setVslaSettings(input: Partial<VslaSettings>): Promise<void> {
   const writes: Promise<void>[] = [];
-  if (input.stageCreationMode != null) writes.push(setSetting("vsla_stage_creation_mode", input.stageCreationMode));
   if (input.loanInterestEnabled != null) {
     writes.push(setSetting("vsla_loan_interest_enabled", input.loanInterestEnabled ? "1" : "0"));
   }

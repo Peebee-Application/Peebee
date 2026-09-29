@@ -71,7 +71,7 @@ export default function StageDetailPage() {
   return (
     <div className="space-y-5 px-4 pb-6 pt-4">
       <div>
-        <h1 className="text-xl font-bold text-ink">{detail.stage.name}</h1>
+        <h1 className="text-xl font-bold text-ink">{detail.stage.name} RSLA</h1>
         <p className="text-sm text-ink-500">
           {detail.cycle ? `Cycle · ${detail.cycle.start_date} – ${detail.cycle.end_date}` : "No active cycle yet"} ·{" "}
           {detail.members.length} members

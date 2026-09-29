@@ -501,7 +501,7 @@ export default function AccountPage() {
           className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink"
         >
           <PiggyBank className="h-4 w-4" strokeWidth={2} aria-hidden />
-          Stage savings
+          RSLA
         </Link>
       )}
 

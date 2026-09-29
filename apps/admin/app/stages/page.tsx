@@ -57,11 +57,18 @@ export default function AdminStagesPage() {
 
   return (
     <div className="space-y-5 px-4 pb-6 pt-4">
-      <h1 className="text-xl font-bold text-ink">Stage savings circles</h1>
+      <h1 className="text-xl font-bold text-ink">Stages (RSLA)</h1>
       <p className="text-sm text-ink-500">
         Viewing a circle&apos;s ledger is read-only — for support and technical issues only. Money disagreements
         between members stay inside the group.
       </p>
+      <Link
+        href="/stages/pending"
+        className="flex items-center justify-between rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4 py-3"
+      >
+        <span className="text-sm font-semibold text-ink">Pending stage proposals</span>
+        <ChevronRight className="h-4.5 w-4.5 text-ink-500" strokeWidth={1.75} aria-hidden />
+      </Link>
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {!stages ? (
         <p className="text-sm text-ink-500">Loading…</p>

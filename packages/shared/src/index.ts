@@ -151,7 +151,6 @@ export type {
   MapsAdminSettings,
   NavMode,
   VslaSettings,
-  VslaStageCreationMode,
   VslaContributionRecorderRole,
   VslaAdminLedgerVisibility,
   VslaFeaturePlacement,

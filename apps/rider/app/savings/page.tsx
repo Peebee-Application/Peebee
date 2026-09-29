@@ -16,8 +16,8 @@ export default function SavingsIndexPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [selfServiceEnabled, setSelfServiceEnabled] = useState(true);
   const [requiresPro, setRequiresPro] = useState(false);
+  const [pendingNotice, setPendingNotice] = useState<string | null>(null);
 
   function loadAll() {
     api
@@ -34,10 +34,7 @@ export default function SavingsIndexPage() {
     loadAll();
     api
       .getSettings()
-      .then(({ settings }) => {
-        setSelfServiceEnabled(settings.vslaStageCreationMode === "self_service");
-        setRequiresPro(settings.vslaRequiresPro);
-      })
+      .then(({ settings }) => setRequiresPro(settings.vslaRequiresPro))
       .catch(() => {});
   }, []);
 
@@ -51,11 +48,18 @@ export default function SavingsIndexPage() {
     if (!name.trim()) return;
     setBusy(true);
     setError(null);
+    setPendingNotice(null);
     try {
-      const res = await api.createStage({ name: name.trim() });
-      window.location.href = `/savings/${res.stageId}`;
+      await api.createStage({ name: name.trim() });
+      setName("");
+      setShowCreate(false);
+      setPendingNotice(
+        `"${name.trim()}" was submitted for Tuma's approval. You'll be notified once it's approved and you can set up its RSLA.`,
+      );
+      loadAll();
     } catch (err) {
       setError(errorMessage(err));
+    } finally {
       setBusy(false);
     }
   }
@@ -78,8 +82,9 @@ export default function SavingsIndexPage() {
 
   return (
     <div className="space-y-5 px-4 pb-6 pt-4">
-      <h1 className="text-xl font-bold text-ink">Stage savings</h1>
+      <h1 className="text-xl font-bold text-ink">RSLA</h1>
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {pendingNotice && <p className="rounded-lg bg-gold/10 px-3 py-2 text-sm text-ink">{pendingNotice}</p>}
 
       {stages.length > 0 ? (
         <ul className="space-y-2">
@@ -100,10 +105,7 @@ export default function SavingsIndexPage() {
         </ul>
       ) : (
         <div className="home-card space-y-2 text-center">
-          <p className="text-sm text-ink-500">
-            You&apos;re not part of a stage savings circle yet
-            {!selfServiceEnabled && " — ask Tuma support to set one up for your stage"}.
-          </p>
+          <p className="text-sm text-ink-500">You&apos;re not part of an RSLA yet.</p>
         </div>
       )}
 
@@ -151,14 +153,14 @@ export default function SavingsIndexPage() {
         </Link>
       )}
 
-      {needsPro || !selfServiceEnabled ? null : !showCreate ? (
+      {needsPro ? null : !showCreate ? (
         <button
           type="button"
           onClick={() => setShowCreate(true)}
           className="flex w-full items-center justify-center gap-2 rounded-full border border-dashed border-[var(--border-faint)] py-3 text-sm font-bold text-ink-500"
         >
           <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
-          Start a new stage circle
+          Don&apos;t see your stage? Propose it
         </button>
       ) : (
         <form onSubmit={createStage} className="home-card space-y-3">
@@ -172,12 +174,15 @@ export default function SavingsIndexPage() {
             placeholder="e.g. Kira Stage"
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
           />
+          <p className="text-xs text-ink-500">
+            Tuma reviews every proposed stage before it can have an RSLA, to keep one canonical record per stage.
+          </p>
           <button
             type="submit"
             disabled={busy || !name.trim()}
             className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
           >
-            {busy ? "Creating…" : "Create circle"}
+            {busy ? "Submitting…" : "Submit for approval"}
           </button>
         </form>
       )}

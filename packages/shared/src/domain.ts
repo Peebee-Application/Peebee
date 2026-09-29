@@ -285,15 +285,11 @@ export type LugandaVoice = { id: string; label: string };
 /** Rider Stage Savings Circles — a VSLA-style group savings/loans feature.
  * See apps/api/src/stages/routes.ts and apps/api/src/lib/settings.ts
  * getVslaSettings for how each of these is enforced. */
-export type VslaStageCreationMode = "admin_only" | "self_service";
 export type VslaContributionRecorderRole = "any_officer" | "treasurer_only";
 export type VslaAdminLedgerVisibility = "read_only_all" | "private_per_stage";
 export type VslaFeaturePlacement = "home_card_and_screen" | "bottom_nav_tab" | "account_only" | "wallet_card";
 
 export type VslaSettings = {
-  /** Whether a rider can start a new stage circle themselves, or only
-   * Tuma admin can (the default, until stage self-service is switched on). */
-  vslaStageCreationMode: VslaStageCreationMode;
   vslaLoanInterestEnabled: boolean;
   vslaDefaultInterestRate: number;
   vslaDefaultLoanableMultiple: number;
@@ -543,6 +539,12 @@ export type Rider = {
   stage_name: string | null;
   stage_chairman_name: string | null;
   stage_chairman_contact: string | null;
+  /** The rider's canonical stage — set when they join/register an RSLA
+   * (see linkRiderToStage in apps/api/src/stages/routes.ts). This is
+   * replacing the free-text stage_name/stage_address/stage_chairman_*
+   * fields above as the source of truth; those stay for riders who
+   * haven't re-linked yet. */
+  stage_id: string | null;
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
   national_id_key: string | null;
@@ -1519,6 +1521,15 @@ export type Stage = {
    * member via POST /stages/:id/transfer-admin. */
   group_admin_id: string | null;
   status: "active" | "archived";
+  /** Every stage is a single canonical, admin-reviewed registry entry.
+   * "pending" = proposed by a rider, awaiting admin review; "approved" =
+   * usable, joinable, canonical; "rejected" = declined (see
+   * rejection_reason). Admin-originated stages (POST /admin/stages) are
+   * inserted already "approved". */
+  approval_status: "pending" | "approved" | "rejected";
+  rejection_reason: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
   created_at: string;
   updated_at: string;
   /** Only present on GET /stages/mine. */

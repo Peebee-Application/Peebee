@@ -8,6 +8,7 @@ import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { getR2Bucket } from "../storage/r2.js";
 import { getVslaSettings } from "../lib/settings.js";
 import { isProSubscriptionCurrent } from "../riders/pro-subscription.js";
+import { notifyUser } from "../lib/webpush.js";
 
 /**
  * Rider Stage Savings Circles — a VSLA-style group savings/loans feature,
@@ -90,6 +91,18 @@ async function canManageStage(stageId: string, riderId: string): Promise<boolean
   if (isOfficer(membership)) return true;
   const groupAdminId = await getGroupAdminId(stageId);
   return !!membership && groupAdminId === riderId;
+}
+
+/** Sets a rider's canonical stage once they join/register an RSLA —
+ * replaces the old free-text riders.stage_name as the source of truth for
+ * "what stage is this rider on." Never overwrites an already-set stage_id
+ * (a rider belongs to one canonical stage; switching stages is a separate,
+ * deliberate action, not a side effect of joining a second circle). */
+async function linkRiderToStage(riderId: string, stageId: string): Promise<void> {
+  await db.execute({
+    sql: "UPDATE riders SET stage_id = ? WHERE user_id = ? AND stage_id IS NULL",
+    args: [stageId, riderId],
+  });
 }
 
 async function getActiveCycle(stageId: string) {
@@ -229,7 +242,7 @@ stageRoutes.get("/stages/discover", async (c) => {
   const res = await db.execute({
     sql: `SELECT s.*, (SELECT COUNT(*) FROM stage_members m2 WHERE m2.stage_id = s.id AND m2.status = 'active') AS member_count
           FROM stages s
-          WHERE s.status = 'active'
+          WHERE s.status = 'active' AND s.approval_status = 'approved'
             AND NOT EXISTS (SELECT 1 FROM stage_members m WHERE m.stage_id = s.id AND m.rider_id = ? AND m.status = 'active')
           ORDER BY s.created_at DESC LIMIT 100`,
     args: [user.sub],
@@ -244,28 +257,40 @@ const createStageSchema = z.object({
   description: z.string().trim().optional(),
 });
 
+/** A rider proposing a stage — always allowed, but goes into
+ * approval_status='pending' until Tuma admin reviews it (see
+ * POST /admin/stages/:id/approve). Every stage is canonical once approved:
+ * the case/whitespace-insensitive uniqueness index on stages(name) means
+ * "Airport Stage" and "airport stage " can't both exist, so this checks
+ * for a name collision up front and points the rider at the existing
+ * circle instead of letting them file a duplicate proposal. */
 stageRoutes.post("/stages", async (c) => {
   const user = c.get("user");
-  const settings = await getVslaSettings();
-  if (settings.stageCreationMode === "admin_only") {
-    return c.json({ error: "forbidden", message: "Stages are created by Tuma admin right now." }, 403);
-  }
   const proGate = await assertProIfRequired(c, user.sub);
   if (proGate) return proGate;
   const parsed = createStageSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
 
+  const existing = await db.execute({
+    sql: "SELECT id FROM stages WHERE approval_status = 'approved' AND LOWER(TRIM(name)) = LOWER(TRIM(?))",
+    args: [parsed.data.name],
+  });
+  const existingStage = existing.rows[0] as unknown as { id: string } | undefined;
+  if (existingStage) {
+    return c.json({ error: "stage_exists", message: "A stage with that name already exists — join it instead.", stageId: existingStage.id }, 409);
+  }
+
   const id = newId("stage");
   await db.execute({
-    sql: `INSERT INTO stages (id, name, area, address, description, created_by, group_admin_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO stages (id, name, area, address, description, created_by, group_admin_id, approval_status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
     args: [id, parsed.data.name, parsed.data.area ?? null, parsed.data.address ?? null, parsed.data.description ?? null, user.sub, user.sub],
   });
   await db.execute({
     sql: `INSERT INTO stage_members (id, stage_id, rider_id, role) VALUES (?, ?, ?, 'chairman')`,
     args: [newId("smem"), id, user.sub],
   });
-  return c.json({ stageId: id });
+  return c.json({ stageId: id, status: "pending" });
 });
 
 stageRoutes.get("/stages/:id", async (c) => {
@@ -277,6 +302,10 @@ stageRoutes.get("/stages/:id", async (c) => {
   const stageRes = await db.execute({ sql: "SELECT * FROM stages WHERE id = ?", args: [stageId] });
   const stage = stageRes.rows[0];
   if (!stage) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  const stageRow = stage as unknown as { approval_status: string; created_by: string | null };
+  if (stageRow.approval_status !== "approved" && stageRow.created_by !== user.sub) {
+    return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  }
 
   const membersRes = await db.execute({
     sql: `SELECT m.rider_id, m.role, u.name FROM stage_members m
@@ -383,6 +412,7 @@ stageRoutes.post("/stages/:id/invite", async (c) => {
   } else {
     await db.execute({ sql: "INSERT INTO stage_members (id, stage_id, rider_id) VALUES (?, ?, ?)", args: [newId("smem"), stageId, rider.id] });
   }
+  await linkRiderToStage(rider.id, stageId);
   await postSystemMessage(stageId, user.sub, "member_invited", `${rider.name} was added to the circle by the group admin.`);
   return c.json({ ok: true, riderId: rider.id, name: rider.name });
 });
@@ -392,6 +422,12 @@ stageRoutes.post("/stages/:id/join", async (c) => {
   const user = c.get("user");
   const proGate = await assertProIfRequired(c, user.sub);
   if (proGate) return proGate;
+  const stageRes = await db.execute({ sql: "SELECT approval_status FROM stages WHERE id = ?", args: [stageId] });
+  const stageRow = stageRes.rows[0] as unknown as { approval_status: string } | undefined;
+  if (!stageRow) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  if (stageRow.approval_status !== "approved") {
+    return c.json({ error: "not_approved", message: "This stage hasn't been approved yet." }, 403);
+  }
   const existing = await db.execute({ sql: "SELECT 1 FROM stage_members WHERE stage_id = ? AND rider_id = ?", args: [stageId, user.sub] });
   if (existing.rows.length > 0) {
     await db.execute({
@@ -410,6 +446,7 @@ stageRoutes.post("/stages/:id/join", async (c) => {
     sql: "UPDATE stages SET group_admin_id = ? WHERE id = ? AND group_admin_id IS NULL",
     args: [user.sub, stageId],
   });
+  await linkRiderToStage(user.sub, stageId);
   await postSystemMessage(stageId, user.sub, "member_joined", `${user.name} joined the circle.`);
   return c.json({ ok: true });
 });
@@ -1272,9 +1309,18 @@ stageAdminRoutes.post("/admin/stages", async (c) => {
   const parsed = adminCreateStageSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
 
+  const existing = await db.execute({
+    sql: "SELECT id FROM stages WHERE approval_status = 'approved' AND LOWER(TRIM(name)) = LOWER(TRIM(?))",
+    args: [parsed.data.name],
+  });
+  const existingStage = existing.rows[0] as unknown as { id: string } | undefined;
+  if (existingStage) {
+    return c.json({ error: "stage_exists", message: "A stage with that name already exists.", stageId: existingStage.id }, 409);
+  }
+
   const id = newId("stage");
   await db.execute({
-    sql: `INSERT INTO stages (id, name, area, address, description, group_admin_id) VALUES (?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO stages (id, name, area, address, description, group_admin_id, approval_status) VALUES (?, ?, ?, ?, ?, ?, 'approved')`,
     args: [id, parsed.data.name, parsed.data.area ?? null, parsed.data.address ?? null, parsed.data.description ?? null, parsed.data.groupAdminRiderId ?? null],
   });
   if (parsed.data.chairmanRiderId) {
@@ -1282,6 +1328,7 @@ stageAdminRoutes.post("/admin/stages", async (c) => {
       sql: `INSERT INTO stage_members (id, stage_id, rider_id, role) VALUES (?, ?, ?, 'chairman')`,
       args: [newId("smem"), id, parsed.data.chairmanRiderId],
     });
+    await linkRiderToStage(parsed.data.chairmanRiderId, id);
   }
   if (parsed.data.groupAdminRiderId && parsed.data.groupAdminRiderId !== parsed.data.chairmanRiderId) {
     await db.execute({
@@ -1289,8 +1336,83 @@ stageAdminRoutes.post("/admin/stages", async (c) => {
             ON CONFLICT(stage_id, rider_id) DO NOTHING`,
       args: [newId("smem"), id, parsed.data.groupAdminRiderId],
     });
+    await linkRiderToStage(parsed.data.groupAdminRiderId, id);
   }
   return c.json({ stageId: id });
+});
+
+/** Stages a rider has proposed, awaiting review. Not gated by
+ * vslaAdminLedgerVisibility — approval is a distinct concern from ledger
+ * visibility, and every admin with riders.view should be able to work this
+ * queue regardless of that setting. */
+stageAdminRoutes.get("/admin/stages/pending", async (c) => {
+  const res = await db.execute({
+    sql: `SELECT s.*, u.name AS proposer_name, u.phone AS proposer_phone
+          FROM stages s LEFT JOIN users u ON u.id = s.created_by
+          WHERE s.approval_status = 'pending' ORDER BY s.created_at ASC LIMIT 200`,
+    args: [],
+  });
+  return c.json({ stages: res.rows });
+});
+
+stageAdminRoutes.post("/admin/stages/:id/approve", async (c) => {
+  const stageId = c.req.param("id");
+  const admin = c.get("user");
+  const stageRes = await db.execute({ sql: "SELECT id, name, created_by, approval_status FROM stages WHERE id = ?", args: [stageId] });
+  const stage = stageRes.rows[0] as unknown as { id: string; name: string; created_by: string | null; approval_status: string } | undefined;
+  if (!stage) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  if (stage.approval_status !== "pending") return c.json({ error: "not_pending", message: "This has already been reviewed." }, 400);
+
+  const dup = await db.execute({
+    sql: "SELECT id FROM stages WHERE approval_status = 'approved' AND LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ?",
+    args: [stage.name, stageId],
+  });
+  if (dup.rows[0]) {
+    return c.json({ error: "stage_exists", message: "A different stage already has this name — reject this one instead." }, 409);
+  }
+
+  await db.execute({
+    sql: "UPDATE stages SET approval_status = 'approved', reviewed_by = ?, reviewed_at = datetime('now') WHERE id = ?",
+    args: [admin.sub, stageId],
+  });
+  if (stage.created_by) {
+    await linkRiderToStage(stage.created_by, stageId);
+    await notifyUser(stage.created_by, {
+      title: "Stage approved",
+      body: `${stage.name} has been approved — you can now set up its RSLA.`,
+      url: `/savings/${stageId}`,
+      tag: `stage-approved-${stageId}`,
+    }).catch(() => {});
+  }
+  return c.json({ ok: true });
+});
+
+const rejectStageSchema = z.object({ reason: z.string().trim().min(1) });
+
+stageAdminRoutes.post("/admin/stages/:id/reject", async (c) => {
+  const stageId = c.req.param("id");
+  const stageRes = await db.execute({ sql: "SELECT id, name, created_by, approval_status FROM stages WHERE id = ?", args: [stageId] });
+  const stage = stageRes.rows[0] as unknown as { id: string; name: string; created_by: string | null; approval_status: string } | undefined;
+  if (!stage) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
+  if (stage.approval_status !== "pending") return c.json({ error: "not_pending", message: "This has already been reviewed." }, 400);
+
+  const parsed = rejectStageSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+  const admin = c.get("user");
+
+  await db.execute({
+    sql: "UPDATE stages SET approval_status = 'rejected', rejection_reason = ?, reviewed_by = ?, reviewed_at = datetime('now') WHERE id = ?",
+    args: [parsed.data.reason, admin.sub, stageId],
+  });
+  if (stage.created_by) {
+    await notifyUser(stage.created_by, {
+      title: "Stage proposal declined",
+      body: `${stage.name}: ${parsed.data.reason}`,
+      url: "/savings",
+      tag: `stage-rejected-${stageId}`,
+    }).catch(() => {});
+  }
+  return c.json({ ok: true });
 });
 
 stageAdminRoutes.get("/admin/stages/:id", async (c) => {

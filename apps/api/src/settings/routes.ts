@@ -143,7 +143,6 @@ async function fullSettings() {
     mapsTomtomApiKey,
     navMode,
     ...monetization,
-    vslaStageCreationMode: vsla.stageCreationMode,
     vslaLoanInterestEnabled: vsla.loanInterestEnabled,
     vslaDefaultInterestRate: vsla.defaultInterestRate,
     vslaDefaultLoanableMultiple: vsla.defaultLoanableMultiple,
@@ -300,7 +299,6 @@ const updateSchema = z.object({
   subscriptionAmount: z.number().min(0).max(1_000_000).optional(),
   subscriptionCadence: z.enum(["daily", "weekly", "monthly"]).optional(),
   // Rider Stage Savings Circles — see ../lib/settings.ts getVslaSettings.
-  vslaStageCreationMode: z.enum(["admin_only", "self_service"]).optional(),
   vslaLoanInterestEnabled: z.boolean().optional(),
   vslaDefaultInterestRate: z.number().min(0).max(100).optional(),
   vslaDefaultLoanableMultiple: z.number().positive().max(10).optional(),
@@ -465,7 +463,6 @@ settingsRoutes.put(
     });
 
     await setVslaSettings({
-      stageCreationMode: parsed.data.vslaStageCreationMode,
       loanInterestEnabled: parsed.data.vslaLoanInterestEnabled,
       defaultInterestRate: parsed.data.vslaDefaultInterestRate,
       defaultLoanableMultiple: parsed.data.vslaDefaultLoanableMultiple,

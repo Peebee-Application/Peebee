@@ -47,7 +47,7 @@ export function BottomNav() {
 
   const tabs: Tab[] = BASE_TABS.map((tab) => ({ href: tab.href, label: t(tab.labelKey), icon: tab.icon }));
   if (showSavingsTab) {
-    tabs.splice(4, 0, { href: "/savings", label: "Savings", icon: PiggyBank });
+    tabs.splice(4, 0, { href: "/savings", label: "RSLA", icon: PiggyBank });
   }
 
   return (
