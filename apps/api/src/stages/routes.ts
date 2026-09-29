@@ -358,6 +358,50 @@ stageRoutes.get("/stages/:id", async (c) => {
   });
 });
 
+const setMemberRoleSchema = z.object({ role: z.enum(["member", ...OFFICER_ROLES]) });
+
+/** Step 5 of the guided RSLA launch wizard: the group admin directly seats
+ * officers rather than running an election for a brand-new circle with no
+ * track record to vote on yet. Elections (POST /stages/:id/elections) stay
+ * available for re-electing officers on a later cycle. Group-admin-only —
+ * more sensitive than the general canManageStage (officer-or-admin) gate,
+ * since it lets one person hand out every other role. */
+stageRoutes.put("/stages/:id/members/:riderId/role", async (c) => {
+  const stageId = c.req.param("id");
+  const targetRiderId = c.req.param("riderId");
+  const user = c.get("user");
+  const groupAdminId = await getGroupAdminId(stageId);
+  if (groupAdminId !== user.sub) return c.json({ error: "forbidden", message: "Only the group admin can assign roles." }, 403);
+
+  const parsed = setMemberRoleSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+  const target = await getMembership(stageId, targetRiderId);
+  if (!target) return c.json({ error: "not_a_member", message: "That rider isn't an active member of this circle." }, 400);
+
+  await db.execute({ sql: "UPDATE stage_members SET role = ? WHERE stage_id = ? AND rider_id = ?", args: [parsed.data.role, stageId, targetRiderId] });
+  return c.json({ ok: true });
+});
+
+/** Marks the RSLA live — the last step of the guided setup wizard.
+ * Requires at least a cycle and a non-empty approval workflow; members and
+ * roles are encouraged but not hard-blocked, since the group admin can add
+ * those later (per the deliberate "can skip and add later" design). */
+stageRoutes.post("/stages/:id/launch", async (c) => {
+  const stageId = c.req.param("id");
+  const user = c.get("user");
+  if (!(await canManageStage(stageId, user.sub))) {
+    return c.json({ error: "officers_only", message: "Only the group admin or an elected officer can do that." }, 403);
+  }
+  const cycle = await getActiveCycle(stageId);
+  if (!cycle) return c.json({ error: "no_active_cycle", message: "Add a savings cycle before launching." }, 400);
+  const wfRes = await db.execute({ sql: "SELECT 1 FROM stage_loan_approval_workflow WHERE cycle_id = ? LIMIT 1", args: [cycle.id] });
+  if (wfRes.rows.length === 0) return c.json({ error: "no_workflow", message: "Set up a loan approval workflow before launching." }, 400);
+
+  await db.execute({ sql: "UPDATE stages SET rsla_launched_at = datetime('now') WHERE id = ?", args: [stageId] });
+  await postSystemMessage(stageId, user.sub, "rsla_launched", "The RSLA is now live.");
+  return c.json({ ok: true });
+});
+
 const transferAdminSchema = z.object({ targetRiderId: z.string() });
 
 /** Onboarding + succession lever: the group admin invites members directly

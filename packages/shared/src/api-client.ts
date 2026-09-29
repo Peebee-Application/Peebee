@@ -1706,6 +1706,12 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async transferStageAdmin(stageId: string, targetRiderId: string) {
       return request<{ ok: true }>(`/v1/stages/${stageId}/transfer-admin`, { method: "POST", body: JSON.stringify({ targetRiderId }) });
     },
+    async setStageMemberRole(stageId: string, riderId: string, role: StageMemberRole) {
+      return request<{ ok: true }>(`/v1/stages/${stageId}/members/${riderId}/role`, { method: "PUT", body: JSON.stringify({ role }) });
+    },
+    async launchStage(stageId: string) {
+      return request<{ ok: true }>(`/v1/stages/${stageId}/launch`, { method: "POST" });
+    },
     async inviteToStage(stageId: string, phone: string) {
       return request<{ ok: true; riderId: string; name: string }>(`/v1/stages/${stageId}/invite`, { method: "POST", body: JSON.stringify({ phone }) });
     },

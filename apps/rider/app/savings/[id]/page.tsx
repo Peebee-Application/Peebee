@@ -20,6 +20,7 @@ export default function StageDetailPage() {
   const [inviteMessage, setInviteMessage] = useState<string | null>(null);
   const [transferTarget, setTransferTarget] = useState("");
   const [transferBusy, setTransferBusy] = useState(false);
+  const [view, setView] = useState<"member" | "admin">("member");
 
   useEffect(() => {
     api
@@ -33,6 +34,9 @@ export default function StageDetailPage() {
 
   const officers = detail.members.filter((m) => (OFFICER_ROLES as readonly string[]).includes(m.role));
   const canManage = detail.isGroupAdmin || (OFFICER_ROLES as readonly string[]).includes(detail.myRole);
+  const launched = !!detail.stage.rsla_launched_at;
+  const showMemberView = !detail.isGroupAdmin || view === "member";
+  const showAdminView = detail.isGroupAdmin && view === "admin";
 
   async function invite(e: React.FormEvent) {
     e.preventDefault();
@@ -78,9 +82,66 @@ export default function StageDetailPage() {
         </p>
       </div>
 
+      {detail.isGroupAdmin && (
+        <div className="flex gap-1 rounded-full bg-[rgb(var(--surface-muted))] p-1">
+          {(["member", "admin"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={`flex-1 rounded-full py-1.5 text-xs font-bold capitalize ${
+                view === v ? "bg-gold text-ink-gold" : "text-ink-500"
+              }`}
+            >
+              {v === "member" ? "Member" : "Administrator"}
+            </button>
+          ))}
+        </div>
+      )}
+
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-      {detail.cycle ? (
+      {!launched && (
+        <div className="home-card space-y-2 !border-l-4 !border-l-gold text-center">
+          <p className="text-sm font-bold text-ink">This RSLA isn&apos;t live yet</p>
+          <p className="text-xs text-ink-500">
+            {canManage
+              ? "Finish the setup steps, then launch it."
+              : "The group admin is still setting it up — check back soon."}
+          </p>
+          {canManage && (
+            <Link
+              href={`/savings/${stageId}/setup`}
+              className="flex min-h-11 w-full items-center justify-center rounded-full bg-gold px-4 text-sm font-bold text-ink-gold"
+            >
+              Continue setup
+            </Link>
+          )}
+        </div>
+      )}
+
+      {showAdminView && (
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="home-card !py-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Total members</p>
+            <p className="text-lg font-extrabold text-ink">{detail.members.length}</p>
+          </div>
+          <div className="home-card !py-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Group pot</p>
+            <p className="text-lg font-extrabold text-ink">{formatUgx(detail.pot)}</p>
+          </div>
+          <div className="home-card !py-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Out on loan</p>
+            <p className="text-lg font-extrabold text-ink">{formatUgx(detail.outOnLoan)}</p>
+          </div>
+          <div className="home-card !py-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Status</p>
+            <p className="text-lg font-extrabold text-ink">{launched ? "Live" : "Setting up"}</p>
+          </div>
+        </div>
+      )}
+
+      {showMemberView && launched && detail.cycle && (
         <div className="grid grid-cols-2 gap-2.5">
           <div className="home-card !py-3">
             <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Group pot</p>
@@ -91,21 +152,9 @@ export default function StageDetailPage() {
             <p className="text-lg font-extrabold text-ink">{formatUgx(detail.outOnLoan)}</p>
           </div>
         </div>
-      ) : (
-        <div className="home-card space-y-3 text-center">
-          <p className="text-sm text-ink-500">This circle hasn&apos;t started a savings cycle yet.</p>
-          {canManage && (
-            <Link
-              href={`/savings/${stageId}/cycle-setup`}
-              className="flex min-h-11 w-full items-center justify-center rounded-full bg-gold px-4 text-sm font-bold text-ink-gold"
-            >
-              Set up and start a cycle
-            </Link>
-          )}
-        </div>
       )}
 
-      {officers.length > 0 && (
+      {showMemberView && officers.length > 0 && (
         <div>
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">Officers</p>
           <div className="flex gap-2">
@@ -126,7 +175,7 @@ export default function StageDetailPage() {
         </div>
       )}
 
-      {detail.cycle && (
+      {showMemberView && launched && detail.cycle && (
         <div className="space-y-2">
           <Link
             href={`/savings/${stageId}/contribute`}
@@ -171,16 +220,24 @@ export default function StageDetailPage() {
         </Link>
       </div>
 
-      {canManage && (
-        <Link
-          href={`/savings/${stageId}/cycle-setup`}
-          className="flex min-h-11 w-full items-center justify-center rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4 text-sm font-bold text-ink"
-        >
-          Cycle & loan approval settings
-        </Link>
+      {canManage && (!detail.isGroupAdmin || showAdminView) && (
+        <>
+          <Link
+            href={`/savings/${stageId}/setup`}
+            className="flex min-h-11 w-full items-center justify-center rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4 text-sm font-bold text-ink"
+          >
+            RSLA setup steps
+          </Link>
+          <Link
+            href={`/savings/${stageId}/cycle-setup`}
+            className="flex min-h-11 w-full items-center justify-center rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4 text-sm font-bold text-ink"
+          >
+            Cycle & loan approval settings
+          </Link>
+        </>
       )}
 
-      {detail.isGroupAdmin && (
+      {showAdminView && (
         <div className="home-card space-y-4">
           <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Group admin</p>
 

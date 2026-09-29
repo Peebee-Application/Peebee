@@ -1530,6 +1530,10 @@ export type Stage = {
   rejection_reason: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
+  /** Null while the group admin is still working through the guided setup
+   * wizard (cycle, approval workflow, members, roles) — see
+   * POST /stages/:id/launch. */
+  rsla_launched_at: string | null;
   created_at: string;
   updated_at: string;
   /** Only present on GET /stages/mine. */
