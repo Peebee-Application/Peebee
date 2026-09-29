@@ -1,7 +1,7 @@
 "use client";
 
-import { isPracticeMode, type MerchantPayment, type OrderDetail } from "@tuma/shared";
-import { MapPin, MessageCircle, Pencil, X } from "lucide-react";
+import { isPracticeMode, isProSubscriptionCurrent, type MerchantPayment, type OrderDetail } from "@tuma/shared";
+import { Crown, MapPin, MessageCircle, Pencil, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -12,6 +12,7 @@ import { LugandaListPlayer } from "../../../components/LugandaListPlayer";
 import { VoiceNotePlayer } from "../../../components/VoiceNotePlayer";
 import { VoiceReasonRecorder } from "../../../components/VoiceReasonRecorder";
 import { api, errorMessage } from "../../../lib/api";
+import { useAuth } from "../../../lib/auth-context";
 import { useTranslate } from "../../../lib/i18n";
 import { formatUgx, jobTitle, stageLabel } from "../../../lib/order-display";
 import { useLivePolling } from "../../../lib/use-live-polling";
@@ -20,6 +21,7 @@ type PendingEdit = { originalName: string; substituteName: string; priceDelta: n
 
 export default function JobDetailPage() {
   const t = useTranslate();
+  const { rider } = useAuth();
   const params = useParams<{ id: string }>();
   const orderId = params.id;
   const router = useRouter();
@@ -43,11 +45,15 @@ export default function JobDetailPage() {
   const [receiptReference, setReceiptReference] = useState("");
   const [merchantPayment, setMerchantPayment] = useState<MerchantPayment | null>(null);
   const [lugandaAudioEnabled, setLugandaAudioEnabled] = useState(false);
+  const [lugandaAudioRequiresPro, setLugandaAudioRequiresPro] = useState(false);
 
   useEffect(() => {
     api
       .getSettings()
-      .then(({ settings }) => setLugandaAudioEnabled(settings.lugandaAudioEnabled))
+      .then(({ settings }) => {
+        setLugandaAudioEnabled(settings.lugandaAudioEnabled);
+        setLugandaAudioRequiresPro(settings.lugandaAudioRequiresPro);
+      })
       .catch(() => {});
   }, []);
 
@@ -272,7 +278,19 @@ export default function JobDetailPage() {
 
       {order.voice_note_key && <VoiceNotePlayer orderId={orderId} />}
 
-      {lugandaAudioEnabled && items.length > 0 && <LugandaListPlayer orderId={orderId} />}
+      {lugandaAudioEnabled && items.length > 0 && (
+        lugandaAudioRequiresPro && !isProSubscriptionCurrent(rider) ? (
+          <Link
+            href="/account#rider-pro"
+            className="flex items-center gap-2 rounded-full border border-gold bg-gold/10 px-4 py-2 text-sm font-bold text-ink"
+          >
+            <Crown className="h-4 w-4 text-gold" strokeWidth={2} aria-hidden />
+            Upgrade to Pro to listen in Luganda
+          </Link>
+        ) : (
+          <LugandaListPlayer orderId={orderId} />
+        )
+      )}
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 

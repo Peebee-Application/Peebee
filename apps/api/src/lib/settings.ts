@@ -171,6 +171,19 @@ const DEFAULTS = {
   monetization_subscription_amount: "0",
   monetization_subscription_cadence: "weekly",
 
+  /** Rider "Pro" — a separate, optional paid tier from the job-activation
+   * subscription above (see apps/api/src/riders/pro-subscription.ts).
+   * Unlocks whichever premium features individually opt into requiring it
+   * — see luganda_audio_requires_pro and vsla_requires_pro below. Unlike
+   * the base subscription, both pricing modes can be enabled at once; a
+   * rider then picks which to buy. */
+  pro_subscription_enabled: "0",
+  pro_recurring_enabled: "0",
+  pro_recurring_amount: "0",
+  pro_recurring_cadence: "weekly",
+  pro_onetime_enabled: "0",
+  pro_onetime_amount: "0",
+
   /** Rider Stage Savings Circles — a VSLA-style group savings/loans
    * feature. Every knob here exists so admin can change behavior without
    * a redeploy; see apps/api/src/stages/routes.ts for where each is read. */
@@ -187,6 +200,10 @@ const DEFAULTS = {
   vsla_admin_ledger_visibility: "read_only_all", // "read_only_all" | "private_per_stage"
   vsla_unconfirmed_intent_escalation_hours: "6",
   vsla_feature_placement: "home_card_and_screen", // "home_card_and_screen" | "bottom_nav_tab" | "account_only"
+  /** Off by default so nothing changes until an admin explicitly opts in.
+   * A rider who already has a stage membership row keeps free access even
+   * after this is turned on — see stages/routes.ts's grandfather check. */
+  vsla_requires_pro: "0",
 
   /** Reads a rider's shopping list aloud in Luganda via Sunbird AI (see
    * ../speech/sunbird.ts) — for riders who aren't comfortable reading the
@@ -198,6 +215,8 @@ const DEFAULTS = {
   luganda_audio_enabled: "0",
   luganda_audio_voices: '[{"id":"waxal_lug_0004","label":"Voice 1"}]',
   luganda_audio_default_voice: "waxal_lug_0004",
+  /** Off by default so nothing changes until an admin explicitly opts in. */
+  luganda_audio_requires_pro: "0",
 } as const;
 
 export type SettingKey = keyof typeof DEFAULTS;
@@ -552,6 +571,52 @@ export async function setMonetizationSettings(input: Partial<MonetizationSetting
   await Promise.all(writes);
 }
 
+/** Rider "Pro" — deliberately separate from MonetizationSettings' own
+ * subscriptionEnabled/Mode/Amount/Cadence above, which gate whether a
+ * rider is matchable for jobs at all. This is an independent, optional
+ * paid tier that unlocks premium features (see LugandaAudioSettings.
+ * requiresPro, VslaSettings.requiresPro) — a rider can be job-activated
+ * without being Pro, or Pro without paying the job-activation fee. Unlike
+ * the base subscription, both pricing modes may be on at once. */
+export type ProSettings = {
+  enabled: boolean;
+  recurringEnabled: boolean;
+  recurringAmount: number;
+  recurringCadence: SubscriptionCadence;
+  onetimeEnabled: boolean;
+  onetimeAmount: number;
+};
+
+export async function getProSettings(): Promise<ProSettings> {
+  const [enabled, recurringEnabled, recurringAmount, recurringCadence, onetimeEnabled, onetimeAmount] = await Promise.all([
+    getSetting("pro_subscription_enabled"),
+    getSetting("pro_recurring_enabled"),
+    getSetting("pro_recurring_amount"),
+    getSetting("pro_recurring_cadence"),
+    getSetting("pro_onetime_enabled"),
+    getSetting("pro_onetime_amount"),
+  ]);
+  return {
+    enabled: enabled === "1",
+    recurringEnabled: recurringEnabled === "1",
+    recurringAmount: Number(recurringAmount) || 0,
+    recurringCadence: asSubscriptionCadence(recurringCadence),
+    onetimeEnabled: onetimeEnabled === "1",
+    onetimeAmount: Number(onetimeAmount) || 0,
+  };
+}
+
+export async function setProSettings(input: Partial<ProSettings>): Promise<void> {
+  const writes: Promise<void>[] = [];
+  if (input.enabled != null) writes.push(setSetting("pro_subscription_enabled", input.enabled ? "1" : "0"));
+  if (input.recurringEnabled != null) writes.push(setSetting("pro_recurring_enabled", input.recurringEnabled ? "1" : "0"));
+  if (input.recurringAmount != null) writes.push(setSetting("pro_recurring_amount", String(input.recurringAmount)));
+  if (input.recurringCadence != null) writes.push(setSetting("pro_recurring_cadence", input.recurringCadence));
+  if (input.onetimeEnabled != null) writes.push(setSetting("pro_onetime_enabled", input.onetimeEnabled ? "1" : "0"));
+  if (input.onetimeAmount != null) writes.push(setSetting("pro_onetime_amount", String(input.onetimeAmount)));
+  await Promise.all(writes);
+}
+
 export type VslaStageCreationMode = "admin_only" | "self_service";
 export type VslaContributionRecorderRole = "any_officer" | "treasurer_only";
 export type VslaAdminLedgerVisibility = "read_only_all" | "private_per_stage";
@@ -570,6 +635,11 @@ export type VslaSettings = {
   adminLedgerVisibility: VslaAdminLedgerVisibility;
   unconfirmedIntentEscalationHours: number;
   featurePlacement: VslaFeaturePlacement;
+  /** When on, joining or creating a new stage requires an active Pro
+   * subscription — except for a rider who already has a stage membership
+   * row (grandfathered, per the deliberate "current users keep it free"
+   * decision). See stages/routes.ts's assertProIfRequired. */
+  requiresPro: boolean;
 };
 
 export async function getVslaSettings(): Promise<VslaSettings> {
@@ -586,6 +656,7 @@ export async function getVslaSettings(): Promise<VslaSettings> {
     adminLedgerVisibility,
     unconfirmedIntentEscalationHours,
     featurePlacement,
+    requiresPro,
   ] = await Promise.all([
     getSetting("vsla_stage_creation_mode"),
     getSetting("vsla_loan_interest_enabled"),
@@ -599,6 +670,7 @@ export async function getVslaSettings(): Promise<VslaSettings> {
     getSetting("vsla_admin_ledger_visibility"),
     getSetting("vsla_unconfirmed_intent_escalation_hours"),
     getSetting("vsla_feature_placement"),
+    getSetting("vsla_requires_pro"),
   ]);
   return {
     stageCreationMode: stageCreationMode === "self_service" ? "self_service" : "admin_only",
@@ -616,6 +688,7 @@ export async function getVslaSettings(): Promise<VslaSettings> {
       featurePlacement === "bottom_nav_tab" || featurePlacement === "account_only" || featurePlacement === "wallet_card"
         ? featurePlacement
         : "home_card_and_screen",
+    requiresPro: requiresPro === "1",
   };
 }
 
@@ -647,6 +720,7 @@ export async function setVslaSettings(input: Partial<VslaSettings>): Promise<voi
     writes.push(setSetting("vsla_unconfirmed_intent_escalation_hours", String(input.unconfirmedIntentEscalationHours)));
   }
   if (input.featurePlacement != null) writes.push(setSetting("vsla_feature_placement", input.featurePlacement));
+  if (input.requiresPro != null) writes.push(setSetting("vsla_requires_pro", input.requiresPro ? "1" : "0"));
   await Promise.all(writes);
 }
 
@@ -656,6 +730,9 @@ export type LugandaAudioSettings = {
   enabled: boolean;
   voices: LugandaVoice[];
   defaultVoice: string;
+  /** When on, GET /orders/:id/list-audio requires the order's rider to
+   * have an active Pro subscription. See orders/routes.ts. */
+  requiresPro: boolean;
 };
 
 function parseLugandaVoices(raw: string): LugandaVoice[] {
@@ -671,12 +748,13 @@ function parseLugandaVoices(raw: string): LugandaVoice[] {
 }
 
 export async function getLugandaAudioSettings(): Promise<LugandaAudioSettings> {
-  const [enabled, voicesRaw, defaultVoice] = await Promise.all([
+  const [enabled, voicesRaw, defaultVoice, requiresPro] = await Promise.all([
     getSetting("luganda_audio_enabled"),
     getSetting("luganda_audio_voices"),
     getSetting("luganda_audio_default_voice"),
+    getSetting("luganda_audio_requires_pro"),
   ]);
-  return { enabled: enabled === "1", voices: parseLugandaVoices(voicesRaw), defaultVoice };
+  return { enabled: enabled === "1", voices: parseLugandaVoices(voicesRaw), defaultVoice, requiresPro: requiresPro === "1" };
 }
 
 export async function setLugandaAudioSettings(input: Partial<LugandaAudioSettings>): Promise<void> {
@@ -684,5 +762,6 @@ export async function setLugandaAudioSettings(input: Partial<LugandaAudioSetting
   if (input.enabled != null) writes.push(setSetting("luganda_audio_enabled", input.enabled ? "1" : "0"));
   if (input.voices != null) writes.push(setSetting("luganda_audio_voices", JSON.stringify(input.voices)));
   if (input.defaultVoice != null) writes.push(setSetting("luganda_audio_default_voice", input.defaultVoice));
+  if (input.requiresPro != null) writes.push(setSetting("luganda_audio_requires_pro", input.requiresPro ? "1" : "0"));
   await Promise.all(writes);
 }

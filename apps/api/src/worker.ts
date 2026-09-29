@@ -2,6 +2,7 @@ import app from "./app.js";
 import { setAiBinding, type AiBinding } from "./ai/binding.js";
 import { setD1Binding, type D1Database } from "./db/client.js";
 import { renewSubscriptions } from "./riders/subscription.js";
+import { renewProSubscriptions } from "./riders/pro-subscription.js";
 import { sweepProviderOperations } from "./payments/reconciliation.js";
 import { setR2Binding, type R2Bucket } from "./storage/r2.js";
 import { sweepStageEscalations } from "./stages/escalation.js";
@@ -51,6 +52,11 @@ export default {
         renewSubscriptions()
           .then((result) => console.log("Subscription renewal sweep:", JSON.stringify(result)))
           .catch((err) => console.error("Subscription renewal sweep failed:", err)),
+      );
+      ctx.waitUntil(
+        renewProSubscriptions()
+          .then((result) => console.log("Pro subscription renewal sweep:", JSON.stringify(result)))
+          .catch((err) => console.error("Pro subscription renewal sweep failed:", err)),
       );
     }
   },

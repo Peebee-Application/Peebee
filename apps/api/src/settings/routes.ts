@@ -18,6 +18,7 @@ import {
   getSetting,
   getPaymentsDemoMode,
   getPlatformEnvironment,
+  getProSettings,
   getRiderReserveSettings,
   getVoiceNoteMaxSeconds,
   getVslaSettings,
@@ -31,6 +32,7 @@ import {
   setNavMode,
   setPaymentsDemoMode,
   setPlatformEnvironment,
+  setProSettings,
   setRiderReserveSettings,
   setSetting,
   setVslaSettings,
@@ -60,7 +62,7 @@ import { paymentsIntegrationStatus } from "../payments/service.js";
 export const settingsRoutes = new Hono();
 
 async function fullSettings() {
-  const [delivery, matching, activeProviders, demoMode, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla, lugandaAudio] =
+  const [delivery, matching, activeProviders, demoMode, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla, lugandaAudio, pro] =
     await Promise.all([
       getDeliverySettings(),
       getMatchingSettings(),
@@ -81,6 +83,7 @@ async function fullSettings() {
       getSetting("merchant_withdrawals_frozen"),
       getVslaSettings(),
       getLugandaAudioSettings(),
+      getProSettings(),
     ]);
 
   // The active provider's own key/token, handed to every signed-in client
@@ -152,9 +155,17 @@ async function fullSettings() {
     vslaUnconfirmedIntentEscalationHours: vsla.unconfirmedIntentEscalationHours,
     vslaFeaturePlacement: vsla.featurePlacement,
     vslaDefaultSharePrice: vsla.defaultSharePrice,
+    vslaRequiresPro: vsla.requiresPro,
     lugandaAudioEnabled: lugandaAudio.enabled,
     lugandaAudioVoices: lugandaAudio.voices,
     lugandaAudioDefaultVoice: lugandaAudio.defaultVoice,
+    lugandaAudioRequiresPro: lugandaAudio.requiresPro,
+    proSubscriptionEnabled: pro.enabled,
+    proRecurringEnabled: pro.recurringEnabled,
+    proRecurringAmount: pro.recurringAmount,
+    proRecurringCadence: pro.recurringCadence,
+    proOnetimeEnabled: pro.onetimeEnabled,
+    proOnetimeAmount: pro.onetimeAmount,
   };
 }
 
@@ -301,10 +312,19 @@ const updateSchema = z.object({
   vslaUnconfirmedIntentEscalationHours: z.number().int().positive().max(168).optional(),
   vslaFeaturePlacement: z.enum(["home_card_and_screen", "bottom_nav_tab", "account_only", "wallet_card"]).optional(),
   vslaDefaultSharePrice: z.number().int().positive().optional(),
+  vslaRequiresPro: z.boolean().optional(),
   // Luganda list-reading — see ../lib/settings.ts getLugandaAudioSettings.
   lugandaAudioEnabled: z.boolean().optional(),
   lugandaAudioVoices: z.array(z.object({ id: z.string().min(1).max(60), label: z.string().min(1).max(60) })).max(20).optional(),
   lugandaAudioDefaultVoice: z.string().min(1).max(60).optional(),
+  lugandaAudioRequiresPro: z.boolean().optional(),
+  // Rider Pro — see ../lib/settings.ts getProSettings.
+  proSubscriptionEnabled: z.boolean().optional(),
+  proRecurringEnabled: z.boolean().optional(),
+  proRecurringAmount: z.number().min(0).max(1_000_000).optional(),
+  proRecurringCadence: z.enum(["daily", "weekly", "monthly"]).optional(),
+  proOnetimeEnabled: z.boolean().optional(),
+  proOnetimeAmount: z.number().min(0).max(1_000_000).optional(),
 });
 
 const PAYMENTS_FIELDS = [
@@ -332,6 +352,12 @@ const PAYMENTS_FIELDS = [
   "subscriptionMode",
   "subscriptionAmount",
   "subscriptionCadence",
+  "proSubscriptionEnabled",
+  "proRecurringEnabled",
+  "proRecurringAmount",
+  "proRecurringCadence",
+  "proOnetimeEnabled",
+  "proOnetimeAmount",
 ] as const;
 
 settingsRoutes.put(
@@ -451,12 +477,23 @@ settingsRoutes.put(
       unconfirmedIntentEscalationHours: parsed.data.vslaUnconfirmedIntentEscalationHours,
       featurePlacement: parsed.data.vslaFeaturePlacement,
       defaultSharePrice: parsed.data.vslaDefaultSharePrice,
+      requiresPro: parsed.data.vslaRequiresPro,
     });
 
     await setLugandaAudioSettings({
       enabled: parsed.data.lugandaAudioEnabled,
       voices: parsed.data.lugandaAudioVoices,
       defaultVoice: parsed.data.lugandaAudioDefaultVoice,
+      requiresPro: parsed.data.lugandaAudioRequiresPro,
+    });
+
+    await setProSettings({
+      enabled: parsed.data.proSubscriptionEnabled,
+      recurringEnabled: parsed.data.proRecurringEnabled,
+      recurringAmount: parsed.data.proRecurringAmount,
+      recurringCadence: parsed.data.proRecurringCadence,
+      onetimeEnabled: parsed.data.proOnetimeEnabled,
+      onetimeAmount: parsed.data.proOnetimeAmount,
     });
 
     const after = await fullSettings();

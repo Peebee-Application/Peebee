@@ -29,6 +29,7 @@ export default function StageSavingsSettingsPage() {
   const [unconfirmedIntentEscalationHours, setUnconfirmedIntentEscalationHours] = useState("6");
   const [featurePlacement, setFeaturePlacement] = useState<VslaFeaturePlacement>("home_card_and_screen");
   const [defaultSharePrice, setDefaultSharePrice] = useState("1000");
+  const [requiresPro, setRequiresPro] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -51,6 +52,7 @@ export default function StageSavingsSettingsPage() {
         setUnconfirmedIntentEscalationHours(String(settings.vslaUnconfirmedIntentEscalationHours));
         setFeaturePlacement(settings.vslaFeaturePlacement);
         setDefaultSharePrice(String(settings.vslaDefaultSharePrice));
+        setRequiresPro(settings.vslaRequiresPro);
       })
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false));
@@ -75,6 +77,7 @@ export default function StageSavingsSettingsPage() {
         vslaUnconfirmedIntentEscalationHours: Number(unconfirmedIntentEscalationHours),
         vslaFeaturePlacement: featurePlacement,
         vslaDefaultSharePrice: Number(defaultSharePrice),
+        vslaRequiresPro: requiresPro,
       });
       setStageCreationMode(res.settings.vslaStageCreationMode);
       setLoanInterestEnabled(res.settings.vslaLoanInterestEnabled);
@@ -88,6 +91,7 @@ export default function StageSavingsSettingsPage() {
       setUnconfirmedIntentEscalationHours(String(res.settings.vslaUnconfirmedIntentEscalationHours));
       setFeaturePlacement(res.settings.vslaFeaturePlacement);
       setDefaultSharePrice(String(res.settings.vslaDefaultSharePrice));
+      setRequiresPro(res.settings.vslaRequiresPro);
       setSaved(true);
     } catch (err) {
       setError(errorMessage(err));
@@ -282,6 +286,24 @@ export default function StageSavingsSettingsPage() {
             <option value="account_only">Tucked under Account</option>
             <option value="wallet_card">A card on Wallet, below the balance</option>
           </select>
+        </section>
+
+        <section className="home-card space-y-3">
+          <label className="flex items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={requiresPro}
+              onChange={(e) => setRequiresPro(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-gold"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-ink">Require a Pro subscription</span>
+              <span className="block text-xs text-ink-500">
+                Only affects joining or creating a stage from here on — a rider who already belongs to a stage
+                keeps free access, forever. Set the Pro price under Settings → Rider Pro.
+              </span>
+            </span>
+          </label>
         </section>
 
         <SettingsSaveBar busy={busy} error={error} saved={saved} />

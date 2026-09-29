@@ -16,6 +16,7 @@ import { ChangePasswordPanel } from "../../components/ChangePasswordPanel";
 import { LanguageSettings } from "../../components/LanguageSettings";
 import { LugandaVoiceSettings } from "../../components/LugandaVoiceSettings";
 import { MobileNumberManager } from "../../components/MobileNumberManager";
+import { ProSubscriptionCard } from "../../components/ProSubscriptionCard";
 import { PracticeModeCard } from "../../components/PracticeMode";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
@@ -268,6 +269,8 @@ export default function AccountPage() {
       </section>
 
       <SubscriptionCard />
+
+      <ProSubscriptionCard />
 
       <PracticeModeCard role="rider" />
 

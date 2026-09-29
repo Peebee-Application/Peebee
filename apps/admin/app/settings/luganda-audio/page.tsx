@@ -8,6 +8,7 @@ import { api, errorMessage } from "../../../lib/api";
 
 export default function LugandaAudioSettingsPage() {
   const [enabled, setEnabled] = useState(false);
+  const [requiresPro, setRequiresPro] = useState(false);
   const [voices, setVoices] = useState<LugandaVoice[]>([]);
   const [defaultVoice, setDefaultVoice] = useState("");
   const [newId, setNewId] = useState("");
@@ -22,6 +23,7 @@ export default function LugandaAudioSettingsPage() {
       .getSettings()
       .then(({ settings }) => {
         setEnabled(settings.lugandaAudioEnabled);
+        setRequiresPro(settings.lugandaAudioRequiresPro);
         setVoices(settings.lugandaAudioVoices);
         setDefaultVoice(settings.lugandaAudioDefaultVoice);
       })
@@ -50,10 +52,12 @@ export default function LugandaAudioSettingsPage() {
     try {
       const res = await api.adminUpdateSettings({
         lugandaAudioEnabled: enabled,
+        lugandaAudioRequiresPro: requiresPro,
         lugandaAudioVoices: voices,
         lugandaAudioDefaultVoice: defaultVoice,
       });
       setEnabled(res.settings.lugandaAudioEnabled);
+      setRequiresPro(res.settings.lugandaAudioRequiresPro);
       setVoices(res.settings.lugandaAudioVoices);
       setDefaultVoice(res.settings.lugandaAudioDefaultVoice);
       setSaved(true);
@@ -74,6 +78,13 @@ export default function LugandaAudioSettingsPage() {
           </label>
           <p className="text-xs text-ink-500">
             Needs a working Sunbird AI API key (set as the SUNBIRD_API_KEY secret) before it does anything.
+          </p>
+          <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <input type="checkbox" checked={requiresPro} onChange={(e) => setRequiresPro(e.target.checked)} />
+            Require a Pro subscription
+          </label>
+          <p className="text-xs text-ink-500">
+            Set the Pro price under Settings → Rider Pro. Off by default — nothing changes until you turn this on.
           </p>
         </section>
 
