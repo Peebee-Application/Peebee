@@ -1039,6 +1039,50 @@ stageRoutes.get("/stages/:id/reports", async (c) => {
   const outstandingTotal = Number(outstandingRes.rows[0]?.total) || 0;
   const outstandingRepaid = Number(outstandingRes.rows[0]?.repaid) || 0;
 
+  const [contribByMonth, loansByMonth, repayByMonth] = await Promise.all([
+    db.execute({
+      sql: `SELECT strftime('%Y-%m', created_at) AS month, COALESCE(SUM(amount), 0) AS total
+            FROM stage_contributions WHERE stage_id = ? AND status = 'confirmed'
+              AND created_at >= date('now', '-11 months', 'start of month')
+            GROUP BY month`,
+      args: [stageId],
+    }),
+    db.execute({
+      sql: `SELECT strftime('%Y-%m', requested_at) AS month, COALESCE(SUM(amount), 0) AS total
+            FROM stage_loans WHERE stage_id = ? AND status IN ('disbursed', 'repaid', 'defaulted')
+              AND requested_at >= date('now', '-11 months', 'start of month')
+            GROUP BY month`,
+      args: [stageId],
+    }),
+    db.execute({
+      sql: `SELECT strftime('%Y-%m', r.created_at) AS month, COALESCE(SUM(r.amount), 0) AS total
+            FROM stage_repayments r JOIN stage_loans l ON l.id = r.loan_id
+            WHERE l.stage_id = ? AND r.status = 'confirmed'
+              AND r.created_at >= date('now', '-11 months', 'start of month')
+            GROUP BY month`,
+      args: [stageId],
+    }),
+  ]);
+  const byMonth = (rows: { month: string; total: number }[]) =>
+    new Map(rows.map((r) => [r.month, Number(r.total) || 0]));
+  const contribMap = byMonth(contribByMonth.rows as unknown as { month: string; total: number }[]);
+  const loansMap = byMonth(loansByMonth.rows as unknown as { month: string; total: number }[]);
+  const repayMap = byMonth(repayByMonth.rows as unknown as { month: string; total: number }[]);
+  const monthlySeries: { month: string; contributions: number; loans: number; repayments: number }[] = [];
+  const cursor = new Date();
+  cursor.setDate(1);
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(cursor);
+    d.setMonth(d.getMonth() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    monthlySeries.push({
+      month: key,
+      contributions: contribMap.get(key) ?? 0,
+      loans: loansMap.get(key) ?? 0,
+      repayments: repayMap.get(key) ?? 0,
+    });
+  }
+
   return c.json({
     cycle: cycle ?? null,
     totalSaved,
@@ -1061,6 +1105,7 @@ stageRoutes.get("/stages/:id/reports", async (c) => {
         sharePrice: Number(row.share_price) || 0,
       };
     }),
+    monthlySeries,
   });
 });
 

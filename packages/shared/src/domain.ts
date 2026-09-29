@@ -1499,6 +1499,10 @@ export type StageReports = {
   loansCount: { pending: number; approved: number; disbursed: number; repaid: number; rejected: number; defaulted: number };
   topSavers: { rider_id: string; name: string; saved: number; shares: number }[];
   cycleHistory: { id: string; start_date: string; end_date: string; status: string; totalSaved: number; sharePrice: number }[];
+  /** Last 12 months, oldest first — powers the Contributions/Loans/Repayments
+   * trend charts on the rider Reports screen, mirroring the reference VSLA
+   * platform's "Contributions Per Month" / "Loans Per Month" charts. */
+  monthlySeries: { month: string; contributions: number; loans: number; repayments: number }[];
 };
 
 export type StageContributionStatus = "pending" | "confirmed" | "cancelled" | "disputed";
