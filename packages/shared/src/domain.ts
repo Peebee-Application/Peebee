@@ -312,6 +312,12 @@ export type VslaSettings = {
    * subscription — except a rider who already has a stage membership,
    * grandfathered so nothing is taken away from existing members. */
   vslaRequiresPro: boolean;
+  /** Architecture hook for after Tuma is BOU-licensed to hold funds
+   * directly. Off (non-custodial) by default and today — every RSLA
+   * money-moving step stays a two-part intent/officer-confirmed record
+   * between members' own phones/hands, never through a Tuma-controlled
+   * account. This flag doesn't change that behavior yet. */
+  vslaCustodialMode: boolean;
 };
 
 export type NavMode = "external" | "in_app";

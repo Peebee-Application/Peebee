@@ -203,6 +203,14 @@ const DEFAULTS = {
    * A rider who already has a stage membership row keeps free access even
    * after this is turned on — see stages/routes.ts's grandfather check. */
   vsla_requires_pro: "0",
+  /** Architecture hook for after Tuma is BOU-licensed to hold funds
+   * directly. Off (non-custodial) by default and today: every RSLA
+   * money-moving step stays a two-part "intent, then officer-confirmed"
+   * record between members' own phones/hands — Tuma never touches it.
+   * This flag doesn't change that behavior yet; it only exists so the
+   * platform admin can see and later flip the mode once custody is
+   * actually implemented. */
+  vsla_custodial_mode: "0",
 
   /** Reads a rider's shopping list aloud in Luganda via Sunbird AI (see
    * ../speech/sunbird.ts) — for riders who aren't comfortable reading the
@@ -637,6 +645,9 @@ export type VslaSettings = {
    * row (grandfathered, per the deliberate "current users keep it free"
    * decision). See stages/routes.ts's assertProIfRequired. */
   requiresPro: boolean;
+  /** Architecture hook only — see the vsla_custodial_mode default comment.
+   * Doesn't change any money-flow behavior yet. */
+  custodialMode: boolean;
 };
 
 export async function getVslaSettings(): Promise<VslaSettings> {
@@ -653,6 +664,7 @@ export async function getVslaSettings(): Promise<VslaSettings> {
     unconfirmedIntentEscalationHours,
     featurePlacement,
     requiresPro,
+    custodialMode,
   ] = await Promise.all([
     getSetting("vsla_loan_interest_enabled"),
     getSetting("vsla_default_interest_rate"),
@@ -666,6 +678,7 @@ export async function getVslaSettings(): Promise<VslaSettings> {
     getSetting("vsla_unconfirmed_intent_escalation_hours"),
     getSetting("vsla_feature_placement"),
     getSetting("vsla_requires_pro"),
+    getSetting("vsla_custodial_mode"),
   ]);
   return {
     loanInterestEnabled: loanInterestEnabled === "1",
@@ -683,6 +696,7 @@ export async function getVslaSettings(): Promise<VslaSettings> {
         ? featurePlacement
         : "home_card_and_screen",
     requiresPro: requiresPro === "1",
+    custodialMode: custodialMode === "1",
   };
 }
 
@@ -714,6 +728,7 @@ export async function setVslaSettings(input: Partial<VslaSettings>): Promise<voi
   }
   if (input.featurePlacement != null) writes.push(setSetting("vsla_feature_placement", input.featurePlacement));
   if (input.requiresPro != null) writes.push(setSetting("vsla_requires_pro", input.requiresPro ? "1" : "0"));
+  if (input.custodialMode != null) writes.push(setSetting("vsla_custodial_mode", input.custodialMode ? "1" : "0"));
   await Promise.all(writes);
 }
 

@@ -155,6 +155,7 @@ async function fullSettings() {
     vslaFeaturePlacement: vsla.featurePlacement,
     vslaDefaultSharePrice: vsla.defaultSharePrice,
     vslaRequiresPro: vsla.requiresPro,
+    vslaCustodialMode: vsla.custodialMode,
     lugandaAudioEnabled: lugandaAudio.enabled,
     lugandaAudioVoices: lugandaAudio.voices,
     lugandaAudioDefaultVoice: lugandaAudio.defaultVoice,
@@ -311,6 +312,7 @@ const updateSchema = z.object({
   vslaFeaturePlacement: z.enum(["home_card_and_screen", "bottom_nav_tab", "account_only", "wallet_card"]).optional(),
   vslaDefaultSharePrice: z.number().int().positive().optional(),
   vslaRequiresPro: z.boolean().optional(),
+  vslaCustodialMode: z.boolean().optional(),
   // Luganda list-reading — see ../lib/settings.ts getLugandaAudioSettings.
   lugandaAudioEnabled: z.boolean().optional(),
   lugandaAudioVoices: z.array(z.object({ id: z.string().min(1).max(60), label: z.string().min(1).max(60) })).max(20).optional(),
@@ -475,6 +477,7 @@ settingsRoutes.put(
       featurePlacement: parsed.data.vslaFeaturePlacement,
       defaultSharePrice: parsed.data.vslaDefaultSharePrice,
       requiresPro: parsed.data.vslaRequiresPro,
+      custodialMode: parsed.data.vslaCustodialMode,
     });
 
     await setLugandaAudioSettings({

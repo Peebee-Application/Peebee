@@ -28,6 +28,7 @@ export default function StageSavingsSettingsPage() {
   const [featurePlacement, setFeaturePlacement] = useState<VslaFeaturePlacement>("home_card_and_screen");
   const [defaultSharePrice, setDefaultSharePrice] = useState("1000");
   const [requiresPro, setRequiresPro] = useState(false);
+  const [custodialMode, setCustodialMode] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -50,6 +51,7 @@ export default function StageSavingsSettingsPage() {
         setFeaturePlacement(settings.vslaFeaturePlacement);
         setDefaultSharePrice(String(settings.vslaDefaultSharePrice));
         setRequiresPro(settings.vslaRequiresPro);
+        setCustodialMode(settings.vslaCustodialMode);
       })
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false));
@@ -74,6 +76,7 @@ export default function StageSavingsSettingsPage() {
         vslaFeaturePlacement: featurePlacement,
         vslaDefaultSharePrice: Number(defaultSharePrice),
         vslaRequiresPro: requiresPro,
+        vslaCustodialMode: custodialMode,
       });
       setLoanInterestEnabled(res.settings.vslaLoanInterestEnabled);
       setDefaultInterestRate(String(res.settings.vslaDefaultInterestRate));
@@ -87,6 +90,7 @@ export default function StageSavingsSettingsPage() {
       setFeaturePlacement(res.settings.vslaFeaturePlacement);
       setDefaultSharePrice(String(res.settings.vslaDefaultSharePrice));
       setRequiresPro(res.settings.vslaRequiresPro);
+      setCustodialMode(res.settings.vslaCustodialMode);
       setSaved(true);
     } catch (err) {
       setError(errorMessage(err));
@@ -286,6 +290,26 @@ export default function StageSavingsSettingsPage() {
               <span className="block text-xs text-ink-500">
                 Only affects joining or creating a stage from here on — a rider who already belongs to a stage
                 keeps free access, forever. Set the Pro price under Settings → Monetization.
+              </span>
+            </span>
+          </label>
+        </section>
+
+        <section className="home-card space-y-3">
+          <h2 className="text-sm font-semibold text-ink">Fund handling</h2>
+          <label className="flex items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={custodialMode}
+              onChange={(e) => setCustodialMode(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-gold"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-ink">Custodial mode (not yet functional)</span>
+              <span className="block text-xs text-ink-500">
+                Placeholder for once Tuma is BOU-licensed to hold funds directly. Off (non-custodial) is the only
+                real mode right now — every RSLA money step stays a record between members&apos; own phones/hands,
+                never through a Tuma-controlled account. Turning this on doesn&apos;t change that behavior yet.
               </span>
             </span>
           </label>
