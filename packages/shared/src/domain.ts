@@ -249,6 +249,9 @@ export type DeliverySettings = {
   mapsThunderforestApiKey: string | null;
   mapsJawgAccessToken: string | null;
   mapsTomtomApiKey: string | null;
+  /** Which Jawg style light mode uses by default (dark mode is always
+   * Jawg Dark); each user can still override it in Appearance settings. */
+  mapsJawgLightStyle: JawgLightStyle;
   /** Whether the rider app's "Start Navigation" sends riders out to Google
    * Maps ("external", the default) or renders navigation in-app using the
    * active maps provider ("in_app"). Change with PUT /admin/nav-mode. */
@@ -1108,8 +1111,12 @@ export type MapsCredentialFieldStatus = {
   set: boolean;
 };
 
+/** Jawg's two light-mode styles: "normal" is Jawg Sunny, "light" is Jawg Light. */
+export type JawgLightStyle = "normal" | "light";
+
 export type MapsAdminSettings = {
   activeProvider: MapsProviderIdentity;
+  jawgLightStyle: JawgLightStyle;
   providers: Record<Exclude<MapsProviderIdentity, "streetmaps">, { configured: boolean; fields: MapsCredentialFieldStatus[] }>;
 };
 

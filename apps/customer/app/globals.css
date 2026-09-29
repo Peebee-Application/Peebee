@@ -201,6 +201,17 @@ select {
   opacity: 1;
 }
 
+/* Providers that ship their own designed light and dark styles (Jawg) swap
+   tile URLs by theme instead (see components/maps/OsmStyledPicker.tsx), so
+   none of the recoloring above is applied on top of them. */
+.tuma-map.tuma-map-native .leaflet-tile-pane {
+  filter: none !important;
+}
+
+.tuma-map.tuma-map-native .tuma-map-tint {
+  display: none;
+}
+
 .tuma-marker {
   background: transparent !important;
   border: none !important;

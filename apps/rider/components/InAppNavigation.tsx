@@ -6,7 +6,8 @@ import { Check, Loader2, LocateFixed, Navigation, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet";
 import { api } from "../lib/api";
-import { fetchDrivingRoute, haversineMeters, resolveNavTiles, type OsrmRoute } from "../lib/navTiles";
+import { jawgTileUrl, useJawgStyle } from "../lib/mapStyle";
+import { fetchDrivingRoute, haversineMeters, resolveNavTiles, type NavTiles, type OsrmRoute } from "../lib/navTiles";
 
 const riderIcon = L.divIcon({
   html: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -71,7 +72,8 @@ export function InAppNavigation({
   onClose: () => void;
   confirmButtonLabel?: string;
 }) {
-  const [tiles, setTiles] = useState<{ tileUrl: string; attribution: string } | null>(null);
+  const [tiles, setTiles] = useState<NavTiles | null>(null);
+  const jawgStyle = useJawgStyle(tiles?.jawg?.adminLightStyle ?? "normal");
   const [position, setPosition] = useState<[number, number] | null>(null);
   const [route, setRoute] = useState<OsrmRoute | null>(null);
   const [follow, setFollow] = useState(true);
@@ -153,8 +155,12 @@ export function InAppNavigation({
             <Loader2 className="h-6 w-6 animate-spin text-gold" strokeWidth={2.5} aria-hidden />
           </div>
         ) : (
-          <MapContainer center={position} zoom={16} className="tuma-map h-full w-full" attributionControl>
-            <TileLayer url={tiles.tileUrl} attribution={tiles.attribution} />
+          <MapContainer center={position} zoom={16} className={`tuma-map h-full w-full${tiles.jawg ? " tuma-map-native" : ""}`} attributionControl>
+            <TileLayer
+              key={tiles.jawg ? jawgStyle : "static"}
+              url={tiles.jawg ? jawgTileUrl(jawgStyle, tiles.jawg.accessToken) : tiles.tileUrl}
+              attribution={tiles.attribution}
+            />
             {route && route.coordinates.length > 1 && (
               <Polyline positions={route.coordinates} pathOptions={{ color: "#C9A227", weight: 5, opacity: 0.85 }} />
             )}

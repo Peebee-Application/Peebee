@@ -70,6 +70,10 @@ const DEFAULTS = {
    * the safe default; "google"/"mapbox" only actually take over once an
    * admin saves a working key for that provider (see getActiveMapsProvider). */
   maps_active_provider: "streetmaps",
+  /** Jawg's default light-mode style: "normal" (Jawg Sunny) or "light"
+   * (Jawg Light). Dark mode always uses Jawg Dark, and users can override
+   * either in their own Appearance settings. */
+  maps_jawg_light_style: "normal",
   /** Whether the rider's "Start Navigation" button sends them out to Google
    * Maps (default, unchanged behavior) or renders turn-by-turn-style
    * navigation inside the app itself, using whichever maps_active_provider
@@ -368,6 +372,16 @@ export async function getActiveMapsProvider(): Promise<MapsProviderIdentity> {
 
 export async function setActiveMapsProvider(provider: MapsProviderIdentity): Promise<void> {
   await setSetting("maps_active_provider", ALL_MAPS_PROVIDER_IDENTITIES.includes(provider) ? provider : "streetmaps");
+}
+
+export type JawgLightStyle = "normal" | "light";
+
+export async function getJawgLightStyle(): Promise<JawgLightStyle> {
+  return (await getSetting("maps_jawg_light_style")) === "light" ? "light" : "normal";
+}
+
+export async function setJawgLightStyle(style: JawgLightStyle): Promise<void> {
+  await setSetting("maps_jawg_light_style", style === "light" ? "light" : "normal");
 }
 
 export type NavMode = "external" | "in_app";

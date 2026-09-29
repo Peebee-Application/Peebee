@@ -5,6 +5,8 @@ import "leaflet/dist/leaflet.css";
 import { Loader2, LocateFixed, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import type { JawgLightStyle } from "@tuma/shared";
+import { jawgTileUrl, useJawgStyle } from "../../lib/mapStyle";
 import type { MapPickerProps } from "./map-types";
 
 // A gold teardrop pin matching the app's icon language, in place of Leaflet's
@@ -72,13 +74,22 @@ function RecenterOnChange({ center, zoom }: { center: [number, number]; zoom: nu
   return null;
 }
 
-export type OsmStyledPickerProps = MapPickerProps & { tileUrl: string; attribution: string };
+export type OsmStyledPickerProps = MapPickerProps & {
+  tileUrl: string;
+  /** Jawg ships its own designed light and dark styles, so when set the
+   * tiles follow the app theme / the user's map style choice instead of
+   * tileUrl, and skip the CSS recoloring (.tuma-map-native in globals.css). */
+  jawg?: { accessToken: string; adminLightStyle: JawgLightStyle };
+  attribution: string;
+};
 
 /** Shared core behind every OSM-data picker (StreetMapsPicker and the
  * branded-tile providers — MapTiler/Stadia/Thunderforest/Jawg/TomTom): same
  * Leaflet map, same free Nominatim search/reverse-geocoding, only the
  * tile layer URL/attribution differ. */
-export function OsmStyledPicker({ initial, onConfirm, onCancel, tileUrl, attribution }: OsmStyledPickerProps) {
+export function OsmStyledPicker({ initial, onConfirm, onCancel, tileUrl, jawg, attribution }: OsmStyledPickerProps) {
+  const jawgStyle = useJawgStyle(jawg?.adminLightStyle ?? "normal");
+  const activeTileUrl = jawg ? jawgTileUrl(jawgStyle, jawg.accessToken) : tileUrl;
   const [marker, setMarker] = useState<[number, number] | null>(initial ? [initial.lat, initial.lng] : null);
   const [center, setCenter] = useState<[number, number]>(initial ? [initial.lat, initial.lng] : UGANDA);
   const [zoom, setZoom] = useState(initial ? 14 : 7);
@@ -208,8 +219,8 @@ export function OsmStyledPicker({ initial, onConfirm, onCancel, tileUrl, attribu
       </div>
 
       <div className="relative flex-1">
-        <MapContainer center={center} zoom={zoom} className="tuma-map h-full w-full" attributionControl>
-          <TileLayer url={tileUrl} attribution={attribution} />
+        <MapContainer center={center} zoom={zoom} className={`tuma-map h-full w-full${jawg ? " tuma-map-native" : ""}`} attributionControl>
+          <TileLayer key={activeTileUrl} url={activeTileUrl} attribution={attribution} />
           <ClickToPlace onPick={place} />
           <RecenterOnChange center={center} zoom={zoom} />
           {marker && <Marker position={marker} icon={markerIcon} />}

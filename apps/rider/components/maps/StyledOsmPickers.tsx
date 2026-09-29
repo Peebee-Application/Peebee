@@ -1,5 +1,7 @@
 "use client";
 
+import type { JawgLightStyle } from "@tuma/shared";
+import { jawgTileUrl } from "../../lib/mapStyle";
 import { OsmStyledPicker } from "./OsmStyledPicker";
 import type { MapPickerProps } from "./map-types";
 
@@ -38,13 +40,20 @@ export function ThunderforestPicker({ apiKey, ...props }: MapPickerProps & { api
   );
 }
 
-/** Jawg's default "jawg-streets" style over OSM data. */
-export function JawgMapsPicker({ accessToken, ...props }: MapPickerProps & { accessToken: string }) {
-  const tileUrl = `https://{s}.tile.jawg.io/jawg-streets/{z}/{x}/{y}{r}.png?access-token=${encodeURIComponent(accessToken)}`;
+/** Jawg's own designed styles over OSM data: Normal (Sunny) or Light by day,
+ * Dark by night, or whatever the user picked in Appearance settings. Because
+ * Jawg designs all of them, none get the CSS recoloring the other providers'
+ * single style needs for dark mode. */
+export function JawgMapsPicker({
+  accessToken,
+  adminLightStyle,
+  ...props
+}: MapPickerProps & { accessToken: string; adminLightStyle: JawgLightStyle }) {
   return (
     <OsmStyledPicker
       {...props}
-      tileUrl={tileUrl}
+      tileUrl={jawgTileUrl(adminLightStyle, accessToken)}
+      jawg={{ accessToken, adminLightStyle }}
       attribution={`${OSM_ATTR} &copy; <a href="https://www.jawg.io/">Jawg</a>`}
     />
   );

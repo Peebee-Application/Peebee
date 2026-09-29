@@ -33,6 +33,7 @@ import type {
   ListDetail,
   ListItem,
   ListSummary,
+  JawgLightStyle,
   MapsAdminSettings,
   MapsProviderIdentity,
   MerchantBalance,
@@ -1321,6 +1322,12 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       return request<{ activeProvider: MapsProviderIdentity }>("/v1/admin/maps-settings", {
         method: "PUT",
         body: JSON.stringify({ provider }),
+      });
+    },
+    async adminSetJawgLightStyle(style: JawgLightStyle) {
+      return request<{ jawgLightStyle: JawgLightStyle }>("/v1/admin/maps/jawg-style", {
+        method: "PUT",
+        body: JSON.stringify({ style }),
       });
     },
     async adminSaveMapsCredentials(provider: Exclude<MapsProviderIdentity, "streetmaps">, fields: Record<string, string>) {
