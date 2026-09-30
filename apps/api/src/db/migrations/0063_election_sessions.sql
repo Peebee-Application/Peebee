@@ -31,5 +31,10 @@ ALTER TABLE stage_officer_nominations ADD COLUMN statement TEXT;
 ALTER TABLE stage_officer_nominations ADD COLUMN voice_note_key TEXT;
 
 -- Tracks when a vote was last cast/changed, to enforce the admin-set
--- change-of-mind grace window.
-ALTER TABLE stage_officer_votes ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP;
+-- change-of-mind grace window. D1/SQLite won't allow a non-constant
+-- default on ADD COLUMN, so add it nullable and backfill from the
+-- existing created_at (every pre-existing vote is treated as "just cast"
+-- for grace-window purposes) — application code always sets it
+-- explicitly on every insert/update from here on.
+ALTER TABLE stage_officer_votes ADD COLUMN updated_at TEXT;
+UPDATE stage_officer_votes SET updated_at = created_at WHERE updated_at IS NULL;
