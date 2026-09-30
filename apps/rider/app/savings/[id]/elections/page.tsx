@@ -2,9 +2,10 @@
 
 import type { StageElectionRoleStatus, StageElectionSessionDetail, StageMemberRole } from "@tuma/shared";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../../../lib/api";
 import { useAuth } from "../../../../lib/auth-context";
+import { VoiceReasonRecorder } from "../../../../components/VoiceReasonRecorder";
 
 const OFFICER_ROLES: StageMemberRole[] = ["chairman", "vice_chairman", "secretary", "treasurer", "money_counter", "mobilizer"];
 
@@ -24,10 +25,9 @@ export default function StageElectionsPage() {
   const { user } = useAuth();
   const [detail, setDetail] = useState<StageElectionSessionDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const voiceInputRef = useRef<HTMLInputElement>(null);
-  const [voiceTargetElection, setVoiceTargetElection] = useState<string | null>(null);
   const [applyingTo, setApplyingTo] = useState<string | null>(null);
   const [statement, setStatement] = useState("");
+  const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null);
   const [busy, setBusy] = useState(false);
 
   // Start-session form
@@ -79,29 +79,10 @@ export default function StageElectionsPage() {
     setError(null);
     try {
       await api.applyForElection(electionId, statement.trim() || undefined);
+      if (voiceBlob) await api.uploadElectionVoiceNote(electionId, voiceBlob);
       setApplyingTo(null);
       setStatement("");
-      load();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function pickVoiceFile(electionId: string) {
-    setVoiceTargetElection(electionId);
-    voiceInputRef.current?.click();
-  }
-
-  async function onVoiceChosen(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !voiceTargetElection) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await api.uploadElectionVoiceNote(voiceTargetElection, file);
+      setVoiceBlob(null);
       load();
     } catch (err) {
       setError(errorMessage(err));
@@ -174,7 +155,6 @@ export default function StageElectionsPage() {
     <div className="space-y-5 px-4 pb-6 pt-4">
       <h1 className="text-xl font-bold text-ink">Officer elections</h1>
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      <input ref={voiceInputRef} type="file" accept="audio/*" className="hidden" onChange={onVoiceChosen} />
 
       {!session ? (
         <div className="home-card space-y-3 text-center">
@@ -244,6 +224,8 @@ export default function StageElectionsPage() {
 
           {elections.map((election: StageElectionRoleStatus) => {
             const iApplied = election.nominees.some((n) => n.candidate_rider_id === user?.id);
+            const appliedElsewhere =
+              !iApplied && elections.some((e) => e.id !== election.id && e.nominees.some((n) => n.candidate_rider_id === user?.id));
             return (
               <div key={election.id} className="home-card space-y-3">
                 <p className="text-sm font-bold capitalize text-ink">{election.role.replace("_", " ")}</p>
@@ -308,7 +290,13 @@ export default function StageElectionsPage() {
                   </div>
                 )}
 
-                {session.status === "nominating" && !iApplied && (
+                {session.status === "nominating" && !iApplied && appliedElsewhere && (
+                  <p className="text-center text-xs text-ink-500">
+                    You&apos;ve already applied for another role — one position per member per election.
+                  </p>
+                )}
+
+                {session.status === "nominating" && !iApplied && !appliedElsewhere && (
                   <>
                     {applyingTo === election.id ? (
                       <div className="space-y-2">
@@ -319,13 +307,10 @@ export default function StageElectionsPage() {
                           rows={3}
                           className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm outline-none focus:border-gold"
                         />
-                        <button
-                          type="button"
-                          onClick={() => pickVoiceFile(election.id)}
-                          className="w-full rounded-full border border-[var(--border-faint)] py-2 text-xs font-bold text-ink-500"
-                        >
-                          Attach a voice note (optional)
-                        </button>
+                        <div className="flex items-center gap-2 rounded-xl border border-[var(--border-faint)] px-3 py-2">
+                          <span className="text-xs text-ink-500">Voice note (optional):</span>
+                          <VoiceReasonRecorder blob={voiceBlob} onChange={setVoiceBlob} />
+                        </div>
                         <button
                           type="button"
                           onClick={() => apply(election.id)}

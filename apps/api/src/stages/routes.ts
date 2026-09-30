@@ -727,12 +727,27 @@ stageRoutes.post("/stages/elections/:electionId/apply", async (c) => {
           WHERE e.id = ?`,
     args: [electionId],
   });
-  const election = electionRes.rows[0] as unknown as { id: string; stage_id: string; status: string; nomination_deadline: string } | undefined;
+  const election = electionRes.rows[0] as unknown as { id: string; stage_id: string; session_id: string; status: string; nomination_deadline: string } | undefined;
   if (!election) return c.json({ error: "not_found", message: "That couldn't be found." }, 404);
   const membership = await getMembership(election.stage_id, user.sub);
   if (!membership) return c.json({ error: "not_a_member", message: "You're not a member of this stage circle." }, 403);
   if (election.status !== "nominating" || new Date() > new Date(election.nomination_deadline.replace(" ", "T") + "Z")) {
     return c.json({ error: "nominations_closed", message: "Applications for this role are closed." }, 400);
+  }
+
+  // One position per applicant per election session — applying for
+  // Treasurer, for instance, rules out also applying for Secretary in the
+  // same session. Doesn't block re-applying for the *same* role (the
+  // ON CONFLICT below updates that statement in place).
+  const otherApplication = await db.execute({
+    sql: `SELECT e.role FROM stage_officer_nominations n
+          JOIN stage_officer_elections e ON e.id = n.election_id
+          WHERE e.session_id = ? AND n.candidate_rider_id = ? AND n.election_id != ?`,
+    args: [election.session_id, user.sub, electionId],
+  });
+  const otherRole = (otherApplication.rows[0] as unknown as { role: string } | undefined)?.role;
+  if (otherRole) {
+    return c.json({ error: "already_applied_elsewhere", message: `You've already applied for ${otherRole.replace("_", " ")} this election — you can only run for one position.` }, 400);
   }
 
   const parsed = applySchema.safeParse(await c.req.json().catch(() => ({})));
