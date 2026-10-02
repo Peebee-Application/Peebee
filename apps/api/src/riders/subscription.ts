@@ -10,6 +10,7 @@
 
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
+import { getRiderChargeNumber } from "./momo-number.js";
 import { getMonetizationSettings, getPlatformEnvironment, type MonetizationSettings, type SubscriptionCadence } from "../lib/settings.js";
 import { checkPaymentStatus, initiateCollection } from "../payments/service.js";
 
@@ -118,7 +119,7 @@ export async function renewSubscriptions(): Promise<{ attempted: number; renewed
   let pastDue = 0;
   for (const rider of due) {
     const riderId = rider.user_id as string;
-    const msisdn = rider.momo_msisdn as string | null;
+    const msisdn = await getRiderChargeNumber(riderId);
     if (!msisdn) {
       await db.execute({
         sql: "UPDATE riders SET subscription_status = 'past_due', updated_at = datetime('now') WHERE user_id = ?",

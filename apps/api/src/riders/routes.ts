@@ -4,6 +4,7 @@ import { z } from "zod";
 import { logActivity } from "../admin/activity.js";
 import { requirePermission } from "../admin/permissions.js";
 import { db } from "../db/client.js";
+import { getRiderChargeNumber } from "./momo-number.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
@@ -894,7 +895,7 @@ riderRoutes.post("/riders/me/subscription/pay", requireAuth, requireRole("rider"
   const rider = riderRes.rows[0] as Row | undefined;
   if (!rider) return c.json({ error: "not_a_rider" }, 404);
 
-  const msisdn = rider.momo_msisdn as string | null;
+  const msisdn = await getRiderChargeNumber(user.sub);
   if (!msisdn) {
     return c.json({ error: "no_mobile_money", message: "Add a mobile money number in your profile first" }, 409);
   }
@@ -1024,7 +1025,7 @@ riderRoutes.post("/riders/me/pro-subscription/pay", requireAuth, requireRole("ri
   const riderRes = await db.execute({ sql: "SELECT momo_msisdn FROM riders WHERE user_id = ?", args: [user.sub] });
   const rider = riderRes.rows[0] as Row | undefined;
   if (!rider) return c.json({ error: "not_a_rider" }, 404);
-  const msisdn = rider.momo_msisdn as string | null;
+  const msisdn = await getRiderChargeNumber(user.sub);
   if (!msisdn) {
     return c.json({ error: "no_mobile_money", message: "Add a mobile money number in your profile first" }, 409);
   }
