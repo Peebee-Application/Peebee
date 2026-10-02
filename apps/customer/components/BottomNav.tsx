@@ -57,9 +57,11 @@ export function BottomNav() {
     [user],
   );
 
-  // If already on the active order's tracking page, don't show the redundant floating badge
+  // Skip the floating badge where it would repeat what's already on screen:
+  // the active order's own tracking page, and Home (which has the Active
+  // order card — the chip just sat on top of it while scrolling).
   const isOnActiveOrderPage = activeOrder ? pathname === `/orders/${activeOrder.id}` : false;
-  const showActiveDeliveryBadge = !!activeOrder && !isOnActiveOrderPage;
+  const showActiveDeliveryBadge = !!activeOrder && !isOnActiveOrderPage && pathname !== "/";
 
   return (
     <>
