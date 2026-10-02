@@ -1,24 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { FoodCard } from "./FoodCard";
-import { ParcelCard } from "./ParcelCard";
+import { useTranslate } from "../../lib/i18n";
+import { SearchPill } from "../ui/SearchPill";
 import { ParcelModal } from "./ParcelModal";
-import { RideCard } from "./RideCard";
 import { RideModal } from "./RideModal";
-import { ShoppingListCard } from "./ShoppingListCard";
+import { ServiceTiles } from "./ServiceTiles";
 import { ShoppingListModal } from "./ShoppingListModal";
 
+/** "Where to?" bar plus the four service tiles. Ride, shopping and parcel
+ * open their existing modals; food goes to the restaurants list. */
 export function OrderTypeCards() {
   const [open, setOpen] = useState<"shopping" | "parcel" | "ride" | null>(null);
+  const t = useTranslate();
 
   return (
     <>
-      <div className="flex flex-col gap-3">
-        <RideCard onClick={() => setOpen("ride")} />
-        <FoodCard />
-        <ShoppingListCard onClick={() => setOpen("shopping")} />
-        <ParcelCard onClick={() => setOpen("parcel")} />
+      <div className="space-y-4">
+        <SearchPill label={t("where_to")} onClick={() => setOpen("ride")} />
+        <ServiceTiles
+          onRide={() => setOpen("ride")}
+          onShopping={() => setOpen("shopping")}
+          onParcel={() => setOpen("parcel")}
+        />
       </div>
       {open === "shopping" && <ShoppingListModal onClose={() => setOpen(null)} />}
       {open === "parcel" && <ParcelModal onClose={() => setOpen(null)} />}
