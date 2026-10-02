@@ -29,28 +29,41 @@ D1 binding is present, e.g. under plain `pnpm dev`) — see `TURSO_DATABASE_URL`
   the build step (`opennextjs-cloudflare build`) works fine on older Node.
 - `wrangler` authenticated (`wrangler login` or an API token in `CLOUDFLARE_API_TOKEN`).
 
-## Deploy
+## Automated CI/CD (GitHub Actions)
 
-Deployments are accepted only from a clean local `main` at the exact same
+Deployments are automated through `.github/workflows/deploy.yml`:
+
+- **Branch Push (Preview):** Any push to a non-`main` branch automatically deploys changed apps to **Cloudflare Preview** via `wrangler versions upload --preview-alias <branch-alias>`. Preview URLs follow the format: `https://<branch-alias>-tuma-<app>.doxalight-inc.workers.dev` and are posted to the GitHub Actions Job Summary.
+- **Main Merge (Live):** Any push/merge to `main` automatically deploys changed apps to **Cloudflare Live** (production domains and live `workers.dev`) using `pnpm run deploy` (with `scripts/preflight-deploy.mjs` verification).
+- **Required GitHub Secrets:**
+  - `CLOUDFLARE_API_TOKEN` (API token with *Edit Cloudflare Workers* / *Account > Workers Scripts > Edit* permissions)
+  - `CLOUDFLARE_ACCOUNT_ID` (Cloudflare account ID)
+
+### Manual / Local Deploy Commands
+
+Live deployments are accepted only from a clean local `main` at the exact same
 commit as `origin/main`. See `COLLABORATION.md` for the Claude Code/Codex
-branch and handoff workflow. Each deploy command performs this check before
-building or publishing.
+branch and handoff workflow.
 
 ```bash
-# API (Hono → Worker)
+# Live Deployments (from main only)
 pnpm --filter api deploy          # wrangler deploy
-
-# Frontends (Next.js → Worker via OpenNext)
 pnpm --filter customer deploy     # opennextjs-cloudflare build && wrangler deploy
 pnpm --filter rider deploy
-pnpm --filter admin deploy        # not yet deployed — creates the tuma-admin Worker on first run
+pnpm --filter admin deploy
 pnpm --filter restaurant deploy
 pnpm --filter merchant deploy
 pnpm --filter web deploy
-```
 
-`autoDeploy`-style CI isn't wired up yet — deploys are manual (`wrangler deploy`) until a
-GitHub Actions workflow is added.
+# Preview Uploads (from any branch)
+pnpm --filter api deploy:preview
+pnpm --filter customer deploy:preview
+pnpm --filter rider deploy:preview
+pnpm --filter admin deploy:preview
+pnpm --filter restaurant deploy:preview
+pnpm --filter merchant deploy:preview
+pnpm --filter web deploy:preview
+```
 
 ## Config
 

@@ -55,7 +55,15 @@ app.use("*", (c, next) => {
   const allowOrigins = isDev ? [...new Set([...base, ...devOrigins])] : base.filter((o) => !isLocalhost(o));
 
   return cors({
-    origin: allowOrigins,
+    origin: (origin) => {
+      if (!origin) return undefined;
+      if (allowOrigins.includes(origin)) return origin;
+      // Allow any Cloudflare preview or staging/production domain on doxalight-inc.workers.dev or tumaffe.online
+      if (/^https:\/\/([a-zA-Z0-9-]+\.)*(doxalight-inc\.workers\.dev|tumaffe\.online)$/i.test(origin)) {
+        return origin;
+      }
+      return undefined;
+    },
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
   })(c, next);
