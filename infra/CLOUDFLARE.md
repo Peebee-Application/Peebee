@@ -33,7 +33,20 @@ D1 binding is present, e.g. under plain `pnpm dev`) — see `TURSO_DATABASE_URL`
 
 Deployments are automated through `.github/workflows/deploy.yml`:
 
-- **Branch Push (Preview):** Any push to a non-`main` branch automatically deploys changed apps to **Cloudflare Preview** via `wrangler versions upload --preview-alias <branch-alias>`. Preview URLs follow the format: `https://<branch-alias>-tuma-<app>.doxalight-inc.workers.dev` and are posted to the GitHub Actions Job Summary.
+- **Branch Push (Preview):** Any push to a non-`main` branch automatically deploys changed apps to **Cloudflare Preview** via `wrangler versions upload --preview-alias <branch-alias>`.
+- **Short Preview Subdomains on tumaffe.online:**
+  - **Central Preview Hub:** `https://preview.tumaffe.online` (dashboard listing all branches and 1-click launch chips for all apps)
+  - **Short Path Router:** `https://preview.tumaffe.online/<branch-or-alias>/<app>` (e.g. `https://preview.tumaffe.online/feat-orders/customer`)
+  - **Direct App Subdomains:**
+    - Customer Web: `https://customer-preview.tumaffe.online`
+    - Rider Web: `https://rider-preview.tumaffe.online`
+    - Merchant Web: `https://merchant-preview.tumaffe.online`
+    - Restaurant Web: `https://restaurant-preview.tumaffe.online`
+    - Admin Dashboard: `https://admin-preview.tumaffe.online`
+    - Marketing / Web: `https://web-preview.tumaffe.online`
+    - API Service: `https://api-preview.tumaffe.online`
+  - *(Optionally pass `?b=<branch>` to view a specific branch preview on any app subdomain)*
+  - **Full Worker URL:** `https://<branch-alias>-tuma-<app>.doxalight-inc.workers.dev`
 - **Main Merge (Live):** Any push/merge to `main` automatically deploys changed apps to **Cloudflare Live** (production domains and live `workers.dev`) using `pnpm run deploy` (with `scripts/preflight-deploy.mjs` verification).
 - **Required GitHub Secrets:**
   - `CLOUDFLARE_API_TOKEN` (API token with *Edit Cloudflare Workers* / *Account > Workers Scripts > Edit* permissions)
