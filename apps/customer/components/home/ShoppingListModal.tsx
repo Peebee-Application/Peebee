@@ -135,7 +135,7 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title={step === "items" ? t("list_title") : t("list_delivery_location")} onClose={onClose}>
+    <Modal withMap title={step === "items" ? t("list_title") : t("list_delivery_location")} onClose={onClose}>
       {step === "items" ? (
         <div className="space-y-4">
           <div className="flex rounded-full bg-[rgb(var(--surface-muted))] p-1">
