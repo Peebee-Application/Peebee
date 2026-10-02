@@ -43,6 +43,11 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   trust_subtitle: { en: "Verified riders in your area.", lg: "Abatambuze abakakasiddwa mu kitundu kyo." },
 
   // Home — order type cards
+  where_to: { en: "Where to?", lg: "Ogenda wa?" },
+  service_ride: { en: "Ride", lg: "Boda" },
+  service_food: { en: "Food", lg: "Emmere" },
+  service_shopping: { en: "Shop", lg: "Ebintu" },
+  service_parcel: { en: "Parcel", lg: "Ekipakedde" },
   ride_title: { en: "Book a Ride", lg: "Tumya Boda Ekutwaale" },
   ride_subtitle: { en: "Get picked up, go anywhere", lg: "Tolekebwa, ogende wonna" },
   food_title: { en: "Order Food", lg: "Tumya Emmere" },

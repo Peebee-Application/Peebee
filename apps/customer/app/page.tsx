@@ -9,14 +9,14 @@ import { WalletCard } from "../components/home/WalletCard";
 
 export default function HomePage() {
   return (
-    <div className="space-y-5 px-4 pb-6 pt-2">
+    <div className="space-y-6 px-4 pb-6 pt-2">
       <Greeting />
-      <FeeProposalCard />
-      <WalletCard />
       <OrderTypeCards />
-      <TrustBanner />
+      <FeeProposalCard />
       <ActiveOrderCard />
       <RecentLists />
+      <WalletCard />
+      <TrustBanner />
       <LocationOnboarding />
     </div>
   );
