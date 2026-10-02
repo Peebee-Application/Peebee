@@ -106,6 +106,21 @@ export default function StageDetailPage() {
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
+      {canManage && !detail.cycle && (
+        <div className="home-card space-y-2 !border-l-4 !border-l-gold text-center">
+          <p className="text-sm font-bold text-ink">No savings cycle yet</p>
+          <p className="text-xs text-ink-500">
+            Cycles never start on their own — create the first one when you&apos;re ready, and set its officer election at the same time.
+          </p>
+          <Link
+            href={`/savings/${stageId}/cycle-setup`}
+            className="flex min-h-11 w-full items-center justify-center rounded-full bg-gold px-4 text-sm font-bold text-ink-gold"
+          >
+            Create a cycle
+          </Link>
+        </div>
+      )}
+
       {!launched && (
         <div className="home-card space-y-2 !border-l-4 !border-l-gold text-center">
           <p className="text-sm font-bold text-ink">This RSLA isn&apos;t live yet</p>

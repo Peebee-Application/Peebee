@@ -32,6 +32,8 @@ export default function CycleSetupPage() {
   const [interestRate, setInterestRate] = useState("8");
   const [loanableMultiple, setLoanableMultiple] = useState("2");
   const [maxLoanMonths, setMaxLoanMonths] = useState("3");
+  const [electionRoles, setElectionRoles] = useState<StageMemberRole[]>([]);
+  const [nominationDeadline, setNominationDeadline] = useState("");
 
   const [workflow, setWorkflow] = useState<StageLoanApprovalWorkflowRow[]>([]);
   const [workflowBusy, setWorkflowBusy] = useState(false);
@@ -111,6 +113,10 @@ export default function CycleSetupPage() {
 
   async function startCycle(e: React.FormEvent) {
     e.preventDefault();
+    if (electionRoles.length > 0 && !nominationDeadline) {
+      setError("Choose when applications for the election close.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -121,6 +127,10 @@ export default function CycleSetupPage() {
         interestRate: Number(interestRate) || undefined,
         loanableContributionMultiple: Number(loanableMultiple) || undefined,
         maxLoanDurationMonths: Number(maxLoanMonths) || undefined,
+        election:
+          electionRoles.length > 0
+            ? { roles: electionRoles, nominationDeadline: new Date(nominationDeadline).toISOString() }
+            : undefined,
       });
       await load();
     } catch (err) {
@@ -280,6 +290,42 @@ export default function CycleSetupPage() {
             <Field label="Interest rate (%)" value={interestRate} onChange={setInterestRate} />
             <Field label="Loanable multiple" value={loanableMultiple} onChange={setLoanableMultiple} hint="Max loan = savings × this" />
             <Field label="Max loan duration (months)" value={maxLoanMonths} onChange={setMaxLoanMonths} />
+          </div>
+
+          <div className="space-y-2 rounded-xl border border-[var(--border-faint)] p-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-ink-500">Officer election (optional)</p>
+            <p className="text-xs text-ink-500">
+              Pick the roles to elect for this cycle. Members can apply until the deadline, then you open voting.
+            </p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {OFFICER_ROLES.map((role) => (
+                <label key={role} className="flex items-center gap-2 text-sm capitalize text-ink">
+                  <input
+                    type="checkbox"
+                    checked={electionRoles.includes(role)}
+                    onChange={() =>
+                      setElectionRoles((prev) => (prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]))
+                    }
+                    className="h-4 w-4 accent-gold"
+                  />
+                  {role.replace("_", " ")}
+                </label>
+              ))}
+            </div>
+            {electionRoles.length > 0 && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-ink-500" htmlFor="nomination-deadline">
+                  Applications close
+                </label>
+                <input
+                  id="nomination-deadline"
+                  type="datetime-local"
+                  value={nominationDeadline}
+                  onChange={(e) => setNominationDeadline(e.target.value)}
+                  className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-gold"
+                />
+              </div>
+            )}
           </div>
 
           <button

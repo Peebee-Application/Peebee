@@ -1707,8 +1707,8 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async publishElectionResults(stageId: string, sessionId: string) {
       return request<{ ok: true }>(`/v1/stages/${stageId}/elections/sessions/${sessionId}/publish`, { method: "POST" });
     },
-    async startStageCycle(stageId: string, input: { startDate: string; interestRate?: number; loanableContributionMultiple?: number; maxLoanDurationMonths?: number; cycleMonths?: number; sharePrice?: number }) {
-      return request<{ cycleId: string }>(`/v1/stages/${stageId}/cycles`, { method: "POST", body: JSON.stringify(input) });
+    async startStageCycle(stageId: string, input: { startDate: string; interestRate?: number; loanableContributionMultiple?: number; maxLoanDurationMonths?: number; cycleMonths?: number; sharePrice?: number; election?: { roles: StageMemberRole[]; nominationDeadline: string; voteChangeGraceSeconds?: number } }) {
+      return request<{ cycleId: string; sessionId?: string }>(`/v1/stages/${stageId}/cycles`, { method: "POST", body: JSON.stringify(input) });
     },
     async updateStageCycle(stageId: string, cycleId: string, input: { endDate?: string; interestRate?: number; loanableContributionMultiple?: number; maxLoanDurationMonths?: number; sharePrice?: number }) {
       return request<{ ok: true }>(`/v1/stages/${stageId}/cycles/${cycleId}`, { method: "PUT", body: JSON.stringify(input) });

@@ -613,6 +613,33 @@ const createSessionSchema = z.object({
   voteChangeGraceSeconds: z.number().int().min(0).max(3600).optional(),
 });
 
+type OpenSessionInput = { roles: OfficerRole[]; nominationDeadline: string; voteChangeGraceSeconds?: number };
+
+/** Creates the session, one election per role, and the group-chat notice.
+ * Callers must have already checked there is no active session. */
+async function openElectionSession(stageId: string, userId: string, input: OpenSessionInput): Promise<string> {
+  const sessionId = newId("esess");
+  await db.execute({
+    sql: `INSERT INTO stage_election_sessions (id, stage_id, roles, nomination_deadline, vote_change_grace_seconds, created_by)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [sessionId, stageId, JSON.stringify(input.roles), input.nominationDeadline, input.voteChangeGraceSeconds ?? 120, userId],
+  });
+  for (const role of input.roles) {
+    await db.execute({
+      sql: "INSERT INTO stage_officer_elections (id, stage_id, role, session_id) VALUES (?, ?, ?, ?)",
+      args: [newId("elec"), stageId, role, sessionId],
+    });
+  }
+  await postSystemMessage(
+    stageId,
+    userId,
+    "election_opened",
+    `An election was opened for: ${input.roles.map((r) => r.replace("_", " ")).join(", ")}. Apply before ${input.nominationDeadline}.`,
+    sessionId,
+  );
+  return sessionId;
+}
+
 /** Starts a new election — the group admin (or an officer) names which
  * roles are up for election and when self-nominations close. Only one
  * non-published session may exist per stage at a time. */
@@ -628,25 +655,7 @@ stageRoutes.post("/stages/:id/elections/sessions", async (c) => {
   const parsed = createSessionSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
 
-  const sessionId = newId("esess");
-  await db.execute({
-    sql: `INSERT INTO stage_election_sessions (id, stage_id, roles, nomination_deadline, vote_change_grace_seconds, created_by)
-          VALUES (?, ?, ?, ?, ?, ?)`,
-    args: [sessionId, stageId, JSON.stringify(parsed.data.roles), parsed.data.nominationDeadline, parsed.data.voteChangeGraceSeconds ?? 120, user.sub],
-  });
-  for (const role of parsed.data.roles) {
-    await db.execute({
-      sql: "INSERT INTO stage_officer_elections (id, stage_id, role, session_id) VALUES (?, ?, ?, ?)",
-      args: [newId("elec"), stageId, role, sessionId],
-    });
-  }
-  await postSystemMessage(
-    stageId,
-    user.sub,
-    "election_opened",
-    `An election was opened for: ${parsed.data.roles.map((r) => r.replace("_", " ")).join(", ")}. Apply before ${parsed.data.nominationDeadline}.`,
-    sessionId,
-  );
+  const sessionId = await openElectionSession(stageId, user.sub, parsed.data);
   return c.json({ sessionId });
 });
 
@@ -926,6 +935,9 @@ const createCycleSchema = z.object({
   maxLoanDurationMonths: z.number().int().positive().optional(),
   cycleMonths: z.number().int().positive().optional(),
   sharePrice: z.number().int().positive().optional(),
+  // Elections are set when a cycle starts: the roles up for election and
+  // when self-nominations close.
+  election: createSessionSchema.optional(),
 });
 
 /** Cycle setup — duration, share price, interest, loanable multiple — is
@@ -946,6 +958,9 @@ stageRoutes.post("/stages/:id/cycles", async (c) => {
 
   const parsed = createCycleSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
+  if (parsed.data.election && (await getActiveElectionSession(stageId))) {
+    return c.json({ error: "session_active", message: "An election is already in progress." }, 400);
+  }
   const settings = await getVslaSettings();
 
   const start = new Date(parsed.data.startDate);
@@ -971,7 +986,8 @@ stageRoutes.post("/stages/:id/cycles", async (c) => {
   });
   await ensureDefaultLoanWorkflow(id);
   await postSystemMessage(stageId, user.sub, "cycle_started", "A new savings cycle has started.", id);
-  return c.json({ cycleId: id });
+  const sessionId = parsed.data.election ? await openElectionSession(stageId, user.sub, parsed.data.election) : undefined;
+  return c.json({ cycleId: id, sessionId });
 });
 
 const updateCycleSchema = z.object({
