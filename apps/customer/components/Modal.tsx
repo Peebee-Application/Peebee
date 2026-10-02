@@ -3,15 +3,20 @@
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { HomeMapHero } from "./home/HomeMapHero";
 
 export function Modal({
   title,
   onClose,
   children,
+  withMap = false,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  /** Order-flow screens: live map across the top, the form in a rounded
+   * sheet over its lower edge. Everything else stays a plain dimmed sheet. */
+  withMap?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -73,6 +78,44 @@ export function Modal({
   // fixed overlay regardless of z-index in some browsers, leaving a strip
   // of the header visible through the dim/blur. Being a direct child of
   // <body> keeps this out of that stacking-context fight entirely.
+  const header = (
+    <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-faint)] px-5 py-4">
+      <h2 className="text-lg font-bold text-ink">{title}</h2>
+      <button
+        onClick={onClose}
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink-500"
+        aria-label="Close"
+      >
+        <X className="h-4 w-4" strokeWidth={2.25} />
+      </button>
+    </div>
+  );
+
+  if (withMap) {
+    return createPortal(
+      <div className="fixed inset-0 z-[70] bg-cream">
+        <div className="absolute inset-x-0 bottom-[34dvh] top-0 mx-auto max-w-lg">
+          <HomeMapHero className="isolate h-full w-full overflow-hidden" />
+        </div>
+        <div className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[68dvh] min-h-[36dvh] w-full max-w-lg flex-col">
+          <div
+            className="soft-drawer relative z-10 flex min-h-0 flex-1 flex-col"
+            role="dialog"
+            ref={dialogRef}
+            tabIndex={-1}
+            aria-modal="true"
+            aria-label={title}
+          >
+            <span className="mx-auto mt-2.5 block h-1.5 w-10 shrink-0 rounded-full bg-[rgb(var(--color-ink-500)/0.25)]" aria-hidden />
+            {header}
+            <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center">
       <div
@@ -83,16 +126,7 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-faint)] px-5 py-4">
-          <h2 className="text-lg font-bold text-ink">{title}</h2>
-          <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink-500"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" strokeWidth={2.25} />
-          </button>
-        </div>
+        {header}
         <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
       </div>
     </div>,

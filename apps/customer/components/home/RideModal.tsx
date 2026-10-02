@@ -101,7 +101,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title={step === "pickup" ? t("ride_pickup_step") : t("ride_destination_step")} onClose={onClose}>
+    <Modal withMap title={step === "pickup" ? t("ride_pickup_step") : t("ride_destination_step")} onClose={onClose}>
       <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-ink-500">
         <span className={step === "pickup" ? "text-ink" : ""}>{t("parcel_step1")}</span>
         <span className="h-px flex-1 bg-[var(--border-faint)]" />

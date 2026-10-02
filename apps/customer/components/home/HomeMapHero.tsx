@@ -8,11 +8,10 @@ const HomeMap = dynamic(() => import("./HomeMap"), {
   loading: () => <div className="h-full w-full bg-[rgb(var(--surface-muted))]" aria-hidden />,
 });
 
-/** Map band at the top of Home. The content below overlaps its lower edge
- * as a rounded sheet (see app/page.tsx). */
-export function HomeMapHero() {
+/** Read-only map band for the order screens (see Modal `withMap`). */
+export function HomeMapHero({ className = "isolate h-[36dvh] min-h-60 w-full overflow-hidden" }: { className?: string }) {
   return (
-    <div className="isolate h-[36dvh] min-h-60 w-full overflow-hidden">
+    <div className={className}>
       <HomeMap />
     </div>
   );

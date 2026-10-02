@@ -123,7 +123,7 @@ export default function HomeMap() {
         onClick={locate}
         disabled={locating}
         aria-label="Centre on my location"
-        className="absolute bottom-10 right-3 z-[500] flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--surface-card))] text-ink shadow-[var(--shadow-float-capsule)] active:scale-95 disabled:opacity-60"
+        className="absolute right-3 top-3 z-[500] flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--surface-card))] text-ink shadow-[var(--shadow-float-capsule)] active:scale-95 disabled:opacity-60"
       >
         <LocateFixed className={`h-5 w-5 ${locating ? "animate-pulse text-gold" : ""}`} strokeWidth={2} aria-hidden />
       </button>
