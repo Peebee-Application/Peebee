@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       apps:
-        description: 'Space-separated apps to deploy (api admin customer merchant restaurant rider web), or "all"'
+        description: 'Space-separated apps to deploy (api admin customer merchant restaurant rider web preview-hub), or "all"'
         default: all
       target:
         description: 'Deployment target (auto, live, or preview)'
@@ -63,7 +63,7 @@ jobs:
           [ -z "$ALIAS" ] && ALIAS="preview"
 
           # 3. Detect changed apps
-          ALL="api admin customer merchant restaurant rider web"
+          ALL="api admin customer merchant restaurant rider web preview-hub"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$MANUAL_APPS" ] && [ "$MANUAL_APPS" != "all" ]; then
             APPS="$MANUAL_APPS"
           else
@@ -123,9 +123,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Typecheck API before deploying it
-        if: ${{ matrix.app == 'api' }}
-        run: pnpm --filter api lint
+      - name: Typecheck before deploying
+        if: ${{ matrix.app == 'api' || matrix.app == 'preview-hub' }}
+        run: pnpm --filter ${{ matrix.app }} lint
 
       - name: Deploy ${{ matrix.app }} (LIVE)
         if: ${{ env.TARGET == 'live' }}
@@ -140,7 +140,7 @@ jobs:
         working-directory: apps/${{ matrix.app }}
         run: |
           echo "🔍 Deploying ${{ matrix.app }} to Cloudflare PREVIEW (alias: $ALIAS)..."
-          if [ "${{ matrix.app }}" != "api" ]; then
+          if [ "${{ matrix.app }}" != "api" ] && [ "${{ matrix.app }}" != "preview-hub" ]; then
             npx opennextjs-cloudflare build
           fi
 
@@ -149,5 +149,8 @@ jobs:
           echo "$OUTPUT"
 
           PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' | head -n 1 || echo "https://${ALIAS}-tuma-${{ matrix.app }}.doxalight-inc.workers.dev")
+          SHORT_SUBDOMAIN="https://${{ matrix.app }}-preview.tumaffe.online"
+          SHORT_HUB_LINK="https://preview.tumaffe.online/${ALIAS}/${{ matrix.app }}"
           echo "Preview URL for ${{ matrix.app }}: $PREVIEW_URL"
-          echo "| ${{ matrix.app }} | 🔍 Preview ($ALIAS) | [$PREVIEW_URL]($PREVIEW_URL) |" >> $GITHUB_STEP_SUMMARY
+          echo "Short Subdomain for ${{ matrix.app }}: $SHORT_SUBDOMAIN"
+          echo "| ${{ matrix.app }} | 🔍 Preview ($ALIAS) | [$SHORT_SUBDOMAIN]($SHORT_SUBDOMAIN) · [Short Router]($SHORT_HUB_LINK) · [Worker URL]($PREVIEW_URL) |" >> $GITHUB_STEP_SUMMARY

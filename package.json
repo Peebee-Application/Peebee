@@ -26,7 +26,9 @@
     "deploy:restaurant:preview": "pnpm --filter restaurant deploy:preview",
     "deploy:merchant:preview": "pnpm --filter merchant deploy:preview",
     "deploy:web:preview": "pnpm --filter web deploy:preview",
-    "deploy:api:preview": "pnpm --filter api deploy:preview"
+    "deploy:api:preview": "pnpm --filter api deploy:preview",
+    "deploy:preview-hub:preview": "pnpm --filter preview-hub deploy:preview",
+    "deploy:preview-hub": "pnpm --filter preview-hub deploy"
   },
   "engines": {
     "node": ">=22"
