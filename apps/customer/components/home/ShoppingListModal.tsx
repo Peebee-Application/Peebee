@@ -1,30 +1,16 @@
 "use client";
 
 import { roundFare, type SavedLocation } from "@tuma/shared";
-import { List, Mic, Plus, Trash2 } from "lucide-react";
+import { List, Mic, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LocationPicker, emptyPoint, resolvePoint, type PointState } from "../LocationPicker";
 import { Modal } from "../Modal";
 import { api, errorMessage } from "../../lib/api";
-import { useTranslate, type TranslationKey } from "../../lib/i18n";
+import { useTranslate } from "../../lib/i18n";
+import { ListItemLine, UNIT_ABBR, blankItem, type Item, type Unit } from "./ListItemLine";
 import { OrderVoiceNoteRecorder } from "./OrderVoiceNoteRecorder";
 
-/** Uganda's everyday market units — produce and groceries are almost
- * always sold by weight or volume rather than by piece, so a plain "Qty"
- * number alone (the old UI) didn't match how people actually shop. */
-type Unit = "pcs" | "kg" | "g" | "l" | "ml" | "m";
-const UNIT_KEYS: Record<Unit, TranslationKey> = {
-  pcs: "unit_pcs",
-  kg: "unit_kg",
-  g: "unit_g",
-  l: "unit_l",
-  ml: "unit_ml",
-  m: "unit_m",
-};
-const UNIT_ABBR: Record<Unit, string> = { pcs: "", kg: "kg", g: "g", l: "L", ml: "ml", m: "m" };
-
-type Item = { name: string; quantity: string; unitCost: string; unit: Unit };
 /** "list": type each item with its own cost — today's flow. "voice": speak
  * the list instead (for anyone who reads numbers more easily than text) and
  * just key in the total, which is what escrow actually needs. */
@@ -47,7 +33,7 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const [step, setStep] = useState<"items" | "location">("items");
   const [mode, setMode] = useState<Mode>("list");
-  const [items, setItems] = useState<Item[]>([{ name: "", quantity: "1", unitCost: "", unit: "pcs" }]);
+  const [items, setItems] = useState<Item[]>([blankItem()]);
   const [voiceTotal, setVoiceTotal] = useState("");
 
   const [locations, setLocations] = useState<SavedLocation[]>([]);
@@ -77,7 +63,7 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   }
   function addItem() {
-    setItems((prev) => [...prev, { name: "", quantity: "1", unitCost: "", unit: "pcs" }]);
+    setItems((prev) => [...prev, blankItem()]);
   }
   function removeItem(i: number) {
     setItems((prev) => prev.filter((_, idx) => idx !== i));
@@ -173,85 +159,27 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {mode === "list" ? (
-            <div className="space-y-4">
+            <div className="space-y-1.5">
               {items.map((item, i) => (
-                <div key={i} className="space-y-3 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-base font-bold text-ink">{t("list_item_number", { n: i + 1 })}</span>
-                    {items.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeItem(i)}
-                        className="flex items-center gap-1 text-sm font-semibold text-ink-500/70 hover:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                        {t("list_remove_item")}
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-ink-500">{t("list_item_name")}</label>
-                    <input
-                      value={item.name}
-                      onChange={(e) => updateItem(i, { name: e.target.value })}
-                      placeholder={t("list_item_name_placeholder")}
-                      className="w-full rounded-xl border border-[var(--border-faint)] px-4 py-3.5 text-lg text-ink outline-none focus:border-gold"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-ink-500">{t("list_price_per_unit")}</label>
-                    <input
-                      value={item.unitCost}
-                      onChange={(e) => updateItem(i, { unitCost: e.target.value.replace(/[^\d]/g, "") })}
-                      inputMode="numeric"
-                      placeholder={t("list_price_placeholder")}
-                      className="w-full rounded-xl border border-[var(--border-faint)] px-4 py-3.5 text-lg text-ink outline-none focus:border-gold"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-semibold text-ink-500">{t("list_quantity_label")}</label>
-                      <input
-                        value={item.quantity}
-                        onChange={(e) => updateItem(i, { quantity: e.target.value.replace(/[^\d]/g, "") })}
-                        inputMode="numeric"
-                        className="w-full rounded-xl border border-[var(--border-faint)] px-4 py-3.5 text-lg text-ink outline-none focus:border-gold"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-semibold text-ink-500">{t("list_unit_label")}</label>
-                      <select
-                        value={item.unit}
-                        onChange={(e) => updateItem(i, { unit: e.target.value as Unit })}
-                        className="w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3 py-3.5 text-lg text-ink outline-none focus:border-gold"
-                      >
-                        {(Object.keys(UNIT_KEYS) as Unit[]).map((u) => (
-                          <option key={u} value={u}>
-                            {t(UNIT_KEYS[u])}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {Number(item.quantity) > 0 && Number(item.unitCost) > 0 && (
-                    <div className="flex items-center justify-between rounded-xl bg-[rgb(var(--surface-muted))] px-4 py-2.5 text-base">
-                      <span className="font-semibold text-ink-500">{t("list_subtotal")}</span>
-                      <span className="font-bold text-ink">{currency(Number(item.quantity) * Number(item.unitCost))}</span>
-                    </div>
-                  )}
-                </div>
+                <ListItemLine
+                  key={i}
+                  item={item}
+                  canRemove={items.length > 1}
+                  onChange={(patch) => updateItem(i, patch)}
+                  onRemove={() => removeItem(i)}
+                  onComplete={() => i === items.length - 1 && addItem()}
+                />
               ))}
-              <button
-                onClick={addItem}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[var(--border-faint)] py-4 text-base font-bold text-ink-500"
-              >
-                <Plus className="h-5 w-5" strokeWidth={2} aria-hidden />
-                {t("list_add_item")}
-              </button>
+              {items[items.length - 1].stage === 3 && (
+                <button
+                  type="button"
+                  onClick={addItem}
+                  className="flex items-center gap-1.5 py-2 text-sm font-bold text-ink-500 hover:text-ink"
+                >
+                  <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
+                  {t("list_add_item")}
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
