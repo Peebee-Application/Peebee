@@ -83,7 +83,7 @@ export function RecentLists() {
         {lists.map((list) => (
           <li key={list.id}>
             <ListRow
-              href={list.orderId ? `/orders/${list.orderId}` : `/orders/lists/${list.listId}`}
+              href={list.orderId && !list.expired ? `/orders/${list.orderId}` : `/orders/lists/${list.listId}`}
               leading={
                 list.riderId && list.riderHasPhoto ? (
                   <RiderAvatar riderId={list.riderId} />
@@ -94,10 +94,14 @@ export function RecentLists() {
                 )
               }
               title={listDisplayTitle(list)}
-              subtitle={`${list.itemCount} ${t("items_count")}`}
+              subtitle={list.expired ? t("list_expired_hint") : `${list.itemCount} ${t("items_count")}`}
               trailing={
-                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusClasses(list.status)}`}>
-                  {list.status}
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
+                    list.expired ? "bg-gold/15 text-gold" : statusClasses(list.status)
+                  }`}
+                >
+                  {list.expired ? t("list_expired") : list.status}
                 </span>
               }
             />

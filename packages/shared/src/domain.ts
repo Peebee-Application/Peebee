@@ -8,6 +8,8 @@ export type ListStatus = "draft" | "active" | "delivered" | "cancelled";
 export type ListSummary = {
   id: string;
   listId: string;
+  /** A draft whose job expired unserved (admin job expiry) — can be resent. */
+  expired?: boolean;
   title: string;
   status: ListStatus;
   itemCount: number;
@@ -48,6 +50,8 @@ export type ListRow = {
 export type ListDetail = {
   list: ListRow;
   items: ListItem[];
+  /** The expired order this draft can be resent from, or null. */
+  resendOrderId?: string | null;
 };
 
 export type OrderType = "shopping" | "parcel";

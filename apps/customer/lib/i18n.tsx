@@ -44,6 +44,10 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
 
   // Home — order type cards
   list_price_short: { en: "Price (UGX)", lg: "Omuwendo (UGX)" },
+  list_expired: { en: "Expired", lg: "Kiweddeko" },
+  list_expired_hint: { en: "No rider took this in time", lg: "Tewali mugoba yagitutte mu budde" },
+  list_resend: { en: "Resend order", lg: "Ddamu okusindika" },
+  list_resending: { en: "Resending…", lg: "Kisindikibwa…" },
   where_to: { en: "Where to?", lg: "Ogenda wa?" },
   service_ride: { en: "Ride", lg: "Boda" },
   service_food: { en: "Food", lg: "Emmere" },

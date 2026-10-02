@@ -81,11 +81,15 @@ export default function OrdersPage() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-bold text-ink">{list.title}</span>
                     <span className="mt-0.5 block text-xs text-ink-500">
-                      {list.itemCount} {t("items_count")}
+                      {list.expired ? t("list_expired_hint") : `${list.itemCount} ${t("items_count")}`}
                     </span>
                   </span>
-                  <span className="shrink-0 rounded-full bg-[rgb(var(--surface-muted))] px-2.5 py-0.5 text-xs font-semibold capitalize text-ink-500">
-                    {list.status}
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
+                      list.expired ? "bg-gold/15 text-gold" : "bg-[rgb(var(--surface-muted))] text-ink-500"
+                    }`}
+                  >
+                    {list.expired ? t("list_expired") : list.status}
                   </span>
                   <ChevronRight className="h-5 w-5 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
                 </Link>

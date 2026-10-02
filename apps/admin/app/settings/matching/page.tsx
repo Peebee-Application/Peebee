@@ -188,9 +188,9 @@ export default function RiderMatchingPage() {
             </div>
           </div>
           <p className="text-xs text-ink-500">
-            A job no rider has taken within this time is cancelled automatically, with no fee, and anything the
-            customer paid goes back to their wallet. Jobs a rider has already accepted are never expired. Checked
-            every couple of minutes. Minimum 5 minutes, maximum 7 days.
+            A job no rider has taken within this time expires automatically, with no fee: anything the customer paid
+            goes back to their wallet and the order returns to their drafts so they can resend it. Jobs a rider has
+            already accepted are never expired. Checked every couple of minutes. Minimum 5 minutes, maximum 7 days.
           </p>
         </section>
         <SettingsSaveBar busy={busy} error={error} saved={saved} />

@@ -116,13 +116,15 @@ export async function closeWaiting(order: Row, actorId: string): Promise<boolean
 }
 
 /** Cancels an order and returns whatever the customer paid to their wallet.
- * `eventNote` replaces the default "Cancelled by customer" timeline text and
+ * `restoreDraft` puts the list back to a draft (job expiry) instead of
+ * cancelling it, so the customer can resend it. `eventNote` replaces the
+ * default "Cancelled by customer" timeline text and
  * `actorId` is null when the system (e.g. job expiry) does the cancelling. */
 export async function cancelCustomerOrder(
   order: Row,
   actorId: string | null,
   acceptedFee: number,
-  opts: { eventNote?: string } = {},
+  opts: { eventNote?: string; restoreDraft?: boolean } = {},
 ): Promise<{ error?: string; fee?: number }> {
   if (order.stage === "Cancelled") return {};
   const quote = await getOrderTimeFees(order);
@@ -172,7 +174,7 @@ export async function cancelCustomerOrder(
     },
     ...chargeStatements(order, token, "cancellation", quote.cancellationDue, actorId),
     {
-      sql: "UPDATE lists SET status = 'cancelled', updated_at = datetime('now') WHERE id = ? AND EXISTS (SELECT 1 FROM orders WHERE id = ? AND time_action_token = ?)",
+      sql: `UPDATE lists SET status = '${opts.restoreDraft ? "draft" : "cancelled"}', updated_at = datetime('now') WHERE id = ? AND EXISTS (SELECT 1 FROM orders WHERE id = ? AND time_action_token = ?)`,
       args: [String(order.list_id), id, token],
     },
     {
