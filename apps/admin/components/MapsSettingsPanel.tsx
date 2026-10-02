@@ -1,6 +1,6 @@
 "use client";
 
-import type { MapsCredentialFieldStatus, MapsProviderIdentity, MapsAdminSettings } from "@tuma/shared";
+import type { JawgLightStyle, MapsCredentialFieldStatus, MapsProviderIdentity, MapsAdminSettings } from "@tuma/shared";
 import { Map } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../lib/api";
@@ -130,6 +130,56 @@ function MapsCredentialFieldsForm({
   );
 }
 
+const JAWG_LIGHT_STYLES: { style: JawgLightStyle; label: string; hint: string }[] = [
+  { style: "normal", label: "Normal", hint: "Jawg Sunny — colorful streets" },
+  { style: "light", label: "Light", hint: "Jawg Light — pale and minimal" },
+];
+
+/** Jawg's light-mode style picker. Dark mode is always Jawg Dark; this only
+ * sets the default — each user can override it in Appearance settings. */
+function JawgStyleSetting({ value, onSaved }: { value: JawgLightStyle; onSaved: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function choose(style: JawgLightStyle) {
+    if (style === value) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.adminSetJawgLightStyle(style);
+      onSaved();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-2.5 space-y-1.5 border-t border-[var(--border-faint)] pt-2.5">
+      <p className="text-xs font-semibold text-ink-500">Light-mode map style</p>
+      <div className="grid grid-cols-2 gap-2">
+        {JAWG_LIGHT_STYLES.map((opt) => (
+          <button
+            key={opt.style}
+            type="button"
+            disabled={busy}
+            onClick={() => choose(opt.style)}
+            className={`rounded-xl border p-2 text-left disabled:opacity-60 ${
+              value === opt.style ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"
+            }`}
+          >
+            <span className="block text-xs font-bold text-ink">{opt.label}</span>
+            <span className="block text-[11px] text-ink-500">{opt.hint}</span>
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] text-ink-500">Dark mode always uses Jawg Dark. Users can override this in their Appearance settings.</p>
+      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
+    </div>
+  );
+}
+
 /** Which map backend location pickers/geocoding across the customer,
  * rider, and restaurant apps actually use — see apps/api/src/maps/.
  * Switching to Google or Mapbox is blocked until that provider's API key
@@ -221,6 +271,7 @@ export function MapsSettingsPanel() {
                   onSaved={load}
                 />
               )}
+              {provider === "jawg" && <JawgStyleSetting value={settings.jawgLightStyle} onSaved={load} />}
             </div>
           );
         })}

@@ -8,6 +8,7 @@ import { clientIp } from "../lib/ratelimit.js";
 import {
   getActiveCallProvider,
   getActiveMapsProvider,
+  getJawgLightStyle,
   getActiveProviders,
   getDeliverySettings,
   getTimeFeeSettings,
@@ -25,6 +26,7 @@ import {
   getWalletSettings,
   setActiveCallProvider,
   setActiveMapsProvider,
+  setJawgLightStyle,
   setActiveProviders,
   setLugandaAudioSettings,
   setMatchingModesEnabled,
@@ -99,6 +101,7 @@ async function fullSettings() {
   let mapsThunderforestApiKey: string | null = null;
   let mapsJawgAccessToken: string | null = null;
   let mapsTomtomApiKey: string | null = null;
+  const mapsJawgLightStyle = await getJawgLightStyle();
   if (mapsActiveProvider === "google") {
     mapsGoogleApiKey = (await getMapsCredential("google", "apiKey")) ?? null;
   } else if (mapsActiveProvider === "mapbox") {
@@ -141,6 +144,7 @@ async function fullSettings() {
     mapsThunderforestApiKey,
     mapsJawgAccessToken,
     mapsTomtomApiKey,
+    mapsJawgLightStyle,
     navMode,
     ...monetization,
     vslaLoanInterestEnabled: vsla.loanInterestEnabled,
@@ -709,6 +713,35 @@ settingsRoutes.put(
   },
 );
 
+const setJawgLightStyleSchema = z.object({ style: z.enum(["normal", "light"]) });
+
+settingsRoutes.put(
+  "/admin/maps/jawg-style",
+  requireAuth,
+  requireRole("admin"),
+  requirePermission("settings.manage"),
+  async (c) => {
+    const user = c.get("user");
+    const parsed = setJawgLightStyleSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+
+    const before = await getJawgLightStyle();
+    await setJawgLightStyle(parsed.data.style);
+    if (before !== parsed.data.style) {
+      await logActivity({
+        actor: user,
+        action: "maps.jawg_style.switch",
+        entityType: "settings",
+        summary: `Switched Jawg light-mode map style from ${before} to ${parsed.data.style}`,
+        before: { mapsJawgLightStyle: before },
+        after: { mapsJawgLightStyle: parsed.data.style },
+        ip: clientIp(c),
+      });
+    }
+    return c.json({ jawgLightStyle: parsed.data.style });
+  },
+);
+
 settingsRoutes.put(
   "/admin/calls/credentials/:provider",
   requireAuth,
@@ -787,8 +820,9 @@ settingsRoutes.get(
   requireRole("admin"),
   requirePermission("settings.manage"),
   async (c) => {
-    const [activeProvider, entries] = await Promise.all([
+    const [activeProvider, jawgLightStyle, entries] = await Promise.all([
       getActiveMapsProvider(),
+      getJawgLightStyle(),
       Promise.all(
         CONFIGURABLE_MAPS_PROVIDERS.map(async (provider) => [
           provider,
@@ -796,7 +830,7 @@ settingsRoutes.get(
         ] as const),
       ),
     ]);
-    return c.json({ activeProvider, providers: Object.fromEntries(entries) });
+    return c.json({ activeProvider, jawgLightStyle, providers: Object.fromEntries(entries) });
   },
 );
 

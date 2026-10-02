@@ -149,6 +149,7 @@ export type {
   CallCredentialFieldStatus,
   CallsAdminSettings,
   MapsProviderIdentity,
+  JawgLightStyle,
   MapsCredentialFieldStatus,
   MapsAdminSettings,
   NavMode,

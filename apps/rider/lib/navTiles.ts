@@ -1,4 +1,5 @@
-import type { DeliverySettings } from "@tuma/shared";
+import type { DeliverySettings, JawgLightStyle } from "@tuma/shared";
+import { jawgTileUrl } from "./mapStyle";
 
 const OSM_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -12,7 +13,14 @@ const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenS
  * navigation falls back to plain OpenStreetMap tiles for those — the
  * provider toggle still controls the location *pickers* fully; this
  * only affects the live navigation map's look. */
-export function resolveNavTiles(settings: DeliverySettings): { tileUrl: string; attribution: string } {
+export type NavTiles = {
+  tileUrl: string;
+  /** Set for Jawg — see OsmStyledPicker. */
+  jawg?: { accessToken: string; adminLightStyle: JawgLightStyle };
+  attribution: string;
+};
+
+export function resolveNavTiles(settings: DeliverySettings): NavTiles {
   switch (settings.mapsActiveProvider) {
     case "maptiler":
       if (settings.mapsMaptilerApiKey) {
@@ -41,7 +49,8 @@ export function resolveNavTiles(settings: DeliverySettings): { tileUrl: string; 
     case "jawg":
       if (settings.mapsJawgAccessToken) {
         return {
-          tileUrl: `https://{s}.tile.jawg.io/jawg-streets/{z}/{x}/{y}{r}.png?access-token=${encodeURIComponent(settings.mapsJawgAccessToken)}`,
+          tileUrl: jawgTileUrl(settings.mapsJawgLightStyle, settings.mapsJawgAccessToken),
+          jawg: { accessToken: settings.mapsJawgAccessToken, adminLightStyle: settings.mapsJawgLightStyle },
           attribution: `${OSM_ATTR} &copy; <a href="https://www.jawg.io/">Jawg</a>`,
         };
       }

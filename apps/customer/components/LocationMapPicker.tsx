@@ -1,5 +1,6 @@
 "use client";
 
+import type { JawgLightStyle } from "@tuma/shared";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
@@ -18,7 +19,7 @@ type ResolvedProvider =
   | { kind: "maptiler"; apiKey: string }
   | { kind: "stadia"; apiKey: string }
   | { kind: "thunderforest"; apiKey: string }
-  | { kind: "jawg"; accessToken: string }
+  | { kind: "jawg"; accessToken: string; adminLightStyle: JawgLightStyle }
   | { kind: "tomtom"; apiKey: string };
 
 /** Picks which map implementation to render based on the admin's active
@@ -50,7 +51,7 @@ export function LocationMapPicker(props: MapPickerProps) {
         } else if (s.mapsActiveProvider === "thunderforest" && s.mapsThunderforestApiKey) {
           setProvider({ kind: "thunderforest", apiKey: s.mapsThunderforestApiKey });
         } else if (s.mapsActiveProvider === "jawg" && s.mapsJawgAccessToken) {
-          setProvider({ kind: "jawg", accessToken: s.mapsJawgAccessToken });
+          setProvider({ kind: "jawg", accessToken: s.mapsJawgAccessToken, adminLightStyle: s.mapsJawgLightStyle });
         } else if (s.mapsActiveProvider === "tomtom" && s.mapsTomtomApiKey) {
           setProvider({ kind: "tomtom", apiKey: s.mapsTomtomApiKey });
         } else {
@@ -85,7 +86,7 @@ export function LocationMapPicker(props: MapPickerProps) {
     case "thunderforest":
       return <ThunderforestPicker {...props} apiKey={provider.apiKey} />;
     case "jawg":
-      return <JawgMapsPicker {...props} accessToken={provider.accessToken} />;
+      return <JawgMapsPicker {...props} accessToken={provider.accessToken} adminLightStyle={provider.adminLightStyle} />;
     case "tomtom":
       return <TomTomPicker {...props} apiKey={provider.apiKey} />;
     default:

@@ -7,7 +7,8 @@ import { Loader2, Navigation } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet";
 import { api } from "../lib/api";
-import { fetchDrivingRoute, resolveNavTiles, type OsrmRoute } from "../lib/navTiles";
+import { jawgTileUrl, useJawgStyle } from "../lib/mapStyle";
+import { fetchDrivingRoute, resolveNavTiles, type NavTiles, type OsrmRoute } from "../lib/navTiles";
 
 const riderIcon = L.divIcon({
   html: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -59,7 +60,8 @@ function elapsedLabel(sinceIso: string, nowMs: number): string {
  * position ever lands here, so this card just doesn't render — the
  * existing OrderTimeline still covers stage-by-stage progress either way. */
 export function LiveTrackingMap({ order, events }: { order: OrderRow; events: OrderEvent[] }) {
-  const [tiles, setTiles] = useState<{ tileUrl: string; attribution: string } | null>(null);
+  const [tiles, setTiles] = useState<NavTiles | null>(null);
+  const jawgStyle = useJawgStyle(tiles?.jawg?.adminLightStyle ?? "normal");
   const [route, setRoute] = useState<OsrmRoute | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const lastRoutedFor = useRef<string | null>(null);
@@ -123,8 +125,12 @@ export function LiveTrackingMap({ order, events }: { order: OrderRow; events: Or
             <Loader2 className="h-5 w-5 animate-spin text-gold" strokeWidth={2.5} aria-hidden />
           </div>
         ) : (
-          <MapContainer center={[riderLat, riderLng]} zoom={14} className="tuma-map h-full w-full" attributionControl={false} zoomControl={false} dragging={false} scrollWheelZoom={false} doubleClickZoom={false}>
-            <TileLayer url={tiles.tileUrl} attribution={tiles.attribution} />
+          <MapContainer center={[riderLat, riderLng]} zoom={14} className={`tuma-map h-full w-full${tiles.jawg ? " tuma-map-native" : ""}`} attributionControl={false} zoomControl={false} dragging={false} scrollWheelZoom={false} doubleClickZoom={false}>
+            <TileLayer
+              key={tiles.jawg ? jawgStyle : "static"}
+              url={tiles.jawg ? jawgTileUrl(jawgStyle, tiles.jawg.accessToken) : tiles.tileUrl}
+              attribution={tiles.attribution}
+            />
             {route && route.coordinates.length > 1 && (
               <Polyline positions={route.coordinates} pathOptions={{ color: "#C9A227", weight: 4, opacity: 0.85 }} />
             )}
