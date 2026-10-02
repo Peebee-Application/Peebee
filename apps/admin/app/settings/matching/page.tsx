@@ -1,6 +1,6 @@
 "use client";
 
-import { MATCHING_MODE_DESCRIPTIONS, MATCHING_MODE_LABELS, type MatchingMode } from "@tuma/shared";
+import { MATCHING_MODE_DESCRIPTIONS, MATCHING_MODE_LABELS, type JobExpiryUnit, type MatchingMode } from "@tuma/shared";
 import { useEffect, useState } from "react";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
 import { api, errorMessage } from "../../../lib/api";
@@ -12,6 +12,9 @@ export default function RiderMatchingPage() {
   const [enabledModes, setEnabledModes] = useState<MatchingMode[]>(["first_to_claim"]);
   const [nearestWindowSeconds, setNearestWindowSeconds] = useState("");
   const [maxAssignmentMinutes, setMaxAssignmentMinutes] = useState("");
+  const [expiryEnabled, setExpiryEnabled] = useState(false);
+  const [expiryValue, setExpiryValue] = useState("12");
+  const [expiryUnit, setExpiryUnit] = useState<JobExpiryUnit>("hours");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +28,9 @@ export default function RiderMatchingPage() {
         setEnabledModes(settings.enabledModes);
         setNearestWindowSeconds(String(settings.nearestWindowSeconds));
         setMaxAssignmentMinutes(String(settings.maxAssignmentMinutes));
+        setExpiryEnabled(settings.jobExpiry.enabled);
+        setExpiryValue(String(settings.jobExpiry.value));
+        setExpiryUnit(settings.jobExpiry.unit);
       })
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false));
@@ -45,11 +51,15 @@ export default function RiderMatchingPage() {
         enabledModes: enabledModes.length > 0 ? enabledModes : ["first_to_claim"],
         nearestWindowSeconds: Number(nearestWindowSeconds),
         maxAssignmentMinutes: Number(maxAssignmentMinutes),
+        jobExpiry: { enabled: expiryEnabled, value: Math.max(1, Number(expiryValue) || 1), unit: expiryUnit },
       });
       setServiceRangeKm(String(res.settings.serviceRangeKm));
       setEnabledModes(res.settings.enabledModes);
       setNearestWindowSeconds(String(res.settings.nearestWindowSeconds));
       setMaxAssignmentMinutes(String(res.settings.maxAssignmentMinutes));
+      setExpiryEnabled(res.settings.jobExpiry.enabled);
+      setExpiryValue(String(res.settings.jobExpiry.value));
+      setExpiryUnit(res.settings.jobExpiry.unit);
       setSaved(true);
     } catch (err) {
       setError(errorMessage(err));
@@ -135,6 +145,53 @@ export default function RiderMatchingPage() {
               no matter the mode, so nobody waits forever.
             </p>
           </div>
+        </section>
+        <section className="home-card space-y-3">
+          <label className="flex items-center gap-2 text-sm font-bold text-ink">
+            <input
+              type="checkbox"
+              checked={expiryEnabled}
+              onChange={(e) => setExpiryEnabled(e.target.checked)}
+              className="h-4 w-4 accent-gold"
+            />
+            Expire jobs nobody serves
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-ink-500" htmlFor="expiry-value">
+                Expire after
+              </label>
+              <input
+                id="expiry-value"
+                inputMode="numeric"
+                value={expiryValue}
+                disabled={!expiryEnabled}
+                onChange={(e) => setExpiryValue(e.target.value.replace(/[^\d]/g, ""))}
+                placeholder="12"
+                className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold disabled:opacity-50"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-ink-500" htmlFor="expiry-unit">
+                Unit
+              </label>
+              <select
+                id="expiry-unit"
+                value={expiryUnit}
+                disabled={!expiryEnabled}
+                onChange={(e) => setExpiryUnit(e.target.value as JobExpiryUnit)}
+                className="w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3 py-2.5 text-[15px] outline-none focus:border-gold disabled:opacity-50"
+              >
+                <option value="minutes">Minutes</option>
+                <option value="hours">Hours</option>
+              </select>
+            </div>
+          </div>
+          <p className="text-xs text-ink-500">
+            A job no rider has taken within this time is cancelled automatically, with no fee, and anything the
+            customer paid goes back to their wallet. Jobs a rider has already accepted are never expired. Checked
+            every couple of minutes. Minimum 5 minutes, maximum 7 days.
+          </p>
         </section>
         <SettingsSaveBar busy={busy} error={error} saved={saved} />
       </form>

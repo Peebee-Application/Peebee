@@ -185,9 +185,15 @@ export const MATCHING_MODE_DESCRIPTIONS: Record<MatchingMode, string> = {
  * apps/api/src/lib/settings.ts's platform_environment. */
 export type PlatformEnvironment = "live" | "sandbox";
 
+/** How long a job may sit unserved (no rider took it) before it is
+ * automatically expired — set by the admin in minutes or hours. */
+export type JobExpiryUnit = "minutes" | "hours";
+export type JobExpirySettings = { enabled: boolean; value: number; unit: JobExpiryUnit };
+
 /** Admin-tunable delivery pricing/matching numbers (packages/shared/src/api-client.ts: getSettings/adminUpdateSettings). */
 export type DeliverySettings = {
   timeFees: TimeFeeSettings;
+  jobExpiry: JobExpirySettings;
   /** Which environment's orders/wallets/lists everyone currently sees —
    * read-only here (GET /settings); change it with
    * adminSetPlatformEnvironment. */

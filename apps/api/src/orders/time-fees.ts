@@ -55,7 +55,7 @@ export async function getOrderTimeFees(order: Row): Promise<OrderTimeFees> {
 /** Every write is gated by a unique transition token won by a conditional
  * order update in the SAME transaction. Retries and competing requests
  * cannot debit twice or leave a debit without its ledger record. */
-function chargeStatements(order: Row, token: string, kind: "cancellation" | "waiting", amount: number, actorId: string): DbStatement[] {
+function chargeStatements(order: Row, token: string, kind: "cancellation" | "waiting", amount: number, actorId: string | null): DbStatement[] {
   if (amount <= 0) return [];
   const id = newId("timefee");
   const column = order.environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
@@ -115,7 +115,15 @@ export async function closeWaiting(order: Row, actorId: string): Promise<boolean
   return changes[0] > 0;
 }
 
-export async function cancelCustomerOrder(order: Row, actorId: string, acceptedFee: number): Promise<{ error?: string; fee?: number }> {
+/** Cancels an order and returns whatever the customer paid to their wallet.
+ * `eventNote` replaces the default "Cancelled by customer" timeline text and
+ * `actorId` is null when the system (e.g. job expiry) does the cancelling. */
+export async function cancelCustomerOrder(
+  order: Row,
+  actorId: string | null,
+  acceptedFee: number,
+  opts: { eventNote?: string } = {},
+): Promise<{ error?: string; fee?: number }> {
   if (order.stage === "Cancelled") return {};
   const quote = await getOrderTimeFees(order);
   if (!quote.canCancel) return { error: "This order cannot be cancelled now. If a payment is processing, wait for it to finish. Otherwise, contact support." };
@@ -174,7 +182,7 @@ export async function cancelCustomerOrder(order: Row, actorId: string, acceptedF
     {
       sql: `INSERT INTO order_events (id, order_id, stage, note, actor_id)
             SELECT ?, id, 'Cancelled', ?, ? FROM orders WHERE id = ? AND time_action_token = ?`,
-      args: [newId("evt"), quote.cancellationDue ? `Cancelled by customer. Cancellation fee: ${money(quote.cancellationDue)}.` : "Cancelled by customer. No cancellation fee.", actorId, id, token],
+      args: [newId("evt"), opts.eventNote ?? (quote.cancellationDue ? `Cancelled by customer. Cancellation fee: ${money(quote.cancellationDue)}.` : "Cancelled by customer. No cancellation fee."), actorId, id, token],
     },
   ]);
   return changes[0] ? { fee: quote.cancellationDue } : { error: "The journey changed. Refresh the order and review the cancellation again." };
