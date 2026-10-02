@@ -214,7 +214,7 @@ orderRoutes.get("/lists/recent", async (c) => {
   const limit = Math.max(1, Math.min(Number(c.req.query("limit") ?? "10") || 10, 50));
   const res = await db.execute({
     sql: `SELECT l.*, (SELECT COUNT(*) FROM list_items WHERE list_id = l.id) as item_count,
-                 o.id as order_id, o.rider_id as rider_id, o.destination_area as destination_area,
+                 o.id as order_id, o.stage as order_stage, o.rider_id as rider_id, o.destination_area as destination_area,
                  r.first_name as rider_first_name, r.profile_photo_key as rider_photo_key,
                  u.name as rider_full_name
           FROM lists l
@@ -236,6 +236,8 @@ orderRoutes.get("/lists/recent", async (c) => {
         itemCount: r.item_count,
         updatedAt: r.updated_at,
         orderId: r.order_id ?? null,
+        // A draft whose last order was cancelled — i.e. one that expired and can be resent.
+        expired: r.status === "draft" && r.order_stage === "Cancelled",
         riderId: r.rider_id ?? null,
         riderFirstName: r.rider_id ? riderFirstName : null,
         riderHasPhoto: !!r.rider_photo_key,
@@ -252,7 +254,13 @@ orderRoutes.get("/lists/:id", async (c) => {
   if (!row) return c.json({ error: "not_found" }, 404);
   if (row.customer_id !== c.get("user").sub) return c.json({ error: "forbidden" }, 403);
   const items = await db.execute({ sql: "SELECT * FROM list_items WHERE list_id = ?", args: [id] });
-  return c.json({ list: row, items: items.rows });
+  // The cancelled order a draft can be resent from (job expiry), if any.
+  const last = await db.execute({
+    sql: "SELECT id, stage FROM orders WHERE list_id = ? ORDER BY updated_at DESC LIMIT 1",
+    args: [id],
+  });
+  const resendOrderId = row.status === "draft" && last.rows[0]?.stage === "Cancelled" ? (last.rows[0].id as string) : null;
+  return c.json({ list: row, items: items.rows, resendOrderId });
 });
 
 // ---------------------------------------------------------------------------
@@ -279,10 +287,16 @@ const createOrderSchema = z.object({
 });
 
 orderRoutes.post("/orders", async (c) => {
-  const user = c.get("user");
   const parsed = createOrderSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
-  const d = parsed.data;
+  return createOrderFromInput(c, parsed.data);
+});
+
+/** Creates an order from an existing list — shared by POST /orders and
+ * POST /orders/:id/resend so a resent order gets exactly the same pricing,
+ * matching and time-fee snapshot as a fresh one. */
+async function createOrderFromInput(c: Context, d: z.infer<typeof createOrderSchema>) {
+  const user = c.get("user");
 
   const list = await db.execute({
     sql: "SELECT * FROM lists WHERE id = ?",
@@ -410,13 +424,62 @@ orderRoutes.post("/orders", async (c) => {
   });
   await db.execute({
     sql: "UPDATE lists SET status = 'active', updated_at = datetime('now') WHERE id = ?",
-    args: [parsed.data.listId],
+    args: [d.listId],
   });
   await logEvent(orderId, "Create", "Order created", user.sub);
   await snapshotTimeFees(orderId, deliveryFee ?? estimatedTotal ?? 0);
 
   const order = await getOrder(orderId);
   return c.json({ order }, 201);
+}
+
+/** Resend an order that expired (or otherwise went back to a draft): makes a
+ * new order from the same list with the same type, route and payment rail.
+ * Only the customer's own order, only while its list is a draft and nothing
+ * else is running for that list. */
+orderRoutes.post("/orders/:id/resend", async (c) => {
+  const user = c.get("user");
+  const old = await getOrder(c.req.param("id"));
+  if (!old) return c.json({ error: "not_found" }, 404);
+  if (old.customer_id !== user.sub) return c.json({ error: "forbidden" }, 403);
+  if (old.stage !== "Cancelled") return c.json({ error: "not_resendable", message: "Only an expired order can be resent." }, 409);
+
+  const list = await db.execute({ sql: "SELECT status FROM lists WHERE id = ?", args: [String(old.list_id)] });
+  if (list.rows[0]?.status !== "draft") {
+    return c.json({ error: "not_resendable", message: "This order can't be resent." }, 409);
+  }
+  const running = await db.execute({
+    sql: "SELECT 1 FROM orders WHERE list_id = ? AND stage != 'Cancelled' LIMIT 1",
+    args: [String(old.list_id)],
+  });
+  if (running.rows.length > 0) return c.json({ error: "already_resent", message: "This order was already resent." }, 409);
+
+  const isRide = old.is_ride === 1 || old.is_ride === true;
+  const response = await createOrderFromInput(c, {
+    listId: String(old.list_id),
+    type: old.type === "parcel" ? "parcel" : "shopping",
+    isRide: isRide || undefined,
+    pickupArea: (old.pickup_area as string | null) ?? undefined,
+    pickupAddress: (old.pickup_address as string | null) ?? undefined,
+    pickupLat: (old.pickup_lat as number | null) ?? undefined,
+    pickupLng: (old.pickup_lng as number | null) ?? undefined,
+    destinationArea: (old.destination_area as string | null) ?? undefined,
+    destinationAddress: (old.destination_address as string | null) ?? undefined,
+    destinationLat: (old.destination_lat as number | null) ?? undefined,
+    destinationLng: (old.destination_lng as number | null) ?? undefined,
+    paymentRail: old.payment_rail === "float" ? "float" : "escrow",
+    // Shopping: the items part of the old total (the delivery fee is added again).
+    estimatedTotal:
+      old.type === "shopping" && old.estimated_total != null
+        ? Math.max(0, Number(old.estimated_total) - Number(old.delivery_fee ?? 0))
+        : undefined,
+  });
+  // A spoken list lives on the order, not the list — carry it over.
+  if (response.status === 201 && old.voice_note_key) {
+    const created = (await response.clone().json()) as { order?: { id?: string } };
+    if (created.order?.id) await touchOrder(created.order.id, { voice_note_key: old.voice_note_key as string });
+  }
+  return response;
 });
 
 orderRoutes.get("/orders/active", async (c) => {

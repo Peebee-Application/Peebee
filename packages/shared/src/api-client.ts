@@ -364,6 +364,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async getRecentLists(limit = 10) {
       return request<{ lists: ListSummary[] }>(`/v1/lists/recent?limit=${limit}`);
     },
+    async resendOrder(orderId: string) {
+      return request<{ order: OrderRow }>(`/v1/orders/${orderId}/resend`, { method: "POST" });
+    },
     async getList(listId: string) {
       return request<ListDetail>(`/v1/lists/${listId}`);
     },

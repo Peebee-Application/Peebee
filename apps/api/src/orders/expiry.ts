@@ -10,8 +10,9 @@ type Row = Record<string, unknown>;
 const UNSERVED_STAGES = "('Create', 'Match', 'Fund')";
 
 /** Expires jobs that no rider took within the admin-set time: they are
- * cancelled with no fee and anything the customer already paid is returned
- * to their wallet (same path as a customer cancellation). Runs from the
+ * cancelled with no fee, anything the customer already paid is returned to
+ * their wallet (same path as a customer cancellation), and the list goes
+ * back to a draft the customer can resend. Runs from the
  * scheduled worker; does nothing unless an admin has switched it on. */
 export async function sweepExpiredOrders(): Promise<{ expired: number; skipped: number }> {
   const settings = await getJobExpirySettings();
@@ -37,6 +38,8 @@ export async function sweepExpiredOrders(): Promise<{ expired: number; skipped: 
       const result = quote.canCancel
         ? await cancelCustomerOrder(order, null, quote.cancellationDue, {
             eventNote: `Expired: no rider took this job within ${label}.`,
+            // Back to a draft so the customer can resend it.
+            restoreDraft: true,
           })
         : { error: "not_cancellable" };
       if (result.error) {
@@ -47,7 +50,7 @@ export async function sweepExpiredOrders(): Promise<{ expired: number; skipped: 
       if (order.customer_id) {
         notifyUser(order.customer_id as string, {
           title: "Your order expired",
-          body: `No rider took it within ${label}. Anything you paid has been returned to your wallet.`,
+          body: `No rider took it within ${label}. Anything you paid is back in your wallet — find it in your drafts to resend.`,
           url: `/orders/${order.id}`,
           tag: `order-${order.id}`,
         }).catch(() => {});
