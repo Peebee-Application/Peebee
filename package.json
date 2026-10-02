@@ -19,7 +19,14 @@
     "build:api": "pnpm --filter api build",
     "migrate:api": "pnpm --filter api migrate",
     "seed:api": "pnpm --filter api seed",
-    "lint": "pnpm -r lint"
+    "lint": "pnpm -r lint",
+    "deploy:customer:preview": "pnpm --filter customer deploy:preview",
+    "deploy:rider:preview": "pnpm --filter rider deploy:preview",
+    "deploy:admin:preview": "pnpm --filter admin deploy:preview",
+    "deploy:restaurant:preview": "pnpm --filter restaurant deploy:preview",
+    "deploy:merchant:preview": "pnpm --filter merchant deploy:preview",
+    "deploy:web:preview": "pnpm --filter web deploy:preview",
+    "deploy:api:preview": "pnpm --filter api deploy:preview"
   },
   "engines": {
     "node": ">=22"
