@@ -5,6 +5,7 @@ import { renewSubscriptions } from "./riders/subscription.js";
 import { renewProSubscriptions } from "./riders/pro-subscription.js";
 import { sweepProviderOperations } from "./payments/reconciliation.js";
 import { setR2Binding, type R2Bucket } from "./storage/r2.js";
+import { sweepExpiredOrders } from "./orders/expiry.js";
 import { sweepStageEscalations, sweepStageFines, sweepElectionSessions } from "./stages/escalation.js";
 
 /** Minimal local stand-in so we don't need @cloudflare/workers-types (which
@@ -51,6 +52,11 @@ export default {
       sweepStageFines()
         .then((result) => console.log("Stage savings fines sweep:", JSON.stringify(result)))
         .catch((err) => console.error("Stage savings fines sweep failed:", err)),
+    );
+    ctx.waitUntil(
+      sweepExpiredOrders()
+        .then((result) => console.log("Job expiry sweep:", JSON.stringify(result)))
+        .catch((err) => console.error("Job expiry sweep failed:", err)),
     );
     ctx.waitUntil(
       sweepElectionSessions()

@@ -1,5 +1,5 @@
 import type { MatchingMode } from "@tuma/shared";
-import { DEFAULT_TIME_FEES, type TimeFeeSettings } from "@tuma/shared";
+import { DEFAULT_TIME_FEES, type JobExpirySettings, type TimeFeeSettings } from "@tuma/shared";
 import { db } from "../db/client.js";
 
 const DEFAULTS = {
@@ -228,9 +228,36 @@ const DEFAULTS = {
   luganda_audio_default_voice: "waxal_lug_0004",
   /** Off by default so nothing changes until an admin explicitly opts in. */
   luganda_audio_requires_pro: "0",
+  /** Off until an admin sets it: jobs nobody serves in this long expire. */
+  job_expiry_enabled: "0",
+  job_expiry_value: "12",
+  job_expiry_unit: "hours",
 } as const;
 
 export type SettingKey = keyof typeof DEFAULTS;
+
+export async function getJobExpirySettings(): Promise<JobExpirySettings> {
+  const [enabled, value, unit] = await Promise.all([
+    getSetting("job_expiry_enabled"),
+    getSetting("job_expiry_value"),
+    getSetting("job_expiry_unit"),
+  ]);
+  return {
+    enabled: enabled === "1",
+    value: Math.max(1, Math.floor(Number(value)) || Number(DEFAULTS.job_expiry_value)),
+    unit: unit === "minutes" ? "minutes" : "hours",
+  };
+}
+
+export async function setJobExpirySettings(next: JobExpirySettings): Promise<void> {
+  await setSetting("job_expiry_enabled", next.enabled ? "1" : "0");
+  await setSetting("job_expiry_value", String(next.value));
+  await setSetting("job_expiry_unit", next.unit);
+}
+
+export function jobExpiryMinutes(s: JobExpirySettings): number {
+  return s.unit === "hours" ? s.value * 60 : s.value;
+}
 
 export async function getTimeFeeSettings(): Promise<TimeFeeSettings> {
   return { ...DEFAULT_TIME_FEES, ...JSON.parse(await getSetting("time_fees")) };

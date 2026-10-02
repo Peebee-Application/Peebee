@@ -12,6 +12,8 @@ import {
   getActiveProviders,
   getDeliverySettings,
   getTimeFeeSettings,
+  getJobExpirySettings,
+  setJobExpirySettings,
   getLugandaAudioSettings,
   getMatchingSettings,
   getMonetizationSettings,
@@ -120,6 +122,7 @@ async function fullSettings() {
 
   return {
     timeFees: await getTimeFeeSettings(),
+    jobExpiry: await getJobExpirySettings(),
     ...delivery,
     ...matching,
     paymentsActiveProviders: activeProviders,
@@ -247,6 +250,17 @@ settingsRoutes.post("/practice/:experience/dismiss", requireAuth, async (c) => {
 });
 
 const updateSchema = z.object({
+  // Jobs nobody serves within this long are expired automatically. Capped at
+  // 7 days either way so a typo can't leave jobs hanging for months.
+  jobExpiry: z
+    .object({
+      enabled: z.boolean(),
+      value: z.number().int().positive(),
+      unit: z.enum(["minutes", "hours"]),
+    })
+    .refine((j) => (j.unit === "hours" ? j.value * 60 : j.value) <= 7 * 24 * 60, { message: "Max 7 days" })
+    .refine((j) => (j.unit === "minutes" ? j.value >= 5 : true), { message: "At least 5 minutes" })
+    .optional(),
   timeFees: z.object({
     cancellationEnabled: z.boolean(),
     cancellationType: z.enum(["flat", "percent"]),
@@ -384,6 +398,7 @@ settingsRoutes.put(
     const before = await fullSettings();
 
     if (parsed.data.timeFees) await setSetting("time_fees", JSON.stringify(parsed.data.timeFees));
+    if (parsed.data.jobExpiry) await setJobExpirySettings(parsed.data.jobExpiry);
 
     if (parsed.data.deliveryRatePerKm != null) {
       await setSetting("delivery_rate_per_km", String(parsed.data.deliveryRatePerKm));

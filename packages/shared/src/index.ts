@@ -66,6 +66,8 @@ export type {
   FailedPayment,
   AdminOrderRow,
   DeliverySettings,
+  JobExpirySettings,
+  JobExpiryUnit,
   FeeProposal,
   OrderDetail,
   OrderRating,
