@@ -228,9 +228,10 @@ const DEFAULTS = {
   luganda_audio_default_voice: "waxal_lug_0004",
   /** Off by default so nothing changes until an admin explicitly opts in. */
   luganda_audio_requires_pro: "0",
-  /** Off until an admin sets it: jobs nobody serves in this long expire. */
-  job_expiry_enabled: "0",
-  job_expiry_value: "12",
+  /** On by default: jobs nobody serves within 6 hours expire. Admin can
+   * change the time/unit or switch it off (Settings → Rider matching). */
+  job_expiry_enabled: "1",
+  job_expiry_value: "6",
   job_expiry_unit: "hours",
 } as const;
 

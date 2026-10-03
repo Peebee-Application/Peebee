@@ -57,8 +57,9 @@ test("job expiry sweep", async (t) => {
     assert.equal(jobExpiryMinutes({ enabled: true, value: 45, unit: "minutes" }), 45);
   });
 
-  await t.test("does nothing while switched off (the default)", async () => {
-    assert.equal((await getJobExpirySettings()).enabled, false);
+  await t.test("is on by default at 6 hours, and does nothing when an admin switches it off", async () => {
+    assert.deepEqual(await getJobExpirySettings(), { enabled: true, value: 6, unit: "hours" });
+    await setJobExpirySettings({ enabled: false, value: 6, unit: "hours" });
     assert.deepEqual(await sweepExpiredOrders(), { expired: 0, skipped: 0 });
     const stages = await client.execute("SELECT id, stage FROM orders ORDER BY id");
     assert.ok(stages.rows.every((r) => r.stage !== "Cancelled"));
