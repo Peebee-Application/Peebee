@@ -31,7 +31,7 @@ const THEME_INIT_SCRIPT = `
 `;
 
 export const metadata: Metadata = {
-  title: "Tuma Driver",
+  title: "Tuma Rider",
   description: "Tuma Concierge — rider app",
   manifest: "/manifest.json",
   icons: {
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Tuma Driver",
+    title: "Tuma Rider",
   },
 };
 
