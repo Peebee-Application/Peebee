@@ -1,35 +1,33 @@
 import { GEMINI_TTS_VOICES, DEFAULT_GEMINI_VOICE } from "@tuma/shared";
+import { GeminiApiError, withGeminiKey } from "./ai-keys.js";
 
 /**
  * Google AI Studio (the Gemini API) — translates shopping-list text into
- * Luganda and reads it aloud. Authenticated with an AI Studio API key read
- * straight from the env (like JWT_SECRET), set with `wrangler secret put
- * GEMINI_API_KEY` in apps/api. The models can be overridden with
- * GEMINI_TEXT_MODEL / GEMINI_TTS_MODEL without a code change.
+ * Luganda and reads it aloud. Keys are managed in the admin app (Settings →
+ * Google AI keys) and rotated automatically in test mode — see ./ai-keys.ts;
+ * the GEMINI_API_KEY secret is the fallback while none are saved. The models
+ * can be overridden with GEMINI_TEXT_MODEL / GEMINI_TTS_MODEL without a code
+ * change.
  */
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_TEXT_MODEL = "gemini-2.5-flash";
 const DEFAULT_TTS_MODEL = "gemini-2.5-flash-preview-tts";
 
-function apiKey(): string {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY is not set");
-  return key;
-}
-
 type GeminiResponse = {
   candidates?: Array<{ content?: { parts?: Array<{ text?: string; inlineData?: { data?: string; mimeType?: string } }> } }>;
 };
 
 async function generate(model: string, body: unknown, what: string): Promise<GeminiResponse> {
-  const res = await fetch(`${BASE_URL}/models/${model}:generateContent`, {
-    method: "POST",
-    headers: { "x-goog-api-key": apiKey(), "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+  return withGeminiKey(model, async (apiKey) => {
+    const res = await fetch(`${BASE_URL}/models/${model}:generateContent`, {
+      method: "POST",
+      headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new GeminiApiError(res.status, await res.text(), what);
+    return (await res.json()) as GeminiResponse;
   });
-  if (!res.ok) throw new Error(`Gemini ${what} failed: ${res.status} ${await res.text()}`);
-  return (await res.json()) as GeminiResponse;
 }
 
 export async function translateToLuganda(text: string): Promise<string> {

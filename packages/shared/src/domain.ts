@@ -393,6 +393,39 @@ export const DEFAULT_GEMINI_VOICE = "Kore";
 
 export type LugandaVoice = { id: string; label: string };
 
+/** A Google AI Studio API key as the admin app sees it — never the secret itself. */
+export type AiKey = {
+  id: string;
+  label: string;
+  hint: string;
+  enabled: boolean;
+  isMaster: boolean;
+  /** ready = can take requests now; cooling = waiting for its limit to reset. */
+  status: "ready" | "cooling" | "disabled";
+  cooldownUntil: string | null;
+  cooldownReason: string | null;
+  /** The Google Cloud project this key was made in. Keys sharing a project share one quota. */
+  projectTag: string | null;
+  /** Models this key is currently out of quota for, and when each comes back. */
+  limits: Array<{ model: string; until: string; reason: string }>;
+  lastError: string | null;
+  lastUsedAt: string | null;
+  useCount: number;
+  failCount: number;
+  createdAt: string;
+};
+export type AiKeyMode = "test" | "paid";
+export type AiKeysOverview = {
+  mode: AiKeyMode;
+  keys: AiKey[];
+  /** False until migration 0074_ai_api_keys.sql is applied. */
+  tableReady: boolean;
+  encryptionConfigured: boolean;
+  /** The GEMINI_API_KEY secret, used while no keys are saved here. */
+  envKeyPresent: boolean;
+};
+export type AiKeyAddResult = { label: string; hint: string; status: "added" | "duplicate" | "rejected"; detail?: string };
+
 /** Rider Stage Savings Circles — a VSLA-style group savings/loans feature.
  * See apps/api/src/stages/routes.ts and apps/api/src/lib/settings.ts
  * getVslaSettings for how each of these is enforced. */
