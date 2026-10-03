@@ -1438,12 +1438,28 @@ orderRoutes.get("/orders/:id/checkout", async (c) => {
   if (order.customer_id !== c.get("user").sub) return c.json({ error: "forbidden" }, 403);
   const baseAmount = Number(order.final_total ?? order.estimated_total ?? 0);
   const settings = await getMonetizationSettings();
-  const input = { baseAmount, deliveryFee: Number(order.delivery_fee ?? 0), orderType: order.type as "parcel" | "shopping" };
+  const deliveryFee = Number(order.delivery_fee ?? 0);
+  const input = { baseAmount, deliveryFee, orderType: order.type as "parcel" | "shopping" };
+  const mobileFees = computeCheckoutFees(settings, { ...input, payingWithWallet: false });
+  const walletFees = computeCheckoutFees(settings, { ...input, payingWithWallet: true });
+  // The breakdown a customer sees: what they ordered, what it costs to
+  // deliver (or the ride fare), the platform fee, and the transaction
+  // (payment-processing) charge. baseAmount = items + delivery. Paying cash
+  // adds nothing on top here.
+  const delivery = Math.min(Math.max(0, deliveryFee), baseAmount);
   return c.json({
     baseAmount,
-    mobileMoney: baseAmount + computeCheckoutFees(settings, { ...input, payingWithWallet: false }).totalSurcharge,
-    wallet: baseAmount + computeCheckoutFees(settings, { ...input, payingWithWallet: true }).totalSurcharge,
+    mobileMoney: baseAmount + mobileFees.totalSurcharge,
+    wallet: baseAmount + walletFees.totalSurcharge,
     cash: baseAmount,
+    isRide: order.is_ride === 1 || order.is_ride === true,
+    items: baseAmount - delivery,
+    delivery,
+    fees: {
+      mobileMoney: { platform: mobileFees.serviceFee, transaction: mobileFees.processingFeeCustomer },
+      wallet: { platform: walletFees.serviceFee, transaction: walletFees.processingFeeCustomer },
+      cash: { platform: 0, transaction: 0 },
+    },
   });
 });
 

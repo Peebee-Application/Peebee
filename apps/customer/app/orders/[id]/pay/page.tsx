@@ -151,10 +151,19 @@ export default function PaymentPage() {
         {method !== "cash" && <p className="rounded-xl bg-gold/10 p-3 text-sm leading-6 text-ink">Your money is held safely in the app. Your rider receives it only after your delivery or ride is completed.</p>}
       </section>
       <section className="home-card space-y-2" aria-live="polite">
-        {quote && amount != null && amount > quote.baseAmount && <>
-          <div className="flex justify-between text-sm text-ink-500"><span>Order amount</span><span>{formatUgx(quote.baseAmount)}</span></div>
-          <div className="flex justify-between text-sm text-ink-500"><span>Payment and service fees</span><span>{formatUgx(amount - quote.baseAmount)}</span></div>
-        </>}
+        {quote && amount != null && (() => {
+          const fees = quote.fees[method === "mobile_money" ? "mobileMoney" : method];
+          // Order, delivery (or ride fare), platform fee, transaction charges — each on its own line, hiding the ones that are zero.
+          const lines = [
+            { label: "Order", value: quote.items },
+            { label: quote.isRide ? "Ride fare" : "Delivery", value: quote.delivery },
+            { label: "Platform fee", value: fees.platform },
+            { label: "Transaction charges", value: fees.transaction },
+          ].filter((l) => l.value > 0);
+          return lines.map((l) => (
+            <div key={l.label} className="flex justify-between text-sm text-ink-500"><span>{l.label}</span><span>{formatUgx(l.value)}</span></div>
+          ));
+        })()}
         <div className="flex justify-between gap-3 text-lg font-bold text-ink"><span>Total</span><span>{amount == null ? "Loading…" : formatUgx(amount)}</span></div>
       </section>
       {detail && !detail.order.rider_id && (
