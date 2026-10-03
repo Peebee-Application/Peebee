@@ -36,6 +36,11 @@ const DEFAULTS = {
    * than carrying a package. */
   ride_rate_per_km: "1500",
   ride_minimum_fare: "2500",
+  /** Booking a ride for someone else: whether customers may, and how far
+   * (metres) their pickup may be from where they are before the app asks
+   * "is this ride for someone else?". */
+  ride_for_other_enabled: "1",
+  ride_for_other_distance_m: "500",
   /** Ceiling on what a single order may charge into escrow (UGX). Guards
    * against a fat-fingered or forged estimate turning into a payment
    * request nobody meant to make. */
@@ -530,14 +535,18 @@ export async function getDeliverySettings(): Promise<{
   shoppingDeliveryFee: number;
   rideRatePerKm: number;
   rideMinimumFare: number;
+  rideForOtherEnabled: boolean;
+  rideForOtherDistanceM: number;
 }> {
-  const [rate, minimumFee, range, shoppingFee, rideRate, rideMinimum] = await Promise.all([
+  const [rate, minimumFee, range, shoppingFee, rideRate, rideMinimum, rideForOther, rideForOtherDistance] = await Promise.all([
     getSetting("delivery_rate_per_km"),
     getSetting("minimum_delivery_fee"),
     getSetting("service_range_km"),
     getSetting("shopping_delivery_fee"),
     getSetting("ride_rate_per_km"),
     getSetting("ride_minimum_fare"),
+    getSetting("ride_for_other_enabled"),
+    getSetting("ride_for_other_distance_m"),
   ]);
   return {
     deliveryRatePerKm: Number(rate) || Number(DEFAULTS.delivery_rate_per_km),
@@ -546,6 +555,8 @@ export async function getDeliverySettings(): Promise<{
     shoppingDeliveryFee: Number(shoppingFee) || Number(DEFAULTS.shopping_delivery_fee),
     rideRatePerKm: Number(rideRate) || Number(DEFAULTS.ride_rate_per_km),
     rideMinimumFare: Number(rideMinimum) || Number(DEFAULTS.ride_minimum_fare),
+    rideForOtherEnabled: rideForOther !== "0",
+    rideForOtherDistanceM: Number(rideForOtherDistance) || Number(DEFAULTS.ride_for_other_distance_m),
   };
 }
 

@@ -344,6 +344,8 @@ const updateSchema = z.object({
   shoppingDeliveryFee: z.number().int().nonnegative().max(1_000_000).optional(),
   rideRatePerKm: z.number().positive().max(1_000_000).optional(),
   rideMinimumFare: z.number().int().nonnegative().max(1_000_000).optional(),
+  rideForOtherEnabled: z.boolean().optional(),
+  rideForOtherDistanceM: z.number().int().min(50).max(50_000).optional(),
   enabledModes: z.array(z.enum(["first_to_claim", "nearest_window", "customer_selects"])).optional(),
   nearestWindowSeconds: z.number().int().positive().max(3600).optional(),
   maxAssignmentMinutes: z.number().int().positive().max(120).optional(),
@@ -478,6 +480,12 @@ settingsRoutes.put(
     }
     if (parsed.data.rideMinimumFare != null) {
       await setSetting("ride_minimum_fare", String(parsed.data.rideMinimumFare));
+    }
+    if (parsed.data.rideForOtherEnabled != null) {
+      await setSetting("ride_for_other_enabled", parsed.data.rideForOtherEnabled ? "1" : "0");
+    }
+    if (parsed.data.rideForOtherDistanceM != null) {
+      await setSetting("ride_for_other_distance_m", String(parsed.data.rideForOtherDistanceM));
     }
     if (parsed.data.serviceRangeKm != null) {
       await setSetting("service_range_km", String(parsed.data.serviceRangeKm));

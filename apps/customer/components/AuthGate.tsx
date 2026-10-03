@@ -18,7 +18,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, ready } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const isUngated = UNGATED_PATHS.includes(pathname);
+  // A passenger opens their trip link without an account ("/trip/<token>").
+  const isUngated = UNGATED_PATHS.includes(pathname) || pathname.startsWith("/trip/");
   const isPublic = PUBLIC_PATHS.includes(pathname);
   const needsVerification = !!user && !isUserVerified(user) && !ALWAYS_ALLOWED_PATHS.includes(pathname);
   const verifiedButOnVerifyPage = !!user && isUserVerified(user) && pathname === "/verify";

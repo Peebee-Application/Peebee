@@ -15,6 +15,7 @@ import { SwipeToConfirm } from "../../../components/SwipeToConfirm";
 import { VoiceNotePlayer } from "../../../components/VoiceNotePlayer";
 import { api, errorMessage } from "../../../lib/api";
 import { CarRideNotice } from "../../../components/CarRideNotice";
+import { PassengerCard } from "../../../components/PassengerCard";
 import { markFeeProposalSeen } from "../../../lib/fee-proposal-seen";
 import { useTranslate } from "../../../lib/i18n";
 import { formatDateTime, formatDuration, formatUgx, orderTitle, stageLabel } from "../../../lib/order-display";
@@ -304,6 +305,9 @@ export default function OrderDetailPage() {
         )}
         {!!order.is_ride && order.stage !== "Cancelled" && (
           <CarRideNotice orderId={orderId} stage={order.stage} hasDriver={!!order.rider_id} onChanged={() => void load().catch(() => {})} />
+        )}
+        {!!order.is_ride && order.passenger_name && order.stage !== "Cancelled" && (
+          <PassengerCard name={order.passenger_name} phone={order.passenger_phone ?? null} shareToken={order.share_token ?? null} />
         )}
         {order.type === "parcel" && order.pickup_area && (
           <p className="flex items-center gap-1.5 text-sm text-ink-500">

@@ -1,14 +1,16 @@
 "use client";
 
-import type { SavedLocation } from "@tuma/shared";
-import { ArrowLeft, Briefcase, Clock, History, Home, Loader2, Map as MapIcon, MapPin, Navigation, Search, X } from "lucide-react";
+import type { RidePassenger, SavedLocation, SavedPassenger } from "@tuma/shared";
+import { ArrowLeft, Briefcase, Clock, History, Home, Loader2, Map as MapIcon, MapPin, Navigation, Search, X, ArrowUpDown } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { api } from "../lib/api";
 import { useTranslate, type TranslationKey } from "../lib/i18n";
 import {
   cachedPosition,
   currentLocationPlace,
+  distanceMeters,
   isCoordinateAddress,
   loadPlaces,
   placeFromSaved,
@@ -23,6 +25,7 @@ import {
 } from "../lib/places";
 import { useFriendlyPlaces } from "../lib/use-friendly-places";
 import { ListRow, ListRows } from "./ui/ListRow";
+import { WhoIsRiding } from "./WhoIsRiding";
 
 const PlaceMap = dynamic(() => import("./maps/PlaceMap"), {
   ssr: false,
@@ -31,7 +34,8 @@ const PlaceMap = dynamic(() => import("./maps/PlaceMap"), {
 
 /** Same flow everywhere; only the wording changes with what's being ordered. */
 export type PlaceConcept = "ride" | "parcel" | "shopping" | "food";
-export type PlaceResult = { pickup: Place | null; destination: Place };
+/** `passenger` is set when a ride is booked for someone else (null = the booker rides). */
+export type PlaceResult = { pickup: Place | null; destination: Place; passenger?: RidePassenger | null };
 type Field = "pickup" | "destination";
 type View = "landing" | "search" | "map";
 
@@ -191,7 +195,7 @@ export function PlaceFlow({
   onClose,
 }: {
   concept: PlaceConcept;
-  initial?: { pickup?: Place | null; destination?: Place | null };
+  initial?: { pickup?: Place | null; destination?: Place | null; passenger?: RidePassenger | null };
   onDone: (result: PlaceResult) => void;
   onClose: () => void;
 }) {
@@ -212,6 +216,13 @@ export function PlaceFlow({
   const pickupInput = useRef<HTMLInputElement>(null);
   const destinationInput = useRef<HTMLInputElement>(null);
   const searchSeq = useRef(0);
+  // Booking a ride for someone else (Uber-style): who rides, and whether to ask.
+  const [passenger, setPassenger] = useState<RidePassenger | null>(initial?.passenger ?? null);
+  const [passengers, setPassengers] = useState<SavedPassenger[]>([]);
+  const [forOther, setForOther] = useState<{ enabled: boolean; distanceM: number }>({ enabled: false, distanceM: 500 });
+  const [who, setWho] = useState<"prompt" | "sheet" | null>(null);
+  const answered = useRef(false);
+  const confirmAfterWho = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -221,6 +232,14 @@ export function PlaceFlow({
     if (route && !initial?.pickup) setPickup((p) => p ?? currentLocationPlace());
     setSearches(readRecentSearches());
     void loadPlaces().then(setData);
+    if (concept === "ride") {
+      void Promise.all([api.getPassengers(), api.getSettings()])
+        .then(([p, s]) => {
+          setPassengers(p.passengers);
+          setForOther({ enabled: p.enabled, distanceM: s.settings.rideForOtherDistanceM });
+        })
+        .catch(() => {});
+    }
     return () => {
       document.body.style.overflow = "";
     };
@@ -268,10 +287,11 @@ export function PlaceFlow({
     setView("search");
   }
 
-  /** `proceed` is for saved places: a saved place is a finished answer, so once
-   * the route is complete the flow moves straight on instead of waiting for
-   * the confirm button (which is what a dropped map pin still gets). */
-  function choose(place: Place, fromSearch = false, proceed = false) {
+  /** A saved place or a dropped pin never jumps ahead on its own: the place is
+   * shown on the map with the confirm button, so the next step is always one
+   * deliberate tap. (`saved` is only needed for shopping/food, where a search
+   * result still finishes straight away.) */
+  function choose(place: Place, fromSearch = false, saved = false) {
     if (fromSearch) {
       rememberSearch(place);
       setSearches(readRecentSearches());
@@ -279,18 +299,13 @@ export function PlaceFlow({
     setQuery("");
     setResults([]);
     setField(active, place);
-    if (!route) {
+    if (!route && !saved) {
       onDone({ pickup: null, destination: place });
       return;
     }
-    if (proceed) {
-      const nextPickup = active === "pickup" ? place : pickup;
-      const nextDestination = active === "destination" ? place : destination;
-      if (nextPickup && nextDestination) {
-        onDone({ pickup: nextPickup, destination: nextDestination });
-        return;
-      }
-    }
+    // From the landing sheet, show the pick on the map with its confirm button.
+    if (saved && (view === "landing" || !route)) setView("map");
+    if (!route) return;
     // Move on to whichever field is still empty.
     if (!placeOf(other(active))) setActive(other(active));
   }
@@ -307,9 +322,46 @@ export function PlaceFlow({
     else setDestination(apply);
   }
 
+  /** Ask "is this ride for someone else?" when the customer is somewhere other
+   * than the pickup — the admin sets how far counts as "somewhere else". */
+  function pickupIsAway(p: Place | null): boolean {
+    const me = cachedPosition();
+    return forOther.enabled && concept === "ride" && !passenger && !!me && p?.lat != null && p.lng != null && distanceMeters(me, { lat: p.lat, lng: p.lng }) > forOther.distanceM;
+  }
+
+  function swap() {
+    if (!pickup && !destination) return;
+    setPickup(destination);
+    setDestination(pickup);
+    if (pickupIsAway(destination)) {
+      confirmAfterWho.current = false;
+      setWho("prompt");
+    }
+  }
+
+  function finish(rider: RidePassenger | null) {
+    if (!destination) return;
+    onDone({ pickup: route ? pickup : null, destination, passenger: rider });
+  }
+
   function confirm() {
     if (!destination) return;
-    onDone({ pickup: route ? pickup : null, destination });
+    if (!answered.current && pickupIsAway(pickup)) {
+      confirmAfterWho.current = true;
+      setWho("prompt");
+      return;
+    }
+    finish(passenger);
+  }
+
+  function answerWho(rider: RidePassenger | null) {
+    answered.current = true;
+    setPassenger(rider);
+    setWho(null);
+    if (confirmAfterWho.current) {
+      confirmAfterWho.current = false;
+      finish(rider);
+    }
   }
 
   if (!mounted) return null;
@@ -328,7 +380,8 @@ export function PlaceFlow({
   );
 
   const fieldRows = (searchMode: boolean) => (
-    <div className="space-y-2">
+    <div className="flex items-center gap-2">
+    <div className="min-w-0 flex-1 space-y-2">
       {route && (
         <FieldRow
           field="pickup"
@@ -355,6 +408,17 @@ export function PlaceFlow({
         onIcon={() => (searchMode ? (setActive("destination"), setView("map")) : openSearch("destination"))}
         inputRef={destinationInput}
       />
+    </div>
+    {route && (
+      <button
+        type="button"
+        onClick={swap}
+        aria-label={t("place_swap")}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink active:bg-[rgb(var(--surface-muted))]"
+      >
+        <ArrowUpDown className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+      </button>
+    )}
     </div>
   );
 
@@ -491,6 +555,27 @@ export function PlaceFlow({
             <div className="shrink-0 border-t border-[var(--border-faint)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">{confirmButton}</div>
           )}
         </div>
+      )}
+
+      {who === "prompt" && (
+        <div className="absolute inset-0 z-[40] flex items-end justify-center bg-black/40" role="alertdialog" aria-modal="true" aria-label={t("who_prompt_title")}>
+          <div className="soft-drawer w-full max-w-lg space-y-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-5">
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-ink">{t("who_prompt_title")}</h2>
+              <p className="text-base text-ink-500">{t("who_prompt_body")}</p>
+            </div>
+            <button type="button" onClick={() => setWho("sheet")} className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)]">
+              {t("who_prompt_yes")}
+            </button>
+            <button type="button" onClick={() => answerWho(null)} className="min-h-12 w-full rounded-full border border-[var(--border-faint)] px-4 text-base font-bold text-ink">
+              {t("who_prompt_no")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {who === "sheet" && (
+        <WhoIsRiding passenger={passenger} saved={passengers} onSaved={setPassengers} onPick={answerWho} onClose={() => { confirmAfterWho.current = false; setWho(null); }} />
       )}
     </div>,
     document.body,

@@ -4,7 +4,8 @@ import type { InArgs } from "@libsql/client";
 import { db, executeBatch } from "../db/client.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { haversineKm } from "../lib/geo.js";
-import { newId, newPin } from "../lib/ids.js";
+import { newId, newPin, newShareToken } from "../lib/ids.js";
+import { passengerSchema, rideForOtherAvailable } from "../passengers/routes.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { consume, tooManyRequests } from "../lib/ratelimit.js";
 import {
@@ -134,7 +135,7 @@ orderRoutes.use("*", async (c, next) => {
     .clone()
     .text()
     .catch(() => "");
-  if (!text.includes("pin_code")) return;
+  if (!text.includes("pin_code") && !text.includes("share_token")) return;
 
   let body: { order?: Row; orders?: Row[] } | null;
   try {
@@ -145,8 +146,8 @@ orderRoutes.use("*", async (c, next) => {
   if (!body || typeof body !== "object") return;
 
   const strip = (order: Row | undefined) => {
-    if (!order || order.customer_id === user.sub || !("pin_code" in order)) return order;
-    const { pin_code: _pin, ...rest } = order;
+    if (!order || order.customer_id === user.sub || !("pin_code" in order || "share_token" in order)) return order;
+    const { pin_code: _pin, share_token: _share, ...rest } = order;
     return rest;
   };
 
@@ -287,6 +288,8 @@ const createOrderSchema = z.object({
   destinationLng: z.number().optional(),
   paymentRail: z.enum(["escrow", "float"]).default("escrow"),
   estimatedTotal: z.number().int().nonnegative().optional(),
+  /** A ride booked for someone else: the booker pays, this person rides. */
+  passenger: passengerSchema.optional(),
 });
 
 orderRoutes.post("/orders", async (c) => {
@@ -448,6 +451,15 @@ export async function createOrderFromInput(
   await logEvent(orderId, "Create", "Order created", user.sub);
   await snapshotTimeFees(orderId, deliveryFee ?? estimatedTotal ?? 0);
 
+  // Booking for someone else: only for passenger rides, only while the admin
+  // switch is on and its migration is applied. Anything else ignores it.
+  if (isRide && d.passenger && (await rideForOtherAvailable())) {
+    await db.execute({
+      sql: "UPDATE orders SET passenger_name = ?, passenger_phone = ?, share_token = ? WHERE id = ?",
+      args: [d.passenger.name, d.passenger.phone, newShareToken(), orderId],
+    });
+  }
+
   const order = await getOrder(orderId);
   return c.json({ order }, 201);
 }
@@ -487,6 +499,7 @@ orderRoutes.post("/orders/:id/resend", async (c) => {
     destinationLat: (old.destination_lat as number | null) ?? undefined,
     destinationLng: (old.destination_lng as number | null) ?? undefined,
     paymentRail: old.payment_rail === "float" ? "float" : "escrow",
+    passenger: old.passenger_name && old.passenger_phone ? { name: String(old.passenger_name), phone: String(old.passenger_phone) } : undefined,
     // Shopping: the items part of the old total (the delivery fee is added again).
     estimatedTotal:
       old.type === "shopping" && old.estimated_total != null

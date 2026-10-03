@@ -9,6 +9,8 @@ import { selfDriveRoutes } from "./car/selfdrive.js";
 import { carAdminRoutes } from "./car/admin-routes.js";
 import { authRoutes } from "./auth/routes.js";
 import { locationRoutes } from "./locations/routes.js";
+import { passengerRoutes } from "./passengers/routes.js";
+import { tripRoutes } from "./passengers/trips.js";
 import { merchantRoutes } from "./merchants/routes.js";
 import { orderRoutes } from "./orders/routes.js";
 import { paymentRoutes } from "./payments/routes.js";
@@ -182,6 +184,10 @@ app.get("/v1", (c) =>
       "GET /v1/locations",
       "POST /v1/locations",
       "DELETE /v1/locations/:id",
+      "GET /v1/passengers",
+      "POST /v1/passengers",
+      "DELETE /v1/passengers/:id",
+      "GET /v1/trips/:token",
       "GET /v1/settings",
       "PUT /v1/admin/settings",
       "POST /v1/voice/transcribe",
@@ -191,6 +197,9 @@ app.get("/v1", (c) =>
 
 app.route("/v1/auth", authRoutes);
 app.route("/v1/auth", verifyRoutes);
+// Public (token-gated) trip page for rides booked for someone else — mounted
+// before the authenticated /v1 routers on purpose.
+app.route("/v1/trips", tripRoutes);
 app.route("/v1", orderRoutes);
 app.route("/v1", paymentRoutes);
 app.route("/v1", pushRoutes);
@@ -201,6 +210,7 @@ app.route("/v1", customerRestaurantRoutes);
 app.route("/v1", restaurantChatRoutes);
 app.route("/v1", userRoutes);
 app.route("/v1", locationRoutes);
+app.route("/v1", passengerRoutes);
 app.route("/v1", mobileNumberRoutes);
 app.route("/v1", callRoutes);
 app.route("/v1", settingsRoutes);

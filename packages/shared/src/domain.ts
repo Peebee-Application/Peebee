@@ -99,6 +99,12 @@ export type OrderRow = {
    * apps/api/src/db/migrations/0039_ride_orders.sql). Pickup = where the
    * rider collects the passenger, destination = where they're going. */
   is_ride: number;
+  /** A ride booked for someone else: who is actually riding. The booker pays;
+   * see apps/api/src/db/migrations/0070_ride_for_someone.sql. */
+  passenger_name?: string | null;
+  passenger_phone?: string | null;
+  /** Private link token for the passenger's trip page — customer/admin only. */
+  share_token?: string | null;
   /** The rider's most recent live position and when it was reported —
    * only ever populated while the rider has in-app navigation open with
    * nav_mode = "in_app" (see apps/rider/components/InAppNavigation.tsx
@@ -280,6 +286,10 @@ export type DeliverySettings = {
    * than carrying a package. */
   rideRatePerKm: number;
   rideMinimumFare: number;
+  /** Whether customers may book a ride for someone else, and how far (metres)
+   * the pickup may be from where the customer is before the app asks. */
+  rideForOtherEnabled: boolean;
+  rideForOtherDistanceM: number;
   enabledModes: MatchingMode[];
   nearestWindowSeconds: number;
   maxAssignmentMinutes: number;
@@ -1084,6 +1094,27 @@ export type CustomerRestaurantChatThread = {
   lastMessagePreview: string;
   lastMessageAt: string;
   unread: boolean;
+};
+
+/** Who is actually riding when the booker isn't. */
+export type RidePassenger = { name: string; phone: string };
+
+export type SavedPassenger = { id: string; user_id: string; name: string; phone: string; created_at: string };
+
+/** What the passenger's private trip link shows — no account needed. */
+export type SharedTrip = {
+  stage: string;
+  passengerName: string | null;
+  driverName: string | null;
+  pickupArea: string | null;
+  pickupAddress: string | null;
+  destinationArea: string | null;
+  destinationAddress: string | null;
+  pickupLat: number | null;
+  pickupLng: number | null;
+  riderLat: number | null;
+  riderLng: number | null;
+  etaMinutes: number | null;
 };
 
 export type SavedLocation = {
@@ -1942,6 +1973,8 @@ export type CarBookingInput = {
   destinationAddress?: string;
   destinationLat: number;
   destinationLng: number;
+  /** Booking for someone else — see RidePassenger. */
+  passenger?: RidePassenger;
 };
 
 export type CarWallet = {
@@ -2101,6 +2134,9 @@ export type CarDriverActive = {
     destination_lat: number | null;
     destination_lng: number | null;
     customer_name: string;
+    /** Set when the ride was booked for someone else — meet and call this person. */
+    passenger_name?: string | null;
+    passenger_phone?: string | null;
   } | null;
   recent: Array<{ order_id: string; driver_amount: number; settled_at: string; pickup_address: string | null; destination_address: string | null }>;
   totalEarned: number;

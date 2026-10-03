@@ -11,6 +11,7 @@ import { currentVisibilityRadiusKm, orderMatchPoint } from "../orders/matching.j
 import { createOrderFromInput } from "../orders/routes.js";
 import { checkPaymentStatus, initiateDisbursement, UnsupportedNetworkError } from "../payments/service.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
+import { passengerSchema } from "../passengers/routes.js";
 import { quoteFare } from "./service.js";
 import { openForDriversSql, scheduledAvailable, toDbTime, validateScheduledFor } from "./scheduled.js";
 
@@ -263,9 +264,12 @@ carRoutes.get("/car/driver/jobs", async (c) => {
 /** The driver's ride in progress (if any) and their recent finished rides. */
 carRoutes.get("/car/driver/active", async (c) => {
   const user = c.get("user");
+  // A ride booked for someone else: the driver meets the passenger, not the booker.
+  const passengerSelect = (await hasColumn("orders", "passenger_name")) ? "o.passenger_name, o.passenger_phone" : "NULL AS passenger_name, NULL AS passenger_phone";
   const active = await db.execute({
     sql: `SELECT o.id, o.stage, o.estimated_total, o.final_total, o.pickup_address, o.pickup_lat, o.pickup_lng,
-                 o.destination_address, o.destination_lat, o.destination_lng, o.distance_km, o.customer_id, cu.name AS customer_name
+                 o.destination_address, o.destination_lat, o.destination_lng, o.distance_km, o.customer_id, cu.name AS customer_name,
+                 ${passengerSelect}
           FROM orders o JOIN car_bookings b ON b.order_id = o.id JOIN users cu ON cu.id = o.customer_id
           WHERE o.rider_id = ? AND o.stage NOT IN ('Settle', 'Cancelled') LIMIT 1`,
     args: [user.sub],
@@ -349,6 +353,9 @@ const tripSchema = z.object({
   destinationLng: z.number().min(-180).max(180),
 });
 
+/** Booking-only: who rides, when it isn't the booker. */
+const bookingSchema = tripSchema.extend({ scheduledFor: z.string().max(40).optional(), passenger: passengerSchema.optional() });
+
 async function activeCategory(id: string): Promise<Row | undefined> {
   return (await db.execute({ sql: "SELECT * FROM vehicle_categories WHERE id = ? AND active = 1", args: [id] })).rows[0] as Row | undefined;
 }
@@ -367,7 +374,7 @@ carRoutes.post("/car/quote", async (c) => {
 carRoutes.post("/car/bookings", async (c) => {
   const user = c.get("user");
   const settings = await getCarSettings();
-  const parsed = tripSchema.extend({ scheduledFor: z.string().max(40).optional() }).safeParse(await c.req.json().catch(() => ({})));
+  const parsed = bookingSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
   const category = await activeCategory(parsed.data.categoryId);
   if (!category) return c.json({ error: "invalid_category" }, 400);
@@ -409,6 +416,7 @@ carRoutes.post("/car/bookings", async (c) => {
       destinationAddress: t.destinationAddress,
       destinationLat: t.destinationLat,
       destinationLng: t.destinationLng,
+      passenger: t.passenger,
       // Car rides are always paid through escrow (wallet or mobile money): the
       // owner/driver split is paid out of what escrow holds.
       paymentRail: "escrow",

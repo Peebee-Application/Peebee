@@ -47,7 +47,20 @@ export function ActiveRide({ ride, onChange }: { ride: NonNullable<CarDriverActi
         <p className="font-bold text-ink">Ride in progress</p>
         <span className="rounded-full bg-gold/15 px-2 py-1 text-[10px] font-black uppercase text-ink">{stage}</span>
       </div>
-      <p className="text-sm text-ink">{ride.customer_name}</p>
+      {ride.passenger_name ? (
+        <p className="text-sm text-ink">
+          Passenger: <span className="font-bold">{ride.passenger_name}</span>
+          {ride.passenger_phone && (
+            <>
+              {" · "}
+              <a href={`tel:${ride.passenger_phone}`} className="font-bold text-gold underline">{ride.passenger_phone}</a>
+            </>
+          )}
+          <span className="block text-xs text-ink-500">Booked by {ride.customer_name}</span>
+        </p>
+      ) : (
+        <p className="text-sm text-ink">{ride.customer_name}</p>
+      )}
       <p className="text-xs text-ink-500">From: {ride.pickup_address ?? "—"}</p>
       <p className="text-xs text-ink-500">To: {ride.destination_address ?? "—"}</p>
       <p className="text-sm font-bold text-ink">{ugx(ride.estimated_total)}</p>

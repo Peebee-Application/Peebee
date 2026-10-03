@@ -10,6 +10,9 @@ import type {
   AdminOrderRow,
   AdminRider,
   CarBookingInput,
+  RidePassenger,
+  SavedPassenger,
+  SharedTrip,
   CarDriverActive,
   CarDriverJob,
   CarMe,
@@ -424,6 +427,8 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       destinationLng?: number;
       paymentRail?: "escrow" | "float";
       estimatedTotal?: number;
+      /** A ride booked for someone else. */
+      passenger?: RidePassenger;
     }) {
       return request<{ order: OrderRow }>("/v1/orders", { method: "POST", body: JSON.stringify(input) });
     },
@@ -1255,6 +1260,21 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async deleteLocation(id: string) {
       return request<{ ok: true }>(`/v1/locations/${id}`, { method: "DELETE" });
+    },
+
+    // People a customer books rides for — see apps/api/src/passengers/routes.ts.
+    async getPassengers() {
+      return request<{ passengers: SavedPassenger[]; enabled: boolean }>("/v1/passengers");
+    },
+    async savePassenger(input: RidePassenger) {
+      return request<{ passenger: SavedPassenger }>("/v1/passengers", { method: "POST", body: JSON.stringify(input) });
+    },
+    async deletePassenger(id: string) {
+      return request<{ ok: true }>(`/v1/passengers/${id}`, { method: "DELETE" });
+    },
+    /** The passenger's trip link — public, the token is the secret. */
+    async getSharedTrip(token: string) {
+      return request<{ trip: SharedTrip }>(`/v1/trips/${encodeURIComponent(token)}`);
     },
 
     // Saved mobile money numbers — up to 2 per purpose (see
