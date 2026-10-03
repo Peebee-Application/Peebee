@@ -87,6 +87,14 @@ export default function CarFleetPage() {
                       {p.name} <span className="font-normal text-ink-500">· {r} · {status}</span>
                     </p>
                     <p className="text-xs text-ink-500">{p.phone}{r === "driver" && p.licence_expiry ? ` · licence to ${p.licence_expiry}` : ""}</p>
+                    {r === "driver" && p.needs_vehicle === 1 && <p className="text-xs font-semibold text-ink">Needs a car — assign one under Vehicles, or an owner can take them on.</p>}
+                    <div className="flex flex-wrap gap-3 text-xs">
+                      {(["national_id", "licence"] as const).map((kind) => (
+                        <span key={kind} className={p.documents?.[kind] ? "text-green" : "text-ink-500"}>
+                          {kind === "national_id" ? "National ID" : "Licence"}: {p.documents?.[kind] ? <DocLink userId={p.user_id} kind={kind} /> : "not uploaded"}
+                        </span>
+                      ))}
+                    </div>
                     <div className="flex gap-2">
                       {status !== "approved" && (
                         <button type="button" className={`${smallBtn} bg-gold text-ink-gold`} onClick={() => act(() => api.adminDecideCarPartner(p.user_id, r, "approved"))}>Approve</button>
@@ -339,4 +347,21 @@ function VehiclePhoto({ vehicleId, photoId }: { vehicleId: string; photoId: stri
       <img src={url} alt="Vehicle" className="block aspect-[4/3] w-full rounded-lg object-cover" />
     </a>
   );
+}
+
+/** Opens a partner's identity document (fetched with the sign-in header) in a new tab. */
+function DocLink({ userId, kind }: { userId: string; kind: "national_id" | "licence" }) {
+  const [busy, setBusy] = useState(false);
+  async function open() {
+    setBusy(true);
+    try {
+      const blob = await api.carDocumentBlob(userId, kind);
+      window.open(URL.createObjectURL(blob), "_blank", "noopener");
+    } catch {
+      /* the document may have been removed */
+    } finally {
+      setBusy(false);
+    }
+  }
+  return <button type="button" onClick={open} disabled={busy} className="font-bold underline">{busy ? "Opening…" : "view"}</button>;
 }

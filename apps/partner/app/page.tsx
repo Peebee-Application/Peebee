@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ActiveRide } from "../components/ActiveRide";
 import { ApplyCard } from "../components/ApplyCard";
+import { KycCard } from "../components/KycCard";
 import { api, errorMessage } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 
@@ -37,7 +38,20 @@ function DriverHome() {
     return () => window.clearInterval(timer);
   }, [load, me?.driverStatus]);
 
-  if (me?.driverStatus !== "approved") return <ApplyCard mode="driver" />;
+  if (me?.driverStatus !== "approved") {
+    return (
+      <>
+        <ApplyCard mode="driver" />
+        <KycCard mode="driver" />
+        {me?.driverStatus === "pending" && me.needsVehicle && (
+          <p className="home-card text-xs text-ink-500">You told us you don&apos;t have a car. Once you&apos;re approved you can ask owners to drive theirs, or Tuma can assign you one.</p>
+        )}
+        {me?.driverStatus === "pending" && !me.needsVehicle && (
+          <Link href="/vehicles" className="home-card block text-sm font-semibold text-ink">Add your car now →</Link>
+        )}
+      </>
+    );
+  }
 
   async function toggle() {
     if (!me) return;
@@ -57,6 +71,7 @@ function DriverHome() {
   const vehicle = me.assignedVehicles[0];
   return (
     <>
+      <KycCard mode="driver" />
       <header>
         <h1 className="text-2xl font-black text-ink">Driver</h1>
         <p className="text-sm text-ink-500">{vehicle ? `${vehicle.plate} · ${vehicle.category_name}` : "No vehicle assigned yet — Tuma will assign one."}</p>
@@ -73,6 +88,7 @@ function DriverHome() {
       {me.online && !data?.active && (
         <Link href="/jobs" className="home-card block text-sm font-semibold text-ink">See ride requests →</Link>
       )}
+      <Link href="/vehicles" className="home-card block text-sm font-semibold text-ink">My cars →</Link>
       <section className="home-card">
         <p className="text-xs text-ink-500">Earned from rides</p>
         <p className="text-2xl font-black text-ink">{ugx(data?.totalEarned ?? 0)}</p>
@@ -116,12 +132,21 @@ function OwnerHome() {
     return () => window.clearInterval(timer);
   }, [me?.ownerStatus]);
 
-  if (me?.ownerStatus !== "approved") return <ApplyCard mode="owner" />;
+  if (me?.ownerStatus !== "approved") {
+    return (
+      <>
+        <ApplyCard mode="owner" />
+        <KycCard mode="owner" />
+        {me?.ownerStatus === "pending" && <Link href="/vehicles" className="home-card block text-sm font-semibold text-ink">Add your car now →</Link>}
+      </>
+    );
+  }
 
   const live = data?.rides.filter((r) => r.status === "requested") ?? [];
   const past = data?.rides.filter((r) => r.status !== "requested") ?? [];
   return (
     <>
+      <KycCard mode="owner" />
       <header>
         <h1 className="text-2xl font-black text-ink">Owner</h1>
         <p className="text-sm text-ink-500">{me.vehicles.length} vehicle{me.vehicles.length === 1 ? "" : "s"} with Tuma</p>

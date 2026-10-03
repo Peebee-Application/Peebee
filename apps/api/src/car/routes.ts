@@ -46,7 +46,7 @@ carRoutes.get("/car/config", async (c) => {
     ? { maxSeatsPerBooking: settings.carpool.maxSeatsPerBooking, maxRepeatWeeks: settings.carpool.maxRepeatWeeks }
     : null;
   const selfDrive = settings.selfDrive.enabled && settings.selfDrive.platformPercent != null && (await hasTable("rentals")) ? { maxDays: settings.selfDrive.maxDays } : null;
-  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, scheduled, carpool, selfDrive, vehiclePhotos: settings.vehiclePhotos, categories: categories.rows });
+  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, scheduled, carpool, selfDrive, vehiclePhotos: settings.vehiclePhotos, kyc: settings.kyc, categories: categories.rows });
 });
 
 // ---- Who am I: owner / driver status, vehicles, current car -----------------
@@ -70,7 +70,10 @@ carRoutes.get("/car/me", async (c) => {
   });
   const state = (await db.execute({ sql: "SELECT * FROM car_driver_state WHERE driver_id = ?", args: [user.sub] })).rows[0] as Row | undefined;
   const photoIds = await vehiclePhotoIds(vehicles.rows.map((v) => String((v as Row).id)));
+  const documents = await documentKinds(user.sub);
   return c.json({
+    needsVehicle: partner?.needs_vehicle === 1,
+    documents,
     ownerStatus: (partner?.owner_status as string) ?? "none",
     driverStatus: (partner?.driver_status as string) ?? "none",
     vehicles: vehicles.rows.map((v) => ({ ...v, photos: photoIds[String((v as Row).id)] ?? [] })),
@@ -85,6 +88,8 @@ const applySchema = z.object({
   licenceExpiry: z.string().max(20).optional(),
   idDocumentKey: z.string().max(300).optional(),
   licenceKey: z.string().max(300).optional(),
+  /** A driver who doesn't have a car: Tuma or an owner can provide one. */
+  needsVehicle: z.boolean().optional(),
 });
 
 /** Apply to be a car owner and/or a driver. A manager approves it in Admin. */
@@ -102,6 +107,9 @@ carRoutes.post("/car/partner/apply", async (c) => {
     args: [parsed.data.idDocumentKey ?? null, parsed.data.licenceKey ?? null, parsed.data.licenceExpiry ?? null, user.sub],
   });
   if (res.rowsAffected === 0) return c.json({ error: "already_applied", message: "You've already applied — we'll tell you when it's reviewed." }, 409);
+  if (parsed.data.as === "driver" && parsed.data.needsVehicle != null && (await hasColumn("car_partners", "needs_vehicle"))) {
+    await db.execute({ sql: "UPDATE car_partners SET needs_vehicle = ? WHERE user_id = ?", args: [parsed.data.needsVehicle ? 1 : 0, user.sub] });
+  }
   return c.json({ ok: true }, 201);
 });
 
@@ -121,8 +129,15 @@ carRoutes.post("/car/vehicles", async (c) => {
   const user = c.get("user");
   const parsed = vehicleSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
-  const partner = (await db.execute({ sql: "SELECT owner_status FROM car_partners WHERE user_id = ?", args: [user.sub] })).rows[0] as Row | undefined;
-  if (partner?.owner_status !== "approved") return c.json({ error: "not_an_owner", message: "You need to be an approved car owner first." }, 403);
+  // Owners can add vehicles; so can drivers (their own car). A driver who isn't an owner yet
+  // becomes one, pending, so the car and the owner profile are vetted on their own.
+  const partner = (await db.execute({ sql: "SELECT owner_status, driver_status FROM car_partners WHERE user_id = ?", args: [user.sub] })).rows[0] as Row | undefined;
+  const isOwner = partner?.owner_status === "approved";
+  const isDriver = partner?.driver_status === "approved" || partner?.driver_status === "pending";
+  if (!isOwner && !isDriver && partner?.owner_status !== "pending") return c.json({ error: "not_a_partner", message: "Apply to be an owner or a driver first." }, 403);
+  if (partner?.owner_status === "none" || partner?.owner_status === "rejected") {
+    await db.execute({ sql: "UPDATE car_partners SET owner_status = 'pending', updated_at = datetime('now') WHERE user_id = ?", args: [user.sub] });
+  }
   const category = (await db.execute({ sql: "SELECT 1 FROM vehicle_categories WHERE id = ? AND active = 1", args: [parsed.data.categoryId] })).rows[0];
   if (!category) return c.json({ error: "invalid_category" }, 400);
   const id = newId("veh");
@@ -702,6 +717,87 @@ carRoutes.get("/car/vehicles/:id/photos/:photoId", async (c) => {
   })).rows[0] as Row | undefined;
   if (!row) return c.json({ error: "not_found" }, 404);
   if (row.owner_id !== user.sub && !row.is_driver && user.role !== "admin") return c.json({ error: "forbidden" }, 403);
+  const object = await getR2Bucket().get(String(row.object_key));
+  if (!object) return c.json({ error: "not_found" }, 404);
+  return new Response(object.body, { headers: uploadResponseHeaders(object.httpMetadata?.contentType, "application/octet-stream") });
+});
+
+// ---- A driver who owns a car drives it ------------------------------------------------
+
+/** An approved driver puts themselves in the seat of their own approved vehicle. */
+carRoutes.post("/car/vehicles/:id/drive", async (c) => {
+  const vehicleId = c.req.param("id") as string;
+  const user = c.get("user");
+  const partner = (await db.execute({ sql: "SELECT driver_status FROM car_partners WHERE user_id = ?", args: [user.sub] })).rows[0] as Row | undefined;
+  if (partner?.driver_status !== "approved") return c.json({ error: "not_a_driver", message: "You need to be an approved driver first." }, 403);
+  const vehicle = (await db.execute({ sql: "SELECT status FROM vehicles WHERE id = ? AND owner_id = ?", args: [vehicleId, user.sub] })).rows[0] as Row | undefined;
+  if (!vehicle) return c.json({ error: "not_found" }, 404);
+  if (vehicle.status !== "approved") return c.json({ error: "vehicle_not_approved", message: "Your vehicle needs Tuma's approval before you can drive it." }, 409);
+  const current = (await db.execute({ sql: "SELECT driver_id FROM vehicle_assignments WHERE vehicle_id = ? AND status = 'active'", args: [vehicleId] })).rows[0] as Row | undefined;
+  if (current && current.driver_id !== user.sub) return c.json({ error: "has_driver", message: "Another driver is using this vehicle. End that first." }, 409);
+  if (!current) {
+    await db.execute({ sql: "INSERT INTO vehicle_assignments (id, vehicle_id, driver_id, assigned_by) VALUES (?, ?, ?, ?)", args: [newId("vasg"), vehicleId, user.sub, user.sub] });
+  }
+  return c.json({ ok: true });
+});
+
+/** Stops driving a vehicle (own car or another owner's): ends the assignment, and goes offline if this was the active car. */
+carRoutes.post("/car/vehicles/:id/release", async (c) => {
+  const vehicleId = c.req.param("id") as string;
+  const user = c.get("user");
+  const busy = await db.execute({ sql: "SELECT 1 FROM orders WHERE rider_id = ? AND stage NOT IN ('Settle', 'Cancelled') LIMIT 1", args: [user.sub] });
+  if (busy.rows.length > 0) return c.json({ error: "ride_in_progress", message: "Finish your current ride first." }, 409);
+  const ended = await db.execute({ sql: "UPDATE vehicle_assignments SET status = 'ended', ended_at = datetime('now') WHERE vehicle_id = ? AND driver_id = ? AND status = 'active'", args: [vehicleId, user.sub] });
+  if (ended.rowsAffected === 0) return c.json({ error: "not_found" }, 404);
+  await db.execute({ sql: "UPDATE car_driver_state SET online = 0, vehicle_id = NULL, updated_at = datetime('now') WHERE driver_id = ? AND vehicle_id = ?", args: [user.sub, vehicleId] });
+  return c.json({ ok: true });
+});
+
+// ---- Identity documents ----------------------------------------------------------------------
+
+/** Which document kinds a person has on file (never the files themselves). */
+export async function documentKinds(userId: string): Promise<{ national_id: boolean; licence: boolean }> {
+  const out = { national_id: false, licence: false };
+  if (!(await hasTable("car_partner_documents"))) return out;
+  const rows = (await db.execute({ sql: "SELECT DISTINCT kind FROM car_partner_documents WHERE user_id = ?", args: [userId] })).rows as Row[];
+  for (const r of rows) out[String(r.kind) as "national_id" | "licence"] = true;
+  return out;
+}
+
+/** The person uploads a photo of their national ID or driving licence (replacing the previous one). */
+carRoutes.post("/car/partner/documents", async (c) => {
+  const user = c.get("user");
+  if (!(await hasTable("car_partner_documents"))) return c.json({ error: "documents_unavailable", message: "Document upload isn't ready yet." }, 503);
+  const form = await c.req.formData().catch(() => null);
+  const file = form?.get("file");
+  const kind = form?.get("kind");
+  if (!(file instanceof File) || (kind !== "national_id" && kind !== "licence")) return c.json({ error: "invalid_body", message: "Choose a photo and what it is." }, 400);
+  if (!PHOTO_MIME.has(baseMimeType(file.type))) return c.json({ error: "unsupported_file_type", message: "The photo must be JPEG, PNG or WebP." }, 400);
+  if (file.size > MAX_PHOTO_BYTES) return c.json({ error: "file_too_large", message: "That photo is too large (6 MB at most)." }, 400);
+  const partner = (await db.execute({ sql: "SELECT 1 FROM car_partners WHERE user_id = ?", args: [user.sub] })).rows[0];
+  if (!partner) return c.json({ error: "not_a_partner", message: "Apply to be an owner or a driver first." }, 403);
+
+  const id = newId("doc");
+  const key = `partners/${user.sub}/${kind}-${id}.${extensionForMime(file.type, "jpg")}`;
+  await getR2Bucket().put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+  const previous = (await db.execute({ sql: "SELECT id, object_key FROM car_partner_documents WHERE user_id = ? AND kind = ?", args: [user.sub, kind] })).rows as Row[];
+  await db.execute({ sql: "INSERT INTO car_partner_documents (id, user_id, kind, object_key) VALUES (?, ?, ?, ?)", args: [id, user.sub, kind, key] });
+  for (const old of previous) {
+    await db.execute({ sql: "DELETE FROM car_partner_documents WHERE id = ?", args: [String(old.id)] });
+    await getR2Bucket().delete(String(old.object_key)).catch(() => undefined);
+  }
+  return c.json({ id }, 201);
+});
+
+/** A person's own document, or any partner's for staff. */
+carRoutes.get("/car/partner/documents/:userId/:kind", async (c) => {
+  const userId = c.req.param("userId") as string;
+  const kind = c.req.param("kind") as string;
+  const user = c.get("user");
+  if (user.sub !== userId && user.role !== "admin") return c.json({ error: "forbidden" }, 403);
+  if (!(await hasTable("car_partner_documents"))) return c.json({ error: "documents_unavailable" }, 503);
+  const row = (await db.execute({ sql: "SELECT object_key FROM car_partner_documents WHERE user_id = ? AND kind = ? ORDER BY created_at DESC LIMIT 1", args: [userId, kind] })).rows[0] as Row | undefined;
+  if (!row) return c.json({ error: "not_found" }, 404);
   const object = await getR2Bucket().get(String(row.object_key));
   if (!object) return c.json({ error: "not_found" }, 404);
   return new Response(object.body, { headers: uploadResponseHeaders(object.httpMetadata?.contentType, "application/octet-stream") });
