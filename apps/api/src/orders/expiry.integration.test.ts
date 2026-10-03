@@ -114,4 +114,18 @@ test("job expiry sweep", async (t) => {
     const wallet = await client.execute("SELECT wallet_balance FROM users WHERE id = 'cust'");
     assert.equal(wallet.rows[0].wallet_balance, 7000, "no double refund");
   });
+  await t.test("recent places: newest first, de-duplicated, no cancelled orders, own orders only", async () => {
+    const ins = (id: string, address: string, stage: string, ago: string, owner = "cust") =>
+      client.execute(`INSERT INTO orders (id, list_id, customer_id, stage, destination_address, destination_area, destination_lat, destination_lng, created_at)
+                      VALUES ('${id}', 'l1', '${owner}', '${stage}', '${address}', 'Area', 0.1, 32.5, datetime('now', '${ago}'))`);
+    await ins("rp1", "Mpigi Road 895", "Settle", "-5 days");
+    await ins("rp2", "mpigi road 895", "Settle", "-1 days"); // same place, newer
+    await ins("rp3", "Never Went Rd", "Cancelled", "-1 hours");
+    await ins("rp4", "Acacia Mall", "Settle", "-2 days");
+    await ins("rp5", "Someone Elses Place", "Settle", "-1 hours", "other");
+    const app = new Hono().route("/v1", orderRoutes);
+    const res = await app.request("/v1/orders/recent-places", { headers: { Authorization: `Bearer ${await signToken({ sub: "cust", role: "customer" })}` } });
+    const { places } = (await res.json()) as { places: { address: string }[] };
+    assert.deepEqual(places.map((p) => p.address.toLowerCase()), ["mpigi road 895", "acacia mall"]);
+  });
 });

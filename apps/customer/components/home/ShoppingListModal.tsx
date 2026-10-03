@@ -1,13 +1,15 @@
 "use client";
 
-import { roundFare, type SavedLocation } from "@tuma/shared";
+import { roundFare } from "@tuma/shared";
 import { List, Mic, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LocationPicker, emptyPoint, resolvePoint, type PointState } from "../LocationPicker";
 import { Modal } from "../Modal";
+import { PlaceFlow } from "../PlaceFlow";
 import { api, errorMessage } from "../../lib/api";
 import { useTranslate } from "../../lib/i18n";
+import { placeFields, type Place } from "../../lib/places";
+import { RouteSummary } from "./RouteSummary";
 import { ListItemLine, UNIT_ABBR, blankItem, type Item, type Unit } from "./ListItemLine";
 import { OrderVoiceNoteRecorder } from "./OrderVoiceNoteRecorder";
 
@@ -36,8 +38,8 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
   const [items, setItems] = useState<Item[]>([blankItem()]);
   const [voiceTotal, setVoiceTotal] = useState("");
 
-  const [locations, setLocations] = useState<SavedLocation[]>([]);
-  const [delivery, setDelivery] = useState<PointState>(emptyPoint);
+  const [delivery, setDelivery] = useState<Place | null>(null);
+  const [choosing, setChoosing] = useState(false);
   const [voiceNote, setVoiceNote] = useState<Blob | null>(null);
   const [deliveryFee, setDeliveryFee] = useState(0);
 
@@ -45,10 +47,6 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api
-      .getLocations()
-      .then((res) => setLocations(res.locations))
-      .catch(() => {});
     api
       .getSettings()
       .then((res) => setDeliveryFee(roundFare(res.settings.shoppingDeliveryFee)))
@@ -91,7 +89,7 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
   }
 
   async function submit() {
-    const d = resolvePoint(delivery, locations);
+    const d = placeFields(delivery);
     if (!d.area && !d.address) {
       setError(t("restaurant_choose_delivery_location"));
       throw new Error("Missing delivery location");
@@ -224,7 +222,20 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
         </div>
       ) : (
         <div className="space-y-4">
-          <LocationPicker point={delivery} setPoint={setDelivery} locations={locations} />
+          {delivery && (
+            <RouteSummary pickup={null} destination={delivery} destinationLabel={t("place_delivery")} onChange={() => setChoosing(true)} />
+          )}
+          {(choosing || !delivery) && (
+            <PlaceFlow
+              concept="shopping"
+              initial={{ destination: delivery }}
+              onClose={() => (delivery ? setChoosing(false) : setStep("items"))}
+              onDone={(r) => {
+                setDelivery(r.destination);
+                setChoosing(false);
+              }}
+            />
+          )}
 
           {/* Voice mode already recorded the list itself as this same voice note — asking again here would be redundant. */}
           {mode === "list" && <OrderVoiceNoteRecorder blob={voiceNote} onChange={setVoiceNote} />}
