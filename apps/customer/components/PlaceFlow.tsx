@@ -9,6 +9,7 @@ import { useTranslate, type TranslationKey } from "../lib/i18n";
 import {
   cachedPosition,
   currentLocationPlace,
+  isCoordinateAddress,
   loadPlaces,
   placeFromSaved,
   placeSubtitle,
@@ -16,9 +17,11 @@ import {
   rememberSearch,
   reverseGeocode,
   searchPlaces,
+  subtitleOf,
   type Place,
   type PlacesBootstrap,
 } from "../lib/places";
+import { useFriendlyPlaces } from "../lib/use-friendly-places";
 import { ListRow, ListRows } from "./ui/ListRow";
 
 const PlaceMap = dynamic(() => import("./maps/PlaceMap"), {
@@ -49,20 +52,22 @@ function savedIcon(label: string) {
 /** Saved places: one is a full-width tab; several slide sideways, each ~70%
  * wide so the next one peeks in and shows there's more to the right. */
 function SavedSlider({ saved, onPick, heading }: { saved: SavedLocation[]; onPick: (p: Place) => void; heading: string }) {
+  const places = useFriendlyPlaces(saved.map(placeFromSaved));
   if (saved.length === 0) return null;
   const many = saved.length > 1;
   return (
     <section className="space-y-2">
       <h3 className="px-4 text-sm font-bold text-ink-500">{heading}</h3>
       <div className="flex snap-x snap-mandatory scroll-pl-4 gap-3 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {saved.map((loc) => {
+        {places.map((place, i) => {
+          const loc = saved[i];
           const Icon = savedIcon(loc.label);
-          const sub = [loc.area, loc.address].filter(Boolean).join(" · ");
+          const sub = subtitleOf(place.area, place.address) || (isCoordinateAddress(loc.address) ? "Current location" : "");
           return (
             <button
               key={loc.id}
               type="button"
-              onClick={() => onPick(placeFromSaved(loc))}
+              onClick={() => onPick(place)}
               className={`flex shrink-0 snap-start items-center gap-3 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3.5 py-3 text-left active:bg-[rgb(var(--surface-muted))] ${
                 many ? "w-[70%]" : "w-full"
               }`}
@@ -82,7 +87,8 @@ function SavedSlider({ saved, onPick, heading }: { saved: SavedLocation[]; onPic
   );
 }
 
-function PlaceRows({ heading, places, icon, onPick }: { heading: string; places: Place[]; icon: React.ReactNode; onPick: (p: Place) => void }) {
+function PlaceRows({ heading, places: raw, icon, onPick }: { heading: string; places: Place[]; icon: React.ReactNode; onPick: (p: Place) => void }) {
+  const places = useFriendlyPlaces(raw, true);
   if (places.length === 0) return null;
   return (
     <section>
