@@ -1,12 +1,14 @@
 "use client";
 
-import type { MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, Restaurant, RestaurantMenu, SavedLocation } from "@tuma/shared";
+import type { MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, Restaurant, RestaurantMenu } from "@tuma/shared";
 import { roundFare } from "@tuma/shared";
 import { ArrowUpRight, MessageCircle, Minus, Plus, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { LocationPicker, emptyPoint, resolvePoint, type PointState } from "../../../components/LocationPicker";
+import { PlaceFlow } from "../../../components/PlaceFlow";
+import { RouteSummary } from "../../../components/home/RouteSummary";
+import { placeFields, type Place } from "../../../lib/places";
 import { Modal } from "../../../components/Modal";
 import { api, errorMessage } from "../../../lib/api";
 import { useTranslate } from "../../../lib/i18n";
@@ -273,8 +275,8 @@ export default function RestaurantPage() {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [step, setStep] = useState<"menu" | "checkout">("menu");
 
-  const [locations, setLocations] = useState<SavedLocation[]>([]);
-  const [delivery, setDelivery] = useState<PointState>(emptyPoint);
+  const [delivery, setDelivery] = useState<Place | null>(null);
+  const [choosing, setChoosing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [deliverySettings, setDeliverySettings] = useState<{
     deliveryRatePerKm: number;
@@ -289,7 +291,6 @@ export default function RestaurantPage() {
         setMenu(m);
       })
       .catch((err) => setError(errorMessage(err)));
-    api.getLocations().then((res) => setLocations(res.locations)).catch(() => {});
     api
       .getSettings()
       .then((res) =>
@@ -328,16 +329,22 @@ export default function RestaurantPage() {
   // same flat fee the server falls back to. Only null before settings load.
   const estimatedDeliveryFee = useMemo(() => {
     if (!deliverySettings) return null;
-    const resolved = resolvePoint(delivery, locations);
+    const resolved = placeFields(delivery);
     if (restaurant?.lat != null && restaurant?.lng != null && resolved.lat != null && resolved.lng != null) {
       const km = haversineKm(restaurant.lat, restaurant.lng, resolved.lat, resolved.lng);
       return roundFare(km * deliverySettings.deliveryRatePerKm, deliverySettings.minimumDeliveryFee);
     }
     return roundFare(deliverySettings.shoppingDeliveryFee);
-  }, [restaurant, delivery, locations, deliverySettings]);
+  }, [restaurant, delivery, deliverySettings]);
+
+  // Checkout starts with where to deliver.
+  useEffect(() => {
+    if (step === "checkout" && !delivery) setChoosing(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   async function checkout() {
-    const d = resolvePoint(delivery, locations);
+    const d = placeFields(delivery);
     if (!d.area && !d.address) {
       setError(t("restaurant_choose_delivery_location"));
       return;
@@ -372,7 +379,20 @@ export default function RestaurantPage() {
       <div className="space-y-5 px-4 pb-28 pt-4">
         <h1 className="text-xl font-bold text-ink">{t("restaurant_delivery_details")}</h1>
 
-        <LocationPicker point={delivery} setPoint={setDelivery} locations={locations} />
+        {delivery && (
+          <RouteSummary pickup={null} destination={delivery} destinationLabel={t("place_delivery")} onChange={() => setChoosing(true)} />
+        )}
+        {(choosing || !delivery) && (
+          <PlaceFlow
+            concept="food"
+            initial={{ destination: delivery }}
+            onClose={() => (delivery ? setChoosing(false) : setStep("menu"))}
+            onDone={(r) => {
+              setDelivery(r.destination);
+              setChoosing(false);
+            }}
+          />
+        )}
 
 
 

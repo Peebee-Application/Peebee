@@ -364,6 +364,11 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async getRecentLists(limit = 10) {
       return request<{ lists: ListSummary[] }>(`/v1/lists/recent?limit=${limit}`);
     },
+    async getRecentPlaces() {
+      return request<{ places: Array<{ area: string | null; address: string | null; lat: number | null; lng: number | null; last_at: string }> }>(
+        "/v1/orders/recent-places",
+      );
+    },
     async resendOrder(orderId: string) {
       return request<{ order: OrderRow }>(`/v1/orders/${orderId}/resend`, { method: "POST" });
     },

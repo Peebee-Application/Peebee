@@ -16,7 +16,7 @@
 /** Everything the three apps legitimately talk to. */
 const GOOGLE_SIGNIN = "https://accounts.google.com";
 const GOOGLE_AVATARS = "https://lh3.googleusercontent.com";
-const OSM_TILES = "https://*.tile.openstreetmap.org";
+const OSM_TILES = "https://*.tile.openstreetmap.org https://tile.openstreetmap.org";
 const OSM_GEOCODER = "https://nominatim.openstreetmap.org";
 /** In-app navigation's driving route (apps/{rider,customer}/lib/navTiles.ts). */
 const OSRM_ROUTER = "https://router.project-osrm.org";
@@ -34,7 +34,11 @@ const TILE_PROVIDERS = [
   "https://api.maptiler.com",
   "https://tiles.stadiamaps.com",
   "https://*.tile.thunderforest.com",
+  // A CSP "*." wildcard needs at least one subdomain label, and Jawg serves
+  // tiles from the bare tile.jawg.io — without it every Jawg tile is blocked
+  // and the map renders as a grey box.
   "https://*.tile.jawg.io",
+  "https://tile.jawg.io",
   "https://api.tomtom.com",
 ];
 

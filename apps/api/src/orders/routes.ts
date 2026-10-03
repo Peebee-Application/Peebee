@@ -482,6 +482,24 @@ orderRoutes.post("/orders/:id/resend", async (c) => {
   return response;
 });
 
+/** Places this customer has recently had orders sent to (rides, parcels,
+ * shopping and food alike), newest first and de-duplicated — the "Recently
+ * gone to" list in the location picker. Cancelled orders don't count. */
+orderRoutes.get("/orders/recent-places", async (c) => {
+  const user = c.get("user");
+  const res = await db.execute({
+    sql: `SELECT destination_area AS area, destination_address AS address,
+                 destination_lat AS lat, destination_lng AS lng, MAX(created_at) AS last_at
+          FROM orders
+          WHERE customer_id = ? AND stage != 'Cancelled'
+            AND (destination_address IS NOT NULL OR destination_area IS NOT NULL)
+          GROUP BY LOWER(COALESCE(destination_address, destination_area))
+          ORDER BY last_at DESC LIMIT 8`,
+    args: [user.sub],
+  });
+  return c.json({ places: res.rows });
+});
+
 orderRoutes.get("/orders/active", async (c) => {
   const user = c.get("user");
   const res = await db.execute({
