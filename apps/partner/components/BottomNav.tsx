@@ -1,6 +1,6 @@
 "use client";
 
-import { CarFront, LayoutGrid, Route, Users, UserRound, WalletCards } from "lucide-react";
+import { CarFront, KeyRound, LayoutGrid, Route, Users, UserRound, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
@@ -20,6 +20,7 @@ export function BottomNav() {
       : [
           { href: "/", label: "Home", icon: LayoutGrid },
           { href: "/vehicles", label: "Vehicles", icon: CarFront },
+          { href: "/rentals", label: "Rentals", icon: KeyRound },
           { href: "/wallet", label: "Earnings", icon: WalletCards },
           { href: "/account", label: "Account", icon: UserRound },
         ];

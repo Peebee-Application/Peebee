@@ -209,6 +209,16 @@ export type CarSettings = {
   withdrawalsEnabled: boolean;
   /** Smallest withdrawal in UGX; 0 = none. */
   withdrawalMinAmount: number;
+  selfDrive: {
+    enabled: boolean;
+    /** Tuma's share of the rent (%); null = not decided, so self-drive stays off. */
+    platformPercent: number | null;
+    maxDays: number;
+    /** Lowest deposit an owner may ask for (UGX). */
+    minDeposit: number;
+    /** An owner who hasn't answered a request in this many hours loses it, and the money is returned. */
+    approveWithinHours: number;
+  };
   carpool: {
     enabled: boolean;
     /** Most seats one passenger can book on a trip. */
@@ -1916,6 +1926,8 @@ export type CarConfig = {
   scheduled: { maxAdvanceHours: number | null; minLeadMinutes: number } | null;
   /** Present only when carpool is switched on. */
   carpool: { maxSeatsPerBooking: number; maxRepeatWeeks: number } | null;
+  /** Present only when self-drive hire is switched on and Tuma's percentage is set. */
+  selfDrive: { maxDays: number } | null;
   matchingMode: "customer_selects" | "first_to_claim";
   categories: CarCategory[];
 };
@@ -1939,6 +1951,64 @@ export type CarWallet = {
   withdrawalsEnabled: boolean;
   minAmount: number;
   history: Array<{ id: string; amount: number; status: "pending" | "successful" | "failed"; msisdn: string | null; created_at: string }>;
+};
+
+// ---- Self-drive ----------------------------------------------------------------
+
+export type RentalStatus = "requested" | "approved" | "active" | "disputed" | "completed" | "declined" | "cancelled";
+
+export type RentalVehicle = {
+  id: string;
+  name: string;
+  category: string;
+  seats: number | null;
+  dailyPrice: number;
+  deposit: number;
+  rent: number;
+  notes: string | null;
+};
+
+export type Rental = {
+  id: string;
+  vehicle_id: string;
+  plate: string | null;
+  vehicle?: string | null;
+  renter_name: string | null;
+  owner_name: string | null;
+  starts_at: string;
+  ends_at: string;
+  days: number;
+  rent_amount: number;
+  deposit_amount: number;
+  status: RentalStatus;
+  damage_claim: number;
+  licence_number: string;
+  licence_expiry: string;
+  owner_amount: number | null;
+  refund_amount: number | null;
+};
+
+export type OwnerRentalVehicle = {
+  id: string;
+  plate: string;
+  make: string | null;
+  model: string | null;
+  daily_price: number | null;
+  deposit_amount: number | null;
+  active: number | null;
+  notes: string | null;
+};
+
+export type AdminRental = {
+  id: string;
+  status: RentalStatus;
+  rent_amount: number;
+  deposit_amount: number;
+  damage_claim: number;
+  damage_final: number | null;
+  plate: string;
+  owner_name: string;
+  renter_name: string;
 };
 
 // ---- Carpool ---------------------------------------------------------------

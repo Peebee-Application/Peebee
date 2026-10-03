@@ -270,6 +270,15 @@ const DEFAULTS = {
   car_carpool_pay_within_minutes: "15",
   /** A passenger's start/end must be within this distance of the trip's. */
   car_carpool_match_radius_km: "10",
+  /** Self-drive hire. Needs the platform percentage to be set before it works. */
+  car_selfdrive_enabled: "0",
+  /** Tuma's share of the rent, in percent. Empty = not decided, so self-drive stays off. */
+  car_selfdrive_platform_percent: "",
+  car_selfdrive_max_days: "30",
+  /** Lowest deposit an owner may ask for (UGX). */
+  car_selfdrive_min_deposit: "0",
+  /** An owner who hasn't answered a request in this long loses it (money returned). */
+  car_selfdrive_approve_within_hours: "12",
   car_withdrawals_enabled: "0",
   /** Smallest withdrawal in UGX (0 = no minimum). */
   car_withdrawal_min_amount: "0",
@@ -300,6 +309,16 @@ export type CarSettings = {
   withdrawalMinAmount: number;
   scheduled: CarScheduledSettings;
   carpool: CarCarpoolSettings;
+  selfDrive: CarSelfDriveSettings;
+};
+
+export type CarSelfDriveSettings = {
+  enabled: boolean;
+  /** Tuma's share of the rent (%); null = not decided, so self-drive stays off. */
+  platformPercent: number | null;
+  maxDays: number;
+  minDeposit: number;
+  approveWithinHours: number;
 };
 
 export type CarCarpoolSettings = {
@@ -323,7 +342,7 @@ export type CarScheduledSettings = {
 };
 
 export async function getCarSettings(): Promise<CarSettings> {
-  const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin, sEnabled, sMax, sLead, sOpen, sWatch, sNoSig, sSpeed, cpEnabled, cpSeats, cpRepeat, cpCutoff, cpPay, cpRadius] = await Promise.all([
+  const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin, sEnabled, sMax, sLead, sOpen, sWatch, sNoSig, sSpeed, cpEnabled, cpSeats, cpRepeat, cpCutoff, cpPay, cpRadius, sdEnabled, sdPct, sdDays, sdDeposit, sdApprove] = await Promise.all([
     getSetting("car_enabled"),
     getSetting("car_ondemand_enabled"),
     getSetting("car_matching_mode"),
@@ -346,7 +365,13 @@ export async function getCarSettings(): Promise<CarSettings> {
     getSetting("car_carpool_cutoff_minutes"),
     getSetting("car_carpool_pay_within_minutes"),
     getSetting("car_carpool_match_radius_km"),
+    getSetting("car_selfdrive_enabled"),
+    getSetting("car_selfdrive_platform_percent"),
+    getSetting("car_selfdrive_max_days"),
+    getSetting("car_selfdrive_min_deposit"),
+    getSetting("car_selfdrive_approve_within_hours"),
   ]);
+  const sdPercent = sdPct === "" ? NaN : Number(sdPct);
   const clamp = (v: string, lo: number, hi: number, fallback: number) => Math.min(hi, Math.max(lo, Math.floor(Number(v)) || fallback));
   const maxAdvance = Math.floor(Number(sMax));
   let shares: CarShares = { owner: Number(owner), driver: Number(driver), platform: Number(platform) };
@@ -379,6 +404,13 @@ export async function getCarSettings(): Promise<CarSettings> {
       payWithinMinutes: clamp(cpPay, 5, 24 * 60, 15),
       matchRadiusKm: clamp(cpRadius, 1, 200, 10),
     },
+    selfDrive: {
+      enabled: sdEnabled === "1",
+      platformPercent: Number.isFinite(sdPercent) && sdPercent >= 0 && sdPercent <= 90 ? Math.floor(sdPercent) : null,
+      maxDays: clamp(sdDays, 1, 365, 30),
+      minDeposit: Math.max(0, Math.floor(Number(sdDeposit) || 0)),
+      approveWithinHours: clamp(sdApprove, 1, 24 * 14, 12),
+    },
   };
 }
 
@@ -409,6 +441,14 @@ export async function setCarSettings(next: CarSettings): Promise<void> {
     await setSetting("car_carpool_cutoff_minutes", String(cp.cutoffMinutes));
     await setSetting("car_carpool_pay_within_minutes", String(cp.payWithinMinutes));
     await setSetting("car_carpool_match_radius_km", String(cp.matchRadiusKm));
+  }
+  const sd = next.selfDrive;
+  if (sd) {
+    await setSetting("car_selfdrive_enabled", sd.enabled ? "1" : "0");
+    await setSetting("car_selfdrive_platform_percent", sd.platformPercent == null ? "" : String(sd.platformPercent));
+    await setSetting("car_selfdrive_max_days", String(sd.maxDays));
+    await setSetting("car_selfdrive_min_deposit", String(sd.minDeposit));
+    await setSetting("car_selfdrive_approve_within_hours", String(sd.approveWithinHours));
   }
   await setSetting("car_withdrawals_enabled", next.withdrawalsEnabled ? "1" : "0");
   await setSetting("car_withdrawal_min_amount", String(Math.max(0, Math.floor(Number(next.withdrawalMinAmount) || 0))));

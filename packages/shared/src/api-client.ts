@@ -14,6 +14,10 @@ import type {
   CarDriverJob,
   CarMe,
   CarOwnerRides,
+  AdminRental,
+  OwnerRentalVehicle,
+  Rental,
+  RentalVehicle,
   CarpoolMyTrip,
   CarpoolPublishInput,
   CarpoolTrip,
@@ -1540,6 +1544,40 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async carpoolSetStatus(tripId: string, status: "departed" | "completed" | "cancelled") {
       return request<{ ok: true }>(`/v1/car/carpool/trips/${tripId}/status`, { method: "POST", body: JSON.stringify({ status }) });
+    },
+    async rentalSearch(startsAt: string, endsAt: string) {
+      const params = new URLSearchParams({ startsAt, endsAt });
+      return request<{ days: number; vehicles: RentalVehicle[] }>(`/v1/car/rentals/listings?${params}`);
+    },
+    async rentalRequest(input: { vehicleId: string; startsAt: string; endsAt: string; licenceNumber: string; licenceExpiry: string }) {
+      return request<{ id: string; days: number; rent: number; deposit: number }>("/v1/car/rentals", { method: "POST", body: JSON.stringify(input) });
+    },
+    async myRentals() {
+      return request<{ rentals: Rental[] }>("/v1/car/rentals/mine");
+    },
+    async cancelRental(id: string) {
+      return request<{ ok: true }>(`/v1/car/rentals/${id}/cancel`, { method: "POST" });
+    },
+    async ownerRentals() {
+      return request<{ vehicles: OwnerRentalVehicle[]; rentals: Rental[] }>("/v1/car/rentals/my-vehicles");
+    },
+    async saveRentalListing(vehicleId: string, input: { dailyPrice: number; depositAmount: number; notes?: string; active: boolean }) {
+      return request<{ ok: true }>(`/v1/car/rentals/listings/${vehicleId}`, { method: "PUT", body: JSON.stringify(input) });
+    },
+    async decideRental(id: string, approve: boolean) {
+      return request<{ ok: true }>(`/v1/car/rentals/${id}/decision`, { method: "POST", body: JSON.stringify({ approve }) });
+    },
+    async handoverRental(id: string) {
+      return request<{ ok: true }>(`/v1/car/rentals/${id}/handover`, { method: "POST" });
+    },
+    async returnRental(id: string, damageClaim?: number) {
+      return request<{ ok: true; status: string }>(`/v1/car/rentals/${id}/return`, { method: "POST", body: JSON.stringify({ damageClaim }) });
+    },
+    async adminCarRentals() {
+      return request<{ rentals: AdminRental[] }>("/v1/admin/car/rentals");
+    },
+    async adminResolveRental(id: string, damageAmount: number) {
+      return request<{ ok: true }>(`/v1/admin/car/rentals/${id}/resolve`, { method: "POST", body: JSON.stringify({ damageAmount }) });
     },
     async carWallet() {
       return request<CarWallet>("/v1/car/wallet");

@@ -6,6 +6,8 @@ import { requireAuth, requireRole } from "../auth/middleware.js";
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { clientIp } from "../lib/ratelimit.js";
+import { hasTable } from "../lib/schema.js";
+import { completeRental } from "./selfdrive.js";
 
 type Row = Record<string, unknown>;
 
@@ -207,4 +209,34 @@ carAdminRoutes.get("/admin/car/bookings", requirePermission("car.view"), async (
                                 LEFT JOIN users ou ON ou.id = b.owner_id
                                 ORDER BY b.created_at DESC LIMIT 200`);
   return c.json({ bookings: res.rows });
+});
+
+// ---- Self-drive: rulings on damage claims -----------------------------------------------
+
+carAdminRoutes.get("/admin/car/rentals", requirePermission("car.view"), async (c) => {
+  if (!(await hasTable("rentals"))) return c.json({ rentals: [] });
+  const status = c.req.query("status");
+  const res = await db.execute({
+    sql: `SELECT r.id, r.status, r.rent_amount, r.deposit_amount, r.damage_claim, r.damage_final, r.starts_at, r.ends_at, v.plate,
+                 o.name AS owner_name, u.name AS renter_name
+          FROM rentals r JOIN vehicles v ON v.id = r.vehicle_id JOIN users o ON o.id = r.owner_id JOIN users u ON u.id = r.renter_id
+          ${status ? "WHERE r.status = ?" : ""} ORDER BY r.created_at DESC LIMIT 100`,
+    args: status ? [status] : [],
+  });
+  return c.json({ rentals: res.rows });
+});
+
+/** An admin rules on a damage claim: how much of the deposit the owner keeps (0 up to the claim). */
+carAdminRoutes.post("/admin/car/rentals/:id/resolve", requirePermission("car.manage"), async (c) => {
+  const id = c.req.param("id") as string;
+  const user = c.get("user");
+  const parsed = z.object({ damageAmount: z.number().int().min(0) }).safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  const rental = (await db.execute({ sql: "SELECT damage_claim FROM rentals WHERE id = ? AND status = 'disputed'", args: [id] })).rows[0] as Row | undefined;
+  if (!rental) return c.json({ error: "not_found", message: "No disputed rental with that id." }, 404);
+  if (parsed.data.damageAmount > Number(rental.damage_claim)) return c.json({ error: "above_claim", message: "The owner only claimed UGX " + Number(rental.damage_claim).toLocaleString("en-UG") + "." }, 400);
+  const done = await completeRental(id, ["disputed"], parsed.data.damageAmount, user.sub);
+  if (!done) return c.json({ error: "invalid_status", message: "This claim was already settled." }, 409);
+  await logActivity({ actor: user, action: "car.rental.resolve", entityType: "rental", entityId: id, summary: `Ruled on a damage claim: owner keeps UGX ${parsed.data.damageAmount.toLocaleString("en-UG")}`, after: parsed.data, ip: clientIp(c) });
+  return c.json({ ok: true });
 });
