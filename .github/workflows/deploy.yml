@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       apps:
-        description: 'Space-separated apps to deploy (api admin customer merchant restaurant rider web preview-hub), or "all"'
+        description: 'Space-separated apps to deploy (api admin customer merchant partner restaurant rider web preview-hub), or "all"'
         default: all
       target:
         description: 'Deployment target (auto, live, or preview)'
@@ -63,7 +63,7 @@ jobs:
           [ -z "$ALIAS" ] && ALIAS="preview"
 
           # 3. Detect changed apps
-          ALL="api admin customer merchant restaurant rider web preview-hub"
+          ALL="api admin customer merchant partner restaurant rider web preview-hub"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$MANUAL_APPS" ] && [ "$MANUAL_APPS" != "all" ]; then
             APPS="$MANUAL_APPS"
           else

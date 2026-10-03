@@ -10,6 +10,10 @@ import type {
   AdminOrderRow,
   AdminRider,
   CarBookingInput,
+  CarDriverActive,
+  CarDriverJob,
+  CarMe,
+  CarOwnerRides,
   CarConfig,
   AdminCarBooking,
   AdminCarCategory,
@@ -1484,6 +1488,35 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async bookCar(input: CarBookingInput) {
       return request<{ order: OrderRow }>("/v1/car/bookings", { method: "POST", body: JSON.stringify(input) });
+    },
+
+    // Tuma Car — partners (owners and drivers)
+    async carMe() {
+      return request<CarMe>("/v1/car/me");
+    },
+    async carApply(as: "owner" | "driver", licenceExpiry?: string) {
+      return request<{ ok: true }>("/v1/car/partner/apply", { method: "POST", body: JSON.stringify({ as, licenceExpiry }) });
+    },
+    async carAddVehicle(input: { categoryId: string; plate: string; make?: string; model?: string; year?: number; colour?: string }) {
+      return request<{ id: string }>("/v1/car/vehicles", { method: "POST", body: JSON.stringify(input) });
+    },
+    async carOwnerRides() {
+      return request<CarOwnerRides>("/v1/car/owner/rides");
+    },
+    async carDriverOnline(online: boolean, position?: { lat: number; lng: number }, vehicleId?: string) {
+      return request<{ ok: true; online: boolean }>("/v1/car/driver/online", { method: "POST", body: JSON.stringify({ online, vehicleId, ...position }) });
+    },
+    async carDriverLocation(lat: number, lng: number) {
+      return request<{ ok: true }>("/v1/car/driver/location", { method: "POST", body: JSON.stringify({ lat, lng }) });
+    },
+    async carDriverJobs() {
+      return request<{ jobs: CarDriverJob[] }>("/v1/car/driver/jobs");
+    },
+    async carDriverApply(orderId: string, bidAmount?: number) {
+      return request<{ ok: true }>(`/v1/car/orders/${orderId}/apply`, { method: "POST", body: JSON.stringify({ bidAmount }) });
+    },
+    async carDriverActive() {
+      return request<CarDriverActive>("/v1/car/driver/active");
     },
 
     // Admin — Tuma Car
