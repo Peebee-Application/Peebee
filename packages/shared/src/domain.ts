@@ -356,8 +356,8 @@ export type DeliverySettings = {
    * active maps provider ("in_app"). Change with PUT /admin/nav-mode. */
   navMode: NavMode;
   /** Reads a rider's shopping list aloud in Luganda (see
-   * apps/api/src/speech/sunbird.ts) — off by default, since it needs a
-   * working Sunbird AI API key. `lugandaAudioVoices` is the admin-curated
+   * apps/api/src/speech/gemini.ts) — off by default, since it needs a
+   * working Google AI Studio API key (GEMINI_API_KEY). `lugandaAudioVoices` is the admin-curated
    * catalog a rider picks from in their own settings. */
   lugandaAudioEnabled: boolean;
   lugandaAudioVoices: LugandaVoice[];
@@ -381,6 +381,15 @@ export type ProSettings = {
   proOnetimeEnabled: boolean;
   proOnetimeAmount: number;
 };
+
+/** The prebuilt voices Google AI Studio's text-to-speech offers; a catalog
+ * entry's `id` is one of these names (see apps/api/src/speech/gemini.ts). */
+export const GEMINI_TTS_VOICES = [
+  "Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede", "Callirrhoe", "Autonoe",
+  "Enceladus", "Iapetus", "Umbriel", "Algieba", "Despina", "Erinome", "Algenib", "Rasalgethi", "Laomedeia", "Achernar",
+  "Alnilam", "Schedar", "Gacrux", "Pulcherrima", "Achird", "Zubenelgenubi", "Vindemiatrix", "Sadachbia", "Sadaltager", "Sulafat",
+] as const;
+export const DEFAULT_GEMINI_VOICE = "Kore";
 
 export type LugandaVoice = { id: string; label: string };
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAuth } from "../auth/middleware.js";
 import { getLugandaAudioSettings } from "../lib/settings.js";
 import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
-import { synthesizeLuganda, translateToLuganda } from "./sunbird.js";
+import { synthesizeLuganda, translateToLuganda } from "./gemini.js";
 
 export const speechRoutes = new Hono();
 
@@ -22,7 +22,7 @@ speechRoutes.get("/speech/voice-preview", requireAuth, async (c) => {
   const { voices, enabled } = await getLugandaAudioSettings();
   if (!enabled || !voices.some((v) => v.id === parsed.data.voice)) return c.json({ error: "unknown_voice" }, 400);
 
-  const key = `tts-previews/lug/${parsed.data.voice}.wav`;
+  const key = `tts-previews/lug-gemini/${parsed.data.voice}.wav`;
   const bucket = getR2Bucket();
   const cached = await bucket.get(key);
   if (cached) {

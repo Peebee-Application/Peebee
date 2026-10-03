@@ -229,16 +229,16 @@ const DEFAULTS = {
    * actually implemented. */
   vsla_custodial_mode: "0",
 
-  /** Reads a rider's shopping list aloud in Luganda via Sunbird AI (see
-   * ../speech/sunbird.ts) — for riders who aren't comfortable reading the
+  /** Reads a rider's shopping list aloud in Luganda via Google AI Studio (see
+   * ../speech/gemini.ts) — for riders who aren't comfortable reading the
    * typed list themselves. Off by default since it needs a working
-   * SUNBIRD_API_KEY. `luganda_audio_voices` is the admin-curated catalog a
+   * GEMINI_API_KEY. `luganda_audio_voices` is the admin-curated catalog a
    * rider picks from in their own settings (JSON array of {id, label},
-   * `id` being one of Sunbird's own "lug" speaker tags); the default voice
-   * covers a rider who hasn't picked one yet. */
+   * `id` being one of Gemini's prebuilt voice names, e.g. "Kore"); the
+   * default voice covers a rider who hasn't picked one yet. */
   luganda_audio_enabled: "0",
-  luganda_audio_voices: '[{"id":"waxal_lug_0004","label":"Voice 1"}]',
-  luganda_audio_default_voice: "waxal_lug_0004",
+  luganda_audio_voices: '[{"id":"Kore","label":"Voice 1"}]',
+  luganda_audio_default_voice: "Kore",
   /** Off by default so nothing changes until an admin explicitly opts in. */
   luganda_audio_requires_pro: "0",
   /** Tuma Car — everything off until an admin switches it on, and nothing

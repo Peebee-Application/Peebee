@@ -10,7 +10,7 @@ export type { ApiValidationIssue } from "./api-client.js";
 export type { CreateApiClientOptions, ApiClient } from "./api-client.js";
 export { CallEngine } from "./call-engine.js";
 export type { CallEngineState, CallEnginePhase, CallEngineOptions } from "./call-engine.js";
-export { isRiderProfileComplete, isUserVerified, isProSubscriptionCurrent, MATCHING_MODE_LABELS, MATCHING_MODE_DESCRIPTIONS } from "./domain.js";
+export { isRiderProfileComplete, isUserVerified, isProSubscriptionCurrent, MATCHING_MODE_LABELS, MATCHING_MODE_DESCRIPTIONS, GEMINI_TTS_VOICES, DEFAULT_GEMINI_VOICE } from "./domain.js";
 export { UGANDA_DISTRICTS } from "./uganda-locations.js";
 export type { UgandaDistrict } from "./uganda-locations.js";
 export {
