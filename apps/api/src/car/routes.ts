@@ -9,6 +9,8 @@ import { getCarSettings, getPlatformEnvironment } from "../lib/settings.js";
 import { computeBidding, loadBiddingContext, validateBid } from "../orders/bidding.js";
 import { currentVisibilityRadiusKm, orderMatchPoint } from "../orders/matching.js";
 import { createOrderFromInput } from "../orders/routes.js";
+import { checkPaymentStatus, initiateDisbursement, UnsupportedNetworkError } from "../payments/service.js";
+import { creditWallet, debitWallet } from "../wallet/service.js";
 import { quoteFare } from "./service.js";
 
 type Row = Record<string, unknown>;
@@ -392,4 +394,126 @@ carRoutes.post("/car/bookings", async (c) => {
     args: [newId("cbk"), String(body.order.id), user.sub, parsed.data.categoryId, environment],
   });
   return response;
+});
+
+// ---- Earnings wallet: cash-out to mobile money -------------------------------
+
+/**
+ * What a person may cash out: only what they EARNED from car rides (their
+ * owner and driver shares), minus what they've already withdrawn or have
+ * pending — and never more than the wallet holds. Money they topped up
+ * themselves is closed-loop store credit and stays that way.
+ */
+async function withdrawable(userId: string, environment: string): Promise<{ balance: number; earned: number; withdrawn: number; available: number }> {
+  const column = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
+  const balance = Number(((await db.execute({ sql: `SELECT ${column} AS b FROM users WHERE id = ?`, args: [userId] })).rows[0] as Row)?.b ?? 0);
+  const earned = Number(
+    ((await db.execute({
+      sql: `SELECT COALESCE(SUM(CASE WHEN owner_id = ? THEN owner_amount ELSE 0 END), 0)
+                 + COALESCE(SUM(CASE WHEN driver_id = ? THEN driver_amount ELSE 0 END), 0) AS total
+            FROM car_bookings WHERE status = 'completed' AND environment = ? AND (owner_id = ? OR driver_id = ?)`,
+      args: [userId, userId, environment, userId, userId],
+    })).rows[0] as Row)?.total ?? 0,
+  );
+  const withdrawn = Number(
+    ((await db.execute({
+      sql: "SELECT COALESCE(SUM(amount), 0) AS total FROM car_withdrawals WHERE user_id = ? AND environment = ? AND status IN ('pending', 'successful')",
+      args: [userId, environment],
+    })).rows[0] as Row)?.total ?? 0,
+  );
+  return { balance, earned, withdrawn, available: Math.max(0, Math.min(balance, earned - withdrawn)) };
+}
+
+carRoutes.get("/car/wallet", async (c) => {
+  const user = c.get("user");
+  const settings = await getCarSettings();
+  const environment = await getPlatformEnvironment();
+  const ready = await hasTable("car_withdrawals");
+  const figures = await withdrawable(user.sub, environment);
+  const history = ready
+    ? (await db.execute({ sql: "SELECT id, amount, status, msisdn, created_at FROM car_withdrawals WHERE user_id = ? AND environment = ? ORDER BY created_at DESC LIMIT 20", args: [user.sub, environment] })).rows
+    : [];
+  return c.json({
+    balance: figures.balance,
+    withdrawable: ready ? figures.available : 0,
+    withdrawalsEnabled: settings.withdrawalsEnabled && ready,
+    minAmount: settings.withdrawalMinAmount,
+    history,
+  });
+});
+
+const withdrawSchema = z.object({ amount: z.number().int().positive(), mobileNumberId: z.string().optional() });
+
+carRoutes.post("/car/wallet/withdraw", async (c) => {
+  const user = c.get("user");
+  const parsed = withdrawSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  const settings = await getCarSettings();
+  if (!settings.withdrawalsEnabled) return c.json({ error: "withdrawals_off", message: "Cash-out isn't open yet." }, 403);
+  if (!(await hasTable("car_withdrawals"))) return c.json({ error: "withdrawals_unavailable", message: "Cash-out isn't ready yet." }, 503);
+
+  const { amount } = parsed.data;
+  if (amount < settings.withdrawalMinAmount) {
+    return c.json({ error: "below_minimum", message: `The smallest withdrawal is UGX ${settings.withdrawalMinAmount.toLocaleString("en-UG")}.` }, 400);
+  }
+  const environment = await getPlatformEnvironment();
+  const figures = await withdrawable(user.sub, environment);
+  if (amount > figures.available) {
+    return c.json({ error: "amount_too_high", message: `You can withdraw up to UGX ${figures.available.toLocaleString("en-UG")} of your ride earnings.` }, 409);
+  }
+
+  const numbers = (await db.execute({ sql: "SELECT id, phone FROM saved_mobile_numbers WHERE owner_id = ? AND purpose = 'withdrawal' ORDER BY is_primary DESC, created_at ASC", args: [user.sub] })).rows as Row[];
+  let msisdn: string | null = null;
+  if (numbers.length >= 2) {
+    if (!parsed.data.mobileNumberId) return c.json({ error: "mobile_number_required", message: "Choose which mobile money number to withdraw to." }, 400);
+    msisdn = (numbers.find((n) => n.id === parsed.data.mobileNumberId)?.phone as string | undefined) ?? null;
+    if (!msisdn) return c.json({ error: "invalid_mobile_number" }, 400);
+  } else if (numbers.length === 1) {
+    msisdn = numbers[0].phone as string;
+  }
+  if (!msisdn) return c.json({ error: "no_mobile_money", message: "Save a mobile money number for withdrawals first." }, 409);
+
+  // Debit first (atomic: refuses if the balance dropped meanwhile), then pay out, and give the money back if the payout can't start.
+  const withdrawalId = newId("cwd");
+  const debited = await debitWallet(user.sub, amount, { type: "adjustment", environment, actorId: user.sub, note: "Withdrawal to mobile money" });
+  if (debited === null) return c.json({ error: "balance_changed", message: "Your balance just changed — reopen and try again." }, 409);
+
+  let initiated;
+  try {
+    initiated = await initiateDisbursement({ referenceId: withdrawalId, msisdn, amount, forceMock: environment === "sandbox" });
+  } catch (err) {
+    await creditWallet(user.sub, amount, { type: "adjustment", environment, actorId: user.sub, note: "Withdrawal could not start — returned" });
+    if (err instanceof UnsupportedNetworkError) return c.json({ error: "unsupported_network", message: err.message }, 400);
+    console.error("Car withdrawal request failed:", err);
+    return c.json({ error: "withdrawal_request_failed", message: "Couldn't reach mobile money. Please try again." }, 502);
+  }
+  await db.execute({
+    sql: `INSERT INTO car_withdrawals (id, user_id, amount, provider, provider_ref, msisdn, network, status, environment)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+    args: [withdrawalId, user.sub, amount, initiated.provider, initiated.providerRef, msisdn, initiated.network, environment],
+  });
+  return c.json({ withdrawalId, amount, status: "pending" }, 201);
+});
+
+/** Polled by the app until the payout settles; a failed payout returns the money to the wallet. */
+carRoutes.get("/car/wallet/withdrawals/:id/refresh", async (c) => {
+  const id = c.req.param("id") as string;
+  const user = c.get("user");
+  const row = (await db.execute({ sql: "SELECT * FROM car_withdrawals WHERE id = ? AND user_id = ?", args: [id, user.sub] })).rows[0] as Row | undefined;
+  if (!row) return c.json({ error: "not_found" }, 404);
+  if (row.status !== "pending") return c.json({ withdrawal: row });
+  try {
+    const status = await checkPaymentStatus({ provider: String(row.provider), provider_ref: row.provider_ref as string | null, created_at: String(row.created_at) });
+    if (status === "successful" || status === "failed") {
+      // Only the request that flips pending -> final may refund, so a double poll can't pay twice.
+      const flipped = await db.execute({ sql: "UPDATE car_withdrawals SET status = ?, updated_at = datetime('now') WHERE id = ? AND status = 'pending'", args: [status, id] });
+      if (status === "failed" && flipped.rowsAffected > 0) {
+        await creditWallet(user.sub, Number(row.amount), { type: "adjustment", environment: row.environment === "sandbox" ? "sandbox" : "live", actorId: user.sub, note: "Withdrawal failed — returned" });
+      }
+    }
+    return c.json({ withdrawal: (await db.execute({ sql: "SELECT * FROM car_withdrawals WHERE id = ?", args: [id] })).rows[0] });
+  } catch (err) {
+    console.error("Car withdrawal status check failed:", err);
+    return c.json({ error: "status_check_failed", message: "Couldn't check the payout just now. Please try again." }, 502);
+  }
 });

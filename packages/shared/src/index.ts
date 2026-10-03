@@ -68,6 +68,7 @@ export type {
   DeliverySettings,
   BiddingSettings,
   CarSettings,
+  CarWallet,
   CarMe,
   CarDriverJob,
   CarDriverActive,

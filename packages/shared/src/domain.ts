@@ -205,6 +205,10 @@ export type CarSettings = {
   shares: { owner: number; driver: number; platform: number };
   /** A driver further than this from the pickup isn't offered the ride. */
   maxPickupKm: number;
+  /** Owners and drivers may cash their ride earnings out to mobile money. */
+  withdrawalsEnabled: boolean;
+  /** Smallest withdrawal in UGX; 0 = none. */
+  withdrawalMinAmount: number;
 };
 
 export type BiddingSettings = { enabled: boolean; minPercent: number; maxPercent: number };
@@ -1894,6 +1898,15 @@ export type CarBookingInput = {
   destinationAddress?: string;
   destinationLat: number;
   destinationLng: number;
+};
+
+export type CarWallet = {
+  balance: number;
+  /** The part of the balance earned from car rides that can be cashed out now. */
+  withdrawable: number;
+  withdrawalsEnabled: boolean;
+  minAmount: number;
+  history: Array<{ id: string; amount: number; status: "pending" | "successful" | "failed"; msisdn: string | null; created_at: string }>;
 };
 
 // ---- Tuma Car (partner app) -------------------------------------------------

@@ -15,12 +15,14 @@ export default function CarSettingsPage() {
   const [driver, setDriver] = useState("30");
   const [platform, setPlatform] = useState("10");
   const [maxKm, setMaxKm] = useState("10");
+  const [withdrawals, setWithdrawals] = useState(false);
+  const [withdrawMin, setWithdrawMin] = useState("0");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number }) {
+  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number }) {
     setEnabled(c.enabled);
     setOnDemand(c.onDemandEnabled);
     setMode(c.matchingMode);
@@ -28,6 +30,8 @@ export default function CarSettingsPage() {
     setDriver(String(c.shares.driver));
     setPlatform(String(c.shares.platform));
     setMaxKm(String(c.maxPickupKm));
+    setWithdrawals(c.withdrawalsEnabled);
+    setWithdrawMin(String(c.withdrawalMinAmount));
   }
 
   useEffect(() => {
@@ -57,6 +61,8 @@ export default function CarSettingsPage() {
           matchingMode: mode,
           shares: { owner: Number(owner), driver: Number(driver), platform: Number(platform) },
           maxPickupKm: Math.min(200, Math.max(1, Number(maxKm) || 10)),
+          withdrawalsEnabled: withdrawals,
+          withdrawalMinAmount: Math.max(0, Number(withdrawMin) || 0),
         },
       });
       load(res.settings.car);
@@ -115,6 +121,20 @@ export default function CarSettingsPage() {
           </div>
           <p className={`text-xs ${total === 100 ? "text-ink-500" : "text-red-700 dark:text-red-300"}`}>
             Total {total}% — must be exactly 100%. Applies after payment fees; a category can set its own split on the fleet page.
+          </p>
+        </section>
+
+        <section className="home-card space-y-3">
+          <label className="flex items-center gap-2 text-sm font-bold text-ink">
+            <input type="checkbox" checked={withdrawals} onChange={(e) => setWithdrawals(e.target.checked)} className="h-4 w-4 accent-gold" />
+            Owners and drivers can cash out to mobile money
+          </label>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-ink-500" htmlFor="car-wd-min">Smallest withdrawal (UGX, 0 = no minimum)</label>
+            <input id="car-wd-min" inputMode="numeric" value={withdrawMin} disabled={!withdrawals} onChange={(e) => setWithdrawMin(digits(e.target.value))} className={`${input} disabled:opacity-50`} />
+          </div>
+          <p className="text-xs text-ink-500">
+            People can only cash out what they earned from car rides, never money they topped up themselves. Needs the withdrawals table (migration 0066).
           </p>
         </section>
 

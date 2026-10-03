@@ -268,6 +268,8 @@ const updateSchema = z.object({
         platform: z.number().int().min(0).max(100),
       }),
       maxPickupKm: z.number().int().min(1).max(200),
+      withdrawalsEnabled: z.boolean(),
+      withdrawalMinAmount: z.number().int().min(0).max(100_000_000),
     })
     .refine((c) => c.shares.owner + c.shares.driver + c.shares.platform === 100, { message: "Owner, driver and platform shares must total 100%" })
     .optional(),
