@@ -1864,3 +1864,34 @@ export type AdminCarBooking = {
   driver_amount: number | null;
   platform_amount: number | null;
 };
+
+// ---- Tuma Car (customer) ----------------------------------------------------
+
+export type CarCategory = {
+  id: string;
+  kind: "passenger" | "cargo";
+  name: string;
+  seats: number | null;
+  cargo_type: string | null;
+  size_label: string | null;
+  rate_per_km: number;
+  minimum_fare: number;
+};
+
+export type CarConfig = {
+  onDemandEnabled: boolean;
+  matchingMode: "customer_selects" | "first_to_claim";
+  categories: CarCategory[];
+};
+
+export type CarBookingInput = {
+  categoryId: string;
+  pickupArea?: string;
+  pickupAddress?: string;
+  pickupLat: number;
+  pickupLng: number;
+  destinationArea?: string;
+  destinationAddress?: string;
+  destinationLat: number;
+  destinationLng: number;
+};
