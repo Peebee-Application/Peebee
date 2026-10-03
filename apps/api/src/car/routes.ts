@@ -12,6 +12,8 @@ import { createOrderFromInput } from "../orders/routes.js";
 import { checkPaymentStatus, initiateDisbursement, UnsupportedNetworkError } from "../payments/service.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
 import { quoteFare } from "./service.js";
+import { baseMimeType, extensionForMime } from "../lib/mime.js";
+import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
 import { openForDriversSql, scheduledAvailable, toDbTime, validateScheduledFor } from "./scheduled.js";
 
 type Row = Record<string, unknown>;
@@ -42,7 +44,7 @@ carRoutes.get("/car/config", async (c) => {
     ? { maxSeatsPerBooking: settings.carpool.maxSeatsPerBooking, maxRepeatWeeks: settings.carpool.maxRepeatWeeks }
     : null;
   const selfDrive = settings.selfDrive.enabled && settings.selfDrive.platformPercent != null && (await hasTable("rentals")) ? { maxDays: settings.selfDrive.maxDays } : null;
-  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, scheduled, carpool, selfDrive, categories: categories.rows });
+  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, scheduled, carpool, selfDrive, vehiclePhotos: settings.vehiclePhotos, categories: categories.rows });
 });
 
 // ---- Who am I: owner / driver status, vehicles, current car -----------------
@@ -65,10 +67,11 @@ carRoutes.get("/car/me", async (c) => {
     args: [user.sub],
   });
   const state = (await db.execute({ sql: "SELECT * FROM car_driver_state WHERE driver_id = ?", args: [user.sub] })).rows[0] as Row | undefined;
+  const photoIds = await vehiclePhotoIds(vehicles.rows.map((v) => String((v as Row).id)));
   return c.json({
     ownerStatus: (partner?.owner_status as string) ?? "none",
     driverStatus: (partner?.driver_status as string) ?? "none",
-    vehicles: vehicles.rows,
+    vehicles: vehicles.rows.map((v) => ({ ...v, photos: photoIds[String((v as Row).id)] ?? [] })),
     assignedVehicles: driving.rows,
     online: state?.online === 1,
     activeVehicleId: (state?.vehicle_id as string | null) ?? null,
@@ -608,4 +611,88 @@ carRoutes.get("/car/bookings/:orderId/info", async (c) => {
   if (!row || row.customer_id !== user.sub) return c.json({ error: "not_found" }, 404);
   const at = row.scheduled_for ? new Date(`${String(row.scheduled_for).replace(" ", "T")}Z`).toISOString() : null;
   return c.json({ car: true, scheduledFor: at });
+});
+
+// ---- Vehicle photos ----------------------------------------------------------
+
+/** Photo ids per vehicle (empty until the photos table exists). */
+export async function vehiclePhotoIds(vehicleIds: string[]): Promise<Record<string, string[]>> {
+  const out: Record<string, string[]> = {};
+  if (vehicleIds.length === 0 || !(await hasTable("vehicle_photos"))) return out;
+  const marks = vehicleIds.map(() => "?").join(", ");
+  const rows = (await db.execute({ sql: `SELECT id, vehicle_id FROM vehicle_photos WHERE vehicle_id IN (${marks}) ORDER BY sort ASC, created_at ASC`, args: vehicleIds })).rows as Row[];
+  for (const r of rows) (out[String(r.vehicle_id)] ??= []).push(String(r.id));
+  return out;
+}
+
+const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
+const PHOTO_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+/** The owner adds a photo of their vehicle (one image per request, up to the admin's maximum). */
+carRoutes.post("/car/vehicles/:id/photos", async (c) => {
+  const vehicleId = c.req.param("id") as string;
+  const user = c.get("user");
+  if (!(await hasTable("vehicle_photos"))) return c.json({ error: "photos_unavailable", message: "Vehicle photos aren't ready yet." }, 503);
+  const vehicle = (await db.execute({ sql: "SELECT id FROM vehicles WHERE id = ? AND owner_id = ?", args: [vehicleId, user.sub] })).rows[0];
+  if (!vehicle) return c.json({ error: "not_found" }, 404);
+
+  const form = await c.req.formData().catch(() => null);
+  const file = form?.get("file");
+  if (!(file instanceof File)) return c.json({ error: "invalid_body", message: "Choose a photo to upload." }, 400);
+  if (!PHOTO_MIME.has(baseMimeType(file.type))) return c.json({ error: "unsupported_file_type", message: "Photos must be JPEG, PNG or WebP." }, 400);
+  if (file.size > MAX_PHOTO_BYTES) return c.json({ error: "file_too_large", message: "That photo is too large (6 MB at most)." }, 400);
+
+  const { vehiclePhotos } = await getCarSettings();
+  const id = newId("vph");
+  const key = `vehicles/${vehicleId}/photos/${id}.${extensionForMime(file.type, "jpg")}`;
+  // Reserve the slot first so two uploads at once can't go past the maximum.
+  const reserved = await db.execute({
+    sql: `INSERT INTO vehicle_photos (id, vehicle_id, object_key, sort)
+          SELECT ?, ?, ?, COALESCE((SELECT MAX(sort) + 1 FROM vehicle_photos WHERE vehicle_id = ?), 0)
+          WHERE (SELECT COUNT(*) FROM vehicle_photos WHERE vehicle_id = ?) < ?`,
+    args: [id, vehicleId, key, vehicleId, vehicleId, vehiclePhotos.max],
+  });
+  if (reserved.rowsAffected === 0) return c.json({ error: "too_many_photos", message: `A vehicle can have up to ${vehiclePhotos.max} photos.` }, 409);
+  try {
+    await getR2Bucket().put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+  } catch (err) {
+    await db.execute({ sql: "DELETE FROM vehicle_photos WHERE id = ?", args: [id] });
+    console.error("Vehicle photo upload failed:", err);
+    return c.json({ error: "upload_failed", message: "Couldn't save that photo. Please try again." }, 502);
+  }
+  return c.json({ id }, 201);
+});
+
+carRoutes.delete("/car/vehicles/:id/photos/:photoId", async (c) => {
+  const vehicleId = c.req.param("id") as string;
+  const photoId = c.req.param("photoId") as string;
+  const user = c.get("user");
+  if (!(await hasTable("vehicle_photos"))) return c.json({ error: "photos_unavailable" }, 503);
+  const row = (await db.execute({
+    sql: `SELECT p.object_key FROM vehicle_photos p JOIN vehicles v ON v.id = p.vehicle_id WHERE p.id = ? AND p.vehicle_id = ? AND v.owner_id = ?`,
+    args: [photoId, vehicleId, user.sub],
+  })).rows[0] as Row | undefined;
+  if (!row) return c.json({ error: "not_found" }, 404);
+  await db.execute({ sql: "DELETE FROM vehicle_photos WHERE id = ?", args: [photoId] });
+  await getR2Bucket().delete(String(row.object_key)).catch(() => undefined);
+  return c.json({ ok: true });
+});
+
+/** A vehicle photo: visible to its owner, the driver it's assigned to, and staff. */
+carRoutes.get("/car/vehicles/:id/photos/:photoId", async (c) => {
+  const vehicleId = c.req.param("id") as string;
+  const photoId = c.req.param("photoId") as string;
+  const user = c.get("user");
+  if (!(await hasTable("vehicle_photos"))) return c.json({ error: "photos_unavailable" }, 503);
+  const row = (await db.execute({
+    sql: `SELECT p.object_key, v.owner_id,
+                 EXISTS (SELECT 1 FROM vehicle_assignments a WHERE a.vehicle_id = v.id AND a.driver_id = ? AND a.status = 'active') AS is_driver
+          FROM vehicle_photos p JOIN vehicles v ON v.id = p.vehicle_id WHERE p.id = ? AND p.vehicle_id = ?`,
+    args: [user.sub, photoId, vehicleId],
+  })).rows[0] as Row | undefined;
+  if (!row) return c.json({ error: "not_found" }, 404);
+  if (row.owner_id !== user.sub && !row.is_driver && user.role !== "admin") return c.json({ error: "forbidden" }, 403);
+  const object = await getR2Bucket().get(String(row.object_key));
+  if (!object) return c.json({ error: "not_found" }, 404);
+  return new Response(object.body, { headers: uploadResponseHeaders(object.httpMetadata?.contentType, "application/octet-stream") });
 });

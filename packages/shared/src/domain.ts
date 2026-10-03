@@ -209,6 +209,8 @@ export type CarSettings = {
   withdrawalsEnabled: boolean;
   /** Smallest withdrawal in UGX; 0 = none. */
   withdrawalMinAmount: number;
+  /** Photos of a vehicle: the most an owner can add (at least 6) and how many an admin needs before approving. */
+  vehiclePhotos: { max: number; minRequired: number };
   selfDrive: {
     enabled: boolean;
     /** Tuma's share of the rent (%); null = not decided, so self-drive stays off. */
@@ -1889,6 +1891,7 @@ export type AdminCarVehicle = {
   status: "pending" | "approved" | "rejected" | "suspended";
   driver_id: string | null;
   driver_name: string | null;
+  photos?: string[];
 };
 
 export type AdminCarBooking = {
@@ -1922,6 +1925,8 @@ export type CarCategory = {
 
 export type CarConfig = {
   onDemandEnabled: boolean;
+  /** Photos per vehicle: the most an owner can add, and how many are needed before approval. */
+  vehiclePhotos?: { max: number; minRequired: number };
   /** Present only when scheduled rides are switched on and a booking window is set. */
   scheduled: { maxAdvanceHours: number | null; minLeadMinutes: number } | null;
   /** Present only when carpool is switched on. */
@@ -2067,7 +2072,7 @@ export type CarpoolMyTrip = {
 export type CarMe = {
   ownerStatus: CarPartnerStatus;
   driverStatus: CarPartnerStatus;
-  vehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; status: string; category_name: string; driver_name: string | null }>;
+  vehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; status: string; category_name: string; driver_name: string | null; photos: string[] }>;
   assignedVehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; category_name: string }>;
   online: boolean;
   activeVehicleId: string | null;

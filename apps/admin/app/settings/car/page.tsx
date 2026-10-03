@@ -34,6 +34,8 @@ export default function CarSettingsPage() {
   const [sdDays, setSdDays] = useState("30");
   const [sdDeposit, setSdDeposit] = useState("0");
   const [sdApprove, setSdApprove] = useState("12");
+  const [photoMax, setPhotoMax] = useState("8");
+  const [photoMin, setPhotoMin] = useState("0");
   const [withdrawals, setWithdrawals] = useState(false);
   const [withdrawMin, setWithdrawMin] = useState("0");
   const [busy, setBusy] = useState(false);
@@ -41,7 +43,7 @@ export default function CarSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number; scheduled: CarSettings["scheduled"]; carpool: CarSettings["carpool"]; selfDrive: CarSettings["selfDrive"] }) {
+  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number; scheduled: CarSettings["scheduled"]; carpool: CarSettings["carpool"]; selfDrive: CarSettings["selfDrive"]; vehiclePhotos: CarSettings["vehiclePhotos"] }) {
     setEnabled(c.enabled);
     setOnDemand(c.onDemandEnabled);
     setMode(c.matchingMode);
@@ -67,6 +69,8 @@ export default function CarSettingsPage() {
     setSdDays(String(c.selfDrive.maxDays));
     setSdDeposit(String(c.selfDrive.minDeposit));
     setSdApprove(String(c.selfDrive.approveWithinHours));
+    setPhotoMax(String(c.vehiclePhotos.max));
+    setPhotoMin(String(c.vehiclePhotos.minRequired));
     setWithdrawals(c.withdrawalsEnabled);
     setWithdrawMin(String(c.withdrawalMinAmount));
   }
@@ -122,6 +126,7 @@ export default function CarSettingsPage() {
             minDeposit: Math.max(0, Number(sdDeposit) || 0),
             approveWithinHours: Math.max(1, Number(sdApprove) || 12),
           },
+          vehiclePhotos: { max: Math.min(20, Math.max(6, Number(photoMax) || 8)), minRequired: Math.max(0, Number(photoMin) || 0) },
           withdrawalsEnabled: withdrawals,
           withdrawalMinAmount: Math.max(0, Number(withdrawMin) || 0),
         },
@@ -255,6 +260,22 @@ export default function CarSettingsPage() {
           <p className="text-xs text-ink-500">
             Stays off until Tuma&apos;s share is set. The renter&apos;s rent and deposit are held from their wallet; the deposit comes back unless the owner claims damage, which you rule on under Car fleet → Rentals. Late-return fees and inspection photos are not enabled yet. Have the hire terms and insurance position reviewed before using this with real money. Needs migration 0069.
           </p>
+        </section>
+
+        <section className="home-card space-y-3">
+          <p className="text-sm font-bold text-ink">Vehicle photos</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              ["Most photos per vehicle (6–20)", photoMax, setPhotoMax],
+              ["Photos needed before approval (0 = none)", photoMin, setPhotoMin],
+            ].map(([label, value, set]) => (
+              <div key={label as string} className="space-y-1">
+                <label className="text-xs font-semibold text-ink-500">{label as string}</label>
+                <input inputMode="numeric" value={value as string} onChange={(e) => (set as (v: string) => void)(digits(e.target.value))} className={input} />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-ink-500">Owners add photos when they submit a vehicle. You can&apos;t approve a vehicle that has fewer photos than the number needed. Needs migration 0070.</p>
         </section>
 
         <section className="home-card space-y-3">

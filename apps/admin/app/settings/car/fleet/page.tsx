@@ -116,6 +116,13 @@ export default function CarFleetPage() {
                   {v.plate} <span className="font-normal text-ink-500">· {v.category_name} · {v.status}</span>
                 </p>
                 <p className="text-xs text-ink-500">{[v.make, v.model].filter(Boolean).join(" ")} · owner {v.owner_name}</p>
+                {(v.photos?.length ?? 0) > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {v.photos!.map((photoId) => <VehiclePhoto key={photoId} vehicleId={v.id} photoId={photoId} />)}
+                  </div>
+                ) : (
+                  <p className="text-xs text-ink-500">No photos yet.</p>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {v.status !== "approved" && (
                     <button type="button" className={`${smallBtn} bg-gold text-ink-gold`} onClick={() => act(() => api.adminDecideCarVehicle(v.id, "approved"))}>Approve</button>
@@ -306,5 +313,30 @@ function Categories({ categories, act }: { categories: AdminCarCategory[]; act: 
         </div>
       </form>
     </div>
+  );
+}
+
+/** A vehicle photo (fetched with the sign-in header); tap to open it full size. */
+function VehiclePhoto({ vehicleId, photoId }: { vehicleId: string; photoId: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    api.carVehiclePhotoBlob(vehicleId, photoId).then((blob) => {
+      if (cancelled) return;
+      objectUrl = URL.createObjectURL(blob);
+      setUrl(objectUrl);
+    }).catch(() => undefined);
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [vehicleId, photoId]);
+  if (!url) return <span className="block aspect-[4/3] w-full rounded-lg bg-[rgb(var(--surface-muted))]" aria-hidden />;
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt="Vehicle" className="block aspect-[4/3] w-full rounded-lg object-cover" />
+    </a>
   );
 }

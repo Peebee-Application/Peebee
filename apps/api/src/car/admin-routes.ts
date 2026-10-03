@@ -8,6 +8,8 @@ import { newId } from "../lib/ids.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { hasTable } from "../lib/schema.js";
 import { completeRental } from "./selfdrive.js";
+import { getCarSettings } from "../lib/settings.js";
+import { vehiclePhotoIds } from "./routes.js";
 
 type Row = Record<string, unknown>;
 
@@ -146,7 +148,8 @@ carAdminRoutes.get("/admin/car/vehicles", requirePermission("car.view"), async (
           ${status ? "WHERE v.status = ?" : ""} ORDER BY v.created_at DESC LIMIT 200`,
     args: status ? [status] : [],
   });
-  return c.json({ vehicles: res.rows });
+  const photoIds = await vehiclePhotoIds(res.rows.map((v) => String((v as Row).id)));
+  return c.json({ vehicles: res.rows.map((v) => ({ ...v, photos: photoIds[String((v as Row).id)] ?? [] })) });
 });
 
 carAdminRoutes.post("/admin/car/vehicles/:id/decision", requirePermission("car.manage"), async (c) => {
@@ -154,6 +157,16 @@ carAdminRoutes.post("/admin/car/vehicles/:id/decision", requirePermission("car.m
   const user = c.get("user");
   const parsed = z.object({ status: z.enum(["approved", "rejected", "suspended"]), notes: z.string().max(500).optional() }).safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  // A vehicle needs the admin's minimum number of photos before it can be approved.
+  if (parsed.data.status === "approved") {
+    const { vehiclePhotos } = await getCarSettings();
+    if (vehiclePhotos.minRequired > 0) {
+      const have = (await vehiclePhotoIds([id]))[id]?.length ?? 0;
+      if (have < vehiclePhotos.minRequired) {
+        return c.json({ error: "photos_required", message: `This vehicle needs at least ${vehiclePhotos.minRequired} photos before it can be approved (it has ${have}).` }, 409);
+      }
+    }
+  }
   const res = await db.execute({
     sql: "UPDATE vehicles SET status = ?, notes = COALESCE(?, notes), reviewed_by = ?, reviewed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
     args: [parsed.data.status, parsed.data.notes ?? null, user.sub, id],

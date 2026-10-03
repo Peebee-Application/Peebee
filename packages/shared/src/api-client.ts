@@ -1579,6 +1579,22 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async adminResolveRental(id: string, damageAmount: number) {
       return request<{ ok: true }>(`/v1/admin/car/rentals/${id}/resolve`, { method: "POST", body: JSON.stringify({ damageAmount }) });
     },
+    /** Adds one photo to a vehicle (multipart; compress it first). */
+    async carUploadVehiclePhoto(vehicleId: string, file: Blob) {
+      const form = new FormData();
+      form.append("file", file, "vehicle.jpg");
+      const res = await f(`${root}/v1/car/vehicles/${vehicleId}/photos`, { method: "POST", headers: authHeaders(), body: form });
+      return json<{ id: string }>(res);
+    },
+    async carDeleteVehiclePhoto(vehicleId: string, photoId: string) {
+      return request<{ ok: true }>(`/v1/car/vehicles/${vehicleId}/photos/${photoId}`, { method: "DELETE" });
+    },
+    /** A vehicle photo as a Blob (raw fetch — the image needs the auth header). */
+    async carVehiclePhotoBlob(vehicleId: string, photoId: string): Promise<Blob> {
+      const res = await f(`${root}/v1/car/vehicles/${vehicleId}/photos/${photoId}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error(`API ${res.status}: failed to load photo`);
+      return res.blob();
+    },
     async carWallet() {
       return request<CarWallet>("/v1/car/wallet");
     },

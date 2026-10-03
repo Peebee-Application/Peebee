@@ -279,6 +279,10 @@ const DEFAULTS = {
   car_selfdrive_min_deposit: "0",
   /** An owner who hasn't answered a request in this long loses it (money returned). */
   car_selfdrive_approve_within_hours: "12",
+  /** Photos an owner may attach to one vehicle (at least 6 are supported). */
+  car_vehicle_photos_max: "8",
+  /** Photos a vehicle needs before an admin can approve it (0 = none required). */
+  car_vehicle_photos_min_required: "0",
   car_withdrawals_enabled: "0",
   /** Smallest withdrawal in UGX (0 = no minimum). */
   car_withdrawal_min_amount: "0",
@@ -310,6 +314,7 @@ export type CarSettings = {
   scheduled: CarScheduledSettings;
   carpool: CarCarpoolSettings;
   selfDrive: CarSelfDriveSettings;
+  vehiclePhotos: { max: number; minRequired: number };
 };
 
 export type CarSelfDriveSettings = {
@@ -342,7 +347,7 @@ export type CarScheduledSettings = {
 };
 
 export async function getCarSettings(): Promise<CarSettings> {
-  const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin, sEnabled, sMax, sLead, sOpen, sWatch, sNoSig, sSpeed, cpEnabled, cpSeats, cpRepeat, cpCutoff, cpPay, cpRadius, sdEnabled, sdPct, sdDays, sdDeposit, sdApprove] = await Promise.all([
+  const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin, sEnabled, sMax, sLead, sOpen, sWatch, sNoSig, sSpeed, cpEnabled, cpSeats, cpRepeat, cpCutoff, cpPay, cpRadius, sdEnabled, sdPct, sdDays, sdDeposit, sdApprove, vpMax, vpMin] = await Promise.all([
     getSetting("car_enabled"),
     getSetting("car_ondemand_enabled"),
     getSetting("car_matching_mode"),
@@ -370,6 +375,8 @@ export async function getCarSettings(): Promise<CarSettings> {
     getSetting("car_selfdrive_max_days"),
     getSetting("car_selfdrive_min_deposit"),
     getSetting("car_selfdrive_approve_within_hours"),
+    getSetting("car_vehicle_photos_max"),
+    getSetting("car_vehicle_photos_min_required"),
   ]);
   const sdPercent = sdPct === "" ? NaN : Number(sdPct);
   const clamp = (v: string, lo: number, hi: number, fallback: number) => Math.min(hi, Math.max(lo, Math.floor(Number(v)) || fallback));
@@ -411,6 +418,11 @@ export async function getCarSettings(): Promise<CarSettings> {
       minDeposit: Math.max(0, Math.floor(Number(sdDeposit) || 0)),
       approveWithinHours: clamp(sdApprove, 1, 24 * 14, 12),
     },
+    vehiclePhotos: (() => {
+      // Always room for at least 6; never ask for more photos than can be added.
+      const max = clamp(vpMax, 6, 20, 8);
+      return { max, minRequired: Math.min(max, Math.max(0, Math.floor(Number(vpMin)) || 0)) };
+    })(),
   };
 }
 
@@ -449,6 +461,10 @@ export async function setCarSettings(next: CarSettings): Promise<void> {
     await setSetting("car_selfdrive_max_days", String(sd.maxDays));
     await setSetting("car_selfdrive_min_deposit", String(sd.minDeposit));
     await setSetting("car_selfdrive_approve_within_hours", String(sd.approveWithinHours));
+  }
+  if (next.vehiclePhotos) {
+    await setSetting("car_vehicle_photos_max", String(next.vehiclePhotos.max));
+    await setSetting("car_vehicle_photos_min_required", String(next.vehiclePhotos.minRequired));
   }
   await setSetting("car_withdrawals_enabled", next.withdrawalsEnabled ? "1" : "0");
   await setSetting("car_withdrawal_min_amount", String(Math.max(0, Math.floor(Number(next.withdrawalMinAmount) || 0))));
