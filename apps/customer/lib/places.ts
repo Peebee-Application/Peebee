@@ -28,6 +28,42 @@ function placeFromNominatim(r: NominatimResult): Place {
   };
 }
 
+/** Old saves stored "Current location (0.0496, 32.4612)" instead of an address. */
+const COORD_ADDRESS = /\(\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*\)/;
+export const isCoordinateAddress = (address: string | null | undefined): boolean => !!address && COORD_ADDRESS.test(address);
+
+const GEO_NAMES_KEY = "tuma-geo-names";
+const geoKey = (lat: number, lng: number) => `${lat.toFixed(4)},${lng.toFixed(4)}`;
+
+export function readNames(): Record<string, string> {
+  return readGeoNames();
+}
+
+function readGeoNames(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(GEO_NAMES_KEY) ?? "{}") as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+/** A short readable name ("Park Road, Kitaasa, Entebbe") for a coordinate,
+ * looked up once and remembered on this device. Returns null if unknown. */
+export async function friendlyLocationName(lat: number, lng: number): Promise<{ name: string | null; fromCache: boolean }> {
+  const key = geoKey(lat, lng);
+  const known = readGeoNames()[key];
+  if (known) return { name: known, fromCache: true };
+  const place = await reverseGeocode(lat, lng);
+  if (place.label === "Pinned location" || !place.address) return { name: null, fromCache: false };
+  const name = place.address.split(",").map((p) => p.trim()).filter((p) => !/^\d+$/.test(p)).slice(0, 3).join(", ");
+  try {
+    localStorage.setItem(GEO_NAMES_KEY, JSON.stringify({ ...readGeoNames(), [key]: name }));
+  } catch {}
+  return { name, fromCache: false };
+}
+
+export { geoKey };
+
 export const placeFromSaved = (loc: SavedLocation): Place => ({
   label: loc.label,
   area: loc.area,
@@ -37,8 +73,14 @@ export const placeFromSaved = (loc: SavedLocation): Place => ({
 });
 
 /** The name part of a place, then the rest as a subtitle. */
+export function subtitleOf(area: string | null, address: string | null): string {
+  // Don't say the area twice when the address already includes it.
+  const parts = area && address && address.toLowerCase().includes(area.toLowerCase()) ? [address] : [area, address];
+  return parts.filter(Boolean).join(" · ");
+}
+
 export function placeSubtitle(p: Place): string {
-  const rest = [p.area, p.address].filter(Boolean).join(" · ");
+  const rest = subtitleOf(p.area, p.address);
   return rest === p.label ? "" : rest;
 }
 
@@ -112,7 +154,7 @@ export function loadPlaces(force = false): Promise<PlacesBootstrap> {
       .getRecentPlaces()
       .then((r) =>
         r.places.map<Place>((p) => ({
-          label: (p.address ?? p.area ?? "").split(",")[0]?.trim() || "Recent place",
+          label: isCoordinateAddress(p.address) ? "Current location" : (p.address ?? p.area ?? "").split(",")[0]?.trim() || "Recent place",
           area: p.area,
           address: p.address,
           lat: p.lat,
