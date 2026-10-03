@@ -52,6 +52,20 @@ Legend: **[V]** verified in the repo at `main` (file named). **[A]** assumption 
 | D4 | **Owner vs driver identity.** One person can be both. | One `car_partners` row per user with capability flags `is_owner`, `is_driver`; drivers may be attached to an owner's listing. |
 | D5 | Seat price: do you want the **suggested price** table maintained by admin only (manual), or fed externally later? (listed as undecided in the brief) | Manual admin table at launch, with `source` + `updated_at` columns so a feed can replace it. |
 
+### Resolved by you (supersedes the recommendations above where they differ)
+
+| # | Decision |
+|---|---|
+| D1 | **Yes** — every car booking carries a linked `orders` row, so payments, chat, calls, tracking, ratings and fees work unchanged. Car rides "work the same way boda rides work". |
+| D2 | **Yes** — owner and driver earnings are credited to the wallet balance; withdrawals are opened to non-riders. |
+| D3 | **Two separate apps, not one:** an **Owner app** and a **Driver app**. A driver can also be an owner (one account, both apps). The Owner app shows the owner's vehicles and **rides currently being taken** (live). |
+| D3a | **Supply flow:** owners put a car up for service → Tuma managers see newly available cars in the admin app → managers **assign drivers** to them → drivers use those cars on the Driver app. (So "listing" = owner offers a vehicle; "assignment" = admin links it to a driver. A car with no assigned driver is not bookable with-driver.) |
+| D3b | **Predefined profit share** between **owner / driver / platform**, set by admin (per category, with a global default), applied when a booking completes. Replaces the idea of the owner pricing a separate driver fee. |
+| D4 | **Yes** — one person can be both owner and driver. |
+| D5 | **Prices are determined in the app** (category rates / suggested price). In addition, **drivers and riders can bid** with a different price; the customer sees all bids and **picks** one. Bidding only works when the admin has allowed multiple applications ("Let me choose" matching mode) and switched bidding on. **Applies to boda rides too.** |
+
+**Delivered so far (this PR): D5 for boda** — `bidding_enabled`, `bidding_min_percent`, `bidding_max_percent` settings (Admin → Rider matching); `order_applications.bid_amount`, `orders.app_price` (migration 0064); riders/drivers apply with a price inside the allowed range; the customer sees every bid beside the app price (best first) and picks; the chosen bid becomes the order total; auto-matching never applies a bid. Car drivers reuse the same endpoints/columns when the Driver app arrives.
+
 Still open from your brief and **not decided here**: Tuma commission (§4 has the field, default off), advance-booking window (setting, no default — feature stays off until set), deposit amounts, penalty values, self-drive legal/insurance (lawyer).
 
 ---
@@ -174,7 +188,8 @@ Categories (CRUD, reference image, suggested price, deposit [?]); required vetti
 
 | Phase | Deliverable | Notes |
 |---|---|---|
-| **a** ✅ | This document ⏸ **review/approve; answer D1–D5** | |
+| **a** ✅ | This document; D1–D5 answered (see "Resolved by you") | |
+| **0** ✅ | Bidding for boda (D5) — admin toggle + limits, bids on apply, customer picks | migration 0064 |
 | **b** | Migrations 0064+ (catalog, partners, listings, bookings, carpool, self-drive, scheduled, audit, orders additions) + migration test that runs all migrations in-memory | additive only |
 | **c** | API: catalog, partner onboarding/vetting, listings, booking engine for on-demand, then carpool, self-drive, scheduled; money via ledger + payments gateway behind flags; cron sweeps | tests per module (same harness as `expiry.integration.test.ts`) |
 | **d** | Admin screens + permissions + settings | |

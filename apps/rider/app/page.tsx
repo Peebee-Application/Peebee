@@ -50,6 +50,7 @@ export default function JobsHomePage() {
   const [subscriptionOk, setSubscriptionOk] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<JobCategory | "all">("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("distance");
+  const [bids, setBids] = useState<Record<string, string>>({});
   const online = useNetworkStatus();
 
   const load = useCallback(() => {
@@ -109,7 +110,11 @@ export default function JobsHomePage() {
     setClaimingId(id);
     setError(null);
     try {
-      await api.applyForOrder(id);
+      const job = availableJobs.find((j) => j.id === id);
+      const typed = Number((bids[id] ?? "").replace(/[^\d]/g, ""));
+      // Only send a price when bidding is on for this job and it differs from the app's own.
+      const bid = job?.bidding && typed > 0 && typed !== job.bidding.appPrice ? typed : undefined;
+      await api.applyForOrder(id, bid);
       await load();
     } catch (err) {
       setError(errorMessage(err));
@@ -250,6 +255,24 @@ export default function JobsHomePage() {
                 <div className="flex items-start gap-1.5 rounded-lg bg-gold/10 px-2.5 py-1.5">
                   <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" strokeWidth={2.25} aria-hidden />
                   <p className="text-xs text-ink-500">{t("home_out_of_range")}</p>
+                </div>
+              )}
+              {job.bidding && job.matching_mode !== "first_to_claim" && !job.applied && (
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-ink-500" htmlFor={`bid-${job.id}`}>
+                    {t("bid_your_price")}
+                  </label>
+                  <input
+                    id={`bid-${job.id}`}
+                    inputMode="numeric"
+                    value={bids[job.id] ?? String(job.bidding.appPrice ?? "")}
+                    onChange={(e) => setBids((prev) => ({ ...prev, [job.id]: e.target.value.replace(/[^\d]/g, "") }))}
+                    className="min-h-11 w-full rounded-xl border border-[var(--border-faint)] px-3 text-base font-bold text-ink outline-none focus:border-gold"
+                  />
+                  <p className="text-xs text-ink-500">
+                    {t("bid_app_price", { price: formatUgx(job.bidding.appPrice) })} ·{" "}
+                    {t("bid_range", { min: formatUgx(job.bidding.min), max: formatUgx(job.bidding.max) })}
+                  </p>
                 </div>
               )}
               <div className="flex gap-2">

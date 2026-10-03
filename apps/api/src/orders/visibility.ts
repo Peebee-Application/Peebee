@@ -45,7 +45,13 @@ function coarse(value: unknown): number | null {
  */
 export function toOpenJob(
   order: Row,
-  extras: { distanceKm: number | null; outOfServiceRange: boolean; applied: boolean },
+  extras: {
+    distanceKm: number | null;
+    outOfServiceRange: boolean;
+    applied: boolean;
+    /** Set when riders may bid on this job: the app price and the allowed range. */
+    bidding?: { appPrice: number | null; min: number | null; max: number | null } | null;
+  },
 ): Row {
   const fullName = (order.customer_name as string | null)?.trim();
   return {

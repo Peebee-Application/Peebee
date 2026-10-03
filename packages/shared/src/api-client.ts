@@ -482,8 +482,11 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       return request<{ order: OrderRow }>(`/v1/orders/${orderId}/claim`, { method: "POST" });
     },
     /** Rider offers for a "nearest_window"/"customer_selects" job — doesn't assign it outright, see claimOrder. */
-    async applyForOrder(orderId: string) {
-      return request<{ ok: true }>(`/v1/orders/${orderId}/apply`, { method: "POST" });
+    async applyForOrder(orderId: string, bidAmount?: number) {
+      return request<{ ok: true }>(`/v1/orders/${orderId}/apply`, {
+        method: "POST",
+        body: bidAmount != null ? JSON.stringify({ bidAmount }) : undefined,
+      });
     },
     /** The applicant pool for a "customer_selects" order, for the customer to compare and pick from. */
     async getApplicants(orderId: string) {

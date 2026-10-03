@@ -228,6 +228,12 @@ const DEFAULTS = {
   luganda_audio_default_voice: "waxal_lug_0004",
   /** Off by default so nothing changes until an admin explicitly opts in. */
   luganda_audio_requires_pro: "0",
+  /** Price bidding on rides/parcels — off until an admin enables it. Needs
+   * "customer selects" (multiple applications) to be an enabled matching mode. */
+  bidding_enabled: "0",
+  /** A bid may be this % of the app's price at the lowest / highest. */
+  bidding_min_percent: "50",
+  bidding_max_percent: "150",
   /** On by default: jobs nobody serves within 6 hours expire. Admin can
    * change the time/unit or switch it off (Settings → Rider matching). */
   job_expiry_enabled: "1",
@@ -236,6 +242,25 @@ const DEFAULTS = {
 } as const;
 
 export type SettingKey = keyof typeof DEFAULTS;
+
+export type BiddingSettings = { enabled: boolean; minPercent: number; maxPercent: number };
+
+export async function getBiddingSettings(): Promise<BiddingSettings> {
+  const [enabled, min, max] = await Promise.all([
+    getSetting("bidding_enabled"),
+    getSetting("bidding_min_percent"),
+    getSetting("bidding_max_percent"),
+  ]);
+  const minPercent = Math.min(100, Math.max(1, Number(min) || Number(DEFAULTS.bidding_min_percent)));
+  const maxPercent = Math.max(100, Math.min(500, Number(max) || Number(DEFAULTS.bidding_max_percent)));
+  return { enabled: enabled === "1", minPercent, maxPercent };
+}
+
+export async function setBiddingSettings(next: BiddingSettings): Promise<void> {
+  await setSetting("bidding_enabled", next.enabled ? "1" : "0");
+  await setSetting("bidding_min_percent", String(next.minPercent));
+  await setSetting("bidding_max_percent", String(next.maxPercent));
+}
 
 export async function getJobExpirySettings(): Promise<JobExpirySettings> {
   const [enabled, value, unit] = await Promise.all([

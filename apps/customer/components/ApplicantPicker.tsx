@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from "react";
 import { RiderProfileModal } from "./RiderProfileModal";
 import { api, errorMessage } from "../lib/api";
 import { useTranslate } from "../lib/i18n";
+import { formatUgx } from "../lib/order-display";
 import { useLivePolling } from "../lib/use-live-polling";
 
 /** For a "customer_selects" order still unmatched — each applicant's distance and track record, and a pick button. */
@@ -52,8 +53,23 @@ export function ApplicantPicker({ orderId, onSelected }: { orderId: string; onSe
       </div>
       ) : <>
       <p className="text-sm font-semibold text-ink">{t("order_choose_rider")}</p>
-      {applicants.map((a) => (
+      {applicants.map((a, index) => (
         <div key={a.riderId} className="space-y-1.5 rounded-xl border border-[var(--border-faint)] p-3">
+          {a.price != null && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-lg font-extrabold text-ink">{formatUgx(a.price)}</span>
+              <span className="flex items-center gap-1.5 text-xs">
+                {a.appPrice != null && a.price !== a.appPrice && (
+                  <span className={a.price < a.appPrice ? "font-semibold text-green" : "text-ink-500"}>
+                    {a.price < a.appPrice
+                      ? t("bid_you_save", { amount: formatUgx(a.appPrice - a.price) })
+                      : t("bid_more", { amount: formatUgx(a.price - a.appPrice) })}
+                  </span>
+                )}
+                {index === 0 && applicants.length > 1 && <span className="rounded-full bg-gold/15 px-2 py-0.5 font-bold text-gold">{t("bid_best_price")}</span>}
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-bold text-ink">{a.riderName}</span>
             {a.distanceKm != null && Number.isFinite(a.distanceKm) && a.distanceKm >= 0 && (
