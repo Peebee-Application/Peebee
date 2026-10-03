@@ -6,6 +6,8 @@ import { useCallback, useEffect, useState } from "react";
 import { ActiveRide } from "../components/ActiveRide";
 import { ApplyCard } from "../components/ApplyCard";
 import { KycCard } from "../components/KycCard";
+import { DriverConnections } from "../components/DriverConnections";
+import { OwnerDealsPanel } from "../components/OwnerDeals";
 import { api, errorMessage } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 
@@ -25,6 +27,7 @@ export default function HomePage() {
 function DriverHome() {
   const { me, refreshMe } = useAuth();
   const [data, setData] = useState<CarDriverActive | null>(null);
+  const [vehicleChoice, setVehicleChoice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -59,7 +62,7 @@ function DriverHome() {
     setError("");
     try {
       const position = me.online ? undefined : await currentPosition();
-      await api.carDriverOnline(!me.online, position);
+      await api.carDriverOnline(!me.online, position, vehicleChoice || undefined);
       await refreshMe();
     } catch (err) {
       setError(errorMessage(err));
@@ -78,6 +81,12 @@ function DriverHome() {
       </header>
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       {data?.active && <ActiveRide ride={data.active} onChange={load} />}
+      {!me.online && me.assignedVehicles.length > 1 && (
+        <select value={vehicleChoice} onChange={(e) => setVehicleChoice(e.target.value)} aria-label="Which car" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3">
+          <option value="">Pick the car you&apos;re driving…</option>
+          {me.assignedVehicles.map((v) => <option key={v.id} value={v.id}>{v.plate} · {v.category_name}</option>)}
+        </select>
+      )}
       <button
         disabled={busy || !vehicle}
         onClick={toggle}
@@ -88,6 +97,8 @@ function DriverHome() {
       {me.online && !data?.active && (
         <Link href="/jobs" className="home-card block text-sm font-semibold text-ink">See ride requests →</Link>
       )}
+      <DriverConnections />
+      <Link href="/find-car" className="home-card block text-sm font-semibold text-ink">{vehicle ? "Find another car to drive →" : "Find a car to drive →"}</Link>
       <Link href="/vehicles" className="home-card block text-sm font-semibold text-ink">My cars →</Link>
       <section className="home-card">
         <p className="text-xs text-ink-500">Earned from rides</p>
@@ -156,6 +167,18 @@ function OwnerHome() {
         <p className="text-xs text-ink-500">Your earnings from rides</p>
         <p className="text-2xl font-black text-ink">{ugx(data?.totalEarned ?? 0)}</p>
       </section>
+      <OwnerDealsPanel />
+      {data?.drivers && data.drivers.length > 0 && (
+        <section className="home-card space-y-3">
+          <h2 className="font-bold">What your drivers earn</h2>
+          {data.drivers.map((d) => (
+            <div key={d.driverId} className="flex items-center justify-between gap-3 border-t border-[var(--border-faint)] pt-3 text-sm first:border-t-0 first:pt-0">
+              <span className="min-w-0"><span className="block truncate font-semibold">{d.name}</span><span className="text-xs text-ink-500">{d.rides} ride{d.rides === 1 ? "" : "s"} · you received {ugx(d.ownerEarned)}</span></span>
+              <strong>{ugx(d.driverEarned)}</strong>
+            </div>
+          ))}
+        </section>
+      )}
       <section className="home-card space-y-3">
         <h2 className="font-bold">Rides being taken now</h2>
         {live.length === 0 && <p className="text-sm text-ink-500">None right now.</p>}
@@ -170,9 +193,14 @@ function OwnerHome() {
         <section className="home-card space-y-3">
           <h2 className="font-bold">Past rides</h2>
           {past.slice(0, 10).map((r) => (
-            <div key={r.id} className="flex justify-between border-t border-[var(--border-faint)] pt-3 text-sm">
-              <span className="min-w-0 pr-3"><span className="block truncate">{r.plate} · {r.destination_address ?? "Ride"}</span></span>
-              <strong>{ugx(r.owner_amount ?? 0)}</strong>
+            <div key={r.id} className="border-t border-[var(--border-faint)] pt-3 text-sm">
+              <div className="flex justify-between">
+                <span className="min-w-0 pr-3"><span className="block truncate">{r.plate} · {r.destination_address ?? "Ride"}</span></span>
+                <strong>{ugx(r.owner_amount ?? 0)}</strong>
+              </div>
+              <p className="text-xs text-ink-500">
+                {r.driver_name ? `${r.driver_name} earned ${ugx(r.driver_amount ?? 0)} · ` : ""}Tuma {ugx(r.platform_amount ?? 0)} · ride total {ugx(r.pool_amount ?? 0)}
+              </p>
             </div>
           ))}
         </section>

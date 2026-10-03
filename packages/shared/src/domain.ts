@@ -219,6 +219,17 @@ export type CarSettings = {
   vehiclePhotos: { max: number; minRequired: number };
   /** Documents an admin needs on file before approving an owner or driver. */
   kyc: { ownerIdRequired: boolean; driverIdRequired: boolean; driverLicenceRequired: boolean };
+  /** Drivers apply to owners' cars on agreed terms. */
+  deals: {
+    enabled: boolean;
+    shareEnabled: boolean;
+    rentEnabled: boolean;
+    /** Range of the owner's agreed share of what is left after Tuma's cut (%). */
+    minOwnerSharePercent: number;
+    maxOwnerSharePercent: number;
+    /** Highest fixed rent per day (UGX); 0 = no limit. */
+    maxRentPerDay: number;
+  };
   selfDrive: {
     enabled: boolean;
     /** Tuma's share of the rent (%); null = not decided, so self-drive stays off. */
@@ -1971,6 +1982,8 @@ export type CarConfig = {
   vehiclePhotos?: { max: number; minRequired: number };
   /** Which identity documents are needed before approval. */
   kyc?: { ownerIdRequired: boolean; driverIdRequired: boolean; driverLicenceRequired: boolean };
+  /** Present only when drivers applying to owners' cars is switched on; the limits an owner's terms must respect. */
+  deals?: { shareEnabled: boolean; rentEnabled: boolean; minOwnerSharePercent: number; maxOwnerSharePercent: number; maxRentPerDay: number } | null;
   /** Present only when scheduled rides are switched on and a booking window is set. */
   scheduled: { maxAdvanceHours: number | null; minLeadMinutes: number } | null;
   /** Present only when carpool is switched on. */
@@ -2176,6 +2189,69 @@ export type CarOwnerRides = {
     destination_address: string | null;
     estimated_total: number | null;
     owner_amount: number | null;
+    driver_amount: number | null;
+    platform_amount: number | null;
+    pool_amount: number | null;
   }>;
   totalEarned: number;
+  /** What each of the owner's drivers has earned in the owner's cars. */
+  drivers?: Array<{ driverId: string; name: string; rides: number; driverEarned: number; ownerEarned: number }>;
+};
+
+// ---- Driver ↔ owner agreements -----------------------------------------------------
+
+/** What an owner and driver agree for a car: a share of each ride, or a fixed rent. */
+export type DealTermsView = {
+  feeType: "share" | "rent";
+  /** Owner's part of what is left after Tuma's cut (%), for a share deal. */
+  ownerSharePercent: number | null;
+  rentAmount: number | null;
+  rentPeriod: "day" | "week" | null;
+};
+
+export type DealTermsInput = {
+  open: boolean;
+  feeType: "share" | "rent";
+  ownerSharePercent?: number;
+  rentAmount?: number;
+  rentPeriod?: "day" | "week";
+  notes?: string;
+};
+
+export type OwnerDeals = {
+  vehicles: Array<{
+    id: string;
+    plate: string;
+    name: string;
+    status: string;
+    terms: (DealTermsView & { open: boolean; notes: string | null }) | null;
+    driver: { id: string; name: string; since: string | null; deal: DealTermsView | null; rentOwed: number } | null;
+  }>;
+  requests: Array<{
+    id: string;
+    vehicleId: string;
+    plate: string;
+    driverName: string;
+    ridesDone: number;
+    licenceExpiry: string | null;
+    terms: DealTermsView;
+    createdAt: string | null;
+  }>;
+};
+
+export type DriverCar = {
+  id: string;
+  name: string;
+  category: string;
+  seats: number | null;
+  ownerName: string;
+  terms: DealTermsView;
+  notes: string | null;
+  applied: boolean;
+  photos: string[];
+};
+
+export type DriverDeals = {
+  requests: Array<{ id: string; vehicleId: string; car: string; ownerName: string; status: "pending" | "accepted" | "declined" | "withdrawn"; terms: DealTermsView; createdAt: string | null }>;
+  connections: Array<{ assignmentId: string; vehicleId: string; car: string; plate: string; ownerName: string; ownCar: boolean; terms: DealTermsView | null; rentOwed: number }>;
 };

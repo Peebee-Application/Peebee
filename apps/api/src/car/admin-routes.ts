@@ -10,6 +10,7 @@ import { hasTable } from "../lib/schema.js";
 import { completeRental } from "./selfdrive.js";
 import { getCarSettings } from "../lib/settings.js";
 import { documentKinds, vehiclePhotoIds } from "./routes.js";
+import { endAssignment } from "./service.js";
 
 type Row = Record<string, unknown>;
 
@@ -142,7 +143,8 @@ carAdminRoutes.post("/admin/car/partners/:userId/decision", requirePermission("c
   // A driver who is no longer approved stops taking rides and loses their vehicle.
   if (parsed.data.role === "driver" && parsed.data.status !== "approved") {
     await db.execute({ sql: "UPDATE car_driver_state SET online = 0, updated_at = datetime('now') WHERE driver_id = ?", args: [userId] });
-    await db.execute({ sql: "UPDATE vehicle_assignments SET status = 'ended', ended_at = datetime('now') WHERE driver_id = ? AND status = 'active'", args: [userId] });
+    const held = (await db.execute({ sql: "SELECT vehicle_id FROM vehicle_assignments WHERE driver_id = ? AND status = 'active'", args: [userId] })).rows as Row[];
+    for (const h of held) await endAssignment(String(h.vehicle_id), userId, user.sub);
   }
   await logActivity({ actor: user, action: "car.partner.decision", entityType: "car_partner", entityId: userId, summary: `Car ${parsed.data.role} ${parsed.data.status}`, after: parsed.data, ip: clientIp(c) });
   return c.json({ ok: true });
@@ -204,8 +206,8 @@ carAdminRoutes.post("/admin/car/vehicles/:id/assign", requirePermission("car.man
 
   // Unassigning (driverId null) just ends the current assignment.
   if (parsed.data.driverId === null) {
-    await db.execute({ sql: "UPDATE vehicle_assignments SET status = 'ended', ended_at = datetime('now') WHERE vehicle_id = ? AND status = 'active'", args: [id] });
-    await db.execute({ sql: "UPDATE car_driver_state SET online = 0, vehicle_id = NULL, updated_at = datetime('now') WHERE vehicle_id = ?", args: [id] });
+    const current = (await db.execute({ sql: "SELECT driver_id FROM vehicle_assignments WHERE vehicle_id = ? AND status = 'active'", args: [id] })).rows[0] as Row | undefined;
+    if (current) await endAssignment(id, String(current.driver_id), user.sub);
     await logActivity({ actor: user, action: "car.vehicle.unassign", entityType: "vehicle", entityId: id, summary: "Driver removed from vehicle", ip: clientIp(c) });
     return c.json({ ok: true });
   }
@@ -214,8 +216,8 @@ carAdminRoutes.post("/admin/car/vehicles/:id/assign", requirePermission("car.man
   const driver = (await db.execute({ sql: "SELECT driver_status FROM car_partners WHERE user_id = ?", args: [parsed.data.driverId] })).rows[0] as Row | undefined;
   if (driver?.driver_status !== "approved") return c.json({ error: "driver_not_approved", message: "That person isn't an approved driver." }, 409);
 
-  await db.execute({ sql: "UPDATE vehicle_assignments SET status = 'ended', ended_at = datetime('now') WHERE vehicle_id = ? AND status = 'active'", args: [id] });
-  await db.execute({ sql: "UPDATE car_driver_state SET online = 0, vehicle_id = NULL, updated_at = datetime('now') WHERE vehicle_id = ?", args: [id] });
+  const replaced = (await db.execute({ sql: "SELECT driver_id FROM vehicle_assignments WHERE vehicle_id = ? AND status = 'active'", args: [id] })).rows[0] as Row | undefined;
+  if (replaced) await endAssignment(id, String(replaced.driver_id), user.sub);
   await db.execute({
     sql: "INSERT INTO vehicle_assignments (id, vehicle_id, driver_id, assigned_by) VALUES (?, ?, ?, ?)",
     args: [newId("vasg"), id, parsed.data.driverId, user.sub],

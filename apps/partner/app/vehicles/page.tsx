@@ -1,6 +1,6 @@
 "use client";
 
-import type { CarCategory } from "@tuma/shared";
+import type { CarCategory, OwnerDeals } from "@tuma/shared";
 import { Camera, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ApplyCard } from "../../components/ApplyCard";
@@ -8,6 +8,7 @@ import { AuthImage } from "../../components/AuthImage";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { compressImage } from "../../lib/image-compress";
+import { TermsEditor } from "../../components/TermsEditor";
 
 const field = "min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3";
 
@@ -17,6 +18,8 @@ export default function VehiclesPage() {
   const { me, mode, refreshMe, user } = useAuth();
   const [categories, setCategories] = useState<CarCategory[]>([]);
   const [limits, setLimits] = useState({ max: 8, minRequired: 0 });
+  const [dealLimits, setDealLimits] = useState<NonNullable<Awaited<ReturnType<typeof api.getCarConfig>>["deals"]> | null>(null);
+  const [dealVehicles, setDealVehicles] = useState<OwnerDeals["vehicles"]>([]);
   const [categoryId, setCategoryId] = useState("");
   const [plate, setPlate] = useState("");
   const [make, setMake] = useState("");
@@ -32,8 +35,13 @@ export default function VehiclesPage() {
     api.getCarConfig().then((c) => {
       setCategories(c.categories);
       if (c.vehiclePhotos) setLimits(c.vehiclePhotos);
+      setDealLimits(c.deals ?? null);
     }).catch(() => undefined);
   }, []);
+  useEffect(() => {
+    if (!dealLimits) return;
+    api.dealsOwner().then((d) => setDealVehicles(d.vehicles)).catch(() => undefined);
+  }, [dealLimits, me?.vehicles.length]);
   useEffect(() => () => picked.forEach((p) => URL.revokeObjectURL(p.preview)), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Owners and drivers both bring cars; each profile works on its own.
@@ -151,6 +159,14 @@ export default function VehiclesPage() {
             >
               {v.driver_id === user?.id ? "Stop driving this car" : "Drive this car myself"}
             </button>
+          )}
+          {dealLimits && dealVehicles.find((d) => d.id === v.id) && (
+            <TermsEditor
+              key={`${v.id}-${dealVehicles.find((d) => d.id === v.id)?.terms?.open}`}
+              vehicle={dealVehicles.find((d) => d.id === v.id)!}
+              limits={dealLimits}
+              onSaved={() => api.dealsOwner().then((d) => setDealVehicles(d.vehicles)).catch(() => undefined)}
+            />
           )}
           {v.photos.length > 0 && (
             <div className="grid grid-cols-3 gap-2">

@@ -17,6 +17,10 @@ import type {
   CarDriverJob,
   CarMe,
   CarOwnerRides,
+  DealTermsInput,
+  DriverCar,
+  DriverDeals,
+  OwnerDeals,
   AdminRental,
   OwnerRentalVehicle,
   Rental,
@@ -1634,6 +1638,34 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       const res = await f(`${root}/v1/car/vehicles/${vehicleId}/photos/${photoId}`, { headers: authHeaders() });
       if (!res.ok) throw new Error(`API ${res.status}: failed to load photo`);
       return res.blob();
+    },
+    // Driver <-> owner agreements
+    async dealsOwner() {
+      return request<OwnerDeals>("/v1/car/deals/owner");
+    },
+    async dealsSetTerms(vehicleId: string, input: DealTermsInput) {
+      return request<{ ok: true }>(`/v1/car/deals/terms/${vehicleId}`, { method: "PUT", body: JSON.stringify(input) });
+    },
+    async dealsDecide(requestId: string, accept: boolean) {
+      return request<{ ok: true }>(`/v1/car/deals/requests/${requestId}/decision`, { method: "POST", body: JSON.stringify({ accept }) });
+    },
+    async dealsEnd(vehicleId: string) {
+      return request<{ ok: true }>(`/v1/car/deals/vehicles/${vehicleId}/end`, { method: "POST" });
+    },
+    async dealsCars() {
+      return request<{ cars: DriverCar[] }>("/v1/car/deals/cars");
+    },
+    async dealsApply(vehicleId: string) {
+      return request<{ ok: true }>(`/v1/car/deals/cars/${vehicleId}/request`, { method: "POST" });
+    },
+    async dealsMy() {
+      return request<DriverDeals>("/v1/car/deals/my");
+    },
+    async dealsWithdraw(requestId: string) {
+      return request<{ ok: true }>(`/v1/car/deals/requests/${requestId}/withdraw`, { method: "POST" });
+    },
+    async dealsPayRent(assignmentId: string) {
+      return request<{ ok: true; paid: number }>("/v1/car/deals/rent/pay", { method: "POST", body: JSON.stringify({ assignmentId }) });
     },
     async carWallet() {
       return request<CarWallet>("/v1/car/wallet");

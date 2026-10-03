@@ -18,7 +18,8 @@ import { carpoolRoutes, releaseStaleSeats } from "./carpool.js";
 import { rentalDays, settleRental, sweepRentalRequests } from "./selfdrive.js";
 import { selfDriveRoutes } from "./selfdrive.js";
 import { sweepScheduledRides, judgeDriver, validateScheduledFor } from "./scheduled.js";
-import { resolveShares, splitPool } from "./service.js";
+import { dealRoutes } from "./deals.js";
+import { rentDue, resolveShares, settleCarBooking, splitPool, splitWithDeal } from "./service.js";
 
 const SCHEDULED = { enabled: true, maxAdvanceHours: 72, minLeadMinutes: 30, openMinutes: 60, watchMinutes: 30, noSignalMinutes: 10, avgSpeedKmh: 25 };
 
@@ -26,6 +27,7 @@ const CARPOOL = { enabled: true, maxSeatsPerBooking: 3, maxRepeatWeeks: 2, cutof
 
 const SELFDRIVE = { enabled: true, platformPercent: 10, maxDays: 7, minDeposit: 50000, approveWithinHours: 12 };
 
+const DEALS = { enabled: true, shareEnabled: true, rentEnabled: true, minOwnerSharePercent: 40, maxOwnerSharePercent: 80, maxRentPerDay: 0 };
 const KYC = { ownerIdRequired: false, driverIdRequired: false, driverLicenceRequired: false };
 const PHOTOS = { max: 8, minRequired: 0 };
 
@@ -56,6 +58,24 @@ test("profit split and share resolution", () => {
   assert.deepEqual(resolveShares({ owner_share_percent: 50, driver_share_percent: 40, platform_share_percent: 10 }, defaults), { owner: 50, driver: 40, platform: 10 });
   assert.deepEqual(resolveShares({ owner_share_percent: 50, driver_share_percent: 40, platform_share_percent: 20 }, defaults), defaults, "a split not totalling 100 is ignored");
   assert.deepEqual(resolveShares({ owner_share_percent: 50, driver_share_percent: null, platform_share_percent: null }, defaults), defaults);
+});
+
+test("agreed-deal money rules", () => {
+  const shares = { owner: 60, driver: 30, platform: 10 };
+  const share = { feeType: "share" as const, ownerSharePercent: 70, rentAmount: null, rentPeriod: null };
+  const rent = { feeType: "rent" as const, ownerSharePercent: null, rentAmount: 1000, rentPeriod: "day" as const };
+  assert.deepEqual(splitWithDeal(5000, shares, null, 0), { owner: 3000, driver: 1500, platform: 500, rentCollected: 0 }, "no agreement: the default split");
+  assert.deepEqual(splitWithDeal(5000, shares, share, 0), { owner: 3150, driver: 1350, platform: 500, rentCollected: 0 }, "70% of what's left after Tuma's 10%");
+  assert.deepEqual(splitWithDeal(5000, shares, rent, 1000), { owner: 1000, driver: 3500, platform: 500, rentCollected: 1000 });
+  assert.deepEqual(splitWithDeal(5000, shares, rent, 0), { owner: 0, driver: 4500, platform: 500, rentCollected: 0 }, "rent already paid: the driver keeps it all");
+  assert.deepEqual(splitWithDeal(900, shares, rent, 5000), { owner: 810, driver: 0, platform: 90, rentCollected: 810 }, "rent is capped at what the ride leaves");
+  const odd = splitWithDeal(1001, shares, share, 0);
+  assert.equal(odd.owner + odd.driver + odd.platform, 1001, "always adds up");
+  const start = new Date("2026-10-01T10:00:00Z");
+  assert.equal(rentDue(rent, start, 0, new Date("2026-10-01T12:00:00Z")), 1000, "the first day is charged from the start");
+  assert.equal(rentDue(rent, start, 0, new Date("2026-10-03T11:00:00Z")), 3000, "three started days");
+  assert.equal(rentDue(rent, start, 3000, new Date("2026-10-03T11:00:00Z")), 0);
+  assert.equal(rentDue(share, start, 0, new Date("2026-10-09T09:00:00Z")), 0, "a share deal never owes rent");
 });
 
 test("self-drive money rules", () => {
@@ -96,7 +116,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
   await client.execute("UPDATE users SET admin_role = 'super_admin' WHERE id = 'admin'");
   await client.execute("INSERT INTO riders (user_id, verified, is_online) VALUES ('boda', 1, 1)");
 
-  const app = new Hono().route("/v1", orderRoutes).route("/v1", carRoutes).route("/v1", carpoolRoutes).route("/v1", selfDriveRoutes).route("/v1", carAdminRoutes).route("/v1", riderRoutes);
+  const app = new Hono().route("/v1", orderRoutes).route("/v1", carRoutes).route("/v1", carpoolRoutes).route("/v1", selfDriveRoutes).route("/v1", dealRoutes).route("/v1", carAdminRoutes).route("/v1", riderRoutes);
   const tokens: Record<string, string> = {};
   for (const [id, role] of [["cust", "customer"], ["owner", "customer"], ["drv", "customer"], ["boda", "rider"], ["admin", "admin"]] as const) {
     tokens[id] = await signToken({ sub: id, role });
@@ -116,7 +136,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
 
   await t.test("everything is closed until an admin switches Car on", async () => {
     assert.equal((await call("GET", "/car/config", "cust")).status, 403);
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: true, withdrawalMinAmount: 1000, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: true, withdrawalMinAmount: 1000, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC, deals: DEALS });
     await setBiddingSettings({ enabled: true, minPercent: 50, maxPercent: 150 });
     await setMatchingModesEnabled(["first_to_claim"]); // boda riders' own modes must not matter for cars
     assert.equal((await call("GET", "/car/config", "cust")).status, 200);
@@ -239,22 +259,22 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
     assert.equal(after.withdrawable, 1000, "the pending withdrawal counts against what's left");
     assert.equal((await call("POST", "/car/wallet/withdraw", "owner", { amount: 2000 })).status, 409);
 
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 1000, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 1000, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC, deals: DEALS });
     assert.equal((await call("POST", "/car/wallet/withdraw", "owner", { amount: 1000 })).status, 403, "closed when the admin switches it off");
   });
 
   await t.test("scheduled rides open to drivers near pickup, are watched, and can be re-matched", async () => {
     await setPlatformEnvironment("live");
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC, deals: DEALS });
     const inHours = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
 
     assert.equal((await call("POST", "/car/bookings", "cust", { categoryId, ...trip, scheduledFor: inHours(0.1) })).status, 400, "less than the minimum notice");
     assert.equal((await call("POST", "/car/bookings", "cust", { categoryId, ...trip, scheduledFor: inHours(200) })).status, 400, "beyond the window");
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: { ...SCHEDULED, maxAdvanceHours: null }, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: { ...SCHEDULED, maxAdvanceHours: null }, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC, deals: DEALS });
     assert.equal((await call("POST", "/car/bookings", "cust", { categoryId, ...trip, scheduledFor: inHours(3) })).status, 403, "off until the admin sets a window");
     const config = await json(await call("GET", "/car/config", "cust"));
     assert.equal(config.scheduled, null);
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC, deals: DEALS });
     assert.equal((await json(await call("GET", "/car/config", "cust"))).scheduled.maxAdvanceHours, 72);
 
     const res = await call("POST", "/car/bookings", "cust", { categoryId, ...trip, scheduledFor: inHours(3) });
@@ -298,14 +318,14 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
 
   await t.test("carpool: publish a trip, book seats without overselling, pay window and cancellation release seats", async () => {
     await setPlatformEnvironment("live");
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: { ...CARPOOL, enabled: false }, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: { ...CARPOOL, enabled: false }, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC, deals: DEALS });
     await client.execute("INSERT INTO users (id, phone, name, password_hash, role) VALUES ('p2', 'p2', 'p2', 'h', 'customer')");
     tokens.p2 = await signToken({ sub: "p2", role: "customer" });
     const inHours = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
     const trip = { originLabel: "Kampala", originLat: 0.3136, originLng: 32.5811, destLabel: "Jinja", destLat: 0.4479, destLng: 33.2026, departAt: inHours(24), seats: 3, seatPrice: 15000 };
 
     assert.equal((await call("POST", "/car/carpool/trips", "drv", trip)).status, 403, "closed until the admin enables carpool");
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC, deals: DEALS });
 
     assert.equal((await call("POST", "/car/carpool/trips", "cust", trip)).status, 409, "only drivers with a vehicle");
     assert.equal((await call("POST", "/car/carpool/trips", "drv", { ...trip, seats: 9 })).status, 400, "the car holds 4 seats at most");
@@ -361,7 +381,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
 
   await t.test("self-drive: list, request (money held), approve, hand over, return; damage goes to an admin", async () => {
     await setPlatformEnvironment("live");
-    const settings = (selfDrive: unknown) => setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: selfDrive as typeof SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC });
+    const settings = (selfDrive: unknown) => setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: selfDrive as typeof SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC, deals: DEALS });
     const day = 86400_000;
     const at = (d: number) => new Date(Date.now() + d * day).toISOString();
     const balance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance AS b FROM users WHERE id = ?", args: [id] })).rows[0].b);
@@ -445,7 +465,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
       async get(key) { const o = store.get(key); return o ? { body: new Blob([o.bytes]).stream(), httpMetadata: { contentType: o.type } } : null; },
       async delete(key) { store.delete(key); },
     });
-    const settings = (vehiclePhotos: { max: number; minRequired: number }) => setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos, kyc: KYC });
+    const settings = (vehiclePhotos: { max: number; minRequired: number }) => setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos, kyc: KYC, deals: DEALS });
     await settings({ max: 8, minRequired: 6 });
 
     const second = await call("POST", "/car/vehicles", "owner", { categoryId, plate: "UBB 777B", make: "Toyota", model: "Ipsum" });
@@ -496,7 +516,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
       async get(key) { const o = store.get(key); return o ? { body: new Blob([o.bytes]).stream(), httpMetadata: { contentType: o.type } } : null; },
       async delete(key) { store.delete(key); },
     });
-    const settings = (kyc: typeof KYC) => setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc });
+    const settings = (kyc: typeof KYC) => setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc, deals: DEALS });
     await settings({ ownerIdRequired: true, driverIdRequired: true, driverLicenceRequired: true });
     for (const id of ["dd", "nocar"]) {
       await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role) VALUES (?, ?, ?, 'h', 'customer')", args: [id, id, id] });
@@ -542,5 +562,124 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
     assert.equal((await call("POST", `/car/vehicles/${mine.id}/release`, "dd")).status, 200);
     assert.equal((await call("POST", "/car/driver/online", "dd", { online: true })).status, 409, "no car in the seat any more");
     await settings(KYC);
+  });
+
+  await t.test("drivers apply to owners' cars; the owner accepts on an agreed share or rent; earnings show on the owner's app", async () => {
+    await setPlatformEnvironment("live");
+    const settings = (deals: typeof DEALS) => setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC, deals });
+    for (const id of ["oc", "d1", "d2", "d3"]) {
+      await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role) VALUES (?, ?, ?, 'h', 'customer')", args: [id, id, id] });
+      tokens[id] = await signToken({ sub: id, role: "customer" });
+    }
+    const balance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance AS b FROM users WHERE id = ?", args: [id] })).rows[0].b);
+
+    await settings({ ...DEALS, enabled: false });
+    assert.equal((await call("GET", "/car/deals/owner", "oc")).status, 403, "closed until the admin switches it on");
+    await settings(DEALS);
+
+    // Set up: an owner with two approved cars; two approved drivers who need a car; one still unapproved.
+    await call("POST", "/car/partner/apply", "oc", { as: "owner" });
+    await call("POST", "/admin/car/partners/oc/decision", "admin", { role: "owner", status: "approved" });
+    const carA = (await json(await call("POST", "/car/vehicles", "oc", { categoryId, plate: "UOC 001A", make: "Toyota", model: "Premio" }))).id as string;
+    const carB = (await json(await call("POST", "/car/vehicles", "oc", { categoryId, plate: "UOC 002B", make: "Honda", model: "Fit" }))).id as string;
+    for (const v of [carA, carB]) await call("POST", `/admin/car/vehicles/${v}/decision`, "admin", { status: "approved" });
+    for (const id of ["d1", "d2"]) {
+      await call("POST", "/car/partner/apply", id, { as: "driver", needsVehicle: true });
+      await call("POST", `/admin/car/partners/${id}/decision`, "admin", { role: "driver", status: "approved" });
+    }
+    await call("POST", "/car/partner/apply", "d3", { as: "driver", needsVehicle: true });
+
+    // The owner's terms must sit inside the admin's limits.
+    const put = (vehicle: string, body: object, who = "oc") => call("PUT", `/car/deals/terms/${vehicle}`, who, body);
+    assert.equal((await put(carA, { open: true, feeType: "share", ownerSharePercent: 90 })).status, 400, "above the admin's highest owner share");
+    assert.equal((await put(carA, { open: true, feeType: "share", ownerSharePercent: 30 })).status, 400, "below the lowest");
+    assert.equal((await put(carA, { open: true, feeType: "rent" })).status, 400, "rent needs an amount and a period");
+    await settings({ ...DEALS, maxRentPerDay: 10000 });
+    assert.equal((await put(carB, { open: true, feeType: "rent", rentAmount: 20000, rentPeriod: "day" })).status, 400, "above the admin's rent limit");
+    assert.equal((await put(carB, { open: true, feeType: "rent", rentAmount: 70000, rentPeriod: "week" })).status, 200, "UGX 10,000 a day is within it");
+    await settings({ ...DEALS, rentEnabled: false });
+    assert.equal((await put(carB, { open: true, feeType: "rent", rentAmount: 1000, rentPeriod: "day" })).status, 400, "rent switched off by the admin");
+    await settings(DEALS);
+    assert.equal((await put(carA, { open: true, feeType: "share", ownerSharePercent: 70 }, "d1")).status, 404, "only the owner sets terms");
+    assert.equal((await put(carA, { open: true, feeType: "share", ownerSharePercent: 70 })).status, 200);
+    assert.equal((await put(carB, { open: true, feeType: "rent", rentAmount: 1000, rentPeriod: "day" })).status, 200);
+
+    // Drivers browse and apply.
+    assert.equal((await call("POST", `/car/deals/cars/${carA}/request`, "d3")).status, 403, "an unapproved driver can't apply");
+    assert.equal((await call("POST", `/car/deals/cars/${carA}/request`, "oc")).status, 403, "owners who aren't drivers can't");
+    const open = (await json(await call("GET", "/car/deals/cars", "d1"))).cars as Array<{ id: string; terms: { feeType: string } }>;
+    assert.deepEqual(open.map((x) => x.terms.feeType).sort(), ["rent", "share"]);
+    assert.equal((await call("POST", `/car/deals/cars/${carA}/request`, "d1")).status, 201);
+    assert.equal((await call("POST", `/car/deals/cars/${carA}/request`, "d1")).status, 409, "once per car");
+    assert.equal((await call("POST", `/car/deals/cars/${carA}/request`, "d2")).status, 201);
+    assert.equal((await call("POST", `/car/deals/cars/${carB}/request`, "d2")).status, 201);
+
+    // The owner answers; accepting connects straight away.
+    const pending = (await json(await call("GET", "/car/deals/owner", "oc"))).requests as Array<{ id: string; vehicleId: string; driverName: string }>;
+    assert.equal(pending.length, 3);
+    const reqA1 = pending.find((r) => r.vehicleId === carA && r.driverName === "d1")!.id;
+    const reqA2 = pending.find((r) => r.vehicleId === carA && r.driverName === "d2")!.id;
+    const reqB2 = pending.find((r) => r.vehicleId === carB)!.id;
+    assert.equal((await call("POST", `/car/deals/requests/${reqA1}/decision`, "d1", { accept: true })).status, 404, "only the owner answers");
+    assert.equal((await call("POST", `/car/deals/requests/${reqA1}/decision`, "oc", { accept: true })).status, 200);
+    assert.equal((await call("POST", `/car/deals/requests/${reqA1}/decision`, "oc", { accept: true })).status, 409, "answered once");
+    assert.equal((await client.execute({ sql: "SELECT status FROM driver_requests WHERE id = ?", args: [reqA2] })).rows[0].status, "declined", "others for the same car are declined");
+    assert.equal((await call("POST", `/car/deals/requests/${reqB2}/decision`, "oc", { accept: true })).status, 200);
+    const mine = (await json(await call("GET", "/car/deals/my", "d1"))).connections as Array<{ terms: { feeType: string; ownerSharePercent: number } }>;
+    assert.equal(mine[0].terms.ownerSharePercent, 70, "the agreed terms are on the connection");
+    assert.equal((await call("POST", "/car/driver/online", "d1", { online: true, lat: 0.3, lng: 32.58 })).status, 200, "the driver can pick the car and work");
+    assert.equal((await json(await call("GET", "/car/deals/cars", "d2"))).cars.length, 0, "cars with a driver leave the list");
+
+    // Money: a settled ride is split by the agreed share; Tuma's cut comes off first.
+    let n = 0;
+    const settle = async (driver: string, vehicle: string, pool: number) => {
+      n += 1;
+      await client.execute({ sql: "INSERT INTO lists (id, customer_id, title) VALUES (?, 'cust', 'deal')", args: [`ld${n}`] });
+      await client.execute({ sql: "INSERT INTO orders (id, list_id, customer_id, type, rider_id, environment) VALUES (?, ?, 'cust', 'parcel', ?, 'live')", args: [`od${n}`, `ld${n}`, driver] });
+      await client.execute({ sql: "INSERT INTO car_bookings (id, order_id, customer_id, category_id, vehicle_id, owner_id, driver_id) VALUES (?, ?, 'cust', ?, ?, 'oc', ?)", args: [`cbd${n}`, `od${n}`, categoryId, vehicle, driver] });
+      await settleCarBooking({ id: `od${n}`, rider_id: driver, environment: "live" }, pool, "admin");
+      await client.execute({ sql: "UPDATE orders SET stage = 'Settle' WHERE id = ?", args: [`od${n}`] });
+    };
+    await client.execute("UPDATE users SET wallet_balance = 0 WHERE id IN ('oc', 'd1', 'd2')");
+    await settle("d1", carA, 5000);
+    assert.equal(await balance("oc"), 3150);
+    assert.equal(await balance("d1"), 1350);
+
+    // Rent: the first day's rent comes out of the driver's first ride; later rides that day are theirs.
+    await settle("d2", carB, 5000);
+    assert.equal(await balance("oc"), 3150 + 1000);
+    assert.equal(await balance("d2"), 3500);
+    await settle("d2", carB, 5000);
+    assert.equal(await balance("oc"), 3150 + 1000, "no more rent due that day");
+    assert.equal(await balance("d2"), 3500 + 4500);
+
+    // The owner sees what the driver earned, per ride and in total.
+    const rides = await json(await call("GET", "/car/owner/rides", "oc"));
+    const d1row = rides.drivers.find((d: { name: string }) => d.name === "d1");
+    assert.equal(d1row.driverEarned, 1350);
+    assert.equal(d1row.ownerEarned, 3150);
+    assert.equal(rides.rides.find((r: { driver_amount: number | null; driver_name: string }) => r.driver_name === "d1" && r.driver_amount === 1350)?.platform_amount, 500);
+
+    // Rent can also be paid from the wallet; two days on, more is owed.
+    await client.execute({ sql: "UPDATE vehicle_assignments SET assigned_at = datetime('now', '-2 days') WHERE vehicle_id = ? AND status = 'active'", args: [carB] });
+    const conn = (await json(await call("GET", "/car/deals/my", "d2"))).connections[0] as { assignmentId: string; rentOwed: number };
+    assert.equal(conn.rentOwed, 2000, "three started days (3,000) less the 1,000 already paid");
+    await client.execute("UPDATE users SET wallet_balance = 0 WHERE id = 'd2'");
+    assert.equal((await call("POST", "/car/deals/rent/pay", "d2", { assignmentId: conn.assignmentId })).status, 402, "needs the money in the wallet");
+    await client.execute("UPDATE users SET wallet_balance = 5000 WHERE id = 'd2'");
+    const ownerBefore = await balance("oc");
+    assert.equal((await call("POST", "/car/deals/rent/pay", "d2", { assignmentId: conn.assignmentId })).status, 200);
+    assert.equal(await balance("oc") - ownerBefore, 2000);
+    assert.equal((await call("POST", "/car/deals/rent/pay", "d2", { assignmentId: conn.assignmentId })).status, 409, "nothing left to pay");
+
+    // Ending: the driver leaves; rent owed that can't be covered is recorded for the owner.
+    await client.execute({ sql: "UPDATE vehicle_assignments SET assigned_at = datetime('now', '-5 days') WHERE vehicle_id = ? AND status = 'active'", args: [carB] });
+    await client.execute("UPDATE users SET wallet_balance = 500 WHERE id = 'd2'");
+    assert.equal((await call("POST", `/car/deals/vehicles/${carB}/end`, "d1")).status, 404, "only the owner ends it for the driver");
+    assert.equal((await call("POST", `/car/deals/vehicles/${carB}/end`, "oc")).status, 200);
+    const ended = (await client.execute({ sql: "SELECT status, rent_unpaid_at_end FROM vehicle_assignments WHERE vehicle_id = ? ORDER BY assigned_at DESC LIMIT 1", args: [carB] })).rows[0];
+    assert.equal(ended.status, "ended");
+    assert.equal(ended.rent_unpaid_at_end, 2500, "6 started days (6,000) less the 3,000 already paid leaves 3,000; the driver's 500 wallet covers some of it");
+    assert.equal((await json(await call("GET", "/car/deals/cars", "d1"))).cars.some((x: { id: string }) => x.id === carB), true, "the car is open for drivers again");
   });
 });
