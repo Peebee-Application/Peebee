@@ -701,7 +701,7 @@ orderRoutes.get("/orders/:id/list-audio", async (c) => {
     }
   }
 
-  const lugandaText = await buildLugandaListNarration(items);
+  const lugandaText = await buildLugandaListNarration(items, lugandaSettings.translateMode);
   const audio = await synthesizeLuganda(lugandaText, voice);
   const key = `orders/${id}/list-audio-gemini-${voice}.wav`;
   await bucket.put(key, audio, { httpMetadata: { contentType: "audio/wav" } });

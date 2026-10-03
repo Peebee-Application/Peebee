@@ -245,6 +245,10 @@ const DEFAULTS = {
   luganda_audio_default_voice: "Kore",
   /** Off by default so nothing changes until an admin explicitly opts in. */
   luganda_audio_requires_pro: "0",
+  /** How a list is translated for Luganda reading: "per_item" sends each item
+   * as its own request (the original behaviour); "whole_list" sends the whole
+   * list in one request — far fewer requests against Google's limits. */
+  luganda_translate_mode: "per_item",
   /** Tuma Car — everything off until an admin switches it on, and nothing
    * works until migration 0065 (the car tables) has been applied. */
   car_enabled: "0",
@@ -1122,7 +1126,10 @@ export type LugandaAudioSettings = {
   /** When on, GET /orders/:id/list-audio requires the order's rider to
    * have an active Pro subscription. See orders/routes.ts. */
   requiresPro: boolean;
+  translateMode: LugandaTranslateMode;
 };
+
+export type LugandaTranslateMode = "per_item" | "whole_list";
 
 function parseLugandaVoices(raw: string): LugandaVoice[] {
   try {
@@ -1137,13 +1144,20 @@ function parseLugandaVoices(raw: string): LugandaVoice[] {
 }
 
 export async function getLugandaAudioSettings(): Promise<LugandaAudioSettings> {
-  const [enabled, voicesRaw, defaultVoice, requiresPro] = await Promise.all([
+  const [enabled, voicesRaw, defaultVoice, requiresPro, translateMode] = await Promise.all([
     getSetting("luganda_audio_enabled"),
     getSetting("luganda_audio_voices"),
     getSetting("luganda_audio_default_voice"),
     getSetting("luganda_audio_requires_pro"),
+    getSetting("luganda_translate_mode"),
   ]);
-  return { enabled: enabled === "1", voices: parseLugandaVoices(voicesRaw), defaultVoice, requiresPro: requiresPro === "1" };
+  return {
+    enabled: enabled === "1",
+    voices: parseLugandaVoices(voicesRaw),
+    defaultVoice,
+    requiresPro: requiresPro === "1",
+    translateMode: translateMode === "whole_list" ? "whole_list" : "per_item",
+  };
 }
 
 export async function setLugandaAudioSettings(input: Partial<LugandaAudioSettings>): Promise<void> {
@@ -1152,6 +1166,7 @@ export async function setLugandaAudioSettings(input: Partial<LugandaAudioSetting
   if (input.voices != null) writes.push(setSetting("luganda_audio_voices", JSON.stringify(input.voices)));
   if (input.defaultVoice != null) writes.push(setSetting("luganda_audio_default_voice", input.defaultVoice));
   if (input.requiresPro != null) writes.push(setSetting("luganda_audio_requires_pro", input.requiresPro ? "1" : "0"));
+  if (input.translateMode != null) writes.push(setSetting("luganda_translate_mode", input.translateMode));
   await Promise.all(writes);
 }
 

@@ -177,6 +177,7 @@ async function fullSettings() {
     lugandaAudioVoices: lugandaAudio.voices,
     lugandaAudioDefaultVoice: lugandaAudio.defaultVoice,
     lugandaAudioRequiresPro: lugandaAudio.requiresPro,
+    lugandaTranslateMode: lugandaAudio.translateMode,
     proSubscriptionEnabled: pro.enabled,
     proRecurringEnabled: pro.recurringEnabled,
     proRecurringAmount: pro.recurringAmount,
@@ -413,6 +414,7 @@ const updateSchema = z.object({
   lugandaAudioVoices: z.array(z.object({ id: z.string().min(1).max(60), label: z.string().min(1).max(60) })).max(20).optional(),
   lugandaAudioDefaultVoice: z.string().min(1).max(60).optional(),
   lugandaAudioRequiresPro: z.boolean().optional(),
+  lugandaTranslateMode: z.enum(["per_item", "whole_list"]).optional(),
   // Rider Pro — see ../lib/settings.ts getProSettings.
   proSubscriptionEnabled: z.boolean().optional(),
   proRecurringEnabled: z.boolean().optional(),
@@ -598,6 +600,7 @@ settingsRoutes.put(
       voices: parsed.data.lugandaAudioVoices,
       defaultVoice: parsed.data.lugandaAudioDefaultVoice,
       requiresPro: parsed.data.lugandaAudioRequiresPro,
+      translateMode: parsed.data.lugandaTranslateMode,
     });
 
     await setProSettings({

@@ -365,6 +365,10 @@ export type DeliverySettings = {
   /** When on, listening to a list's audio requires the rider to have an
    * active Pro subscription (see ProSettings below). Off by default. */
   lugandaAudioRequiresPro: boolean;
+  /** "per_item": one translation request per list item (original behaviour).
+   * "whole_list": the whole list in one request — far fewer requests, so the
+   * free daily limits last much longer. */
+  lugandaTranslateMode: "per_item" | "whole_list";
 } & MonetizationSettings &
   VslaSettings &
   ProSettings;

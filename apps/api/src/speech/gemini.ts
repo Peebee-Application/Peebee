@@ -56,6 +56,48 @@ export async function translateToLuganda(text: string): Promise<string> {
   return translated;
 }
 
+/**
+ * Translates a whole list in ONE request: the model gets a JSON array of
+ * English phrases and must answer with a JSON array of the same length. Any
+ * answer that isn't exactly that throws, so the caller can fall back to
+ * translating item by item rather than reading out a misaligned list.
+ */
+export async function translateListToLuganda(texts: string[]): Promise<string[]> {
+  if (texts.length === 0) return [];
+  const model = process.env.GEMINI_TEXT_MODEL || DEFAULT_TEXT_MODEL;
+  const body = await generate(
+    model,
+    {
+      contents: [
+        {
+          parts: [
+            {
+              text:
+                "Translate each English shopping-list phrase in this JSON array into Luganda (Ganda, as spoken in Kampala). " +
+                "Keep any digits as digits. Reply with ONLY a JSON array of strings: exactly " +
+                `${texts.length} items, in the same order, one translation per phrase.\n\n` +
+                JSON.stringify(texts),
+            },
+          ],
+        },
+      ],
+      generationConfig: { temperature: 0, responseMimeType: "application/json" },
+    },
+    "list translation",
+  );
+  const raw = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim() ?? "";
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, ""));
+  } catch {
+    throw new Error("Gemini list translation was not valid JSON");
+  }
+  if (!Array.isArray(parsed) || parsed.length !== texts.length || parsed.some((t) => typeof t !== "string" || !t.trim())) {
+    throw new Error(`Gemini list translation did not return ${texts.length} translations`);
+  }
+  return (parsed as string[]).map((t) => t.trim());
+}
+
 /** The catalog stores a Gemini voice name. Older catalog entries still hold
  * the previous provider's speaker tags (e.g. "waxal_lug_0004"); those map
  * deterministically onto a Gemini voice so they keep working (and stay
