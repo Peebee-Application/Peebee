@@ -259,6 +259,17 @@ export default function JobDetailPage() {
           <h1 className="text-xl font-bold text-ink">{jobTitle(order)}</h1>
         </div>
         <p className="text-sm font-semibold text-green">{stageLabel(order.stage, order.type, !!order.is_ride)}</p>
+        {!!order.is_ride && order.passenger_name && (
+          <p className="text-sm text-ink">
+            Passenger: <span className="font-bold">{order.passenger_name}</span>
+            {order.passenger_phone && (
+              <>
+                {" · "}
+                <a href={`tel:${order.passenger_phone}`} className="font-bold text-gold underline">{order.passenger_phone}</a>
+              </>
+            )}
+          </p>
+        )}
         {order.type === "parcel" && order.pickup_area && (
           <p className="flex items-center gap-1.5 text-sm text-ink-500">
             <MapPin className="h-3.5 w-3.5 text-ink-500" strokeWidth={2} aria-hidden />

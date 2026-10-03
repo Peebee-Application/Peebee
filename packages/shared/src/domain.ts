@@ -99,6 +99,12 @@ export type OrderRow = {
    * apps/api/src/db/migrations/0039_ride_orders.sql). Pickup = where the
    * rider collects the passenger, destination = where they're going. */
   is_ride: number;
+  /** A ride booked for someone else: who is actually riding. The booker pays;
+   * see apps/api/src/db/migrations/0071_ride_for_someone.sql. */
+  passenger_name?: string | null;
+  passenger_phone?: string | null;
+  /** Private link token for the passenger's trip page — customer/admin only. */
+  share_token?: string | null;
   /** The rider's most recent live position and when it was reported —
    * only ever populated while the rider has in-app navigation open with
    * nav_mode = "in_app" (see apps/rider/components/InAppNavigation.tsx
@@ -209,6 +215,8 @@ export type CarSettings = {
   withdrawalsEnabled: boolean;
   /** Smallest withdrawal in UGX; 0 = none. */
   withdrawalMinAmount: number;
+  /** Photos of a vehicle: the most an owner can add (at least 6) and how many an admin needs before approving. */
+  vehiclePhotos: { max: number; minRequired: number };
   selfDrive: {
     enabled: boolean;
     /** Tuma's share of the rent (%); null = not decided, so self-drive stays off. */
@@ -280,6 +288,14 @@ export type DeliverySettings = {
    * than carrying a package. */
   rideRatePerKm: number;
   rideMinimumFare: number;
+  /** Whether customers may book a ride for someone else, and how far (metres)
+   * the pickup may be from where the customer is before the app asks. */
+  rideForOtherEnabled: boolean;
+  rideForOtherDistanceM: number;
+  /** Whole-service switches (admin → Settings → Services). Off = no new orders of
+   * that kind; anything already in flight finishes. Shopping, parcels, rides
+   * (incl. Tuma Car bookings) and food. */
+  services: ServiceSwitches;
   enabledModes: MatchingMode[];
   nearestWindowSeconds: number;
   maxAssignmentMinutes: number;
@@ -1086,6 +1102,30 @@ export type CustomerRestaurantChatThread = {
   unread: boolean;
 };
 
+export type ServiceKey = "shopping" | "parcel" | "ride" | "food";
+export type ServiceSwitches = Record<ServiceKey, boolean>;
+
+/** Who is actually riding when the booker isn't. */
+export type RidePassenger = { name: string; phone: string };
+
+export type SavedPassenger = { id: string; user_id: string; name: string; phone: string; created_at: string };
+
+/** What the passenger's private trip link shows — no account needed. */
+export type SharedTrip = {
+  stage: string;
+  passengerName: string | null;
+  driverName: string | null;
+  pickupArea: string | null;
+  pickupAddress: string | null;
+  destinationArea: string | null;
+  destinationAddress: string | null;
+  pickupLat: number | null;
+  pickupLng: number | null;
+  riderLat: number | null;
+  riderLng: number | null;
+  etaMinutes: number | null;
+};
+
 export type SavedLocation = {
   id: string;
   user_id: string;
@@ -1889,6 +1929,7 @@ export type AdminCarVehicle = {
   status: "pending" | "approved" | "rejected" | "suspended";
   driver_id: string | null;
   driver_name: string | null;
+  photos?: string[];
 };
 
 export type AdminCarBooking = {
@@ -1922,6 +1963,8 @@ export type CarCategory = {
 
 export type CarConfig = {
   onDemandEnabled: boolean;
+  /** Photos per vehicle: the most an owner can add, and how many are needed before approval. */
+  vehiclePhotos?: { max: number; minRequired: number };
   /** Present only when scheduled rides are switched on and a booking window is set. */
   scheduled: { maxAdvanceHours: number | null; minLeadMinutes: number } | null;
   /** Present only when carpool is switched on. */
@@ -1942,6 +1985,8 @@ export type CarBookingInput = {
   destinationAddress?: string;
   destinationLat: number;
   destinationLng: number;
+  /** Booking for someone else — see RidePassenger. */
+  passenger?: RidePassenger;
 };
 
 export type CarWallet = {
@@ -2067,7 +2112,7 @@ export type CarpoolMyTrip = {
 export type CarMe = {
   ownerStatus: CarPartnerStatus;
   driverStatus: CarPartnerStatus;
-  vehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; status: string; category_name: string; driver_name: string | null }>;
+  vehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; status: string; category_name: string; driver_name: string | null; photos: string[] }>;
   assignedVehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; category_name: string }>;
   online: boolean;
   activeVehicleId: string | null;
@@ -2101,6 +2146,9 @@ export type CarDriverActive = {
     destination_lat: number | null;
     destination_lng: number | null;
     customer_name: string;
+    /** Set when the ride was booked for someone else — meet and call this person. */
+    passenger_name?: string | null;
+    passenger_phone?: string | null;
   } | null;
   recent: Array<{ order_id: string; driver_amount: number; settled_at: string; pickup_address: string | null; destination_address: string | null }>;
   totalEarned: number;

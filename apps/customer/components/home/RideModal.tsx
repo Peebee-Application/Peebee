@@ -1,7 +1,8 @@
 "use client";
 
 import { roundFare, type CarCategory } from "@tuma/shared";
-import { Route } from "lucide-react";
+import type { RidePassenger, SavedPassenger } from "@tuma/shared";
+import { ChevronRight, Route, User, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Modal } from "../Modal";
@@ -10,6 +11,7 @@ import { api, errorMessage } from "../../lib/api";
 import { useTranslate } from "../../lib/i18n";
 import { placeFields } from "../../lib/places";
 import { RouteSummary } from "./RouteSummary";
+import { WhoIsRiding } from "../WhoIsRiding";
 
 /** Great-circle distance in km — mirrors apps/api/src/lib/geo.ts, used only
  * for the live fare preview here; the backend recomputes it authoritatively. */
@@ -34,6 +36,11 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   // from the shared place flow, then this screen just confirms the fare.
   const [route, setRoute] = useState<PlaceResult | null>(null);
   const [choosing, setChoosing] = useState(true);
+  // Booking for someone else: offered only when the admin has it on.
+  const [passenger, setPassenger] = useState<RidePassenger | null>(null);
+  const [passengers, setPassengers] = useState<SavedPassenger[]>([]);
+  const [forOtherOn, setForOtherOn] = useState(false);
+  const [pickingWho, setPickingWho] = useState(false);
   const [estimatedTotal, setEstimatedTotal] = useState("");
   const [pricing, setPricing] = useState<{ ratePerKm: number; minimum: number } | null>(null);
   // Tuma Car: only offered when an admin has switched it on and added a car type.
@@ -50,6 +57,13 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    api
+      .getPassengers()
+      .then((res) => {
+        setPassengers(res.passengers);
+        setForOtherOn(res.enabled);
+      })
+      .catch(() => {});
     api
       .getSettings()
       .then((res) => setPricing({ ratePerKm: res.settings.rideRatePerKm, minimum: res.settings.rideMinimumFare }))
@@ -76,10 +90,11 @@ export function RideModal({ onClose }: { onClose: () => void }) {
     return (
       <PlaceFlow
         concept="ride"
-        initial={route ?? undefined}
+        initial={route ? { ...route, passenger } : undefined}
         onClose={() => (route ? setChoosing(false) : onClose())}
         onDone={(r) => {
           setRoute(r);
+          if (r.passenger !== undefined) setPassenger(r.passenger);
           setChoosing(false);
         }}
       />
@@ -108,6 +123,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
           destinationLat: df.lat,
           destinationLng: df.lng,
           ...(when === "later" ? { scheduledFor: new Date(pickupAt).toISOString() } : {}),
+          ...(passenger ? { passenger } : {}),
         });
         onClose();
         router.push(`/orders/${order.id}/pay`);
@@ -128,6 +144,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
         destinationLng: df.lng,
         paymentRail: "escrow",
         estimatedTotal: liveEstimate ?? (estimatedTotal ? roundFare(Number(estimatedTotal), pricing?.minimum) : undefined),
+        ...(passenger ? { passenger } : {}),
       });
       onClose();
       router.push(`/orders/${order.id}/pay`);
@@ -141,6 +158,36 @@ export function RideModal({ onClose }: { onClose: () => void }) {
     <Modal withMap title={t("ride_title")} onClose={onClose}>
       <div className="space-y-4">
         <RouteSummary pickup={route.pickup} destination={route.destination} destinationLabel={t("place_destination")} onChange={() => setChoosing(true)} />
+
+        {forOtherOn && (
+          <button
+            type="button"
+            onClick={() => setPickingWho(true)}
+            className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-[var(--border-faint)] px-4 text-left active:bg-[rgb(var(--surface-muted))]"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink">
+              {passenger ? <Users className="h-5 w-5" strokeWidth={1.75} aria-hidden /> : <User className="h-5 w-5" strokeWidth={1.75} aria-hidden />}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-base font-bold text-ink">{passenger ? t("who_for", { name: passenger.name }) : t("who_for_me")}</span>
+              {passenger && <span className="block truncate text-sm text-ink-500">{passenger.phone}</span>}
+            </span>
+            <span className="text-sm font-bold text-gold">{t("who_change")}</span>
+            <ChevronRight className="h-5 w-5 text-ink-500" aria-hidden />
+          </button>
+        )}
+        {pickingWho && (
+          <WhoIsRiding
+            passenger={passenger}
+            saved={passengers}
+            onSaved={setPassengers}
+            onPick={(p) => {
+              setPassenger(p);
+              setPickingWho(false);
+            }}
+            onClose={() => setPickingWho(false)}
+          />
+        )}
 
         {(cars.length > 0 || carpoolOn || rentOn) && (
           <div role="tablist" className="flex gap-2">

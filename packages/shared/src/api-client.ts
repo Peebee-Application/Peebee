@@ -10,6 +10,9 @@ import type {
   AdminOrderRow,
   AdminRider,
   CarBookingInput,
+  RidePassenger,
+  SavedPassenger,
+  SharedTrip,
   CarDriverActive,
   CarDriverJob,
   CarMe,
@@ -424,6 +427,8 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       destinationLng?: number;
       paymentRail?: "escrow" | "float";
       estimatedTotal?: number;
+      /** A ride booked for someone else. */
+      passenger?: RidePassenger;
     }) {
       return request<{ order: OrderRow }>("/v1/orders", { method: "POST", body: JSON.stringify(input) });
     },
@@ -433,7 +438,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
 
     // Restaurant browsing + food checkout — see apps/api/src/restaurants/customer.ts.
     async listRestaurants() {
-      return request<{ restaurants: Restaurant[] }>("/v1/restaurants");
+      return request<{ restaurants: Restaurant[]; /** Food ordering is switched off by an admin. */ paused?: boolean }>("/v1/restaurants");
     },
     async getRestaurant(id: string) {
       return request<{ restaurant: Restaurant }>(`/v1/restaurants/${id}`);
@@ -1257,6 +1262,21 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       return request<{ ok: true }>(`/v1/locations/${id}`, { method: "DELETE" });
     },
 
+    // People a customer books rides for — see apps/api/src/passengers/routes.ts.
+    async getPassengers() {
+      return request<{ passengers: SavedPassenger[]; enabled: boolean }>("/v1/passengers");
+    },
+    async savePassenger(input: RidePassenger) {
+      return request<{ passenger: SavedPassenger }>("/v1/passengers", { method: "POST", body: JSON.stringify(input) });
+    },
+    async deletePassenger(id: string) {
+      return request<{ ok: true }>(`/v1/passengers/${id}`, { method: "DELETE" });
+    },
+    /** The passenger's trip link — public, the token is the secret. */
+    async getSharedTrip(token: string) {
+      return request<{ trip: SharedTrip }>(`/v1/trips/${encodeURIComponent(token)}`);
+    },
+
     // Saved mobile money numbers — up to 2 per purpose (see
     // apps/api/src/account/mobile-numbers.ts).
     async getMobileNumbers(purpose: MobileNumberPurpose) {
@@ -1578,6 +1598,22 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async adminResolveRental(id: string, damageAmount: number) {
       return request<{ ok: true }>(`/v1/admin/car/rentals/${id}/resolve`, { method: "POST", body: JSON.stringify({ damageAmount }) });
+    },
+    /** Adds one photo to a vehicle (multipart; compress it first). */
+    async carUploadVehiclePhoto(vehicleId: string, file: Blob) {
+      const form = new FormData();
+      form.append("file", file, "vehicle.jpg");
+      const res = await f(`${root}/v1/car/vehicles/${vehicleId}/photos`, { method: "POST", headers: authHeaders(), body: form });
+      return json<{ id: string }>(res);
+    },
+    async carDeleteVehiclePhoto(vehicleId: string, photoId: string) {
+      return request<{ ok: true }>(`/v1/car/vehicles/${vehicleId}/photos/${photoId}`, { method: "DELETE" });
+    },
+    /** A vehicle photo as a Blob (raw fetch — the image needs the auth header). */
+    async carVehiclePhotoBlob(vehicleId: string, photoId: string): Promise<Blob> {
+      const res = await f(`${root}/v1/car/vehicles/${vehicleId}/photos/${photoId}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error(`API ${res.status}: failed to load photo`);
+      return res.blob();
     },
     async carWallet() {
       return request<CarWallet>("/v1/car/wallet");

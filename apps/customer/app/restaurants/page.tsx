@@ -12,10 +12,15 @@ export default function RestaurantsPage() {
   const [restaurants, setRestaurants] = useState<Restaurant[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [paused, setPaused] = useState(false);
+
   useEffect(() => {
     api
       .listRestaurants()
-      .then((res) => setRestaurants(res.restaurants))
+      .then((res) => {
+        setRestaurants(res.restaurants);
+        setPaused(!!res.paused);
+      })
       .catch((err) => setError(errorMessage(err)));
   }, []);
 
@@ -24,6 +29,7 @@ export default function RestaurantsPage() {
       <h1 className="text-xl font-bold text-ink">{t("restaurants_title")}</h1>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {paused && <p className="rounded-lg bg-gold/15 px-3 py-3 text-sm font-semibold text-ink">{t("service_paused_note", { service: t("service_food") })}</p>}
 
       {restaurants === null ? (
         <p className="py-10 text-center text-sm text-ink-500">{t("loading")}</p>

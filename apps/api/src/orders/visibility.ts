@@ -23,7 +23,7 @@ export type OrderViewer = { sub: string; role: "customer" | "rider" | "admin" };
 export function redactOrder(order: Row | undefined, viewer: OrderViewer): Row | undefined {
   if (!order) return order;
   if (viewer.role === "admin" || order.customer_id === viewer.sub) return order;
-  const { pin_code: _pin, ...rest } = order;
+  const { pin_code: _pin, share_token: _share, ...rest } = order;
   return rest;
 }
 

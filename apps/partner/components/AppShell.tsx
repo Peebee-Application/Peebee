@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
 import { AuthGate } from "./AuthGate";
 import { BottomNav } from "./BottomNav";
+import { ServiceBanner } from "./ServiceBanner";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -37,6 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
       )}
+      {!bare && <ServiceBanner />}
       <main className={`mx-auto min-h-dvh max-w-xl ${bare ? "" : "pb-20"}`}>{children}</main>
       {!bare && <BottomNav />}
     </AuthGate>

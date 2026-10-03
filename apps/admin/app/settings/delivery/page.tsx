@@ -11,6 +11,8 @@ export default function DeliveryPricingPage() {
   const [shoppingDeliveryFee, setShoppingDeliveryFee] = useState("");
   const [rideRatePerKm, setRideRatePerKm] = useState("");
   const [rideMinimumFare, setRideMinimumFare] = useState("");
+  const [rideForOtherEnabled, setRideForOtherEnabled] = useState(true);
+  const [rideForOtherDistanceM, setRideForOtherDistanceM] = useState("");
   const [timeFees, setTimeFees] = useState<TimeFeeSettings | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -26,6 +28,8 @@ export default function DeliveryPricingPage() {
         setShoppingDeliveryFee(String(settings.shoppingDeliveryFee));
         setRideRatePerKm(String(settings.rideRatePerKm));
         setRideMinimumFare(String(settings.rideMinimumFare));
+        setRideForOtherEnabled(settings.rideForOtherEnabled);
+        setRideForOtherDistanceM(String(settings.rideForOtherDistanceM));
         setTimeFees(settings.timeFees);
       })
       .catch((err) => setError(errorMessage(err)))
@@ -44,6 +48,8 @@ export default function DeliveryPricingPage() {
         shoppingDeliveryFee: Number(shoppingDeliveryFee),
         rideRatePerKm: Number(rideRatePerKm),
         rideMinimumFare: Number(rideMinimumFare),
+        rideForOtherEnabled,
+        rideForOtherDistanceM: Number(rideForOtherDistanceM),
         ...(timeFees ? { timeFees } : {}),
       });
       setDeliveryRatePerKm(String(res.settings.deliveryRatePerKm));
@@ -51,6 +57,8 @@ export default function DeliveryPricingPage() {
       setShoppingDeliveryFee(String(res.settings.shoppingDeliveryFee));
       setRideRatePerKm(String(res.settings.rideRatePerKm));
       setRideMinimumFare(String(res.settings.rideMinimumFare));
+      setRideForOtherEnabled(res.settings.rideForOtherEnabled);
+      setRideForOtherDistanceM(String(res.settings.rideForOtherDistanceM));
       setTimeFees(res.settings.timeFees);
       setSaved(true);
     } catch (err) {
@@ -208,6 +216,34 @@ export default function DeliveryPricingPage() {
               value={rideMinimumFare}
               onChange={(e) => setRideMinimumFare(e.target.value.replace(/[^\d]/g, ""))}
               placeholder="2500"
+              className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+            />
+          </div>
+        </section>
+        <section className="home-card space-y-3">
+          <label className="flex items-center gap-2 text-sm font-bold text-ink">
+            <input
+              type="checkbox"
+              checked={rideForOtherEnabled}
+              onChange={(e) => setRideForOtherEnabled(e.target.checked)}
+              className="h-4 w-4 accent-gold"
+            />
+            Let customers book a ride for someone else
+          </label>
+          <p className="text-xs text-ink-500">
+            The customer pays and stays in charge; the passenger gets a private trip link and the driver sees their name
+            and number. Needs migration 0071_ride_for_someone.sql applied.
+          </p>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-ink-500" htmlFor="ride-for-other-distance">
+              Ask &quot;is this ride for someone else?&quot; when the pickup is further than (metres) from the customer
+            </label>
+            <input
+              id="ride-for-other-distance"
+              inputMode="numeric"
+              value={rideForOtherDistanceM}
+              onChange={(e) => setRideForOtherDistanceM(e.target.value.replace(/[^\d]/g, ""))}
+              placeholder="500"
               className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
             />
           </div>
