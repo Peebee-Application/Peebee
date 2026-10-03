@@ -1487,7 +1487,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async getCarConfig() {
       return request<CarConfig>("/v1/car/config");
     },
-    async bookCar(input: CarBookingInput) {
+    async bookCar(input: CarBookingInput & { scheduledFor?: string }) {
       return request<{ order: OrderRow }>("/v1/car/bookings", { method: "POST", body: JSON.stringify(input) });
     },
 
@@ -1515,6 +1515,12 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async carDriverApply(orderId: string, bidAmount?: number) {
       return request<{ ok: true }>(`/v1/car/orders/${orderId}/apply`, { method: "POST", body: JSON.stringify({ bidAmount }) });
+    },
+    async carBookingInfo(orderId: string) {
+      return request<{ car: true; scheduledFor: string | null }>(`/v1/car/bookings/${orderId}/info`);
+    },
+    async carRematch(orderId: string) {
+      return request<{ ok: true }>(`/v1/car/bookings/${orderId}/rematch`, { method: "POST" });
     },
     async carWallet() {
       return request<CarWallet>("/v1/car/wallet");

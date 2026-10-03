@@ -13,7 +13,7 @@ import { db } from "../db/client.js";
 const answers = new Map<string, { exists: boolean; at: number }>();
 const NO_TTL_MS = 30_000;
 
-export async function hasColumn(table: "order_applications" | "orders", column: string): Promise<boolean> {
+export async function hasColumn(table: "order_applications" | "orders" | "car_bookings", column: string): Promise<boolean> {
   const key = `${table}.${column}`;
   const known = answers.get(key);
   if (known && (known.exists || Date.now() - known.at < NO_TTL_MS)) return known.exists;
@@ -29,7 +29,7 @@ export async function hasColumn(table: "order_applications" | "orders", column: 
 }
 
 /** Same idea for a whole table: code that reads a table added by a hand-applied migration. */
-export async function hasTable(table: "car_bookings" | "vehicle_categories" | "car_withdrawals"): Promise<boolean> {
+export async function hasTable(table: "car_bookings" | "vehicle_categories" | "car_withdrawals" | "scheduled_checks"): Promise<boolean> {
   const key = `table.${table}`;
   const known = answers.get(key);
   if (known && (known.exists || Date.now() - known.at < NO_TTL_MS)) return known.exists;

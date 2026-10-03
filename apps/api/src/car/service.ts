@@ -1,7 +1,7 @@
 import { roundFare } from "@tuma/shared";
 import { db } from "../db/client.js";
 import { haversineKm } from "../lib/geo.js";
-import { hasTable } from "../lib/schema.js";
+import { hasColumn, hasTable } from "../lib/schema.js";
 import { getCarSettings, type CarShares } from "../lib/settings.js";
 import { creditWallet } from "../wallet/service.js";
 import { newId } from "../lib/ids.js";
@@ -53,7 +53,13 @@ export async function findCarCandidate(
 ): Promise<{ riderId: string; riderName: string; outOfRange: boolean } | null> {
   const booking = (await db.execute({ sql: "SELECT category_id FROM car_bookings WHERE order_id = ?", args: [orderId] })).rows[0] as Row | undefined;
   if (!booking) return null;
-  const { maxPickupKm } = await getCarSettings();
+  const carSettings = await getCarSettings();
+  const { maxPickupKm } = carSettings;
+  // A scheduled ride stays unassigned until it opens to drivers.
+  if (await hasColumn("car_bookings", "scheduled_for")) {
+    const sched = (await db.execute({ sql: "SELECT scheduled_for FROM car_bookings WHERE order_id = ?", args: [orderId] })).rows[0] as Row | undefined;
+    if (sched?.scheduled_for && new Date(`${String(sched.scheduled_for).replace(" ", "T")}Z`).getTime() > Date.now() + carSettings.scheduled.openMinutes * 60000) return null;
+  }
   const eligible = await db.execute({
     sql: `SELECT u.id, u.name, s.lat, s.lng FROM car_driver_state s
           JOIN users u ON u.id = s.driver_id

@@ -209,6 +209,21 @@ export type CarSettings = {
   withdrawalsEnabled: boolean;
   /** Smallest withdrawal in UGX; 0 = none. */
   withdrawalMinAmount: number;
+  scheduled: {
+    enabled: boolean;
+    /** How far ahead a ride can be booked; null = not set, so scheduled rides stay off. */
+    maxAdvanceHours: number | null;
+    /** Shortest notice for a booking. */
+    minLeadMinutes: number;
+    /** The job opens to drivers this long before pickup. */
+    openMinutes: number;
+    /** Within this long of pickup, the assigned driver is watched. */
+    watchMinutes: number;
+    /** No location update for this long counts as "no signal". */
+    noSignalMinutes: number;
+    /** Average speed used to judge whether the driver will arrive in time. */
+    avgSpeedKmh: number;
+  };
 };
 
 export type BiddingSettings = { enabled: boolean; minPercent: number; maxPercent: number };
@@ -1884,6 +1899,8 @@ export type CarCategory = {
 
 export type CarConfig = {
   onDemandEnabled: boolean;
+  /** Present only when scheduled rides are switched on and a booking window is set. */
+  scheduled: { maxAdvanceHours: number | null; minLeadMinutes: number } | null;
   matchingMode: "customer_selects" | "first_to_claim";
   categories: CarCategory[];
 };
@@ -1929,6 +1946,8 @@ export type CarDriverJob = {
   fare: number;
   pickupDistanceKm: number | null;
   matchingMode: string;
+  /** Pickup time for a scheduled ride, else null. */
+  scheduledFor: string | null;
   applied: boolean;
   bidding: { appPrice: number | null; min: number | null; max: number | null } | null;
 };

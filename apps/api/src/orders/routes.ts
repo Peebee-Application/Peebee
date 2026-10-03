@@ -303,7 +303,7 @@ export async function createOrderFromInput(
   d: z.infer<typeof createOrderSchema>,
   /** Set only by the Tuma Car booking route: the category fare replaces the
    * boda ride rate and the order uses the car matching mode. */
-  car?: { fare: number; matchingMode: MatchingMode },
+  car?: { fare: number; matchingMode: MatchingMode; matchingDeadlineAt?: string },
 ) {
   const user = c.get("user");
 
@@ -398,12 +398,12 @@ export async function createOrderFromInput(
     : preferredMode && enabledModes.includes(preferredMode)
       ? preferredMode
       : enabledModes[0];
-  const matchingDeadlineAt =
-    matchingMode === "nearest_window"
+  const matchingDeadlineAt = car?.matchingDeadlineAt ??
+    (matchingMode === "nearest_window"
       ? new Date(Date.now() + nearestWindowSeconds * 1000).toISOString()
       : matchingMode === "customer_selects"
         ? new Date(Date.now() + maxAssignmentMinutes * 60 * 1000).toISOString()
-        : null;
+        : null);
 
   const orderId = newId("ord");
   // Inherits the list's own environment rather than re-reading whatever's

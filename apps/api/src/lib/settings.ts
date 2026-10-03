@@ -246,6 +246,19 @@ const DEFAULTS = {
   /** A driver further than this from the pickup isn't offered the ride. */
   car_driver_max_pickup_km: "10",
   /** Owners and drivers can cash their ride earnings out to mobile money. */
+  /** Scheduled rides: book now, pick up later. Needs a booking window (hours)
+   * to be set before it works; empty = off. */
+  car_scheduled_enabled: "0",
+  car_scheduled_max_advance_hours: "",
+  car_scheduled_min_lead_minutes: "30",
+  /** The job opens to drivers this long before pickup. */
+  car_scheduled_open_minutes: "60",
+  /** Within this long of pickup, the assigned driver is watched. */
+  car_scheduled_watch_minutes: "30",
+  /** No location update for this long counts as "no signal". */
+  car_scheduled_no_signal_minutes: "10",
+  /** Average speed used to judge whether a driver will make it. */
+  car_scheduled_avg_speed_kmh: "25",
   car_withdrawals_enabled: "0",
   /** Smallest withdrawal in UGX (0 = no minimum). */
   car_withdrawal_min_amount: "0",
@@ -274,10 +287,22 @@ export type CarSettings = {
   maxPickupKm: number;
   withdrawalsEnabled: boolean;
   withdrawalMinAmount: number;
+  scheduled: CarScheduledSettings;
+};
+
+export type CarScheduledSettings = {
+  enabled: boolean;
+  /** How far ahead a ride can be booked; null = not set, so the feature stays off. */
+  maxAdvanceHours: number | null;
+  minLeadMinutes: number;
+  openMinutes: number;
+  watchMinutes: number;
+  noSignalMinutes: number;
+  avgSpeedKmh: number;
 };
 
 export async function getCarSettings(): Promise<CarSettings> {
-  const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin] = await Promise.all([
+  const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin, sEnabled, sMax, sLead, sOpen, sWatch, sNoSig, sSpeed] = await Promise.all([
     getSetting("car_enabled"),
     getSetting("car_ondemand_enabled"),
     getSetting("car_matching_mode"),
@@ -287,7 +312,16 @@ export async function getCarSettings(): Promise<CarSettings> {
     getSetting("car_driver_max_pickup_km"),
     getSetting("car_withdrawals_enabled"),
     getSetting("car_withdrawal_min_amount"),
+    getSetting("car_scheduled_enabled"),
+    getSetting("car_scheduled_max_advance_hours"),
+    getSetting("car_scheduled_min_lead_minutes"),
+    getSetting("car_scheduled_open_minutes"),
+    getSetting("car_scheduled_watch_minutes"),
+    getSetting("car_scheduled_no_signal_minutes"),
+    getSetting("car_scheduled_avg_speed_kmh"),
   ]);
+  const clamp = (v: string, lo: number, hi: number, fallback: number) => Math.min(hi, Math.max(lo, Math.floor(Number(v)) || fallback));
+  const maxAdvance = Math.floor(Number(sMax));
   let shares: CarShares = { owner: Number(owner), driver: Number(driver), platform: Number(platform) };
   // A saved split that doesn't total 100 can't be trusted: fall back to the defaults.
   if (![shares.owner, shares.driver, shares.platform].every(Number.isFinite) || shares.owner + shares.driver + shares.platform !== 100) {
@@ -301,6 +335,15 @@ export async function getCarSettings(): Promise<CarSettings> {
     maxPickupKm: Math.min(200, Math.max(1, Number(maxKm) || 10)),
     withdrawalsEnabled: wdEnabled === "1",
     withdrawalMinAmount: Math.max(0, Math.floor(Number(wdMin) || 0)),
+    scheduled: {
+      enabled: sEnabled === "1",
+      maxAdvanceHours: Number.isFinite(maxAdvance) && maxAdvance > 0 ? Math.min(24 * 90, maxAdvance) : null,
+      minLeadMinutes: clamp(sLead, 0, 24 * 60, 30),
+      openMinutes: clamp(sOpen, 5, 24 * 60, 60),
+      watchMinutes: clamp(sWatch, 5, 24 * 60, 30),
+      noSignalMinutes: clamp(sNoSig, 1, 120, 10),
+      avgSpeedKmh: clamp(sSpeed, 5, 120, 25),
+    },
   };
 }
 
@@ -313,6 +356,16 @@ export async function setCarSettings(next: CarSettings): Promise<void> {
   await setSetting("car_share_platform_percent", String(next.shares.platform));
   await setSetting("car_driver_max_pickup_km", String(next.maxPickupKm));
   // Older activity-log entries predate these two fields.
+  const sch = next.scheduled;
+  if (sch) {
+    await setSetting("car_scheduled_enabled", sch.enabled ? "1" : "0");
+    await setSetting("car_scheduled_max_advance_hours", sch.maxAdvanceHours ? String(sch.maxAdvanceHours) : "");
+    await setSetting("car_scheduled_min_lead_minutes", String(sch.minLeadMinutes));
+    await setSetting("car_scheduled_open_minutes", String(sch.openMinutes));
+    await setSetting("car_scheduled_watch_minutes", String(sch.watchMinutes));
+    await setSetting("car_scheduled_no_signal_minutes", String(sch.noSignalMinutes));
+    await setSetting("car_scheduled_avg_speed_kmh", String(sch.avgSpeedKmh));
+  }
   await setSetting("car_withdrawals_enabled", next.withdrawalsEnabled ? "1" : "0");
   await setSetting("car_withdrawal_min_amount", String(Math.max(0, Math.floor(Number(next.withdrawalMinAmount) || 0))));
 }

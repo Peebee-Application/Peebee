@@ -268,6 +268,15 @@ const updateSchema = z.object({
         platform: z.number().int().min(0).max(100),
       }),
       maxPickupKm: z.number().int().min(1).max(200),
+      scheduled: z.object({
+        enabled: z.boolean(),
+        maxAdvanceHours: z.number().int().min(1).max(24 * 90).nullable(),
+        minLeadMinutes: z.number().int().min(0).max(24 * 60),
+        openMinutes: z.number().int().min(5).max(24 * 60),
+        watchMinutes: z.number().int().min(5).max(24 * 60),
+        noSignalMinutes: z.number().int().min(1).max(120),
+        avgSpeedKmh: z.number().int().min(5).max(120),
+      }),
       withdrawalsEnabled: z.boolean(),
       withdrawalMinAmount: z.number().int().min(0).max(100_000_000),
     })
