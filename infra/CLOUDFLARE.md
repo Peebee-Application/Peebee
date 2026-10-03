@@ -11,7 +11,7 @@ for reference/rollback but is no longer the active deploy target.
 | `tuma-admin` | Worker (Next.js via OpenNext) | not yet deployed — `apps/admin`, same deploy flow as customer/rider |
 | `tuma-restaurant` | Worker (Next.js via OpenNext) | `restaurant.tumaffe.online` when deployed |
 | `tuma-merchant` | Worker (Next.js via OpenNext) | `merchant.tumaffe.online` when deployed |
-| `tuma-partner` | Worker (Next.js via OpenNext) | `partner.tumaffe.online` — car owners and drivers (one app, Owner/Driver switch) |
+| `tuma-partner` | Worker (Next.js via OpenNext) | `car.tumaffe.online` — car owners and drivers (one app, Owner/Driver switch) |
 | `tuma-web` | Worker (Next.js via OpenNext) | `tumaffe.online` when deployed |
 
 **Database: Cloudflare D1** (`tuma-api`, id `26926e12-d2f4-4b40-8b1b-019f6c169e10`), bound

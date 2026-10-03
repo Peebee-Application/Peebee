@@ -48,7 +48,7 @@
   ],
   "vars": {
     "ENVIRONMENT": "staging",
-    "CORS_ORIGINS": "https://tumaffe.online,https://www.tumaffe.online,https://customer.tumaffe.online,https://rider.tumaffe.online,https://admin.tumaffe.online,https://restaurant.tumaffe.online,https://merchant.tumaffe.online,https://partner.tumaffe.online,https://tuma-customer.doxalight-inc.workers.dev,https://tuma-rider.doxalight-inc.workers.dev,https://tuma-admin.doxalight-inc.workers.dev,https://tuma-restaurant.doxalight-inc.workers.dev,https://tuma-merchant.doxalight-inc.workers.dev,https://tuma-partner.doxalight-inc.workers.dev,https://tuma-web.doxalight-inc.workers.dev,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3005,http://localhost:3006",
+    "CORS_ORIGINS": "https://tumaffe.online,https://www.tumaffe.online,https://customer.tumaffe.online,https://rider.tumaffe.online,https://admin.tumaffe.online,https://restaurant.tumaffe.online,https://merchant.tumaffe.online,https://car.tumaffe.online,https://partner.tumaffe.online,https://tuma-customer.doxalight-inc.workers.dev,https://tuma-rider.doxalight-inc.workers.dev,https://tuma-admin.doxalight-inc.workers.dev,https://tuma-restaurant.doxalight-inc.workers.dev,https://tuma-merchant.doxalight-inc.workers.dev,https://tuma-partner.doxalight-inc.workers.dev,https://tuma-web.doxalight-inc.workers.dev,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3005,http://localhost:3006",
     "PAYMENTS_PROVIDER": "yo_mock",
     "GOOGLE_CLIENT_ID": "744058453576-1hofgakvhp2mt8ub63k8v9ddlocbb3u7.apps.googleusercontent.com",
     // Public half of the VAPID keypair used to sign Web Push requests — safe
