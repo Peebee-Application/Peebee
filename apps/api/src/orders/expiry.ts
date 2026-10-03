@@ -1,4 +1,5 @@
 import { db } from "../db/client.js";
+import { hasColumn, hasTable } from "../lib/schema.js";
 import { getJobExpirySettings, jobExpiryMinutes } from "../lib/settings.js";
 import { notifyUser } from "../lib/webpush.js";
 import { cancelCustomerOrder, getOrderTimeFees } from "./time-fees.js";
@@ -19,10 +20,15 @@ export async function sweepExpiredOrders(): Promise<{ expired: number; skipped: 
   if (!settings.enabled) return { expired: 0, skipped: 0 };
   const minutes = jobExpiryMinutes(settings);
 
+  // A scheduled car ride's clock starts at its pickup time, not when it was booked.
+  const clock =
+    (await hasTable("car_bookings")) && (await hasColumn("car_bookings", "scheduled_for"))
+      ? "COALESCE((SELECT cb.scheduled_for FROM car_bookings cb WHERE cb.order_id = orders.id), created_at)"
+      : "created_at";
   const due = await db.execute({
     sql: `SELECT * FROM orders
           WHERE stage IN ${UNSERVED_STAGES} AND rider_id IS NULL
-            AND created_at <= datetime('now', ?)
+            AND ${clock} <= datetime('now', ?)
           ORDER BY created_at LIMIT 100`,
     args: [`-${minutes} minutes`],
   });

@@ -5,13 +5,14 @@ import { db } from "../db/client.js";
 import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
-import { getCarSettings, getPlatformEnvironment } from "../lib/settings.js";
+import { getCarSettings, getMatchingSettings, getPlatformEnvironment } from "../lib/settings.js";
 import { computeBidding, loadBiddingContext, validateBid } from "../orders/bidding.js";
 import { currentVisibilityRadiusKm, orderMatchPoint } from "../orders/matching.js";
 import { createOrderFromInput } from "../orders/routes.js";
 import { checkPaymentStatus, initiateDisbursement, UnsupportedNetworkError } from "../payments/service.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
 import { quoteFare } from "./service.js";
+import { openForDriversSql, scheduledAvailable, toDbTime, validateScheduledFor } from "./scheduled.js";
 
 type Row = Record<string, unknown>;
 
@@ -34,7 +35,10 @@ carRoutes.get("/car/config", async (c) => {
     `SELECT id, kind, name, seats, cargo_type, size_label, reference_image_key, rate_per_km, minimum_fare
      FROM vehicle_categories WHERE active = 1 ORDER BY sort ASC, name ASC`,
   );
-  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, categories: categories.rows });
+  const scheduled = (await scheduledAvailable(settings.scheduled))
+    ? { maxAdvanceHours: settings.scheduled.maxAdvanceHours, minLeadMinutes: settings.scheduled.minLeadMinutes }
+    : null;
+  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, scheduled, categories: categories.rows });
 });
 
 // ---- Who am I: owner / driver status, vehicles, current car -----------------
@@ -205,13 +209,16 @@ carRoutes.get("/car/driver/jobs", async (c) => {
   const user = c.get("user");
   const driver = await onlineDriver(user.sub);
   if (!driver) return c.json({ jobs: [] });
-  const { maxPickupKm } = await getCarSettings();
+  const carSettings = await getCarSettings();
+  const { maxPickupKm } = carSettings;
   const environment = await getPlatformEnvironment();
+  const openSql = await openForDriversSql(carSettings.scheduled.openMinutes);
+  const scheduledSelect = (await hasColumn("car_bookings", "scheduled_for")) ? "b.scheduled_for" : "NULL";
   const res = await db.execute({
-    sql: `SELECT o.*, b.category_id, cu.name AS customer_name FROM car_bookings b
+    sql: `SELECT o.*, b.category_id, ${scheduledSelect} AS scheduled_for, cu.name AS customer_name FROM car_bookings b
           JOIN orders o ON o.id = b.order_id JOIN users cu ON cu.id = o.customer_id
           WHERE b.category_id = ? AND b.status = 'requested' AND o.rider_id IS NULL AND o.stage IN ('Create', 'Match')
-          AND o.environment = ?
+          AND o.environment = ? ${openSql}
           AND o.id NOT IN (SELECT order_id FROM order_rider_exclusions WHERE rider_id = ?)`,
     args: [driver.categoryId, environment, user.sub],
   });
@@ -237,6 +244,7 @@ carRoutes.get("/car/driver/jobs", async (c) => {
           fare: o.estimated_total,
           pickupDistanceKm: km != null ? Math.round(km * 10) / 10 : null,
           matchingMode: o.matching_mode,
+          scheduledFor: o.scheduled_for ? new Date(`${String(o.scheduled_for).replace(" ", "T")}Z`).toISOString() : null,
           applied: applied.has(String(o.id)),
           bidding: bidding.active ? { appPrice: bidding.appPrice, min: bidding.min, max: bidding.max } : null,
         },
@@ -288,7 +296,14 @@ carRoutes.post("/car/orders/:id/apply", async (c) => {
 
   const point = orderMatchPoint(order);
   const km = point && driver.lat != null && driver.lng != null ? haversineKm(point.lat, point.lng, driver.lat, driver.lng) : null;
-  const { maxPickupKm } = await getCarSettings();
+  const applySettings = await getCarSettings();
+  const { maxPickupKm } = applySettings;
+  if (await hasColumn("car_bookings", "scheduled_for")) {
+    const sched = (await db.execute({ sql: "SELECT scheduled_for FROM car_bookings WHERE order_id = ?", args: [id] })).rows[0] as Row | undefined;
+    if (sched?.scheduled_for && new Date(`${String(sched.scheduled_for).replace(" ", "T")}Z`).getTime() > Date.now() + applySettings.scheduled.openMinutes * 60000) {
+      return c.json({ error: "not_open_yet", message: "This scheduled ride opens to drivers closer to pickup time." }, 409);
+    }
+  }
   if (km != null && km > maxPickupKm) return c.json({ error: "too_far", message: "This pickup is too far from you." }, 409);
 
   let bidAmount: number | null = null;
@@ -348,11 +363,21 @@ carRoutes.post("/car/quote", async (c) => {
 carRoutes.post("/car/bookings", async (c) => {
   const user = c.get("user");
   const settings = await getCarSettings();
-  if (!settings.onDemandEnabled) return c.json({ error: "mode_disabled", message: "Booking a car right now isn't available." }, 403);
-  const parsed = tripSchema.safeParse(await c.req.json().catch(() => ({})));
+  const parsed = tripSchema.extend({ scheduledFor: z.string().max(40).optional() }).safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
   const category = await activeCategory(parsed.data.categoryId);
   if (!category) return c.json({ error: "invalid_category" }, 400);
+
+  // "Later": a pickup time inside the admin's window. "Now": needs book-now switched on.
+  let scheduledAt: string | null = null;
+  if (parsed.data.scheduledFor) {
+    if (!(await scheduledAvailable(settings.scheduled))) return c.json({ error: "scheduling_unavailable", message: "Scheduling a car isn't available right now." }, 403);
+    const checked = validateScheduledFor(parsed.data.scheduledFor, settings.scheduled);
+    if ("error" in checked) return c.json({ error: "invalid_time", message: checked.error }, 400);
+    scheduledAt = checked.at;
+  } else if (!settings.onDemandEnabled) {
+    return c.json({ error: "mode_disabled", message: "Booking a car right now isn't available." }, 403);
+  }
 
   const t = parsed.data;
   const distanceKm = haversineKm(t.pickupLat, t.pickupLng, t.destinationLat, t.destinationLng);
@@ -384,7 +409,15 @@ carRoutes.post("/car/bookings", async (c) => {
       // owner/driver split is paid out of what escrow holds.
       paymentRail: "escrow",
     },
-    { fare, matchingMode: settings.matchingMode },
+    {
+      fare,
+      matchingMode: settings.matchingMode,
+      // The customer's pick window starts when the ride opens to drivers, not at booking.
+      matchingDeadlineAt:
+        scheduledAt && settings.matchingMode === "customer_selects"
+          ? new Date(new Date(`${scheduledAt.replace(" ", "T")}Z`).getTime() - settings.scheduled.openMinutes * 60000 + (await getMatchingSettings()).maxAssignmentMinutes * 60000).toISOString()
+          : undefined,
+    },
   );
   if (response.status >= 400) return response;
 
@@ -393,6 +426,9 @@ carRoutes.post("/car/bookings", async (c) => {
     sql: "INSERT INTO car_bookings (id, order_id, customer_id, category_id, environment) VALUES (?, ?, ?, ?, ?)",
     args: [newId("cbk"), String(body.order.id), user.sub, parsed.data.categoryId, environment],
   });
+  if (scheduledAt) {
+    await db.execute({ sql: "UPDATE car_bookings SET scheduled_for = ? WHERE order_id = ?", args: [scheduledAt, String(body.order.id)] });
+  }
   return response;
 });
 
@@ -516,4 +552,52 @@ carRoutes.get("/car/wallet/withdrawals/:id/refresh", async (c) => {
     console.error("Car withdrawal status check failed:", err);
     return c.json({ error: "status_check_failed", message: "Couldn't check the payout just now. Please try again." }, 502);
   }
+});
+
+/**
+ * The customer swaps the driver on a ride that hasn't started yet (typically
+ * after a "your driver may be late" warning). The driver is excluded, the ride
+ * goes back to the pool — keeping any payment already made — and drivers can
+ * apply again.
+ */
+carRoutes.post("/car/bookings/:orderId/rematch", async (c) => {
+  const orderId = c.req.param("orderId") as string;
+  const user = c.get("user");
+  const order = (await db.execute({ sql: "SELECT o.* FROM orders o JOIN car_bookings b ON b.order_id = o.id WHERE o.id = ?", args: [orderId] })).rows[0] as Row | undefined;
+  if (!order) return c.json({ error: "not_found" }, 404);
+  if (order.customer_id !== user.sub) return c.json({ error: "forbidden" }, 403);
+  if (!order.rider_id || !["Match", "Shop", "Substitute", "Approve"].includes(String(order.stage))) {
+    return c.json({ error: "invalid_stage", message: "You can only change the driver before the trip starts." }, 409);
+  }
+  const driverId = String(order.rider_id);
+  await db.execute({ sql: "INSERT OR IGNORE INTO order_rider_exclusions (order_id, rider_id) VALUES (?, ?)", args: [orderId, driverId] });
+  const paid = await db.execute({ sql: "SELECT id FROM payments WHERE order_id = ? AND type = 'collection' AND status = 'successful' LIMIT 1", args: [orderId] });
+  const next = paid.rows.length > 0 ? "Match" : "Create";
+  const released = await db.execute({
+    sql: `UPDATE orders SET rider_id = NULL, stage = ?, matched_out_of_range = 0, updated_at = datetime('now')
+          WHERE id = ? AND rider_id = ? AND stage IN ('Match', 'Shop', 'Substitute', 'Approve')`,
+    args: [next, orderId, driverId],
+  });
+  if (released.rowsAffected === 0) return c.json({ error: "invalid_stage", message: "The ride just changed. Refresh and try again." }, 409);
+  await db.execute({ sql: "DELETE FROM rider_order_locks WHERE rider_id = ? AND order_id = ?", args: [driverId, orderId] });
+  await db.execute({ sql: "UPDATE car_bookings SET driver_id = NULL, vehicle_id = NULL, owner_id = NULL, updated_at = datetime('now') WHERE order_id = ?", args: [orderId] });
+  if (await hasColumn("car_bookings", "scheduled_for")) {
+    await db.execute({ sql: "UPDATE car_bookings SET scheduled_notified_at = NULL WHERE order_id = ?", args: [orderId] });
+  }
+  await db.execute({
+    sql: "INSERT INTO order_events (id, order_id, stage, note, actor_id) VALUES (?, ?, ?, 'Customer chose another driver — ride returned to the pool', ?)",
+    args: [newId("evt"), orderId, next, user.sub],
+  });
+  return c.json({ ok: true });
+});
+
+/** Whether this is the customer's car ride, and when it's scheduled for (so the app can offer "choose another driver"). */
+carRoutes.get("/car/bookings/:orderId/info", async (c) => {
+  const orderId = c.req.param("orderId") as string;
+  const user = c.get("user");
+  const withSchedule = await hasColumn("car_bookings", "scheduled_for");
+  const row = (await db.execute({ sql: `SELECT customer_id, ${withSchedule ? "scheduled_for" : "NULL AS scheduled_for"} FROM car_bookings WHERE order_id = ?`, args: [orderId] })).rows[0] as Row | undefined;
+  if (!row || row.customer_id !== user.sub) return c.json({ error: "not_found" }, 404);
+  const at = row.scheduled_for ? new Date(`${String(row.scheduled_for).replace(" ", "T")}Z`).toISOString() : null;
+  return c.json({ car: true, scheduledFor: at });
 });

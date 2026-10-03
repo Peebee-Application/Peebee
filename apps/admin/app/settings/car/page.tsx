@@ -1,5 +1,6 @@
 "use client";
 
+import type { CarSettings } from "@tuma/shared";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
@@ -15,6 +16,13 @@ export default function CarSettingsPage() {
   const [driver, setDriver] = useState("30");
   const [platform, setPlatform] = useState("10");
   const [maxKm, setMaxKm] = useState("10");
+  const [schedEnabled, setSchedEnabled] = useState(false);
+  const [schedMax, setSchedMax] = useState("");
+  const [schedLead, setSchedLead] = useState("30");
+  const [schedOpen, setSchedOpen] = useState("60");
+  const [schedWatch, setSchedWatch] = useState("30");
+  const [schedNoSignal, setSchedNoSignal] = useState("10");
+  const [schedSpeed, setSchedSpeed] = useState("25");
   const [withdrawals, setWithdrawals] = useState(false);
   const [withdrawMin, setWithdrawMin] = useState("0");
   const [busy, setBusy] = useState(false);
@@ -22,7 +30,7 @@ export default function CarSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number }) {
+  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number; scheduled: CarSettings["scheduled"] }) {
     setEnabled(c.enabled);
     setOnDemand(c.onDemandEnabled);
     setMode(c.matchingMode);
@@ -30,6 +38,13 @@ export default function CarSettingsPage() {
     setDriver(String(c.shares.driver));
     setPlatform(String(c.shares.platform));
     setMaxKm(String(c.maxPickupKm));
+    setSchedEnabled(c.scheduled.enabled);
+    setSchedMax(c.scheduled.maxAdvanceHours ? String(c.scheduled.maxAdvanceHours) : "");
+    setSchedLead(String(c.scheduled.minLeadMinutes));
+    setSchedOpen(String(c.scheduled.openMinutes));
+    setSchedWatch(String(c.scheduled.watchMinutes));
+    setSchedNoSignal(String(c.scheduled.noSignalMinutes));
+    setSchedSpeed(String(c.scheduled.avgSpeedKmh));
     setWithdrawals(c.withdrawalsEnabled);
     setWithdrawMin(String(c.withdrawalMinAmount));
   }
@@ -61,6 +76,15 @@ export default function CarSettingsPage() {
           matchingMode: mode,
           shares: { owner: Number(owner), driver: Number(driver), platform: Number(platform) },
           maxPickupKm: Math.min(200, Math.max(1, Number(maxKm) || 10)),
+          scheduled: {
+            enabled: schedEnabled,
+            maxAdvanceHours: Number(schedMax) > 0 ? Number(schedMax) : null,
+            minLeadMinutes: Number(schedLead) || 0,
+            openMinutes: Math.max(5, Number(schedOpen) || 60),
+            watchMinutes: Math.max(5, Number(schedWatch) || 30),
+            noSignalMinutes: Math.max(1, Number(schedNoSignal) || 10),
+            avgSpeedKmh: Math.max(5, Number(schedSpeed) || 25),
+          },
           withdrawalsEnabled: withdrawals,
           withdrawalMinAmount: Math.max(0, Number(withdrawMin) || 0),
         },
@@ -121,6 +145,31 @@ export default function CarSettingsPage() {
           </div>
           <p className={`text-xs ${total === 100 ? "text-ink-500" : "text-red-700 dark:text-red-300"}`}>
             Total {total}% — must be exactly 100%. Applies after payment fees; a category can set its own split on the fleet page.
+          </p>
+        </section>
+
+        <section className="home-card space-y-3">
+          <label className="flex items-center gap-2 text-sm font-bold text-ink">
+            <input type="checkbox" checked={schedEnabled} disabled={!enabled} onChange={(e) => setSchedEnabled(e.target.checked)} className="h-4 w-4 accent-gold" />
+            Customers can schedule a car for later
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              ["How far ahead (hours) — required", schedMax, setSchedMax],
+              ["Shortest notice (minutes)", schedLead, setSchedLead],
+              ["Open to drivers before pickup (min)", schedOpen, setSchedOpen],
+              ["Watch the driver within (min)", schedWatch, setSchedWatch],
+              ["No location for (min) = no signal", schedNoSignal, setSchedNoSignal],
+              ["Average speed (km/h)", schedSpeed, setSchedSpeed],
+            ].map(([label, value, set]) => (
+              <div key={label as string} className="space-y-1">
+                <label className="text-xs font-semibold text-ink-500">{label as string}</label>
+                <input inputMode="numeric" value={value as string} disabled={!schedEnabled} onChange={(e) => (set as (v: string) => void)(digits(e.target.value))} className={`${input} disabled:opacity-50`} />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-ink-500">
+            Scheduling stays off until &ldquo;how far ahead&rdquo; is set. A scheduled ride is paid at booking but only shown to drivers shortly before pickup, so no driver is tied up for days. Within the watch time, the driver&apos;s distance to the pickup is checked every couple of minutes and the customer is warned once if they look late or can&apos;t be located. Needs migration 0067.
           </p>
         </section>
 

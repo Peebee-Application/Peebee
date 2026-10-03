@@ -38,6 +38,10 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [pricing, setPricing] = useState<{ ratePerKm: number; minimum: number } | null>(null);
   // Tuma Car: only offered when an admin has switched it on and added a car type.
   const [cars, setCars] = useState<CarCategory[]>([]);
+  const [schedule, setSchedule] = useState<{ maxAdvanceHours: number | null; minLeadMinutes: number } | null>(null);
+  const [when, setWhen] = useState<"now" | "later">("now");
+  const [nowOk, setNowOk] = useState(true);
+  const [pickupAt, setPickupAt] = useState("");
   const [mode, setMode] = useState<"boda" | "car">("boda");
   const [carId, setCarId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -50,7 +54,12 @@ export function RideModal({ onClose }: { onClose: () => void }) {
       .catch(() => {});
     api
       .getCarConfig()
-      .then((cfg) => setCars(cfg.onDemandEnabled ? cfg.categories : []))
+      .then((cfg) => {
+        setCars(cfg.onDemandEnabled || cfg.scheduled ? cfg.categories : []);
+        setSchedule(cfg.scheduled);
+        setNowOk(cfg.onDemandEnabled);
+        if (!cfg.onDemandEnabled && cfg.scheduled) setWhen("later");
+      })
       .catch(() => setCars([]));
   }, []);
 
@@ -94,6 +103,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
           destinationAddress: df.address,
           destinationLat: df.lat,
           destinationLng: df.lng,
+          ...(when === "later" ? { scheduledFor: new Date(pickupAt).toISOString() } : {}),
         });
         onClose();
         router.push(`/orders/${order.id}/pay`);
@@ -147,6 +157,27 @@ export function RideModal({ onClose }: { onClose: () => void }) {
 
         {mode === "car" && cars.length > 0 ? (
           <div className="space-y-2">
+            {schedule && (
+              <div className="space-y-2">
+                <div role="tablist" className="flex gap-2">
+                  {(["now", "later"] as const).filter((w) => w === "later" || nowOk).map((w) => (
+                    <button key={w} type="button" role="tab" aria-selected={when === w} onClick={() => setWhen(w)}
+                      className={`min-h-9 flex-1 rounded-full px-3 text-xs font-bold ${when === w ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>
+                      {w === "now" ? "Now" : "Later"}
+                    </button>
+                  ))}
+                </div>
+                {when === "later" && (
+                  <>
+                    <input type="datetime-local" value={pickupAt} onChange={(e) => setPickupAt(e.target.value)}
+                      className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold" aria-label="Pickup time" />
+                    <p className="text-xs text-ink-500">
+                      At least {schedule.minLeadMinutes} minutes ahead{schedule.maxAdvanceHours ? `, up to ${schedule.maxAdvanceHours} hours` : ""}. Drivers see it shortly before pickup.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
             <p className="text-xs font-semibold text-ink-500">{t("car_choose_type")}</p>
             {cars.map((c) => {
               const fare = carFare(c);
@@ -191,7 +222,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
 
         <button
           onClick={submit}
-          disabled={busy || (mode === "car" && !carId)}
+          disabled={busy || (mode === "car" && (!carId || (when === "later" && !pickupAt)))}
           className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
         >
           {busy ? "Please wait…" : "Next: payment"}

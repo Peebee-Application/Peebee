@@ -14,6 +14,7 @@ import { ApplicantPicker } from "../../../components/ApplicantPicker";
 import { SwipeToConfirm } from "../../../components/SwipeToConfirm";
 import { VoiceNotePlayer } from "../../../components/VoiceNotePlayer";
 import { api, errorMessage } from "../../../lib/api";
+import { CarRideNotice } from "../../../components/CarRideNotice";
 import { markFeeProposalSeen } from "../../../lib/fee-proposal-seen";
 import { useTranslate } from "../../../lib/i18n";
 import { formatDateTime, formatDuration, formatUgx, orderTitle, stageLabel } from "../../../lib/order-display";
@@ -300,6 +301,9 @@ export default function OrderDetailPage() {
         </p>
         {order.stage === "Cancelled" && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{t("order_cancelled_note")}</p>
+        )}
+        {!!order.is_ride && order.stage !== "Cancelled" && (
+          <CarRideNotice orderId={orderId} stage={order.stage} hasDriver={!!order.rider_id} onChanged={() => void load().catch(() => {})} />
         )}
         {order.type === "parcel" && order.pickup_area && (
           <p className="flex items-center gap-1.5 text-sm text-ink-500">

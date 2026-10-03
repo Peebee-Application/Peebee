@@ -53,6 +53,7 @@ export default function JobsPage() {
             <p className="text-sm font-bold text-ink">{job.pickupAddress ?? "Pickup"} → {job.destinationAddress ?? "Destination"}</p>
             <strong className="shrink-0 text-sm">{ugx(job.fare)}</strong>
           </div>
+          {job.scheduledFor && <p className="text-xs font-semibold text-ink">Pickup {new Date(job.scheduledFor).toLocaleString("en-UG", { dateStyle: "medium", timeStyle: "short" })}</p>}
           <p className="text-xs text-ink-500">
             {job.distanceKm != null ? `${job.distanceKm.toFixed(1)} km trip` : ""}
             {job.pickupDistanceKm != null ? ` · ${job.pickupDistanceKm} km to pickup` : ""}
