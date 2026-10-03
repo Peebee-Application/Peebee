@@ -9,6 +9,7 @@ import { api, errorMessage } from "../../../lib/api";
 export default function LugandaAudioSettingsPage() {
   const [enabled, setEnabled] = useState(false);
   const [requiresPro, setRequiresPro] = useState(false);
+  const [translateMode, setTranslateMode] = useState<"per_item" | "whole_list">("per_item");
   const [voices, setVoices] = useState<LugandaVoice[]>([]);
   const [defaultVoice, setDefaultVoice] = useState("");
   const [newId, setNewId] = useState<string>(GEMINI_TTS_VOICES[0]);
@@ -24,6 +25,7 @@ export default function LugandaAudioSettingsPage() {
       .then(({ settings }) => {
         setEnabled(settings.lugandaAudioEnabled);
         setRequiresPro(settings.lugandaAudioRequiresPro);
+        setTranslateMode(settings.lugandaTranslateMode ?? "per_item");
         setVoices(settings.lugandaAudioVoices);
         setDefaultVoice(settings.lugandaAudioDefaultVoice);
       })
@@ -52,11 +54,13 @@ export default function LugandaAudioSettingsPage() {
       const res = await api.adminUpdateSettings({
         lugandaAudioEnabled: enabled,
         lugandaAudioRequiresPro: requiresPro,
+        lugandaTranslateMode: translateMode,
         lugandaAudioVoices: voices,
         lugandaAudioDefaultVoice: defaultVoice,
       });
       setEnabled(res.settings.lugandaAudioEnabled);
       setRequiresPro(res.settings.lugandaAudioRequiresPro);
+      setTranslateMode(res.settings.lugandaTranslateMode ?? "per_item");
       setVoices(res.settings.lugandaAudioVoices);
       setDefaultVoice(res.settings.lugandaAudioDefaultVoice);
       setSaved(true);
@@ -84,6 +88,35 @@ export default function LugandaAudioSettingsPage() {
           </label>
           <p className="text-xs text-ink-500">
             Set the Pro price under Settings → Monetization. Off by default — nothing changes until you turn this on.
+          </p>
+        </section>
+
+        <section className="home-card space-y-3">
+          <div>
+            <h2 className="text-sm font-bold text-ink">How the list is translated</h2>
+            <p className="mt-1 text-xs text-ink-500">Changes how the shopping list is turned into Luganda before it is read aloud.</p>
+          </div>
+          <div role="tablist" aria-label="Translation mode" className="grid grid-cols-2 gap-2">
+            {([
+              ["per_item", "Item by item"],
+              ["whole_list", "Whole list"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={translateMode === value}
+                onClick={() => setTranslateMode(value)}
+                className={`min-h-11 rounded-full text-sm font-bold ${translateMode === value ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-ink-500">
+            {translateMode === "per_item"
+              ? "Each item is sent to Google as its own request. The original behaviour; uses one request per item, so a long list can use up a free key quickly."
+              : "The whole list is sent to Google in one request, then read out item by item. Far fewer requests, so free daily limits last much longer. If Google's answer doesn't line up with the list, it quietly falls back to item by item."}
           </p>
         </section>
 
