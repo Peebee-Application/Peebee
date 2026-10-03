@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {!bare && (
         <header className="sticky top-0 z-30 border-b border-[var(--border-faint)] bg-[rgb(var(--surface))]/95 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-xl items-center gap-3 px-4">
-            <Link href="/" aria-label="Go to partner home" className="shrink-0">
+            <Link href="/" aria-label="Go to Tuma Car home" className="shrink-0">
               <Image src="/brand/tuma-logo-navy.png" alt="Tuma" width={120} height={36} priority className="h-7 w-auto dark:hidden" />
               <Image src="/brand/tuma-logo-white.png" alt="Tuma" width={120} height={36} priority className="hidden h-7 w-auto dark:block" />
             </Link>
