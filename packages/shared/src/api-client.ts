@@ -9,6 +9,8 @@ import type {
   AdminCustomer,
   AdminOrderRow,
   AdminRider,
+  CarBookingInput,
+  CarConfig,
   AdminCarBooking,
   AdminCarCategory,
   AdminCarCategoryInput,
@@ -1473,6 +1475,15 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
         method: "PUT",
         body: JSON.stringify({ environment }),
       });
+    },
+
+    // Tuma Car — customer
+    /** Rejects (403/503) while Car is off or not set up; callers treat that as "no cars". */
+    async getCarConfig() {
+      return request<CarConfig>("/v1/car/config");
+    },
+    async bookCar(input: CarBookingInput) {
+      return request<{ order: OrderRow }>("/v1/car/bookings", { method: "POST", body: JSON.stringify(input) });
     },
 
     // Admin — Tuma Car
