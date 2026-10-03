@@ -42,6 +42,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [when, setWhen] = useState<"now" | "later">("now");
   const [nowOk, setNowOk] = useState(true);
   const [carpoolOn, setCarpoolOn] = useState(false);
+  const [rentOn, setRentOn] = useState(false);
   const [pickupAt, setPickupAt] = useState("");
   const [mode, setMode] = useState<"boda" | "car">("boda");
   const [carId, setCarId] = useState<string | null>(null);
@@ -58,6 +59,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
       .then((cfg) => {
         setCars(cfg.onDemandEnabled || cfg.scheduled ? cfg.categories : []);
         setCarpoolOn(!!cfg.carpool);
+        setRentOn(!!cfg.selfDrive);
         setSchedule(cfg.scheduled);
         setNowOk(cfg.onDemandEnabled);
         if (!cfg.onDemandEnabled && cfg.scheduled) setWhen("later");
@@ -140,25 +142,25 @@ export function RideModal({ onClose }: { onClose: () => void }) {
       <div className="space-y-4">
         <RouteSummary pickup={route.pickup} destination={route.destination} destinationLabel={t("place_destination")} onChange={() => setChoosing(true)} />
 
-        {(cars.length > 0 || carpoolOn) && (
+        {(cars.length > 0 || carpoolOn || rentOn) && (
           <div role="tablist" className="flex gap-2">
-            {(["boda", ...(cars.length > 0 ? ["car"] : []), ...(carpoolOn ? ["carpool"] : [])] as ("boda" | "car" | "carpool")[]).map((m) => (
+            {(["boda", ...(cars.length > 0 ? ["car"] : []), ...(carpoolOn ? ["carpool"] : []), ...(rentOn ? ["rent"] : [])] as ("boda" | "car" | "carpool" | "rent")[]).map((m) => (
               <button
                 key={m}
                 type="button"
                 role="tab"
                 aria-selected={mode === m}
                 onClick={() => {
-                  if (m === "carpool") {
+                  if (m === "carpool" || m === "rent") {
                     onClose();
-                    router.push("/carpool");
+                    router.push(m === "carpool" ? "/carpool" : "/rent");
                     return;
                   }
                   setMode(m);
                 }}
                 className={`min-h-10 flex-1 rounded-full px-3 text-sm font-bold ${mode === m ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}
               >
-                {m === "carpool" ? "Carpool" : t(m === "boda" ? "car_tab_boda" : "car_tab_car")}
+                {m === "carpool" ? "Carpool" : m === "rent" ? "Rent" : t(m === "boda" ? "car_tab_boda" : "car_tab_car")}
               </button>
             ))}
           </div>

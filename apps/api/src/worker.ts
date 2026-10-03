@@ -8,6 +8,7 @@ import { setR2Binding, type R2Bucket } from "./storage/r2.js";
 import { sweepExpiredOrders } from "./orders/expiry.js";
 import { sweepScheduledRides } from "./car/scheduled.js";
 import { releaseStaleSeats } from "./car/carpool.js";
+import { sweepRentalRequests } from "./car/selfdrive.js";
 import { sweepStageEscalations, sweepStageFines, sweepElectionSessions } from "./stages/escalation.js";
 
 /** Minimal local stand-in so we don't need @cloudflare/workers-types (which
@@ -69,6 +70,11 @@ export default {
       releaseStaleSeats()
         .then((seats) => console.log("Carpool seat release sweep:", seats))
         .catch((err) => console.error("Carpool seat release sweep failed:", err)),
+    );
+    ctx.waitUntil(
+      sweepRentalRequests()
+        .then((n) => console.log("Self-drive request sweep:", n))
+        .catch((err) => console.error("Self-drive request sweep failed:", err)),
     );
     ctx.waitUntil(
       sweepElectionSessions()

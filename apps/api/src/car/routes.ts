@@ -41,7 +41,8 @@ carRoutes.get("/car/config", async (c) => {
   const carpool = settings.carpool.enabled && (await hasTable("carpool_trips"))
     ? { maxSeatsPerBooking: settings.carpool.maxSeatsPerBooking, maxRepeatWeeks: settings.carpool.maxRepeatWeeks }
     : null;
-  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, scheduled, carpool, categories: categories.rows });
+  const selfDrive = settings.selfDrive.enabled && settings.selfDrive.platformPercent != null && (await hasTable("rentals")) ? { maxDays: settings.selfDrive.maxDays } : null;
+  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, scheduled, carpool, selfDrive, categories: categories.rows });
 });
 
 // ---- Who am I: owner / driver status, vehicles, current car -----------------
@@ -454,13 +455,17 @@ async function withdrawable(userId: string, environment: string): Promise<{ bala
       args: [userId, userId, environment, userId, userId],
     })).rows[0] as Row)?.total ?? 0,
   );
+  // Owner payouts from self-drive rentals count as earnings too.
+  const rentalEarned = (await hasTable("rentals"))
+    ? Number(((await db.execute({ sql: "SELECT COALESCE(SUM(owner_amount), 0) AS total FROM rentals WHERE owner_id = ? AND status = 'completed' AND environment = ?", args: [userId, environment] })).rows[0] as Row)?.total ?? 0)
+    : 0;
   const withdrawn = Number(
     ((await db.execute({
       sql: "SELECT COALESCE(SUM(amount), 0) AS total FROM car_withdrawals WHERE user_id = ? AND environment = ? AND status IN ('pending', 'successful')",
       args: [userId, environment],
     })).rows[0] as Row)?.total ?? 0,
   );
-  return { balance, earned, withdrawn, available: Math.max(0, Math.min(balance, earned - withdrawn)) };
+  return { balance, earned: earned + rentalEarned, withdrawn, available: Math.max(0, Math.min(balance, earned + rentalEarned - withdrawn)) };
 }
 
 carRoutes.get("/car/wallet", async (c) => {

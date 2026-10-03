@@ -285,6 +285,13 @@ const updateSchema = z.object({
         payWithinMinutes: z.number().int().min(5).max(24 * 60),
         matchRadiusKm: z.number().int().min(1).max(200),
       }),
+      selfDrive: z.object({
+        enabled: z.boolean(),
+        platformPercent: z.number().int().min(0).max(90).nullable(),
+        maxDays: z.number().int().min(1).max(365),
+        minDeposit: z.number().int().min(0).max(100_000_000),
+        approveWithinHours: z.number().int().min(1).max(24 * 14),
+      }),
       withdrawalsEnabled: z.boolean(),
       withdrawalMinAmount: z.number().int().min(0).max(100_000_000),
     })

@@ -1,16 +1,17 @@
 "use client";
 
-import type { AdminCarBooking, AdminCarCategory, AdminCarPartner, AdminCarVehicle } from "@tuma/shared";
+import type { AdminCarBooking, AdminCarCategory, AdminCarPartner, AdminCarVehicle, AdminRental } from "@tuma/shared";
 import { useCallback, useEffect, useState } from "react";
 import { SettingsPageShell } from "../../../../components/SettingsPageShell";
 import { api, errorMessage } from "../../../../lib/api";
 
-type Tab = "categories" | "people" | "vehicles" | "rides";
+type Tab = "categories" | "people" | "vehicles" | "rides" | "rentals";
 const TABS: [Tab, string][] = [
   ["categories", "Car types"],
   ["people", "Owners & drivers"],
   ["vehicles", "Vehicles"],
   ["rides", "Rides"],
+  ["rentals", "Rentals"],
 ];
 const digits = (v: string) => v.replace(/[^\d]/g, "");
 const ugx = (n: number | null) => (n == null ? "—" : `UGX ${n.toLocaleString("en-UG")}`);
@@ -23,6 +24,8 @@ export default function CarFleetPage() {
   const [partners, setPartners] = useState<AdminCarPartner[]>([]);
   const [vehicles, setVehicles] = useState<AdminCarVehicle[]>([]);
   const [bookings, setBookings] = useState<AdminCarBooking[]>([]);
+  const [rentals, setRentals] = useState<AdminRental[]>([]);
+  const [rulings, setRulings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +36,7 @@ export default function CarFleetPage() {
       setPartners(p.partners);
       setVehicles(v.vehicles);
       setBookings(b.bookings);
+      api.adminCarRentals().then((r) => setRentals(r.rentals)).catch(() => setRentals([]));
       setError(null);
     } catch (err) {
       setError(errorMessage(err));
@@ -160,6 +164,37 @@ export default function CarFleetPage() {
                 <p className="text-xs text-ink-500">
                   Owner {ugx(b.owner_amount)} · driver {ugx(b.driver_amount)} · Tuma {ugx(b.platform_amount)}
                 </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {tab === "rentals" && (
+        <ul className="space-y-2">
+          {rentals.length === 0 && <li className="text-sm text-ink-500">No rentals yet.</li>}
+          {rentals.map((r) => (
+            <li key={r.id} className="home-card space-y-2">
+              <p className="text-sm font-semibold text-ink">{r.plate} <span className="font-normal text-ink-500">· {r.status}</span></p>
+              <p className="text-xs text-ink-500">Owner {r.owner_name} · renter {r.renter_name} · rent {ugx(r.rent_amount)} · deposit {ugx(r.deposit_amount)}</p>
+              {r.status === "disputed" && (
+                <div className="space-y-2 border-t border-[var(--border-faint)] pt-2">
+                  <p className="text-xs text-ink">Owner claims {ugx(r.damage_claim)} for damage. How much of the deposit does the owner keep?</p>
+                  <input
+                    inputMode="numeric"
+                    value={rulings[r.id] ?? ""}
+                    onChange={(e) => setRulings((x) => ({ ...x, [r.id]: digits(e.target.value) }))}
+                    placeholder={`0 – ${r.damage_claim}`}
+                    className={field}
+                  />
+                  <button
+                    type="button"
+                    disabled={(rulings[r.id] ?? "") === ""}
+                    onClick={() => act(() => api.adminResolveRental(r.id, Number(rulings[r.id])))}
+                    className={`${smallBtn} bg-gold text-ink-gold disabled:opacity-50`}
+                  >
+                    Settle
+                  </button>
+                </div>
               )}
             </li>
           ))}

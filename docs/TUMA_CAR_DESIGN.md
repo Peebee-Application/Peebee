@@ -209,3 +209,18 @@ Out of scope, extension points only: Tours, matatu, relay, Connect, Marketplace,
 - Self-drive terms (liability, insurance, damage thresholds) need Ugandan legal review before `car_selfdrive_enabled` in live.
 - Commission/fee, deposit amounts, penalty values, advance window: shipped as empty/disabled settings; features that depend on them stay off until you set them.
 - Live money for any car mode additionally follows the existing custody-approval gate used for merchant funds [A: same gate applies].
+
+
+---
+
+## 12. Build status and deviations (updated after the build)
+
+Shipped, all admin-controlled and off by default: on-demand rides with bidding, owner/driver/vehicle approval and driver assignment, owner/driver/platform profit share, the Partner app (Owner | Driver), cash-out of earnings, scheduled rides, carpool, self-drive hire.
+
+Deliberate differences from the plan above:
+- **Migrations are 0065–0069** (0064 is bidding): 0065 core, 0066 withdrawals, 0067 scheduled, 0068 carpool, 0069 self-drive. All additive; each mode's code is dormant until its migration is applied.
+- **No new columns on `orders`.** A car ride links to its order through `car_bookings.order_id`; boda behaviour is unchanged.
+- **Scheduled rides** open to drivers `openMinutes` before pickup instead of locking a driver at booking, so no driver is blocked for days. The customer pays after choosing a driver, as for any ride.
+- **Carpool** uses single published trips (with an optional weekly repeat within an admin limit) rather than recurring schedule rules and a nightly materialiser. Meeting points, door pickup fees, no-show and late-cancel fees are not built (undecided values).
+- **Self-drive** holds rent + deposit from the renter's wallet and releases them at the end (deposit back unless the owner claims damage, ruled on by an admin). Inspection photos, late-return fees and a licence verifier are not built; the licence is recorded, not verified. Needs Tuma's percentage set and a legal review before live money.
+- Navigation in the Partner app opens the phone's maps app; there is no in-app map.

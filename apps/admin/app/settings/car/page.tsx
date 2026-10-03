@@ -29,6 +29,11 @@ export default function CarSettingsPage() {
   const [cpCutoff, setCpCutoff] = useState("15");
   const [cpPay, setCpPay] = useState("15");
   const [cpRadius, setCpRadius] = useState("10");
+  const [sdEnabled, setSdEnabled] = useState(false);
+  const [sdPercent, setSdPercent] = useState("");
+  const [sdDays, setSdDays] = useState("30");
+  const [sdDeposit, setSdDeposit] = useState("0");
+  const [sdApprove, setSdApprove] = useState("12");
   const [withdrawals, setWithdrawals] = useState(false);
   const [withdrawMin, setWithdrawMin] = useState("0");
   const [busy, setBusy] = useState(false);
@@ -36,7 +41,7 @@ export default function CarSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number; scheduled: CarSettings["scheduled"]; carpool: CarSettings["carpool"] }) {
+  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number; scheduled: CarSettings["scheduled"]; carpool: CarSettings["carpool"]; selfDrive: CarSettings["selfDrive"] }) {
     setEnabled(c.enabled);
     setOnDemand(c.onDemandEnabled);
     setMode(c.matchingMode);
@@ -57,6 +62,11 @@ export default function CarSettingsPage() {
     setCpCutoff(String(c.carpool.cutoffMinutes));
     setCpPay(String(c.carpool.payWithinMinutes));
     setCpRadius(String(c.carpool.matchRadiusKm));
+    setSdEnabled(c.selfDrive.enabled);
+    setSdPercent(c.selfDrive.platformPercent == null ? "" : String(c.selfDrive.platformPercent));
+    setSdDays(String(c.selfDrive.maxDays));
+    setSdDeposit(String(c.selfDrive.minDeposit));
+    setSdApprove(String(c.selfDrive.approveWithinHours));
     setWithdrawals(c.withdrawalsEnabled);
     setWithdrawMin(String(c.withdrawalMinAmount));
   }
@@ -104,6 +114,13 @@ export default function CarSettingsPage() {
             cutoffMinutes: Math.max(0, Number(cpCutoff) || 0),
             payWithinMinutes: Math.max(5, Number(cpPay) || 15),
             matchRadiusKm: Math.max(1, Number(cpRadius) || 10),
+          },
+          selfDrive: {
+            enabled: sdEnabled,
+            platformPercent: sdPercent === "" ? null : Math.min(90, Number(sdPercent)),
+            maxDays: Math.max(1, Number(sdDays) || 30),
+            minDeposit: Math.max(0, Number(sdDeposit) || 0),
+            approveWithinHours: Math.max(1, Number(sdApprove) || 12),
           },
           withdrawalsEnabled: withdrawals,
           withdrawalMinAmount: Math.max(0, Number(withdrawMin) || 0),
@@ -214,6 +231,29 @@ export default function CarSettingsPage() {
           </div>
           <p className="text-xs text-ink-500">
             The seat price is set by the driver. Each booked seat is its own paid ride, split between owner, driver and Tuma like any car ride. No-show and late-cancel fees are not enabled yet. Needs migration 0068.
+          </p>
+        </section>
+
+        <section className="home-card space-y-3">
+          <label className="flex items-center gap-2 text-sm font-bold text-ink">
+            <input type="checkbox" checked={sdEnabled} disabled={!enabled} onChange={(e) => setSdEnabled(e.target.checked)} className="h-4 w-4 accent-gold" />
+            Self-drive hire: owners rent vehicles out by the day
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              ["Tuma's share of the rent (%) — required", sdPercent, setSdPercent],
+              ["Longest rental (days)", sdDays, setSdDays],
+              ["Lowest deposit (UGX)", sdDeposit, setSdDeposit],
+              ["Owner must answer within (hours)", sdApprove, setSdApprove],
+            ].map(([label, value, set]) => (
+              <div key={label as string} className="space-y-1">
+                <label className="text-xs font-semibold text-ink-500">{label as string}</label>
+                <input inputMode="numeric" value={value as string} disabled={!sdEnabled} onChange={(e) => (set as (v: string) => void)(digits(e.target.value))} className={`${input} disabled:opacity-50`} />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-ink-500">
+            Stays off until Tuma&apos;s share is set. The renter&apos;s rent and deposit are held from their wallet; the deposit comes back unless the owner claims damage, which you rule on under Car fleet → Rentals. Late-return fees and inspection photos are not enabled yet. Have the hire terms and insurance position reviewed before using this with real money. Needs migration 0069.
           </p>
         </section>
 
