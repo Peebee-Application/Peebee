@@ -12,8 +12,8 @@ export default function RiderMatchingPage() {
   const [enabledModes, setEnabledModes] = useState<MatchingMode[]>(["first_to_claim"]);
   const [nearestWindowSeconds, setNearestWindowSeconds] = useState("");
   const [maxAssignmentMinutes, setMaxAssignmentMinutes] = useState("");
-  const [expiryEnabled, setExpiryEnabled] = useState(false);
-  const [expiryValue, setExpiryValue] = useState("12");
+  const [expiryEnabled, setExpiryEnabled] = useState(true);
+  const [expiryValue, setExpiryValue] = useState("6");
   const [expiryUnit, setExpiryUnit] = useState<JobExpiryUnit>("hours");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
