@@ -157,7 +157,8 @@ select {
   background-color: rgb(var(--surface-input));
 }
 
-/* RULE — a form field is ONE solid colour, edge to edge. Never put an input
+/* RULE — a form field is ONE solid colour, edge to edge (tabs are exempt:
+   they may use their own tinted/selected colours). Never put an input
    of one shade inside a box of another, and never put a tinted chip/button
    inside a field. When a field is made of several parts (icon + input +
    button), the wrapper gets .field-box: it owns the single fill, and any
