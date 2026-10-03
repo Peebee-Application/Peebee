@@ -47,6 +47,9 @@ test("job expiry sweep", async (t) => {
   await client.execute(`INSERT INTO orders (id, list_id, customer_id, stage, created_at) VALUES ('old_unpaid', 'l2', 'cust', 'Create', ${hoursAgo(13)})`);
   await client.execute(`INSERT INTO orders (id, list_id, customer_id, stage, created_at) VALUES ('recent', 'l3', 'cust', 'Create', ${hoursAgo(2)})`);
   await client.execute(`INSERT INTO orders (id, list_id, customer_id, stage, rider_id, created_at) VALUES ('served', 'l4', 'cust', 'Shop', 'rider', ${hoursAgo(13)})`);
+  // Jobs from long before the feature existed: weeks old, and a backlog bigger than one sweep's batch.
+  await client.execute("INSERT INTO lists (id, customer_id, title) VALUES ('l5', 'cust', 'e')");
+  await client.execute(`INSERT INTO orders (id, list_id, customer_id, stage, created_at) VALUES ('ancient', 'l5', 'cust', 'Create', datetime('now', '-45 days'))`);
   await client.execute("INSERT INTO payments (id, order_id, type, provider, amount, currency, status) VALUES ('p1', 'old_paid', 'collection', 'wallet', 7000, 'UGX', 'successful')");
 
   await t.test("duration converts minutes and hours", () => {
@@ -63,10 +66,12 @@ test("job expiry sweep", async (t) => {
 
   await t.test("expires only old, unserved jobs and refunds what was paid", async () => {
     await setJobExpirySettings({ enabled: true, value: 12, unit: "hours" });
-    assert.deepEqual(await sweepExpiredOrders(), { expired: 2, skipped: 0 });
+    assert.deepEqual(await sweepExpiredOrders(), { expired: 3, skipped: 0 });
     const stage = async (id: string) => (await client.execute({ sql: "SELECT stage FROM orders WHERE id = ?", args: [id] })).rows[0].stage;
     assert.equal(await stage("old_paid"), "Cancelled");
     assert.equal(await stage("old_unpaid"), "Cancelled");
+    assert.equal(await stage("ancient"), "Cancelled", "jobs created long before the feature are expired too");
+    assert.equal((await client.execute("SELECT status FROM lists WHERE id = 'l5'")).rows[0].status, "draft");
     assert.equal(await stage("recent"), "Create");
     assert.equal(await stage("served"), "Shop");
     const wallet = await client.execute("SELECT wallet_balance FROM users WHERE id = 'cust'");
