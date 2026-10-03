@@ -268,7 +268,10 @@ export function PlaceFlow({
     setView("search");
   }
 
-  function choose(place: Place, fromSearch = false) {
+  /** `proceed` is for saved places: a saved place is a finished answer, so once
+   * the route is complete the flow moves straight on instead of waiting for
+   * the confirm button (which is what a dropped map pin still gets). */
+  function choose(place: Place, fromSearch = false, proceed = false) {
     if (fromSearch) {
       rememberSearch(place);
       setSearches(readRecentSearches());
@@ -279,6 +282,14 @@ export function PlaceFlow({
     if (!route) {
       onDone({ pickup: null, destination: place });
       return;
+    }
+    if (proceed) {
+      const nextPickup = active === "pickup" ? place : pickup;
+      const nextDestination = active === "destination" ? place : destination;
+      if (nextPickup && nextDestination) {
+        onDone({ pickup: nextPickup, destination: nextDestination });
+        return;
+      }
     }
     // Move on to whichever field is still empty.
     if (!placeOf(other(active))) setActive(other(active));
@@ -391,7 +402,7 @@ export function PlaceFlow({
               <span className="text-lg font-bold text-ink">{t("place_search")}</span>
             </button>
           </div>
-          <SavedSlider saved={data.saved} onPick={(p) => choose(p)} heading={t("place_saved")} />
+          <SavedSlider saved={data.saved} onPick={(p) => choose(p, false, true)} heading={t("place_saved")} />
         </div>
       )}
 
@@ -459,7 +470,7 @@ export function PlaceFlow({
                     </ListRows>
                   </div>
                 )}
-                <SavedSlider saved={data.saved} onPick={(p) => choose(p)} heading={t("place_saved")} />
+                <SavedSlider saved={data.saved} onPick={(p) => choose(p, false, true)} heading={t("place_saved")} />
                 <PlaceRows
                   heading={t("place_recent_trips")}
                   places={data.recent}
