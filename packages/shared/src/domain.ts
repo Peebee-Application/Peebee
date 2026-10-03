@@ -1789,3 +1789,78 @@ export type StageElectionSessionDetail = {
 export type AdminStageSummary = Stage & { member_count: number };
 
 export type AdminStageDetail = { stage: Stage; members: StageMemberSummary[]; cycle: StageCycle | null };
+
+// ---- Tuma Car (admin) ----------------------------------------------------
+
+export type CarPartnerStatus = "none" | "pending" | "approved" | "rejected" | "suspended";
+
+export type AdminCarCategory = {
+  id: string;
+  kind: "passenger" | "cargo";
+  name: string;
+  seats: number | null;
+  cargo_type: string | null;
+  size_label: string | null;
+  rate_per_km: number;
+  minimum_fare: number;
+  owner_share_percent: number | null;
+  driver_share_percent: number | null;
+  platform_share_percent: number | null;
+  active: number;
+  sort: number;
+};
+
+export type AdminCarCategoryInput = {
+  kind: "passenger" | "cargo";
+  name: string;
+  seats?: number | null;
+  cargoType?: string | null;
+  sizeLabel?: string | null;
+  ratePerKm: number;
+  minimumFare: number;
+  ownerSharePercent?: number | null;
+  driverSharePercent?: number | null;
+  platformSharePercent?: number | null;
+  active: boolean;
+  sort: number;
+};
+
+export type AdminCarPartner = {
+  user_id: string;
+  name: string;
+  phone: string | null;
+  owner_status: CarPartnerStatus;
+  driver_status: CarPartnerStatus;
+  licence_expiry: string | null;
+  notes: string | null;
+};
+
+export type AdminCarVehicle = {
+  id: string;
+  owner_id: string;
+  owner_name: string;
+  category_id: string;
+  category_name: string;
+  plate: string;
+  make: string | null;
+  model: string | null;
+  status: "pending" | "approved" | "rejected" | "suspended";
+  driver_id: string | null;
+  driver_name: string | null;
+};
+
+export type AdminCarBooking = {
+  id: string;
+  order_id: string;
+  status: "requested" | "completed" | "cancelled";
+  stage: string;
+  category_name: string;
+  customer_name: string;
+  driver_name: string | null;
+  owner_name: string | null;
+  estimated_total: number | null;
+  final_total: number | null;
+  owner_amount: number | null;
+  driver_amount: number | null;
+  platform_amount: number | null;
+};

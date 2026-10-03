@@ -9,6 +9,11 @@ import type {
   AdminCustomer,
   AdminOrderRow,
   AdminRider,
+  AdminCarBooking,
+  AdminCarCategory,
+  AdminCarCategoryInput,
+  AdminCarPartner,
+  AdminCarVehicle,
   AdminStats,
   AuthUser,
   AvailableJob,
@@ -1468,6 +1473,35 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
         method: "PUT",
         body: JSON.stringify({ environment }),
       });
+    },
+
+    // Admin — Tuma Car
+    async adminCarCategories() {
+      return request<{ categories: AdminCarCategory[] }>("/v1/admin/car/categories");
+    },
+    async adminSaveCarCategory(input: AdminCarCategoryInput, id?: string) {
+      return request<{ ok?: true; id?: string }>(id ? `/v1/admin/car/categories/${id}` : "/v1/admin/car/categories", {
+        method: id ? "PUT" : "POST",
+        body: JSON.stringify(input),
+      });
+    },
+    async adminCarPartners() {
+      return request<{ partners: AdminCarPartner[] }>("/v1/admin/car/partners");
+    },
+    async adminDecideCarPartner(userId: string, role: "owner" | "driver", status: "approved" | "rejected" | "suspended") {
+      return request<{ ok: true }>(`/v1/admin/car/partners/${userId}/decision`, { method: "POST", body: JSON.stringify({ role, status }) });
+    },
+    async adminCarVehicles() {
+      return request<{ vehicles: AdminCarVehicle[] }>("/v1/admin/car/vehicles");
+    },
+    async adminDecideCarVehicle(id: string, status: "approved" | "rejected" | "suspended") {
+      return request<{ ok: true }>(`/v1/admin/car/vehicles/${id}/decision`, { method: "POST", body: JSON.stringify({ status }) });
+    },
+    async adminAssignCarDriver(vehicleId: string, driverId: string | null) {
+      return request<{ ok: true }>(`/v1/admin/car/vehicles/${vehicleId}/assign`, { method: "POST", body: JSON.stringify({ driverId }) });
+    },
+    async adminCarBookings() {
+      return request<{ bookings: AdminCarBooking[] }>("/v1/admin/car/bookings");
     },
 
     // Admin
