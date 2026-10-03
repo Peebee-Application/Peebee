@@ -298,6 +298,16 @@ const updateSchema = z.object({
       }),
       vehiclePhotos: z.object({ max: z.number().int().min(6).max(20), minRequired: z.number().int().min(0).max(20) }),
       kyc: z.object({ ownerIdRequired: z.boolean(), driverIdRequired: z.boolean(), driverLicenceRequired: z.boolean() }),
+      deals: z
+        .object({
+          enabled: z.boolean(),
+          shareEnabled: z.boolean(),
+          rentEnabled: z.boolean(),
+          minOwnerSharePercent: z.number().int().min(0).max(100),
+          maxOwnerSharePercent: z.number().int().min(0).max(100),
+          maxRentPerDay: z.number().int().min(0).max(100_000_000),
+        })
+        .refine((d) => d.minOwnerSharePercent <= d.maxOwnerSharePercent, { message: "The lowest owner share can't be above the highest." }),
       withdrawalsEnabled: z.boolean(),
       withdrawalMinAmount: z.number().int().min(0).max(100_000_000),
     })

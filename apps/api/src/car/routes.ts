@@ -13,7 +13,7 @@ import { createOrderFromInput } from "../orders/routes.js";
 import { checkPaymentStatus, initiateDisbursement, UnsupportedNetworkError } from "../payments/service.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
 import { passengerSchema } from "../passengers/routes.js";
-import { quoteFare } from "./service.js";
+import { endAssignment, quoteFare } from "./service.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
 import { openForDriversSql, scheduledAvailable, toDbTime, validateScheduledFor } from "./scheduled.js";
@@ -46,7 +46,7 @@ carRoutes.get("/car/config", async (c) => {
     ? { maxSeatsPerBooking: settings.carpool.maxSeatsPerBooking, maxRepeatWeeks: settings.carpool.maxRepeatWeeks }
     : null;
   const selfDrive = settings.selfDrive.enabled && settings.selfDrive.platformPercent != null && (await hasTable("rentals")) ? { maxDays: settings.selfDrive.maxDays } : null;
-  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, scheduled, carpool, selfDrive, vehiclePhotos: settings.vehiclePhotos, kyc: settings.kyc, categories: categories.rows });
+  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, scheduled, carpool, selfDrive, vehiclePhotos: settings.vehiclePhotos, kyc: settings.kyc, deals: settings.deals.enabled && (await hasTable("driver_requests")) && (await hasColumn("vehicle_assignments", "fee_type")) ? { shareEnabled: settings.deals.shareEnabled, rentEnabled: settings.deals.rentEnabled, minOwnerSharePercent: settings.deals.minOwnerSharePercent, maxOwnerSharePercent: settings.deals.maxOwnerSharePercent, maxRentPerDay: settings.deals.maxRentPerDay } : null, categories: categories.rows });
 });
 
 // ---- Who am I: owner / driver status, vehicles, current car -----------------
@@ -157,7 +157,7 @@ carRoutes.get("/car/owner/rides", async (c) => {
   const user = c.get("user");
   const res = await db.execute({
     sql: `SELECT b.id, b.order_id, b.status, b.vehicle_id, v.plate, du.name AS driver_name, o.stage, o.pickup_address, o.destination_address,
-                 o.estimated_total, o.final_total, b.owner_amount, b.settled_at, b.created_at
+                 o.estimated_total, o.final_total, b.owner_amount, b.driver_amount, b.platform_amount, b.pool_amount, b.settled_at, b.created_at
           FROM car_bookings b
           JOIN orders o ON o.id = b.order_id
           LEFT JOIN vehicles v ON v.id = b.vehicle_id
@@ -166,7 +166,18 @@ carRoutes.get("/car/owner/rides", async (c) => {
     args: [user.sub],
   });
   const earned = (await db.execute({ sql: "SELECT COALESCE(SUM(owner_amount), 0) AS total FROM car_bookings WHERE owner_id = ? AND status = 'completed'", args: [user.sub] })).rows[0] as Row;
-  return c.json({ rides: res.rows, totalEarned: Number(earned.total) });
+  // What each of their drivers has earned from rides in the owner's cars.
+  const drivers = (await db.execute({
+    sql: `SELECT b.driver_id, du.name, COUNT(*) AS rides, COALESCE(SUM(b.driver_amount), 0) AS driver_earned, COALESCE(SUM(b.owner_amount), 0) AS owner_earned
+          FROM car_bookings b JOIN users du ON du.id = b.driver_id
+          WHERE b.owner_id = ? AND b.status = 'completed' AND b.driver_id != ? GROUP BY b.driver_id, du.name ORDER BY driver_earned DESC`,
+    args: [user.sub, user.sub],
+  })).rows as Row[];
+  return c.json({
+    rides: res.rows,
+    totalEarned: Number(earned.total),
+    drivers: drivers.map((d) => ({ driverId: d.driver_id, name: d.name, rides: Number(d.rides), driverEarned: Number(d.driver_earned), ownerEarned: Number(d.owner_earned) })),
+  });
 });
 
 // ---- Driver ----------------------------------------------------------------
@@ -747,9 +758,7 @@ carRoutes.post("/car/vehicles/:id/release", async (c) => {
   const user = c.get("user");
   const busy = await db.execute({ sql: "SELECT 1 FROM orders WHERE rider_id = ? AND stage NOT IN ('Settle', 'Cancelled') LIMIT 1", args: [user.sub] });
   if (busy.rows.length > 0) return c.json({ error: "ride_in_progress", message: "Finish your current ride first." }, 409);
-  const ended = await db.execute({ sql: "UPDATE vehicle_assignments SET status = 'ended', ended_at = datetime('now') WHERE vehicle_id = ? AND driver_id = ? AND status = 'active'", args: [vehicleId, user.sub] });
-  if (ended.rowsAffected === 0) return c.json({ error: "not_found" }, 404);
-  await db.execute({ sql: "UPDATE car_driver_state SET online = 0, vehicle_id = NULL, updated_at = datetime('now') WHERE driver_id = ? AND vehicle_id = ?", args: [user.sub, vehicleId] });
+  if (!(await endAssignment(vehicleId, user.sub, user.sub))) return c.json({ error: "not_found" }, 404);
   return c.json({ ok: true });
 });
 

@@ -298,6 +298,15 @@ const DEFAULTS = {
   car_kyc_owner_id_required: "1",
   car_kyc_driver_id_required: "1",
   car_kyc_driver_licence_required: "1",
+  /** Drivers apply to owners' cars; the owner accepts on agreed terms. */
+  car_deals_enabled: "0",
+  car_deal_share_enabled: "1",
+  car_deal_rent_enabled: "1",
+  /** Range of the owner's agreed share of what is left after Tuma's cut (%). */
+  car_deal_min_owner_share_percent: "40",
+  car_deal_max_owner_share_percent: "80",
+  /** Highest fixed rent per day an owner may ask (UGX); 0 = no limit. */
+  car_deal_max_rent_per_day: "0",
   car_withdrawals_enabled: "0",
   /** Smallest withdrawal in UGX (0 = no minimum). */
   car_withdrawal_min_amount: "0",
@@ -331,6 +340,17 @@ export type CarSettings = {
   selfDrive: CarSelfDriveSettings;
   vehiclePhotos: { max: number; minRequired: number };
   kyc: { ownerIdRequired: boolean; driverIdRequired: boolean; driverLicenceRequired: boolean };
+  deals: CarDealSettings;
+};
+
+export type CarDealSettings = {
+  enabled: boolean;
+  shareEnabled: boolean;
+  rentEnabled: boolean;
+  minOwnerSharePercent: number;
+  maxOwnerSharePercent: number;
+  /** Highest fixed rent per day (UGX); 0 = no limit. */
+  maxRentPerDay: number;
 };
 
 export type CarSelfDriveSettings = {
@@ -363,7 +383,7 @@ export type CarScheduledSettings = {
 };
 
 export async function getCarSettings(): Promise<CarSettings> {
-  const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin, sEnabled, sMax, sLead, sOpen, sWatch, sNoSig, sSpeed, cpEnabled, cpSeats, cpRepeat, cpCutoff, cpPay, cpRadius, sdEnabled, sdPct, sdDays, sdDeposit, sdApprove, vpMax, vpMin, kycOwner, kycDriverId, kycLicence] = await Promise.all([
+  const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin, sEnabled, sMax, sLead, sOpen, sWatch, sNoSig, sSpeed, cpEnabled, cpSeats, cpRepeat, cpCutoff, cpPay, cpRadius, sdEnabled, sdPct, sdDays, sdDeposit, sdApprove, vpMax, vpMin, kycOwner, kycDriverId, kycLicence, dEnabled, dShare, dRent, dMin, dMax, dRentMax] = await Promise.all([
     getSetting("car_enabled"),
     getSetting("car_ondemand_enabled"),
     getSetting("car_matching_mode"),
@@ -396,6 +416,12 @@ export async function getCarSettings(): Promise<CarSettings> {
     getSetting("car_kyc_owner_id_required"),
     getSetting("car_kyc_driver_id_required"),
     getSetting("car_kyc_driver_licence_required"),
+    getSetting("car_deals_enabled"),
+    getSetting("car_deal_share_enabled"),
+    getSetting("car_deal_rent_enabled"),
+    getSetting("car_deal_min_owner_share_percent"),
+    getSetting("car_deal_max_owner_share_percent"),
+    getSetting("car_deal_max_rent_per_day"),
   ]);
   const sdPercent = sdPct === "" ? NaN : Number(sdPct);
   const clamp = (v: string, lo: number, hi: number, fallback: number) => Math.min(hi, Math.max(lo, Math.floor(Number(v)) || fallback));
@@ -443,6 +469,17 @@ export async function getCarSettings(): Promise<CarSettings> {
       return { max, minRequired: Math.min(max, Math.max(0, Math.floor(Number(vpMin)) || 0)) };
     })(),
     kyc: { ownerIdRequired: kycOwner !== "0", driverIdRequired: kycDriverId !== "0", driverLicenceRequired: kycLicence !== "0" },
+    deals: (() => {
+      const lo = clamp(dMin, 0, 100, 40);
+      return {
+        enabled: dEnabled === "1",
+        shareEnabled: dShare !== "0",
+        rentEnabled: dRent !== "0",
+        minOwnerSharePercent: lo,
+        maxOwnerSharePercent: Math.max(lo, clamp(dMax, 0, 100, 80)),
+        maxRentPerDay: Math.max(0, Math.floor(Number(dRentMax)) || 0),
+      };
+    })(),
   };
 }
 
@@ -490,6 +527,14 @@ export async function setCarSettings(next: CarSettings): Promise<void> {
     await setSetting("car_kyc_owner_id_required", next.kyc.ownerIdRequired ? "1" : "0");
     await setSetting("car_kyc_driver_id_required", next.kyc.driverIdRequired ? "1" : "0");
     await setSetting("car_kyc_driver_licence_required", next.kyc.driverLicenceRequired ? "1" : "0");
+  }
+  if (next.deals) {
+    await setSetting("car_deals_enabled", next.deals.enabled ? "1" : "0");
+    await setSetting("car_deal_share_enabled", next.deals.shareEnabled ? "1" : "0");
+    await setSetting("car_deal_rent_enabled", next.deals.rentEnabled ? "1" : "0");
+    await setSetting("car_deal_min_owner_share_percent", String(next.deals.minOwnerSharePercent));
+    await setSetting("car_deal_max_owner_share_percent", String(next.deals.maxOwnerSharePercent));
+    await setSetting("car_deal_max_rent_per_day", String(next.deals.maxRentPerDay));
   }
   await setSetting("car_withdrawals_enabled", next.withdrawalsEnabled ? "1" : "0");
   await setSetting("car_withdrawal_min_amount", String(Math.max(0, Math.floor(Number(next.withdrawalMinAmount) || 0))));

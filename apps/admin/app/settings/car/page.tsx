@@ -34,6 +34,12 @@ export default function CarSettingsPage() {
   const [sdDays, setSdDays] = useState("30");
   const [sdDeposit, setSdDeposit] = useState("0");
   const [sdApprove, setSdApprove] = useState("12");
+  const [dealsOn, setDealsOn] = useState(false);
+  const [dealShare, setDealShare] = useState(true);
+  const [dealRent, setDealRent] = useState(true);
+  const [dealMin, setDealMin] = useState("40");
+  const [dealMax, setDealMax] = useState("80");
+  const [dealRentMax, setDealRentMax] = useState("0");
   const [kycOwner, setKycOwner] = useState(true);
   const [kycDriverId, setKycDriverId] = useState(true);
   const [kycLicence, setKycLicence] = useState(true);
@@ -46,7 +52,7 @@ export default function CarSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number; scheduled: CarSettings["scheduled"]; carpool: CarSettings["carpool"]; selfDrive: CarSettings["selfDrive"]; vehiclePhotos: CarSettings["vehiclePhotos"]; kyc: CarSettings["kyc"] }) {
+  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number; scheduled: CarSettings["scheduled"]; carpool: CarSettings["carpool"]; selfDrive: CarSettings["selfDrive"]; vehiclePhotos: CarSettings["vehiclePhotos"]; kyc: CarSettings["kyc"]; deals: CarSettings["deals"] }) {
     setEnabled(c.enabled);
     setOnDemand(c.onDemandEnabled);
     setMode(c.matchingMode);
@@ -72,6 +78,12 @@ export default function CarSettingsPage() {
     setSdDays(String(c.selfDrive.maxDays));
     setSdDeposit(String(c.selfDrive.minDeposit));
     setSdApprove(String(c.selfDrive.approveWithinHours));
+    setDealsOn(c.deals.enabled);
+    setDealShare(c.deals.shareEnabled);
+    setDealRent(c.deals.rentEnabled);
+    setDealMin(String(c.deals.minOwnerSharePercent));
+    setDealMax(String(c.deals.maxOwnerSharePercent));
+    setDealRentMax(String(c.deals.maxRentPerDay));
     setKycOwner(c.kyc.ownerIdRequired);
     setKycDriverId(c.kyc.driverIdRequired);
     setKycLicence(c.kyc.driverLicenceRequired);
@@ -131,6 +143,14 @@ export default function CarSettingsPage() {
             maxDays: Math.max(1, Number(sdDays) || 30),
             minDeposit: Math.max(0, Number(sdDeposit) || 0),
             approveWithinHours: Math.max(1, Number(sdApprove) || 12),
+          },
+          deals: {
+            enabled: dealsOn,
+            shareEnabled: dealShare,
+            rentEnabled: dealRent,
+            minOwnerSharePercent: Math.min(100, Number(dealMin) || 0),
+            maxOwnerSharePercent: Math.min(100, Number(dealMax) || 0),
+            maxRentPerDay: Math.max(0, Number(dealRentMax) || 0),
           },
           kyc: { ownerIdRequired: kycOwner, driverIdRequired: kycDriverId, driverLicenceRequired: kycLicence },
           vehiclePhotos: { max: Math.min(20, Math.max(6, Number(photoMax) || 8)), minRequired: Math.max(0, Number(photoMin) || 0) },
@@ -266,6 +286,38 @@ export default function CarSettingsPage() {
           </div>
           <p className="text-xs text-ink-500">
             Stays off until Tuma&apos;s share is set. The renter&apos;s rent and deposit are held from their wallet; the deposit comes back unless the owner claims damage, which you rule on under Car fleet → Rentals. Late-return fees and inspection photos are not enabled yet. Have the hire terms and insurance position reviewed before using this with real money. Needs migration 0069.
+          </p>
+        </section>
+
+        <section className="home-card space-y-3">
+          <label className="flex items-center gap-2 text-sm font-bold text-ink">
+            <input type="checkbox" checked={dealsOn} disabled={!enabled} onChange={(e) => setDealsOn(e.target.checked)} className="h-4 w-4 accent-gold" />
+            Drivers can apply to owners&apos; cars
+          </label>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input type="checkbox" checked={dealShare} disabled={!dealsOn} onChange={(e) => setDealShare(e.target.checked)} className="h-4 w-4 accent-gold" />
+              Owners can offer a share of each ride
+            </label>
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input type="checkbox" checked={dealRent} disabled={!dealsOn} onChange={(e) => setDealRent(e.target.checked)} className="h-4 w-4 accent-gold" />
+              Owners can offer a fixed rent (per day or week)
+            </label>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              ["Lowest owner share %", dealMin, setDealMin],
+              ["Highest owner share %", dealMax, setDealMax],
+              ["Most rent per day (0 = no limit)", dealRentMax, setDealRentMax],
+            ].map(([label, value, set]) => (
+              <div key={label as string} className="space-y-1">
+                <label className="text-xs font-semibold text-ink-500">{label as string}</label>
+                <input inputMode="numeric" value={value as string} disabled={!dealsOn} onChange={(e) => (set as (v: string) => void)(digits(e.target.value))} className={`${input} disabled:opacity-50`} />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-ink-500">
+            An owner opens a car to drivers on stated terms. A driver applies; when the owner accepts, they&apos;re connected straight away (both must already be approved). Tuma&apos;s own cut comes off every ride first; the owner&apos;s share is of what is left. With rent, the driver keeps the rest and rent is taken from their rides or paid from their wallet. Needs migration 0073.
           </p>
         </section>
 

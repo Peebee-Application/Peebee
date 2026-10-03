@@ -2,8 +2,8 @@ import { roundFare } from "@tuma/shared";
 import { db } from "../db/client.js";
 import { haversineKm } from "../lib/geo.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
-import { getCarSettings, type CarShares } from "../lib/settings.js";
-import { creditWallet } from "../wallet/service.js";
+import { getCarSettings, getPlatformEnvironment, type CarShares } from "../lib/settings.js";
+import { creditWallet, debitWallet } from "../wallet/service.js";
 import { newId } from "../lib/ids.js";
 
 type Row = Record<string, unknown>;
@@ -13,6 +13,59 @@ export async function isCarOrder(orderId: string): Promise<boolean> {
   if (!(await hasTable("car_bookings"))) return false;
   const res = await db.execute({ sql: "SELECT 1 FROM car_bookings WHERE order_id = ?", args: [orderId] });
   return res.rows.length > 0;
+}
+
+/** What an owner and driver agreed for a vehicle: a share of each ride, or a fixed rent. */
+export type DealTerms = {
+  feeType: "share" | "rent";
+  /** Owner's part of what is left after Tuma's cut (%), for a share deal. */
+  ownerSharePercent: number | null;
+  rentAmount: number | null;
+  rentPeriod: "day" | "week" | null;
+};
+
+const PERIOD_MS = { day: 86_400_000, week: 7 * 86_400_000 };
+
+/** Rent owed so far: one charge per started period since the deal began, less what's been paid. */
+export function rentDue(deal: DealTerms, startedAt: Date, paidTotal: number, now = new Date()): number {
+  if (deal.feeType !== "rent" || !deal.rentAmount || !deal.rentPeriod) return 0;
+  const periods = Math.max(1, Math.ceil((now.getTime() - startedAt.getTime()) / PERIOD_MS[deal.rentPeriod]));
+  return Math.max(0, periods * deal.rentAmount - paidTotal);
+}
+
+/**
+ * Splits a settled ride's pool. With no agreement it is the admin/category
+ * split. With one, Tuma's cut comes off first (same percentage as always),
+ * then what's left goes by the deal: a share goes to the owner by the agreed
+ * percentage; with rent the driver keeps it all and the owner is paid the rent
+ * owed out of it. The parts always add up exactly.
+ */
+export function splitWithDeal(
+  pool: number,
+  shares: CarShares,
+  deal: DealTerms | null,
+  owedRent: number,
+): { owner: number; driver: number; platform: number; rentCollected: number } {
+  if (!deal) return { ...splitPool(pool, shares), rentCollected: 0 };
+  const platform = Math.floor((pool * shares.platform) / 100);
+  const left = pool - platform;
+  if (deal.feeType === "share") {
+    const owner = Math.floor((left * (deal.ownerSharePercent ?? 0)) / 100);
+    return { owner, driver: left - owner, platform, rentCollected: 0 };
+  }
+  const collected = Math.min(left, Math.max(0, owedRent));
+  return { owner: collected, driver: left - collected, platform, rentCollected: collected };
+}
+
+/** The agreed terms on an assignment row (null when it carries none, e.g. admin-assigned). */
+export function dealOf(assignment: Row | undefined | null): DealTerms | null {
+  if (!assignment || !assignment.fee_type) return null;
+  return {
+    feeType: assignment.fee_type === "rent" ? "rent" : "share",
+    ownerSharePercent: assignment.owner_share_percent != null ? Number(assignment.owner_share_percent) : null,
+    rentAmount: assignment.rent_amount != null ? Number(assignment.rent_amount) : null,
+    rentPeriod: assignment.rent_period === "week" ? "week" : assignment.rent_period === "day" ? "day" : null,
+  };
 }
 
 /** A category's own split if it sets a complete one that totals 100, otherwise the admin default. */
@@ -96,21 +149,26 @@ export async function settleCarBooking(order: Row, pool: number, actorId: string
 
   const category = (await db.execute({ sql: "SELECT * FROM vehicle_categories WHERE id = ?", args: [String(booking.category_id)] })).rows[0] as Row | undefined;
   const shares = resolveShares(category, (await getCarSettings()).shares);
-  const parts = splitPool(pool, shares);
   const driverId = String(order.rider_id);
+  const withTerms = await hasColumn("vehicle_assignments", "fee_type");
   const assignment = (
     await db.execute({
-      sql: `SELECT v.id, v.owner_id FROM vehicle_assignments a JOIN vehicles v ON v.id = a.vehicle_id
+      sql: `SELECT v.id, v.owner_id, a.id AS assignment_id, a.assigned_at${withTerms ? ", a.fee_type, a.owner_share_percent, a.rent_amount, a.rent_period, a.rent_paid_total" : ""}
+            FROM vehicle_assignments a JOIN vehicles v ON v.id = a.vehicle_id
             WHERE a.driver_id = ? AND a.status = 'active' ORDER BY (v.id = ?) DESC LIMIT 1`,
       args: [driverId, String(booking.vehicle_id ?? "")],
     })
   ).rows[0] as Row | undefined;
+  const deal = withTerms ? dealOf(assignment) : null;
+  const owed = deal && assignment ? rentDue(deal, new Date(`${String(assignment.assigned_at).replace(" ", "T")}Z`), Number(assignment.rent_paid_total ?? 0)) : 0;
+  const parts = splitWithDeal(pool, shares, deal, owed);
   const vehicleId = (booking.vehicle_id as string | null) ?? (assignment ? String(assignment.id) : null);
   const ownerId = (booking.owner_id as string | null) ?? (assignment ? String(assignment.owner_id) : null);
   // No owner on record (shouldn't happen): the owner's part goes to the driver rather than being lost.
   const environment = order.environment === "sandbox" ? "sandbox" : "live";
   const ownerAmount = ownerId ? parts.owner : 0;
   const driverAmount = parts.driver + (ownerId ? 0 : parts.owner);
+  const effectiveShares = deal?.feeType === "share" ? { owner: 0, driver: 0, platform: shares.platform } : shares;
 
   // Claim the booking first so a retry can never pay twice.
   const claimed = await db.execute({
@@ -118,10 +176,13 @@ export async function settleCarBooking(order: Row, pool: number, actorId: string
             vehicle_id = ?, owner_id = ?, driver_id = ?, share_owner_percent = ?, share_driver_percent = ?, share_platform_percent = ?,
             pool_amount = ?, owner_amount = ?, driver_amount = ?, platform_amount = ?
           WHERE order_id = ? AND settled_at IS NULL`,
-    args: [vehicleId, ownerId, driverId, shares.owner, shares.driver, shares.platform, pool, ownerAmount, driverAmount, parts.platform, orderId],
+    args: [vehicleId, ownerId, driverId, effectiveShares.owner, effectiveShares.driver, effectiveShares.platform, pool, ownerAmount, driverAmount, parts.platform, orderId],
   });
   if (claimed.rowsAffected === 0) return;
 
+  if (parts.rentCollected > 0 && assignment) {
+    await db.execute({ sql: "UPDATE vehicle_assignments SET rent_paid_total = rent_paid_total + ? WHERE id = ?", args: [parts.rentCollected, String(assignment.assignment_id)] });
+  }
   if (driverAmount > 0) await creditWallet(driverId, driverAmount, { type: "adjustment", environment, orderId, actorId, note: "Tuma Car ride — driver share" });
   if (ownerId && ownerAmount > 0) await creditWallet(ownerId, ownerAmount, { type: "adjustment", environment, orderId, actorId, note: "Tuma Car ride — owner share" });
   await db.execute({
@@ -145,4 +206,37 @@ export async function stampCarBooking(orderId: string, driverId: string): Promis
           WHERE order_id = ?`,
     args: [driverId, driverId, driverId, orderId],
   });
+}
+
+/**
+ * Ends an assignment (by the driver, the owner, or Tuma). Rent still owed is taken
+ * from the driver's wallet as far as it covers it and paid to the owner; any
+ * shortfall is recorded on the assignment so the owner and Tuma can see it.
+ */
+export async function endAssignment(vehicleId: string, driverId: string, actorId: string): Promise<boolean> {
+  const withTerms = await hasColumn("vehicle_assignments", "fee_type");
+  const a = (await db.execute({
+    sql: `SELECT a.*, v.owner_id FROM vehicle_assignments a JOIN vehicles v ON v.id = a.vehicle_id WHERE a.vehicle_id = ? AND a.driver_id = ? AND a.status = 'active'`,
+    args: [vehicleId, driverId],
+  })).rows[0] as Row | undefined;
+  if (!a) return false;
+  const ended = await db.execute({ sql: "UPDATE vehicle_assignments SET status = 'ended', ended_at = datetime('now') WHERE id = ? AND status = 'active'", args: [String(a.id)] });
+  if (ended.rowsAffected === 0) return false;
+  await db.execute({ sql: "UPDATE car_driver_state SET online = 0, vehicle_id = NULL, updated_at = datetime('now') WHERE driver_id = ? AND vehicle_id = ?", args: [driverId, vehicleId] });
+  const deal = withTerms ? dealOf(a) : null;
+  if (deal && deal.feeType === "rent" && a.owner_id !== driverId) {
+    const owed = rentDue(deal, new Date(`${String(a.assigned_at).replace(" ", "T")}Z`), Number(a.rent_paid_total ?? 0));
+    if (owed > 0) {
+      const environment = (await getPlatformEnvironment()) === "sandbox" ? "sandbox" : "live";
+      const column = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
+      const balance = Number(((await db.execute({ sql: `SELECT ${column} AS b FROM users WHERE id = ?`, args: [driverId] })).rows[0] as Row)?.b ?? 0);
+      const pay = Math.min(owed, Math.max(0, balance));
+      if (pay > 0 && (await debitWallet(driverId, pay, { type: "adjustment", environment, actorId, note: "Car rent owed at the end of the agreement" })) !== null) {
+        await creditWallet(String(a.owner_id), pay, { type: "adjustment", environment, actorId, note: "Car rent received" });
+        await db.execute({ sql: "UPDATE vehicle_assignments SET rent_paid_total = rent_paid_total + ? WHERE id = ?", args: [pay, String(a.id)] });
+      }
+      if (owed - pay > 0) await db.execute({ sql: "UPDATE vehicle_assignments SET rent_unpaid_at_end = ? WHERE id = ?", args: [owed - pay, String(a.id)] });
+    }
+  }
+  return true;
 }
