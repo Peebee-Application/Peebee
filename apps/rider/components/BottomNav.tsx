@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, MessageCircle, Navigation, PiggyBank, User, Wallet } from "lucide-react";
+import { Briefcase, ClipboardList, MessageCircle, PiggyBank, User, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -13,7 +13,7 @@ type Tab = { href: string; label: string; icon: LucideIcon };
 
 const BASE_TABS: { href: string; labelKey: TranslationKey; icon: LucideIcon }[] = [
   { href: "/", labelKey: "nav_jobs", icon: Briefcase },
-  { href: "/active", labelKey: "nav_active", icon: Navigation },
+  { href: "/active", labelKey: "nav_active", icon: ClipboardList },
   { href: "/chat", labelKey: "nav_chat", icon: MessageCircle },
   { href: "/wallet", labelKey: "nav_wallet", icon: Wallet },
   { href: "/account", labelKey: "nav_account", icon: User },
@@ -61,12 +61,13 @@ export function BottomNav() {
             <li key={tab.href} className="flex-1">
               <Link
                 href={tab.href}
-                className={`flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium ${
-                  active ? "text-gold" : "text-ink-500"
+                aria-current={active ? "page" : undefined}
+                className={`relative flex min-h-14 flex-col items-center justify-center gap-1 px-0.5 py-1.5 text-[11px] font-medium after:absolute after:inset-x-2 after:bottom-0 after:h-1 after:rounded-full ${
+                  active ? "text-gold after:bg-gold" : "text-ink-500"
                 }`}
               >
                 <span className="relative">
-                  <Icon className="h-5 w-5" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+                  <Icon className="h-6 w-6" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
                   {tab.href === "/chat" && hasUnread && (
                     <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-gold" aria-hidden />
                   )}

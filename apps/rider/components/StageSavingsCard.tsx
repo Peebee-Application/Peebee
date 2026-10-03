@@ -1,11 +1,12 @@
 "use client";
 
 import type { Stage } from "@tuma/shared";
-import { ChevronRight, PiggyBank } from "lucide-react";
+import { ChevronRight, Coins, PiggyBank } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { formatUgx } from "../lib/order-display";
+import { useTranslate } from "../lib/i18n";
 
 /** Teaser card for a rider's Stage Savings Circle — mirrors the active-order
  * tracker's floating-card pattern. Before joining a circle it still shows a
@@ -18,7 +19,8 @@ import { formatUgx } from "../lib/order-display";
  * Fetches only GET /stages/mine, which already includes each stage's pot —
  * no follow-up GET /stages/:id, so this shows up in one round trip instead
  * of two sequential ones. */
-export function StageSavingsCard({ context = "home" }: { context?: "home" | "wallet" }) {
+export function StageSavingsCard({ context = "home", compact = false }: { context?: "home" | "wallet"; compact?: boolean }) {
+  const t = useTranslate();
   const [stage, setStage] = useState<Stage | null>(null);
   const [placement, setPlacement] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
@@ -47,6 +49,16 @@ export function StageSavingsCard({ context = "home" }: { context?: "home" | "wal
   if (!checked || !shouldRender) return null;
 
   const pot = stage?.pot ?? null;
+
+  if (compact) {
+    return (
+      <Link href={stage ? `/savings/${stage.id}` : "/savings"} className="home-card flex min-h-16 items-center gap-3 !rounded-2xl !px-4 !py-3">
+        <Coins className="h-7 w-7 shrink-0 text-gold" strokeWidth={1.75} aria-hidden />
+        <span className="min-w-0 flex-1 text-sm font-semibold text-ink">{t("home_view_savings")}</span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" aria-hidden />
+      </Link>
+    );
+  }
 
   if (!stage) {
     return (
