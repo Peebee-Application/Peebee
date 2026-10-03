@@ -197,6 +197,16 @@ export type JobExpiryUnit = "minutes" | "hours";
 
 /** Price bidding on rides/parcels: applicants may name their own price, the
  * customer picks. Needs "customer selects" to be an enabled matching mode. */
+/** Tuma Car work modes + the default owner/driver/platform split of a settled ride (totals 100). */
+export type CarSettings = {
+  enabled: boolean;
+  onDemandEnabled: boolean;
+  matchingMode: "customer_selects" | "first_to_claim";
+  shares: { owner: number; driver: number; platform: number };
+  /** A driver further than this from the pickup isn't offered the ride. */
+  maxPickupKm: number;
+};
+
 export type BiddingSettings = { enabled: boolean; minPercent: number; maxPercent: number };
 export type JobExpirySettings = { enabled: boolean; value: number; unit: JobExpiryUnit };
 
@@ -205,6 +215,7 @@ export type DeliverySettings = {
   timeFees: TimeFeeSettings;
   jobExpiry: JobExpirySettings;
   bidding: BiddingSettings;
+  car: CarSettings;
   /** Which environment's orders/wallets/lists everyone currently sees —
    * read-only here (GET /settings); change it with
    * adminSetPlatformEnvironment. */

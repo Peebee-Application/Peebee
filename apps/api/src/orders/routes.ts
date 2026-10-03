@@ -23,6 +23,7 @@ import { redactOrder } from "./visibility.js";
 import { assignAvailableRider } from "./assignment.js";
 import { computeBidding, loadBiddingContext, validateBid } from "./bidding.js";
 import { hasColumn } from "../lib/schema.js";
+import { findCarCandidate, isCarOrder, settleCarBooking, stampCarBooking } from "../car/service.js";
 import { getApplicantProfile } from "./applicant-profile.js";
 import { buildLugandaListNarration } from "./list-narration.js";
 import { synthesizeLuganda } from "../speech/sunbird.js";
@@ -297,7 +298,13 @@ orderRoutes.post("/orders", async (c) => {
 /** Creates an order from an existing list — shared by POST /orders and
  * POST /orders/:id/resend so a resent order gets exactly the same pricing,
  * matching and time-fee snapshot as a fresh one. */
-async function createOrderFromInput(c: Context, d: z.infer<typeof createOrderSchema>) {
+export async function createOrderFromInput(
+  c: Context,
+  d: z.infer<typeof createOrderSchema>,
+  /** Set only by the Tuma Car booking route: the category fare replaces the
+   * boda ride rate and the order uses the car matching mode. */
+  car?: { fare: number; matchingMode: MatchingMode },
+) {
   const user = c.get("user");
 
   const list = await db.execute({
@@ -325,7 +332,13 @@ async function createOrderFromInput(c: Context, d: z.infer<typeof createOrderSch
   // migrations/0025_order_delivery_fee.sql.
   let deliveryFee: number | null = null;
   const isRide = d.type === "parcel" && d.isRide === true;
-  if (d.type === "parcel") {
+  if (car) {
+    if (d.pickupLat != null && d.pickupLng != null && d.destinationLat != null && d.destinationLng != null) {
+      distanceKm = haversineKm(d.pickupLat, d.pickupLng, d.destinationLat, d.destinationLng);
+    }
+    estimatedTotal = car.fare;
+    deliveryFee = car.fare;
+  } else if (d.type === "parcel") {
     if (d.pickupLat != null && d.pickupLng != null && d.destinationLat != null && d.destinationLng != null) {
       distanceKm = haversineKm(d.pickupLat, d.pickupLng, d.destinationLat, d.destinationLng);
     }
@@ -380,7 +393,11 @@ async function createOrderFromInput(c: Context, d: z.infer<typeof createOrderSch
   const { enabledModes, nearestWindowSeconds, maxAssignmentMinutes } = await getMatchingSettings();
   const userRow = await db.execute({ sql: "SELECT default_matching_mode FROM users WHERE id = ?", args: [user.sub] });
   const preferredMode = userRow.rows[0]?.default_matching_mode as MatchingMode | null | undefined;
-  const matchingMode: MatchingMode = preferredMode && enabledModes.includes(preferredMode) ? preferredMode : enabledModes[0];
+  const matchingMode: MatchingMode = car
+    ? car.matchingMode
+    : preferredMode && enabledModes.includes(preferredMode)
+      ? preferredMode
+      : enabledModes[0];
   const matchingDeadlineAt =
     matchingMode === "nearest_window"
       ? new Date(Date.now() + nearestWindowSeconds * 1000).toISOString()
@@ -745,6 +762,7 @@ async function assignRider(
   if (order.payment_rail === "float") {
     await logEvent(id, "Fund", "Cash rail — rider fronting funds, no payment needed upfront", riderId);
   }
+  if (await isCarOrder(id)) await stampCarBooking(id, riderId);
   return true;
 }
 
@@ -760,6 +778,8 @@ async function findAutoMatchCandidate(
   id: string,
   order: Row,
 ): Promise<{ riderId: string; riderName: string; outOfRange: boolean } | null> {
+  // A car ride is only ever offered to drivers of its vehicle category.
+  if (await isCarOrder(id)) return findCarCandidate(id, order);
   const { serviceRangeKm } = await getDeliverySettings();
   const matchPoint = orderMatchPoint(order);
   const visibleRadiusKm = currentVisibilityRadiusKm(order.updated_at as string);
@@ -903,6 +923,9 @@ orderRoutes.post("/orders/:id/claim", requireRole("rider"), async (c) => {
   if (order.rider_id) {
     return c.json({ error: "already_claimed", message: "This job is no longer available or you already have an active job" }, 409);
   }
+  if (await isCarOrder(id)) {
+    return c.json({ error: "car_order", message: "This is a Tuma Car ride — only car drivers can take it." }, 403);
+  }
   const canClaim = order.stage === "Create" || (order.stage === "Match" && !order.rider_id);
   if (!canClaim) {
     return c.json({ error: "invalid_stage", message: `Cannot claim from stage ${order.stage}` }, 409);
@@ -979,9 +1002,11 @@ orderRoutes.post("/orders/:id/claim", requireRole("rider"), async (c) => {
  * once its collection window closes (see /orders/:id/match above),
  * customer_selects waits for the customer to pick (see /applicants below).
  */
-async function biddingArgs() {
+async function biddingArgs(orderId?: string) {
   const { settings, enabledModes } = await loadBiddingContext();
-  return [settings, enabledModes] as const;
+  // A car ride follows the car matching setting, not the boda rider's list of modes.
+  const modes = orderId && (await isCarOrder(orderId)) ? [...new Set<MatchingMode>([...enabledModes, "customer_selects"])] : enabledModes;
+  return [settings, modes] as const;
 }
 
 const applySchema = z.object({
@@ -998,6 +1023,9 @@ orderRoutes.post("/orders/:id/apply", requireRole("rider"), async (c) => {
   if (!order) return c.json({ error: "not_found" }, 404);
   if (order.rider_id) {
     return c.json({ error: "already_claimed", message: "This job has already been taken" }, 409);
+  }
+  if (await isCarOrder(id)) {
+    return c.json({ error: "car_order", message: "This is a Tuma Car ride — only car drivers can take it." }, 403);
   }
   const canApply = order.stage === "Create" || (order.stage === "Match" && !order.rider_id);
   if (!canApply) {
@@ -1069,7 +1097,7 @@ orderRoutes.post("/orders/:id/apply", requireRole("rider"), async (c) => {
   let bidAmount: number | null = null;
   if (parsedApply.data.bidAmount != null) {
     if (!bidColumn) return c.json({ error: "bidding_unavailable", message: "Bidding isn't ready yet — apply at the app price." }, 409);
-    const bidding = computeBidding(order, ...(await biddingArgs()));
+    const bidding = computeBidding(order, ...(await biddingArgs(id)));
     const checked = validateBid(bidding, parsedApply.data.bidAmount);
     if ("error" in checked) return c.json({ error: "bid_not_allowed", message: checked.error }, 400);
     bidAmount = checked.bid === bidding.appPrice ? null : checked.bid;
@@ -1114,7 +1142,7 @@ orderRoutes.get("/orders/:id/applicants", async (c) => {
   }
 
   const { serviceRangeKm } = await getDeliverySettings();
-  const bidding = computeBidding(order, ...(await biddingArgs()));
+  const bidding = computeBidding(order, ...(await biddingArgs(id)));
   const applications = await db.execute({
     sql: `SELECT oa.rider_id, u.name, oa.distance_km, ${(await hasColumn("order_applications", "bid_amount")) ? "oa.bid_amount" : "NULL AS bid_amount"} FROM order_applications oa
           JOIN users u ON u.id = oa.rider_id
@@ -1230,7 +1258,7 @@ orderRoutes.post("/orders/:id/applicants/:riderId/select", async (c) => {
   // applied on the customer's own pick — never by auto-matching.)
   const bid = row.bid_amount as number | null;
   if (bid != null) {
-    const bidding = computeBidding(order, ...(await biddingArgs()));
+    const bidding = computeBidding(order, ...(await biddingArgs(id)));
     if (bidding.active && bidding.appPrice != null && bid !== Number(order.estimated_total)) {
       const changed = await db.execute({
         sql: `UPDATE orders SET app_price = COALESCE(app_price, estimated_total), estimated_total = ?, delivery_fee = ?,
@@ -2236,7 +2264,11 @@ orderRoutes.post("/orders/:id/settle", async (c) => {
           })
         : released;
 
-      if (payout > 0) {
+      // A car ride's pool is shared between its owner, driver and the
+      // platform instead of going to a rider's wallet (see car/service.ts).
+      if (payout > 0 && (await isCarOrder(id))) {
+        await settleCarBooking(order, payout, user.sub);
+      } else if (payout > 0) {
         const balanceColumn = order.environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
         await db.execute({
           sql: `UPDATE riders SET ${balanceColumn} = ${balanceColumn} + ?, updated_at = datetime('now') WHERE user_id = ?`,

@@ -67,6 +67,7 @@ export type {
   AdminOrderRow,
   DeliverySettings,
   BiddingSettings,
+  CarSettings,
   JobExpirySettings,
   JobExpiryUnit,
   FeeProposal,

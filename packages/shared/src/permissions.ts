@@ -60,6 +60,8 @@ export type Permission =
   | "integrations.view"
   | "settings.view"
   | "settings.manage"
+  | "car.view"
+  | "car.manage"
   | "staff.manage"
   | "activity_log.view"
   | "activity_log.revert"
@@ -87,6 +89,8 @@ const ROLE_PERMISSIONS: Record<AdminRole, readonly Permission[]> = {
     "riders.view",
     "settings.view",
     "settings.manage",
+    "car.view",
+    "car.manage",
     "integrations.view",
     "restaurants.view",
     "restaurants.manage",
@@ -121,6 +125,8 @@ const ALL_PERMISSIONS: Permission[] = [
   "integrations.view",
   "settings.view",
   "settings.manage",
+  "car.view",
+  "car.manage",
   "staff.manage",
   "activity_log.view",
   "activity_log.revert",

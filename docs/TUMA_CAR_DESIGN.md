@@ -193,6 +193,7 @@ Categories (CRUD, reference image, suggested price, deposit [?]); required vetti
 | **b** | Migrations 0064+ (catalog, partners, listings, bookings, carpool, self-drive, scheduled, audit, orders additions) + migration test that runs all migrations in-memory | additive only |
 | **c** | API: catalog, partner onboarding/vetting, listings, booking engine for on-demand, then carpool, self-drive, scheduled; money via ledger + payments gateway behind flags; cron sweeps | tests per module (same harness as `expiry.integration.test.ts`) |
 | **d** | Admin screens + permissions + settings | |
+| **a–c** ✅ | Backend foundation: migration **0065** (new tables only), `car_*` settings + admin API (categories, owner/driver approval, vehicle approval, driver assignment, bookings), booking/bidding/driver endpoints, orders hooks (car rides never reach boda riders; settle splits owner/driver/platform), integration tests. Admin: `car_enabled`, `car_ondemand_enabled`, `car_matching_mode`, default shares, pickup radius — all default **off**. Linked order is a normal `orders` row (no new orders columns; `car_bookings.order_id` links them). | 0065 (apply by hand) |
 | **e** | `apps/car` partner app (owner + driver) + deploy plumbing (matrix, preview-hub, CORS/CSP) | |
 | **f** | Customer app changes | |
 | **g** | End-to-end tests in sandbox env, flag matrix tests, docs/runbook | live-money flag stays off |

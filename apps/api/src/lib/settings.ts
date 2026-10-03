@@ -230,6 +230,21 @@ const DEFAULTS = {
   luganda_audio_default_voice: "waxal_lug_0004",
   /** Off by default so nothing changes until an admin explicitly opts in. */
   luganda_audio_requires_pro: "0",
+  /** Tuma Car — everything off until an admin switches it on, and nothing
+   * works until migration 0065 (the car tables) has been applied. */
+  car_enabled: "0",
+  car_ondemand_enabled: "0",
+  /** How a car ride finds its driver: "customer_selects" (drivers apply/bid,
+   * the customer picks) or "first_to_claim" (the nearest eligible driver is
+   * assigned automatically). */
+  car_matching_mode: "customer_selects",
+  /** Default split of a settled car ride's pool (must total 100). A
+   * category can override it. */
+  car_share_owner_percent: "60",
+  car_share_driver_percent: "30",
+  car_share_platform_percent: "10",
+  /** A driver further than this from the pickup isn't offered the ride. */
+  car_driver_max_pickup_km: "10",
   /** Price bidding on rides/parcels — off until an admin enables it. Needs
    * "customer selects" (multiple applications) to be an enabled matching mode. */
   bidding_enabled: "0",
@@ -244,6 +259,50 @@ const DEFAULTS = {
 } as const;
 
 export type SettingKey = keyof typeof DEFAULTS;
+
+export type CarMatchingMode = "customer_selects" | "first_to_claim";
+export type CarShares = { owner: number; driver: number; platform: number };
+export type CarSettings = {
+  enabled: boolean;
+  onDemandEnabled: boolean;
+  matchingMode: CarMatchingMode;
+  shares: CarShares;
+  maxPickupKm: number;
+};
+
+export async function getCarSettings(): Promise<CarSettings> {
+  const [enabled, onDemand, mode, owner, driver, platform, maxKm] = await Promise.all([
+    getSetting("car_enabled"),
+    getSetting("car_ondemand_enabled"),
+    getSetting("car_matching_mode"),
+    getSetting("car_share_owner_percent"),
+    getSetting("car_share_driver_percent"),
+    getSetting("car_share_platform_percent"),
+    getSetting("car_driver_max_pickup_km"),
+  ]);
+  let shares: CarShares = { owner: Number(owner), driver: Number(driver), platform: Number(platform) };
+  // A saved split that doesn't total 100 can't be trusted: fall back to the defaults.
+  if (![shares.owner, shares.driver, shares.platform].every(Number.isFinite) || shares.owner + shares.driver + shares.platform !== 100) {
+    shares = { owner: 60, driver: 30, platform: 10 };
+  }
+  return {
+    enabled: enabled === "1",
+    onDemandEnabled: onDemand === "1",
+    matchingMode: mode === "first_to_claim" ? "first_to_claim" : "customer_selects",
+    shares,
+    maxPickupKm: Math.min(200, Math.max(1, Number(maxKm) || 10)),
+  };
+}
+
+export async function setCarSettings(next: CarSettings): Promise<void> {
+  await setSetting("car_enabled", next.enabled ? "1" : "0");
+  await setSetting("car_ondemand_enabled", next.onDemandEnabled ? "1" : "0");
+  await setSetting("car_matching_mode", next.matchingMode);
+  await setSetting("car_share_owner_percent", String(next.shares.owner));
+  await setSetting("car_share_driver_percent", String(next.shares.driver));
+  await setSetting("car_share_platform_percent", String(next.shares.platform));
+  await setSetting("car_driver_max_pickup_km", String(next.maxPickupKm));
+}
 
 export type BiddingSettings = { enabled: boolean; minPercent: number; maxPercent: number };
 

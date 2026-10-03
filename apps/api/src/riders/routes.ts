@@ -8,12 +8,14 @@ import { getRiderChargeNumber } from "./momo-number.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
+import { hasTable } from "../lib/schema.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { getDeliverySettings, getLugandaAudioSettings, getMonetizationSettings, getPlatformEnvironment, getProSettings, getRiderReserveSettings } from "../lib/settings.js";
 import { currentVisibilityRadiusKm, orderMatchPoint } from "../orders/matching.js";
 import { redactOrders, toOpenJob } from "../orders/visibility.js";
 import { computeBidding, loadBiddingContext } from "../orders/bidding.js";
+import { isCarOrder } from "../car/service.js";
 import {
   checkPaymentStatus,
   initiateCollection,
@@ -330,12 +332,14 @@ riderRoutes.get("/riders/jobs/available", requireAuth, requireRole("rider"), asy
   const riderLat = rider.stage_lat as number | null;
   const riderLng = rider.stage_lng as number | null;
 
+  // Tuma Car rides are for car drivers only — never in the boda feed.
+  const carFilter = (await hasTable("car_bookings")) ? "AND NOT EXISTS (SELECT 1 FROM car_bookings cb WHERE cb.order_id = o.id)" : "";
   const [res, appliedRes] = await Promise.all([
     db.execute({
       sql: `SELECT o.*, u.name as customer_name, r.name as restaurant_name FROM orders o
             LEFT JOIN users u ON u.id = o.customer_id
             LEFT JOIN restaurants r ON r.id = o.restaurant_id
-            WHERE o.rider_id IS NULL AND o.stage IN ('Create', 'Match') AND o.environment = ?
+            WHERE o.rider_id IS NULL AND o.stage IN ('Create', 'Match') AND o.environment = ? ${carFilter}
             AND o.id NOT IN (SELECT order_id FROM order_rider_exclusions WHERE rider_id = ?)
             ORDER BY o.created_at ASC`,
       args: [environment, user.sub],
@@ -406,7 +410,7 @@ riderRoutes.get("/riders/jobs/:id/preview", requireAuth, requireRole("rider"), a
   });
   const order = orderRes.rows[0] as Row | undefined;
   if (!order) return c.json({ error: "not_found" }, 404);
-  if (order.rider_id || !["Create", "Match"].includes(order.stage as string)) {
+  if (order.rider_id || !["Create", "Match"].includes(order.stage as string) || (await isCarOrder(id))) {
     return c.json({ error: "not_available", message: "This job is no longer open." }, 409);
   }
 
