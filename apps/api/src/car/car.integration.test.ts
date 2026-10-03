@@ -7,6 +7,7 @@ import { Hono } from "hono";
 import { signToken } from "../auth/jwt.js";
 import { setD1Binding, type D1Database } from "../db/client.js";
 import { splitSqlStatements } from "../db/split-sql.js";
+import { setR2Binding } from "../storage/r2.js";
 import { setBiddingSettings, setCarSettings, setMatchingModesEnabled, setPlatformEnvironment } from "../lib/settings.js";
 import { resetSchemaCache } from "../lib/schema.js";
 import { orderRoutes } from "../orders/routes.js";
@@ -24,6 +25,8 @@ const SCHEDULED = { enabled: true, maxAdvanceHours: 72, minLeadMinutes: 30, open
 const CARPOOL = { enabled: true, maxSeatsPerBooking: 3, maxRepeatWeeks: 2, cutoffMinutes: 15, payWithinMinutes: 15, matchRadiusKm: 10 };
 
 const SELFDRIVE = { enabled: true, platformPercent: 10, maxDays: 7, minDeposit: 50000, approveWithinHours: 12 };
+
+const PHOTOS = { max: 8, minRequired: 0 };
 
 function bindDatabase(client: Client) {
   const prepare = (sql: string) => ({
@@ -112,7 +115,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
 
   await t.test("everything is closed until an admin switches Car on", async () => {
     assert.equal((await call("GET", "/car/config", "cust")).status, 403);
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: true, withdrawalMinAmount: 1000, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: true, withdrawalMinAmount: 1000, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS });
     await setBiddingSettings({ enabled: true, minPercent: 50, maxPercent: 150 });
     await setMatchingModesEnabled(["first_to_claim"]); // boda riders' own modes must not matter for cars
     assert.equal((await call("GET", "/car/config", "cust")).status, 200);
@@ -235,22 +238,22 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
     assert.equal(after.withdrawable, 1000, "the pending withdrawal counts against what's left");
     assert.equal((await call("POST", "/car/wallet/withdraw", "owner", { amount: 2000 })).status, 409);
 
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 1000, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 1000, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS });
     assert.equal((await call("POST", "/car/wallet/withdraw", "owner", { amount: 1000 })).status, 403, "closed when the admin switches it off");
   });
 
   await t.test("scheduled rides open to drivers near pickup, are watched, and can be re-matched", async () => {
     await setPlatformEnvironment("live");
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS });
     const inHours = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
 
     assert.equal((await call("POST", "/car/bookings", "cust", { categoryId, ...trip, scheduledFor: inHours(0.1) })).status, 400, "less than the minimum notice");
     assert.equal((await call("POST", "/car/bookings", "cust", { categoryId, ...trip, scheduledFor: inHours(200) })).status, 400, "beyond the window");
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: { ...SCHEDULED, maxAdvanceHours: null }, carpool: CARPOOL, selfDrive: SELFDRIVE });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: { ...SCHEDULED, maxAdvanceHours: null }, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS });
     assert.equal((await call("POST", "/car/bookings", "cust", { categoryId, ...trip, scheduledFor: inHours(3) })).status, 403, "off until the admin sets a window");
     const config = await json(await call("GET", "/car/config", "cust"));
     assert.equal(config.scheduled, null);
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS });
     assert.equal((await json(await call("GET", "/car/config", "cust"))).scheduled.maxAdvanceHours, 72);
 
     const res = await call("POST", "/car/bookings", "cust", { categoryId, ...trip, scheduledFor: inHours(3) });
@@ -294,14 +297,14 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
 
   await t.test("carpool: publish a trip, book seats without overselling, pay window and cancellation release seats", async () => {
     await setPlatformEnvironment("live");
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: { ...CARPOOL, enabled: false }, selfDrive: SELFDRIVE });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: { ...CARPOOL, enabled: false }, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS });
     await client.execute("INSERT INTO users (id, phone, name, password_hash, role) VALUES ('p2', 'p2', 'p2', 'h', 'customer')");
     tokens.p2 = await signToken({ sub: "p2", role: "customer" });
     const inHours = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
     const trip = { originLabel: "Kampala", originLat: 0.3136, originLng: 32.5811, destLabel: "Jinja", destLat: 0.4479, destLng: 33.2026, departAt: inHours(24), seats: 3, seatPrice: 15000 };
 
     assert.equal((await call("POST", "/car/carpool/trips", "drv", trip)).status, 403, "closed until the admin enables carpool");
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS });
 
     assert.equal((await call("POST", "/car/carpool/trips", "cust", trip)).status, 409, "only drivers with a vehicle");
     assert.equal((await call("POST", "/car/carpool/trips", "drv", { ...trip, seats: 9 })).status, 400, "the car holds 4 seats at most");
@@ -357,7 +360,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
 
   await t.test("self-drive: list, request (money held), approve, hand over, return; damage goes to an admin", async () => {
     await setPlatformEnvironment("live");
-    const settings = (selfDrive: unknown) => setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: selfDrive as typeof SELFDRIVE });
+    const settings = (selfDrive: unknown) => setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: selfDrive as typeof SELFDRIVE, vehiclePhotos: PHOTOS });
     const day = 86400_000;
     const at = (d: number) => new Date(Date.now() + d * day).toISOString();
     const balance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance AS b FROM users WHERE id = ?", args: [id] })).rows[0].b);
@@ -432,5 +435,56 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
     assert.equal(await balance("cust") - custHeld, 40000, "deposit 50,000 minus 10,000 damage");
     assert.equal(await balance("owner") - ownerMid, 90000 + 10000, "rent after Tuma's cut plus the damage awarded");
     assert.equal((await call("POST", `/admin/car/rentals/${fourth.id}/resolve`, "admin", { damageAmount: 10000 })).status, 404, "settled once");
+  });
+
+  await t.test("owners add vehicle photos (at least 6), only they and staff can see them, and approval can require a minimum", async () => {
+    const store = new Map<string, { bytes: ArrayBuffer; type: string }>();
+    setR2Binding({
+      async put(key, value, options) { store.set(key, { bytes: value as ArrayBuffer, type: options?.httpMetadata?.contentType ?? "" }); },
+      async get(key) { const o = store.get(key); return o ? { body: new Blob([o.bytes]).stream(), httpMetadata: { contentType: o.type } } : null; },
+      async delete(key) { store.delete(key); },
+    });
+    const settings = (vehiclePhotos: { max: number; minRequired: number }) => setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos });
+    await settings({ max: 8, minRequired: 6 });
+
+    const second = await call("POST", "/car/vehicles", "owner", { categoryId, plate: "UBB 777B", make: "Toyota", model: "Ipsum" });
+    assert.equal(second.status, 201);
+    const vid = (await json(second)).id as string;
+    const upload = (who: string, type = "image/jpeg", size = 100) => {
+      const form = new FormData();
+      form.append("file", new File([new Uint8Array(size)], "p.jpg", { type }));
+      return app.request(`/v1/car/vehicles/${vid}/photos`, { method: "POST", headers: { Authorization: `Bearer ${tokens[who]}` }, body: form });
+    };
+
+    assert.equal((await upload("cust")).status, 404, "only the owner adds photos");
+    assert.equal((await upload("owner", "application/pdf")).status, 400, "images only");
+    assert.equal((await upload("owner", "image/jpeg", 7 * 1024 * 1024)).status, 400, "too large");
+
+    const ids: string[] = [];
+    for (let i = 0; i < 6; i += 1) {
+      const res = await upload("owner");
+      assert.equal(res.status, 201, `photo ${i + 1} is accepted`);
+      ids.push((await json(res)).id);
+    }
+    assert.equal((await call("POST", `/admin/car/vehicles/${vid}/decision`, "admin", { status: "approved" })).status, 200, "six photos meet the minimum");
+
+    assert.equal((await upload("owner")).status, 201);
+    assert.equal((await upload("owner")).status, 201);
+    assert.equal((await upload("owner")).status, 409, "the 9th is over the admin's maximum of 8");
+    assert.equal((await json(await call("GET", "/car/me", "owner"))).vehicles.find((v: { id: string }) => v.id === vid).photos.length, 8);
+
+    assert.equal((await call("GET", `/car/vehicles/${vid}/photos/${ids[0]}`, "owner")).status, 200);
+    assert.equal((await call("GET", `/car/vehicles/${vid}/photos/${ids[0]}`, "admin")).status, 200, "staff can review them");
+    assert.equal((await call("GET", `/car/vehicles/${vid}/photos/${ids[0]}`, "cust")).status, 403, "other people can't");
+
+    assert.equal((await call("DELETE", `/car/vehicles/${vid}/photos/${ids[0]}`, "cust")).status, 404);
+    assert.equal((await call("DELETE", `/car/vehicles/${vid}/photos/${ids[0]}`, "owner")).status, 200);
+    assert.equal(store.size, 7, "the file is removed too");
+
+    // A vehicle without enough photos can't be approved.
+    const third = await json(await call("POST", "/car/vehicles", "owner", { categoryId, plate: "UCC 888C" }));
+    await upload("owner");
+    assert.equal((await call("POST", `/admin/car/vehicles/${third.id}/decision`, "admin", { status: "approved" })).status, 409);
+    await settings(PHOTOS);
   });
 });
