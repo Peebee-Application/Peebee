@@ -8,6 +8,7 @@ import {
   Languages,
   Mic,
   Map as MapIcon,
+  KeyRound,
   PiggyBank,
   Power,
   Phone,
@@ -32,6 +33,12 @@ export const SETTINGS_LINKS: SettingsLink[] = [
     label: "Services",
     description: "Switch shopping, parcels, rides and food on or off — dependent apps and features pause with them.",
     icon: Power,
+  },
+  {
+    href: "/settings/ai-keys",
+    label: "Google AI keys",
+    description: "Add many Google AI Studio keys that rotate automatically in test mode, and pick the master key for paid mode.",
+    icon: KeyRound,
   },
   {
     href: "/settings/delivery",

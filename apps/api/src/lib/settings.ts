@@ -236,6 +236,10 @@ const DEFAULTS = {
    * rider picks from in their own settings (JSON array of {id, label},
    * `id` being one of Gemini's prebuilt voice names, e.g. "Kore"); the
    * default voice covers a rider who hasn't picked one yet. */
+  /** Which Google AI Studio keys the app uses: "test" rotates through every
+   * enabled test key (skipping any that have run out of quota); "paid" uses
+   * only the master key. See ../speech/ai-keys.ts. */
+  gemini_key_mode: "test",
   luganda_audio_enabled: "0",
   luganda_audio_voices: '[{"id":"Kore","label":"Voice 1"}]',
   luganda_audio_default_voice: "Kore",

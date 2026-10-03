@@ -11,6 +11,9 @@ import type {
   AdminRider,
   CarBookingInput,
   RidePassenger,
+  AiKeyAddResult,
+  AiKeyMode,
+  AiKeysOverview,
   SavedPassenger,
   SharedTrip,
   CarDriverActive,
@@ -1264,6 +1267,32 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async deleteLocation(id: string) {
       return request<{ ok: true }>(`/v1/locations/${id}`, { method: "DELETE" });
+    },
+
+    // Google AI Studio keys (admin) — see apps/api/src/speech/ai-keys.ts.
+    async adminAiKeys() {
+      return request<AiKeysOverview>("/v1/admin/ai-keys");
+    },
+    async adminAddAiKeys(keys: Array<{ label?: string; key: string }>) {
+      return request<AiKeysOverview & { results: AiKeyAddResult[] }>("/v1/admin/ai-keys", { method: "POST", body: JSON.stringify({ keys }) });
+    },
+    async adminUpdateAiKey(id: string, input: { enabled?: boolean; label?: string }) {
+      return request<AiKeysOverview>(`/v1/admin/ai-keys/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+    },
+    async adminResetAiKey(id: string) {
+      return request<AiKeysOverview>(`/v1/admin/ai-keys/${id}/reset`, { method: "POST" });
+    },
+    async adminTestAiKey(id: string) {
+      return request<AiKeysOverview & { result: { ok: boolean; detail: string } }>(`/v1/admin/ai-keys/${id}/test`, { method: "POST" });
+    },
+    async adminSetMasterAiKey(id: string | null) {
+      return request<AiKeysOverview>(`/v1/admin/ai-keys/${id ?? "none"}/master`, { method: id ? "PUT" : "DELETE" });
+    },
+    async adminDeleteAiKey(id: string) {
+      return request<AiKeysOverview>(`/v1/admin/ai-keys/${id}`, { method: "DELETE" });
+    },
+    async adminSetAiKeyMode(mode: AiKeyMode) {
+      return request<AiKeysOverview>("/v1/admin/ai-keys-mode", { method: "PUT", body: JSON.stringify({ mode }) });
     },
 
     // People a customer books rides for — see apps/api/src/passengers/routes.ts.
