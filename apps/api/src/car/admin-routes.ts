@@ -121,7 +121,8 @@ carAdminRoutes.post("/admin/car/partners/:userId/decision", requirePermission("c
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
   const column = parsed.data.role === "owner" ? "owner_status" : "driver_status";
   // Approval needs the documents the admin has made mandatory.
-  if (parsed.data.status === "approved") {
+  // (Until the documents table exists nobody can upload, so nothing is required yet.)
+  if (parsed.data.status === "approved" && (await hasTable("car_partner_documents"))) {
     const { kyc } = await getCarSettings();
     const have = await documentKinds(userId);
     const missing: string[] = [];
