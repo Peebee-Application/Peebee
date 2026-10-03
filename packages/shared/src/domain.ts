@@ -1895,3 +1895,61 @@ export type CarBookingInput = {
   destinationLat: number;
   destinationLng: number;
 };
+
+// ---- Tuma Car (partner app) -------------------------------------------------
+
+export type CarMe = {
+  ownerStatus: CarPartnerStatus;
+  driverStatus: CarPartnerStatus;
+  vehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; status: string; category_name: string; driver_name: string | null }>;
+  assignedVehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; category_name: string }>;
+  online: boolean;
+  activeVehicleId: string | null;
+};
+
+export type CarDriverJob = {
+  id: string;
+  customerName: string;
+  pickupAddress: string | null;
+  destinationAddress: string | null;
+  distanceKm: number | null;
+  fare: number;
+  pickupDistanceKm: number | null;
+  matchingMode: string;
+  applied: boolean;
+  bidding: { appPrice: number | null; min: number | null; max: number | null } | null;
+};
+
+export type CarDriverActive = {
+  active: {
+    id: string;
+    stage: string;
+    estimated_total: number | null;
+    final_total: number | null;
+    pickup_address: string | null;
+    pickup_lat: number | null;
+    pickup_lng: number | null;
+    destination_address: string | null;
+    destination_lat: number | null;
+    destination_lng: number | null;
+    customer_name: string;
+  } | null;
+  recent: Array<{ order_id: string; driver_amount: number; settled_at: string; pickup_address: string | null; destination_address: string | null }>;
+  totalEarned: number;
+};
+
+export type CarOwnerRides = {
+  rides: Array<{
+    id: string;
+    order_id: string;
+    status: string;
+    plate: string | null;
+    driver_name: string | null;
+    stage: string;
+    pickup_address: string | null;
+    destination_address: string | null;
+    estimated_total: number | null;
+    owner_amount: number | null;
+  }>;
+  totalEarned: number;
+};

@@ -9,6 +9,7 @@
     { "pattern": "customer-preview.tumaffe.online", "custom_domain": true },
     { "pattern": "rider-preview.tumaffe.online", "custom_domain": true },
     { "pattern": "merchant-preview.tumaffe.online", "custom_domain": true },
+    { "pattern": "partner-preview.tumaffe.online", "custom_domain": true },
     { "pattern": "restaurant-preview.tumaffe.online", "custom_domain": true },
     { "pattern": "admin-preview.tumaffe.online", "custom_domain": true },
     { "pattern": "api-preview.tumaffe.online", "custom_domain": true },

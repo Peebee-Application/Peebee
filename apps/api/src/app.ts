@@ -34,6 +34,7 @@ const devOrigins = [
   "http://localhost:3002", // apps/admin dev server
   "http://localhost:3003", // apps/restaurant dev server
   "http://localhost:3005", // apps/merchant dev server
+  "http://localhost:3006", // apps/partner dev server
 ];
 
 const defaultOrigins = ["https://tuma-customer-staging.onrender.com", "https://tuma-rider-staging.onrender.com"];

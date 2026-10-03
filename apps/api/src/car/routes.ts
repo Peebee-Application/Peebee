@@ -246,6 +246,26 @@ carRoutes.get("/car/driver/jobs", async (c) => {
   return c.json({ jobs: jobs.map((e) => e.job) });
 });
 
+/** The driver's ride in progress (if any) and their recent finished rides. */
+carRoutes.get("/car/driver/active", async (c) => {
+  const user = c.get("user");
+  const active = await db.execute({
+    sql: `SELECT o.id, o.stage, o.estimated_total, o.final_total, o.pickup_address, o.pickup_lat, o.pickup_lng,
+                 o.destination_address, o.destination_lat, o.destination_lng, o.distance_km, o.customer_id, cu.name AS customer_name
+          FROM orders o JOIN car_bookings b ON b.order_id = o.id JOIN users cu ON cu.id = o.customer_id
+          WHERE o.rider_id = ? AND o.stage NOT IN ('Settle', 'Cancelled') LIMIT 1`,
+    args: [user.sub],
+  });
+  const recent = await db.execute({
+    sql: `SELECT b.order_id, b.driver_amount, b.settled_at, o.pickup_address, o.destination_address
+          FROM car_bookings b JOIN orders o ON o.id = b.order_id
+          WHERE b.driver_id = ? AND b.status = 'completed' ORDER BY b.settled_at DESC LIMIT 20`,
+    args: [user.sub],
+  });
+  const earned = (await db.execute({ sql: "SELECT COALESCE(SUM(driver_amount), 0) AS total FROM car_bookings WHERE driver_id = ? AND status = 'completed'", args: [user.sub] })).rows[0] as Row;
+  return c.json({ active: active.rows[0] ?? null, recent: recent.rows, totalEarned: Number(earned.total) });
+});
+
 const driverApplySchema = z.object({ bidAmount: z.number().int().positive().optional() });
 
 /** A driver offers to take a car ride — at the app's fare, or with their own price when bidding is on. */

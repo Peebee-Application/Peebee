@@ -7,6 +7,7 @@ const APPS = [
   { id: "customer", name: "Customer App", icon: "📱", desc: "Customer ordering & concierge interface" },
   { id: "rider", name: "Rider App", icon: "🛵", desc: "Rider delivery & earnings interface" },
   { id: "merchant", name: "Merchant App", icon: "🏪", desc: "Merchant store & orders management" },
+  { id: "partner", name: "Partner App", icon: "🚗", desc: "Car owners and drivers: vehicles, rides, earnings" },
   { id: "restaurant", name: "Restaurant App", icon: "🍽️", desc: "Restaurant kitchen & menu dashboard" },
   { id: "admin", name: "Admin Dashboard", icon: "⚙️", desc: "Superadmin, operations, and cycle control" },
   { id: "web", name: "Marketing Landing", icon: "🌐", desc: "Public landing page and downloads" },
@@ -497,6 +498,7 @@ function renderDashboardHtml(branches: BranchInfo[], subdomain: string): string 
           <option value="customer">customer</option>
           <option value="rider">rider</option>
           <option value="merchant">merchant</option>
+          <option value="partner">partner</option>
           <option value="restaurant">restaurant</option>
           <option value="admin">admin</option>
           <option value="web">web</option>
