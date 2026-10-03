@@ -130,8 +130,8 @@ function FieldRow({
   const showInput = searchMode && active;
   return (
     <div
-      className={`flex min-h-12 items-center gap-3 rounded-2xl px-3.5 ${
-        active ? "border-2 border-gold bg-[rgb(var(--surface-card))]" : "border-2 border-transparent bg-[rgb(var(--surface-muted))]"
+      className={`field-box flex min-h-12 items-center gap-3 rounded-2xl border-2 px-3.5 ${
+        active ? "border-gold" : "border-[var(--border-faint)]"
       }`}
     >
       <span className="flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden>
@@ -159,7 +159,7 @@ function FieldRow({
         type="button"
         onClick={onIcon}
         aria-label={searchMode ? "Pick on map" : "Search"}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink active:scale-95"
+        className="flex h-9 w-9 shrink-0 items-center justify-center text-ink active:opacity-60"
       >
         {searchMode ? <MapIcon className="h-[18px] w-[18px]" strokeWidth={2} /> : <Search className="h-[18px] w-[18px]" strokeWidth={2.25} />}
       </button>

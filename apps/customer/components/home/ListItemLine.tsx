@@ -28,8 +28,7 @@ const qtyLabel = (item: Item) => `${item.quantity || "1"}${UNIT_ABBR[item.unit] 
 
 const field =
   "min-w-0 flex-1 bg-transparent text-base font-semibold text-ink outline-none placeholder:font-normal placeholder:text-ink-500/60";
-const chip =
-  "block max-w-full truncate rounded-lg bg-[rgb(var(--surface-muted))] px-2.5 py-1.5 text-sm font-semibold text-ink";
+const chip = "block max-w-full truncate px-1 py-1.5 text-sm font-semibold text-ink";
 
 /** One shopping-list item on a single line. The field being filled in takes
  * the width; once you confirm it (Enter or the arrow) it shrinks to a chip on
@@ -110,7 +109,7 @@ export function ListItemLine({
   const segClass = "flex items-center gap-1.5 transition-[flex-grow] duration-300 ease-out";
 
   return (
-    <div className="flex h-14 items-center gap-2 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-2.5">
+    <div className="field-box flex h-14 items-center gap-2 rounded-2xl border border-[var(--border-faint)] px-2.5">
       <div className={segClass} style={seg(stage === 0)}>
         {stage === 0 ? (
           <input
@@ -147,7 +146,7 @@ export function ListItemLine({
                 value={item.unit}
                 onChange={(e) => onChange({ unit: e.target.value as Unit })}
                 aria-label={t("list_unit_label")}
-                className="w-[4.5rem] shrink-0 rounded-lg bg-[rgb(var(--surface-muted))] px-1.5 py-1.5 text-sm font-semibold text-ink outline-none"
+                className="w-[4.5rem] shrink-0 py-1.5 text-sm font-semibold text-ink outline-none"
               >
                 {(Object.keys(UNIT_KEYS) as Unit[]).map((u) => (
                   <option key={u} value={u}>

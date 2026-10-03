@@ -235,10 +235,18 @@ export default function MonetizationSettingsPage() {
                     id="serviceFeeValue"
                     inputMode="numeric"
                     value={serviceFeeValue}
-                    onChange={(e) => setServiceFeeValue(e.target.value.replace(/[^\d.]/g, ""))}
+                    onChange={(e) => {
+                      const cleaned = e.target.value.replace(/[^\d.]/g, "");
+                      // A percentage service fee can't exceed 50% (the API rejects it too).
+                      setServiceFeeValue(serviceFeeType === "percent" && Number(cleaned) > 50 ? "50" : cleaned);
+                    }}
                     className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
                   />
                 </div>
+                <p className="col-span-2 text-xs text-ink-500">
+                  The service fee can never be as large as the fare: it is capped at half of the order or ride
+                  amount, and a percentage can be at most 50%.
+                </p>
               </div>
             )}
           </div>
