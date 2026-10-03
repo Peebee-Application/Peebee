@@ -343,6 +343,11 @@ const updateSchema = z.object({
   proRecurringCadence: z.enum(["daily", "weekly", "monthly"]).optional(),
   proOnetimeEnabled: z.boolean().optional(),
   proOnetimeAmount: z.number().min(0).max(1_000_000).optional(),
+}).superRefine((d, ctx) => {
+  // A service fee as large as the fare it's charged on would double a bill.
+  if (d.serviceFeeType === "percent" && d.serviceFeeValue != null && d.serviceFeeValue > 50) {
+    ctx.addIssue({ code: "custom", path: ["serviceFeeValue"], message: "A percentage service fee can't be more than 50%" });
+  }
 });
 
 const PAYMENTS_FIELDS = [
