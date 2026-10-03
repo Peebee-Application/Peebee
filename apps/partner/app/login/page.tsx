@@ -34,7 +34,7 @@ export default function LoginPage() {
     <div className="text-center">
       <Image src="/brand/tuma-logo-navy.png" alt="Tuma" width={160} height={48} priority className="mx-auto h-10 w-auto dark:hidden" />
       <Image src="/brand/tuma-logo-white.png" alt="Tuma" width={160} height={48} priority className="mx-auto hidden h-10 w-auto dark:block" />
-      <h1 className="mt-3 text-2xl font-black text-navy">Partner</h1>
+      <h1 className="mt-3 text-2xl font-black text-navy">Tuma Car</h1>
       <p className="text-sm text-ink-500">Own a car, or drive one — and earn on every ride.</p>
     </div>
     <div className="flex rounded-full bg-[rgb(var(--surface-muted))] p-1">{(["login", "register"] as const).map((item) => <button key={item} type="button" onClick={() => setMode(item)} className={`flex-1 rounded-full py-2 text-sm font-bold ${mode === item ? "bg-[rgb(var(--surface))] shadow" : "text-ink-500"}`}>{item === "login" ? "Log in" : "Create account"}</button>)}</div>

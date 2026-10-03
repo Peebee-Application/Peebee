@@ -178,7 +178,7 @@ Categories (CRUD, reference image, suggested price, deposit [?]); required vetti
 
 **Customer app (changes):** Ride entry gets **Boda | Car** toggle (extends the existing "Where to?" / Ride tile) → category grid → vehicle pool cards → listing detail → booking summary (with driver / self-drive, extras, total, penalties disclosed up front) → payment (existing pay screen). Tabs/entries for **Carpool** (search, trip detail with meeting points + seat count), **Rent a car** (licence, deposit, inspection camera flow), **Schedule** (date/time picker inside the same flow). Bookings list shows all modes; tracking page reused. Wording per mode via the PlaceFlow `concept` pattern.
 
-**Partner app (new `apps/car`):** onboarding/KYC; **Owner:** vehicles & documents, listings (photos, price vs suggested, service mode, driver fee, availability calendar), drivers, carpool routes + calendar, bookings, earnings/withdraw. **Driver:** job inbox, active job (navigate, arrived/waiting timer, start/finish), inspection capture (self-drive handover), earnings.
+**Tuma Car app (`apps/partner`):** onboarding/KYC; **Owner:** vehicles & documents, listings (photos, price vs suggested, service mode, driver fee, availability calendar), drivers, carpool routes + calendar, bookings, earnings/withdraw. **Driver:** job inbox, active job (navigate, arrived/waiting timer, start/finish), inspection capture (self-drive handover), earnings.
 
 **Admin app:** the settings in §7 plus Vetting queue (partners, vehicles, documents, renter licences), Listings moderation, Bookings & Disputes (photo viewer), Car reports.
 
@@ -223,4 +223,4 @@ Deliberate differences from the plan above:
 - **Scheduled rides** open to drivers `openMinutes` before pickup instead of locking a driver at booking, so no driver is blocked for days. The customer pays after choosing a driver, as for any ride.
 - **Carpool** uses single published trips (with an optional weekly repeat within an admin limit) rather than recurring schedule rules and a nightly materialiser. Meeting points, door pickup fees, no-show and late-cancel fees are not built (undecided values).
 - **Self-drive** holds rent + deposit from the renter's wallet and releases them at the end (deposit back unless the owner claims damage, ruled on by an admin). Inspection photos, late-return fees and a licence verifier are not built; the licence is recorded, not verified. Needs Tuma's percentage set and a legal review before live money.
-- Navigation in the Partner app opens the phone's maps app; there is no in-app map.
+- Navigation in the Tuma Car app opens the phone's maps app; there is no in-app map.
