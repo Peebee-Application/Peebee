@@ -1,6 +1,7 @@
 import { hasPermission } from "@tuma/shared";
 import {
   Banknote,
+  Car,
   Compass,
   CreditCard,
   FlaskConical,
@@ -36,6 +37,13 @@ export const SETTINGS_LINKS: SettingsLink[] = [
     label: "Rider matching",
     description: "Service range, matching modes, assignment timing.",
     icon: Route,
+  },
+  {
+    href: "/settings/car",
+    label: "Tuma Car",
+    description: "Switch car rides on, how drivers are found, profit share, car types, owners, drivers and vehicles.",
+    icon: Car,
+    show: (role) => hasPermission(role, "car.view"),
   },
   {
     href: "/settings/voice",
