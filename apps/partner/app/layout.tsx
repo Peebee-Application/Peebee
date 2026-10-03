@@ -24,7 +24,7 @@ const THEME_INIT_SCRIPT = `
 `;
 
 export const metadata: Metadata = {
-  title: "Tuma Partner",
+  title: "Tuma Car",
   description: "Own or drive a car on Tuma",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     ],
     apple: "/icons/apple-touch-icon.png",
   },
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Tuma Partner" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Tuma Car" },
 };
 export const viewport: Viewport = { themeColor: "#153A75", viewportFit: "cover" };
 

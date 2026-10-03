@@ -70,9 +70,9 @@ export function InstallPrompt() {
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface))] p-3 shadow-lg">
         <Image src="/icons/icon-192.png" alt="" width={40} height={40} className="shrink-0 rounded-xl" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-ink">Install Tuma Partner</p>
+          <p className="text-sm font-bold text-ink">Install Tuma Car</p>
           <p className="truncate text-xs text-ink-500">
-            {iosHint ? 'Tap Share, then "Add to Home Screen"' : "Add the partner app to your home screen"}
+            {iosHint ? 'Tap Share, then "Add to Home Screen"' : "Add Tuma Car to your home screen"}
           </p>
         </div>
         {!iosHint ? (

@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const persist = useCallback((token: string, nextUser: AuthUser) => {
-    if (nextUser.role !== "customer") throw new Error("Use a customer account for Tuma Partner.");
+    if (nextUser.role !== "customer") throw new Error("Use a customer account for Tuma Car.");
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
     setUser(nextUser);
