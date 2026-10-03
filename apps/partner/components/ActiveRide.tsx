@@ -1,8 +1,12 @@
 "use client";
 
 import type { CarDriverActive } from "@tuma/shared";
+import { MessageCircle, Navigation } from "lucide-react";
 import { useState } from "react";
 import { api, errorMessage } from "../lib/api";
+import { useAuth } from "../lib/auth-context";
+import { useRideLocation } from "../lib/use-ride-location";
+import { RideChat } from "./RideChat";
 
 const ugx = (n: number | null) => `UGX ${Number(n ?? 0).toLocaleString("en-UG")}`;
 
@@ -10,6 +14,9 @@ const ugx = (n: number | null) => `UGX ${Number(n ?? 0).toLocaleString("en-UG")}
 export function ActiveRide({ ride, onChange }: { ride: NonNullable<CarDriverActive["active"]>; onChange: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
+  const { user } = useAuth();
+  useRideLocation(ride.stage === "Create" ? null : ride.id);
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -45,6 +52,29 @@ export function ActiveRide({ ride, onChange }: { ride: NonNullable<CarDriverActi
       <p className="text-xs text-ink-500">To: {ride.destination_address ?? "—"}</p>
       <p className="text-sm font-bold text-ink">{ugx(ride.estimated_total)}</p>
       {hint && <p className="text-xs text-ink-500">{hint}</p>}
+      {(() => {
+        // Heading to the passenger until they're aboard, then to the destination.
+        const toDestination = stage === "PickedUp" || stage === "Handover";
+        const lat = toDestination ? ride.destination_lat : ride.pickup_lat;
+        const lng = toDestination ? ride.destination_lng : ride.pickup_lng;
+        if (lat == null || lng == null) return null;
+        return (
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-h-11 items-center justify-center gap-2 rounded-full bg-gold/15 text-sm font-bold text-ink"
+          >
+            <Navigation className="h-4 w-4" />
+            Navigate to {toDestination ? "destination" : "pickup"}
+          </a>
+        );
+      })()}
+      <button type="button" onClick={() => setChatOpen((v) => !v)} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-gold/15 text-sm font-bold text-ink">
+        <MessageCircle className="h-4 w-4" />
+        {chatOpen ? "Hide chat" : `Chat with ${ride.customer_name}`}
+      </button>
+      {chatOpen && user && <RideChat orderId={ride.id} myId={user.id} />}
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       {action && (
         <button disabled={busy} onClick={() => run(action!.go)} className="min-h-12 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-50">
