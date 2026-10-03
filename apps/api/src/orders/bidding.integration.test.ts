@@ -8,6 +8,7 @@ import { signToken } from "../auth/jwt.js";
 import { setD1Binding, type D1Database } from "../db/client.js";
 import { splitSqlStatements } from "../db/split-sql.js";
 import { setBiddingSettings, setMatchingModesEnabled } from "../lib/settings.js";
+import { resetSchemaCache } from "../lib/schema.js";
 import { orderRoutes } from "./routes.js";
 
 function bindDatabase(client: Client) {
@@ -30,6 +31,7 @@ function bindDatabase(client: Client) {
 
 test("price bidding on rides", async (t) => {
   process.env.JWT_SECRET = "local-bidding-test-secret-only";
+  resetSchemaCache();
   const client = createClient({ url: "file::memory:" });
   const migrations = join(process.cwd(), "src/db/migrations");
   for (const file of readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort()) {
