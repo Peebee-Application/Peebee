@@ -13,10 +13,13 @@ import { orderRoutes } from "../orders/routes.js";
 import { riderRoutes } from "../riders/routes.js";
 import { carAdminRoutes } from "./admin-routes.js";
 import { carRoutes } from "./routes.js";
+import { carpoolRoutes, releaseStaleSeats } from "./carpool.js";
 import { sweepScheduledRides, judgeDriver, validateScheduledFor } from "./scheduled.js";
 import { resolveShares, splitPool } from "./service.js";
 
 const SCHEDULED = { enabled: true, maxAdvanceHours: 72, minLeadMinutes: 30, openMinutes: 60, watchMinutes: 30, noSignalMinutes: 10, avgSpeedKmh: 25 };
+
+const CARPOOL = { enabled: true, maxSeatsPerBooking: 3, maxRepeatWeeks: 2, cutoffMinutes: 15, payWithinMinutes: 15, matchRadiusKm: 10 };
 
 function bindDatabase(client: Client) {
   const prepare = (sql: string) => ({
@@ -75,7 +78,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
   await client.execute("UPDATE users SET admin_role = 'super_admin' WHERE id = 'admin'");
   await client.execute("INSERT INTO riders (user_id, verified, is_online) VALUES ('boda', 1, 1)");
 
-  const app = new Hono().route("/v1", orderRoutes).route("/v1", carRoutes).route("/v1", carAdminRoutes).route("/v1", riderRoutes);
+  const app = new Hono().route("/v1", orderRoutes).route("/v1", carRoutes).route("/v1", carpoolRoutes).route("/v1", carAdminRoutes).route("/v1", riderRoutes);
   const tokens: Record<string, string> = {};
   for (const [id, role] of [["cust", "customer"], ["owner", "customer"], ["drv", "customer"], ["boda", "rider"], ["admin", "admin"]] as const) {
     tokens[id] = await signToken({ sub: id, role });
@@ -95,7 +98,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
 
   await t.test("everything is closed until an admin switches Car on", async () => {
     assert.equal((await call("GET", "/car/config", "cust")).status, 403);
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: true, withdrawalMinAmount: 1000, scheduled: SCHEDULED });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: true, withdrawalMinAmount: 1000, scheduled: SCHEDULED, carpool: CARPOOL });
     await setBiddingSettings({ enabled: true, minPercent: 50, maxPercent: 150 });
     await setMatchingModesEnabled(["first_to_claim"]); // boda riders' own modes must not matter for cars
     assert.equal((await call("GET", "/car/config", "cust")).status, 200);
@@ -218,22 +221,22 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
     assert.equal(after.withdrawable, 1000, "the pending withdrawal counts against what's left");
     assert.equal((await call("POST", "/car/wallet/withdraw", "owner", { amount: 2000 })).status, 409);
 
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 1000, scheduled: SCHEDULED });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 1000, scheduled: SCHEDULED, carpool: CARPOOL });
     assert.equal((await call("POST", "/car/wallet/withdraw", "owner", { amount: 1000 })).status, 403, "closed when the admin switches it off");
   });
 
   await t.test("scheduled rides open to drivers near pickup, are watched, and can be re-matched", async () => {
     await setPlatformEnvironment("live");
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL });
     const inHours = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
 
     assert.equal((await call("POST", "/car/bookings", "cust", { categoryId, ...trip, scheduledFor: inHours(0.1) })).status, 400, "less than the minimum notice");
     assert.equal((await call("POST", "/car/bookings", "cust", { categoryId, ...trip, scheduledFor: inHours(200) })).status, 400, "beyond the window");
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: { ...SCHEDULED, maxAdvanceHours: null } });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: { ...SCHEDULED, maxAdvanceHours: null }, carpool: CARPOOL });
     assert.equal((await call("POST", "/car/bookings", "cust", { categoryId, ...trip, scheduledFor: inHours(3) })).status, 403, "off until the admin sets a window");
     const config = await json(await call("GET", "/car/config", "cust"));
     assert.equal(config.scheduled, null);
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL });
     assert.equal((await json(await call("GET", "/car/config", "cust"))).scheduled.maxAdvanceHours, 72);
 
     const res = await call("POST", "/car/bookings", "cust", { categoryId, ...trip, scheduledFor: inHours(3) });
@@ -273,5 +276,68 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
     assert.equal(back.rider_id, null);
     assert.equal(back.stage, "Create");
     assert.equal((await call("POST", `/car/orders/${orderId}/apply`, "drv", {})).status, 403);
+  });
+
+  await t.test("carpool: publish a trip, book seats without overselling, pay window and cancellation release seats", async () => {
+    await setPlatformEnvironment("live");
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: { ...CARPOOL, enabled: false } });
+    await client.execute("INSERT INTO users (id, phone, name, password_hash, role) VALUES ('p2', 'p2', 'p2', 'h', 'customer')");
+    tokens.p2 = await signToken({ sub: "p2", role: "customer" });
+    const inHours = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
+    const trip = { originLabel: "Kampala", originLat: 0.3136, originLng: 32.5811, destLabel: "Jinja", destLat: 0.4479, destLng: 33.2026, departAt: inHours(24), seats: 3, seatPrice: 15000 };
+
+    assert.equal((await call("POST", "/car/carpool/trips", "drv", trip)).status, 403, "closed until the admin enables carpool");
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL });
+
+    assert.equal((await call("POST", "/car/carpool/trips", "cust", trip)).status, 409, "only drivers with a vehicle");
+    assert.equal((await call("POST", "/car/carpool/trips", "drv", { ...trip, seats: 9 })).status, 400, "the car holds 4 seats at most");
+    assert.equal((await call("POST", "/car/carpool/trips", "drv", { ...trip, departAt: inHours(0.05) })).status, 400, "too soon");
+    assert.equal((await call("POST", "/car/carpool/trips", "drv", { ...trip, repeatWeeks: 3 })).status, 400, "beyond the admin's repeat limit");
+    const made = await call("POST", "/car/carpool/trips", "drv", { ...trip, repeatWeeks: 1 });
+    assert.equal(made.status, 201);
+    const ids = (await json(made)).ids as string[];
+    assert.equal(ids.length, 2, "weekly repeat creates a trip per week");
+    const tripId = ids[0];
+
+    const q = "fromLat=0.32&fromLng=32.59&toLat=0.45&toLng=33.2";
+    const found = await json(await call("GET", `/car/carpool/trips?${q}`, "cust"));
+    assert.equal(found.trips.length, 2);
+    assert.equal(found.trips[0].seatsLeft, 3);
+    assert.equal((await json(await call("GET", "/car/carpool/trips?fromLat=1.7&fromLng=31.4&toLat=1.8&toLng=31.5", "cust"))).trips.length, 0, "other routes don't match");
+
+    assert.equal((await call("POST", `/car/carpool/trips/${tripId}/seats`, "cust", { seats: 4 })).status, 400, "above the per-booking limit");
+    assert.equal((await call("POST", `/car/carpool/trips/${tripId}/seats`, "drv", { seats: 1 })).status, 409, "not your own trip");
+    const booked = await call("POST", `/car/carpool/trips/${tripId}/seats`, "cust", { seats: 2 });
+    assert.equal(booked.status, 201);
+    const bookedOrder = (await json(booked)).order;
+    assert.equal(bookedOrder.estimated_total, 30000);
+    assert.equal(bookedOrder.rider_id, "drv", "the seat belongs to the trip's driver");
+    assert.equal((await call("POST", `/car/carpool/trips/${tripId}/seats`, "p2", { seats: 2 })).status, 409, "only one seat left: no overselling");
+    const last = await call("POST", `/car/carpool/trips/${tripId}/seats`, "p2", { seats: 1 });
+    assert.equal(last.status, 201);
+    assert.equal((await client.execute({ sql: "SELECT status FROM carpool_trips WHERE id = ?", args: [tripId] })).rows[0].status, "full");
+    assert.equal((await json(await call("GET", `/car/carpool/trips?${q}`, "cust"))).trips.length, 1, "a full trip leaves the search");
+
+    const mine = await json(await call("GET", "/car/carpool/my-trips", "drv"));
+    assert.equal(mine.trips[0].passengers.length, 2);
+
+    // The booking is a car booking: not in the boda feed, and it settles with the owner/driver split.
+    assert.equal((await json(await call("GET", "/riders/jobs/available", "boda"))).jobs.length, 0);
+
+    // A passenger cancels: the seats come back.
+    const secondOrder = (await json(last)).order.id as string;
+    await client.execute({ sql: "UPDATE orders SET stage = 'Cancelled' WHERE id = ?", args: [secondOrder] });
+    assert.equal(await releaseStaleSeats(), 1);
+    assert.equal((await client.execute({ sql: "SELECT status, seats_taken FROM carpool_trips WHERE id = ?", args: [tripId] })).rows[0].seats_taken, 2);
+    assert.equal((await client.execute({ sql: "SELECT status FROM carpool_trips WHERE id = ?", args: [tripId] })).rows[0].status, "open");
+
+    // Not paid within the window: the seat is released too.
+    await client.execute({ sql: "UPDATE carpool_seats SET created_at = datetime('now', '-30 minutes') WHERE order_id = ?", args: [String(bookedOrder.id)] });
+    assert.equal(await releaseStaleSeats(), 2);
+    assert.equal((await client.execute({ sql: "SELECT seats_taken FROM carpool_trips WHERE id = ?", args: [tripId] })).rows[0].seats_taken, 0);
+
+    // A trip with passengers can't just be cancelled; an empty one can.
+    assert.equal((await call("POST", `/car/carpool/trips/${tripId}/status`, "drv", { status: "cancelled" })).status, 200);
+    assert.equal((await call("POST", `/car/carpool/trips/${tripId}/status`, "drv", { status: "departed" })).status, 409);
   });
 });

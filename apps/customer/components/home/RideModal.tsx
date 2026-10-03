@@ -41,6 +41,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [schedule, setSchedule] = useState<{ maxAdvanceHours: number | null; minLeadMinutes: number } | null>(null);
   const [when, setWhen] = useState<"now" | "later">("now");
   const [nowOk, setNowOk] = useState(true);
+  const [carpoolOn, setCarpoolOn] = useState(false);
   const [pickupAt, setPickupAt] = useState("");
   const [mode, setMode] = useState<"boda" | "car">("boda");
   const [carId, setCarId] = useState<string | null>(null);
@@ -56,6 +57,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
       .getCarConfig()
       .then((cfg) => {
         setCars(cfg.onDemandEnabled || cfg.scheduled ? cfg.categories : []);
+        setCarpoolOn(!!cfg.carpool);
         setSchedule(cfg.scheduled);
         setNowOk(cfg.onDemandEnabled);
         if (!cfg.onDemandEnabled && cfg.scheduled) setWhen("later");
@@ -138,18 +140,25 @@ export function RideModal({ onClose }: { onClose: () => void }) {
       <div className="space-y-4">
         <RouteSummary pickup={route.pickup} destination={route.destination} destinationLabel={t("place_destination")} onChange={() => setChoosing(true)} />
 
-        {cars.length > 0 && (
+        {(cars.length > 0 || carpoolOn) && (
           <div role="tablist" className="flex gap-2">
-            {(["boda", "car"] as const).map((m) => (
+            {(["boda", ...(cars.length > 0 ? ["car"] : []), ...(carpoolOn ? ["carpool"] : [])] as ("boda" | "car" | "carpool")[]).map((m) => (
               <button
                 key={m}
                 type="button"
                 role="tab"
                 aria-selected={mode === m}
-                onClick={() => setMode(m)}
+                onClick={() => {
+                  if (m === "carpool") {
+                    onClose();
+                    router.push("/carpool");
+                    return;
+                  }
+                  setMode(m);
+                }}
                 className={`min-h-10 flex-1 rounded-full px-3 text-sm font-bold ${mode === m ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}
               >
-                {t(m === "boda" ? "car_tab_boda" : "car_tab_car")}
+                {m === "carpool" ? "Carpool" : t(m === "boda" ? "car_tab_boda" : "car_tab_car")}
               </button>
             ))}
           </div>

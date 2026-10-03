@@ -209,6 +209,19 @@ export type CarSettings = {
   withdrawalsEnabled: boolean;
   /** Smallest withdrawal in UGX; 0 = none. */
   withdrawalMinAmount: number;
+  carpool: {
+    enabled: boolean;
+    /** Most seats one passenger can book on a trip. */
+    maxSeatsPerBooking: number;
+    /** A driver may repeat a trip weekly for this many weeks (0 = single trips only). */
+    maxRepeatWeeks: number;
+    /** Seats can't be booked within this many minutes of departure. */
+    cutoffMinutes: number;
+    /** A booked seat not paid within this many minutes is released. */
+    payWithinMinutes: number;
+    /** A passenger's start and end must be within this distance of the trip's. */
+    matchRadiusKm: number;
+  };
   scheduled: {
     enabled: boolean;
     /** How far ahead a ride can be booked; null = not set, so scheduled rides stay off. */
@@ -1901,6 +1914,8 @@ export type CarConfig = {
   onDemandEnabled: boolean;
   /** Present only when scheduled rides are switched on and a booking window is set. */
   scheduled: { maxAdvanceHours: number | null; minLeadMinutes: number } | null;
+  /** Present only when carpool is switched on. */
+  carpool: { maxSeatsPerBooking: number; maxRepeatWeeks: number } | null;
   matchingMode: "customer_selects" | "first_to_claim";
   categories: CarCategory[];
 };
@@ -1924,6 +1939,57 @@ export type CarWallet = {
   withdrawalsEnabled: boolean;
   minAmount: number;
   history: Array<{ id: string; amount: number; status: "pending" | "successful" | "failed"; msisdn: string | null; created_at: string }>;
+};
+
+// ---- Carpool ---------------------------------------------------------------
+
+export type CarpoolTrip = {
+  id: string;
+  driverName: string;
+  vehicle: string;
+  originLabel: string;
+  destLabel: string;
+  departAt: string;
+  seatsLeft: number;
+  seatPrice: number;
+};
+
+export type CarpoolPublishInput = {
+  originLabel: string;
+  originLat: number;
+  originLng: number;
+  destLabel: string;
+  destLat: number;
+  destLng: number;
+  departAt: string;
+  seats: number;
+  seatPrice: number;
+  repeatWeeks?: number;
+};
+
+export type CarpoolMyTrip = {
+  id: string;
+  origin_label: string;
+  dest_label: string;
+  depart_at: string;
+  seats_total: number;
+  seats_taken: number;
+  seat_price: number;
+  status: "open" | "full" | "departed" | "completed" | "cancelled";
+  passengers: Array<{
+    order_id: string;
+    seats: number;
+    amount: number;
+    name: string;
+    stage: string;
+    pickup_address: string | null;
+    destination_address: string | null;
+    pickup_lat: number | null;
+    pickup_lng: number | null;
+    destination_lat: number | null;
+    destination_lng: number | null;
+    estimated_total: number | null;
+  }>;
 };
 
 // ---- Tuma Car (partner app) -------------------------------------------------

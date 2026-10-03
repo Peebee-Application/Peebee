@@ -7,6 +7,7 @@ import { sweepProviderOperations } from "./payments/reconciliation.js";
 import { setR2Binding, type R2Bucket } from "./storage/r2.js";
 import { sweepExpiredOrders } from "./orders/expiry.js";
 import { sweepScheduledRides } from "./car/scheduled.js";
+import { releaseStaleSeats } from "./car/carpool.js";
 import { sweepStageEscalations, sweepStageFines, sweepElectionSessions } from "./stages/escalation.js";
 
 /** Minimal local stand-in so we don't need @cloudflare/workers-types (which
@@ -63,6 +64,11 @@ export default {
       sweepScheduledRides()
         .then((result) => console.log("Scheduled car ride sweep:", JSON.stringify(result)))
         .catch((err) => console.error("Scheduled car ride sweep failed:", err)),
+    );
+    ctx.waitUntil(
+      releaseStaleSeats()
+        .then((seats) => console.log("Carpool seat release sweep:", seats))
+        .catch((err) => console.error("Carpool seat release sweep failed:", err)),
     );
     ctx.waitUntil(
       sweepElectionSessions()
