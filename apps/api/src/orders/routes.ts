@@ -16,7 +16,10 @@ import {
   getMonetizationSettings,
   getPlatformEnvironment,
   getRiderReserveSettings,
+  isServiceEnabled,
+  type ServiceKey,
 } from "../lib/settings.js";
+import { servicePaused } from "../lib/service-gate.js";
 import { computeCheckoutFees, isCashDepositOk, riderPayout } from "../lib/monetization.js";
 import { notifyUser } from "../lib/webpush.js";
 import { currentVisibilityRadiusKm, orderMatchPoint, parseDbTimestamp } from "./matching.js";
@@ -309,6 +312,11 @@ export async function createOrderFromInput(
   car?: { fare: number; matchingMode: MatchingMode; matchingDeadlineAt?: string },
 ) {
   const user = c.get("user");
+
+  // An admin can switch a whole service off: no new orders of that kind
+  // (anything already in flight carries on).
+  const service: ServiceKey = d.type === "shopping" ? "shopping" : d.isRide ? "ride" : "parcel";
+  if (!(await isServiceEnabled(service))) return servicePaused(c, service);
 
   const list = await db.execute({
     sql: "SELECT * FROM lists WHERE id = ?",

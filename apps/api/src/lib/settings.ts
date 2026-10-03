@@ -39,6 +39,12 @@ const DEFAULTS = {
   /** Booking a ride for someone else: whether customers may, and how far
    * (metres) their pickup may be from where they are before the app asks
    * "is this ride for someone else?". */
+  /** Whole-service switches (Settings → Services). Off stops NEW orders of that
+   * kind; orders already in flight carry on to completion. */
+  service_shopping_enabled: "1",
+  service_parcel_enabled: "1",
+  service_ride_enabled: "1",
+  service_food_enabled: "1",
   ride_for_other_enabled: "1",
   ride_for_other_distance_m: "500",
   /** Ceiling on what a single order may charge into escrow (UGX). Guards
@@ -1085,3 +1091,34 @@ export async function setLugandaAudioSettings(input: Partial<LugandaAudioSetting
   if (input.requiresPro != null) writes.push(setSetting("luganda_audio_requires_pro", input.requiresPro ? "1" : "0"));
   await Promise.all(writes);
 }
+
+// ---------------------------------------------------------------------------
+// Services: the customer-facing modules an admin can switch on or off.
+// ---------------------------------------------------------------------------
+
+export const SERVICE_KEYS = ["shopping", "parcel", "ride", "food"] as const;
+export type ServiceKey = (typeof SERVICE_KEYS)[number];
+export type ServiceSwitches = Record<ServiceKey, boolean>;
+
+export async function getServiceSwitches(): Promise<ServiceSwitches> {
+  const values = await Promise.all(SERVICE_KEYS.map((k) => getSetting(`service_${k}_enabled` as SettingKey)));
+  return Object.fromEntries(SERVICE_KEYS.map((k, i) => [k, values[i] !== "0"])) as ServiceSwitches;
+}
+
+export async function setServiceSwitches(next: Partial<ServiceSwitches>): Promise<void> {
+  for (const k of SERVICE_KEYS) {
+    if (next[k] != null) await setSetting(`service_${k}_enabled` as SettingKey, next[k] ? "1" : "0");
+  }
+}
+
+export async function isServiceEnabled(service: ServiceKey): Promise<boolean> {
+  return (await getSetting(`service_${service}_enabled` as SettingKey)) !== "0";
+}
+
+/** The 403 body every "this service is switched off" refusal shares, so the apps can show one friendly message. */
+export const SERVICE_PAUSED_LABEL: Record<ServiceKey, string> = {
+  shopping: "Shopping lists",
+  parcel: "Parcel delivery",
+  ride: "Rides",
+  food: "Food ordering",
+};

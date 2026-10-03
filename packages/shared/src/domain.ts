@@ -292,6 +292,10 @@ export type DeliverySettings = {
    * the pickup may be from where the customer is before the app asks. */
   rideForOtherEnabled: boolean;
   rideForOtherDistanceM: number;
+  /** Whole-service switches (admin → Settings → Services). Off = no new orders of
+   * that kind; anything already in flight finishes. Shopping, parcels, rides
+   * (incl. Tuma Car bookings) and food. */
+  services: ServiceSwitches;
   enabledModes: MatchingMode[];
   nearestWindowSeconds: number;
   maxAssignmentMinutes: number;
@@ -1097,6 +1101,9 @@ export type CustomerRestaurantChatThread = {
   lastMessageAt: string;
   unread: boolean;
 };
+
+export type ServiceKey = "shopping" | "parcel" | "ride" | "food";
+export type ServiceSwitches = Record<ServiceKey, boolean>;
 
 /** Who is actually riding when the booker isn't. */
 export type RidePassenger = { name: string; phone: string };

@@ -55,6 +55,8 @@ export type {
   AdminRider,
   SavedLocation,
   RidePassenger,
+  ServiceKey,
+  ServiceSwitches,
   SavedPassenger,
   SharedTrip,
   AuthUser,

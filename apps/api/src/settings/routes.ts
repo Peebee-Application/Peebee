@@ -11,6 +11,8 @@ import {
   getJawgLightStyle,
   getActiveProviders,
   getDeliverySettings,
+  getServiceSwitches,
+  setServiceSwitches,
   getTimeFeeSettings,
   getJobExpirySettings,
   setJobExpirySettings,
@@ -70,7 +72,7 @@ import { paymentsIntegrationStatus } from "../payments/service.js";
 export const settingsRoutes = new Hono();
 
 async function fullSettings() {
-  const [delivery, matching, activeProviders, demoMode, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla, lugandaAudio, pro] =
+  const [delivery, matching, activeProviders, demoMode, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla, lugandaAudio, pro, services] =
     await Promise.all([
       getDeliverySettings(),
       getMatchingSettings(),
@@ -92,6 +94,7 @@ async function fullSettings() {
       getVslaSettings(),
       getLugandaAudioSettings(),
       getProSettings(),
+      getServiceSwitches(),
     ]);
 
   // The active provider's own key/token, handed to every signed-in client
@@ -130,6 +133,7 @@ async function fullSettings() {
     bidding: await getBiddingSettings(),
     car: await getCarSettings(),
     ...delivery,
+    services,
     ...matching,
     paymentsActiveProviders: activeProviders,
     paymentsDemoMode: demoMode,
@@ -345,6 +349,7 @@ const updateSchema = z.object({
   shoppingDeliveryFee: z.number().int().nonnegative().max(1_000_000).optional(),
   rideRatePerKm: z.number().positive().max(1_000_000).optional(),
   rideMinimumFare: z.number().int().nonnegative().max(1_000_000).optional(),
+  services: z.object({ shopping: z.boolean(), parcel: z.boolean(), ride: z.boolean(), food: z.boolean() }).partial().optional(),
   rideForOtherEnabled: z.boolean().optional(),
   rideForOtherDistanceM: z.number().int().min(50).max(50_000).optional(),
   enabledModes: z.array(z.enum(["first_to_claim", "nearest_window", "customer_selects"])).optional(),
@@ -482,6 +487,7 @@ settingsRoutes.put(
     if (parsed.data.rideMinimumFare != null) {
       await setSetting("ride_minimum_fare", String(parsed.data.rideMinimumFare));
     }
+    if (parsed.data.services) await setServiceSwitches(parsed.data.services);
     if (parsed.data.rideForOtherEnabled != null) {
       await setSetting("ride_for_other_enabled", parsed.data.rideForOtherEnabled ? "1" : "0");
     }

@@ -5,7 +5,8 @@ import { db } from "../db/client.js";
 import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
-import { getCarSettings, getMatchingSettings, getPlatformEnvironment } from "../lib/settings.js";
+import { getCarSettings, getMatchingSettings, getPlatformEnvironment, isServiceEnabled } from "../lib/settings.js";
+import { servicePaused } from "../lib/service-gate.js";
 import { computeBidding, loadBiddingContext, validateBid } from "../orders/bidding.js";
 import { currentVisibilityRadiusKm, orderMatchPoint } from "../orders/matching.js";
 import { createOrderFromInput } from "../orders/routes.js";
@@ -376,6 +377,7 @@ carRoutes.post("/car/quote", async (c) => {
  * chat and rating machinery as any ride) plus the car booking that links them. */
 carRoutes.post("/car/bookings", async (c) => {
   const user = c.get("user");
+  if (!(await isServiceEnabled("ride"))) return servicePaused(c, "ride");
   const settings = await getCarSettings();
   const parsed = bookingSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);

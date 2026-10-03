@@ -9,6 +9,7 @@ import {
   Mic,
   Map as MapIcon,
   PiggyBank,
+  Power,
   Phone,
   Route,
   Store,
@@ -26,6 +27,12 @@ export type SettingsLink = {
 };
 
 export const SETTINGS_LINKS: SettingsLink[] = [
+  {
+    href: "/settings/services",
+    label: "Services",
+    description: "Switch shopping, parcels, rides and food on or off — dependent apps and features pause with them.",
+    icon: Power,
+  },
   {
     href: "/settings/delivery",
     label: "Delivery pricing",

@@ -438,7 +438,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
 
     // Restaurant browsing + food checkout — see apps/api/src/restaurants/customer.ts.
     async listRestaurants() {
-      return request<{ restaurants: Restaurant[] }>("/v1/restaurants");
+      return request<{ restaurants: Restaurant[]; /** Food ordering is switched off by an admin. */ paused?: boolean }>("/v1/restaurants");
     },
     async getRestaurant(id: string) {
       return request<{ restaurant: Restaurant }>(`/v1/restaurants/${id}`);

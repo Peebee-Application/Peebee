@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { AuthGate } from "./AuthGate";
 import { BottomNav } from "./BottomNav";
 import { BrandHeader } from "./BrandHeader";
+import { ServiceBanner } from "./ServiceBanner";
 import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./PracticeMode";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -24,6 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {!isAuthPage && <PracticeModePrompt role="rider" />}
       {showHeader && <BrandHeader />}
       {!isAuthPage && <PracticeModeBanner role="rider" />}
+      {!isAuthPage && <ServiceBanner />}
       <main
         className={`mx-auto max-w-lg ${showHeader ? "min-h-[calc(100dvh-3.5rem)]" : "min-h-dvh"} ${
           showNav ? "pb-[calc(3.5rem+env(safe-area-inset-bottom))]" : ""

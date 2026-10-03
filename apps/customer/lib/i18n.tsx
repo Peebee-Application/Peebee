@@ -100,6 +100,8 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   bid_more: { en: "{amount} more", lg: "Ekirala {amount}" },
   where_to: { en: "Where to?", lg: "Ogenda wa?" },
   service_ride: { en: "Ride", lg: "Boda" },
+  service_paused: { en: "Paused", lg: "Kyayimiriziddwa" },
+  service_paused_note: { en: "{service} is paused right now. Please check back later.", lg: "{service} kyayimiriziddwa kati. Ddamu oluvannyuma." },
   service_food: { en: "Food", lg: "Emmere" },
   service_shopping: { en: "Shop", lg: "Ebintu" },
   service_parcel: { en: "Parcel", lg: "Ekipakedde" },
