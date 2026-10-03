@@ -1164,6 +1164,22 @@ export type CustomerRestaurantChatThread = {
 export type ServiceKey = "shopping" | "parcel" | "ride" | "food";
 export type ServiceSwitches = Record<ServiceKey, boolean>;
 
+/** What paying for an order costs, itemised: what was ordered, the delivery
+ * (or ride fare), the platform fee and the transaction (payment) charge —
+ * per payment method, since wallet and cash carry no transaction charge. */
+export type CheckoutQuote = {
+  baseAmount: number;
+  mobileMoney: number;
+  wallet: number;
+  cash: number;
+  isRide: boolean;
+  /** What was ordered (items); 0 for a ride or parcel. */
+  items: number;
+  /** Delivery fee, or the fare for a ride. */
+  delivery: number;
+  fees: Record<"mobileMoney" | "wallet" | "cash", { platform: number; transaction: number }>;
+};
+
 /** Who is actually riding when the booker isn't. */
 export type RidePassenger = { name: string; phone: string };
 

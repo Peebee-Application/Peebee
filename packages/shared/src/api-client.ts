@@ -11,6 +11,7 @@ import type {
   AdminRider,
   CarBookingInput,
   RidePassenger,
+  CheckoutQuote,
   AiKeyAddResult,
   AiKeyMode,
   AiKeysOverview,
@@ -546,7 +547,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       return request<{ ok: true }>(`/v1/orders/${orderId}/customer-delete`, { method: "POST" });
     },
     async getOrderCheckout(orderId: string) {
-      return request<{ baseAmount: number; mobileMoney: number; wallet: number; cash: number }>(`/v1/orders/${orderId}/checkout`);
+      return request<CheckoutQuote>(`/v1/orders/${orderId}/checkout`);
     },
     async fundOrder(
       orderId: string,

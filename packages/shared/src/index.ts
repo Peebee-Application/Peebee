@@ -55,6 +55,7 @@ export type {
   AdminRider,
   SavedLocation,
   RidePassenger,
+  CheckoutQuote,
   AiKey,
   AiKeyMode,
   AiKeysOverview,

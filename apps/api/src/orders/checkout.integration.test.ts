@@ -61,8 +61,20 @@ test("checkout methods preserve payment ownership and held funds", async (t) => 
       for (const [key, value] of Object.entries({ monetization_service_fee_enabled: "1", monetization_service_fee_type: "flat", monetization_service_fee_value: "500", monetization_processing_fee_enabled: "1", monetization_processing_fee_percent: "20", monetization_processing_fee_mode: "customer" })) {
         await client.execute({ sql: "INSERT INTO settings (key, value) VALUES (?, ?)", args: [key, value] });
       }
-      assert.deepEqual(await (await request("quote/checkout")).json(), { baseAmount: 2500, mobileMoney: 3500, wallet: 3000, cash: 2500 });
+      assert.deepEqual(await (await request("quote/checkout")).json(), { baseAmount: 2500, mobileMoney: 3500, wallet: 3000, cash: 2500, isRide: false, items: 0, delivery: 2500, fees: { mobileMoney: { platform: 500, transaction: 500 }, wallet: { platform: 500, transaction: 0 }, cash: { platform: 0, transaction: 0 } } });
       assert.equal((await request("quote/checkout", undefined, other)).status, 403);
+
+      // A shopping order splits what was ordered from the delivery; a ride is a "ride fare" with no items.
+      await client.execute({ sql: "INSERT INTO orders (id, list_id, customer_id, stage, estimated_total, delivery_fee, environment, type) VALUES ('shop-quote', 'list', 'customer', 'Match', 50500, 3000, 'live', 'shopping')", args: [] });
+      const shop = await (await request("shop-quote/checkout")).json();
+      assert.equal(shop.items, 47500);
+      assert.equal(shop.delivery, 3000);
+      assert.equal(shop.items + shop.delivery, shop.baseAmount);
+      assert.equal(shop.mobileMoney, shop.baseAmount + shop.fees.mobileMoney.platform + shop.fees.mobileMoney.transaction, "the lines add up to the total");
+      assert.equal(shop.wallet, shop.baseAmount + shop.fees.wallet.platform + shop.fees.wallet.transaction);
+      await client.execute({ sql: "INSERT INTO orders (id, list_id, customer_id, stage, estimated_total, delivery_fee, environment, type, is_ride) VALUES ('ride-quote', 'list', 'customer', 'Match', 4000, 4000, 'live', 'parcel', 1)", args: [] });
+      const ride = await (await request("ride-quote/checkout")).json();
+      assert.deepEqual([ride.isRide, ride.items, ride.delivery], [true, 0, 4000]);
       assert.equal((await request("quote/fund", { paymentMethod: "wallet", useWallet: true, acceptedAmount: 2500 })).status, 409);
       assert.equal((await client.execute("SELECT wallet_balance FROM users WHERE id = 'customer'")).rows[0].wallet_balance, 20000);
       await client.execute("DELETE FROM settings WHERE key LIKE 'monetization_%'");
