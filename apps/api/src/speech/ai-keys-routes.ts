@@ -7,7 +7,7 @@ import { db } from "../db/client.js";
 import { isCredentialsEncryptionConfigured } from "../lib/crypto.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { hasTable } from "../lib/schema.js";
-import { addKeys, getKeyMode, getKeyRow, listKeys, setKeyMode, setMaster, testKey } from "./ai-keys.js";
+import { addKeys, getKeyMode, getKeyRow, listKeys, removeKey, resetKey, setKeyMode, setMaster, setProjectTag, testKey } from "./ai-keys.js";
 
 /** Admin management of the Google AI Studio keys — see ./ai-keys.ts. Gated like
  * the other credential screens (settings.manage); secrets never leave the server. */
@@ -27,7 +27,7 @@ async function overview() {
 aiKeyRoutes.get("/admin/ai-keys", ...gate, async (c) => c.json(await overview()));
 
 const addSchema = z.object({
-  keys: z.array(z.object({ label: z.string().trim().max(60).optional(), key: z.string().max(200) })).min(1).max(100),
+  keys: z.array(z.object({ label: z.string().trim().max(60).optional(), key: z.string().max(200), projectTag: z.string().trim().max(60).optional() })).min(1).max(100),
 });
 
 aiKeyRoutes.post("/admin/ai-keys", ...gate, async (c) => {
@@ -44,7 +44,7 @@ aiKeyRoutes.post("/admin/ai-keys", ...gate, async (c) => {
   return c.json({ results, ...(await overview()) }, 201);
 });
 
-const patchSchema = z.object({ enabled: z.boolean().optional(), label: z.string().trim().min(1).max(60).optional() });
+const patchSchema = z.object({ enabled: z.boolean().optional(), label: z.string().trim().min(1).max(60).optional(), projectTag: z.string().trim().max(60).nullable().optional() });
 
 aiKeyRoutes.patch("/admin/ai-keys/:id", ...gate, async (c) => {
   const user = c.get("user");
@@ -58,6 +58,7 @@ aiKeyRoutes.patch("/admin/ai-keys/:id", ...gate, async (c) => {
   }
   if (parsed.data.enabled != null) await db.execute({ sql: "UPDATE ai_api_keys SET enabled = ? WHERE id = ?", args: [parsed.data.enabled ? 1 : 0, id] });
   if (parsed.data.label) await db.execute({ sql: "UPDATE ai_api_keys SET label = ? WHERE id = ?", args: [parsed.data.label, id] });
+  if (parsed.data.projectTag !== undefined) await setProjectTag(id, parsed.data.projectTag);
   await logActivity({ actor: user, action: "ai_keys.update", entityType: "ai_api_keys", entityId: id, summary: `Updated Google AI key ${String(row.label)} (${String(row.key_hint)})${parsed.data.enabled != null ? (parsed.data.enabled ? " — enabled" : " — disabled") : ""}`, ip: clientIp(c) });
   return c.json(await overview());
 });
@@ -65,7 +66,7 @@ aiKeyRoutes.patch("/admin/ai-keys/:id", ...gate, async (c) => {
 aiKeyRoutes.post("/admin/ai-keys/:id/reset", ...gate, async (c) => {
   const id = (c.req.param("id") as string);
   if (!(await getKeyRow(id))) return c.json({ error: "not_found" }, 404);
-  await db.execute({ sql: "UPDATE ai_api_keys SET cooldown_until = NULL, cooldown_reason = NULL, last_error = NULL WHERE id = ?", args: [id] });
+  await resetKey(id);
   return c.json(await overview());
 });
 
@@ -101,7 +102,7 @@ aiKeyRoutes.delete("/admin/ai-keys/:id", ...gate, async (c) => {
   if (Number(row.is_master) === 1 && (await getKeyMode()) === "paid") {
     return c.json({ error: "master_in_use", message: "Paid mode is on — switch to test mode or pick another master key first." }, 409);
   }
-  await db.execute({ sql: "DELETE FROM ai_api_keys WHERE id = ?", args: [id] });
+  await removeKey(id);
   await logActivity({ actor: user, action: "ai_keys.remove", entityType: "ai_api_keys", entityId: id, summary: `Removed Google AI key ${String(row.label)} (${String(row.key_hint)})`, ip: clientIp(c) });
   return c.json(await overview());
 });

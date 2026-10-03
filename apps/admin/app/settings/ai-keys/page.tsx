@@ -19,6 +19,7 @@ function Badge({ children, tone }: { children: React.ReactNode; tone: "gold" | "
 export default function AiKeysPage() {
   const [data, setData] = useState<AiKeysOverview | null>(null);
   const [text, setText] = useState("");
+  const [projectTag, setProjectTag] = useState("");
   const [results, setResults] = useState<AiKeyAddResult[]>([]);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -56,7 +57,8 @@ export default function AiKeysPage() {
       .filter(Boolean)
       .map((l) => {
         const named = /^(.{1,60}?)\s*:\s*(\S+)$/.exec(l);
-        return named ? { label: named[1], key: named[2] } : { key: l };
+        const tag = projectTag.trim() || undefined;
+        return named ? { label: named[1], key: named[2], projectTag: tag } : { key: l, projectTag: tag };
       });
     if (entries.length === 0) return;
     void run(
@@ -83,10 +85,21 @@ export default function AiKeysPage() {
           {k.status === "cooling" && <Badge tone="red">At its limit</Badge>}
           {k.status === "disabled" && <Badge tone="grey">Off</Badge>}
         </div>
-        {k.status === "cooling" && (
-          <p className="text-xs text-ink-500">
-            {k.cooldownReason} — back about {when(k.cooldownUntil)}.
-          </p>
+        {k.projectTag && <p className="text-xs text-ink-500">Google project: {k.projectTag}</p>}
+        {k.limits.length > 0 ? (
+          <ul className="space-y-0.5 text-xs text-ink-500">
+            {k.limits.map((l) => (
+              <li key={l.model}>
+                {l.model}: {l.reason.split(" — ")[0]} — back about {when(l.until)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          k.status === "cooling" && (
+            <p className="text-xs text-ink-500">
+              {k.cooldownReason} — back about {when(k.cooldownUntil)}.
+            </p>
+          )
         )}
         {k.lastError && k.status !== "cooling" && <p className="text-xs text-red-600">{k.lastError}</p>}
         <p className="text-xs text-ink-500">
@@ -107,6 +120,17 @@ export default function AiKeysPage() {
           )}
           <button type="button" disabled={busy} onClick={() => void run(() => api.adminUpdateAiKey(k.id, { enabled: !k.enabled }))} className="min-h-8 rounded-full border border-[var(--border-faint)] px-3 text-xs font-bold text-ink">
             {k.enabled ? "Turn off" : "Turn on"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              const next = window.prompt("Which Google project is this key from? Keys from the same project share one limit. Leave empty if it has its own project.", k.projectTag ?? "");
+              if (next !== null) void run(() => api.adminUpdateAiKey(k.id, { projectTag: next.trim() || null }));
+            }}
+            className="min-h-8 rounded-full border border-[var(--border-faint)] px-3 text-xs font-bold text-ink"
+          >
+            Project
           </button>
           {k.status === "cooling" && (
             <button type="button" disabled={busy} onClick={() => void run(() => api.adminResetAiKey(k.id))} className="flex min-h-8 items-center gap-1 rounded-full border border-[var(--border-faint)] px-3 text-xs font-bold text-ink">
@@ -138,7 +162,7 @@ export default function AiKeysPage() {
         <div className="space-y-5">
           {!data.tableReady && (
             <p className="rounded-lg bg-gold/15 px-3 py-2 text-sm text-ink">
-              Apply migration <code>0074_ai_api_keys.sql</code> first. Until then the app keeps using the <code>GEMINI_API_KEY</code> secret.
+              Apply migrations <code>0074_ai_api_keys.sql</code> and <code>0075_ai_key_limits.sql</code> first. Until then the app keeps using the <code>GEMINI_API_KEY</code> secret.
             </p>
           )}
           {data.tableReady && !data.encryptionConfigured && (
@@ -171,13 +195,17 @@ export default function AiKeysPage() {
             </div>
             <p className="text-xs text-ink-500">
               {data.mode === "test"
-                ? `Test mode rotates through every test key automatically. When one runs out of its daily or per-minute limit it is set aside and the next takes over; it returns after the limit resets. ${readyTest} of ${testKeys.length} test key${testKeys.length === 1 ? "" : "s"} ready now. The master key is never used in test mode.`
+                ? `Test mode rotates through every test key automatically. When one runs out of its per-minute or daily limit for a model it is set aside for that model and the next takes over. A per-minute limit returns within about a minute; a daily limit returns at midnight Pacific time (10:00 am Uganda time in summer, 11:00 am in winter). ${readyTest} of ${testKeys.length} test key${testKeys.length === 1 ? "" : "s"} ready now. The master key is never used in test mode.`
                 : master
                   ? `Paid mode uses only the master key (${master.label}, ${master.hint}). No rotation.`
                   : "Paid mode needs a master key."}
             </p>
             {data.mode === "test" && !master && <p className="text-xs text-ink-500">Tip: mark the key you&apos;ll pay for as master now, so switching to paid later is one tap.</p>}
           </section>
+
+          <p className="rounded-lg bg-gold/15 px-3 py-2 text-xs text-ink">
+            <span className="font-bold">Good to know:</span> Google limits are per <span className="font-bold">project</span> and per <span className="font-bold">model</span>, not per key. Several keys made in the same Google project share one allowance, so they won&apos;t add capacity. For real rotation, create each key in a <span className="font-bold">separate Google project</span> (in AI Studio, use &ldquo;Create API key&rdquo; with a new project each time). If you do put keys from one project here, give them the same project name below so they&apos;re treated as one.
+          </p>
 
           <section className="home-card space-y-3">
             <div>
@@ -193,6 +221,13 @@ export default function AiKeysPage() {
               placeholder={"AIza…\nSharon: AIza…"}
               className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 font-mono text-xs outline-none focus:border-gold"
               spellCheck={false}
+              autoComplete="off"
+            />
+            <input
+              value={projectTag}
+              onChange={(e) => setProjectTag(e.target.value)}
+              placeholder="Google project name for these keys (optional)"
+              className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm outline-none focus:border-gold"
               autoComplete="off"
             />
             <button type="button" disabled={busy || !text.trim() || !data.tableReady} onClick={add} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-gold text-sm font-bold text-ink-gold disabled:opacity-60">

@@ -8,9 +8,9 @@ import { signToken } from "../auth/jwt.js";
 import { setD1Binding, type D1Database } from "../db/client.js";
 import { splitSqlStatements } from "../db/split-sql.js";
 import { resetSchemaCache } from "../lib/schema.js";
-import { classifyFailure, cooldownFor, nextPacificMidnight } from "./ai-keys.js";
+import { classifyFailure, cooldownFor, nextPacificMidnight, retryDelayMs } from "./ai-keys.js";
 import { aiKeyRoutes } from "./ai-keys-routes.js";
-import { translateToLuganda } from "./gemini.js";
+import { synthesizeLuganda, translateToLuganda } from "./gemini.js";
 
 function bindDatabase(client: Client) {
   const prepare = (sql: string) => ({
@@ -45,8 +45,18 @@ test("reading Google's answers and working out when a key comes back", () => {
   // In winter Pacific is UTC-8.
   assert.equal(nextPacificMidnight(new Date("2026-01-10T20:00:00Z")).toISOString(), "2026-01-11T08:00:00.000Z");
   const now = new Date("2026-07-10T20:00:00Z");
-  assert.equal(cooldownFor("quota_minute", now)?.until.getTime(), now.getTime() + 90_000);
   assert.equal(cooldownFor("other", now), null);
+
+  // A per-minute limit waits as long as Google says (plus a 2s margin), not a fixed guess.
+  const withDelay = JSON.stringify({ error: { details: [{ "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: "34s" }] } });
+  assert.equal(retryDelayMs(withDelay), 34_000);
+  assert.equal(retryDelayMs("{}"), null);
+  assert.equal(cooldownFor("quota_minute", now, 34_000)?.until.getTime(), now.getTime() + 36_000);
+  assert.equal(cooldownFor("quota_minute", now)?.until.getTime(), now.getTime() + 65_000, "one minute when Google doesn't say");
+  assert.equal(cooldownFor("quota_minute", now, 3_600_000)?.until.getTime(), now.getTime() + 5 * 60_000, "never parked for long over a seconds-long limit");
+  assert.equal(cooldownFor("quota_unknown", now)?.until.getTime(), now.getTime() + 10 * 60_000, "an unreadable limit is retried soon, not after an hour");
+  // A daily limit ignores retryDelay (Google reports a short one even then) and waits for the reset.
+  assert.equal(cooldownFor("quota_day", now, 34_000)?.until.toISOString(), nextPacificMidnight(now).toISOString());
 });
 
 test("google ai keys: add, rotate on quota, master + paid mode", async (t) => {
@@ -76,7 +86,7 @@ test("google ai keys: add, rotate on quota, master + paid mode", async (t) => {
     const key = new Headers(init.headers).get("x-goog-api-key") ?? "";
     if (String(url).includes("/models?pageSize=1")) return key.startsWith("BAD") ? new Response("API key not valid", { status: 400 }) : new Response("{}", { status: 200 });
     used.push(key);
-    const b = behaviour[key] ?? { status: 200 };
+    const b = behaviour[key + (String(url).includes("-tts:") ? "@tts" : "")] ?? behaviour[key] ?? { status: 200 };
     return b.status === 200 ? Response.json({ candidates: [{ content: { parts: [{ text: `ok:${key}` }] } }] }) : new Response(b.body ?? "", { status: b.status });
   }) as typeof fetch;
   const K = (n: string) => `AIzaSy-test-key-${n}-padding-padding`;
@@ -140,11 +150,43 @@ test("google ai keys: add, rotate on quota, master + paid mode", async (t) => {
       await call("PUT", "/admin/ai-keys-mode", "admin", { mode: "test" });
       const before = (await json(await call("GET", "/admin/ai-keys", "admin"))).keys;
       await client.execute("UPDATE ai_api_keys SET cooldown_until = NULL, cooldown_reason = NULL");
+      await client.execute("DELETE FROM ai_key_limits");
       await assert.rejects(() => translateToLuganda("x"), /503/);
       const after = (await json(await call("GET", "/admin/ai-keys", "admin"))).keys;
       assert.ok(after.every((k: any) => k.status === "ready"), "none set aside");
       assert.equal(before.length, after.length);
       for (const k of ["a", "b", "c"]) behaviour[K(k)] = { status: 200 };
+    });
+
+    await t.test("a limit is per model: out of voice requests doesn't stop translation", async () => {
+      await client.execute("DELETE FROM ai_key_limits");
+      for (const k of ["a", "b", "c"]) behaviour[K(k) + "@tts"] = { status: 429, body: dayBody };
+      await assert.rejects(() => synthesizeLuganda("Amata", "Kore"), /limit/i);
+      const keys = (await json(await call("GET", "/admin/ai-keys", "admin"))).keys;
+      assert.ok(keys.every((k: any) => k.limits.length === 1 && k.limits[0].model.includes("tts")));
+      assert.ok((await translateToLuganda("milk")).startsWith("ok:"), "translation still has all three keys");
+      for (const k of ["a", "b", "c"]) delete behaviour[K(k) + "@tts"];
+      await client.execute("DELETE FROM ai_key_limits");
+    });
+
+    await t.test("keys from the same Google project share one limit; other projects carry on", async () => {
+      const keys = (await json(await call("GET", "/admin/ai-keys", "admin"))).keys;
+      const id = (label: string) => keys.find((k: any) => k.label === label).id;
+      await call("PATCH", `/admin/ai-keys/${id("A")}`, "admin", { projectTag: "project-one" });
+      await call("PATCH", `/admin/ai-keys/${id("B")}`, "admin", { projectTag: "project-one" });
+      for (const [label, day] of [["A", "01"], ["B", "02"], ["C", "03"]]) await client.execute({ sql: "UPDATE ai_api_keys SET last_used_at = ? WHERE label = ?", args: [`2000-01-${day}T00:00:00.000Z`, label] });
+      behaviour[K("a")] = { status: 429, body: dayBody };
+      used.length = 0;
+      assert.ok((await translateToLuganda("milk")).startsWith("ok:"));
+      assert.equal(used[0], K("a"));
+      assert.ok(used.includes(K("c")), "went straight to the other project");
+      assert.ok(!used.includes(K("b")), "B shares A's project, so it wasn't wasted on");
+      const after = (await json(await call("GET", "/admin/ai-keys", "admin"))).keys;
+      assert.equal(after.find((k: any) => k.label === "B").status, "cooling");
+      assert.equal(after.find((k: any) => k.label === "C").status, "ready");
+      assert.equal(after.find((k: any) => k.label === "A").projectTag, "project-one");
+      behaviour[K("a")] = { status: 200 };
+      await client.execute("DELETE FROM ai_key_limits");
     });
 
     let masterId = "";

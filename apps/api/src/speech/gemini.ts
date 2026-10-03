@@ -19,7 +19,7 @@ type GeminiResponse = {
 };
 
 async function generate(model: string, body: unknown, what: string): Promise<GeminiResponse> {
-  return withGeminiKey(async (apiKey) => {
+  return withGeminiKey(model, async (apiKey) => {
     const res = await fetch(`${BASE_URL}/models/${model}:generateContent`, {
       method: "POST",
       headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },

@@ -404,6 +404,10 @@ export type AiKey = {
   status: "ready" | "cooling" | "disabled";
   cooldownUntil: string | null;
   cooldownReason: string | null;
+  /** The Google Cloud project this key was made in. Keys sharing a project share one quota. */
+  projectTag: string | null;
+  /** Models this key is currently out of quota for, and when each comes back. */
+  limits: Array<{ model: string; until: string; reason: string }>;
   lastError: string | null;
   lastUsedAt: string | null;
   useCount: number;

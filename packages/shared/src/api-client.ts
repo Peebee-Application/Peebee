@@ -1273,10 +1273,10 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async adminAiKeys() {
       return request<AiKeysOverview>("/v1/admin/ai-keys");
     },
-    async adminAddAiKeys(keys: Array<{ label?: string; key: string }>) {
+    async adminAddAiKeys(keys: Array<{ label?: string; key: string; projectTag?: string }>) {
       return request<AiKeysOverview & { results: AiKeyAddResult[] }>("/v1/admin/ai-keys", { method: "POST", body: JSON.stringify({ keys }) });
     },
-    async adminUpdateAiKey(id: string, input: { enabled?: boolean; label?: string }) {
+    async adminUpdateAiKey(id: string, input: { enabled?: boolean; label?: string; projectTag?: string | null }) {
       return request<AiKeysOverview>(`/v1/admin/ai-keys/${id}`, { method: "PATCH", body: JSON.stringify(input) });
     },
     async adminResetAiKey(id: string) {
