@@ -1,0 +1,178 @@
+import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import test from "node:test";
+import { createClient, type Client, type InArgs } from "@libsql/client/node";
+import { Hono } from "hono";
+import { signToken } from "../auth/jwt.js";
+import { setD1Binding, type D1Database } from "../db/client.js";
+import { splitSqlStatements } from "../db/split-sql.js";
+import { setBiddingSettings, setCarSettings, setMatchingModesEnabled } from "../lib/settings.js";
+import { resetSchemaCache } from "../lib/schema.js";
+import { orderRoutes } from "../orders/routes.js";
+import { riderRoutes } from "../riders/routes.js";
+import { carAdminRoutes } from "./admin-routes.js";
+import { carRoutes } from "./routes.js";
+import { resolveShares, splitPool } from "./service.js";
+
+function bindDatabase(client: Client) {
+  const prepare = (sql: string) => ({
+    sql, args: [] as unknown[],
+    bind(...args: unknown[]) { this.args = args; return this; },
+    async all() {
+      const result = await client.execute({ sql: this.sql, args: this.args as InArgs });
+      return { results: result.rows, success: true, meta: { changes: result.rowsAffected, last_row_id: Number(result.lastInsertRowid ?? 0) } };
+    },
+  });
+  setD1Binding({
+    prepare,
+    async batch(statements: ReturnType<typeof prepare>[]) {
+      const results = await client.batch(statements.map(({ sql, args }) => ({ sql, args: args as InArgs })), "write");
+      return results.map((result) => ({ results: result.rows, success: true, meta: { changes: result.rowsAffected, last_row_id: Number(result.lastInsertRowid ?? 0) } }));
+    },
+  } as unknown as D1Database);
+}
+
+test("profit split and share resolution", () => {
+  assert.deepEqual(splitPool(5000, { owner: 60, driver: 30, platform: 10 }), { owner: 3000, driver: 1500, platform: 500 });
+  // Rounding never loses or invents money: the platform keeps the remainder.
+  const odd = splitPool(1001, { owner: 60, driver: 30, platform: 10 });
+  assert.equal(odd.owner + odd.driver + odd.platform, 1001);
+  const defaults = { owner: 60, driver: 30, platform: 10 };
+  assert.deepEqual(resolveShares({ owner_share_percent: 50, driver_share_percent: 40, platform_share_percent: 10 }, defaults), { owner: 50, driver: 40, platform: 10 });
+  assert.deepEqual(resolveShares({ owner_share_percent: 50, driver_share_percent: 40, platform_share_percent: 20 }, defaults), defaults, "a split not totalling 100 is ignored");
+  assert.deepEqual(resolveShares({ owner_share_percent: 50, driver_share_percent: null, platform_share_percent: null }, defaults), defaults);
+});
+
+test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle split", async (t) => {
+  process.env.JWT_SECRET = "local-car-test-secret-only";
+  resetSchemaCache();
+  const client = createClient({ url: "file::memory:" });
+  const migrations = join(process.cwd(), "src/db/migrations");
+  for (const file of readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort()) {
+    for (const sql of splitSqlStatements(readFileSync(join(migrations, file), "utf8"))) await client.execute(sql);
+  }
+  bindDatabase(client);
+
+  for (const [id, role] of [["cust", "customer"], ["owner", "customer"], ["drv", "customer"], ["boda", "rider"], ["admin", "admin"]]) {
+    await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role) VALUES (?, ?, ?, 'h', ?)", args: [id, id, id, role] });
+  }
+  await client.execute("UPDATE users SET admin_role = 'super_admin' WHERE id = 'admin'");
+  await client.execute("INSERT INTO riders (user_id, verified, is_online) VALUES ('boda', 1, 1)");
+
+  const app = new Hono().route("/v1", orderRoutes).route("/v1", carRoutes).route("/v1", carAdminRoutes).route("/v1", riderRoutes);
+  const tokens: Record<string, string> = {};
+  for (const [id, role] of [["cust", "customer"], ["owner", "customer"], ["drv", "customer"], ["boda", "rider"], ["admin", "admin"]] as const) {
+    tokens[id] = await signToken({ sub: id, role });
+  }
+  const call = (method: string, path: string, who: string, body?: unknown) =>
+    app.request(`/v1${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${tokens[who]}`, "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  const json = async (res: Response) => (await res.json()) as Record<string, any>;
+
+  const trip = { pickupLat: 0.3, pickupLng: 32.58, destinationLat: 0.35, destinationLng: 32.58, pickupAddress: "A", destinationAddress: "B" };
+  let categoryId = "";
+  let vehicleId = "";
+  let orderId = "";
+
+  await t.test("everything is closed until an admin switches Car on", async () => {
+    assert.equal((await call("GET", "/car/config", "cust")).status, 403);
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10 });
+    await setBiddingSettings({ enabled: true, minPercent: 50, maxPercent: 150 });
+    await setMatchingModesEnabled(["first_to_claim"]); // boda riders' own modes must not matter for cars
+    assert.equal((await call("GET", "/car/config", "cust")).status, 200);
+  });
+
+  await t.test("admin defines a category; a split that doesn't total 100 is refused", async () => {
+    const base = { kind: "passenger", name: "Sedan", seats: 4, ratePerKm: 1000, minimumFare: 3000, active: true, sort: 1 };
+    assert.equal((await call("POST", "/admin/car/categories", "admin", { ...base, ownerSharePercent: 50, driverSharePercent: 30, platformSharePercent: 30 })).status, 400);
+    assert.equal((await call("POST", "/admin/car/categories", "cust", base)).status, 403);
+    const res = await call("POST", "/admin/car/categories", "admin", base);
+    assert.equal(res.status, 201);
+    categoryId = (await json(res)).id;
+  });
+
+  await t.test("owner and driver apply, a manager approves, the vehicle is approved and a driver assigned", async () => {
+    assert.equal((await call("POST", "/car/vehicles", "owner", { categoryId, plate: "UAA 001A" })).status, 403, "must be an approved owner first");
+    assert.equal((await call("POST", "/car/partner/apply", "owner", { as: "owner" })).status, 201);
+    assert.equal((await call("POST", "/car/partner/apply", "drv", { as: "driver", licenceExpiry: "2030-01-01" })).status, 201);
+    assert.equal((await call("POST", "/car/partner/apply", "drv", { as: "driver" })).status, 409);
+    assert.equal((await call("POST", "/admin/car/partners/owner/decision", "admin", { role: "owner", status: "approved" })).status, 200);
+    assert.equal((await call("POST", "/admin/car/partners/drv/decision", "admin", { role: "driver", status: "approved" })).status, 200);
+
+    const added = await call("POST", "/car/vehicles", "owner", { categoryId, plate: "UAA 001A", make: "Toyota", model: "Premio" });
+    assert.equal(added.status, 201);
+    vehicleId = (await json(added)).id;
+    assert.equal((await call("POST", "/car/vehicles", "owner", { categoryId, plate: "UAA 001A" })).status, 409, "plate is unique");
+
+    assert.equal((await call("POST", "/car/driver/online", "drv", { online: true })).status, 409, "no vehicle yet");
+    assert.equal((await call("POST", `/admin/car/vehicles/${vehicleId}/assign`, "admin", { driverId: "drv" })).status, 409, "vehicle must be approved first");
+    assert.equal((await call("POST", `/admin/car/vehicles/${vehicleId}/decision`, "admin", { status: "approved" })).status, 200);
+    assert.equal((await call("POST", `/admin/car/vehicles/${vehicleId}/assign`, "admin", { driverId: "drv" })).status, 200);
+    assert.equal((await call("POST", "/car/driver/online", "drv", { online: true, lat: 0.3, lng: 32.58 })).status, 200);
+  });
+
+  await t.test("booking prices from the category and never reaches boda riders", async () => {
+    const quote = await json(await call("POST", "/car/quote", "cust", { categoryId, ...trip }));
+    assert.ok(quote.fare >= 5000 && quote.fare <= 6000, `fare ${quote.fare}`);
+    const res = await call("POST", "/car/bookings", "cust", { categoryId, ...trip });
+    assert.equal(res.status, 201);
+    const order = (await json(res)).order;
+    orderId = order.id;
+    assert.equal(order.estimated_total, quote.fare);
+    assert.equal(order.matching_mode, "customer_selects");
+    assert.equal(order.payment_rail, "escrow");
+    assert.equal(order.is_ride, 1);
+
+    const feed = await json(await call("GET", "/riders/jobs/available", "boda"));
+    assert.equal(feed.jobs.length, 0, "car rides are not in the boda feed");
+    assert.equal((await call("POST", `/orders/${orderId}/apply`, "boda", {})).status, 403);
+    assert.equal((await call("POST", `/orders/${orderId}/claim`, "boda")).status, 403);
+  });
+
+  await t.test("the driver bids, the customer picks, the bid becomes the price and the owner sees the ride", async () => {
+    const jobs = await json(await call("GET", "/car/driver/jobs", "drv"));
+    assert.equal(jobs.jobs.length, 1);
+    assert.ok(jobs.jobs[0].bidding, "bidding is offered");
+    assert.equal((await call("POST", `/car/orders/${orderId}/apply`, "drv", { bidAmount: 100 })).status, 400, "outside the admin's limits");
+    assert.equal((await call("POST", `/car/orders/${orderId}/apply`, "drv", { bidAmount: 5000 })).status, 200);
+
+    const applicants = await json(await call("GET", `/orders/${orderId}/applicants`, "cust"));
+    assert.equal(applicants.applicants.length, 1);
+    assert.equal(applicants.applicants[0].price, 5000);
+
+    assert.equal((await call("POST", `/orders/${orderId}/applicants/drv/select`, "cust")).status, 200);
+    const order = (await client.execute({ sql: "SELECT rider_id, estimated_total FROM orders WHERE id = ?", args: [orderId] })).rows[0];
+    assert.equal(order.rider_id, "drv");
+    assert.equal(order.estimated_total, 5000);
+
+    const owner = await json(await call("GET", "/car/owner/rides", "owner"));
+    assert.equal(owner.rides.length, 1);
+    assert.equal(owner.rides[0].driver_name, "drv");
+  });
+
+  await t.test("settling splits the pool between owner, driver and platform", async () => {
+    await client.execute({ sql: "INSERT INTO payments (id, order_id, type, amount, status) VALUES ('pay1', ?, 'collection', 5000, 'successful')", args: [orderId] });
+    await client.execute({ sql: "UPDATE orders SET stage = 'Handover' WHERE id = ?", args: [orderId] });
+    const res = await call("POST", `/orders/${orderId}/settle`, "drv");
+    assert.equal(res.status, 200);
+
+    const booking = (await client.execute({ sql: "SELECT * FROM car_bookings WHERE order_id = ?", args: [orderId] })).rows[0];
+    assert.equal(booking.status, "completed");
+    assert.equal(booking.owner_amount, 3000);
+    assert.equal(booking.driver_amount, 1500);
+    assert.equal(booking.platform_amount, 500);
+    const balances = Object.fromEntries((await client.execute("SELECT id, wallet_balance FROM users WHERE id IN ('owner', 'drv')")).rows.map((r) => [r.id, r.wallet_balance]));
+    assert.equal(balances.owner, 3000);
+    assert.equal(balances.drv, 1500);
+
+    // A second settle can never pay twice.
+    await client.execute({ sql: "UPDATE orders SET stage = 'Handover' WHERE id = ?", args: [orderId] });
+    await call("POST", `/orders/${orderId}/settle`, "drv");
+    const again = Object.fromEntries((await client.execute("SELECT id, wallet_balance FROM users WHERE id IN ('owner', 'drv')")).rows.map((r) => [r.id, r.wallet_balance]));
+    assert.equal(again.owner, 3000);
+  });
+});

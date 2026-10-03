@@ -28,6 +28,22 @@ export async function hasColumn(table: "order_applications" | "orders", column: 
   return exists;
 }
 
+/** Same idea for a whole table: code that reads a table added by a hand-applied migration. */
+export async function hasTable(table: "car_bookings" | "vehicle_categories"): Promise<boolean> {
+  const key = `table.${table}`;
+  const known = answers.get(key);
+  if (known && (known.exists || Date.now() - known.at < NO_TTL_MS)) return known.exists;
+  let exists = false;
+  try {
+    const res = await db.execute({ sql: "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", args: [table] });
+    exists = res.rows.length > 0;
+  } catch {
+    exists = false;
+  }
+  answers.set(key, { exists, at: Date.now() });
+  return exists;
+}
+
 /** For tests that swap databases. */
 export function resetSchemaCache(): void {
   answers.clear();

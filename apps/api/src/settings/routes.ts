@@ -16,6 +16,8 @@ import {
   setJobExpirySettings,
   getBiddingSettings,
   setBiddingSettings,
+  getCarSettings,
+  setCarSettings,
   getLugandaAudioSettings,
   getMatchingSettings,
   getMonetizationSettings,
@@ -126,6 +128,7 @@ async function fullSettings() {
     timeFees: await getTimeFeeSettings(),
     jobExpiry: await getJobExpirySettings(),
     bidding: await getBiddingSettings(),
+    car: await getCarSettings(),
     ...delivery,
     ...matching,
     paymentsActiveProviders: activeProviders,
@@ -253,6 +256,21 @@ settingsRoutes.post("/practice/:experience/dismiss", requireAuth, async (c) => {
 });
 
 const updateSchema = z.object({
+  // Tuma Car work modes and the owner/driver/platform profit share (must total 100).
+  car: z
+    .object({
+      enabled: z.boolean(),
+      onDemandEnabled: z.boolean(),
+      matchingMode: z.enum(["customer_selects", "first_to_claim"]),
+      shares: z.object({
+        owner: z.number().int().min(0).max(100),
+        driver: z.number().int().min(0).max(100),
+        platform: z.number().int().min(0).max(100),
+      }),
+      maxPickupKm: z.number().int().min(1).max(200),
+    })
+    .refine((c) => c.shares.owner + c.shares.driver + c.shares.platform === 100, { message: "Owner, driver and platform shares must total 100%" })
+    .optional(),
   // Price bidding on rides/parcels. A bid can be 1–100% of the app price at the
   // lowest and 100–500% at the highest.
   bidding: z
@@ -421,6 +439,7 @@ settingsRoutes.put(
     if (parsed.data.timeFees) await setSetting("time_fees", JSON.stringify(parsed.data.timeFees));
     if (parsed.data.jobExpiry) await setJobExpirySettings(parsed.data.jobExpiry);
     if (parsed.data.bidding) await setBiddingSettings(parsed.data.bidding);
+    if (parsed.data.car) await setCarSettings(parsed.data.car);
 
     if (parsed.data.deliveryRatePerKm != null) {
       await setSetting("delivery_rate_per_km", String(parsed.data.deliveryRatePerKm));
