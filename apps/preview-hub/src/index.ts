@@ -5,7 +5,7 @@ export interface Env {
 
 const APPS = [
   { id: "customer", name: "Customer App", icon: "📱", desc: "Customer ordering & concierge interface" },
-  { id: "rider", name: "Rider App", icon: "🛵", desc: "Rider delivery & earnings interface" },
+  { id: "rider", name: "Tuma Rider App", icon: "🛵", desc: "Rider delivery & earnings interface" },
   { id: "merchant", name: "Merchant App", icon: "🏪", desc: "Merchant store & orders management" },
   { id: "partner", name: "Tuma Car App", icon: "🚗", desc: "Car owners and drivers: vehicles, rides, earnings" },
   { id: "restaurant", name: "Restaurant App", icon: "🍽️", desc: "Restaurant kitchen & menu dashboard" },
