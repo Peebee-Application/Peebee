@@ -370,6 +370,8 @@ export type MonetizationSettings = {
   serviceFeeEnabled: boolean;
   serviceFeeType: ServiceFeeType;
   serviceFeeValue: number;
+  /** The service fee can never exceed this % of the fare (1–99, so it is always less than the fare). Admin-set. */
+  serviceFeeMaxSharePercent: number;
   /** Models the real cost of moving money through a payment rail — charged
    * to the customer, withheld from the rider, or split between both.
    * Skipped for wallet-funded and float-rail orders. */

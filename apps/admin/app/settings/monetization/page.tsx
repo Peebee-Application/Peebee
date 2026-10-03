@@ -22,6 +22,7 @@ export default function MonetizationSettingsPage() {
   const [serviceFeeEnabled, setServiceFeeEnabled] = useState(false);
   const [serviceFeeType, setServiceFeeType] = useState<ServiceFeeType>("flat");
   const [serviceFeeValue, setServiceFeeValue] = useState("0");
+  const [serviceFeeMaxShare, setServiceFeeMaxShare] = useState("50");
   const [processingFeeEnabled, setProcessingFeeEnabled] = useState(false);
   const [processingFeePercent, setProcessingFeePercent] = useState("0");
   const [processingFeeMode, setProcessingFeeMode] = useState<ProcessingFeeMode>("customer");
@@ -52,6 +53,7 @@ export default function MonetizationSettingsPage() {
         setServiceFeeEnabled(settings.serviceFeeEnabled);
         setServiceFeeType(settings.serviceFeeType);
         setServiceFeeValue(String(settings.serviceFeeValue));
+        setServiceFeeMaxShare(String(settings.serviceFeeMaxSharePercent));
         setProcessingFeeEnabled(settings.processingFeeEnabled);
         setProcessingFeePercent(String(settings.processingFeePercent));
         setProcessingFeeMode(settings.processingFeeMode);
@@ -85,6 +87,7 @@ export default function MonetizationSettingsPage() {
         serviceFeeEnabled,
         serviceFeeType,
         serviceFeeValue: Number(serviceFeeValue),
+        serviceFeeMaxSharePercent: Math.min(99, Math.max(1, Math.floor(Number(serviceFeeMaxShare)) || 50)),
         processingFeeEnabled,
         processingFeePercent: Number(processingFeePercent),
         processingFeeMode,
@@ -107,6 +110,7 @@ export default function MonetizationSettingsPage() {
       setServiceFeeEnabled(res.settings.serviceFeeEnabled);
       setServiceFeeType(res.settings.serviceFeeType);
       setServiceFeeValue(String(res.settings.serviceFeeValue));
+      setServiceFeeMaxShare(String(res.settings.serviceFeeMaxSharePercent));
       setProcessingFeeEnabled(res.settings.processingFeeEnabled);
       setProcessingFeePercent(String(res.settings.processingFeePercent));
       setProcessingFeeMode(res.settings.processingFeeMode);
@@ -238,15 +242,30 @@ export default function MonetizationSettingsPage() {
                     onChange={(e) => {
                       const cleaned = e.target.value.replace(/[^\d.]/g, "");
                       // A percentage service fee can't exceed 50% (the API rejects it too).
-                      setServiceFeeValue(serviceFeeType === "percent" && Number(cleaned) > 50 ? "50" : cleaned);
+                      setServiceFeeValue(serviceFeeType === "percent" && Number(cleaned) > (Number(serviceFeeMaxShare) || 50) ? String(Number(serviceFeeMaxShare) || 50) : cleaned);
                     }}
                     className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
                   />
                 </div>
-                <p className="col-span-2 text-xs text-ink-500">
-                  The service fee can never be as large as the fare: it is capped at half of the order or ride
-                  amount, and a percentage can be at most 50%.
-                </p>
+                <div className="col-span-2 space-y-1">
+                  <label className="text-xs font-semibold text-ink-500" htmlFor="serviceFeeMaxShare">
+                    Highest service fee (% of the fare, 1–99)
+                  </label>
+                  <input
+                    id="serviceFeeMaxShare"
+                    inputMode="numeric"
+                    value={serviceFeeMaxShare}
+                    onChange={(e) => {
+                      const cleaned = e.target.value.replace(/[^\d]/g, "");
+                      setServiceFeeMaxShare(Number(cleaned) > 99 ? "99" : cleaned);
+                    }}
+                    className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+                  />
+                  <p className="text-xs text-ink-500">
+                    However the fee above is set, a customer is never charged more than this share of the order or ride
+                    amount as a service fee — so it can never equal or exceed the fare itself.
+                  </p>
+                </div>
               </div>
             )}
           </div>

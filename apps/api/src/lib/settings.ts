@@ -141,6 +141,8 @@ const DEFAULTS = {
   monetization_service_fee_enabled: "0",
   monetization_service_fee_type: "flat",
   monetization_service_fee_value: "0",
+  /** The service fee can never be more than this % of the fare (1–99). */
+  monetization_service_fee_max_share_percent: "50",
 
   /** Models the real cost of moving money through a payment rail. Can be
    * charged to the customer (surcharge at Fund), to the rider (withheld at
@@ -509,6 +511,7 @@ export type MonetizationSettings = {
   serviceFeeEnabled: boolean;
   serviceFeeType: ServiceFeeType;
   serviceFeeValue: number;
+  serviceFeeMaxSharePercent: number;
   processingFeeEnabled: boolean;
   processingFeePercent: number;
   processingFeeMode: ProcessingFeeMode;
@@ -548,6 +551,7 @@ export async function getMonetizationSettings(): Promise<MonetizationSettings> {
     serviceFeeEnabled,
     serviceFeeType,
     serviceFeeValue,
+    serviceFeeMaxSharePercent,
     processingFeeEnabled,
     processingFeePercent,
     processingFeeMode,
@@ -564,6 +568,7 @@ export async function getMonetizationSettings(): Promise<MonetizationSettings> {
     getSetting("monetization_service_fee_enabled"),
     getSetting("monetization_service_fee_type"),
     getSetting("monetization_service_fee_value"),
+    getSetting("monetization_service_fee_max_share_percent"),
     getSetting("monetization_processing_fee_enabled"),
     getSetting("monetization_processing_fee_percent"),
     getSetting("monetization_processing_fee_mode"),
@@ -581,6 +586,7 @@ export async function getMonetizationSettings(): Promise<MonetizationSettings> {
     serviceFeeEnabled: serviceFeeEnabled === "1",
     serviceFeeType: asServiceFeeType(serviceFeeType),
     serviceFeeValue: Number(serviceFeeValue) || 0,
+    serviceFeeMaxSharePercent: Math.min(99, Math.max(1, Math.floor(Number(serviceFeeMaxSharePercent)) || 50)),
     processingFeeEnabled: processingFeeEnabled === "1",
     processingFeePercent: Number(processingFeePercent) || 0,
     processingFeeMode: asProcessingFeeMode(processingFeeMode),
@@ -612,6 +618,9 @@ export async function setMonetizationSettings(input: Partial<MonetizationSetting
   }
   if (input.serviceFeeValue != null) {
     writes.push(setSetting("monetization_service_fee_value", String(input.serviceFeeValue)));
+  }
+  if (input.serviceFeeMaxSharePercent != null) {
+    writes.push(setSetting("monetization_service_fee_max_share_percent", String(input.serviceFeeMaxSharePercent)));
   }
   if (input.processingFeeEnabled != null) {
     writes.push(setSetting("monetization_processing_fee_enabled", input.processingFeeEnabled ? "1" : "0"));
