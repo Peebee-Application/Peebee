@@ -13,6 +13,7 @@ import { clientIp } from "../lib/ratelimit.js";
 import { getDeliverySettings, getLugandaAudioSettings, getMonetizationSettings, getPlatformEnvironment, getProSettings, getRiderReserveSettings } from "../lib/settings.js";
 import { currentVisibilityRadiusKm, orderMatchPoint } from "../orders/matching.js";
 import { redactOrders, toOpenJob } from "../orders/visibility.js";
+import { computeBidding, loadBiddingContext } from "../orders/bidding.js";
 import {
   checkPaymentStatus,
   initiateCollection,
@@ -345,6 +346,7 @@ riderRoutes.get("/riders/jobs/available", requireAuth, requireRole("rider"), asy
     }),
   ]);
   const appliedOrderIds = new Set((appliedRes.rows as Row[]).map((r) => r.order_id as string));
+  const biddingContext = await loadBiddingContext();
 
   const jobs = (res.rows as Row[])
     .map((order) => {
@@ -360,6 +362,10 @@ riderRoutes.get("/riders/jobs/available", requireAuth, requireRole("rider"), asy
           distanceKm: distanceKm != null ? Math.round(distanceKm * 10) / 10 : null,
           outOfServiceRange: distanceKm != null && distanceKm > serviceRangeKm,
           applied: appliedOrderIds.has(order.id as string),
+          bidding: (() => {
+            const b = computeBidding(order, biddingContext.settings, biddingContext.enabledModes);
+            return b.active ? { appPrice: b.appPrice, min: b.min, max: b.max } : null;
+          })(),
         }),
         sortKey: distanceKm ?? Infinity,
         visible,

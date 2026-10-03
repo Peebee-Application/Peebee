@@ -161,6 +161,8 @@ export type AvailableJob = Pick<
   /** Set once this rider has already applied — only meaningful for "nearest_window"/"customer_selects"
    * jobs, where applying doesn't assign the job outright (unlike "first_to_claim"'s Claim button). */
   applied: boolean;
+  /** Set when riders may bid on this job: the app's price and the allowed range for a bid. */
+  bidding?: { appPrice: number | null; min: number | null; max: number | null } | null;
 };
 
 /**
@@ -192,12 +194,17 @@ export type PlatformEnvironment = "live" | "sandbox";
 /** How long a job may sit unserved (no rider took it) before it is
  * automatically expired — set by the admin in minutes or hours. */
 export type JobExpiryUnit = "minutes" | "hours";
+
+/** Price bidding on rides/parcels: applicants may name their own price, the
+ * customer picks. Needs "customer selects" to be an enabled matching mode. */
+export type BiddingSettings = { enabled: boolean; minPercent: number; maxPercent: number };
 export type JobExpirySettings = { enabled: boolean; value: number; unit: JobExpiryUnit };
 
 /** Admin-tunable delivery pricing/matching numbers (packages/shared/src/api-client.ts: getSettings/adminUpdateSettings). */
 export type DeliverySettings = {
   timeFees: TimeFeeSettings;
   jobExpiry: JobExpirySettings;
+  bidding: BiddingSettings;
   /** Which environment's orders/wallets/lists everyone currently sees —
    * read-only here (GET /settings); change it with
    * adminSetPlatformEnvironment. */
@@ -1261,6 +1268,11 @@ export type RiderApplicant = {
   recommendCount: number;
   commentCount: number;
   recentComments: string[];
+  /** What this applicant asks for the job (their bid, else the app's price) —
+   * null when bidding is off. `bidAmount` is null when they didn't bid. */
+  price?: number | null;
+  bidAmount?: number | null;
+  appPrice?: number | null;
 };
 
 export type RiderApplicantProfile = {

@@ -21,6 +21,7 @@ import { notifyUser } from "../lib/webpush.js";
 import { currentVisibilityRadiusKm, orderMatchPoint, parseDbTimestamp } from "./matching.js";
 import { redactOrder } from "./visibility.js";
 import { assignAvailableRider } from "./assignment.js";
+import { computeBidding, loadBiddingContext, validateBid } from "./bidding.js";
 import { getApplicantProfile } from "./applicant-profile.js";
 import { buildLugandaListNarration } from "./list-narration.js";
 import { synthesizeLuganda } from "../speech/sunbird.js";
@@ -977,9 +978,21 @@ orderRoutes.post("/orders/:id/claim", requireRole("rider"), async (c) => {
  * once its collection window closes (see /orders/:id/match above),
  * customer_selects waits for the customer to pick (see /applicants below).
  */
+async function biddingArgs() {
+  const { settings, enabledModes } = await loadBiddingContext();
+  return [settings, enabledModes] as const;
+}
+
+const applySchema = z.object({
+  /** The applicant's own price for the whole job — only when bidding is on for it. */
+  bidAmount: z.number().int().positive().max(10_000_000).optional(),
+});
+
 orderRoutes.post("/orders/:id/apply", requireRole("rider"), async (c) => {
   const id = c.req.param("id") as string;
   const user = c.get("user");
+  const parsedApply = applySchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsedApply.success) return c.json({ error: "invalid_body", issues: parsedApply.error.issues }, 400);
   const order = await getOrder(id);
   if (!order) return c.json({ error: "not_found" }, 404);
   if (order.rider_id) {
@@ -1049,13 +1062,23 @@ orderRoutes.post("/orders/:id/apply", requireRole("rider"), async (c) => {
   // without this reset, anyone who applied the first time round would get an
   // "applied" confirmation while staying invisible to the customer, because
   // the applicant list only shows pending rows.
+  // A bid is only taken when bidding is on for this order and it's inside the
+  // admin's limits; naming exactly the app's own price is the same as not bidding.
+  let bidAmount: number | null = null;
+  if (parsedApply.data.bidAmount != null) {
+    const bidding = computeBidding(order, ...(await biddingArgs()));
+    const checked = validateBid(bidding, parsedApply.data.bidAmount);
+    if ("error" in checked) return c.json({ error: "bid_not_allowed", message: checked.error }, 400);
+    bidAmount = checked.bid === bidding.appPrice ? null : checked.bid;
+  }
+
   const applicationResult = await db.execute({
-    sql: `INSERT INTO order_applications (id, order_id, rider_id, distance_km, status)
-          SELECT ?, ?, ?, ?, 'pending'
+    sql: `INSERT INTO order_applications (id, order_id, rider_id, distance_km, status, bid_amount)
+          SELECT ?, ?, ?, ?, 'pending', ?
           WHERE EXISTS (SELECT 1 FROM orders WHERE id = ? AND rider_id IS NULL AND stage IN ('Create', 'Match'))
             AND NOT EXISTS (SELECT 1 FROM orders WHERE rider_id = ? AND environment = ? AND stage NOT IN ('Settle', 'Cancelled'))
-          ON CONFLICT(order_id, rider_id) DO UPDATE SET distance_km = excluded.distance_km, status = 'pending'`,
-    args: [newId("app"), id, user.sub, distanceKm, id, user.sub, String(order.environment)],
+          ON CONFLICT(order_id, rider_id) DO UPDATE SET distance_km = excluded.distance_km, status = 'pending', bid_amount = excluded.bid_amount`,
+    args: [newId("app"), id, user.sub, distanceKm, bidAmount, id, user.sub, String(order.environment)],
   });
   if (applicationResult.rowsAffected === 0) {
     return c.json({ error: "rider_unavailable", message: "This job is no longer available or you already have an active job" }, 409);
@@ -1078,8 +1101,9 @@ orderRoutes.get("/orders/:id/applicants", async (c) => {
   }
 
   const { serviceRangeKm } = await getDeliverySettings();
+  const bidding = computeBidding(order, ...(await biddingArgs()));
   const applications = await db.execute({
-    sql: `SELECT oa.rider_id, u.name, oa.distance_km FROM order_applications oa
+    sql: `SELECT oa.rider_id, u.name, oa.distance_km, oa.bid_amount FROM order_applications oa
           JOIN users u ON u.id = oa.rider_id
           WHERE oa.order_id = ? AND oa.status = 'pending'
           AND EXISTS (SELECT 1 FROM orders target WHERE target.id = oa.order_id AND target.rider_id IS NULL AND target.stage IN ('Create', 'Match'))
@@ -1089,8 +1113,17 @@ orderRoutes.get("/orders/:id/applicants", async (c) => {
     args: [id, String(order.environment)],
   });
 
+  const applicantRows = [...(applications.rows as Row[])];
+  // With bidding on, the best price comes first (nearest breaks ties).
+  if (bidding.active) {
+    const priceOf = (r: Row) => (r.bid_amount as number | null) ?? bidding.appPrice ?? 0;
+    applicantRows.sort(
+      (a, b) => priceOf(a) - priceOf(b) || ((a.distance_km as number | null) ?? Infinity) - ((b.distance_km as number | null) ?? Infinity),
+    );
+  }
+
   const applicants = await Promise.all(
-    (applications.rows as Row[]).map(async (row) => {
+    applicantRows.map(async (row) => {
       const riderId = row.rider_id as string;
       const [stats, comments] = await Promise.all([
         db.execute({
@@ -1112,6 +1145,11 @@ orderRoutes.get("/orders/:id/applicants", async (c) => {
         riderName: row.name as string,
         distanceKm,
         outOfServiceRange: distanceKm != null && distanceKm > serviceRangeKm,
+        // What this applicant asks for the job (their bid, else the app's price),
+        // plus the app's own price so the customer can compare. Null when bidding is off.
+        price: bidding.active ? ((row.bid_amount as number | null) ?? bidding.appPrice) : null,
+        bidAmount: bidding.active ? ((row.bid_amount as number | null) ?? null) : null,
+        appPrice: bidding.active ? bidding.appPrice : null,
         avgRating: statsRow?.avg_rating != null ? Math.round((statsRow.avg_rating as number) * 10) / 10 : null,
         reviewCount: Number(statsRow?.review_count ?? 0),
         recommendCount: Number(statsRow?.recommend_count ?? 0),
@@ -1160,7 +1198,7 @@ orderRoutes.post("/orders/:id/applicants/:riderId/select", async (c) => {
   }
 
   const application = await db.execute({
-    sql: "SELECT oa.distance_km, u.name FROM order_applications oa JOIN users u ON u.id = oa.rider_id WHERE oa.order_id = ? AND oa.rider_id = ? AND oa.status = 'pending'",
+    sql: "SELECT oa.distance_km, oa.bid_amount, u.name FROM order_applications oa JOIN users u ON u.id = oa.rider_id WHERE oa.order_id = ? AND oa.rider_id = ? AND oa.status = 'pending'",
     args: [id, riderId],
   });
   const row = application.rows[0] as Row | undefined;
@@ -1173,6 +1211,30 @@ orderRoutes.post("/orders/:id/applicants/:riderId/select", async (c) => {
   const assigned = await assignRider(id, order, riderId, row.name as string, outOfRange);
   if (!assigned) {
     return c.json({ error: "rider_unavailable", message: "This rider or job is no longer available. Please choose another rider." }, 409);
+  }
+
+  // The customer chose a bid: that bid is now the price. (Bids are only ever
+  // applied on the customer's own pick — never by auto-matching.)
+  const bid = row.bid_amount as number | null;
+  if (bid != null) {
+    const bidding = computeBidding(order, ...(await biddingArgs()));
+    if (bidding.active && bidding.appPrice != null && bid !== Number(order.estimated_total)) {
+      const changed = await db.execute({
+        sql: `UPDATE orders SET app_price = COALESCE(app_price, estimated_total), estimated_total = ?, delivery_fee = ?,
+                time_fee_policy = NULL, updated_at = datetime('now')
+              WHERE id = ? AND rider_id = ? AND NOT EXISTS (SELECT 1 FROM payments WHERE order_id = ?)`,
+        args: [bid, bid, id, riderId, id],
+      });
+      if (changed.rowsAffected > 0) {
+        await snapshotTimeFees(id, bid);
+        await logEvent(
+          id,
+          String(order.payment_rail === "float" ? "Shop" : "Match"),
+          `Price agreed at UGX ${bid.toLocaleString("en-UG")} (rider's bid; app price UGX ${bidding.appPrice.toLocaleString("en-UG")})`,
+          riderId,
+        );
+      }
+    }
   }
 
   return c.json({ order: await getOrder(id) });

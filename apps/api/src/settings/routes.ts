@@ -14,6 +14,8 @@ import {
   getTimeFeeSettings,
   getJobExpirySettings,
   setJobExpirySettings,
+  getBiddingSettings,
+  setBiddingSettings,
   getLugandaAudioSettings,
   getMatchingSettings,
   getMonetizationSettings,
@@ -123,6 +125,7 @@ async function fullSettings() {
   return {
     timeFees: await getTimeFeeSettings(),
     jobExpiry: await getJobExpirySettings(),
+    bidding: await getBiddingSettings(),
     ...delivery,
     ...matching,
     paymentsActiveProviders: activeProviders,
@@ -250,6 +253,15 @@ settingsRoutes.post("/practice/:experience/dismiss", requireAuth, async (c) => {
 });
 
 const updateSchema = z.object({
+  // Price bidding on rides/parcels. A bid can be 1–100% of the app price at the
+  // lowest and 100–500% at the highest.
+  bidding: z
+    .object({
+      enabled: z.boolean(),
+      minPercent: z.number().int().min(1).max(100),
+      maxPercent: z.number().int().min(100).max(500),
+    })
+    .optional(),
   // Jobs nobody serves within this long are expired automatically. Capped at
   // 7 days either way so a typo can't leave jobs hanging for months.
   jobExpiry: z
@@ -404,6 +416,7 @@ settingsRoutes.put(
 
     if (parsed.data.timeFees) await setSetting("time_fees", JSON.stringify(parsed.data.timeFees));
     if (parsed.data.jobExpiry) await setJobExpirySettings(parsed.data.jobExpiry);
+    if (parsed.data.bidding) await setBiddingSettings(parsed.data.bidding);
 
     if (parsed.data.deliveryRatePerKm != null) {
       await setSetting("delivery_rate_per_km", String(parsed.data.deliveryRatePerKm));
