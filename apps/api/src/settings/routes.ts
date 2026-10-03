@@ -297,6 +297,7 @@ const updateSchema = z.object({
         approveWithinHours: z.number().int().min(1).max(24 * 14),
       }),
       vehiclePhotos: z.object({ max: z.number().int().min(6).max(20), minRequired: z.number().int().min(0).max(20) }),
+      kyc: z.object({ ownerIdRequired: z.boolean(), driverIdRequired: z.boolean(), driverLicenceRequired: z.boolean() }),
       withdrawalsEnabled: z.boolean(),
       withdrawalMinAmount: z.number().int().min(0).max(100_000_000),
     })

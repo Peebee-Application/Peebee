@@ -14,7 +14,7 @@ const field = "min-h-12 w-full rounded-xl border border-[var(--border-faint)] px
 type Picked = { id: string; file: File; preview: string };
 
 export default function VehiclesPage() {
-  const { me, mode, refreshMe } = useAuth();
+  const { me, mode, refreshMe, user } = useAuth();
   const [categories, setCategories] = useState<CarCategory[]>([]);
   const [limits, setLimits] = useState({ max: 8, minRequired: 0 });
   const [categoryId, setCategoryId] = useState("");
@@ -36,8 +36,10 @@ export default function VehiclesPage() {
   }, []);
   useEffect(() => () => picked.forEach((p) => URL.revokeObjectURL(p.preview)), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (mode !== "owner") return <p className="px-4 py-5 text-sm text-ink-500">Switch to Owner (top right) to manage vehicles.</p>;
-  if (me?.ownerStatus !== "approved") return <div className="px-4 py-5"><ApplyCard mode="owner" /></div>;
+  // Owners and drivers both bring cars; each profile works on its own.
+  const canAdd = ["approved", "pending"].includes(me?.ownerStatus ?? "") || ["approved", "pending"].includes(me?.driverStatus ?? "");
+  if (!me || !canAdd) return <div className="px-4 py-5"><ApplyCard mode={mode} /></div>;
+  const approvedDriver = me.driverStatus === "approved";
 
   function pick(files: FileList | null, existing = 0) {
     if (!files) return;
@@ -108,6 +110,16 @@ export default function VehiclesPage() {
     }
   }
 
+  async function act(fn: () => Promise<unknown>) {
+    setError("");
+    try {
+      await fn();
+      await refreshMe();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
   async function remove(vehicleId: string, photoId: string) {
     setError("");
     try {
@@ -121,6 +133,7 @@ export default function VehiclesPage() {
   return (
     <div className="space-y-5 px-4 py-5">
       <h1 className="text-2xl font-black text-ink">My vehicles</h1>
+      {me.ownerStatus !== "approved" && <p className="text-xs text-ink-500">Your owner profile is being reviewed; your car is checked separately.</p>}
       {me.vehicles.length === 0 && <p className="text-sm text-ink-500">No vehicles yet — add your first below.</p>}
       {me.vehicles.map((v) => (
         <section key={v.id} className="home-card space-y-2">
@@ -129,6 +142,16 @@ export default function VehiclesPage() {
           <p className="text-xs text-ink-500">
             {v.status === "approved" ? (v.driver_name ? `Driver: ${v.driver_name}` : "Approved — waiting for Tuma to assign a driver") : `Status: ${v.status}`}
           </p>
+          {v.status === "approved" && approvedDriver && (!v.driver_id || v.driver_id === user?.id) && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => act(() => (v.driver_id === user?.id ? api.carReleaseVehicle(v.id) : api.carDriveVehicle(v.id)))}
+              className="min-h-10 rounded-full bg-gold/15 px-4 text-sm font-bold text-ink disabled:opacity-50"
+            >
+              {v.driver_id === user?.id ? "Stop driving this car" : "Drive this car myself"}
+            </button>
+          )}
           {v.photos.length > 0 && (
             <div className="grid grid-cols-3 gap-2">
               {v.photos.map((photoId) => (

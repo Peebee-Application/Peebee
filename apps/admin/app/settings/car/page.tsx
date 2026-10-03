@@ -34,6 +34,9 @@ export default function CarSettingsPage() {
   const [sdDays, setSdDays] = useState("30");
   const [sdDeposit, setSdDeposit] = useState("0");
   const [sdApprove, setSdApprove] = useState("12");
+  const [kycOwner, setKycOwner] = useState(true);
+  const [kycDriverId, setKycDriverId] = useState(true);
+  const [kycLicence, setKycLicence] = useState(true);
   const [photoMax, setPhotoMax] = useState("8");
   const [photoMin, setPhotoMin] = useState("0");
   const [withdrawals, setWithdrawals] = useState(false);
@@ -43,7 +46,7 @@ export default function CarSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number; scheduled: CarSettings["scheduled"]; carpool: CarSettings["carpool"]; selfDrive: CarSettings["selfDrive"]; vehiclePhotos: CarSettings["vehiclePhotos"] }) {
+  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number; scheduled: CarSettings["scheduled"]; carpool: CarSettings["carpool"]; selfDrive: CarSettings["selfDrive"]; vehiclePhotos: CarSettings["vehiclePhotos"]; kyc: CarSettings["kyc"] }) {
     setEnabled(c.enabled);
     setOnDemand(c.onDemandEnabled);
     setMode(c.matchingMode);
@@ -69,6 +72,9 @@ export default function CarSettingsPage() {
     setSdDays(String(c.selfDrive.maxDays));
     setSdDeposit(String(c.selfDrive.minDeposit));
     setSdApprove(String(c.selfDrive.approveWithinHours));
+    setKycOwner(c.kyc.ownerIdRequired);
+    setKycDriverId(c.kyc.driverIdRequired);
+    setKycLicence(c.kyc.driverLicenceRequired);
     setPhotoMax(String(c.vehiclePhotos.max));
     setPhotoMin(String(c.vehiclePhotos.minRequired));
     setWithdrawals(c.withdrawalsEnabled);
@@ -126,6 +132,7 @@ export default function CarSettingsPage() {
             minDeposit: Math.max(0, Number(sdDeposit) || 0),
             approveWithinHours: Math.max(1, Number(sdApprove) || 12),
           },
+          kyc: { ownerIdRequired: kycOwner, driverIdRequired: kycDriverId, driverLicenceRequired: kycLicence },
           vehiclePhotos: { max: Math.min(20, Math.max(6, Number(photoMax) || 8)), minRequired: Math.max(0, Number(photoMin) || 0) },
           withdrawalsEnabled: withdrawals,
           withdrawalMinAmount: Math.max(0, Number(withdrawMin) || 0),
@@ -260,6 +267,21 @@ export default function CarSettingsPage() {
           <p className="text-xs text-ink-500">
             Stays off until Tuma&apos;s share is set. The renter&apos;s rent and deposit are held from their wallet; the deposit comes back unless the owner claims damage, which you rule on under Car fleet → Rentals. Late-return fees and inspection photos are not enabled yet. Have the hire terms and insurance position reviewed before using this with real money. Needs migration 0069.
           </p>
+        </section>
+
+        <section className="home-card space-y-3">
+          <p className="text-sm font-bold text-ink">Documents needed before approval</p>
+          {[
+            ["Owners: national ID", kycOwner, setKycOwner],
+            ["Drivers: national ID", kycDriverId, setKycDriverId],
+            ["Drivers: driving licence", kycLicence, setKycLicence],
+          ].map(([label, value, set]) => (
+            <label key={label as string} className="flex items-center gap-2 text-sm text-ink">
+              <input type="checkbox" checked={value as boolean} onChange={(e) => (set as (v: boolean) => void)(e.target.checked)} className="h-4 w-4 accent-gold" />
+              {label as string}
+            </label>
+          ))}
+          <p className="text-xs text-ink-500">People upload a photo from the Tuma Car app. You can&apos;t approve an owner or driver whose required documents are missing. Needs migration 0072.</p>
         </section>
 
         <section className="home-card space-y-3">

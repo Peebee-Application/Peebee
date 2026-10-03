@@ -294,6 +294,10 @@ const DEFAULTS = {
   car_vehicle_photos_max: "8",
   /** Photos a vehicle needs before an admin can approve it (0 = none required). */
   car_vehicle_photos_min_required: "0",
+  /** Documents an admin needs before approving: owner ID, driver ID, driver licence. */
+  car_kyc_owner_id_required: "1",
+  car_kyc_driver_id_required: "1",
+  car_kyc_driver_licence_required: "1",
   car_withdrawals_enabled: "0",
   /** Smallest withdrawal in UGX (0 = no minimum). */
   car_withdrawal_min_amount: "0",
@@ -326,6 +330,7 @@ export type CarSettings = {
   carpool: CarCarpoolSettings;
   selfDrive: CarSelfDriveSettings;
   vehiclePhotos: { max: number; minRequired: number };
+  kyc: { ownerIdRequired: boolean; driverIdRequired: boolean; driverLicenceRequired: boolean };
 };
 
 export type CarSelfDriveSettings = {
@@ -358,7 +363,7 @@ export type CarScheduledSettings = {
 };
 
 export async function getCarSettings(): Promise<CarSettings> {
-  const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin, sEnabled, sMax, sLead, sOpen, sWatch, sNoSig, sSpeed, cpEnabled, cpSeats, cpRepeat, cpCutoff, cpPay, cpRadius, sdEnabled, sdPct, sdDays, sdDeposit, sdApprove, vpMax, vpMin] = await Promise.all([
+  const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin, sEnabled, sMax, sLead, sOpen, sWatch, sNoSig, sSpeed, cpEnabled, cpSeats, cpRepeat, cpCutoff, cpPay, cpRadius, sdEnabled, sdPct, sdDays, sdDeposit, sdApprove, vpMax, vpMin, kycOwner, kycDriverId, kycLicence] = await Promise.all([
     getSetting("car_enabled"),
     getSetting("car_ondemand_enabled"),
     getSetting("car_matching_mode"),
@@ -388,6 +393,9 @@ export async function getCarSettings(): Promise<CarSettings> {
     getSetting("car_selfdrive_approve_within_hours"),
     getSetting("car_vehicle_photos_max"),
     getSetting("car_vehicle_photos_min_required"),
+    getSetting("car_kyc_owner_id_required"),
+    getSetting("car_kyc_driver_id_required"),
+    getSetting("car_kyc_driver_licence_required"),
   ]);
   const sdPercent = sdPct === "" ? NaN : Number(sdPct);
   const clamp = (v: string, lo: number, hi: number, fallback: number) => Math.min(hi, Math.max(lo, Math.floor(Number(v)) || fallback));
@@ -434,6 +442,7 @@ export async function getCarSettings(): Promise<CarSettings> {
       const max = clamp(vpMax, 6, 20, 8);
       return { max, minRequired: Math.min(max, Math.max(0, Math.floor(Number(vpMin)) || 0)) };
     })(),
+    kyc: { ownerIdRequired: kycOwner !== "0", driverIdRequired: kycDriverId !== "0", driverLicenceRequired: kycLicence !== "0" },
   };
 }
 
@@ -476,6 +485,11 @@ export async function setCarSettings(next: CarSettings): Promise<void> {
   if (next.vehiclePhotos) {
     await setSetting("car_vehicle_photos_max", String(next.vehiclePhotos.max));
     await setSetting("car_vehicle_photos_min_required", String(next.vehiclePhotos.minRequired));
+  }
+  if (next.kyc) {
+    await setSetting("car_kyc_owner_id_required", next.kyc.ownerIdRequired ? "1" : "0");
+    await setSetting("car_kyc_driver_id_required", next.kyc.driverIdRequired ? "1" : "0");
+    await setSetting("car_kyc_driver_licence_required", next.kyc.driverLicenceRequired ? "1" : "0");
   }
   await setSetting("car_withdrawals_enabled", next.withdrawalsEnabled ? "1" : "0");
   await setSetting("car_withdrawal_min_amount", String(Math.max(0, Math.floor(Number(next.withdrawalMinAmount) || 0))));

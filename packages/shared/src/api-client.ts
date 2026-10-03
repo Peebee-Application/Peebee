@@ -1522,8 +1522,28 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async carMe() {
       return request<CarMe>("/v1/car/me");
     },
-    async carApply(as: "owner" | "driver", licenceExpiry?: string) {
-      return request<{ ok: true }>("/v1/car/partner/apply", { method: "POST", body: JSON.stringify({ as, licenceExpiry }) });
+    async carApply(as: "owner" | "driver", licenceExpiry?: string, needsVehicle?: boolean) {
+      return request<{ ok: true }>("/v1/car/partner/apply", { method: "POST", body: JSON.stringify({ as, licenceExpiry, needsVehicle }) });
+    },
+    /** Uploads a photo of the national ID or driving licence (compress it first). */
+    async carUploadDocument(kind: "national_id" | "licence", file: Blob) {
+      const form = new FormData();
+      form.append("kind", kind);
+      form.append("file", file, "document.jpg");
+      const res = await f(`${root}/v1/car/partner/documents`, { method: "POST", headers: authHeaders(), body: form });
+      return json<{ id: string }>(res);
+    },
+    /** A partner's document as a Blob (their own, or any for staff). */
+    async carDocumentBlob(userId: string, kind: "national_id" | "licence"): Promise<Blob> {
+      const res = await f(`${root}/v1/car/partner/documents/${userId}/${kind}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error(`API ${res.status}: failed to load document`);
+      return res.blob();
+    },
+    async carDriveVehicle(vehicleId: string) {
+      return request<{ ok: true }>(`/v1/car/vehicles/${vehicleId}/drive`, { method: "POST" });
+    },
+    async carReleaseVehicle(vehicleId: string) {
+      return request<{ ok: true }>(`/v1/car/vehicles/${vehicleId}/release`, { method: "POST" });
     },
     async carAddVehicle(input: { categoryId: string; plate: string; make?: string; model?: string; year?: number; colour?: string }) {
       return request<{ id: string }>("/v1/car/vehicles", { method: "POST", body: JSON.stringify(input) });

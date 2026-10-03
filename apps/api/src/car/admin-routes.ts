@@ -9,7 +9,7 @@ import { clientIp } from "../lib/ratelimit.js";
 import { hasTable } from "../lib/schema.js";
 import { completeRental } from "./selfdrive.js";
 import { getCarSettings } from "../lib/settings.js";
-import { vehiclePhotoIds } from "./routes.js";
+import { documentKinds, vehiclePhotoIds } from "./routes.js";
 
 type Row = Record<string, unknown>;
 
@@ -103,7 +103,9 @@ carAdminRoutes.get("/admin/car/partners", requirePermission("car.view"), async (
           ${status ? "WHERE p.owner_status = ? OR p.driver_status = ?" : ""} ORDER BY p.updated_at DESC LIMIT 200`,
     args: status ? [status, status] : [],
   });
-  return c.json({ partners: res.rows });
+  const partners = [];
+  for (const p of res.rows as Row[]) partners.push({ ...p, documents: await documentKinds(String(p.user_id)) });
+  return c.json({ partners });
 });
 
 const decisionSchema = z.object({
@@ -118,6 +120,18 @@ carAdminRoutes.post("/admin/car/partners/:userId/decision", requirePermission("c
   const parsed = decisionSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
   const column = parsed.data.role === "owner" ? "owner_status" : "driver_status";
+  // Approval needs the documents the admin has made mandatory.
+  if (parsed.data.status === "approved") {
+    const { kyc } = await getCarSettings();
+    const have = await documentKinds(userId);
+    const missing: string[] = [];
+    if (parsed.data.role === "owner" && kyc.ownerIdRequired && !have.national_id) missing.push("national ID");
+    if (parsed.data.role === "driver") {
+      if (kyc.driverIdRequired && !have.national_id) missing.push("national ID");
+      if (kyc.driverLicenceRequired && !have.licence) missing.push("driving licence");
+    }
+    if (missing.length > 0) return c.json({ error: "documents_required", message: `Missing ${missing.join(" and ")}. Ask them to upload it first.` }, 409);
+  }
   const res = await db.execute({
     sql: `UPDATE car_partners SET ${column} = ?, notes = COALESCE(?, notes), reviewed_by = ?, reviewed_at = datetime('now'), updated_at = datetime('now')
           WHERE user_id = ? AND ${column} != 'none'`,
