@@ -22,6 +22,7 @@ import { currentVisibilityRadiusKm, orderMatchPoint, parseDbTimestamp } from "./
 import { redactOrder } from "./visibility.js";
 import { assignAvailableRider } from "./assignment.js";
 import { computeBidding, loadBiddingContext, validateBid } from "./bidding.js";
+import { hasColumn } from "../lib/schema.js";
 import { getApplicantProfile } from "./applicant-profile.js";
 import { buildLugandaListNarration } from "./list-narration.js";
 import { synthesizeLuganda } from "../speech/sunbird.js";
@@ -1064,22 +1065,34 @@ orderRoutes.post("/orders/:id/apply", requireRole("rider"), async (c) => {
   // the applicant list only shows pending rows.
   // A bid is only taken when bidding is on for this order and it's inside the
   // admin's limits; naming exactly the app's own price is the same as not bidding.
+  const bidColumn = await hasColumn("order_applications", "bid_amount");
   let bidAmount: number | null = null;
   if (parsedApply.data.bidAmount != null) {
+    if (!bidColumn) return c.json({ error: "bidding_unavailable", message: "Bidding isn't ready yet — apply at the app price." }, 409);
     const bidding = computeBidding(order, ...(await biddingArgs()));
     const checked = validateBid(bidding, parsedApply.data.bidAmount);
     if ("error" in checked) return c.json({ error: "bid_not_allowed", message: checked.error }, 400);
     bidAmount = checked.bid === bidding.appPrice ? null : checked.bid;
   }
 
-  const applicationResult = await db.execute({
-    sql: `INSERT INTO order_applications (id, order_id, rider_id, distance_km, status, bid_amount)
-          SELECT ?, ?, ?, ?, 'pending', ?
-          WHERE EXISTS (SELECT 1 FROM orders WHERE id = ? AND rider_id IS NULL AND stage IN ('Create', 'Match'))
-            AND NOT EXISTS (SELECT 1 FROM orders WHERE rider_id = ? AND environment = ? AND stage NOT IN ('Settle', 'Cancelled'))
-          ON CONFLICT(order_id, rider_id) DO UPDATE SET distance_km = excluded.distance_km, status = 'pending', bid_amount = excluded.bid_amount`,
-    args: [newId("app"), id, user.sub, distanceKm, bidAmount, id, user.sub, String(order.environment)],
-  });
+  const applicationResult = bidColumn
+    ? await db.execute({
+        sql: `INSERT INTO order_applications (id, order_id, rider_id, distance_km, status, bid_amount)
+              SELECT ?, ?, ?, ?, 'pending', ?
+              WHERE EXISTS (SELECT 1 FROM orders WHERE id = ? AND rider_id IS NULL AND stage IN ('Create', 'Match'))
+                AND NOT EXISTS (SELECT 1 FROM orders WHERE rider_id = ? AND environment = ? AND stage NOT IN ('Settle', 'Cancelled'))
+              ON CONFLICT(order_id, rider_id) DO UPDATE SET distance_km = excluded.distance_km, status = 'pending', bid_amount = excluded.bid_amount`,
+        args: [newId("app"), id, user.sub, distanceKm, bidAmount, id, user.sub, String(order.environment)],
+      })
+    : // Before migration 0064 is applied: exactly the previous behaviour.
+      await db.execute({
+        sql: `INSERT INTO order_applications (id, order_id, rider_id, distance_km, status)
+              SELECT ?, ?, ?, ?, 'pending'
+              WHERE EXISTS (SELECT 1 FROM orders WHERE id = ? AND rider_id IS NULL AND stage IN ('Create', 'Match'))
+                AND NOT EXISTS (SELECT 1 FROM orders WHERE rider_id = ? AND environment = ? AND stage NOT IN ('Settle', 'Cancelled'))
+              ON CONFLICT(order_id, rider_id) DO UPDATE SET distance_km = excluded.distance_km, status = 'pending'`,
+        args: [newId("app"), id, user.sub, distanceKm, id, user.sub, String(order.environment)],
+      });
   if (applicationResult.rowsAffected === 0) {
     return c.json({ error: "rider_unavailable", message: "This job is no longer available or you already have an active job" }, 409);
   }
@@ -1103,7 +1116,7 @@ orderRoutes.get("/orders/:id/applicants", async (c) => {
   const { serviceRangeKm } = await getDeliverySettings();
   const bidding = computeBidding(order, ...(await biddingArgs()));
   const applications = await db.execute({
-    sql: `SELECT oa.rider_id, u.name, oa.distance_km, oa.bid_amount FROM order_applications oa
+    sql: `SELECT oa.rider_id, u.name, oa.distance_km, ${(await hasColumn("order_applications", "bid_amount")) ? "oa.bid_amount" : "NULL AS bid_amount"} FROM order_applications oa
           JOIN users u ON u.id = oa.rider_id
           WHERE oa.order_id = ? AND oa.status = 'pending'
           AND EXISTS (SELECT 1 FROM orders target WHERE target.id = oa.order_id AND target.rider_id IS NULL AND target.stage IN ('Create', 'Match'))
@@ -1198,7 +1211,7 @@ orderRoutes.post("/orders/:id/applicants/:riderId/select", async (c) => {
   }
 
   const application = await db.execute({
-    sql: "SELECT oa.distance_km, oa.bid_amount, u.name FROM order_applications oa JOIN users u ON u.id = oa.rider_id WHERE oa.order_id = ? AND oa.rider_id = ? AND oa.status = 'pending'",
+    sql: `SELECT oa.distance_km, ${(await hasColumn("order_applications", "bid_amount")) ? "oa.bid_amount" : "NULL AS bid_amount"}, u.name FROM order_applications oa JOIN users u ON u.id = oa.rider_id WHERE oa.order_id = ? AND oa.rider_id = ? AND oa.status = 'pending'`,
     args: [id, riderId],
   });
   const row = application.rows[0] as Row | undefined;
