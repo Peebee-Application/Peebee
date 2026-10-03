@@ -1,6 +1,6 @@
 "use client";
 
-import type { LugandaVoice } from "@tuma/shared";
+import { GEMINI_TTS_VOICES, type LugandaVoice } from "@tuma/shared";
 import { Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
@@ -11,7 +11,7 @@ export default function LugandaAudioSettingsPage() {
   const [requiresPro, setRequiresPro] = useState(false);
   const [voices, setVoices] = useState<LugandaVoice[]>([]);
   const [defaultVoice, setDefaultVoice] = useState("");
-  const [newId, setNewId] = useState("");
+  const [newId, setNewId] = useState<string>(GEMINI_TTS_VOICES[0]);
   const [newLabel, setNewLabel] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -36,7 +36,6 @@ export default function LugandaAudioSettingsPage() {
     const label = newLabel.trim();
     if (!id || !label || voices.some((v) => v.id === id)) return;
     setVoices([...voices, { id, label }]);
-    setNewId("");
     setNewLabel("");
   }
 
@@ -77,7 +76,7 @@ export default function LugandaAudioSettingsPage() {
             Let riders listen to their shopping lists in Luganda
           </label>
           <p className="text-xs text-ink-500">
-            Needs a working Sunbird AI API key (set as the SUNBIRD_API_KEY secret) before it does anything.
+            Uses Google AI Studio. Needs a working Gemini API key (set as the GEMINI_API_KEY secret) before it does anything.
           </p>
           <label className="flex items-center gap-2 text-sm font-semibold text-ink">
             <input type="checkbox" checked={requiresPro} onChange={(e) => setRequiresPro(e.target.checked)} />
@@ -92,8 +91,8 @@ export default function LugandaAudioSettingsPage() {
           <div>
             <h2 className="text-sm font-bold text-ink">Voice catalog</h2>
             <p className="mt-1 text-xs text-ink-500">
-              Each rider picks one of these in their own account settings. The id is a Sunbird AI &quot;lug&quot;
-              speaker tag (e.g. waxal_lug_0004); the label is what the rider sees.
+              Each rider picks one of these in their own account settings. Pick a Google AI Studio
+              voice for each; the label is what the rider sees. Riders can preview a voice before choosing it.
             </p>
           </div>
           <div className="space-y-2">
@@ -101,7 +100,10 @@ export default function LugandaAudioSettingsPage() {
               <div key={voice.id} className="flex items-center gap-2 rounded-xl border border-[var(--border-faint)] p-2.5">
                 <div className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold text-ink">{voice.label}</span>
-                  <span className="block truncate text-xs text-ink-500">{voice.id}</span>
+                  <span className="block truncate text-xs text-ink-500">
+                    {voice.id}
+                    {!(GEMINI_TTS_VOICES as readonly string[]).includes(voice.id) && " — old voice id: remove it and add a Google voice"}
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -115,12 +117,18 @@ export default function LugandaAudioSettingsPage() {
             ))}
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <input
+            <select
               value={newId}
               onChange={(e) => setNewId(e.target.value)}
-              placeholder="waxal_lug_0004"
-              className="rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm outline-none focus:border-gold"
-            />
+              aria-label="Google voice"
+              className="rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm"
+            >
+              {GEMINI_TTS_VOICES.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
             <input
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}

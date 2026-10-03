@@ -1,7 +1,7 @@
 -- Luganda voice reading of shopping lists: a rider sets one standing voice
 -- preference (riders table — a rider's role-specific profile lives there,
 -- not on users), used to generate and cache a spoken Luganda version of
--- every order's list on demand. See apps/api/src/speech/sunbird.ts and
+-- every order's list on demand. See apps/api/src/speech/gemini.ts and
 -- apps/api/src/orders/list-narration.ts.
 --
 -- Plain ADD COLUMN throughout — none of these are CHECK-constrained or

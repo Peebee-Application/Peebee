@@ -1,7 +1,7 @@
 /**
  * Converts a whole-shilling UGX amount into spoken Luganda number words,
  * built compositionally from a native speaker's confirmed reference table
- * rather than trusted to Sunbird's own number translation — that turned out
+ * rather than trusted to a machine translation of numbers — that turned out
  * to be unreliable (e.g. mistranslating "sixteen thousand" to a phrase that
  * actually means 160,000) where our own deterministic table is correct by
  * construction for every amount. Validated against the reference table
@@ -21,7 +21,7 @@ const TENS: Record<number, string> = {
 };
 
 // 11-19: "kumi n'X" before a vowel-initial unit (1-5), "kumi na X" before a
-// consonant-initial one (6-9) — the same elision Sunbird itself produced.
+// consonant-initial one (6-9) — the same elision a machine translation produced.
 const TEENS: Record<number, string> = {
   1: "kumi na emu", 2: "kumi na bbiri", 3: "kumi na ssatu", 4: "kumi na nnya", 5: "kumi na ttaano",
   6: "kumi na mukaaga", 7: "kumi na musanvu", 8: "kumi na munaana", 9: "kumi na mwenda",
