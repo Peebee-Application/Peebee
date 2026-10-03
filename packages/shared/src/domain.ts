@@ -100,7 +100,7 @@ export type OrderRow = {
    * rider collects the passenger, destination = where they're going. */
   is_ride: number;
   /** A ride booked for someone else: who is actually riding. The booker pays;
-   * see apps/api/src/db/migrations/0070_ride_for_someone.sql. */
+   * see apps/api/src/db/migrations/0071_ride_for_someone.sql. */
   passenger_name?: string | null;
   passenger_phone?: string | null;
   /** Private link token for the passenger's trip page — customer/admin only. */

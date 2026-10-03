@@ -232,7 +232,7 @@ export default function DeliveryPricingPage() {
           </label>
           <p className="text-xs text-ink-500">
             The customer pays and stays in charge; the passenger gets a private trip link and the driver sees their name
-            and number. Needs migration 0070_ride_for_someone.sql applied.
+            and number. Needs migration 0071_ride_for_someone.sql applied.
           </p>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-ink-500" htmlFor="ride-for-other-distance">
