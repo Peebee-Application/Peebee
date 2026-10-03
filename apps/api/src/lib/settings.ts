@@ -245,6 +245,10 @@ const DEFAULTS = {
   car_share_platform_percent: "10",
   /** A driver further than this from the pickup isn't offered the ride. */
   car_driver_max_pickup_km: "10",
+  /** Owners and drivers can cash their ride earnings out to mobile money. */
+  car_withdrawals_enabled: "0",
+  /** Smallest withdrawal in UGX (0 = no minimum). */
+  car_withdrawal_min_amount: "0",
   /** Price bidding on rides/parcels — off until an admin enables it. Needs
    * "customer selects" (multiple applications) to be an enabled matching mode. */
   bidding_enabled: "0",
@@ -268,10 +272,12 @@ export type CarSettings = {
   matchingMode: CarMatchingMode;
   shares: CarShares;
   maxPickupKm: number;
+  withdrawalsEnabled: boolean;
+  withdrawalMinAmount: number;
 };
 
 export async function getCarSettings(): Promise<CarSettings> {
-  const [enabled, onDemand, mode, owner, driver, platform, maxKm] = await Promise.all([
+  const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin] = await Promise.all([
     getSetting("car_enabled"),
     getSetting("car_ondemand_enabled"),
     getSetting("car_matching_mode"),
@@ -279,6 +285,8 @@ export async function getCarSettings(): Promise<CarSettings> {
     getSetting("car_share_driver_percent"),
     getSetting("car_share_platform_percent"),
     getSetting("car_driver_max_pickup_km"),
+    getSetting("car_withdrawals_enabled"),
+    getSetting("car_withdrawal_min_amount"),
   ]);
   let shares: CarShares = { owner: Number(owner), driver: Number(driver), platform: Number(platform) };
   // A saved split that doesn't total 100 can't be trusted: fall back to the defaults.
@@ -291,6 +299,8 @@ export async function getCarSettings(): Promise<CarSettings> {
     matchingMode: mode === "first_to_claim" ? "first_to_claim" : "customer_selects",
     shares,
     maxPickupKm: Math.min(200, Math.max(1, Number(maxKm) || 10)),
+    withdrawalsEnabled: wdEnabled === "1",
+    withdrawalMinAmount: Math.max(0, Math.floor(Number(wdMin) || 0)),
   };
 }
 
@@ -302,6 +312,9 @@ export async function setCarSettings(next: CarSettings): Promise<void> {
   await setSetting("car_share_driver_percent", String(next.shares.driver));
   await setSetting("car_share_platform_percent", String(next.shares.platform));
   await setSetting("car_driver_max_pickup_km", String(next.maxPickupKm));
+  // Older activity-log entries predate these two fields.
+  await setSetting("car_withdrawals_enabled", next.withdrawalsEnabled ? "1" : "0");
+  await setSetting("car_withdrawal_min_amount", String(Math.max(0, Math.floor(Number(next.withdrawalMinAmount) || 0))));
 }
 
 export type BiddingSettings = { enabled: boolean; minPercent: number; maxPercent: number };

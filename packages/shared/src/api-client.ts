@@ -14,6 +14,7 @@ import type {
   CarDriverJob,
   CarMe,
   CarOwnerRides,
+  CarWallet,
   CarConfig,
   AdminCarBooking,
   AdminCarCategory,
@@ -1514,6 +1515,18 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async carDriverApply(orderId: string, bidAmount?: number) {
       return request<{ ok: true }>(`/v1/car/orders/${orderId}/apply`, { method: "POST", body: JSON.stringify({ bidAmount }) });
+    },
+    async carWallet() {
+      return request<CarWallet>("/v1/car/wallet");
+    },
+    async carWithdraw(amount: number, mobileNumberId?: string) {
+      return request<{ withdrawalId: string; amount: number; status: "pending" }>("/v1/car/wallet/withdraw", {
+        method: "POST",
+        body: JSON.stringify({ amount, mobileNumberId }),
+      });
+    },
+    async carWithdrawalStatus(id: string) {
+      return request<{ withdrawal: { id: string; status: "pending" | "successful" | "failed" } }>(`/v1/car/wallet/withdrawals/${id}/refresh`);
     },
     async carDriverActive() {
       return request<CarDriverActive>("/v1/car/driver/active");

@@ -7,7 +7,7 @@ import { Hono } from "hono";
 import { signToken } from "../auth/jwt.js";
 import { setD1Binding, type D1Database } from "../db/client.js";
 import { splitSqlStatements } from "../db/split-sql.js";
-import { setBiddingSettings, setCarSettings, setMatchingModesEnabled } from "../lib/settings.js";
+import { setBiddingSettings, setCarSettings, setMatchingModesEnabled, setPlatformEnvironment } from "../lib/settings.js";
 import { resetSchemaCache } from "../lib/schema.js";
 import { orderRoutes } from "../orders/routes.js";
 import { riderRoutes } from "../riders/routes.js";
@@ -80,7 +80,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
 
   await t.test("everything is closed until an admin switches Car on", async () => {
     assert.equal((await call("GET", "/car/config", "cust")).status, 403);
-    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10 });
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: true, withdrawalMinAmount: 1000 });
     await setBiddingSettings({ enabled: true, minPercent: 50, maxPercent: 150 });
     await setMatchingModesEnabled(["first_to_claim"]); // boda riders' own modes must not matter for cars
     assert.equal((await call("GET", "/car/config", "cust")).status, 200);
@@ -174,5 +174,36 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
     await call("POST", `/orders/${orderId}/settle`, "drv");
     const again = Object.fromEntries((await client.execute("SELECT id, wallet_balance FROM users WHERE id IN ('owner', 'drv')")).rows.map((r) => [r.id, r.wallet_balance]));
     assert.equal(again.owner, 3000);
+  });
+
+  await t.test("owners and drivers can cash out only what they earned", async () => {
+    // Cash-out runs through the sandbox payout adapter here, so give the owner sandbox earnings:
+    // a settled sandbox car ride worth 3,000, plus 10,000 they topped up themselves (store credit, not earnings).
+    await setPlatformEnvironment("sandbox");
+    await client.execute("INSERT INTO lists (id, customer_id, title) VALUES ('lsbx', 'cust', 'sbx')");
+    await client.execute("INSERT INTO orders (id, list_id, customer_id, type, environment) VALUES ('osbx', 'lsbx', 'cust', 'parcel', 'sandbox')");
+    await client.execute(`INSERT INTO car_bookings (id, order_id, customer_id, category_id, status, owner_id, driver_id, owner_amount, driver_amount, environment)
+                          VALUES ('cbsbx', 'osbx', 'cust', '${categoryId}', 'completed', 'owner', 'drv', 3000, 1500, 'sandbox')`);
+    await client.execute("UPDATE users SET wallet_balance_sandbox = 13000 WHERE id = 'owner'");
+
+    const wallet = await json(await call("GET", "/car/wallet", "owner"));
+    assert.equal(wallet.balance, 13000);
+    assert.equal(wallet.withdrawable, 3000, "only the 3,000 earned from rides");
+    assert.equal(wallet.withdrawalsEnabled, true);
+
+    assert.equal((await call("POST", "/car/wallet/withdraw", "owner", { amount: 500 })).status, 400, "below the admin's minimum");
+    assert.equal((await call("POST", "/car/wallet/withdraw", "owner", { amount: 5000 })).status, 409, "more than earned");
+    assert.equal((await call("POST", "/car/wallet/withdraw", "owner", { amount: 2000 })).status, 409, "needs a saved number");
+
+    await client.execute("INSERT INTO saved_mobile_numbers (id, owner_id, purpose, phone, label, is_primary) VALUES ('n1', 'owner', 'withdrawal', '0772000001', 'mine', 1)");
+    const ok = await call("POST", "/car/wallet/withdraw", "owner", { amount: 2000 });
+    assert.equal(ok.status, 201);
+    const after = await json(await call("GET", "/car/wallet", "owner"));
+    assert.equal(after.balance, 11000);
+    assert.equal(after.withdrawable, 1000, "the pending withdrawal counts against what's left");
+    assert.equal((await call("POST", "/car/wallet/withdraw", "owner", { amount: 2000 })).status, 409);
+
+    await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 1000 });
+    assert.equal((await call("POST", "/car/wallet/withdraw", "owner", { amount: 1000 })).status, 403, "closed when the admin switches it off");
   });
 });
