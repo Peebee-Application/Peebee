@@ -39,9 +39,10 @@ function round(n: number): number {
 }
 
 /** A service fee can never be as large as the fare it is charged on: it is
- * capped at this share of the base amount. Without it a typo in admin (a
- * 100% rate, or a flat amount above the fare) doubled customers' bills. */
-export const MAX_SERVICE_FEE_SHARE = 0.5;
+ * capped at the admin-set share of the base amount (Settings → Monetization,
+ * "Highest service fee", 1–99%). Without a cap a typo in admin (a 100% rate,
+ * or a flat amount above the fare) doubled customers' bills. */
+export const DEFAULT_SERVICE_FEE_MAX_SHARE_PERCENT = 50;
 
 /**
  * baseAmount is what the order would cost with monetization off (items +
@@ -56,7 +57,8 @@ export function computeCheckoutFees(
   const rawServiceFee = settings.serviceFeeEnabled
     ? round(settings.serviceFeeType === "flat" ? settings.serviceFeeValue : (input.baseAmount * settings.serviceFeeValue) / 100)
     : 0;
-  const serviceFee = Math.min(rawServiceFee, Math.floor(Math.max(0, input.baseAmount) * MAX_SERVICE_FEE_SHARE));
+  const maxShare = Math.min(99, Math.max(1, settings.serviceFeeMaxSharePercent ?? DEFAULT_SERVICE_FEE_MAX_SHARE_PERCENT));
+  const serviceFee = Math.min(rawServiceFee, Math.floor((Math.max(0, input.baseAmount) * maxShare) / 100));
 
   let processingFeeCustomer = 0;
   let processingFeeRider = 0;

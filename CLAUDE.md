@@ -20,3 +20,7 @@ Read `COLLABORATION.md` before changing or deploying this repository.
 - Migrations (`apps/api/src/db/migrations/*.sql`) are **applied by hand** to the live D1 database; the deploy does not run them. Code can therefore reach production before its migration.
 - New code that touches a new column must keep working until the migration lands: use `hasColumn()` (`apps/api/src/lib/schema.ts`) to fall back to the old behaviour, or keep the feature behind a flag that defaults off. Never ship an endpoint on an existing hot path that fails when a column is missing.
 - Every PR with a migration must say so in its description and list the file to apply.
+
+## Product rules
+
+- **Behaviour is admin-controlled.** Anything that defines how the app works — switches, work modes, limits, thresholds, percentages, time windows, profit shares, penalties — is a setting in the Admin app (stored in `settings`, validated in `settings/routes.ts`, shown on an admin page, recorded in the activity log, safe default), not a constant in code. Code may keep only structural safety rails (e.g. "a fee is always under 100% of the fare"), and even those expose the value to admin where it makes sense.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { computeCheckoutFees, MAX_SERVICE_FEE_SHARE } from "./monetization.js";
+import { computeCheckoutFees } from "./monetization.js";
 import type { MonetizationSettings } from "./settings.js";
 
 const settings = (over: Partial<MonetizationSettings>): MonetizationSettings => ({
@@ -10,6 +10,7 @@ const settings = (over: Partial<MonetizationSettings>): MonetizationSettings => 
   serviceFeeEnabled: true,
   serviceFeeType: "flat",
   serviceFeeValue: 0,
+  serviceFeeMaxSharePercent: 50,
   processingFeeEnabled: false,
   processingFeePercent: 0,
   processingFeeMode: "customer",
@@ -28,7 +29,6 @@ test("a service fee is never as large as the fare", () => {
   assert.equal(computeCheckoutFees(settings({ serviceFeeType: "percent", serviceFeeValue: 100 }), ride).serviceFee, 3250);
   assert.equal(computeCheckoutFees(settings({ serviceFeeType: "flat", serviceFeeValue: 6500 }), ride).serviceFee, 3250);
   assert.equal(computeCheckoutFees(settings({ serviceFeeType: "flat", serviceFeeValue: 9999 }), ride).serviceFee, 3250);
-  assert.ok(MAX_SERVICE_FEE_SHARE < 1);
 });
 
 test("sensible service fees are unchanged", () => {
@@ -50,4 +50,14 @@ test("the cap doesn't touch the processing fee, and total surcharge stays below 
 test("tiny fares can't be eaten by a flat fee", () => {
   assert.equal(computeCheckoutFees(settings({ serviceFeeValue: 500 }), { ...ride, baseAmount: 600, deliveryFee: 600 }).serviceFee, 300);
   assert.equal(computeCheckoutFees(settings({ serviceFeeValue: 500 }), { ...ride, baseAmount: 0, deliveryFee: 0 }).serviceFee, 0);
+});
+
+test("the cap is an admin setting, and can never reach the whole fare", () => {
+  const fee = (maxSharePercent: number) =>
+    computeCheckoutFees(settings({ serviceFeeType: "percent", serviceFeeValue: 100, serviceFeeMaxSharePercent: maxSharePercent }), ride).serviceFee;
+  assert.equal(fee(20), 1300);
+  assert.equal(fee(80), 5200);
+  assert.equal(fee(99), 6435);
+  assert.equal(fee(100), 6435, "a 100% cap is treated as 99% — never the whole fare");
+  assert.equal(fee(0), 65, "0 is treated as 1%");
 });

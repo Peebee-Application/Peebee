@@ -320,6 +320,8 @@ const updateSchema = z.object({
   serviceFeeEnabled: z.boolean().optional(),
   serviceFeeType: z.enum(["flat", "percent"]).optional(),
   serviceFeeValue: z.number().min(0).max(1_000_000).optional(),
+  // The service fee can never be more than this % of the fare — always under 100.
+  serviceFeeMaxSharePercent: z.number().int().min(1).max(99).optional(),
   processingFeeEnabled: z.boolean().optional(),
   processingFeePercent: z.number().min(0).max(100).optional(),
   processingFeeMode: z.enum(["customer", "rider", "split"]).optional(),
@@ -356,9 +358,10 @@ const updateSchema = z.object({
   proOnetimeEnabled: z.boolean().optional(),
   proOnetimeAmount: z.number().min(0).max(1_000_000).optional(),
 }).superRefine((d, ctx) => {
-  // A service fee as large as the fare it's charged on would double a bill.
-  if (d.serviceFeeType === "percent" && d.serviceFeeValue != null && d.serviceFeeValue > 50) {
-    ctx.addIssue({ code: "custom", path: ["serviceFeeValue"], message: "A percentage service fee can't be more than 50%" });
+  // A percentage service fee can't be more than the admin's own cap (or 99% when none was sent).
+  const cap = d.serviceFeeMaxSharePercent ?? 99;
+  if (d.serviceFeeType === "percent" && d.serviceFeeValue != null && d.serviceFeeValue > cap) {
+    ctx.addIssue({ code: "custom", path: ["serviceFeeValue"], message: `A percentage service fee can't be more than ${cap}%` });
   }
 });
 
@@ -378,6 +381,7 @@ const PAYMENTS_FIELDS = [
   "serviceFeeEnabled",
   "serviceFeeType",
   "serviceFeeValue",
+  "serviceFeeMaxSharePercent",
   "processingFeeEnabled",
   "processingFeePercent",
   "processingFeeMode",
@@ -490,6 +494,7 @@ settingsRoutes.put(
       serviceFeeEnabled: parsed.data.serviceFeeEnabled,
       serviceFeeType: parsed.data.serviceFeeType,
       serviceFeeValue: parsed.data.serviceFeeValue,
+      serviceFeeMaxSharePercent: parsed.data.serviceFeeMaxSharePercent,
       processingFeeEnabled: parsed.data.processingFeeEnabled,
       processingFeePercent: parsed.data.processingFeePercent,
       processingFeeMode: parsed.data.processingFeeMode,
