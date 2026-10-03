@@ -38,7 +38,10 @@ carRoutes.get("/car/config", async (c) => {
   const scheduled = (await scheduledAvailable(settings.scheduled))
     ? { maxAdvanceHours: settings.scheduled.maxAdvanceHours, minLeadMinutes: settings.scheduled.minLeadMinutes }
     : null;
-  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, scheduled, categories: categories.rows });
+  const carpool = settings.carpool.enabled && (await hasTable("carpool_trips"))
+    ? { maxSeatsPerBooking: settings.carpool.maxSeatsPerBooking, maxRepeatWeeks: settings.carpool.maxRepeatWeeks }
+    : null;
+  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, scheduled, carpool, categories: categories.rows });
 });
 
 // ---- Who am I: owner / driver status, vehicles, current car -----------------

@@ -277,6 +277,14 @@ const updateSchema = z.object({
         noSignalMinutes: z.number().int().min(1).max(120),
         avgSpeedKmh: z.number().int().min(5).max(120),
       }),
+      carpool: z.object({
+        enabled: z.boolean(),
+        maxSeatsPerBooking: z.number().int().min(1).max(20),
+        maxRepeatWeeks: z.number().int().min(0).max(52),
+        cutoffMinutes: z.number().int().min(0).max(24 * 60),
+        payWithinMinutes: z.number().int().min(5).max(24 * 60),
+        matchRadiusKm: z.number().int().min(1).max(200),
+      }),
       withdrawalsEnabled: z.boolean(),
       withdrawalMinAmount: z.number().int().min(0).max(100_000_000),
     })

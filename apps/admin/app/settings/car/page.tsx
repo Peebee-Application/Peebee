@@ -23,6 +23,12 @@ export default function CarSettingsPage() {
   const [schedWatch, setSchedWatch] = useState("30");
   const [schedNoSignal, setSchedNoSignal] = useState("10");
   const [schedSpeed, setSchedSpeed] = useState("25");
+  const [cpEnabled, setCpEnabled] = useState(false);
+  const [cpSeats, setCpSeats] = useState("4");
+  const [cpRepeat, setCpRepeat] = useState("0");
+  const [cpCutoff, setCpCutoff] = useState("15");
+  const [cpPay, setCpPay] = useState("15");
+  const [cpRadius, setCpRadius] = useState("10");
   const [withdrawals, setWithdrawals] = useState(false);
   const [withdrawMin, setWithdrawMin] = useState("0");
   const [busy, setBusy] = useState(false);
@@ -30,7 +36,7 @@ export default function CarSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number; scheduled: CarSettings["scheduled"] }) {
+  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number; scheduled: CarSettings["scheduled"]; carpool: CarSettings["carpool"] }) {
     setEnabled(c.enabled);
     setOnDemand(c.onDemandEnabled);
     setMode(c.matchingMode);
@@ -45,6 +51,12 @@ export default function CarSettingsPage() {
     setSchedWatch(String(c.scheduled.watchMinutes));
     setSchedNoSignal(String(c.scheduled.noSignalMinutes));
     setSchedSpeed(String(c.scheduled.avgSpeedKmh));
+    setCpEnabled(c.carpool.enabled);
+    setCpSeats(String(c.carpool.maxSeatsPerBooking));
+    setCpRepeat(String(c.carpool.maxRepeatWeeks));
+    setCpCutoff(String(c.carpool.cutoffMinutes));
+    setCpPay(String(c.carpool.payWithinMinutes));
+    setCpRadius(String(c.carpool.matchRadiusKm));
     setWithdrawals(c.withdrawalsEnabled);
     setWithdrawMin(String(c.withdrawalMinAmount));
   }
@@ -84,6 +96,14 @@ export default function CarSettingsPage() {
             watchMinutes: Math.max(5, Number(schedWatch) || 30),
             noSignalMinutes: Math.max(1, Number(schedNoSignal) || 10),
             avgSpeedKmh: Math.max(5, Number(schedSpeed) || 25),
+          },
+          carpool: {
+            enabled: cpEnabled,
+            maxSeatsPerBooking: Math.max(1, Number(cpSeats) || 4),
+            maxRepeatWeeks: Math.max(0, Number(cpRepeat) || 0),
+            cutoffMinutes: Math.max(0, Number(cpCutoff) || 0),
+            payWithinMinutes: Math.max(5, Number(cpPay) || 15),
+            matchRadiusKm: Math.max(1, Number(cpRadius) || 10),
           },
           withdrawalsEnabled: withdrawals,
           withdrawalMinAmount: Math.max(0, Number(withdrawMin) || 0),
@@ -169,7 +189,31 @@ export default function CarSettingsPage() {
             ))}
           </div>
           <p className="text-xs text-ink-500">
-            Scheduling stays off until &ldquo;how far ahead&rdquo; is set. A scheduled ride is paid at booking but only shown to drivers shortly before pickup, so no driver is tied up for days. Within the watch time, the driver&apos;s distance to the pickup is checked every couple of minutes and the customer is warned once if they look late or can&apos;t be located. Needs migration 0067.
+            Scheduling stays off until &ldquo;how far ahead&rdquo; is set. A scheduled ride is only shown to drivers shortly before pickup (the customer pays after choosing a driver), so no driver is tied up for days. Within the watch time, the driver&apos;s distance to the pickup is checked every couple of minutes and the customer is warned once if they look late or can&apos;t be located. Needs migration 0067.
+          </p>
+        </section>
+
+        <section className="home-card space-y-3">
+          <label className="flex items-center gap-2 text-sm font-bold text-ink">
+            <input type="checkbox" checked={cpEnabled} disabled={!enabled} onChange={(e) => setCpEnabled(e.target.checked)} className="h-4 w-4 accent-gold" />
+            Carpool: drivers publish trips, passengers book seats
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              ["Most seats per booking", cpSeats, setCpSeats],
+              ["Repeat a trip weekly for (weeks, 0 = never)", cpRepeat, setCpRepeat],
+              ["Stop booking before departure (min)", cpCutoff, setCpCutoff],
+              ["Release unpaid seats after (min)", cpPay, setCpPay],
+              ["Match start/end within (km)", cpRadius, setCpRadius],
+            ].map(([label, value, set]) => (
+              <div key={label as string} className="space-y-1">
+                <label className="text-xs font-semibold text-ink-500">{label as string}</label>
+                <input inputMode="numeric" value={value as string} disabled={!cpEnabled} onChange={(e) => (set as (v: string) => void)(digits(e.target.value))} className={`${input} disabled:opacity-50`} />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-ink-500">
+            The seat price is set by the driver. Each booked seat is its own paid ride, split between owner, driver and Tuma like any car ride. No-show and late-cancel fees are not enabled yet. Needs migration 0068.
           </p>
         </section>
 

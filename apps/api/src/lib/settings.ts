@@ -259,6 +259,17 @@ const DEFAULTS = {
   car_scheduled_no_signal_minutes: "10",
   /** Average speed used to judge whether a driver will make it. */
   car_scheduled_avg_speed_kmh: "25",
+  /** Carpool: drivers publish trips, passengers book seats. */
+  car_carpool_enabled: "0",
+  car_carpool_max_seats_per_booking: "4",
+  /** A driver may repeat a trip weekly for this many weeks (0 = single trips only). */
+  car_carpool_max_repeat_weeks: "0",
+  /** Seats can't be booked within this long of departure. */
+  car_carpool_cutoff_minutes: "15",
+  /** A booked seat that hasn't been paid within this long is released. */
+  car_carpool_pay_within_minutes: "15",
+  /** A passenger's start/end must be within this distance of the trip's. */
+  car_carpool_match_radius_km: "10",
   car_withdrawals_enabled: "0",
   /** Smallest withdrawal in UGX (0 = no minimum). */
   car_withdrawal_min_amount: "0",
@@ -288,6 +299,16 @@ export type CarSettings = {
   withdrawalsEnabled: boolean;
   withdrawalMinAmount: number;
   scheduled: CarScheduledSettings;
+  carpool: CarCarpoolSettings;
+};
+
+export type CarCarpoolSettings = {
+  enabled: boolean;
+  maxSeatsPerBooking: number;
+  maxRepeatWeeks: number;
+  cutoffMinutes: number;
+  payWithinMinutes: number;
+  matchRadiusKm: number;
 };
 
 export type CarScheduledSettings = {
@@ -302,7 +323,7 @@ export type CarScheduledSettings = {
 };
 
 export async function getCarSettings(): Promise<CarSettings> {
-  const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin, sEnabled, sMax, sLead, sOpen, sWatch, sNoSig, sSpeed] = await Promise.all([
+  const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin, sEnabled, sMax, sLead, sOpen, sWatch, sNoSig, sSpeed, cpEnabled, cpSeats, cpRepeat, cpCutoff, cpPay, cpRadius] = await Promise.all([
     getSetting("car_enabled"),
     getSetting("car_ondemand_enabled"),
     getSetting("car_matching_mode"),
@@ -319,6 +340,12 @@ export async function getCarSettings(): Promise<CarSettings> {
     getSetting("car_scheduled_watch_minutes"),
     getSetting("car_scheduled_no_signal_minutes"),
     getSetting("car_scheduled_avg_speed_kmh"),
+    getSetting("car_carpool_enabled"),
+    getSetting("car_carpool_max_seats_per_booking"),
+    getSetting("car_carpool_max_repeat_weeks"),
+    getSetting("car_carpool_cutoff_minutes"),
+    getSetting("car_carpool_pay_within_minutes"),
+    getSetting("car_carpool_match_radius_km"),
   ]);
   const clamp = (v: string, lo: number, hi: number, fallback: number) => Math.min(hi, Math.max(lo, Math.floor(Number(v)) || fallback));
   const maxAdvance = Math.floor(Number(sMax));
@@ -344,6 +371,14 @@ export async function getCarSettings(): Promise<CarSettings> {
       noSignalMinutes: clamp(sNoSig, 1, 120, 10),
       avgSpeedKmh: clamp(sSpeed, 5, 120, 25),
     },
+    carpool: {
+      enabled: cpEnabled === "1",
+      maxSeatsPerBooking: clamp(cpSeats, 1, 20, 4),
+      maxRepeatWeeks: Math.min(52, Math.max(0, Math.floor(Number(cpRepeat)) || 0)),
+      cutoffMinutes: clamp(cpCutoff, 0, 24 * 60, 15),
+      payWithinMinutes: clamp(cpPay, 5, 24 * 60, 15),
+      matchRadiusKm: clamp(cpRadius, 1, 200, 10),
+    },
   };
 }
 
@@ -365,6 +400,15 @@ export async function setCarSettings(next: CarSettings): Promise<void> {
     await setSetting("car_scheduled_watch_minutes", String(sch.watchMinutes));
     await setSetting("car_scheduled_no_signal_minutes", String(sch.noSignalMinutes));
     await setSetting("car_scheduled_avg_speed_kmh", String(sch.avgSpeedKmh));
+  }
+  const cp = next.carpool;
+  if (cp) {
+    await setSetting("car_carpool_enabled", cp.enabled ? "1" : "0");
+    await setSetting("car_carpool_max_seats_per_booking", String(cp.maxSeatsPerBooking));
+    await setSetting("car_carpool_max_repeat_weeks", String(cp.maxRepeatWeeks));
+    await setSetting("car_carpool_cutoff_minutes", String(cp.cutoffMinutes));
+    await setSetting("car_carpool_pay_within_minutes", String(cp.payWithinMinutes));
+    await setSetting("car_carpool_match_radius_km", String(cp.matchRadiusKm));
   }
   await setSetting("car_withdrawals_enabled", next.withdrawalsEnabled ? "1" : "0");
   await setSetting("car_withdrawal_min_amount", String(Math.max(0, Math.floor(Number(next.withdrawalMinAmount) || 0))));

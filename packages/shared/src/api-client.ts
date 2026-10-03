@@ -14,6 +14,9 @@ import type {
   CarDriverJob,
   CarMe,
   CarOwnerRides,
+  CarpoolMyTrip,
+  CarpoolPublishInput,
+  CarpoolTrip,
   CarWallet,
   CarConfig,
   AdminCarBooking,
@@ -1521,6 +1524,22 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async carRematch(orderId: string) {
       return request<{ ok: true }>(`/v1/car/bookings/${orderId}/rematch`, { method: "POST" });
+    },
+    async carpoolSearch(q: { fromLat: number; fromLng: number; toLat: number; toLng: number; date?: string }) {
+      const params = new URLSearchParams({ fromLat: String(q.fromLat), fromLng: String(q.fromLng), toLat: String(q.toLat), toLng: String(q.toLng), ...(q.date ? { date: q.date } : {}) });
+      return request<{ trips: CarpoolTrip[]; maxSeatsPerBooking: number }>(`/v1/car/carpool/trips?${params}`);
+    },
+    async carpoolBook(tripId: string, seats: number) {
+      return request<{ order: OrderRow }>(`/v1/car/carpool/trips/${tripId}/seats`, { method: "POST", body: JSON.stringify({ seats }) });
+    },
+    async carpoolPublish(input: CarpoolPublishInput) {
+      return request<{ ids: string[] }>("/v1/car/carpool/trips", { method: "POST", body: JSON.stringify(input) });
+    },
+    async carpoolMyTrips() {
+      return request<{ trips: CarpoolMyTrip[] }>("/v1/car/carpool/my-trips");
+    },
+    async carpoolSetStatus(tripId: string, status: "departed" | "completed" | "cancelled") {
+      return request<{ ok: true }>(`/v1/car/carpool/trips/${tripId}/status`, { method: "POST", body: JSON.stringify({ status }) });
     },
     async carWallet() {
       return request<CarWallet>("/v1/car/wallet");
