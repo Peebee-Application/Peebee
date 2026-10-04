@@ -1,7 +1,7 @@
-const STATIC_CACHE = "peebee-driver-static-v5";
-const RUNTIME_CACHE = "peebee-driver-runtime-v5";
+const STATIC_CACHE = "peebee-driver-static-v6";
+const RUNTIME_CACHE = "peebee-driver-runtime-v6";
 const OFFLINE_URL = "/offline.html";
-const STATIC_ASSETS = ["/sounds/notification.mp3", "/manifest.json", "/icons/icon-192.png?v=opaque-2", "/icons/icon-512.png?v=opaque-2", OFFLINE_URL];
+const STATIC_ASSETS = ["/sounds/notification.mp3", "/manifest.json", "/icons/icon-192.png?v=logos-3", "/icons/icon-512.png?v=logos-3", OFFLINE_URL];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_ASSETS)));
@@ -122,8 +122,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(Promise.all([
     self.registration.showNotification(data.title || "Peebee", {
       body: data.body || "You have a new notification",
-      icon: "/icons/icon-192.png?v=opaque-2",
-      badge: "/icons/icon-192.png?v=opaque-2",
+      icon: "/icons/icon-192.png?v=logos-3",
+      badge: "/icons/icon-192.png?v=logos-3",
       tag: data.tag || "peebee-alert",
       data: { url: data.url || "/" },
     }),
