@@ -14,6 +14,11 @@ function stop(message) {
   process.exit(1);
 }
 
+const peebeeAccountId = "5b3ae942adb5457f1fa4d7f5effbf3ff";
+if (process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_ACCOUNT_ID !== peebeeAccountId) {
+  stop("CLOUDFLARE_ACCOUNT_ID must identify the Peebee account (peebeeapp@gmail.com).");
+}
+
 let root;
 try {
   root = git(["rev-parse", "--show-toplevel"]);

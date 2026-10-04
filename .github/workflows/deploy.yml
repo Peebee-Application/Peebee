@@ -115,6 +115,13 @@ jobs:
           ref: ${{ needs.plan.outputs.target == 'live' && 'main' || github.ref }}
           fetch-depth: 0
 
+      - name: Verify Peebee account
+        run: |
+          if [ "$CLOUDFLARE_ACCOUNT_ID" != "5b3ae942adb5457f1fa4d7f5effbf3ff" ]; then
+            echo "Deployment requires the Peebee Cloudflare account. Check repository deployment secrets."
+            exit 1
+          fi
+
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
