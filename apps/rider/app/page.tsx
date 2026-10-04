@@ -2,7 +2,7 @@
 
 import type { AvailableJob, OrderRow, Rider } from "@tuma/shared";
 import { isRiderProfileComplete } from "@tuma/shared";
-import { ChevronRight, MapPin, TriangleAlert } from "lucide-react";
+import { Bike, ChevronDown, ChevronRight, MapPin, Package, ShoppingCart, TriangleAlert, Utensils } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -34,6 +34,17 @@ const SORT_KEYS: Record<
   newest: "home_sort_newest",
   oldest: "home_sort_oldest",
 };
+
+const CATEGORY_ICONS = { ride: Bike, parcel: Package, shopping: ShoppingCart, food: Utensils };
+
+function CategoryIcon({ category }: { category: JobCategory }) {
+  const Icon = CATEGORY_ICONS[category];
+  return (
+    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold/10 text-ink">
+      <Icon className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+    </span>
+  );
+}
 
 export default function JobsHomePage() {
   const t = useTranslate();
@@ -158,60 +169,74 @@ export default function JobsHomePage() {
   const activeOrders = orders.filter((o) => o.stage !== "Settle");
 
   return (
-    <div className="space-y-5 px-4 pb-6 pt-4">
+    <div className="space-y-6 px-4 pb-8 pt-5">
       <header className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-ink">
+        <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-ink">
           {t("home_hi")}
-          {user?.name ? `, ${user.name}` : ""}
+          {user?.name ? `, ${user.name.trim().split(/\s+/)[0]}` : ""}
         </h1>
         <button
+          type="button"
+          role="switch"
+          aria-checked={!!rider?.is_online}
+          aria-label={t("home_availability")}
           disabled={busy || !online}
           onClick={toggleOnline}
-          className={`rounded-full px-4 py-2 text-sm font-bold disabled:opacity-50 ${
-            rider?.is_online ? "bg-green text-white" : "bg-[rgb(var(--surface-muted))] text-ink"
+          className={`flex min-h-12 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold disabled:opacity-50 ${
+            rider?.is_online ? "bg-green/15 text-green-600" : "bg-[rgb(var(--surface-muted))] text-ink"
           }`}
         >
           {rider?.is_online ? t("home_online") : t("home_offline")}
+          <span aria-hidden className={`flex h-6 w-10 items-center rounded-full p-0.5 ${rider?.is_online ? "justify-end bg-green" : "justify-start bg-ink-500"}`}>
+            <span className="h-5 w-5 rounded-full bg-white" />
+          </span>
         </button>
       </header>
 
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <p role="alert" className="rounded-lg bg-gold/10 px-3 py-2 text-sm text-ink">{error}</p>}
 
-      <StageSavingsCard />
+      <StageSavingsCard compact />
 
-      <section className="space-y-2.5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">{t("home_available_jobs")}</h2>
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xl font-bold tracking-tight text-ink">{t("home_available_jobs")}</h2>
+          {rider?.is_online && availableJobs.length > 0 && (
+            <span className="relative max-w-full">
+              <select
+                aria-label={t("home_sort")}
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+                className="min-h-12 w-32 max-w-full appearance-none text-ellipsis rounded-full border border-[var(--border-faint)] py-2 pl-3 pr-9 text-sm font-medium text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold"
+              >
+                {(Object.keys(SORT_KEYS) as SortOrder[]).map((key) => (
+                  <option key={key} value={key}>{key === "distance" ? t("home_nearest") : t(SORT_KEYS[key])}</option>
+                ))}
+              </select>
+              <ChevronDown aria-hidden className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
+            </span>
+          )}
+        </div>
 
         {rider?.is_online && availableJobs.length > 0 && (
           <div className="space-y-2">
-            <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+            <div role="group" aria-label={t("home_categories")} className="flex gap-1.5 overflow-x-auto pb-1">
               {(["all", "ride", "parcel", "shopping", "food"] as const).map((cat) => (
                 <button
                   key={cat}
+                  type="button"
+                  aria-pressed={categoryFilter === cat}
                   onClick={() => setCategoryFilter(cat)}
-                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold ${
+                  className={`min-h-12 shrink-0 rounded-full border px-3 text-sm font-medium ${
                     categoryFilter === cat
-                      ? "border-gold bg-gold/15 text-ink"
-                      : "border-[var(--border-faint)] text-ink-500"
+                      ? "border-gold bg-gold text-ink-gold"
+                      : "border-transparent bg-[rgb(var(--surface-muted))] text-ink-500"
                   }`}
                 >
-                  {cat === "all"
-                    ? `${t("home_all")} (${availableJobs.length})`
-                    : `${JOB_CATEGORY_LABELS[cat]} (${categoryCounts[cat]})`}
+                  {cat === "all" ? t("home_all") : JOB_CATEGORY_LABELS[cat]}
+                  <span className="sr-only"> ({cat === "all" ? availableJobs.length : categoryCounts[cat]})</span>
                 </button>
               ))}
             </div>
-            <select
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value as SortOrder)}
-              className="w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-gold"
-            >
-              {(Object.keys(SORT_KEYS) as SortOrder[]).map((key) => (
-                <option key={key} value={key}>
-                  {t("home_sort")}: {t(SORT_KEYS[key])}
-                </option>
-              ))}
-            </select>
           </div>
         )}
 
@@ -226,31 +251,29 @@ export default function JobsHomePage() {
             {t("home_no_category_jobs", { category: JOB_CATEGORY_LABELS[categoryFilter as JobCategory]?.toLowerCase() ?? "" })}
           </p>
         )}
-        <ul className="space-y-2.5">
+        <ul className="space-y-5">
           {visibleJobs.map((job) => (
-            <li key={job.id} className="home-card space-y-2.5 !rounded-2xl !px-3 !py-3">
+            <li key={job.id} className="home-card space-y-3 !rounded-2xl !p-3.5">
               <div className="flex items-center justify-between gap-3">
+                <CategoryIcon category={jobCategory(job)} />
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5">
-                    <span className="truncate text-[15px] font-bold text-ink">{jobTitle(job)}</span>
-                    <span className="shrink-0 rounded-full bg-[rgb(var(--surface-muted))] px-1.5 py-0.5 text-[10px] font-semibold text-ink-500">
-                      {JOB_CATEGORY_LABELS[jobCategory(job)]}
-                    </span>
-                  </span>
-                  <span className="mt-0.5 flex items-center gap-1 text-xs text-ink-500">
-                    <MapPin className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
-                    {job.distanceKm != null ? `${job.distanceKm} ${t("home_km_away")}` : t("home_distance_unknown")}
-                  </span>
+                  <span className="block text-base font-semibold leading-snug text-ink">{jobTitle(job)}</span>
+                  <span className="mt-0.5 block text-sm text-ink-500">{JOB_CATEGORY_LABELS[jobCategory(job)]}</span>
                 </span>
-                <span className="shrink-0 text-right">
-                  <span className="block text-sm font-bold text-ink">
-                    {formatUgx(job.final_total ?? job.estimated_total)}
-                  </span>
-                  <span className="block text-xs text-ink-500">
-                    {formatUgx(job.delivery_fee ?? job.final_total ?? job.estimated_total)} {t("home_delivery")}
-                  </span>
+                <span className="max-w-[30%] text-right text-xs leading-5 text-ink-500">
+                  {job.distanceKm != null ? `${job.distanceKm} ${t("home_km_away")}` : t("home_distance_unknown")}
                 </span>
               </div>
+              <dl className="grid grid-cols-2 border-t border-[var(--border-faint)] pt-3">
+                <div className="min-w-0 pr-3">
+                  <dt className="text-sm text-ink-500">{t("home_total")}</dt>
+                  <dd className="mt-0.5 break-words text-lg font-semibold tabular-nums text-ink">{formatUgx(job.final_total ?? job.estimated_total)}</dd>
+                </div>
+                <div className="min-w-0 border-l border-[var(--border-faint)] pl-3">
+                  <dt className="text-sm text-ink-500">{t("home_delivery_fee")}</dt>
+                  <dd className="mt-0.5 break-words text-lg font-semibold tabular-nums text-ink">{formatUgx(job.delivery_fee ?? job.final_total ?? job.estimated_total)}</dd>
+                </div>
+              </dl>
               {job.outOfServiceRange && (
                 <div className="flex items-start gap-1.5 rounded-lg bg-gold/10 px-2.5 py-1.5">
                   <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" strokeWidth={2.25} aria-hidden />
@@ -279,7 +302,7 @@ export default function JobsHomePage() {
                 <button
                   type="button"
                   onClick={() => setPreviewJobItem(job)}
-                  className="min-h-10 flex-1 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink"
+                  className="min-h-12 flex-1 rounded-xl bg-[rgb(var(--surface-muted))] px-3 py-2 text-sm font-semibold text-ink"
                 >
                   {t("home_preview")}
                 </button>
@@ -287,7 +310,7 @@ export default function JobsHomePage() {
                   <button
                     onClick={() => claimJob(job.id)}
                     disabled={claimingId === job.id || !online}
-                    className="min-h-10 flex-[2] rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
+                    className="min-h-12 flex-1 rounded-xl bg-gold px-3 py-2 text-sm font-semibold text-ink-gold disabled:opacity-60"
                   >
                     {claimingId === job.id ? t("home_claiming") : !online ? t("home_offline_btn") : t("home_claim_job")}
                   </button>
@@ -295,7 +318,7 @@ export default function JobsHomePage() {
                   <button
                     onClick={() => applyToJob(job.id)}
                     disabled={claimingId === job.id || job.applied || !online}
-                    className={`min-h-10 flex-[2] rounded-full px-4 text-sm font-bold disabled:opacity-60 ${
+                    className={`min-h-12 flex-1 rounded-xl px-3 py-2 text-sm font-semibold disabled:opacity-60 ${
                       job.applied ? "bg-[rgb(var(--surface-muted))] text-ink-500" : "bg-gold text-ink-gold"
                     }`}
                   >
@@ -314,20 +337,27 @@ export default function JobsHomePage() {
         </ul>
       </section>
 
-      <section className="space-y-2.5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">{t("home_your_jobs")}</h2>
+      <section className="space-y-4">
+        <h2 className="text-xl font-bold tracking-tight text-ink">{t("home_your_jobs")}</h2>
         {activeOrders.length === 0 && (
           <p className="py-6 text-center text-sm text-ink-500">{t("home_no_active_jobs")}</p>
         )}
-        <ul className="space-y-2.5">
+        <ul className="space-y-5">
           {activeOrders.map((order) => (
             <li key={order.id}>
-              <Link href={`/jobs/${order.id}`} className="home-card flex items-center gap-3 !rounded-2xl !px-3 !py-3">
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-bold text-ink">{jobTitle(order)}</span>
-                  <span className="mt-0.5 block text-xs text-ink-500">{stageLabel(order.stage)}</span>
+              <Link href={`/jobs/${order.id}`} className="home-card block !rounded-2xl !p-3.5">
+                <span className="flex items-center gap-3">
+                  <CategoryIcon category={jobCategory(order)} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-base font-semibold leading-snug text-ink">{jobTitle(order)}</span>
+                    <span className="mt-0.5 block text-sm text-ink-500">{JOB_CATEGORY_LABELS[jobCategory(order)]}</span>
+                  </span>
+                  <span className="max-w-[40%] rounded-full bg-gold/15 px-3 py-1.5 text-xs font-semibold text-ink">{stageLabel(order.stage, order.type, !!order.is_ride)}</span>
                 </span>
-                <ChevronRight className="h-5 w-5 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
+                <span className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-faint)] pt-3">
+                  <span className="flex min-w-0 items-center gap-1 text-sm text-ink-500"><MapPin className="h-4 w-4 shrink-0" aria-hidden />{order.pickup_area ?? order.destination_area ?? t("home_pickup")}</span>
+                  <span className="flex min-h-12 items-center gap-2 rounded-xl bg-[rgb(var(--surface-muted))] px-3 text-sm font-semibold text-ink">{t("home_continue_job")}<ChevronRight className="h-4 w-4" aria-hidden /></span>
+                </span>
               </Link>
             </li>
           ))}

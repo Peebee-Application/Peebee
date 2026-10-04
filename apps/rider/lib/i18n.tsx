@@ -63,6 +63,14 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   home_your_jobs: { en: "Your jobs", lg: "Emirimu gyo" },
   home_no_active_jobs: { en: "No active jobs yet — claim one above.", lg: "Tewali mulimu gukyakola — kwata ogumu waggulu." },
   home_hi: { en: "Hi", lg: "Ki kati" },
+  home_availability: { en: "Available for jobs", lg: "Ndiwo okukola emirimu" },
+  home_categories: { en: "Job categories", lg: "Ebika by'emirimu" },
+  home_total: { en: "Total", lg: "Omugatte" },
+  home_nearest: { en: "Nearest", lg: "Ebikumpi" },
+  home_delivery_fee: { en: "Delivery fee", lg: "Ssente z'okutuusa" },
+  home_continue_job: { en: "Continue job", lg: "Weeyongere n'omulimu" },
+  home_pickup: { en: "Pickup", lg: "Ekifo eky'okukima" },
+  home_view_savings: { en: "View your savings", lg: "Laba ssente zo ez'akaterekero" },
 
   // Account
   acc_verified: { en: "Verified", lg: "Akakasiddwa" },
