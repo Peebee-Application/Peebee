@@ -1,6 +1,6 @@
 "use client";
 
-import { GEMINI_TTS_VOICES, type LugandaVoice } from "@tuma/shared";
+import { GEMINI_TTS_VOICES, type LugandaVoice } from "@peebee/shared";
 import { Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";

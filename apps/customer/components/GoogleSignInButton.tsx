@@ -22,7 +22,7 @@ declare global {
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
 /** "Continue with Google" — signs in if the Google account's email already
- * has a Tuma account, otherwise creates one (email pre-verified, since
+ * has a Peebee account, otherwise creates one (email pre-verified, since
  * Google already confirmed it). Renders nothing if no client ID is configured. */
 export function GoogleSignInButton({ role }: { role: "customer" | "rider" }) {
   const { setSession } = useAuth();

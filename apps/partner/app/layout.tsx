@@ -9,7 +9,7 @@ import "./globals.css";
 const THEME_INIT_SCRIPT = `
 (function () {
   try {
-    var stored = localStorage.getItem("tuma-theme");
+    var stored = localStorage.getItem("peebee-theme");
     var mode = stored === "light" || stored === "dark" || stored === "auto" ? stored : "auto";
     var theme;
     if (mode === "auto") {
@@ -24,8 +24,8 @@ const THEME_INIT_SCRIPT = `
 `;
 
 export const metadata: Metadata = {
-  title: "Tuma Car",
-  description: "Own or drive a car on Tuma",
+  title: "Peebee Car",
+  description: "Own or drive a car on Peebee",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     ],
     apple: "/icons/apple-touch-icon.png",
   },
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Tuma Car" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Peebee Car" },
 };
 export const viewport: Viewport = { themeColor: "#153A75", viewportFit: "cover" };
 

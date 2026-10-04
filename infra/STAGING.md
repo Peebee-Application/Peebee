@@ -10,16 +10,16 @@ known gotchas (sharp bundling, `NEXT_PRIVATE_MINIMAL_MODE`, Node 22 requirement)
 
 ## Live
 
-- [x] Private repo `xristo7/tuma-concierge`
-- [x] D1 database `tuma-api` (free) — this app's schema, bound natively to the Worker
-- [x] `tuma-api` — real backend (auth, orders, matching, MoMo escrow, chat, rider
-      verification) — https://tuma-api.doxalight-inc.workers.dev (`GET /health`) — verified
+- [x] Private repo `Peebee-Application/Peebee`
+- [x] D1 database `peebee-api` (free) — this app's schema, bound natively to the Worker
+- [x] `peebee-api` — real backend (auth, orders, matching, MoMo escrow, chat, rider
+      verification) — https://peebee-api.peebeeapp.workers.dev (`GET /health`) — verified
       working end to end (register/login/orders) against D1
-- [x] `tuma-customer` — https://tuma-customer.doxalight-inc.workers.dev
-- [x] `tuma-rider` — https://tuma-rider.doxalight-inc.workers.dev
+- [x] `peebee-customer` — https://peebee-customer.peebeeapp.workers.dev
+- [x] `peebee-rider` — https://peebee-rider.peebeeapp.workers.dev
 - [ ] GH Actions deploy workflow (currently manual `wrangler deploy`)
 
-Note: the old Turso `tuma-staging` database (from earlier scaffolding, "19 tables") has an
+Note: the old Turso `peebee-staging` database (from earlier scaffolding, "19 tables") has an
 unrelated schema — its `users` table doesn't even have an `id` column matching what this
 app expects. Left untouched; this app now uses its own dedicated D1 database instead. Turso
 still backs local dev only (`apps/api/src/db/client.ts` falls back to
@@ -32,7 +32,7 @@ still backs local dev only (`apps/api/src/db/client.ts` falls back to
 - Deploy: `pnpm --filter api deploy` (`wrangler deploy`)
 - Health: `GET /health`
 - Secrets (via `wrangler secret put`): `JWT_SECRET` (set), MoMo sandbox creds (optional)
-- DB: D1 binding `env.DB` → `tuma-api` (see `apps/api/wrangler.jsonc`)
+- DB: D1 binding `env.DB` → `peebee-api` (see `apps/api/wrangler.jsonc`)
 
 ## Blocked / wait
 

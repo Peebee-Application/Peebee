@@ -1,6 +1,6 @@
 "use client";
 
-import type { Rental, RentalVehicle } from "@tuma/shared";
+import type { Rental, RentalVehicle } from "@peebee/shared";
 import { ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -119,7 +119,7 @@ export default function RentPage() {
           <p className="text-xs text-ink-500">{when(r.starts_at)} → {when(r.ends_at)} · owner {r.owner_name}</p>
           <p className="text-xs text-ink-500">Rent {ugx(r.rent_amount)} · deposit {ugx(r.deposit_amount)}</p>
           {r.status === "completed" && r.refund_amount != null && <p className="text-xs font-semibold text-ink">Deposit returned: {ugx(r.refund_amount)}</p>}
-          {r.status === "disputed" && <p className="text-xs text-ink-500">The owner reported damage. Tuma is reviewing it before your deposit is settled.</p>}
+          {r.status === "disputed" && <p className="text-xs text-ink-500">The owner reported damage. Peebee is reviewing it before your deposit is settled.</p>}
           {(r.status === "requested" || r.status === "approved") && (
             <button type="button" onClick={() => cancel(r.id)} className="text-sm font-bold text-gold">Cancel and get my money back</button>
           )}

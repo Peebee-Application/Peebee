@@ -3,7 +3,7 @@
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const STORAGE_KEY = "tuma-theme";
+const STORAGE_KEY = "peebee-theme";
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark" | null>(null);

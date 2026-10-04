@@ -12,8 +12,8 @@ function secretKey() {
 
 /** Pinned on both sign and verify so a token minted for something else that
  * happens to share our signing secret can't be replayed against this API. */
-const ISSUER = "tuma-api";
-const AUDIENCE = "tuma-app";
+const ISSUER = "peebee-api";
+const AUDIENCE = "peebee-app";
 
 /** Seven days, not thirty. The token lives in localStorage on all three
  * frontends, so its lifetime is the blast radius of any future XSS or a

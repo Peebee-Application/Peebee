@@ -1,4 +1,5 @@
 {
+  "account_id": "5b3ae942adb5457f1fa4d7f5effbf3ff",
   "name": "peebee-api",
   "main": "src/worker.ts",
   "compatibility_date": "2026-09-12",
@@ -8,14 +9,15 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "tuma-api",
-      "database_id": "26926e12-d2f4-4b40-8b1b-019f6c169e10"
+      "database_name": "peebee-api",
+      "database_id": "4c80fcd2-0c4e-4594-a598-2b93ae36040d",
+      "migrations_dir": "src/db/migrations"
     }
   ],
   "r2_buckets": [
     {
       "binding": "RIDER_DOCS",
-      "bucket_name": "tuma"
+      "bucket_name": "peebee"
     }
   ],
   "ai": {
@@ -27,38 +29,15 @@
   "triggers": {
     "crons": ["*/2 * * * *", "0 3 * * *"]
   },
-  "migrations": [
-    // The in-app call feature (PR #6) was previously deployed to this
-    // Worker directly, ahead of this branch's own history, then dropped
-    // from this branch's committed code (see "drop duplicate
-    // call-signaling scope from this branch"). CallRoom holds no
-    // persistent data — it's a pure in-memory WebSocket relay — so
-    // formally retiring the orphaned Durable Object class is safe.
-    // Wrangler needs the original creating migration replayed (a no-op,
-    // since Cloudflare already has this tag on record) before it will
-    // accept the deletion that follows.
-    {
-      "tag": "v1",
-      "new_sqlite_classes": ["CallRoom"]
-    },
-    {
-      "tag": "v2-drop-call-room",
-      "deleted_classes": ["CallRoom"]
-    }
-  ],
   "vars": {
-    "ENVIRONMENT": "staging",
+    "ENVIRONMENT": "production",
     "CORS_ORIGINS": "https://peebee.online,https://www.peebee.online,https://customer.peebee.online,https://rider.peebee.online,https://admin.peebee.online,https://restaurant.peebee.online,https://merchant.peebee.online,https://car.peebee.online,https://partner.peebee.online,https://peebee-customer.peebeeapp.workers.dev,https://peebee-rider.peebeeapp.workers.dev,https://peebee-admin.peebeeapp.workers.dev,https://peebee-restaurant.peebeeapp.workers.dev,https://peebee-merchant.peebeeapp.workers.dev,https://peebee-partner.peebeeapp.workers.dev,https://peebee.peebeeapp.workers.dev",
     "PUBLIC_API_URL": "https://api.peebee.online",
     "CUSTOMER_APP_URL": "https://customer.peebee.online",
     "RIDER_APP_URL": "https://rider.peebee.online",
     "ADMIN_APP_URL": "https://admin.peebee.online",
-    "CUSTOMER_APP_URL_LOGO": "https://customer.peebee.online/brand/tuma-logo-navy.png",
+    "CUSTOMER_APP_URL_LOGO": "https://customer.peebee.online/brand/peebee-logo-navy.png",
     "PAYMENTS_PROVIDER": "yo_mock",
-    "GOOGLE_CLIENT_ID": "744058453576-1hofgakvhp2mt8ub63k8v9ddlocbb3u7.apps.googleusercontent.com",
-    // Public half of the VAPID keypair used to sign Web Push requests — safe
-    // to expose (it's also handed to the browser's PushManager.subscribe()).
-    // The private half lives only as the VAPID_PRIVATE_KEY Worker secret.
-    "VAPID_PUBLIC_KEY": "BFK_X2IByJPUXuP1iAcPv-dW6KEshX4rKyn1NSK4n1i_KGvgaAlqoSo2y6hW7pPlPbWT0n8bD51Yas9astzOBpI"
+    "VAPID_PUBLIC_KEY": ""
   }
 }

@@ -1,7 +1,7 @@
-import { createApiClient, friendlyErrorMessage } from "@tuma/shared";
+import { createApiClient, friendlyErrorMessage } from "@peebee/shared";
 
-export const TOKEN_KEY = "tuma_admin_token";
-export const USER_KEY = "tuma_admin_user";
+export const TOKEN_KEY = "peebee_admin_token";
+export const USER_KEY = "peebee_admin_user";
 
 export function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;

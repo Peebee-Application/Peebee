@@ -1,7 +1,7 @@
 "use client";
 
-import type { MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, Restaurant, RestaurantMenu } from "@tuma/shared";
-import { roundFare } from "@tuma/shared";
+import type { MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, Restaurant, RestaurantMenu } from "@peebee/shared";
+import { roundFare } from "@peebee/shared";
 import { ArrowUpRight, MessageCircle, Minus, Plus, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";

@@ -61,7 +61,7 @@ export default function Home() {
       <section className="hero-shell relative min-h-[92vh] px-5 text-ink sm:px-8">
         <Image
           src="/images/hero-rider.png"
-          alt="Tuma rider ready for delivery on a city street"
+          alt="Peebee rider ready for delivery on a city street"
           fill
           className="object-cover object-[64%_center]"
           priority
@@ -71,8 +71,8 @@ export default function Home() {
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[rgb(var(--color-cream))] to-transparent" />
 
         <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between py-5">
-          <Image src="/brand/tuma-logo-navy.png" alt="Tuma" width={116} height={30} className="h-7 w-auto dark:hidden" priority />
-          <Image src="/brand/tuma-logo-white.png" alt="Tuma" width={116} height={30} className="hidden h-7 w-auto dark:block" priority />
+          <Image src="/brand/peebee-logo-navy.png" alt="Peebee" width={116} height={30} className="h-7 w-auto dark:hidden" priority />
+          <Image src="/brand/peebee-logo-white.png" alt="Peebee" width={116} height={30} className="hidden h-7 w-auto dark:block" priority />
           <nav className="hidden items-center gap-7 text-sm font-semibold text-ink-500 md:flex">
             <Link href="#services" className="transition hover:text-ink">
               Services
@@ -100,17 +100,17 @@ export default function Home() {
               Uganda's everyday movement app
             </span>
             <h1 className="mt-7 max-w-xl text-5xl font-black leading-[0.96] text-ink sm:text-6xl lg:text-7xl">
-              Get it done with Tuma.
+              Get it done with Peebee.
             </h1>
             <p className="mt-5 max-w-xl text-xl font-semibold leading-tight text-ink sm:text-2xl">
               Rides, food, shopping, and parcels with verified riders in one app.
             </p>
             <p className="mt-5 max-w-lg text-base leading-7 text-ink-500">
-              Tuma keeps the whole job visible: request, rider match, live updates, chat, and payment confirmation from pickup to doorstep.
+              Peebee keeps the whole job visible: request, rider match, live updates, chat, and payment confirmation from pickup to doorstep.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a href={CUSTOMER_APP_URL} className="button button-primary">
-                Start with Tuma
+                Start with Peebee
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </a>
               <a href={RIDER_APP_URL} className="button button-ghost">
@@ -187,7 +187,7 @@ export default function Home() {
 
       <section id="partners" className="mx-auto grid max-w-7xl gap-3 px-5 py-20 sm:px-8 lg:grid-cols-2">
         <article className="partner-panel bg-gold text-ink-gold">
-          <h2>Earn as a Tuma rider</h2>
+          <h2>Earn as a Peebee rider</h2>
           <p>Claim nearby jobs, serve customers across town, and get paid through the channels riders already use.</p>
           <a href={RIDER_APP_URL} className="button button-dark">
             Sign up to ride
@@ -197,7 +197,7 @@ export default function Home() {
         <article className="partner-panel bg-[rgb(var(--surface-card))] text-ink">
           <Store className="h-7 w-7 text-green" aria-hidden />
           <h2>List your restaurant</h2>
-          <p>Bring your menu online, chat with customers, and let Tuma's rider network handle the handoff.</p>
+          <p>Bring your menu online, chat with customers, and let Peebee's rider network handle the handoff.</p>
           <a href={RESTAURANT_APP_URL} className="button button-outline">
             Join as a restaurant
             <ArrowRight className="h-4 w-4" aria-hidden />

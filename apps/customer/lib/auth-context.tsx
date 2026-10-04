@@ -1,6 +1,6 @@
 "use client";
 
-import type { AuthUser } from "@tuma/shared";
+import type { AuthUser } from "@peebee/shared";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, TOKEN_KEY, USER_KEY } from "./api";
 import { unsubscribeFromPush } from "./push";

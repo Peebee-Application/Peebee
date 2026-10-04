@@ -18,7 +18,7 @@ let root;
 try {
   root = git(["rev-parse", "--show-toplevel"]);
 } catch {
-  stop("this command must run inside the Tuma Git repository.");
+  stop("this command must run inside the Peebee Git repository.");
 }
 
 const branch = git(["branch", "--show-current"], { cwd: root });

@@ -1,4 +1,4 @@
-import { ORDER_STAGES, type OrderRow, type OrderStageValue } from "@tuma/shared";
+import { ORDER_STAGES, type OrderRow, type OrderStageValue } from "@peebee/shared";
 
 export const STAGE_LABELS: Record<OrderStageValue, string> = {
   Create: "Building order",

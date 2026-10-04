@@ -32,8 +32,8 @@ import { getApplicantProfile } from "./applicant-profile.js";
 import { buildLugandaListNarration } from "./list-narration.js";
 import { synthesizeLuganda } from "../speech/gemini.js";
 import { isProSubscriptionCurrent } from "../riders/pro-subscription.js";
-import type { MatchingMode, MobileMoneyNetwork } from "@tuma/shared";
-import { roundFare } from "@tuma/shared";
+import type { MatchingMode, MobileMoneyNetwork } from "@peebee/shared";
+import { roundFare } from "@peebee/shared";
 import { snapshotTimeFees, getOrderTimeFees, cancelCustomerOrder, finishWaiting, closeWaiting } from "./time-fees.js";
 import {
   initiateCollection,
@@ -307,7 +307,7 @@ orderRoutes.post("/orders", async (c) => {
 export async function createOrderFromInput(
   c: Context,
   d: z.infer<typeof createOrderSchema>,
-  /** Set only by the Tuma Car booking route: the category fare replaces the
+  /** Set only by the Peebee Car booking route: the category fare replaces the
    * boda ride rate and the order uses the car matching mode. */
   car?: { fare: number; matchingMode: MatchingMode; matchingDeadlineAt?: string },
 ) {
@@ -713,7 +713,7 @@ orderRoutes.get("/orders/:id/list-audio", async (c) => {
 // ---------------------------------------------------------------------------
 // Matching preference — a customer's standing choice of how riders get
 // assigned to their orders (see ../lib/settings.js for the admin-side
-// enable/disable and MatchingMode in @tuma/shared for the three modes).
+// enable/disable and MatchingMode in @peebee/shared for the three modes).
 // Only takes effect for whichever modes admin currently has enabled; a
 // preference for a mode that's since been disabled falls back silently to
 // admin's first enabled mode at order-creation time.
@@ -945,7 +945,7 @@ orderRoutes.post("/orders/:id/claim", requireRole("rider"), async (c) => {
     return c.json({ error: "already_claimed", message: "This job is no longer available or you already have an active job" }, 409);
   }
   if (await isCarOrder(id)) {
-    return c.json({ error: "car_order", message: "This is a Tuma Car ride — only car drivers can take it." }, 403);
+    return c.json({ error: "car_order", message: "This is a Peebee Car ride — only car drivers can take it." }, 403);
   }
   const canClaim = order.stage === "Create" || (order.stage === "Match" && !order.rider_id);
   if (!canClaim) {
@@ -1046,7 +1046,7 @@ orderRoutes.post("/orders/:id/apply", requireRole("rider"), async (c) => {
     return c.json({ error: "already_claimed", message: "This job has already been taken" }, 409);
   }
   if (await isCarOrder(id)) {
-    return c.json({ error: "car_order", message: "This is a Tuma Car ride — only car drivers can take it." }, 403);
+    return c.json({ error: "car_order", message: "This is a Peebee Car ride — only car drivers can take it." }, 403);
   }
   const canApply = order.stage === "Create" || (order.stage === "Match" && !order.rider_id);
   if (!canApply) {
@@ -1476,7 +1476,7 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
     // Float rail: the customer hands the rider the full cash amount —
     // items, delivery fee, and the platform's own cut all together, same
     // as if nothing about monetization existed. The platform's share of
-    // that cash is a debt the rider now owes Tuma, not something collected
+    // that cash is a debt the rider now owes Peebee, not something collected
     // here — see POST /orders/:id/settle, which computes it and notifies
     // the rider once the order actually completes (the fee only makes
     // sense once the final total is locked in).
@@ -2320,7 +2320,7 @@ orderRoutes.post("/orders/:id/settle", async (c) => {
   // the rider's own wallet balance here, the same balance their escrow
   // payouts land in. Deliberately allowed to go negative (unlike a normal
   // withdrawal, which respects the admin-set reserve floor): this isn't
-  // the rider spending their own money, it's Tuma collecting what it's
+  // the rider spending their own money, it's Peebee collecting what it's
   // owed, and it eats into the reserve before anything else would. A
   // negative balance then nets against their very next payout automatically
   // — no separate "debt" to track or pay off, and POST /wallet/withdraw's

@@ -9,7 +9,7 @@
  * Wire format: https://payments.yo.co.ug/resources/API.pdf (v1.4.1)
  */
 
-import { mobileMoneyCurrencyCode, type MobileMoneyNetwork } from "@tuma/shared";
+import { mobileMoneyCurrencyCode, type MobileMoneyNetwork } from "@peebee/shared";
 import { getCredential, isProviderConfigured } from "../credentials.js";
 import type { GatewayChargeInput, GatewayResult, PaymentGatewayAdapter } from "../gateway.js";
 

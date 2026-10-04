@@ -261,7 +261,7 @@ settingsRoutes.post("/practice/:experience/dismiss", requireAuth, async (c) => {
 });
 
 const updateSchema = z.object({
-  // Tuma Car work modes and the owner/driver/platform profit share (must total 100).
+  // Peebee Car work modes and the owner/driver/platform profit share (must total 100).
   car: z
     .object({
       enabled: z.boolean(),

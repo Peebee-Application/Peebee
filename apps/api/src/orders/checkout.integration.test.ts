@@ -104,7 +104,7 @@ test("checkout methods preserve payment ownership and held funds", async (t) => 
         assert.equal((await request(`${status}/fund`, { paymentMethod: "cash" })).status, 409);
       }
     });
-    await t.test("captured Mobile Money returns to the main Tuma wallet on cancellation", async () => {
+    await t.test("captured Mobile Money returns to the main Peebee wallet on cancellation", async () => {
       await client.execute({
         sql: "INSERT INTO orders (id, list_id, customer_id, rider_id, stage, is_ride, estimated_total, delivery_fee, environment, type) VALUES ('mobile-cancel', 'list', 'customer', 'rider', 'Shop', 0, 2500, 2500, 'live', 'parcel')",
         args: [],

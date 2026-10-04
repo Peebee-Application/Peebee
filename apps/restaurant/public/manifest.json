@@ -1,7 +1,7 @@
 {
-  "name": "Tuma Restaurant",
-  "short_name": "Tuma Restaurant",
-  "description": "Manage your menu and orders — the Tuma restaurant app.",
+  "name": "Peebee Restaurant",
+  "short_name": "Peebee Restaurant",
+  "description": "Manage your menu and orders — the Peebee restaurant app.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

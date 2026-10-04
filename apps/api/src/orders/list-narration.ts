@@ -5,7 +5,7 @@ import { numberToLuganda } from "../speech/luganda-numbers.js";
 type Row = Record<string, unknown>;
 
 // Only through 10th — an 11th+ item just repeats "ekidako" ("the next
-// one"), per the reference given for this feature; a Tuma shopping list
+// one"), per the reference given for this feature; a Peebee shopping list
 // realistically never runs much past this anyway.
 const ORDINALS = [
   "ekisooka", "ekyokubiri", "ekyokusatu", "ekyokuna", "ekyokutaano",

@@ -1,6 +1,6 @@
 "use client";
 
-import type { StageDetail, StageMemberRole } from "@tuma/shared";
+import type { StageDetail, StageMemberRole } from "@peebee/shared";
 import { Check } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";

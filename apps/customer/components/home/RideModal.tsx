@@ -1,7 +1,7 @@
 "use client";
 
-import { roundFare, type CarCategory } from "@tuma/shared";
-import type { RidePassenger, SavedPassenger } from "@tuma/shared";
+import { roundFare, type CarCategory } from "@peebee/shared";
+import type { RidePassenger, SavedPassenger } from "@peebee/shared";
 import { ChevronRight, Route, User, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -43,7 +43,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [pickingWho, setPickingWho] = useState(false);
   const [estimatedTotal, setEstimatedTotal] = useState("");
   const [pricing, setPricing] = useState<{ ratePerKm: number; minimum: number } | null>(null);
-  // Tuma Car: only offered when an admin has switched it on and added a car type.
+  // Peebee Car: only offered when an admin has switched it on and added a car type.
   const [cars, setCars] = useState<CarCategory[]>([]);
   const [schedule, setSchedule] = useState<{ maxAdvanceHours: number | null; minLeadMinutes: number } | null>(null);
   const [when, setWhen] = useState<"now" | "later">("now");

@@ -13,7 +13,7 @@ import { emailProviderConfigured, sendResendEmail } from "./email-keys.js";
 /** Where the app's own logo is hosted — email clients load images over
  * plain HTTP(S), not from the local bundle, so this has to be a real URL. */
 function logoUrl(): string {
-  return process.env.CUSTOMER_APP_URL_LOGO ?? "https://customer.tumaffe.online/brand/tuma-logo-navy.png";
+  return process.env.CUSTOMER_APP_URL_LOGO ?? "https://customer.peebee.online/brand/peebee-logo-navy.png";
 }
 
 export const isResendConfigured = emailProviderConfigured;
@@ -43,14 +43,14 @@ function buildEmailHtml(code: string, verifyLink?: string): string {
           <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;">
             <tr>
               <td align="center" style="padding-bottom:24px;">
-                <img src="${logoUrl()}" alt="Tuma" height="28" style="height:28px;width:auto;" />
+                <img src="${logoUrl()}" alt="Peebee" height="28" style="height:28px;width:auto;" />
               </td>
             </tr>
             <tr>
               <td style="background:#FFFFFF;border-radius:20px;padding:36px 32px;box-shadow:0 4px 16px rgba(10,10,10,0.06);">
                 <h1 style="margin:0 0 8px;font-size:20px;color:#0A0A0A;text-align:center;">Verify your email address</h1>
                 <p style="margin:0 0 28px;font-size:14px;line-height:1.6;color:#5C6670;text-align:center;">
-                  Tap the button below to confirm it's you and finish setting up your Tuma account.
+                  Tap the button below to confirm it's you and finish setting up your Peebee account.
                 </p>
                 ${
                   verifyLink
@@ -73,7 +73,7 @@ function buildEmailHtml(code: string, verifyLink?: string): string {
             <tr>
               <td style="padding-top:24px;font-size:12px;line-height:1.6;color:#5C6670;text-align:center;">
                 If you didn't request this, you can safely ignore this email.
-                <br />© Tuma
+                <br />© Peebee
               </td>
             </tr>
           </table>
@@ -86,8 +86,8 @@ function buildEmailHtml(code: string, verifyLink?: string): string {
 
 function buildEmailText(code: string, verifyLink?: string): string {
   return verifyLink
-    ? `Verify your Tuma account: ${verifyLink}\n\nOr enter this code: ${code}\n\nExpires in 10 minutes. If you didn't request this, ignore this email.`
-    : `Your Tuma verification code is ${code}. It expires in 10 minutes. If you didn't request this, ignore this email.`;
+    ? `Verify your Peebee account: ${verifyLink}\n\nOr enter this code: ${code}\n\nExpires in 10 minutes. If you didn't request this, ignore this email.`
+    : `Your Peebee verification code is ${code}. It expires in 10 minutes. If you didn't request this, ignore this email.`;
 }
 
 /** `verifyLink`, when given, is a one-click confirmation URL (email
@@ -97,7 +97,7 @@ function buildEmailText(code: string, verifyLink?: string): string {
 export async function sendVerificationEmail(to: string, code: string, verifyLink?: string): Promise<void> {
   await sendResendEmail({
     to: [to],
-    subject: verifyLink ? "Verify your Tuma account" : "Your Tuma password reset code",
+    subject: verifyLink ? "Verify your Peebee account" : "Your Peebee password reset code",
     html: buildEmailHtml(code, verifyLink),
     text: buildEmailText(code, verifyLink),
   });
@@ -117,14 +117,14 @@ function buildStaffInviteHtml(name: string, roleLabel: string, tempPassword: str
           <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;">
             <tr>
               <td align="center" style="padding-bottom:24px;">
-                <img src="${logoUrl()}" alt="Tuma" height="28" style="height:28px;width:auto;" />
+                <img src="${logoUrl()}" alt="Peebee" height="28" style="height:28px;width:auto;" />
               </td>
             </tr>
             <tr>
               <td style="background:#FFFFFF;border-radius:20px;padding:36px 32px;box-shadow:0 4px 16px rgba(10,10,10,0.06);">
-                <h1 style="margin:0 0 8px;font-size:20px;color:#0A0A0A;text-align:center;">You've been added to Tuma</h1>
+                <h1 style="margin:0 0 8px;font-size:20px;color:#0A0A0A;text-align:center;">You've been added to Peebee</h1>
                 <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#5C6670;text-align:center;">
-                  Hi ${escapeHtml(name)} — you've been invited to the Tuma admin portal as <strong>${escapeHtml(roleLabel)}</strong>.
+                  Hi ${escapeHtml(name)} — you've been invited to the Peebee admin portal as <strong>${escapeHtml(roleLabel)}</strong>.
                 </p>
                 <p style="margin:0 0 8px;font-size:12px;color:#5C6670;text-align:center;">Your temporary password:</p>
                 <p style="margin:0 0 24px;text-align:center;">
@@ -147,7 +147,7 @@ function buildStaffInviteHtml(name: string, roleLabel: string, tempPassword: str
               <td style="padding-top:24px;font-size:12px;line-height:1.6;color:#5C6670;text-align:center;">
                 If you weren't expecting this, you can ignore this email — the temporary password
                 won't be enough on its own to sign in without it also matching your account.
-                <br />© Tuma
+                <br />© Peebee
               </td>
             </tr>
           </table>
@@ -159,7 +159,7 @@ function buildStaffInviteHtml(name: string, roleLabel: string, tempPassword: str
 }
 
 function buildStaffInviteText(name: string, roleLabel: string, tempPassword: string, loginUrl: string): string {
-  return `Hi ${name} — you've been invited to the Tuma admin portal as ${roleLabel}.\n\nTemporary password: ${tempPassword}\n\nLog in: ${loginUrl}\n\nYou'll be asked to set your own password immediately — nothing else works until you do.`;
+  return `Hi ${name} — you've been invited to the Peebee admin portal as ${roleLabel}.\n\nTemporary password: ${tempPassword}\n\nLog in: ${loginUrl}\n\nYou'll be asked to set your own password immediately — nothing else works until you do.`;
 }
 
 export async function sendStaffInviteEmail(
@@ -171,7 +171,7 @@ export async function sendStaffInviteEmail(
 ): Promise<void> {
   await sendResendEmail({
     to: [to],
-    subject: "You've been added to the Tuma admin portal",
+    subject: "You've been added to the Peebee admin portal",
     html: buildStaffInviteHtml(name, roleLabel, tempPassword, loginUrl),
     text: buildStaffInviteText(name, roleLabel, tempPassword, loginUrl),
   });

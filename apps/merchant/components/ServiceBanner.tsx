@@ -1,6 +1,6 @@
 "use client";
 
-import type { ServiceKey } from "@tuma/shared";
+import type { ServiceKey } from "@peebee/shared";
 import { PauseCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";

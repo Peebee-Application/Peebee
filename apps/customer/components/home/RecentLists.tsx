@@ -1,6 +1,6 @@
 "use client";
 
-import type { ListSummary } from "@tuma/shared";
+import type { ListSummary } from "@peebee/shared";
 import { ShoppingBag } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";

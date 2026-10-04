@@ -5,7 +5,7 @@ import { securityHeaderRules } from "../../packages/shared/security-headers.mjs"
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  transpilePackages: ["@tuma/shared"],
+  transpilePackages: ["@peebee/shared"],
   images: {
     unoptimized: true,
   },
@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
     });
   },
   webpack(config) {
-    // @tuma/shared uses explicit ".js" extensions on relative imports (required by
+    // @peebee/shared uses explicit ".js" extensions on relative imports (required by
     // its NodeNext consumer, apps/api) even though the files are ".ts" — teach
     // webpack to resolve those the way Node's ESM loader does.
     config.resolve.extensionAlias = {

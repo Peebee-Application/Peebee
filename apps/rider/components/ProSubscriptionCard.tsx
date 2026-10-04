@@ -1,6 +1,6 @@
 "use client";
 
-import type { RiderProSubscriptionView } from "@tuma/shared";
+import type { RiderProSubscriptionView } from "@peebee/shared";
 import { Crown } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../lib/api";

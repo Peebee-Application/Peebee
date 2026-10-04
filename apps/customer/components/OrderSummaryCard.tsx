@@ -1,6 +1,6 @@
 "use client";
 
-import type { ListItem, OrderRow } from "@tuma/shared";
+import type { ListItem, OrderRow } from "@peebee/shared";
 import { ChevronDown, MapPin } from "lucide-react";
 import { useState } from "react";
 import { formatUgx, orderTitle, stageLabel } from "../lib/order-display";

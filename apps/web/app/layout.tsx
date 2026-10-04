@@ -5,7 +5,7 @@ import "./globals.css";
 const THEME_INIT_SCRIPT = `
 (function () {
   try {
-    var stored = localStorage.getItem("tuma-theme");
+    var stored = localStorage.getItem("peebee-theme");
     var theme;
     if (stored === "light" || stored === "dark") {
       theme = stored;
@@ -19,7 +19,7 @@ const THEME_INIT_SCRIPT = `
 `;
 
 export const metadata: Metadata = {
-  title: "Tuma — Uganda's delivery & errands platform",
+  title: "Peebee — Uganda's delivery & errands platform",
   description: "Rides, food, shopping, and parcels — one app, verified riders. Fast, reliable, trusted.",
   icons: {
     icon: [

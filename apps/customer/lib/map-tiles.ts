@@ -1,4 +1,4 @@
-import type { JawgLightStyle } from "@tuma/shared";
+import type { JawgLightStyle } from "@peebee/shared";
 import { api } from "./api";
 
 const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';

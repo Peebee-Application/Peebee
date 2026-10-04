@@ -1,6 +1,6 @@
 "use client";
 
-import type { Stage } from "@tuma/shared";
+import type { Stage } from "@peebee/shared";
 import { ChevronRight, Coins, PiggyBank } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";

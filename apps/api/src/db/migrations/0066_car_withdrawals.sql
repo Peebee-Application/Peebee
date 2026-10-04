@@ -1,4 +1,4 @@
--- Cash-out of Tuma Car earnings (owners and drivers) to mobile money. New
+-- Cash-out of Peebee Car earnings (owners and drivers) to mobile money. New
 -- table only. Withdrawals are off until an admin enables them (car settings);
 -- the code that reads this table stays dormant until this is applied.
 CREATE TABLE IF NOT EXISTS car_withdrawals (

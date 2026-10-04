@@ -1,6 +1,6 @@
 "use client";
 
-import type { LugandaVoice, Rider } from "@tuma/shared";
+import type { LugandaVoice, Rider } from "@peebee/shared";
 import { Loader2, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";

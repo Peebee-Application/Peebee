@@ -1,6 +1,6 @@
 "use client";
 
-import type { OrderDetail } from "@tuma/shared";
+import type { OrderDetail } from "@peebee/shared";
 import { ArrowLeft, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";

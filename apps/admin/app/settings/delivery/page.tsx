@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { TimeFeeSettings } from "@tuma/shared";
+import type { TimeFeeSettings } from "@peebee/shared";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
 import { api, errorMessage } from "../../../lib/api";
 

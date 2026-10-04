@@ -1,6 +1,6 @@
 -- Rider "Stage Savings Circles" — a VSLA-style group savings and loans
 -- feature, one circle per boda stage. Deliberately cash-first and
--- non-custodial: Tuma never collects, holds, or moves real money here.
+-- non-custodial: Peebee never collects, holds, or moves real money here.
 -- A contribution or repayment is a two-step "intent" (declared) then
 -- "confirmed" (an officer attests the cash/MoMo actually arrived) —
 -- the app is a ledger and workflow tool, not a payment processor.
@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS stage_contributions (
   amount INTEGER NOT NULL,
   method TEXT NOT NULL CHECK (method IN ('cash', 'momo')),
   -- Snapshot of who the MoMo send-shortcut targeted, if method = momo —
-  -- purely informational, Tuma never processes this transfer.
+  -- purely informational, Peebee never processes this transfer.
   momo_recipient_msisdn TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'cancelled', 'disputed')),
   proof_photo_key TEXT,

@@ -1,7 +1,7 @@
-import { createApiClient, createPracticeFetch, friendlyErrorMessage } from "@tuma/shared";
+import { createApiClient, createPracticeFetch, friendlyErrorMessage } from "@peebee/shared";
 
-export const TOKEN_KEY = "tuma_merchant_token";
-export const USER_KEY = "tuma_merchant_user";
+export const TOKEN_KEY = "peebee_merchant_token";
+export const USER_KEY = "peebee_merchant_user";
 
 export function getStoredToken() {
   return typeof window === "undefined" ? null : window.localStorage.getItem(TOKEN_KEY);

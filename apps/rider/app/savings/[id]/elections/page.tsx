@@ -1,6 +1,6 @@
 "use client";
 
-import type { StageElectionRoleStatus, StageElectionSessionDetail, StageMemberRole } from "@tuma/shared";
+import type { StageElectionRoleStatus, StageElectionSessionDetail, StageMemberRole } from "@peebee/shared";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../../../lib/api";
@@ -250,7 +250,7 @@ export default function StageElectionsPage() {
                             <p className="text-sm font-bold text-ink">{n.name}</p>
                             <p className="text-[11px] text-ink-500">
                               {n.rating != null ? `${n.rating.toFixed(1)}★` : "No rating yet"}
-                              {n.vehicle_info ? ` · ${n.vehicle_info}` : ""} · on Tuma since{" "}
+                              {n.vehicle_info ? ` · ${n.vehicle_info}` : ""} · on Peebee since{" "}
                               {new Date(n.member_since.replace(" ", "T") + "Z").toLocaleDateString("en-UG", { year: "numeric", month: "short" })}
                             </p>
                             {n.statement && <p className="mt-1 text-xs text-ink">{n.statement}</p>}

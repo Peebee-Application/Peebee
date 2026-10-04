@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatThreadDetail } from "@tuma/shared";
+import type { ChatThreadDetail } from "@peebee/shared";
 import { ArrowLeft, Phone, User } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";

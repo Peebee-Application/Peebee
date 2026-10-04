@@ -148,9 +148,9 @@ jobs:
                    npx wrangler versions upload --tag "$ALIAS" --message "Preview for $ALIAS ($GITHUB_SHA)" 2>&1)
           echo "$OUTPUT"
 
-          PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' | head -n 1 || echo "https://${ALIAS}-tuma-${{ matrix.app }}.doxalight-inc.workers.dev")
-          SHORT_SUBDOMAIN="https://${{ matrix.app }}-preview.tumaffe.online"
-          SHORT_HUB_LINK="https://preview.tumaffe.online/${ALIAS}/${{ matrix.app }}"
+          PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' | head -n 1 || echo "https://${ALIAS}-peebee-${{ matrix.app }}.peebeeapp.workers.dev")
+          SHORT_SUBDOMAIN="https://${{ matrix.app }}-preview.peebee.online"
+          SHORT_HUB_LINK="https://preview.peebee.online/${ALIAS}/${{ matrix.app }}"
           echo "Preview URL for ${{ matrix.app }}: $PREVIEW_URL"
           echo "Short Subdomain for ${{ matrix.app }}: $SHORT_SUBDOMAIN"
           echo "| ${{ matrix.app }} | 🔍 Preview ($ALIAS) | [$SHORT_SUBDOMAIN]($SHORT_SUBDOMAIN) · [Short Router]($SHORT_HUB_LINK) · [Worker URL]($PREVIEW_URL) |" >> $GITHUB_STEP_SUMMARY

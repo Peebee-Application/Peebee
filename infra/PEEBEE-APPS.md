@@ -16,7 +16,7 @@ All applications belong to Cloudflare account
 
 Each frontend builds against `https://api.peebee.online` from its tracked
 `.env.production`. The API explicitly allows the configured frontend origins;
-unconfigured hosts, former Tuma domains, and production localhost origins are
+unconfigured hosts, former Peebee domains, and production localhost origins are
 rejected. API verification links use the Peebee API and frontend addresses.
 
 ## Workers Builds

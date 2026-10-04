@@ -92,7 +92,7 @@ export async function createMerchantBusiness(input: {
 }): Promise<{ merchantId: string; outletId: string; code: string }> {
   const merchantId = input.merchantId ?? newId("mer");
   const outletId = input.outletId ?? newId("out");
-  const code = `TUMA-${outletId.slice(-8).toUpperCase()}`;
+  const code = `PEEBEE-${outletId.slice(-8).toUpperCase()}`;
   await executeBatch([
     {
       sql: `INSERT INTO merchants
@@ -279,7 +279,7 @@ export async function settleMerchantOrderFinancials(input: {
       ? [{ ownerType: "rider" as const, ownerId: String(order.rider_id), purpose: "earnings_available", environment, amount: payout }]
       : []),
     ...(platformRevenue > 0
-      ? [{ ownerType: "platform" as const, ownerId: "tuma", purpose: "order_revenue", environment, amount: platformRevenue }]
+      ? [{ ownerType: "platform" as const, ownerId: "peebee", purpose: "order_revenue", environment, amount: platformRevenue }]
       : []),
   ];
   const balanceColumn = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";

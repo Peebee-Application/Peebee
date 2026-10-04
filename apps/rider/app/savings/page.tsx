@@ -1,6 +1,6 @@
 "use client";
 
-import { isProSubscriptionCurrent, type AdminStageSummary, type Stage } from "@tuma/shared";
+import { isProSubscriptionCurrent, type AdminStageSummary, type Stage } from "@peebee/shared";
 import { ChevronRight, Crown, PiggyBank, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -54,7 +54,7 @@ export default function SavingsIndexPage() {
       setName("");
       setShowCreate(false);
       setPendingNotice(
-        `"${name.trim()}" was submitted for Tuma's approval. You'll be notified once it's approved and you can set up its RSLA.`,
+        `"${name.trim()}" was submitted for Peebee's approval. You'll be notified once it's approved and you can set up its RSLA.`,
       );
       loadAll();
     } catch (err) {
@@ -175,7 +175,7 @@ export default function SavingsIndexPage() {
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
           />
           <p className="text-xs text-ink-500">
-            Tuma reviews every proposed stage before it can have an RSLA, to keep one canonical record per stage.
+            Peebee reviews every proposed stage before it can have an RSLA, to keep one canonical record per stage.
           </p>
           <button
             type="submit"

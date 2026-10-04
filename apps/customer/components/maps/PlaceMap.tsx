@@ -110,7 +110,7 @@ export default function PlaceMap({
         center={start ? [start.lat, start.lng] : (me ?? KAMPALA)}
         zoom={start || me ? 15 : 12}
         zoomControl={false}
-        className={`tuma-map h-full w-full${tiles.jawg ? " tuma-map-native" : ""}`}
+        className={`peebee-map h-full w-full${tiles.jawg ? " peebee-map-native" : ""}`}
       >
         <TileLayer key={tileUrl} url={tileUrl} attribution={tiles.attribution} />
         <Tap onPick={onPick} />
@@ -119,7 +119,7 @@ export default function PlaceMap({
         {me && <Marker position={me} icon={meIcon} interactive={false} />}
         {pickup && <Marker position={[pickup.lat, pickup.lng]} icon={pickupIcon} interactive={false} />}
         {destination && <Marker position={[destination.lat, destination.lng]} icon={destinationIcon} interactive={false} />}
-        <div className="tuma-map-tint" aria-hidden />
+        <div className="peebee-map-tint" aria-hidden />
       </MapContainer>
       <button
         type="button"

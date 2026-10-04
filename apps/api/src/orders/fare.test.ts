@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { roundFare } from "@tuma/shared";
+import { roundFare } from "@peebee/shared";
 
 test("fares use the UGX 350 cutoff within each UGX 500 interval", () => {
   const examples = [

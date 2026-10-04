@@ -17,16 +17,16 @@ export function BrandHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         )}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/brand/tuma-logo-navy.png"
-          alt="Tuma"
+          src="/brand/peebee-logo-navy.png"
+          alt="Peebee"
           width={140}
           height={53}
           className="h-8 w-auto dark:hidden"
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/brand/tuma-logo-white.png"
-          alt="Tuma"
+          src="/brand/peebee-logo-white.png"
+          alt="Peebee"
           width={140}
           height={53}
           className="hidden h-8 w-auto dark:block"

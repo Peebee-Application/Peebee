@@ -1,6 +1,6 @@
 "use client";
 
-import { ADMIN_ROLE_LABELS, hasPermission } from "@tuma/shared";
+import { ADMIN_ROLE_LABELS, hasPermission } from "@peebee/shared";
 import { ClipboardList, LogOut, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
 import { ChangePasswordPanel } from "../../components/ChangePasswordPanel";

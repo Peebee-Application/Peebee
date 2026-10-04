@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { EmailKey, EmailKeysOverview } from "@tuma/shared";
+import type { EmailKey, EmailKeysOverview } from "@peebee/shared";
 import { db } from "../db/client.js";
 import { decryptSecret, isCredentialsEncryptionConfigured } from "../lib/crypto.js";
 import { nextRotationAt, timedOrder } from "../lib/key-rotation.js";
@@ -120,7 +120,7 @@ export async function sendResendEmail(payload: { to: string[]; subject: string; 
   const idempotency = randomUUID();
   const fallback = async () => {
     if (!process.env.RESEND_API_KEY) throw new Error("No live Resend key configured. Add one in Settings → Email API keys.");
-    await send(process.env.RESEND_API_KEY, process.env.RESEND_FROM ?? "Tuma <onboarding@resend.dev>", idempotency);
+    await send(process.env.RESEND_API_KEY, process.env.RESEND_FROM ?? "Peebee <onboarding@resend.dev>", idempotency);
   };
   if (!(await emailTablesReady())) return fallback();
   const settings = await emailKeySettings();

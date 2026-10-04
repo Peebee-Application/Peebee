@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatThread } from "@tuma/shared";
+import type { ChatThread } from "@peebee/shared";
 import { User } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";

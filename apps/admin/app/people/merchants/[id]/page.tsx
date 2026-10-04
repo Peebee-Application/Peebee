@@ -5,7 +5,7 @@ import {
   type AdminMerchantProfileResponse,
   type AdminMerchantRange,
   type Merchant,
-} from "@tuma/shared";
+} from "@peebee/shared";
 import {
   ArrowLeft,
   Building2,

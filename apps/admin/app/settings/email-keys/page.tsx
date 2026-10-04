@@ -1,6 +1,6 @@
 "use client";
 
-import type { EmailKeySettings, EmailKeysOverview } from "@tuma/shared";
+import type { EmailKeySettings, EmailKeysOverview } from "@peebee/shared";
 import { useEffect, useState } from "react";
 import { SettingsPageShell } from "../../../components/SettingsPageShell";
 import { api, errorMessage } from "../../../lib/api";

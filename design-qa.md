@@ -1,7 +1,7 @@
 # Rider home visual review
 
 Source visual truth: user-selected `Photo 1.jpg`, supplied October 3, 2026, at
-`C:/Users/Administrator/Documents/Tuma-GPT/.codex-remote-attachments/01a0fc23-1770-73b2-b878-eebdb62bc2a2/94f51ee9-fd2e-457b-abec-8ad7caa2b8fe/1-Photo-1.jpg`.
+`C:/Users/Administrator/Documents/Peebee-GPT/.codex-remote-attachments/01a0fc23-1770-73b2-b878-eebdb62bc2a2/94f51ee9-fd2e-457b-abec-8ad7caa2b8fe/1-Photo-1.jpg`.
 
 Target state: light theme, online rider, two available jobs, one active job,
 home savings placement, five bottom navigation items. Intended mobile viewport:
@@ -26,7 +26,7 @@ home savings placement, five bottom navigation items. Intended mobile viewport:
   16px within section groups, 14px card padding, and 48px action targets.
 - Colors: existing cream, ink, gold, green availability and theme-aware surface
   tokens. Existing five-tab navigation remains, with optional admin-placed RSLA.
-- Assets: supplied Tuma brand logo and existing Lucide library icons.
+- Assets: supplied Peebee brand logo and existing Lucide library icons.
 - Content: live job titles, separate total/delivery fee, distances only where
   the API supplies them, actual job stage labels, and translated new labels.
 

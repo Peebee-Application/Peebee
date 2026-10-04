@@ -8,8 +8,8 @@ Use a separate branch and preferably a separate worktree for each assistant:
 
 ```bash
 git fetch origin
-git worktree add ../tuma-claude-<task> -b claude/<task> origin/main
-git worktree add ../tuma-codex-<task> -b codex/<task> origin/main
+git worktree add ../peebee-claude-<task> -b claude/<task> origin/main
+git worktree add ../peebee-codex-<task> -b codex/<task> origin/main
 ```
 
 Never let Claude Code and Codex edit the same worktree. Never start new work directly on `main`.

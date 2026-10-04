@@ -9,7 +9,7 @@ export type QueuedMessage = {
   createdAt: string;
 };
 
-const KEY = "tuma-chat-outbox";
+const KEY = "peebee-chat-outbox";
 
 function readAll(): QueuedMessage[] {
   if (typeof window === "undefined") return [];

@@ -1,14 +1,14 @@
-# Tuma Concierge
+# Peebee Concierge
 
 Uganda boda shopping concierge — customers post shopping lists; verified riders buy and deliver.
 
 ## Stack (staging, free-tier)
 
-- **Monorepo** `xristo7/tuma-concierge`
+- **Monorepo** `Peebee-Application/Peebee`
 - **Apps:** `apps/customer`, `apps/rider`, `apps/admin`, `apps/restaurant`, `apps/merchant`, and `apps/web` (Next.js App Router → **Cloudflare Workers** via OpenNext)
 - **API:** `apps/api` (Hono → **Cloudflare Worker**); `workers/api` is an unrelated legacy scaffold — leave alone
-- **DB:** Cloudflare D1 (`tuma-api`), bound natively to the API Worker. Turso backs local dev only.
-- **Shared:** `packages/shared` (`@tuma/shared`)
+- **DB:** Cloudflare D1 (`peebee-api`), bound natively to the API Worker. Turso backs local dev only.
+- **Shared:** `packages/shared` (`@peebee/shared`)
 
 See **[infra/CLOUDFLARE.md](./infra/CLOUDFLARE.md)** for deploy commands, required secrets, and
 known gotchas. Render (`render.yaml`) is kept for reference/rollback but is no longer the active
@@ -34,7 +34,7 @@ infra/           # env matrix, deploy notes
 
 | Env | Services | DB |
 |-----|----------|-----|
-| staging | `tuma-api` plus customer, rider, admin, restaurant, merchant, and web Workers | D1 `tuma-api` |
+| staging | `peebee-api` plus customer, rider, admin, restaurant, merchant, and web Workers | D1 `peebee-api` |
 | production | *blocked until Sharon OK* | *blocked* |
 
 ## Secrets

@@ -5,17 +5,17 @@ import { SiteFooter } from "../../components/SiteFooter";
 import { ThemeModeToggle } from "../../components/ThemeModeToggle";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | Tuma",
-  description: "Privacy Policy for Tuma customers, riders, restaurants, and visitors.",
+  title: "Privacy Policy | Peebee",
+  description: "Privacy Policy for Peebee customers, riders, restaurants, and visitors.",
 };
 
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-cream">
       <header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
-        <Link href="/" aria-label="Tuma home">
-          <Image src="/brand/tuma-logo-navy.png" alt="Tuma" width={116} height={30} className="h-7 w-auto dark:hidden" priority />
-          <Image src="/brand/tuma-logo-white.png" alt="Tuma" width={116} height={30} className="hidden h-7 w-auto dark:block" priority />
+        <Link href="/" aria-label="Peebee home">
+          <Image src="/brand/peebee-logo-navy.png" alt="Peebee" width={116} height={30} className="h-7 w-auto dark:hidden" priority />
+          <Image src="/brand/peebee-logo-white.png" alt="Peebee" width={116} height={30} className="hidden h-7 w-auto dark:block" priority />
         </Link>
         <div className="flex items-center gap-2">
           <ThemeModeToggle />
@@ -34,35 +34,35 @@ export default function PrivacyPage() {
           <section>
             <h2>1. Information we collect</h2>
             <p>
-              Tuma may collect account details, contact information, delivery and ride details, order history, location information needed to provide services, payment status, chat messages, support requests, device information, and verification details for riders, restaurants, and staff.
+              Peebee may collect account details, contact information, delivery and ride details, order history, location information needed to provide services, payment status, chat messages, support requests, device information, and verification details for riders, restaurants, and staff.
             </p>
           </section>
 
           <section>
             <h2>2. How we use information</h2>
             <p>
-              We use information to create and manage accounts, match customers with riders, process orders and payments, show live updates, provide support, improve safety, prevent fraud, troubleshoot issues, and operate Tuma's customer, rider, restaurant, and admin services.
+              We use information to create and manage accounts, match customers with riders, process orders and payments, show live updates, provide support, improve safety, prevent fraud, troubleshoot issues, and operate Peebee's customer, rider, restaurant, and admin services.
             </p>
           </section>
 
           <section>
             <h2>3. Location and delivery data</h2>
             <p>
-              Location data helps Tuma show pickup and delivery points, calculate distance, support live tracking, improve matching, and assist with support or safety questions. Some location details may be shared with the customer, rider, or restaurant involved in a job.
+              Location data helps Peebee show pickup and delivery points, calculate distance, support live tracking, improve matching, and assist with support or safety questions. Some location details may be shared with the customer, rider, or restaurant involved in a job.
             </p>
           </section>
 
           <section>
             <h2>4. Sharing information</h2>
             <p>
-              We may share relevant information with customers, riders, restaurants, payment providers, communication providers, verification providers, hosting providers, and support tools when needed to provide, secure, or improve Tuma. We may also share information if required by law.
+              We may share relevant information with customers, riders, restaurants, payment providers, communication providers, verification providers, hosting providers, and support tools when needed to provide, secure, or improve Peebee. We may also share information if required by law.
             </p>
           </section>
 
           <section>
             <h2>5. Payments and wallets</h2>
             <p>
-              Tuma may process payment status, wallet activity, mobile money details, cash dues, transaction references, and related records. Sensitive payment processing may involve third-party providers.
+              Peebee may process payment status, wallet activity, mobile money details, cash dues, transaction references, and related records. Sensitive payment processing may involve third-party providers.
             </p>
           </section>
 
@@ -83,7 +83,7 @@ export default function PrivacyPage() {
           <section>
             <h2>8. Contact</h2>
             <p>
-              For privacy questions, contact Tuma at <a href="mailto:support@tumaffe.online">support@tumaffe.online</a> or visit us at Plot 15, Mugula Road, Entebbe.
+              For privacy questions, contact Peebee at <a href="mailto:support@peebee.online">support@peebee.online</a> or visit us at Plot 15, Mugula Road, Entebbe.
             </p>
           </section>
         </div>

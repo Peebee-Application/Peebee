@@ -51,7 +51,7 @@ paymentRoutes.get("/payments/:id/refresh", requireAuth, async (c) => {
  * Two rules here, and both matter:
  *
  * 1. **The caller has to prove it's Yo!.** The callback URL you register
- *    with them carries a secret (`?token=…`, or an `X-Tuma-Callback-Token`
+ *    with them carries a secret (`?token=…`, or an `X-Peebee-Callback-Token`
  *    header), and anything without it is refused. Without this the endpoint
  *    is an open door for anyone who wants to move payments around or just
  *    flood the logs.
@@ -67,7 +67,7 @@ function callbackAuthorized(c: Context): boolean {
   // Refuse rather than wave everything through when unconfigured — an
   // endpoint that moves money shouldn't be open because a var is missing.
   if (!expected) return false;
-  const provided = c.req.header("x-tuma-callback-token") ?? c.req.query("token") ?? "";
+  const provided = c.req.header("x-peebee-callback-token") ?? c.req.query("token") ?? "";
   if (provided.length !== expected.length) return false;
   let diff = 0;
   for (let i = 0; i < provided.length; i += 1) diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
@@ -126,7 +126,7 @@ paymentRoutes.post("/payments/yo/callback", async (c) => {
 });
 
 /**
- * Real Flutterwave webhook target (`https://api.tumaffe.online/v1/payments/flutterwave/callback`
+ * Real Flutterwave webhook target (`https://api.peebee.online/v1/payments/flutterwave/callback`
  * registered in the Flutterwave dashboard, not a request param). Same two
  * rules as the Yo! callback above: the `verif-hash` header has to match
  * the configured secret, and the body only tells us *which* transaction to

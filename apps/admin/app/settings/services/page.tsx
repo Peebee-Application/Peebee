@@ -1,6 +1,6 @@
 "use client";
 
-import type { ServiceKey, ServiceSwitches } from "@tuma/shared";
+import type { ServiceKey, ServiceSwitches } from "@peebee/shared";
 import { useEffect, useState } from "react";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
 import { api, errorMessage } from "../../../lib/api";
@@ -19,7 +19,7 @@ const SERVICES: Array<{ key: ServiceKey; label: string; affects: string }> = [
   {
     key: "ride",
     label: "Rides",
-    affects: "Customers can't book new boda or Tuma Car rides (including rides for someone else). Riders and Tuma Car drivers get no new ride jobs.",
+    affects: "Customers can't book new boda or Peebee Car rides (including rides for someone else). Riders and Peebee Car drivers get no new ride jobs.",
   },
   {
     key: "food",
@@ -66,7 +66,7 @@ export default function ServicesPage() {
         <form onSubmit={onSubmit} className="space-y-5">
           <p className="text-sm text-ink-500">
             Switch a whole service off and the apps that depend on it go quiet: new orders stop, and the related parts of the customer,
-            rider, restaurant, merchant and Tuma Car apps show as paused. Everything else keeps working. Orders already in progress
+            rider, restaurant, merchant and Peebee Car apps show as paused. Everything else keeps working. Orders already in progress
             finish as normal.
           </p>
           <section className="space-y-3">

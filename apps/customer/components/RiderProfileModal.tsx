@@ -1,6 +1,6 @@
 "use client";
 
-import type { RiderApplicant, RiderApplicantProfile } from "@tuma/shared";
+import type { RiderApplicant, RiderApplicantProfile } from "@peebee/shared";
 import { BadgeCheck, Star, ThumbsUp, User } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";

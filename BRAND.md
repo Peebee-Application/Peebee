@@ -1,4 +1,4 @@
-# Tuma brand — FE wiring
+# Peebee brand — FE wiring
 
 Palette + surface tokens live in both apps' `globals.css` / `tailwind.config.ts`.
 
@@ -17,23 +17,23 @@ From brand kit `SURFACE-TOKENS.md`: `--radius-card`, `--border-faint`, `--shadow
 
 ## Source paths (outside this repo)
 
-Canonical brand kit: **`tuma-brand/`** (local workspace: `/workspace/tuma-brand/`).
+Canonical brand kit: **`peebee-brand/`** (local workspace: `/workspace/peebee-brand/`).
 
 | Asset | Source | Wired into FE |
 |-------|--------|---------------|
-| Helmet wordmark SVG | `tuma-brand/lockups/helmet-wordmark.svg` | `apps/*/public/brand/tuma-logo-helmet-wordmark.svg` |
-| Customer app icon | `tuma-brand/app-icons/customer-final.svg` | `apps/customer/public/brand/app-icon.svg` (+ favicon) |
-| Rider app icon | `tuma-brand/app-icons/rider-final.svg` | `apps/rider/public/brand/app-icon.svg` (+ favicon) |
-| Lucide map | `tuma-brand/icons/LUCIDE-MAP.md` | `packages/shared/docs/LUCIDE-MAP.md` |
-| Surface tokens | `tuma-brand/SURFACE-TOKENS.md` | `apps/*/app/globals.css` |
+| Helmet wordmark SVG | `peebee-brand/lockups/helmet-wordmark.svg` | `apps/*/public/brand/peebee-logo-helmet-wordmark.svg` |
+| Customer app icon | `peebee-brand/app-icons/customer-final.svg` | `apps/customer/public/brand/app-icon.svg` (+ favicon) |
+| Rider app icon | `peebee-brand/app-icons/rider-final.svg` | `apps/rider/public/brand/app-icon.svg` (+ favicon) |
+| Lucide map | `peebee-brand/icons/LUCIDE-MAP.md` | `packages/shared/docs/LUCIDE-MAP.md` |
+| Surface tokens | `peebee-brand/SURFACE-TOKENS.md` | `apps/*/app/globals.css` |
 
 ## PNG cascade (not in this repo yet)
 
-Raster exports (appicon sizes, lockup PNGs, icon PNG cascade) live under **`tuma-brand/exports/`**. They are **not** pushed via MCP (binary risk). Copy later when packaging for stores / splash:
+Raster exports (appicon sizes, lockup PNGs, icon PNG cascade) live under **`peebee-brand/exports/`**. They are **not** pushed via MCP (binary risk). Copy later when packaging for stores / splash:
 
-- `tuma-brand/exports/appicons/`
-- `tuma-brand/exports/lockups/`
-- `tuma-brand/exports/icons/`
+- `peebee-brand/exports/appicons/`
+- `peebee-brand/exports/lockups/`
+- `peebee-brand/exports/icons/`
 
 ## Lucide
 

@@ -24,7 +24,7 @@ function ConfirmedContent() {
   // already signed in (the common case — tapping the emailed link from the
   // same phone), its cached user object still shows unverified until we
   // pull the fresh copy. Without this, AuthGate sends them right back to
-  // the code-entry screen after they tap "Continue to Tuma" — exactly the
+  // the code-entry screen after they tap "Continue to Peebee" — exactly the
   // "either/or, not both" flow this page exists to guarantee.
   useEffect(() => {
     if (!ok || !ready || !user || refreshed.current) return;
@@ -39,16 +39,16 @@ function ConfirmedContent() {
     <div className="flex min-h-dvh flex-col justify-center px-6 py-10">
       <div className="mx-auto w-full max-w-sm space-y-6 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/tuma-logo-navy.png" alt="Tuma" className="mx-auto h-9 w-auto dark:hidden" />
+        <img src="/brand/peebee-logo-navy.png" alt="Peebee" className="mx-auto h-9 w-auto dark:hidden" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/tuma-logo-white.png" alt="Tuma" className="mx-auto hidden h-9 w-auto dark:block" />
+        <img src="/brand/peebee-logo-white.png" alt="Peebee" className="mx-auto hidden h-9 w-auto dark:block" />
 
         <div className="card space-y-4 !p-8">
           {ok ? (
             <>
               <CheckCircle2 className="mx-auto h-12 w-12 text-green" strokeWidth={1.5} aria-hidden />
               <h1 className="text-xl font-bold text-ink">Email verified</h1>
-              <p className="text-sm text-ink-500">You&apos;re all set — you can head back into Tuma.</p>
+              <p className="text-sm text-ink-500">You&apos;re all set — you can head back into Peebee.</p>
             </>
           ) : (
             <>
@@ -62,7 +62,7 @@ function ConfirmedContent() {
             href="/"
             className="flex min-h-12 w-full items-center justify-center rounded-full bg-gold px-4 py-3 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] transition-opacity hover:opacity-95"
           >
-            Continue to Tuma
+            Continue to Peebee
           </Link>
         </div>
       </div>

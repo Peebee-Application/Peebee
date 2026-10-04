@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdminStats, FailedPayment, IntegrationsStatus, OrderModuleKey, OrderOverview, OrderOverviewRange } from "@tuma/shared";
+import type { AdminStats, FailedPayment, IntegrationsStatus, OrderModuleKey, OrderOverview, OrderOverviewRange } from "@peebee/shared";
 import { AlertTriangle, CheckCircle2, Package, ShoppingBag, Store, Truck, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../lib/api";

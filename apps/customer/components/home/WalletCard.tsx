@@ -1,6 +1,6 @@
 "use client";
 
-import type { CustomerWallet, WalletShares } from "@tuma/shared";
+import type { CustomerWallet, WalletShares } from "@peebee/shared";
 import { ArrowUpRight, ShieldCheck, UserCheck, Users, Wallet as WalletIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";

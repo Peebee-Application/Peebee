@@ -1,6 +1,6 @@
 "use client";
 
-import type { ListDetail } from "@tuma/shared";
+import type { ListDetail } from "@peebee/shared";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../../../lib/api";

@@ -6,7 +6,7 @@ import {
   mobileMoneyNetworkLabel,
   type Rider,
   type RiderSubscriptionView,
-} from "@tuma/shared";
+} from "@peebee/shared";
 import { CheckCircle2, LogOut, MapPin, PiggyBank, TriangleAlert, Upload, User } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";

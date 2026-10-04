@@ -1,7 +1,7 @@
 {
-  "name": "Tuma Rider",
-  "short_name": "Tuma Rider",
-  "description": "Accept jobs, navigate, and get paid — the Tuma rider app.",
+  "name": "Peebee Rider",
+  "short_name": "Peebee Rider",
+  "description": "Accept jobs, navigate, and get paid — the Peebee rider app.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

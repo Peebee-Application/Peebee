@@ -225,7 +225,7 @@ const FRIENDLY_ERROR_MESSAGES: Record<string, string> = {
   merchant_amount_mismatch: "The amount you confirmed does not match the rider's payment request.",
   merchant_purchase_required: "Record at least one confirmed merchant purchase before starting delivery.",
   merchant_confirmation_pending: "A merchant payment is still waiting for the shop to confirm the amount.",
-  merchant_member_not_found: "That person must create a Tuma customer account with this email or phone before being added to the merchant team.",
+  merchant_member_not_found: "That person must create a Peebee customer account with this email or phone before being added to the merchant team.",
   owner_cannot_be_removed: "The merchant owner cannot be removed from the team.",
   merchant_kyc_incomplete: "Registration, tax ID, owner ID and business registration document are required before activation.",
 };
@@ -268,7 +268,7 @@ export function friendlyErrorMessage(err: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
-/** API client for tuma-api (apps/api on Render). */
+/** API client for peebee-api (apps/api on Render). */
 export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }: CreateApiClientOptions) {
   const root = baseUrl.replace(/\/$/, "");
   const f = fetchImpl ?? fetch;
@@ -1565,7 +1565,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       });
     },
 
-    // Tuma Car — customer
+    // Peebee Car — customer
     /** Rejects (403/503) while Car is off or not set up; callers treat that as "no cars". */
     async getCarConfig() {
       return request<CarConfig>("/v1/car/config");
@@ -1574,7 +1574,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       return request<{ order: OrderRow }>("/v1/car/bookings", { method: "POST", body: JSON.stringify(input) });
     },
 
-    // Tuma Car — partners (owners and drivers)
+    // Peebee Car — partners (owners and drivers)
     async carMe() {
       return request<CarMe>("/v1/car/me");
     },
@@ -1735,7 +1735,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       return request<CarDriverActive>("/v1/car/driver/active");
     },
 
-    // Admin — Tuma Car
+    // Admin — Peebee Car
     async adminCarCategories() {
       return request<{ categories: AdminCarCategory[] }>("/v1/admin/car/categories");
     },

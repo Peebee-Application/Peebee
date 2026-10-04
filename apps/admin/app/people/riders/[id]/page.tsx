@@ -1,6 +1,6 @@
 "use client";
 
-import { hasPermission, type AdminRider } from "@tuma/shared";
+import { hasPermission, type AdminRider } from "@peebee/shared";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";

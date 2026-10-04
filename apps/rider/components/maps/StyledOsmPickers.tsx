@@ -1,6 +1,6 @@
 "use client";
 
-import type { JawgLightStyle } from "@tuma/shared";
+import type { JawgLightStyle } from "@peebee/shared";
 import { jawgTileUrl } from "../../lib/mapStyle";
 import { OsmStyledPicker } from "./OsmStyledPicker";
 import type { MapPickerProps } from "./map-types";

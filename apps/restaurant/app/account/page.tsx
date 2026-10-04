@@ -1,6 +1,6 @@
 "use client";
 
-import type { Restaurant } from "@tuma/shared";
+import type { Restaurant } from "@peebee/shared";
 import { LogOut, MapPin, Store, User } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";

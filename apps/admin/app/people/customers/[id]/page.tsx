@@ -1,6 +1,6 @@
 "use client";
 
-import { hasPermission, type AdminCustomer, type AdminOrderRow } from "@tuma/shared";
+import { hasPermission, type AdminCustomer, type AdminOrderRow } from "@peebee/shared";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";

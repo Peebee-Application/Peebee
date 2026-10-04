@@ -61,7 +61,7 @@ export function GoogleMapPicker({ initial, onConfirm, onCancel, apiKey }: MapPic
     let cancelled = false;
     loadScript(
       `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&loading=async`,
-      "tuma-google-maps",
+      "peebee-google-maps",
     )
       .then(() => {
         if (!cancelled) setReady(true);

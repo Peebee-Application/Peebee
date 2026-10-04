@@ -1,9 +1,9 @@
--- Tuma Car (on-demand car/van/truck rides). New tables only — nothing here
+-- Peebee Car (on-demand car/van/truck rides). New tables only — nothing here
 -- alters an existing table, so applying it can't disturb boda traffic, and the
 -- code that reads these tables stays dormant behind the `car_enabled` admin
 -- switch (default off) until it is applied.
 --
--- Supply flow: an owner puts a vehicle up for service -> a Tuma manager
+-- Supply flow: an owner puts a vehicle up for service -> a Peebee manager
 -- approves it and ASSIGNS a driver -> the driver goes online with it in the
 -- driver app -> customers' requests reach drivers whose vehicle is in the
 -- requested category. When a ride settles, the fare pool is split between

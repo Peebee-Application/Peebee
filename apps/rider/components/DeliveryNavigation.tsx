@@ -8,7 +8,7 @@ import { api } from "../lib/api";
 import { mapsStoreUrl, openMapsNavigation } from "../lib/navigation";
 
 function storageKey(orderId: string) {
-  return `tuma-nav-started-${orderId}`;
+  return `peebee-nav-started-${orderId}`;
 }
 
 /** The "on the way" stage's navigation + delivery-confirmation flow.

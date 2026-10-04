@@ -1,5 +1,5 @@
 {
-  "name": "tuma-concierge",
+  "name": "peebee-concierge",
   "private": true,
   "packageManager": "pnpm@9.15.0",
   "scripts": {

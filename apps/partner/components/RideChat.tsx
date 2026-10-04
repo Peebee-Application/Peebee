@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatMessage } from "@tuma/shared";
+import type { ChatMessage } from "@peebee/shared";
 import { Send } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../lib/api";

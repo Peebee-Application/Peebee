@@ -1,9 +1,9 @@
-# Tuma Merchant Payments and Order-Funds Plan
+# Peebee Merchant Payments and Order-Funds Plan
 
 Status: Living implementation artifact
 Version: 0.4
 Decision date: 2026-09-26
-Owners: Tuma product, engineering, finance, operations, and compliance
+Owners: Peebee product, engineering, finance, operations, and compliance
 
 ## 1. Purpose
 
@@ -14,9 +14,9 @@ It is deliberately written as both a product specification and a sequenced build
 ## 2. Agreed product decisions
 
 1. Customer shopping money must originate from a real, successfully verified customer payment.
-2. The shopping principal is protected. Provider fees, taxes, Tuma revenue, commissions, and rider earnings must never silently reduce the amount available to buy the customer's goods.
+2. The shopping principal is protected. Provider fees, taxes, Peebee revenue, commissions, and rider earnings must never silently reduce the amount available to buy the customer's goods.
 3. A rider does not own the shopping principal. The rider receives limited authority to allocate an order's shopping budget to verified merchants.
-4. Tuma Merchant will onboard the approved retail categories listed in section 7.1. Restaurants remain in the dedicated Tuma Restaurant app. Informal market vendors move to a later Merchant Lite rollout.
+4. Peebee Merchant will onboard the approved retail categories listed in section 7.1. Restaurants remain in the dedicated Peebee Restaurant app. Informal market vendors move to a later Merchant Lite rollout.
 5. A merchant payment is primarily an internal allocation from an order balance to a merchant payable balance. It should not trigger a Mobile Money transfer for every purchase.
 6. Merchant withdrawals remain available, but merchants should be encouraged to batch settlements. Instant settlement may carry a disclosed fee; scheduled settlement may be free or subsidized.
 7. Rider withdrawals remain available for delivery earnings, reimbursements, tips, and bonuses. Shopping principal should increasingly bypass the rider wallet.
@@ -25,27 +25,27 @@ It is deliberately written as both a product specification and a sequenced build
 10. Completion cannot rely only on the rider pressing a button. Customer handover confirmation is required, normally through a PIN.
 11. Rider and merchant KYC will be strong and risk-based.
 12. Incentive farming involving coordinated customer, rider, and merchant accounts must be explicitly detected and prevented.
-13. Tuma should use licensed payment providers for custody and settlement. The Tuma database mirrors obligations; it must not create unbacked money.
+13. Peebee should use licensed payment providers for custody and settlement. The Peebee database mirrors obligations; it must not create unbacked money.
 
 ## 3. The problem being solved
 
 The naive flow creates repeated fee leakage:
 
 ```text
-Customer MoMo -> payment provider -> Tuma -> rider MoMo -> cash withdrawal -> merchant
+Customer MoMo -> payment provider -> Peebee -> rider MoMo -> cash withdrawal -> merchant
 ```
 
 Possible costs include:
 
 - The customer's network or bill-payment charge.
 - Provider collection fees.
-- Tuma's service fee or commission.
+- Peebee's service fee or commission.
 - Provider outbound/disbursement fees.
 - Mobile-network bulk-payment charges.
 - Rider agent-withdrawal fees.
 - Cash-withdrawal excise duty.
 
-If those costs are taken from the shopping principal, a customer who budgets UGX 50,000 will not receive UGX 50,000 of goods. Tuma must either gross up the collection, absorb the cost, or remove unnecessary money movements.
+If those costs are taken from the shopping principal, a customer who budgets UGX 50,000 will not receive UGX 50,000 of goods. Peebee must either gross up the collection, absorb the cost, or remove unnecessary money movements.
 
 The target model removes the rider cash-out step for participating merchants.
 
@@ -55,10 +55,10 @@ The target model removes the rider cash-out step for participating merchants.
 Customer pays once
         |
         v
-Licensed provider holds Tuma's collected funds
+Licensed provider holds Peebee's collected funds
         |
         v
-Tuma order spending balance
+Peebee order spending balance
         |
         +---- Rider authorizes UGX 30,000 ---> Merchant A payable
         |
@@ -79,15 +79,15 @@ Internal allocations must not cause external provider fees. External fees should
 
 - **Shopping principal:** Money intended exclusively to purchase the customer's goods.
 - **Order spending balance:** The remaining shopping principal available for an order.
-- **Merchant payable:** Tuma's recorded obligation to a merchant after a valid purchase.
+- **Merchant payable:** Peebee's recorded obligation to a merchant after a valid purchase.
 - **Rider earnings:** Delivery earnings, tips, bonuses, and approved reimbursements owned by the rider.
 - **Pending balance:** Recorded value that cannot yet be withdrawn because a risk or settlement condition remains.
 - **Available balance:** Backed value that is eligible for settlement or withdrawal.
 - **Settlement:** Moving actual funds through a licensed provider to a merchant or rider destination.
 - **Shopping advance:** A controlled exception allowing a rider to receive funds where no participating merchant is available.
-- **Provider clearing balance:** Tuma's mirrored record of money collected or paid through a provider.
+- **Provider clearing balance:** Peebee's mirrored record of money collected or paid through a provider.
 
-Avoid describing Tuma balances as independent digital currency. Until the legal structure is approved, they are accounting records for customer order funds and amounts payable.
+Avoid describing Peebee balances as independent digital currency. Until the legal structure is approved, they are accounting records for customer order funds and amounts payable.
 
 ## 6. Order and rider state rules
 
@@ -116,7 +116,7 @@ Multiple simultaneous orders are not part of the launch scope. Later, trusted ri
 
 ## 7. Merchant product
 
-The general retail product is branded as **Tuma Merchant**. Restaurants retain the dedicated **Tuma Restaurant** app and onboarding flow. Restaurant balances may use the shared merchant ledger internally, but Restaurant must not appear as a selectable category in Tuma Merchant.
+The general retail product is branded as **Peebee Merchant**. Restaurants retain the dedicated **Peebee Restaurant** app and onboarding flow. Restaurant balances may use the shared merchant ledger internally, but Restaurant must not appear as a selectable category in Peebee Merchant.
 
 ### 7.1 Merchant capabilities
 
@@ -174,11 +174,11 @@ A static QR identifies the merchant; it does not itself prove the transaction am
 2. The assigned rider enters the shopping stage.
 3. Merchant generates a dynamic request or presents a static merchant identity.
 4. Rider scans or enters the merchant code.
-5. Tuma displays merchant identity, purchase amount, order reference, and remaining budget.
+5. Peebee displays merchant identity, purchase amount, order reference, and remaining budget.
 6. Rider confirms the purchase.
-7. Tuma atomically debits the order spending balance and creates an irrevocable merchant payable. Low-risk purchases become available immediately; specifically flagged purchases enter a visible risk hold.
-8. Tuma issues an immutable transaction reference.
-9. Merchant receives confirmation directly from Tuma, never from a rider screenshot.
+7. Peebee atomically debits the order spending balance and creates an irrevocable merchant payable. Low-risk purchases become available immediately; specifically flagged purchases enter a visible risk hold.
+8. Peebee issues an immutable transaction reference.
+9. Merchant receives confirmation directly from Peebee, never from a rider screenshot.
 10. Customer immediately sees the merchant, amount, timestamp, and remaining shopping balance.
 11. Rider attaches a receipt or item evidence where required.
 
@@ -206,11 +206,11 @@ A merchant purchase is allowed only when:
 - Rider self-payments or payments to related accounts.
 - Reusing a payment code or reference.
 - Splitting transactions solely to evade limits.
-- Merchant-to-rider refunds outside the Tuma reversal process.
+- Merchant-to-rider refunds outside the Peebee reversal process.
 
 ## 9. Ledger and reconciliation requirements
 
-Tuma needs a double-entry ledger before merchant balances are introduced. Mutable balance columns alone are not sufficient for marketplace settlement.
+Peebee needs a double-entry ledger before merchant balances are introduced. Mutable balance columns alone are not sufficient for marketplace settlement.
 
 ### 9.1 Minimum ledger accounts
 
@@ -256,7 +256,7 @@ Order completion:
 
 ```text
 Increase rider delivery-earnings payable
-Recognize Tuma revenue according to the locked order fee schedule
+Recognize Peebee revenue according to the locked order fee schedule
 Reconcile or return unused shopping principal
 ```
 
@@ -273,22 +273,22 @@ Opening provider balance
 = expected closing provider balance
 ```
 
-The expected closing balance must reconcile to provider statements and Tuma's outstanding customer, merchant, and rider obligations. Any difference should stop or limit withdrawals until reviewed.
+The expected closing balance must reconcile to provider statements and Peebee's outstanding customer, merchant, and rider obligations. Any difference should stop or limit withdrawals until reviewed.
 
 ## 10. Fee policy
 
 ### 10.1 Protected shopping principal
 
-Provider fees, Tuma commission, delivery commission, cash-out charges, and withdrawal tax cannot be deducted from the shopping principal without an explicit customer-approved budget change.
+Provider fees, Peebee commission, delivery commission, cash-out charges, and withdrawal tax cannot be deducted from the shopping principal without an explicit customer-approved budget change.
 
 ### 10.2 Recommended allocation
 
 - Customer network payment charge: normally charged by the customer's network.
-- Collection cost: recovered through a customer transaction/processing fee or absorbed by Tuma.
-- Tuma service fee: a transparent customer line item or agreed merchant commission.
+- Collection cost: recovered through a customer transaction/processing fee or absorbed by Peebee.
+- Peebee service fee: a transparent customer line item or agreed merchant commission.
 - Merchant allocation: no external fee when it is an internal ledger movement.
 - Merchant settlement: merchant pays instant-settlement cost; scheduled settlement may be subsidized.
-- Rider shopping cash-out: customer/Tuma covers it when cash is necessary to fulfil the order.
+- Rider shopping cash-out: customer/Peebee covers it when cash is necessary to fulfil the order.
 - Rider earnings cash-out: rider pays instant-withdrawal cost; scheduled settlement may be subsidized.
 - Delivery commission: applied only to delivery earnings, never to item cost.
 
@@ -308,7 +308,7 @@ Checkout should distinguish at least:
 
 - Items budget.
 - Delivery fee.
-- Tuma service fee.
+- Peebee service fee.
 - Payment/cash-access fee where applicable.
 - Total charged.
 
@@ -321,7 +321,7 @@ Merchant goods handover and customer delivery are separate obligations. Once the
 - Provider payout submitted with an unknown outcome: remains in settlement transit and cannot be retried.
 - Customer delivery failure after a legitimate merchant sale: handled against the rider, customer, platform risk reserve, insurance, or investigation outcome—not automatically charged back to the merchant.
 
-If a legitimate merchant supplied goods and the rider later failed to deliver, the merchant should not automatically bear the loss. Recovery should come from the responsible rider, rider reserve, Tuma risk reserve, insurance, or an investigation outcome.
+If a legitimate merchant supplied goods and the rider later failed to deliver, the merchant should not automatically bear the loss. Recovery should come from the responsible rider, rider reserve, Peebee risk reserve, insurance, or an investigation outcome.
 
 ## 12. KYC and trust tiers
 
@@ -436,17 +436,17 @@ Every money-moving action needs a reversal model.
 - Customer disputes item quality: evidence-based support process; do not automatically reverse an unrelated delivery payment.
 - Provider payout fails: restore payable balance exactly once.
 
-No party should send money directly to another phone number to resolve an in-app dispute. All corrections must pass through Tuma's auditable reversal path.
+No party should send money directly to another phone number to resolve an in-app dispute. All corrections must pass through Peebee's auditable reversal path.
 
 ## 15. Provider strategy and constraints
 
-### 15.1 Current Tuma state
+### 15.1 Current Peebee state
 
 - Flutterwave uses V3 Standard Checkout for collections.
 - The current Flutterwave adapter does not implement disbursements.
 - Yo! Payments integration implements both `acdepositfunds` and `acwithdrawfunds`.
 - Rider wallet settlement and withdrawal screens already exist.
-- The current Tuma fee engine supports service fees, processing percentages, and delivery commission, but not provider-specific tiered payouts, agent cash-out tariffs, or tax gross-up.
+- The current Peebee fee engine supports service fees, processing percentages, and delivery commission, but not provider-specific tiered payouts, agent cash-out tariffs, or tax gross-up.
 
 Live withdrawal must never silently fall back to a mock provider. A missing real disbursement rail must fail closed and preserve the user's balance.
 
@@ -458,7 +458,7 @@ Flutterwave payout subaccounts are currently documented as NGN-only and should n
 
 ### 15.3 Yo! Payments
 
-Yo! Payments supports Mobile Money collection and disbursement. Its public subaccount description focuses on delegated account access, not clearly on independent marketplace merchant settlement. Tuma must obtain written confirmation of managed merchant/subaccount, API withdrawal, limits, fees, settlement, safeguarding, and reconciliation capabilities.
+Yo! Payments supports Mobile Money collection and disbursement. Its public subaccount description focuses on delegated account access, not clearly on independent marketplace merchant settlement. Peebee must obtain written confirmation of managed merchant/subaccount, API withdrawal, limits, fees, settlement, safeguarding, and reconciliation capabilities.
 
 ### 15.4 Provider due diligence
 
@@ -471,7 +471,7 @@ Before production merchant balances:
 - Confirm API collection and payout limits.
 - Confirm exact negotiated fees and taxes.
 - Confirm webhook signing and retry behavior.
-- Confirm provider transaction-status query behavior. Webhooks are advisory; Tuma actively polls operations that remain pending for more than 120 seconds.
+- Confirm provider transaction-status query behavior. Webhooks are advisory; Peebee actively polls operations that remain pending for more than 120 seconds.
 - Confirm chargeback, reversal, and dispute rules.
 - Confirm static-IP or allowlisting requirements.
 - Confirm service-level expectations and support escalation.
@@ -583,7 +583,7 @@ Exit condition: incentives cannot be issued solely because an order record exist
 
 ### Phase 6 — Merchant application and restaurant convergence
 
-- Launch the dedicated Tuma Merchant application for smartphone-equipped formal merchants.
+- Launch the dedicated Peebee Merchant application for smartphone-equipped formal merchants.
 - Bring restaurant balances, settlement, staff, and reporting onto the same ledger.
 - Add optional catalog, pricing, inventory, offers, and order management.
 - Introduce Merchant Lite only after the formal-merchant financial flow is stable, using simplified KYC, static codes, SMS/lightweight confirmation, and lower limits.
@@ -598,7 +598,7 @@ Implemented in the repository:
 - Formal merchant identity, private KYC-document upload, administrator review/activation, outlets, GPS coordinates, staff roles, and settlement destinations.
 - Rider-to-merchant order allocations with exact-amount dual confirmation, budget enforcement, idempotency, proximity risk checks, customer-visible purchase records, and disputes.
 - Merchant payable balances, settlement quotes/requests/history, fail-closed disbursement behavior, and webhook-plus-poller reconciliation.
-- A dedicated installable Tuma Merchant web application covering onboarding, payments, transaction history, wallet, withdrawals, outlets, KYC, team management, and role-limited cashier access.
+- A dedicated installable Peebee Merchant web application covering onboarding, payments, transaction history, wallet, withdrawals, outlets, KYC, team management, and role-limited cashier access.
 - A separately gated sandbox merchant environment enabled by default: it preserves KYC/admin approval, pending provider states, failures, reconciliation, and settlement history while forcing all money movement through the simulator and skipping only the 24-hour live destination cooldown.
 - The executable sandbox walkthrough is documented in `docs/SANDBOX_MERCHANT_TESTING.md`.
 - Restaurant finance endpoints use the same merchant ledger foundation; restaurant-specific interface convergence remains incremental product work.
@@ -629,12 +629,12 @@ The merchant-payment system cannot launch with real money until:
 - Every financial mutation creates balanced immutable entries.
 - Duplicate requests cannot double-charge or double-credit.
 - The customer sees every merchant purchase promptly.
-- The merchant receives confirmation directly from Tuma.
+- The merchant receives confirmation directly from Peebee.
 - The rider cannot take another funded order before the current one is resolved.
 - Merchant and rider payout destinations are verified and protected by a cooling period after change.
 - Failed settlements restore balances exactly once.
 - Mock providers cannot process live-environment money movement.
-- Provider statements reconcile to Tuma liabilities.
+- Provider statements reconcile to Peebee liabilities.
 - Merchant and rider KYC, suspension, dispute, and appeal paths are operational.
 - Promotion rewards have vesting, related-party checks, caps, and clawback support.
 - Operations can freeze withdrawals without corrupting balances.
@@ -659,7 +659,7 @@ The merchant-payment system cannot launch with real money until:
 ## 21. Open decisions
 
 - Which provider will custody and settle UGX merchant funds?
-- Will Tuma charge the customer, merchant, or a combination for payment processing?
+- Will Peebee charge the customer, merchant, or a combination for payment processing?
 - What scheduled settlement cadence will be free or subsidized?
 - What instant settlement fee will apply?
 - What initial merchant and rider transaction limits will apply?
@@ -706,7 +706,7 @@ Checked on 2026-09-25:
 
 ### 2026-09-26
 
-- Implement a dedicated Tuma Merchant application for formal merchants rather than extending Merchant Lite first.
+- Implement a dedicated Peebee Merchant application for formal merchants rather than extending Merchant Lite first.
 - Keep cashiers outlet-scoped and exclude them from balances, withdrawals, KYC, team administration, and dispute creation.
 - Require business registration, tax identification, owner identity, and business-registration evidence before administrator activation.
 - Keep all live merchant-money features behind an explicit feature flag until provider, legal, and compliance prerequisites are documented.

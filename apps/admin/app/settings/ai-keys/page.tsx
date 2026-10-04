@@ -1,6 +1,6 @@
 "use client";
 
-import type { AiKey, AiKeyAddResult, AiKeysOverview } from "@tuma/shared";
+import type { AiKey, AiKeyAddResult, AiKeysOverview } from "@peebee/shared";
 import { Crown, KeyRound, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SettingsPageShell } from "../../../components/SettingsPageShell";

@@ -236,7 +236,7 @@ merchantRoutes.post("/merchants/:id/outlets", requireAuth, async (c) => {
     return c.json({ error: "outlet_limit_reached" }, 409);
   }
   const id = newId("out");
-  const code = `TUMA-${id.slice(-8).toUpperCase()}`;
+  const code = `PEEBEE-${id.slice(-8).toUpperCase()}`;
   await db.execute({
     sql: `INSERT INTO merchant_outlets
           (id, merchant_id, category_id, name, code, phone, address, lat, lng)
@@ -799,7 +799,7 @@ merchantRoutes.post("/merchants/:id/settlements", requireAuth, async (c) => {
       referenceId: settlementId,
       msisdn: destination,
       amount: Number(quote.amount),
-      narrative: "Tuma merchant settlement",
+      narrative: "Peebee merchant settlement",
       forceMock: environment === "sandbox",
     });
   } catch (error) {

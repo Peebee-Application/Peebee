@@ -1,4 +1,4 @@
-import { roundFare } from "@tuma/shared";
+import { roundFare } from "@peebee/shared";
 import { db } from "../db/client.js";
 import { haversineKm } from "../lib/geo.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
@@ -8,7 +8,7 @@ import { newId } from "../lib/ids.js";
 
 type Row = Record<string, unknown>;
 
-/** True when this order is the commercial side of a Tuma Car booking. */
+/** True when this order is the commercial side of a Peebee Car booking. */
 export async function isCarOrder(orderId: string): Promise<boolean> {
   if (!(await hasTable("car_bookings"))) return false;
   const res = await db.execute({ sql: "SELECT 1 FROM car_bookings WHERE order_id = ?", args: [orderId] });
@@ -18,7 +18,7 @@ export async function isCarOrder(orderId: string): Promise<boolean> {
 /** What an owner and driver agreed for a vehicle: a share of each ride, or a fixed rent. */
 export type DealTerms = {
   feeType: "share" | "rent";
-  /** Owner's part of what is left after Tuma's cut (%), for a share deal. */
+  /** Owner's part of what is left after Peebee's cut (%), for a share deal. */
   ownerSharePercent: number | null;
   rentAmount: number | null;
   rentPeriod: "day" | "week" | null;
@@ -35,7 +35,7 @@ export function rentDue(deal: DealTerms, startedAt: Date, paidTotal: number, now
 
 /**
  * Splits a settled ride's pool. With no agreement it is the admin/category
- * split. With one, Tuma's cut comes off first (same percentage as always),
+ * split. With one, Peebee's cut comes off first (same percentage as always),
  * then what's left goes by the deal: a share goes to the owner by the agreed
  * percentage; with rent the driver keeps it all and the owner is paid the rent
  * owed out of it. The parts always add up exactly.
@@ -139,7 +139,7 @@ export async function findCarCandidate(
  * Pays out a settled car ride. `pool` is what the platform would have paid a
  * boda rider (the escrow released minus fees). It goes to the owner's and
  * driver's wallet balances by the percentages stamped on the booking now;
- * the platform's part stays with Tuma. Runs once — a booking already settled
+ * the platform's part stays with Peebee. Runs once — a booking already settled
  * is left alone.
  */
 export async function settleCarBooking(order: Row, pool: number, actorId: string): Promise<void> {
@@ -183,8 +183,8 @@ export async function settleCarBooking(order: Row, pool: number, actorId: string
   if (parts.rentCollected > 0 && assignment) {
     await db.execute({ sql: "UPDATE vehicle_assignments SET rent_paid_total = rent_paid_total + ? WHERE id = ?", args: [parts.rentCollected, String(assignment.assignment_id)] });
   }
-  if (driverAmount > 0) await creditWallet(driverId, driverAmount, { type: "adjustment", environment, orderId, actorId, note: "Tuma Car ride — driver share" });
-  if (ownerId && ownerAmount > 0) await creditWallet(ownerId, ownerAmount, { type: "adjustment", environment, orderId, actorId, note: "Tuma Car ride — owner share" });
+  if (driverAmount > 0) await creditWallet(driverId, driverAmount, { type: "adjustment", environment, orderId, actorId, note: "Peebee Car ride — driver share" });
+  if (ownerId && ownerAmount > 0) await creditWallet(ownerId, ownerAmount, { type: "adjustment", environment, orderId, actorId, note: "Peebee Car ride — owner share" });
   await db.execute({
     sql: "INSERT INTO order_events (id, order_id, stage, note, actor_id) VALUES (?, ?, 'Settle', ?, ?)",
     args: [
@@ -209,9 +209,9 @@ export async function stampCarBooking(orderId: string, driverId: string): Promis
 }
 
 /**
- * Ends an assignment (by the driver, the owner, or Tuma). Rent still owed is taken
+ * Ends an assignment (by the driver, the owner, or Peebee). Rent still owed is taken
  * from the driver's wallet as far as it covers it and paid to the owner; any
- * shortfall is recorded on the assignment so the owner and Tuma can see it.
+ * shortfall is recorded on the assignment so the owner and Peebee can see it.
  */
 export async function endAssignment(vehicleId: string, driverId: string, actorId: string): Promise<boolean> {
   const withTerms = await hasColumn("vehicle_assignments", "fee_type");

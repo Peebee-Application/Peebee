@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { SharedTrip } from "@tuma/shared";
+import type { SharedTrip } from "@peebee/shared";
 import { db } from "../db/client.js";
 import { hasColumn } from "../lib/schema.js";
 

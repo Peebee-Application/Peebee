@@ -1,6 +1,6 @@
 "use client";
 
-import { CallEngine, type CallEngineState } from "@tuma/shared";
+import { CallEngine, type CallEngineState } from "@peebee/shared";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { useAuth } from "./auth-context";

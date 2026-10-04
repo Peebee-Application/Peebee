@@ -1,6 +1,6 @@
 "use client";
 
-import type { CarCategory, OwnerDeals } from "@tuma/shared";
+import type { CarCategory, OwnerDeals } from "@peebee/shared";
 import { Camera, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ApplyCard } from "../../components/ApplyCard";
@@ -148,7 +148,7 @@ export default function VehiclesPage() {
           <p className="font-bold text-ink">{v.plate} <span className="font-normal text-ink-500">· {v.category_name}</span></p>
           <p className="text-xs text-ink-500">{[v.make, v.model].filter(Boolean).join(" ")}</p>
           <p className="text-xs text-ink-500">
-            {v.status === "approved" ? (v.driver_name ? `Driver: ${v.driver_name}` : "Approved — waiting for Tuma to assign a driver") : `Status: ${v.status}`}
+            {v.status === "approved" ? (v.driver_name ? `Driver: ${v.driver_name}` : "Approved — waiting for Peebee to assign a driver") : `Status: ${v.status}`}
           </p>
           {v.status === "approved" && approvedDriver && (!v.driver_id || v.driver_id === user?.id) && (
             <button
@@ -191,7 +191,7 @@ export default function VehiclesPage() {
                 <Camera className="h-4 w-4" />Add photos ({v.photos.length}/{limits.max})
               </button>
               {limits.minRequired > v.photos.length && v.status === "pending" && (
-                <p className="text-xs text-ink-500">Add at least {limits.minRequired - v.photos.length} more photo{limits.minRequired - v.photos.length === 1 ? "" : "s"} so Tuma can approve it.</p>
+                <p className="text-xs text-ink-500">Add at least {limits.minRequired - v.photos.length} more photo{limits.minRequired - v.photos.length === 1 ? "" : "s"} so Peebee can approve it.</p>
               )}
             </>
           )}

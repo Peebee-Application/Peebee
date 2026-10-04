@@ -40,7 +40,7 @@ const DEFAULT_ITEMS: PracticeItem[] = [
 ];
 
 function stateKey(role: PracticeRole) {
-  return `tuma_practice_state_v${PRACTICE_STATE_VERSION}_${role}`;
+  return `peebee_practice_state_v${PRACTICE_STATE_VERSION}_${role}`;
 }
 
 function canUseStorage() {
@@ -174,7 +174,7 @@ function orderFor(state: PracticeState) {
     final_total: state.stage === "Create" ? null : state.total,
     delivery_fee: state.deliveryFee,
     pickup_area: state.orderType === "parcel" ? "Kampala Central" : null,
-    pickup_address: state.orderType === "parcel" ? "Tuma Practice Pickup" : null,
+    pickup_address: state.orderType === "parcel" ? "Peebee Practice Pickup" : null,
     pickup_lat: state.orderType === "parcel" ? 0.3136 : null,
     pickup_lng: state.orderType === "parcel" ? 32.5811 : null,
     destination_area: state.destinationArea,
@@ -248,8 +248,8 @@ function paymentFor(state: PracticeState) {
     order_id: PRACTICE_ORDER_ID,
     merchant_id: PRACTICE_MERCHANT_ID,
     outlet_id: PRACTICE_OUTLET_ID,
-    outlet_name: state.role === "restaurant" ? "Tuma Kitchen" : "Tuma Practice Mart",
-    display_name: state.role === "restaurant" ? "Tuma Kitchen" : "Tuma Practice Mart",
+    outlet_name: state.role === "restaurant" ? "Peebee Kitchen" : "Peebee Practice Mart",
+    display_name: state.role === "restaurant" ? "Peebee Kitchen" : "Peebee Practice Mart",
     amount: 28_000,
     status: state.merchantPaymentStatus === "none" ? "awaiting_confirmation" : state.merchantPaymentStatus,
     confirmation_mode: "dual_confirm",
@@ -287,8 +287,8 @@ function merchantSummary(state: PracticeState) {
 function sampleMerchant() {
   return {
     id: PRACTICE_MERCHANT_ID,
-    legal_name: "Tuma Practice Retail Ltd",
-    display_name: "Tuma Practice Mart",
+    legal_name: "Peebee Practice Retail Ltd",
+    display_name: "Peebee Practice Mart",
     business_kind: "business",
     status: "active",
     trust_tier: "standard",
@@ -308,7 +308,7 @@ function sampleRestaurant(state: PracticeState) {
   return {
     id: "restaurant-practice",
     owner_id: "practice-owner",
-    name: "Tuma Kitchen",
+    name: "Peebee Kitchen",
     description: "A safe practice restaurant",
     cuisine: "Ugandan",
     phone: "0700000000",
@@ -485,9 +485,9 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
   if (method === "GET" && /^\/v1\/merchants\/[^/]+\/payments$/.test(path)) return jsonResponse({ payments: [merchantSummary(state)] });
   if (method === "GET" && /^\/v1\/merchants\/[^/]+\/transactions$/.test(path)) return jsonResponse({ transactions: state.merchantBalance > 0 ? [{ id: "practice-transaction", kind: "merchant_purchase", reference_type: "merchant_payment", reference_id: PRACTICE_PAYMENT_ID, description: "Practice goods handover", created_at: nowIso(), amount: 28_000, purpose: "payable_available", currency: "UGX", environment: "sandbox" }] : [] });
   if (method === "GET" && /^\/v1\/merchants\/[^/]+\/disputes$/.test(path)) return jsonResponse({ disputes: [] });
-  if (method === "GET" && /^\/v1\/merchants\/[^/]+\/outlets$/.test(path)) return jsonResponse({ outlets: [{ id: PRACTICE_OUTLET_ID, merchant_id: PRACTICE_MERCHANT_ID, category_id: "cat-retail", category_name: "Retail Shop", category_slug: "retail-shop", name: "Tuma Practice Outlet", code: "TUMA-DEMO", phone: "0700000000", address: "Kampala Road", lat: 0.3136, lng: 32.5811, status: "active", created_at: nowIso(-86_400_000), updated_at: nowIso() }] });
+  if (method === "GET" && /^\/v1\/merchants\/[^/]+\/outlets$/.test(path)) return jsonResponse({ outlets: [{ id: PRACTICE_OUTLET_ID, merchant_id: PRACTICE_MERCHANT_ID, category_id: "cat-retail", category_name: "Retail Shop", category_slug: "retail-shop", name: "Peebee Practice Outlet", code: "PEEBEE-DEMO", phone: "0700000000", address: "Kampala Road", lat: 0.3136, lng: 32.5811, status: "active", created_at: nowIso(-86_400_000), updated_at: nowIso() }] });
   if (method === "GET" && path === "/v1/merchant-categories") return jsonResponse({ categories: [{ id: "cat-retail", slug: "retail-shop", name: "Retail Shop" }] });
-  if (method === "GET" && /^\/v1\/merchants\/[^/]+\/settlement-accounts$/.test(path)) return jsonResponse({ settlementAccounts: [{ id: "practice-settlement-account", type: "momo", provider: "mtn", account_name: "Tuma Practice Mart", network_or_bank: "MTN", status: "verified", is_primary: 1, verified_at: nowIso(-86_400_000), cooling_until: null, masked_account_ref: "070***0000" }] });
+  if (method === "GET" && /^\/v1\/merchants\/[^/]+\/settlement-accounts$/.test(path)) return jsonResponse({ settlementAccounts: [{ id: "practice-settlement-account", type: "momo", provider: "mtn", account_name: "Peebee Practice Mart", network_or_bank: "MTN", status: "verified", is_primary: 1, verified_at: nowIso(-86_400_000), cooling_until: null, masked_account_ref: "070***0000" }] });
   if (method === "POST" && /^\/v1\/merchants\/[^/]+\/settlement-quotes$/.test(path)) {
     const amount = Number(body.amount ?? 0);
     return jsonResponse({ quote: { id: "practice-quote", amount, fee: 500, totalDebit: amount + 500, currency: "UGX", expiresInSeconds: 120 } });

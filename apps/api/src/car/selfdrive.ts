@@ -11,7 +11,7 @@ import { creditWallet, debitWallet } from "../wallet/service.js";
 type Row = Record<string, unknown>;
 type Env = "live" | "sandbox";
 
-/** Self-drive hire. Closed until an admin enables it AND sets Tuma's percentage. */
+/** Self-drive hire. Closed until an admin enables it AND sets Peebee's percentage. */
 export const selfDriveRoutes = new Hono();
 selfDriveRoutes.use("/car/rentals/*", requireAuth);
 selfDriveRoutes.use("/car/rentals/*", async (c, next) => {
@@ -32,7 +32,7 @@ export function rentalDays(start: Date, end: Date): number {
   return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000));
 }
 
-/** How a finished rental's held money is shared (deposit back minus any damage, Tuma's cut of the rent). Always adds up exactly. */
+/** How a finished rental's held money is shared (deposit back minus any damage, Peebee's cut of the rent). Always adds up exactly. */
 export function settleRental(input: { rent: number; deposit: number; platformPercent: number; damage: number }) {
   const damage = Math.min(Math.max(0, input.damage), input.deposit);
   const platform = Math.floor((input.rent * input.platformPercent) / 100);
@@ -159,7 +159,7 @@ selfDriveRoutes.post("/car/rentals/:id/return", async (c) => {
       args: [claim, id],
     });
     if (flipped.rowsAffected === 0) return c.json({ error: "invalid_status", message: "Only a rental in progress can be returned." }, 409);
-    notifyUser(String(rental.renter_id), { title: "Damage claim on your rental", body: "The owner reported damage. Tuma will review it before your deposit is settled.", url: "/rent", tag: `rental-${id}` }).catch(() => {});
+    notifyUser(String(rental.renter_id), { title: "Damage claim on your rental", body: "The owner reported damage. Peebee will review it before your deposit is settled.", url: "/rent", tag: `rental-${id}` }).catch(() => {});
     return c.json({ ok: true, status: "disputed" });
   }
   await db.execute({ sql: "UPDATE rentals SET returned_at = datetime('now') WHERE id = ? AND status = 'active'", args: [id] });

@@ -135,7 +135,7 @@ export async function renewSubscriptions(): Promise<{ attempted: number; renewed
         referenceId: paymentId,
         msisdn,
         amount: settings.subscriptionAmount,
-        narrative: "Tuma rider subscription renewal",
+        narrative: "Peebee rider subscription renewal",
         forceMock: environment === "sandbox",
       });
       await db.execute({

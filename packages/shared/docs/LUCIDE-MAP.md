@@ -1,8 +1,8 @@
-# Tuma → Lucide icon map
+# Peebee → Lucide icon map
 
 UI icons are **Lucide** (stroke). Keep semantic filenames in `icons/`; Frontend imports Lucide components by the Lucide name.
 
-| Tuma file | Lucide name | `lucide-react` / `lucide-vue-next` export |
+| Peebee file | Lucide name | `lucide-react` / `lucide-vue-next` export |
 |-----------|-------------|------------------------------------------|
 | `status-pending.svg` | `clock` | `Clock` |
 | `status-shopping.svg` | `shopping-bag` | `ShoppingBag` |

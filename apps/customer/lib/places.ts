@@ -1,4 +1,4 @@
-import type { SavedLocation } from "@tuma/shared";
+import type { SavedLocation } from "@peebee/shared";
 import { api } from "./api";
 
 /** One chosen spot — what the order flows turn into pickup/destination fields. */
@@ -32,7 +32,7 @@ function placeFromNominatim(r: NominatimResult): Place {
 const COORD_ADDRESS = /\(\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*\)/;
 export const isCoordinateAddress = (address: string | null | undefined): boolean => !!address && COORD_ADDRESS.test(address);
 
-const GEO_NAMES_KEY = "tuma-geo-names";
+const GEO_NAMES_KEY = "peebee-geo-names";
 const geoKey = (lat: number, lng: number) => `${lat.toFixed(4)},${lng.toFixed(4)}`;
 
 export function readNames(): Record<string, string> {
@@ -87,7 +87,7 @@ export function placeSubtitle(p: Place): string {
 /** Where the phone last put the customer — written by use-location-label. */
 export function cachedPosition(): { lat: number; lng: number; label: string } | null {
   try {
-    const raw = localStorage.getItem("tuma-location-label");
+    const raw = localStorage.getItem("peebee-location-label");
     if (!raw) return null;
     const c = JSON.parse(raw) as { lat: number; lng: number; label: string };
     return typeof c.lat === "number" && typeof c.lng === "number" ? c : null;
@@ -121,7 +121,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<Place> {
 
 // ---- recently searched (this device) ---------------------------------------
 
-const SEARCH_KEY = "tuma-recent-searches";
+const SEARCH_KEY = "peebee-recent-searches";
 
 export function readRecentSearches(): Place[] {
   try {
