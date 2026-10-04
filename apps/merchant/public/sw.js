@@ -1,9 +1,9 @@
-const STATIC_CACHE = "peebee-merchant-static-v6";
+const STATIC_CACHE = "peebee-merchant-static-v7";
 const OFFLINE_URL = "/offline.html";
 const STATIC_ASSETS = ["/sounds/notification.mp3",
   "/manifest.webmanifest",
   "/brand/peebee-logo-light.png?v=logos-3",
-  "/brand/peebee-logo-dark.png?v=logos-3",
+  "/brand/peebee-logo-dark.png?v=dark-4",
   "/icons/icon-192.png?v=logos-3",
   "/icons/icon-512.png?v=logos-3",
   "/icons/apple-touch-icon.png?v=logos-3",

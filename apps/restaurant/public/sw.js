@@ -1,5 +1,5 @@
-const STATIC_CACHE = "peebee-driver-static-v6";
-const RUNTIME_CACHE = "peebee-driver-runtime-v6";
+const STATIC_CACHE = "peebee-driver-static-v7";
+const RUNTIME_CACHE = "peebee-driver-runtime-v7";
 const OFFLINE_URL = "/offline.html";
 const STATIC_ASSETS = ["/sounds/notification.mp3", "/manifest.json", "/icons/icon-192.png?v=logos-3", "/icons/icon-512.png?v=logos-3", OFFLINE_URL];
 
