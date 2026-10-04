@@ -12,7 +12,7 @@ for reference/rollback but is no longer the active deploy target.
 | `tuma-restaurant` | Worker (Next.js via OpenNext) | `restaurant.tumaffe.online` when deployed |
 | `tuma-merchant` | Worker (Next.js via OpenNext) | `merchant.tumaffe.online` when deployed |
 | `tuma-partner` | Worker (Next.js via OpenNext) | `car.tumaffe.online` — Tuma Car app: owners and drivers (one app, Owner/Driver switch) |
-| `tuma-web` | Worker (Next.js via OpenNext) | `tumaffe.online` when deployed |
+| `peebee` | Worker (Next.js via OpenNext) | `peebee.online` and `www.peebee.online` |
 
 **Database: Cloudflare D1** (`tuma-api`, id `26926e12-d2f4-4b40-8b1b-019f6c169e10`), bound
 natively to the `tuma-api` Worker as `env.DB` — no cross-provider HTTP hop. This is a
@@ -31,6 +31,24 @@ D1 binding is present, e.g. under plain `pnpm dev`) — see `TURSO_DATABASE_URL`
 - `wrangler` authenticated (`wrangler login` or an API token in `CLOUDFLARE_API_TOKEN`).
 
 ## Automated CI/CD (GitHub Actions)
+
+### Website in Cloudflare Workers Builds
+
+The public website connects `Peebee-Application/Peebee` to the `peebee` Worker.
+Set its root directory to `apps/web`, leave the build command empty, set the
+deploy command to `pnpm run deploy`, and select `main` as the production branch.
+The deploy script checks the Git source, builds the OpenNext Worker, then deploys.
+Running the default `npx wrangler deploy` from the repository root cannot select
+an application in this workspace.
+
+The Worker name must match `apps/web/wrangler.jsonc`. Both website hostnames are
+custom domains in the active `peebee.online` Cloudflare zone, so Cloudflare manages
+their DNS records without requiring a separate origin server.
+
+The full application rebrand is a separate change; this configuration fix does
+not replace logos or app icons.
+
+### GitHub Actions
 
 Deployments are automated through `.github/workflows/deploy.yml`:
 
