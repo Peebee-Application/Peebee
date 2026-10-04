@@ -155,7 +155,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal withMap title={t("ride_title")} onClose={onClose}>
+    <Modal withMap mapRoute={route} title={t("ride_title")} onClose={onClose}>
       <div className="space-y-4">
         <RouteSummary pickup={route.pickup} destination={route.destination} destinationLabel={t("place_destination")} onChange={() => setChoosing(true)} />
 

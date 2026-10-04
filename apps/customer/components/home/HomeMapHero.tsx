@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { SelectedRouteLocations } from "../maps/SelectedRoadRoute";
 
 // Leaflet touches `window` at import time, so it can't render on the server.
 const HomeMap = dynamic(() => import("./HomeMap"), {
@@ -9,10 +10,10 @@ const HomeMap = dynamic(() => import("./HomeMap"), {
 });
 
 /** Read-only map band for the order screens (see Modal `withMap`). */
-export function HomeMapHero({ className = "isolate h-[36dvh] min-h-60 w-full overflow-hidden" }: { className?: string }) {
+export function HomeMapHero({ className = "isolate h-[36dvh] min-h-60 w-full overflow-hidden", pickup, destination, bottomInset }: SelectedRouteLocations & { className?: string; bottomInset?: number }) {
   return (
     <div className={className}>
-      <HomeMap />
+      <HomeMap pickup={pickup} destination={destination} bottomInset={bottomInset} />
     </div>
   );
 }

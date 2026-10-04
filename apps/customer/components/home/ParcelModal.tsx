@@ -96,7 +96,7 @@ export function ParcelModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal withMap title={t("parcel_title")} onClose={onClose}>
+    <Modal withMap mapRoute={route} title={t("parcel_title")} onClose={onClose}>
       <div className="space-y-4">
         <RouteSummary pickup={route.pickup} destination={route.destination} destinationLabel={t("place_delivery")} onChange={() => setChoosing(true)} />
 

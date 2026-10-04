@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 import { OSM_TILES, loadMapTiles, type Tiles } from "../../lib/map-tiles";
 import { jawgTileUrl, useJawgStyle } from "../../lib/mapStyle";
-import { meIcon } from "../maps/map-icons";
+import { destinationIcon, meIcon, pickupIcon } from "../maps/map-icons";
+import { SelectedRoadRoute, type SelectedRouteLocations } from "../maps/SelectedRoadRoute";
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
 
@@ -21,7 +22,7 @@ function FlyTo({ target, nonce }: { target: [number, number] | null; nonce: numb
 
 /** Read-only street map behind the home screen: shows where the customer
  * is, follows the admin's maps provider, no pickers or pins. */
-export default function HomeMap() {
+export default function HomeMap({ pickup, destination, bottomInset = 0 }: SelectedRouteLocations & { bottomInset?: number }) {
   const [tiles, setTiles] = useState<Tiles>(OSM_TILES);
   const [ready, setReady] = useState(false);
   const [position, setPosition] = useState<[number, number] | null>(null);
@@ -29,6 +30,9 @@ export default function HomeMap() {
   const [locating, setLocating] = useState(false);
   const jawgStyle = useJawgStyle(tiles.jawg?.adminLightStyle ?? "normal");
   const tileUrl = tiles.jawg ? jawgTileUrl(jawgStyle, tiles.jawg.accessToken) : tiles.url;
+  const pickupPoint: [number, number] | null = pickup?.lat != null && pickup.lng != null ? [pickup.lat, pickup.lng] : null;
+  const destinationPoint: [number, number] | null = destination?.lat != null && destination.lng != null ? [destination.lat, destination.lng] : null;
+  const hasSelection = !!pickupPoint || !!destinationPoint;
 
   useEffect(() => {
     let cancelled = false;
@@ -40,13 +44,13 @@ export default function HomeMap() {
     };
   }, []);
 
-  function locate() {
+  function locate(recenter = true) {
     if (!navigator.geolocation) return;
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setPosition([pos.coords.latitude, pos.coords.longitude]);
-        setNonce((n) => n + 1);
+        if (recenter) setNonce((n) => n + 1);
         setLocating(false);
       },
       () => setLocating(false),
@@ -54,7 +58,7 @@ export default function HomeMap() {
     );
   }
 
-  useEffect(locate, []);
+  useEffect(() => { locate(false); }, []);
 
   if (!ready) return <div className="h-full w-full bg-[rgb(var(--surface-muted))]" aria-hidden />;
 
@@ -68,13 +72,16 @@ export default function HomeMap() {
         className={`peebee-map h-full w-full${tiles.jawg ? " peebee-map-native" : ""}`}
       >
         <TileLayer key={tileUrl} url={tileUrl} attribution={tiles.attribution} />
-        <FlyTo target={position} nonce={nonce} />
+        <FlyTo target={hasSelection && nonce === 0 ? null : position} nonce={nonce} />
+        <SelectedRoadRoute pickup={pickup} destination={destination} bottomInset={bottomInset} />
         {position && <Marker position={position} icon={meIcon} interactive={false} />}
+        {pickupPoint && <Marker position={pickupPoint} icon={pickupIcon} interactive={false} />}
+        {destinationPoint && <Marker position={destinationPoint} icon={destinationIcon} interactive={false} />}
         <div className="peebee-map-tint" aria-hidden />
       </MapContainer>
       <button
         type="button"
-        onClick={locate}
+        onClick={() => locate()}
         disabled={locating}
         aria-label="Centre on my location"
         className="absolute right-3 top-3 z-[500] flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--surface-card))] text-ink shadow-[var(--shadow-float-capsule)] active:scale-95 disabled:opacity-60"

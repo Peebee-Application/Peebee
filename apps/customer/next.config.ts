@@ -4,6 +4,10 @@ import type { NextConfig } from "next";
 import { securityHeaderRules } from "../../packages/shared/security-headers.mjs";
 
 const nextConfig: NextConfig = {
+  // Limit build workers on small deployment machines without slowing CI.
+  experimental: {
+    cpus: process.env.PEEBEE_BUILD_CPUS ? Math.max(1, Number.parseInt(process.env.PEEBEE_BUILD_CPUS, 10) || 1) : undefined,
+  },
   output: "standalone",
   transpilePackages: ["@peebee/shared"],
   images: {

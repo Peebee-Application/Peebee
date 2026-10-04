@@ -4,12 +4,14 @@ import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { HomeMapHero } from "./home/HomeMapHero";
+import type { SelectedRouteLocations } from "./maps/SelectedRoadRoute";
 
 export function Modal({
   title,
   onClose,
   children,
   withMap = false,
+  mapRoute,
 }: {
   title: string;
   onClose: () => void;
@@ -17,11 +19,29 @@ export function Modal({
   /** Order-flow screens: live map across the top, the form in a rounded
    * sheet over its lower edge. Everything else stays a plain dimmed sheet. */
   withMap?: boolean;
+  mapRoute?: SelectedRouteLocations;
 }) {
   const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
+  const mapBandRef = useRef<HTMLDivElement>(null);
+  const mapSheetRef = useRef<HTMLDivElement>(null);
+  const [mapBottomInset, setMapBottomInset] = useState(0);
   closeRef.current = onClose;
+
+  useEffect(() => {
+    if (!mounted || !withMap || !mapBandRef.current || !mapSheetRef.current) return;
+    const measure = () => {
+      const band = mapBandRef.current?.getBoundingClientRect();
+      const sheet = mapSheetRef.current?.getBoundingClientRect();
+      if (band && sheet) setMapBottomInset(Math.max(0, band.bottom - sheet.top));
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(mapBandRef.current);
+    observer.observe(mapSheetRef.current);
+    measure();
+    return () => observer.disconnect();
+  }, [mounted, withMap]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -94,10 +114,10 @@ export function Modal({
   if (withMap) {
     return createPortal(
       <div className="fixed inset-0 z-[70] bg-cream">
-        <div className="absolute inset-x-0 bottom-[34dvh] top-0 mx-auto max-w-lg">
-          <HomeMapHero className="isolate h-full w-full overflow-hidden" />
+        <div ref={mapBandRef} className="absolute inset-x-0 bottom-[34dvh] top-0 mx-auto max-w-lg">
+          <HomeMapHero className="isolate h-full w-full overflow-hidden" {...mapRoute} bottomInset={mapBottomInset} />
         </div>
-        <div className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[68dvh] min-h-[36dvh] w-full max-w-lg flex-col">
+        <div ref={mapSheetRef} className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[68dvh] min-h-[36dvh] w-full max-w-lg flex-col">
           <div
             className="soft-drawer relative z-10 flex min-h-0 flex-1 flex-col"
             role="dialog"
