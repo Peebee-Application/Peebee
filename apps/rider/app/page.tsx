@@ -1,5 +1,7 @@
 "use client";
 
+import { observeNotificationSnapshot } from "@peebee/shared";
+
 import type { AvailableJob, OrderRow, Rider } from "@peebee/shared";
 import { isRiderProfileComplete } from "@peebee/shared";
 import { Bike, ChevronDown, ChevronRight, MapPin, Package, ShoppingCart, TriangleAlert, Utensils } from "lucide-react";
@@ -69,6 +71,7 @@ export default function JobsHomePage() {
       .then(([r, o, j, s]) => {
         setRider(r.rider);
         setOrders(o.orders);
+        observeNotificationSnapshot("rider-jobs", j.jobs.map((job) => job.id));
         setAvailableJobs(j.jobs);
         setSubscriptionOk(!s.subscription.required || s.subscription.current);
         setLoaded(true);

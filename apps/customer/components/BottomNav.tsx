@@ -1,5 +1,7 @@
 "use client";
 
+import { observeNotificationSnapshot } from "@peebee/shared";
+
 import type { OrderRow } from "@peebee/shared";
 import { ChevronRight, Home, MessageCircle, ShoppingBag, ShoppingCart, User, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
@@ -38,7 +40,10 @@ export function BottomNav() {
       if (!user) return;
       api
         .getChatThreads()
-        .then((res) => setHasUnread(res.threads.some((t) => t.unread)))
+        .then((res) => {
+          observeNotificationSnapshot("chat-inbox", res.threads.filter((t) => t.unread).map((t) => t.counterpartId + ":" + t.lastMessageAt));
+          setHasUnread(res.threads.some((t) => t.unread));
+        })
         .catch(() => {});
     },
     UNREAD_POLL_MS,
@@ -50,7 +55,11 @@ export function BottomNav() {
       if (!user) return;
       api
         .getActiveOrder()
-        .then((res) => setActiveOrder(res.activeOrder))
+        .then((res) => {
+          const order = res.activeOrder;
+          observeNotificationSnapshot("active-order", order ? [order.id + ":" + order.stage] : []);
+          setActiveOrder(order);
+        })
         .catch(() => setActiveOrder(null));
     },
     ACTIVE_ORDER_POLL_MS,

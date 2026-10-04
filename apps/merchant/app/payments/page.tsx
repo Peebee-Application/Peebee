@@ -1,5 +1,7 @@
 "use client";
 
+import { observeNotificationSnapshot } from "@peebee/shared";
+
 import { isPracticeMode, practicePaymentCode, type MerchantPayment, type MerchantPaymentSummary } from "@peebee/shared";
 import { CheckCircle2, Search, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -20,7 +22,12 @@ export default function PaymentsPage() {
 
   useEffect(() => { if (isPracticeMode()) setCode(practicePaymentCode()); }, []);
 
-  const load = useCallback(async () => { if (merchant) setPayments((await api.merchantPayments(merchant.id)).payments); }, [merchant]);
+  const load = useCallback(async () => {
+    if (!merchant) return;
+    const { payments: incoming } = await api.merchantPayments(merchant.id);
+    observeNotificationSnapshot("merchant-payments:" + merchant.id, incoming.map((payment) => payment.id + ":" + payment.status));
+    setPayments(incoming);
+  }, [merchant]);
   useEffect(() => { load().catch((cause) => setError(errorMessage(cause))); }, [load]);
   useEffect(() => {
     if (!merchant) return;

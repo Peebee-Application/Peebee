@@ -1,5 +1,7 @@
 "use client";
 
+import { observeNotificationSnapshot } from "@peebee/shared";
+
 import type { ChatMessage, ListItem, OrderEvent, OrderRow } from "@peebee/shared";
 import {
   Ban,
@@ -330,6 +332,7 @@ export function OrderChat({ orderId, variant = "embedded" }: Props) {
     api
       .getChat(orderId)
       .then((res) => {
+        observeNotificationSnapshot("order-chat:" + orderId, res.messages.filter((m) => m.sender_role !== "customer" && !m.deleted_at).map((m) => m.id));
         setMessages(res.messages);
         setOrder(res.order);
         setEvents(res.events);

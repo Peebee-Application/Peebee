@@ -1,5 +1,7 @@
 "use client";
 
+import { observeNotificationSnapshot } from "@peebee/shared";
+
 import type { RestaurantChatMessage } from "@peebee/shared";
 import {
   ArrowLeft,
@@ -282,6 +284,7 @@ export default function RestaurantChatPage() {
     const res = await api.getRestaurantChat(id);
     setRestaurantName(res.restaurantName);
     setRestaurantOwnerId(res.restaurantOwnerId);
+    observeNotificationSnapshot("restaurant-chat:" + id, res.messages.filter((m) => m.sender_role !== "customer" && !m.deleted_at).map((m) => m.id));
     setMessages(res.messages);
     return res;
   }, [id]);

@@ -1,5 +1,7 @@
 "use client";
 
+import { observeNotificationSnapshot } from "@peebee/shared";
+
 import type { RestaurantChatThread } from "@peebee/shared";
 import { ChevronRight, MessageCircle } from "lucide-react";
 import Link from "next/link";
@@ -20,7 +22,10 @@ export default function RestaurantChatThreadsPage() {
   const load = useCallback(() => {
     api
       .myRestaurantChatThreads()
-      .then((res) => setThreads(res.threads))
+      .then((res) => {
+        observeNotificationSnapshot("restaurant-inbox", res.threads.filter((t) => t.unread_count > 0).map((t) => t.customer_id + ":" + t.last_message_at));
+        setThreads(res.threads);
+      })
       .catch((err) => setError(errorMessage(err)));
   }, []);
 

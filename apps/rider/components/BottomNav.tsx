@@ -1,5 +1,7 @@
 "use client";
 
+import { observeNotificationSnapshot } from "@peebee/shared";
+
 import { Briefcase, ClipboardList, MessageCircle, PiggyBank, User, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -31,7 +33,10 @@ export function BottomNav() {
     () => {
       api
         .getChatThreads()
-        .then((res) => setHasUnread(res.threads.some((t) => t.unread)))
+        .then((res) => {
+          observeNotificationSnapshot("chat-inbox", res.threads.filter((t) => t.unread).map((t) => t.counterpartId + ":" + t.lastMessageAt));
+          setHasUnread(res.threads.some((t) => t.unread));
+        })
         .catch(() => {});
     },
     UNREAD_POLL_MS,

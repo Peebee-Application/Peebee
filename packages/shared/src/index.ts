@@ -225,3 +225,5 @@ export type {
   StageReports,
   LugandaVoice,
 } from "./domain.js";
+
+export { NotificationSnapshots, installNotificationSound, observeNotificationSnapshot, playNotificationSound, resetNotificationSnapshots } from "./notification-sound.js";

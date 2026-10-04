@@ -1,5 +1,7 @@
 "use client";
 
+import { observeNotificationSnapshot } from "@peebee/shared";
+
 import type { RestaurantChatMessage } from "@peebee/shared";
 import {
   ArrowLeft,
@@ -272,6 +274,7 @@ export default function RestaurantChatThreadPage() {
   const load = useCallback(async () => {
     const res = await api.myRestaurantChatThread(customerId);
     setCustomerName(res.customerName);
+    observeNotificationSnapshot("restaurant-chat:" + customerId, res.messages.filter((m) => m.sender_role !== "restaurant" && !m.deleted_at).map((m) => m.id));
     setMessages(res.messages);
     return res;
   }, [customerId]);

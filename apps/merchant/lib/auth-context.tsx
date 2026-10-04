@@ -1,5 +1,7 @@
 "use client";
 
+import { resetNotificationSnapshots } from "@peebee/shared";
+
 import type { AuthUser, Merchant } from "@peebee/shared";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, TOKEN_KEY, USER_KEY } from "./api";
@@ -58,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshMerchants, user?.id]);
 
   const persist = useCallback((token: string, nextUser: AuthUser) => {
+    resetNotificationSnapshots();
     if (nextUser.role !== "customer") throw new Error("Use a customer account for Peebee Merchant.");
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
@@ -80,6 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    resetNotificationSnapshots();
     void api.logout().catch(() => undefined);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

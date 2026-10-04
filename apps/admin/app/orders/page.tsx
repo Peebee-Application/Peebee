@@ -1,5 +1,7 @@
 "use client";
 
+import { observeNotificationSnapshot } from "@peebee/shared";
+
 import { ORDER_STAGES, type AdminOrderRow, type OrderModuleKey, type OrderOverview, type OrderType } from "@peebee/shared";
 import { ChevronRight, Filter, Package, ShoppingBag, Store, Truck } from "lucide-react";
 import Link from "next/link";
@@ -120,7 +122,10 @@ export default function OrdersPage() {
         type: type === "all" ? undefined : type,
         limit: 50,
       })
-      .then((res) => setOrders(res.orders))
+      .then((res) => {
+        observeNotificationSnapshot("admin-orders:" + stage + ":" + type, res.orders.map((order) => order.id));
+        setOrders(res.orders);
+      })
       .catch((err) => setError(errorMessage(err)));
   }, [stage, type]);
 
