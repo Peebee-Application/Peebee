@@ -1,5 +1,5 @@
-const STATIC_CACHE = "peebee-admin-static-v6";
-const RUNTIME_CACHE = "peebee-admin-runtime-v6";
+const STATIC_CACHE = "peebee-admin-static-v7";
+const RUNTIME_CACHE = "peebee-admin-runtime-v7";
 const OFFLINE_URL = "/offline.html";
 const STATIC_ASSETS = ["/sounds/notification.mp3", "/manifest.json", "/icons/icon-192.png?v=logos-3", "/icons/icon-512.png?v=logos-3", OFFLINE_URL];
 

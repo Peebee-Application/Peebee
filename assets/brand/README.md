@@ -3,7 +3,7 @@
 The original files supplied by the owner are preserved here unchanged:
 
 - `logo-light.png`: plain logo for light theme, favicon, and installed app icon.
-- `logo-dark.png`: white-stroked logo for dark theme.
+- `logo-dark.png`: latest owner-supplied logo for dark theme.
 
 Each frontend publishes 256px PNG versions for its themed logo. Headers render
 the symbol with the text **Peebee** on its right; authentication screens render
