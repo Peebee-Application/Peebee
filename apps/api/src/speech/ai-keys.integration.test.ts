@@ -117,6 +117,30 @@ test("google ai keys: add, rotate on quota, master + paid mode", async (t) => {
       assert.ok(stored.every((s) => !s.includes("AIzaSy")), "encrypted at rest");
     });
 
+    await t.test("timed rotation holds a key within its slot and advances at the boundary", async () => {
+      assert.equal((await call("PUT", "/admin/ai-keys-rotation", "cust", { rotationSeconds: 60 })).status, 403);
+      assert.equal((await call("PUT", "/admin/ai-keys-rotation", "admin", { rotationSeconds: -1 })).status, 400);
+      const res = await json(await call("PUT", "/admin/ai-keys-rotation", "admin", { rotationSeconds: 60 }));
+      assert.equal(res.rotationSeconds, 60);
+      assert.ok(res.nextRotationAt);
+      const realNow = Date.now;
+      const base = Math.floor(realNow() / 180000) * 180000;
+      try {
+        used.length = 0;
+        Date.now = () => base + 1000;
+        await translateToLuganda("milk");
+        Date.now = () => base + 59000;
+        await translateToLuganda("milk");
+        Date.now = () => base + 61000;
+        await translateToLuganda("milk");
+        assert.deepEqual(used, [K("a"), K("a"), K("b")]);
+      } finally {
+        Date.now = realNow;
+        await call("PUT", "/admin/ai-keys-rotation", "admin", { rotationSeconds: 0 });
+        await client.execute("UPDATE ai_api_keys SET last_used_at = NULL");
+      }
+    });
+
     await t.test("test mode rotates when a key hits its daily limit, and sets it aside", async () => {
       behaviour[K("a")] = { status: 429, body: dayBody };
       used.length = 0;

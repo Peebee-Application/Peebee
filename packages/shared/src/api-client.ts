@@ -14,6 +14,8 @@ import type {
   AiKeyAddResult,
   AiKeyMode,
   AiKeysOverview,
+  EmailKeySettings,
+  EmailKeysOverview,
   SavedPassenger,
   SharedTrip,
   CarDriverActive,
@@ -1293,6 +1295,27 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async adminSetAiKeyMode(mode: AiKeyMode) {
       return request<AiKeysOverview>("/v1/admin/ai-keys-mode", { method: "PUT", body: JSON.stringify({ mode }) });
+    },
+    async adminSetAiKeyRotation(rotationSeconds: number) {
+      return request<AiKeysOverview>("/v1/admin/ai-keys-rotation", { method: "PUT", body: JSON.stringify({ rotationSeconds }) });
+    },
+    async adminEmailKeys() {
+      return request<EmailKeysOverview>("/v1/admin/email-keys");
+    },
+    async adminAddEmailKeys(keys: Array<{ label: string; key: string; accountTag: string; fromAddress: string }>) {
+      return request<EmailKeysOverview & { results: Array<{ label: string; status: "added" | "duplicate" }> }>("/v1/admin/email-keys", { method: "POST", body: JSON.stringify({ keys }) });
+    },
+    async adminSetEmailKeySettings(settings: EmailKeySettings) {
+      return request<EmailKeysOverview>("/v1/admin/email-keys/settings", { method: "PUT", body: JSON.stringify(settings) });
+    },
+    async adminSetLiveEmailKey(id: string) {
+      return request<EmailKeysOverview>(`/v1/admin/email-keys/${id}/live`, { method: "PUT" });
+    },
+    async adminEnableEmailKey(id: string, enabled: boolean) {
+      return request<EmailKeysOverview>(`/v1/admin/email-keys/${id}`, { method: "PATCH", body: JSON.stringify({ enabled }) });
+    },
+    async adminDeleteEmailKey(id: string) {
+      return request<EmailKeysOverview>(`/v1/admin/email-keys/${id}`, { method: "DELETE" });
     },
 
     // People a customer books rides for — see apps/api/src/passengers/routes.ts.

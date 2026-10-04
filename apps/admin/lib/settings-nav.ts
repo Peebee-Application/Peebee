@@ -29,6 +29,13 @@ export type SettingsLink = {
 
 export const SETTINGS_LINKS: SettingsLink[] = [
   {
+    href: "/settings/email-keys",
+    label: "Email API keys",
+    description: "Resend live and testing keys, timed rotation, account budgets and usage.",
+    icon: KeyRound,
+    show: (role) => hasPermission(role, "settings.manage"),
+  },
+  {
     href: "/settings/services",
     label: "Services",
     description: "Switch shopping, parcels, rides and food on or off — dependent apps and features pause with them.",
@@ -39,6 +46,7 @@ export const SETTINGS_LINKS: SettingsLink[] = [
     label: "Google AI keys",
     description: "Add many Google AI Studio keys that rotate automatically in test mode, and pick the master key for paid mode.",
     icon: KeyRound,
+    show: (role) => hasPermission(role, "settings.manage"),
   },
   {
     href: "/settings/delivery",

@@ -8,15 +8,7 @@
  * domain is added and RESEND_FROM is set to an address on it.
  */
 
-function apiKey(): string {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) throw new Error("RESEND_API_KEY is not set");
-  return key;
-}
-
-function fromAddress(): string {
-  return process.env.RESEND_FROM ?? "Tuma <onboarding@resend.dev>";
-}
+import { emailProviderConfigured, sendResendEmail } from "./email-keys.js";
 
 /** Where the app's own logo is hosted — email clients load images over
  * plain HTTP(S), not from the local bundle, so this has to be a real URL. */
@@ -24,14 +16,7 @@ function logoUrl(): string {
   return process.env.CUSTOMER_APP_URL_LOGO ?? "https://customer.tumaffe.online/brand/tuma-logo-navy.png";
 }
 
-export function isResendConfigured(): boolean {
-  try {
-    apiKey();
-    return true;
-  } catch {
-    return false;
-  }
-}
+export const isResendConfigured = emailProviderConfigured;
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -110,23 +95,12 @@ function buildEmailText(code: string, verifyLink?: string): string {
  * account with no code entry needed; the code is still shown as a
  * fallback. Password-reset emails omit it and are code-only. */
 export async function sendVerificationEmail(to: string, code: string, verifyLink?: string): Promise<void> {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: fromAddress(),
-      to: [to],
-      subject: verifyLink ? "Verify your Tuma account" : "Your Tuma password reset code",
-      html: buildEmailHtml(code, verifyLink),
-      text: buildEmailText(code, verifyLink),
-    }),
+  await sendResendEmail({
+    to: [to],
+    subject: verifyLink ? "Verify your Tuma account" : "Your Tuma password reset code",
+    html: buildEmailHtml(code, verifyLink),
+    text: buildEmailText(code, verifyLink),
   });
-  if (!res.ok) {
-    throw new Error(`Resend send failed: ${res.status} ${await res.text()}`);
-  }
 }
 
 /** Branded "you've been invited" email for a new staff account — the
@@ -195,21 +169,10 @@ export async function sendStaffInviteEmail(
   tempPassword: string,
   loginUrl: string,
 ): Promise<void> {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: fromAddress(),
-      to: [to],
-      subject: "You've been added to the Tuma admin portal",
-      html: buildStaffInviteHtml(name, roleLabel, tempPassword, loginUrl),
-      text: buildStaffInviteText(name, roleLabel, tempPassword, loginUrl),
-    }),
+  await sendResendEmail({
+    to: [to],
+    subject: "You've been added to the Tuma admin portal",
+    html: buildStaffInviteHtml(name, roleLabel, tempPassword, loginUrl),
+    text: buildStaffInviteText(name, roleLabel, tempPassword, loginUrl),
   });
-  if (!res.ok) {
-    throw new Error(`Resend send failed: ${res.status} ${await res.text()}`);
-  }
 }

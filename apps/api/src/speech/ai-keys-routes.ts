@@ -7,6 +7,8 @@ import { db } from "../db/client.js";
 import { isCredentialsEncryptionConfigured } from "../lib/crypto.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { hasTable } from "../lib/schema.js";
+import { nextRotationAt } from "../lib/key-rotation.js";
+import { getSetting, setSetting } from "../lib/settings.js";
 import { addKeys, getKeyMode, getKeyRow, listKeys, removeKey, resetKey, setKeyMode, setMaster, setProjectTag, testKey } from "./ai-keys.js";
 
 /** Admin management of the Google AI Studio keys — see ./ai-keys.ts. Gated like
@@ -15,8 +17,12 @@ export const aiKeyRoutes = new Hono();
 const gate = [requireAuth, requireRole("admin"), requirePermission("settings.manage")] as const;
 
 async function overview() {
+  const mode = await getKeyMode();
+  const rotationSeconds = Number(await getSetting("gemini_rotation_seconds"));
   return {
-    mode: await getKeyMode(),
+    mode,
+    rotationSeconds,
+    nextRotationAt: mode === "test" ? nextRotationAt(rotationSeconds) : null,
     keys: await listKeys(),
     tableReady: await hasTable("ai_api_keys"),
     encryptionConfigured: isCredentialsEncryptionConfigured(),
@@ -25,6 +31,15 @@ async function overview() {
 }
 
 aiKeyRoutes.get("/admin/ai-keys", ...gate, async (c) => c.json(await overview()));
+
+aiKeyRoutes.put("/admin/ai-keys-rotation", ...gate, async (c) => {
+  const parsed = z.object({ rotationSeconds: z.number().int().min(0).max(86400) }).safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body" }, 400);
+  const before = Number(await getSetting("gemini_rotation_seconds"));
+  await setSetting("gemini_rotation_seconds", String(parsed.data.rotationSeconds));
+  await logActivity({ actor: c.get("user"), action: "ai_keys.rotation", entityType: "settings", summary: `Google AI rotation interval: ${parsed.data.rotationSeconds} seconds`, before: { rotationSeconds: before }, after: parsed.data, ip: clientIp(c) });
+  return c.json(await overview());
+});
 
 const addSchema = z.object({
   keys: z.array(z.object({ label: z.string().trim().max(60).optional(), key: z.string().max(200), projectTag: z.string().trim().max(60).optional() })).min(1).max(100),

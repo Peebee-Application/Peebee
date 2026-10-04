@@ -54,7 +54,7 @@ export async function createAndSendOtp(
     args: [newId("otp"), userId, channel, target, codeHash, expiresAt, purpose, linkTokenHash],
   });
 
-  if (channel === "email" && isResendConfigured()) {
+  if (channel === "email" && await isResendConfigured()) {
     const verifyLink = linkToken
       ? `${process.env.PUBLIC_API_URL ?? "https://tuma-api.doxalight-inc.workers.dev"}/v1/auth/verify/confirm-link?token=${linkToken}`
       : undefined;

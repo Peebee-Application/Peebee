@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { db } from "../db/client.js";
 import { decryptSecret, encryptSecret } from "../lib/crypto.js";
 import { newId } from "../lib/ids.js";
+import { timedOrder } from "../lib/key-rotation.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
 import { getSetting, setSetting } from "../lib/settings.js";
 
@@ -285,9 +286,12 @@ export async function withGeminiKey<T>(model: string, use: (apiKey: string) => P
   }
 
   // Test mode: the master key is kept for paid mode and never burned here.
-  const pool = rows
-    .filter((r) => Number(r.is_master) !== 1 && ready(r))
-    .sort((a, b) => String(a.last_used_at ?? "").localeCompare(String(b.last_used_at ?? "")));
+  const rotationSeconds = Number(await getSetting("gemini_rotation_seconds"));
+  const testRows = rows.filter((r) => Number(r.is_master) !== 1);
+  const pool = (rotationSeconds > 0
+    ? timedOrder(testRows, rotationSeconds, now)
+    : testRows.sort((a, b) => String(a.last_used_at ?? "").localeCompare(String(b.last_used_at ?? ""))))
+    .filter(ready);
   if (pool.length === 0) {
     const next = (await listKeys())
       .filter((k) => !k.isMaster && k.enabled)

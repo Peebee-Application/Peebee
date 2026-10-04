@@ -421,6 +421,8 @@ export type AiKey = {
 export type AiKeyMode = "test" | "paid";
 export type AiKeysOverview = {
   mode: AiKeyMode;
+  rotationSeconds: number;
+  nextRotationAt: string | null;
   keys: AiKey[];
   /** False until migration 0074_ai_api_keys.sql is applied. */
   tableReady: boolean;
@@ -429,6 +431,39 @@ export type AiKeysOverview = {
   envKeyPresent: boolean;
 };
 export type AiKeyAddResult = { label: string; hint: string; status: "added" | "duplicate" | "rejected"; detail?: string };
+
+export type EmailKey = {
+  id: string;
+  label: string;
+  hint: string;
+  accountTag: string;
+  fromAddress: string;
+  enabled: boolean;
+  isLive: boolean;
+  status: "ready" | "cooling" | "disabled";
+  cooldownUntil: string | null;
+  cooldownReason: string | null;
+  windowUsed: number;
+  useCount: number;
+  failCount: number;
+  lastUsedAt: string | null;
+  lastError: string | null;
+};
+export type EmailKeySettings = {
+  mode: "live" | "test";
+  rotationSeconds: number;
+  windowRequests: number;
+  windowSeconds: number;
+  quotaRetrySeconds: number;
+};
+export type EmailKeysOverview = EmailKeySettings & {
+  keys: EmailKey[];
+  tableReady: boolean;
+  encryptionConfigured: boolean;
+  envKeyPresent: boolean;
+  activeKeyId: string | null;
+  nextRotationAt: string | null;
+};
 
 /** Rider Stage Savings Circles — a VSLA-style group savings/loans feature.
  * See apps/api/src/stages/routes.ts and apps/api/src/lib/settings.ts

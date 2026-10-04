@@ -16,65 +16,12 @@ function Badge({ children, tone }: { children: React.ReactNode; tone: "gold" | "
   return <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${cls}`}>{children}</span>;
 }
 
-export default function AiKeysPage() {
-  const [data, setData] = useState<AiKeysOverview | null>(null);
-  const [text, setText] = useState("");
-  const [projectTag, setProjectTag] = useState("");
-  const [results, setResults] = useState<AiKeyAddResult[]>([]);
-  const [note, setNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    api
-      .adminAiKeys()
-      .then(setData)
-      .catch((err) => setError(errorMessage(err)))
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function run<T extends AiKeysOverview>(action: () => Promise<T>, after?: (res: T) => void) {
-    setBusy(true);
-    setError(null);
-    setNote(null);
-    try {
-      const res = await action();
-      setData(res);
-      after?.(res);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function add() {
-    // One key per line; "Label: key" or just the key.
-    const entries = text
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .map((l) => {
-        const named = /^(.{1,60}?)\s*:\s*(\S+)$/.exec(l);
-        const tag = projectTag.trim() || undefined;
-        return named ? { label: named[1], key: named[2], projectTag: tag } : { key: l, projectTag: tag };
-      });
-    if (entries.length === 0) return;
-    void run(
-      () => api.adminAddAiKeys(entries),
-      (res) => {
-        setResults(res.results);
-        if (res.results.every((r) => r.status !== "rejected")) setText("");
-      },
-    );
-  }
-
-  const master = data?.keys.find((k) => k.isMaster);
-  const testKeys = data?.keys.filter((k) => !k.isMaster) ?? [];
-  const readyTest = testKeys.filter((k) => k.status === "ready").length;
-
-  function KeyRow({ k }: { k: AiKey }) {
+function KeyRow({ k, busy, run, setNote }: {
+  k: AiKey;
+  busy: boolean;
+  run: <T extends AiKeysOverview>(action: () => Promise<T>, after?: (result: T) => void) => Promise<void>;
+  setNote: (note: string | null) => void;
+}) {
     return (
       <div className="space-y-2 rounded-xl border border-[var(--border-faint)] p-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -156,6 +103,66 @@ export default function AiKeysPage() {
     );
   }
 
+export default function AiKeysPage() {
+  const [data, setData] = useState<AiKeysOverview | null>(null);
+  const [text, setText] = useState("");
+  const [projectTag, setProjectTag] = useState("");
+  const [results, setResults] = useState<AiKeyAddResult[]>([]);
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [rotationSeconds, setRotationSeconds] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .adminAiKeys()
+      .then((res) => { setData(res); setRotationSeconds(res.rotationSeconds); })
+      .catch((err) => setError(errorMessage(err)))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function run<T extends AiKeysOverview>(action: () => Promise<T>, after?: (res: T) => void) {
+    setBusy(true);
+    setError(null);
+    setNote(null);
+    try {
+      const res = await action();
+      setData(res);
+      after?.(res);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function add() {
+    // One key per line; "Label: key" or just the key.
+    const entries = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => {
+        const named = /^(.{1,60}?)\s*:\s*(\S+)$/.exec(l);
+        const tag = projectTag.trim() || undefined;
+        return named ? { label: named[1], key: named[2], projectTag: tag } : { key: l, projectTag: tag };
+      });
+    if (entries.length === 0) return;
+    void run(
+      () => api.adminAddAiKeys(entries),
+      (res) => {
+        setResults(res.results);
+        if (res.results.every((r) => r.status !== "rejected")) setText("");
+      },
+    );
+  }
+
+  const master = data?.keys.find((k) => k.isMaster);
+  const testKeys = data?.keys.filter((k) => !k.isMaster) ?? [];
+  const readyTest = testKeys.filter((k) => k.status === "ready").length;
+
+
   return (
     <SettingsPageShell title="Google AI keys" loading={loading}>
       {data && (
@@ -189,18 +196,24 @@ export default function AiKeysPage() {
                   onClick={() => void run(() => api.adminSetAiKeyMode(m))}
                   className={`min-h-11 rounded-full text-sm font-bold ${data.mode === m ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}
                 >
-                  {m === "test" ? "Test (free keys)" : "Paid"}
+                  {m === "test" ? "Testing" : "Live (master key)"}
                 </button>
               ))}
             </div>
             <p className="text-xs text-ink-500">
               {data.mode === "test"
-                ? `Test mode rotates through every test key automatically. When one runs out of its per-minute or daily limit for a model it is set aside for that model and the next takes over. A per-minute limit returns within about a minute; a daily limit returns at midnight Pacific time (10:00 am Uganda time in summer, 11:00 am in winter). ${readyTest} of ${testKeys.length} test key${testKeys.length === 1 ? "" : "s"} ready now. The master key is never used in test mode.`
+                ? `Testing mode ${data.rotationSeconds > 0 ? `switches keys every ${data.rotationSeconds} seconds` : "rotates keys on each request"}. When a key reaches a model's quota it is set aside and the next takes over. ${readyTest} of ${testKeys.length} test keys ready now. The master key is reserved for live mode.`
                 : master
-                  ? `Paid mode uses only the master key (${master.label}, ${master.hint}). No rotation.`
-                  : "Paid mode needs a master key."}
+                  ? `Live mode uses only the master key (${master.label}, ${master.hint}). No rotation.`
+                  : "Live mode needs a master key."}
             </p>
-            {data.mode === "test" && !master && <p className="text-xs text-ink-500">Tip: mark the key you&apos;ll pay for as master now, so switching to paid later is one tap.</p>}
+            <p className="text-xs text-ink-500">API mode is separate from platform live/sandbox mode. Both modes make real Google requests; billing follows the key&apos;s project.</p>
+            <label className="block text-xs font-bold text-ink">Rotate testing keys every (seconds)
+              <input type="number" min={0} max={86400} step={1} value={rotationSeconds} onChange={(e) => setRotationSeconds(Number(e.target.value))} className="mt-1 w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm outline-none focus:border-gold" />
+            </label>
+            <p className="text-xs text-ink-500">0 rotates on each request. A timed interval keeps using the scheduled key until the next slot, with immediate fallback on quota errors.</p>
+            {data.nextRotationAt && <p className="text-xs text-ink-500">Next scheduled switch: {when(data.nextRotationAt)}</p>}
+            <button type="button" disabled={busy || !data.tableReady || !Number.isInteger(rotationSeconds) || rotationSeconds < 0 || rotationSeconds > 86400} onClick={() => void run(() => api.adminSetAiKeyRotation(rotationSeconds), (res) => { setRotationSeconds(res.rotationSeconds); setNote("Rotation timer saved."); })} className="min-h-11 w-full rounded-full bg-gold text-sm font-bold text-ink-gold disabled:opacity-50">Save rotation timer</button>
           </section>
 
           <p className="rounded-lg bg-gold/15 px-3 py-2 text-xs text-ink">
@@ -247,7 +260,7 @@ export default function AiKeysPage() {
 
           <section className="space-y-2">
             <h2 className="text-sm font-bold text-ink">Master key</h2>
-            {master ? <KeyRow k={master} /> : <p className="text-xs text-ink-500">None yet. Pick one from the list below with &ldquo;Make master&rdquo;.</p>}
+            {master ? <KeyRow k={master} busy={busy} run={run} setNote={setNote} /> : <p className="text-xs text-ink-500">None yet. Pick one from the list below with &ldquo;Make master&rdquo;.</p>}
           </section>
 
           <section className="space-y-2">
@@ -257,7 +270,7 @@ export default function AiKeysPage() {
                 No keys yet.{data.envKeyPresent ? " The GEMINI_API_KEY secret is being used for now." : " Add one above."}
               </p>
             ) : (
-              testKeys.map((k) => <KeyRow key={k.id} k={k} />)
+              testKeys.map((k) => <KeyRow key={k.id} k={k} busy={busy} run={run} setNote={setNote} />)
             )}
           </section>
         </div>
