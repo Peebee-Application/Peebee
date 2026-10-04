@@ -1,7 +1,7 @@
-const STATIC_CACHE = "peebee-admin-static-v3";
-const RUNTIME_CACHE = "peebee-admin-runtime-v3";
+const STATIC_CACHE = "peebee-admin-static-v4";
+const RUNTIME_CACHE = "peebee-admin-runtime-v4";
 const OFFLINE_URL = "/offline.html";
-const STATIC_ASSETS = ["/manifest.json", "/icons/icon-192.png?v=official-1", "/icons/icon-512.png?v=official-1", OFFLINE_URL];
+const STATIC_ASSETS = ["/manifest.json", "/icons/icon-192.png?v=opaque-2", "/icons/icon-512.png?v=opaque-2", OFFLINE_URL];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_ASSETS)));

@@ -1,13 +1,13 @@
-const STATIC_CACHE = "peebee-merchant-static-v3";
+const STATIC_CACHE = "peebee-merchant-static-v4";
 const OFFLINE_URL = "/offline.html";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
-  "/brand/peebee-logo-light.png",
-  "/brand/peebee-logo-dark.png",
-  "/icons/icon-192.png?v=official-1",
-  "/icons/icon-512.png?v=official-1",
-  "/icons/apple-touch-icon.png?v=official-1",
-  "/icons/favicon-32.png?v=official-1",
+  "/brand/peebee-logo-light.png?v=opaque-2",
+  "/brand/peebee-logo-dark.png?v=opaque-2",
+  "/icons/icon-192.png?v=opaque-2",
+  "/icons/icon-512.png?v=opaque-2",
+  "/icons/apple-touch-icon.png?v=opaque-2",
+  "/icons/favicon-32.png?v=opaque-2",
   OFFLINE_URL,
 ];
 
