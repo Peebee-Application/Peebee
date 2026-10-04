@@ -16,9 +16,9 @@ import Link from "next/link";
 import { SiteFooter } from "../components/SiteFooter";
 import { ThemeModeToggle } from "../components/ThemeModeToggle";
 
-const CUSTOMER_APP_URL = "https://customer.tumaffe.online";
-const RIDER_APP_URL = "https://rider.tumaffe.online";
-const RESTAURANT_APP_URL = "https://restaurant.tumaffe.online";
+const CUSTOMER_APP_URL = "https://customer.peebee.online";
+const RIDER_APP_URL = "https://rider.peebee.online";
+const RESTAURANT_APP_URL = "https://restaurant.peebee.online";
 
 const SERVICES = [
   {
