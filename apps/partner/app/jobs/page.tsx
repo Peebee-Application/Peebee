@@ -1,5 +1,7 @@
 "use client";
 
+import { observeNotificationSnapshot } from "@peebee/shared";
+
 import type { CarDriverJob } from "@peebee/shared";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -16,7 +18,10 @@ export default function JobsPage() {
   const [error, setError] = useState("");
 
   const load = useCallback(() => {
-    api.carDriverJobs().then((r) => setJobs(r.jobs)).catch((err) => setError(errorMessage(err)));
+    api.carDriverJobs().then((r) => {
+      observeNotificationSnapshot("car-jobs", r.jobs.map((job) => job.id));
+      setJobs(r.jobs);
+    }).catch((err) => setError(errorMessage(err)));
   }, []);
   useEffect(() => {
     load();

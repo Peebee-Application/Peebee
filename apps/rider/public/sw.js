@@ -1,7 +1,7 @@
-const STATIC_CACHE = "peebee-driver-static-v4";
-const RUNTIME_CACHE = "peebee-driver-runtime-v4";
+const STATIC_CACHE = "peebee-driver-static-v5";
+const RUNTIME_CACHE = "peebee-driver-runtime-v5";
 const OFFLINE_URL = "/offline.html";
-const STATIC_ASSETS = ["/manifest.json", "/icons/icon-192.png?v=opaque-2", "/icons/icon-512.png?v=opaque-2", OFFLINE_URL];
+const STATIC_ASSETS = ["/sounds/notification.mp3", "/manifest.json", "/icons/icon-192.png?v=opaque-2", "/icons/icon-512.png?v=opaque-2", OFFLINE_URL];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_ASSETS)));
@@ -113,49 +113,40 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// A push arrives as an opaque encrypted blob the browser has already
-// decrypted for us by the time this fires — showNotification() is what
-// actually produces the popup + system notification sound on the phone.
+
+// Web push retains the device's notification sound. A visible app plays
+// its own MP3; service workers cannot play audio while the app is closed.
 self.addEventListener("push", (event) => {
   let data = {};
-  try {
-    data = event.data ? event.data.json() : {};
-  } catch {
-    // Non-JSON payload — fall back to the defaults below.
-  }
-  const title = data.title || "Peebee";
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body: data.body || "You have a new message",
+  try { data = event.data ? event.data.json() : {}; } catch {}
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(data.title || "Peebee", {
+      body: data.body || "You have a new notification",
       icon: "/icons/icon-192.png?v=opaque-2",
       badge: "/icons/icon-192.png?v=opaque-2",
-      tag: data.tag || "peebee-chat",
+      tag: data.tag || "peebee-alert",
       data: { url: data.url || "/" },
     }),
-  );
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const visible = clients.filter((client) => client.visibilityState === "visible");
+      const target = visible.find((client) => client.focused) || visible[0];
+      target?.postMessage({ type: "peebee-notification" });
+    }),
+  ]));
 });
 
-// Tapping the notification should land on the actual conversation, reusing
-// an already-open tab rather than stacking a new one.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || "/";
-  event.waitUntil(
-    (async () => {
-      const allClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      for (const client of allClients) {
-        if ("focus" in client) {
-          if ("navigate" in client) {
-            try {
-              await client.navigate(targetUrl);
-            } catch {
-              // Some browsers refuse cross-origin navigate; focusing is still useful.
-            }
-          }
-          return client.focus();
-        }
+  const targetUrl = new URL(event.notification.data?.url || "/", self.location.origin);
+  if (targetUrl.origin !== self.location.origin) return;
+  event.waitUntil((async () => {
+    const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const client of clients) {
+      if ("focus" in client) {
+        if ("navigate" in client) await client.navigate(targetUrl.href).catch(() => {});
+        return client.focus();
       }
-      return self.clients.openWindow(targetUrl);
-    })(),
-  );
+    }
+    return self.clients.openWindow(targetUrl.href);
+  })());
 });

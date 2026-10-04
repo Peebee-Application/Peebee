@@ -1,5 +1,7 @@
 "use client";
 
+import { observeNotificationSnapshot } from "@peebee/shared";
+
 import type { ChatMessage } from "@peebee/shared";
 import { Send } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -14,9 +16,12 @@ export function RideChat({ orderId, myId }: { orderId: string; myId: string }) {
   const endRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
-    api.getChat(orderId).then((r) => setMessages(r.messages)).catch(() => undefined);
+    api.getChat(orderId).then((r) => {
+      observeNotificationSnapshot("ride-chat:" + orderId, r.messages.filter((m) => m.sender_id !== myId && !m.deleted_at).map((m) => m.id));
+      setMessages(r.messages);
+    }).catch(() => undefined);
     api.markChatRead(orderId).catch(() => undefined);
-  }, [orderId]);
+  }, [orderId, myId]);
   useEffect(() => {
     load();
     const timer = window.setInterval(load, 4000);

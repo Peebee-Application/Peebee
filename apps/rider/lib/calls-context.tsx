@@ -1,5 +1,7 @@
 "use client";
 
+import { playNotificationSound } from "@peebee/shared";
+
 import { CallEngine, type CallEngineState } from "@peebee/shared";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { api } from "./api";
@@ -45,7 +47,10 @@ export function CallsProvider({ children }: { children: React.ReactNode }) {
       api
         .getIncomingCall()
         .then((res) => {
-          if (res.call) engineRef.current?.presentIncoming(res.call);
+          if (res.call) {
+            playNotificationSound();
+            engineRef.current?.presentIncoming(res.call);
+          }
         })
         .catch(() => {});
     }, IDLE_POLL_MS);

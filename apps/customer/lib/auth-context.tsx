@@ -1,5 +1,7 @@
 "use client";
 
+import { resetNotificationSnapshots } from "@peebee/shared";
+
 import type { AuthUser } from "@peebee/shared";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, TOKEN_KEY, USER_KEY } from "./api";
@@ -35,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const persist = useCallback((token: string, nextUser: AuthUser) => {
+    resetNotificationSnapshots();
     window.localStorage.setItem(TOKEN_KEY, token);
     window.localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
     setUser(nextUser);
@@ -63,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    resetNotificationSnapshots();
     // Order matters: this call reads the token out of local storage to
     // authenticate itself, so it has to be started before the token is
     // removed. Signing out doesn't wait on it or fail with it — the local

@@ -1,6 +1,6 @@
-const STATIC_CACHE = "peebee-merchant-static-v4";
+const STATIC_CACHE = "peebee-merchant-static-v5";
 const OFFLINE_URL = "/offline.html";
-const STATIC_ASSETS = [
+const STATIC_ASSETS = ["/sounds/notification.mp3",
   "/manifest.webmanifest",
   "/brand/peebee-logo-light.png?v=opaque-2",
   "/brand/peebee-logo-dark.png?v=opaque-2",
@@ -39,4 +39,41 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).catch(async () => (await caches.match(request)) || (await caches.match(OFFLINE_URL))));
   }
+});
+
+// Web push retains the device's notification sound. A visible app plays
+// its own MP3; service workers cannot play audio while the app is closed.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch {}
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(data.title || "Peebee", {
+      body: data.body || "You have a new notification",
+      icon: "/icons/icon-192.png?v=opaque-2",
+      badge: "/icons/icon-192.png?v=opaque-2",
+      tag: data.tag || "peebee-alert",
+      data: { url: data.url || "/" },
+    }),
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const visible = clients.filter((client) => client.visibilityState === "visible");
+      const target = visible.find((client) => client.focused) || visible[0];
+      target?.postMessage({ type: "peebee-notification" });
+    }),
+  ]));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || "/", self.location.origin);
+  if (targetUrl.origin !== self.location.origin) return;
+  event.waitUntil((async () => {
+    const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const client of clients) {
+      if ("focus" in client) {
+        if ("navigate" in client) await client.navigate(targetUrl.href).catch(() => {});
+        return client.focus();
+      }
+    }
+    return self.clients.openWindow(targetUrl.href);
+  })());
 });
