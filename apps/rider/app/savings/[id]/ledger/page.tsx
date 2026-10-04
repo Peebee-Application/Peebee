@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { StageDetail, StageTransaction } from "@peebee/shared";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -116,9 +118,9 @@ export default function StageLedgerPage() {
                 For a transaction that actually happened but was never recorded — e.g. a contribution the treasurer
                 forgot to confirm.
               </p>
-              <select
+              <Select aria-label="Adjustment type"
                 value={reconcileType}
-                onChange={(e) => setReconcileType(e.target.value as StageTransaction["type"])}
+                onValueChange={(value) => setReconcileType(value as StageTransaction["type"])}
                 className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm outline-none focus:border-gold"
               >
                 {RECONCILE_TYPES.map((t) => (
@@ -126,10 +128,10 @@ export default function StageLedgerPage() {
                     {TYPE_LABEL[t]}
                   </option>
                 ))}
-              </select>
-              <select
+              </Select>
+              <Select aria-label="Member to adjust"
                 value={reconcileMemberId}
-                onChange={(e) => setReconcileMemberId(e.target.value)}
+                onValueChange={(value) => setReconcileMemberId(value)}
                 className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm outline-none focus:border-gold"
               >
                 <option value="">No specific member</option>
@@ -138,7 +140,7 @@ export default function StageLedgerPage() {
                     {m.name}
                   </option>
                 ))}
-              </select>
+              </Select>
               <input
                 inputMode="numeric"
                 value={reconcileAmount}

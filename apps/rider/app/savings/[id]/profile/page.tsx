@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import { UGANDA_DISTRICTS, type StageMemberProfile } from "@peebee/shared";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -97,10 +99,10 @@ export default function StageMemberProfilePage() {
           <label className="text-xs font-semibold text-ink-500" htmlFor="district">
             District
           </label>
-          <select
+          <Select
             id="district"
             value={district}
-            onChange={(e) => setDistrict(e.target.value)}
+            onValueChange={(value) => setDistrict(value)}
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
           >
             <option value="">Select a district…</option>
@@ -109,24 +111,24 @@ export default function StageMemberProfilePage() {
                 {d}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div className="space-y-1">
           <label className="text-xs font-semibold text-ink-500" htmlFor="gender">
             Gender
           </label>
-          <select
+          <Select
             id="gender"
             value={gender}
-            onChange={(e) => setGender(e.target.value as "" | "male" | "female" | "other")}
+            onValueChange={(value) => setGender(value as "" | "male" | "female" | "other")}
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
           >
             <option value="">Select…</option>
             <option value="male">Male</option>
             <option value="female">Female</option>
             <option value="other">Other</option>
-          </select>
+          </Select>
         </div>
 
         <div className="space-y-1">
@@ -159,16 +161,16 @@ export default function StageMemberProfilePage() {
           <label className="text-xs font-semibold text-ink-500" htmlFor="literate">
             Can read and write?
           </label>
-          <select
+          <Select
             id="literate"
             value={literate}
-            onChange={(e) => setLiterate(e.target.value as "" | "0" | "1")}
+            onValueChange={(value) => setLiterate(value as "" | "0" | "1")}
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
           >
             <option value="">Select…</option>
             <option value="1">Yes</option>
             <option value="0">No</option>
-          </select>
+          </Select>
         </div>
 
         <button

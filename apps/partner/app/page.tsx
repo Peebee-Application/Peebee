@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { CarDriverActive, CarOwnerRides } from "@peebee/shared";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -82,10 +84,10 @@ function DriverHome() {
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       {data?.active && <ActiveRide ride={data.active} onChange={load} />}
       {!me.online && me.assignedVehicles.length > 1 && (
-        <select value={vehicleChoice} onChange={(e) => setVehicleChoice(e.target.value)} aria-label="Which car" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3">
+        <Select value={vehicleChoice} onValueChange={(value) => setVehicleChoice(value)} aria-label="Which car" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3">
           <option value="">Pick the car you&apos;re driving…</option>
           {me.assignedVehicles.map((v) => <option key={v.id} value={v.id}>{v.plate} · {v.category_name}</option>)}
-        </select>
+        </Select>
       )}
       <button
         disabled={busy || !vehicle}

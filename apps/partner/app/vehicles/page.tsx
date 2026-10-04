@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { CarCategory, OwnerDeals } from "@peebee/shared";
 import { Camera, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -212,12 +214,12 @@ export default function VehiclesPage() {
 
       <form onSubmit={add} className="home-card space-y-3">
         <h2 className="font-bold">Put a vehicle up for service</h2>
-        <select required value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={field} aria-label="Vehicle type">
+        <Select required value={categoryId} onValueChange={(value) => setCategoryId(value)} className={field} aria-label="Vehicle type">
           <option value="">Vehicle type…</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>{c.name}{c.kind === "passenger" && c.seats ? ` (${c.seats} seats)` : ""}</option>
           ))}
-        </select>
+        </Select>
         <input required value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="Number plate" className={field} />
         <div className="grid grid-cols-2 gap-3">
           <input value={make} onChange={(e) => setMake(e.target.value)} placeholder="Make" className={field} />

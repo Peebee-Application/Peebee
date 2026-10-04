@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import { useEffect, useState } from "react";
 import type { TimeFeeSettings } from "@peebee/shared";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
@@ -112,14 +114,14 @@ export default function DeliveryPricingPage() {
                       {kind === "cancellation" ? "Cancellation fee" : "Waiting fee"}
                     </label>
                     <div className="grid grid-cols-2 gap-2">
-                      <select
+                      <Select aria-label={`${kind === "cancellation" ? "Cancellation" : "Waiting"} fee type`}
                         value={timeFees[typeKey]}
-                        onChange={(e) => setTimeFees({ ...timeFees, [typeKey]: e.target.value as "flat" | "percent" })}
+                        onValueChange={(value) => setTimeFees({ ...timeFees, [typeKey]: value as "flat" | "percent" })}
                         className="rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm"
                       >
                         <option value="flat">Flat UGX</option>
                         <option value="percent">Fare percentage</option>
-                      </select>
+                      </Select>
                       <input
                         inputMode="decimal"
                         value={timeFees[valueKey]}

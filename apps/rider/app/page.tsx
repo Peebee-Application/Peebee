@@ -1,10 +1,12 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import { observeNotificationSnapshot } from "@peebee/shared";
 
 import type { AvailableJob, OrderRow, Rider } from "@peebee/shared";
 import { isRiderProfileComplete } from "@peebee/shared";
-import { Bike, ChevronDown, ChevronRight, MapPin, Package, ShoppingCart, TriangleAlert, Utensils } from "lucide-react";
+import { Bike, ChevronRight, MapPin, Package, ShoppingCart, TriangleAlert, Utensils } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -205,17 +207,16 @@ export default function JobsHomePage() {
           <h2 className="text-xl font-bold tracking-tight text-ink">{t("home_available_jobs")}</h2>
           {rider?.is_online && availableJobs.length > 0 && (
             <span className="relative max-w-full">
-              <select
+              <Select
                 aria-label={t("home_sort")}
                 value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as SortOrder)}
-                className="min-h-12 w-32 max-w-full appearance-none text-ellipsis rounded-full border border-[var(--border-faint)] py-2 pl-3 pr-9 text-sm font-medium text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold"
+                onValueChange={(value) => setSortOrder(value as SortOrder)}
+                className="min-h-12 w-32 max-w-full rounded-full border border-[var(--border-faint)] px-3 py-2 text-sm font-medium text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold"
               >
                 {(Object.keys(SORT_KEYS) as SortOrder[]).map((key) => (
                   <option key={key} value={key}>{key === "distance" ? t("home_nearest") : t(SORT_KEYS[key])}</option>
                 ))}
-              </select>
-              <ChevronDown aria-hidden className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
+              </Select>
             </span>
           )}
         </div>

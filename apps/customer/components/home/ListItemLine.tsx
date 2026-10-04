@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import { ArrowRight, Check, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslate, type TranslationKey } from "../../lib/i18n";
@@ -142,18 +144,19 @@ export function ListItemLine({
                 enterKeyHint="next"
                 className={field}
               />
-              <select
+              <Select
                 value={item.unit}
-                onChange={(e) => onChange({ unit: e.target.value as Unit })}
+                displayValue={UNIT_ABBR[item.unit] || t("unit_pcs")}
+                onValueChange={(value) => onChange({ unit: value as Unit })}
                 aria-label={t("list_unit_label")}
-                className="w-[4.5rem] shrink-0 py-1.5 text-sm font-semibold text-ink outline-none"
+                className="w-[5.5rem] shrink-0 py-1.5 text-sm font-semibold text-ink outline-none"
               >
                 {(Object.keys(UNIT_KEYS) as Unit[]).map((u) => (
                   <option key={u} value={u}>
                     {t(UNIT_KEYS[u])}
                   </option>
                 ))}
-              </select>
+              </Select>
             </>
           ) : (
             <button type="button" onClick={() => onChange({ stage: 1 })} className={chip}>

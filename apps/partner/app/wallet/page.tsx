@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { CarWallet, SavedMobileNumber } from "@peebee/shared";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
@@ -104,9 +106,9 @@ export default function WalletPage() {
         <form onSubmit={withdraw} className="home-card space-y-3">
           <h2 className="font-bold">Cash out</h2>
           {numbers.length > 1 && (
-            <select value={numberId} onChange={(e) => setNumberId(e.target.value)} className={field} aria-label="Mobile money number">
+            <Select value={numberId} onValueChange={(value) => setNumberId(value)} className={field} aria-label="Mobile money number">
               {numbers.map((n) => <option key={n.id} value={n.id}>{n.phone}</option>)}
-            </select>
+            </Select>
           )}
           {numbers.length === 1 && <p className="text-xs text-ink-500">To {numbers[0].phone}</p>}
           <input

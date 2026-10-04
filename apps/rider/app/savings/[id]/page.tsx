@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { StageDetail } from "@peebee/shared";
 import { MessageCircle } from "lucide-react";
 import Link from "next/link";
@@ -298,10 +300,10 @@ export default function StageDetailPage() {
               Transfer group admin to
             </label>
             <div className="flex gap-2">
-              <select
+              <Select
                 id="transfer-target"
                 value={transferTarget}
-                onChange={(e) => setTransferTarget(e.target.value)}
+                onValueChange={(value) => setTransferTarget(value)}
                 className="flex-1 rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-gold"
               >
                 <option value="">Choose a member…</option>
@@ -312,7 +314,7 @@ export default function StageDetailPage() {
                       {m.name}
                     </option>
                   ))}
-              </select>
+              </Select>
               <button
                 type="submit"
                 disabled={transferBusy || !transferTarget}

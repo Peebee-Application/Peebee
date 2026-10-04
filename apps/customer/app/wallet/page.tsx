@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { CustomerWallet, CustomerWalletSummary, WalletLedgerEntry, WalletShares, WalletUsageReport } from "@peebee/shared";
 import {
   ArrowDownLeft,
@@ -970,9 +972,9 @@ export default function WalletPage() {
         <form onSubmit={submitMoveFunds} className="space-y-3">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-ink-500">{t("wallet_from")}</label>
-            <select
+            <Select aria-label={t("wallet_from")}
               value={moveFrom}
-              onChange={(e) => setMoveFrom(e.target.value)}
+              onValueChange={(value) => setMoveFrom(value)}
               className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
             >
               {wallets.map((w) => (
@@ -980,13 +982,13 @@ export default function WalletPage() {
                   {w.name} · {formatUgx(w.balance)}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-ink-500">{t("wallet_to")}</label>
-            <select
+            <Select aria-label={t("wallet_to")}
               value={moveTo}
-              onChange={(e) => setMoveTo(e.target.value)}
+              onValueChange={(value) => setMoveTo(value)}
               className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
             >
               <option value="">{t("wallet_choose_wallet")}</option>
@@ -997,7 +999,7 @@ export default function WalletPage() {
                     {w.name}
                   </option>
                 ))}
-            </select>
+            </Select>
           </div>
           <input
             required

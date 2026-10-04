@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import { ADMIN_ROLE_DESCRIPTIONS, ADMIN_ROLE_LABELS, ADMIN_ROLES, type AdminRole, type StaffMember } from "@peebee/shared";
 import { KeyRound, Mail, Plus, ShieldOff, UserCheck, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -186,10 +188,10 @@ function StaffRow({ member, onChanged }: { member: StaffMember; onChanged: () =>
         </span>
       </div>
 
-      <select
+      <Select aria-label="Admin role"
         value={member.admin_role}
         disabled={busy || isSelf}
-        onChange={(e) => changeRole(e.target.value)}
+        onValueChange={(value) => changeRole(value)}
         className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm outline-none focus:border-gold disabled:opacity-60"
       >
         {ADMIN_ROLES.map((r) => (
@@ -197,7 +199,7 @@ function StaffRow({ member, onChanged }: { member: StaffMember; onChanged: () =>
             {ADMIN_ROLE_LABELS[r]}
           </option>
         ))}
-      </select>
+      </Select>
 
       <div className="flex items-center gap-3 text-xs text-ink-500">
         <span>Invited {formatDate(member.invited_at)}</span>

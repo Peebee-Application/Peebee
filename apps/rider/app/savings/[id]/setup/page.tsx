@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { StageDetail, StageMemberRole } from "@peebee/shared";
 import { Check } from "lucide-react";
 import Link from "next/link";
@@ -115,10 +117,10 @@ export default function StageSetupPage() {
           {detail.members.map((m) => (
             <div key={m.rider_id} className="flex items-center justify-between gap-2">
               <span className="min-w-0 flex-1 truncate text-sm text-ink">{m.name}</span>
-              <select
+              <Select aria-label={`Role for ${m.name}`}
                 value={m.role}
                 disabled={roleBusyId === m.rider_id}
-                onChange={(e) => assignRole(m.rider_id, e.target.value as StageMemberRole)}
+                onValueChange={(value) => assignRole(m.rider_id, value as StageMemberRole)}
                 className="rounded-lg border border-[var(--border-faint)] px-2 py-1 text-xs font-semibold capitalize text-ink outline-none focus:border-gold disabled:opacity-60"
               >
                 {ROLE_OPTIONS.map((r) => (
@@ -126,7 +128,7 @@ export default function StageSetupPage() {
                     {r.replace("_", " ")}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           ))}
           <p className="text-[11px] text-ink-500">

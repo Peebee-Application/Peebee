@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import {
   hasPermission,
   type VslaAdminLedgerVisibility,
@@ -208,14 +210,14 @@ export default function StageSavingsSettingsPage() {
 
         <section className="home-card space-y-3">
           <h2 className="text-sm font-semibold text-ink">Who can confirm cash received</h2>
-          <select
+          <Select aria-label="Contribution recorder role"
             value={contributionRecorderRole}
-            onChange={(e) => setContributionRecorderRole(e.target.value as VslaContributionRecorderRole)}
+            onValueChange={(value) => setContributionRecorderRole(value as VslaContributionRecorderRole)}
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
           >
             <option value="any_officer">Any elected officer</option>
             <option value="treasurer_only">Treasurer only</option>
-          </select>
+          </Select>
 
           <label className="flex items-start gap-2.5 pt-2">
             <input
@@ -249,14 +251,14 @@ export default function StageSavingsSettingsPage() {
 
         <section className="home-card space-y-3">
           <h2 className="text-sm font-semibold text-ink">Admin visibility</h2>
-          <select
+          <Select aria-label="Administrator ledger visibility"
             value={adminLedgerVisibility}
-            onChange={(e) => setAdminLedgerVisibility(e.target.value as VslaAdminLedgerVisibility)}
+            onValueChange={(value) => setAdminLedgerVisibility(value as VslaAdminLedgerVisibility)}
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
           >
             <option value="read_only_all">Peebee admin can view every stage&apos;s ledger (read-only)</option>
             <option value="private_per_stage">Fully private — only each stage&apos;s own members can see it</option>
-          </select>
+          </Select>
           <p className="text-xs text-ink-500">
             Read-only visibility is for support and technical issues only — money disagreements between members
             stay inside the group.
@@ -265,16 +267,16 @@ export default function StageSavingsSettingsPage() {
 
         <section className="home-card space-y-3">
           <h2 className="text-sm font-semibold text-ink">Where it shows up in the rider app</h2>
-          <select
+          <Select aria-label="Feature placement"
             value={featurePlacement}
-            onChange={(e) => setFeaturePlacement(e.target.value as VslaFeaturePlacement)}
+            onValueChange={(value) => setFeaturePlacement(value as VslaFeaturePlacement)}
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
           >
             <option value="home_card_and_screen">A card on Home, plus its own screen</option>
             <option value="bottom_nav_tab">Its own bottom-nav tab</option>
             <option value="account_only">Tucked under Account</option>
             <option value="wallet_card">A card on Wallet, below the balance</option>
-          </select>
+          </Select>
         </section>
 
         <section className="home-card space-y-3">
