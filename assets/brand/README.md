@@ -3,7 +3,7 @@
 The original files supplied by the owner are preserved here unchanged:
 
 - `logo-light.jpg`: light theme, favicon, and installed app icon.
-- `logo-dark.png`: dark theme logo.
+- `logo-dark.jpg`: dark theme logo.
 
 Each frontend publishes 256px PNG versions for its themed logo. Headers render
 the symbol with the text **Peebee** on its right; authentication screens render
@@ -14,3 +14,9 @@ The light logo also supplies the 32px favicon, 180px Apple touch icon, and
 192px/512px app icons, preserving its square background and original proportions.
 Icon URL versions and the service-worker cache version change together so
 existing installations can fetch updated artwork.
+
+All PNG exports are RGB images without an alpha channel. The dark source is the
+opaque black-background image supplied as the correction. To regenerate all
+exports on Windows, run `powershell -File assets/brand/export-icons.ps1` from the
+repository root. The exporter clamps resizing at image edges to avoid introducing
+transparent pixels around an otherwise opaque image.
