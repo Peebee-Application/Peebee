@@ -1,10 +1,11 @@
 {
-  "name": "tuma-rider",
+  "account_id": "5b3ae942adb5457f1fa4d7f5effbf3ff",
+  "name": "peebee-rider",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-09-12",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
-  "routes": [{ "pattern": "rider.tumaffe.online", "custom_domain": true }],
+  "routes": [{ "pattern": "rider.peebee.online", "custom_domain": true }],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"

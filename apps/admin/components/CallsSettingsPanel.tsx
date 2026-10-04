@@ -1,6 +1,6 @@
 "use client";
 
-import type { CallCredentialFieldStatus, CallProviderIdentity, CallsAdminSettings } from "@tuma/shared";
+import type { CallCredentialFieldStatus, CallProviderIdentity, CallsAdminSettings } from "@peebee/shared";
 import { Phone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../lib/api";

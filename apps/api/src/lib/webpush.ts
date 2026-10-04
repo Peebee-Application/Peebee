@@ -3,7 +3,7 @@ import { db } from "../db/client.js";
 
 /** Contact the push services can reach if a subscription is misbehaving —
  * required by the VAPID spec, doesn't need to be a monitored inbox. */
-const VAPID_CONTACT = "mailto:support@tumaffe.online";
+const VAPID_CONTACT = "mailto:support@peebee.online";
 
 let cachedKeys: ApplicationServerKeys | null = null;
 

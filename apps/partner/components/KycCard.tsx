@@ -8,7 +8,7 @@ import { compressImage } from "../lib/image-compress";
 type Kind = "national_id" | "licence";
 const LABEL: Record<Kind, string> = { national_id: "National ID", licence: "Driving licence" };
 
-/** Upload the identity documents Tuma needs before approving this profile. */
+/** Upload the identity documents Peebee needs before approving this profile. */
 export function KycCard({ mode }: { mode: PartnerMode }) {
   const { me, refreshMe } = useAuth();
   const [kyc, setKyc] = useState<{ ownerIdRequired: boolean; driverIdRequired: boolean; driverLicenceRequired: boolean } | null>(null);
@@ -45,7 +45,7 @@ export function KycCard({ mode }: { mode: PartnerMode }) {
     <section className="home-card space-y-3">
       <div>
         <p className="font-bold text-ink">Verify your identity</p>
-        <p className="text-xs text-ink-500">Tuma needs a clear photo of {needed.map((k) => LABEL[k]).join(" and ")} before approving your {mode} profile. Only you and Tuma staff can see it.</p>
+        <p className="text-xs text-ink-500">Peebee needs a clear photo of {needed.map((k) => LABEL[k]).join(" and ")} before approving your {mode} profile. Only you and Peebee staff can see it.</p>
       </div>
       {needed.map((kind) => (
         <label key={kind} className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[var(--border-faint)] p-3">

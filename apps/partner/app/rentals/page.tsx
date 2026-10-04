@@ -1,6 +1,6 @@
 "use client";
 
-import type { OwnerRentalVehicle, Rental } from "@tuma/shared";
+import type { OwnerRentalVehicle, Rental } from "@peebee/shared";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
@@ -97,7 +97,7 @@ export default function RentalsPage() {
               <button type="button" onClick={() => act(() => api.returnRental(r.id, claims[r.id] ? Number(claims[r.id]) : undefined))} className="min-h-10 w-full rounded-full bg-gold px-3 text-sm font-bold text-ink-gold">Car returned</button>
             </div>
           )}
-          {r.status === "disputed" && <p className="text-xs text-ink-500">Tuma is reviewing your damage claim of {ugx(r.damage_claim)}.</p>}
+          {r.status === "disputed" && <p className="text-xs text-ink-500">Peebee is reviewing your damage claim of {ugx(r.damage_claim)}.</p>}
           {r.status === "completed" && <p className="text-xs font-semibold text-ink">You received {ugx(r.owner_amount)}</p>}
         </section>
       ))}

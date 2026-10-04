@@ -1,7 +1,7 @@
 "use client";
 
-import type { CustomerWalletSummary, OrderDetail, WalletShareReceived } from "@tuma/shared";
-import { detectMobileMoneyNetwork, mobileMoneyNetworkLabel } from "@tuma/shared";
+import type { CustomerWalletSummary, OrderDetail, WalletShareReceived } from "@peebee/shared";
+import { detectMobileMoneyNetwork, mobileMoneyNetworkLabel } from "@peebee/shared";
 import { Banknote, Smartphone, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";

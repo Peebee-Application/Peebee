@@ -18,8 +18,8 @@ import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
 import { getDeliverySettings, getMatchingSettings, getMaxOrderValue, getPlatformEnvironment, isServiceEnabled } from "../lib/settings.js";
 import { servicePaused } from "../lib/service-gate.js";
-import type { MatchingMode } from "@tuma/shared";
-import { roundFare } from "@tuma/shared";
+import type { MatchingMode } from "@peebee/shared";
+import { roundFare } from "@peebee/shared";
 import { snapshotTimeFees } from "../orders/time-fees.js";
 
 export const customerRestaurantRoutes = new Hono();

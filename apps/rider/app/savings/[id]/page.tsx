@@ -1,6 +1,6 @@
 "use client";
 
-import type { StageDetail } from "@tuma/shared";
+import type { StageDetail } from "@peebee/shared";
 import { MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";

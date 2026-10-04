@@ -1,6 +1,6 @@
 "use client";
 
-import type { StageDetail, StageTransaction } from "@tuma/shared";
+import type { StageDetail, StageTransaction } from "@peebee/shared";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../../../lib/api";

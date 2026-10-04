@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdminCarBooking, AdminCarCategory, AdminCarPartner, AdminCarVehicle, AdminRental } from "@tuma/shared";
+import type { AdminCarBooking, AdminCarCategory, AdminCarPartner, AdminCarVehicle, AdminRental } from "@peebee/shared";
 import { useCallback, useEffect, useState } from "react";
 import { SettingsPageShell } from "../../../../components/SettingsPageShell";
 import { api, errorMessage } from "../../../../lib/api";
@@ -177,7 +177,7 @@ export default function CarFleetPage() {
               </p>
               {b.status === "completed" && (
                 <p className="text-xs text-ink-500">
-                  Owner {ugx(b.owner_amount)} · driver {ugx(b.driver_amount)} · Tuma {ugx(b.platform_amount)}
+                  Owner {ugx(b.owner_amount)} · driver {ugx(b.driver_amount)} · Peebee {ugx(b.platform_amount)}
                 </p>
               )}
             </li>
@@ -307,7 +307,7 @@ function Categories({ categories, act }: { categories: AdminCarCategory[]; act: 
         <div className="grid grid-cols-3 gap-3">
           <input inputMode="numeric" value={form.o} onChange={(e) => set({ o: digits(e.target.value) })} placeholder="Owner %" className={field} />
           <input inputMode="numeric" value={form.d} onChange={(e) => set({ d: digits(e.target.value) })} placeholder="Driver %" className={field} />
-          <input inputMode="numeric" value={form.p} onChange={(e) => set({ p: digits(e.target.value) })} placeholder="Tuma %" className={field} />
+          <input inputMode="numeric" value={form.p} onChange={(e) => set({ p: digits(e.target.value) })} placeholder="Peebee %" className={field} />
         </div>
         <label className="flex items-center gap-2 text-sm text-ink">
           <input type="checkbox" checked={form.active} onChange={(e) => set({ active: e.target.checked })} className="h-4 w-4 accent-gold" />

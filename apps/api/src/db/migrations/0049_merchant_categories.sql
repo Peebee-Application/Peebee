@@ -1,4 +1,4 @@
--- Public Tuma Merchant onboarding taxonomy.
+-- Public Peebee Merchant onboarding taxonomy.
 --
 -- Restaurants continue to use the dedicated Restaurant app. They may share
 -- the merchant ledger internally, but must never appear as a registration

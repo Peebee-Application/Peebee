@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatMessage, ListItem, OrderEvent, OrderRow } from "@tuma/shared";
+import type { ChatMessage, ListItem, OrderEvent, OrderRow } from "@peebee/shared";
 import {
   Ban,
   Camera,
@@ -783,7 +783,7 @@ export function OrderChat({ orderId, variant = "embedded" }: Props) {
       <PhotoProvider>
         <div className="flex min-h-0 flex-1 flex-col bg-cream">
           {order && <OrderSummaryCard order={order} items={items} />}
-          <div className="tuma-chat-bg min-h-0 flex-1">
+          <div className="peebee-chat-bg min-h-0 flex-1">
             <div className="h-full space-y-3 overflow-y-auto px-4 py-4">{bubbles}</div>
           </div>
           <div className="shrink-0 border-t border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5">
@@ -799,7 +799,7 @@ export function OrderChat({ orderId, variant = "embedded" }: Props) {
     <PhotoProvider>
       <section className="space-y-2.5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">Chat</h2>
-        <div className="tuma-chat-bg overflow-hidden rounded-[28px] bg-[rgb(var(--surface-muted))]">
+        <div className="peebee-chat-bg overflow-hidden rounded-[28px] bg-[rgb(var(--surface-muted))]">
           <div className="max-h-80 space-y-3 overflow-y-auto p-4">{bubbles}</div>
         </div>
         {composer}

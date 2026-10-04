@@ -8,7 +8,7 @@ import {
   type AdminRider,
   type Merchant,
   type RestaurantStatus,
-} from "@tuma/shared";
+} from "@peebee/shared";
 import { ChevronRight, Filter, Search, ShieldCheck, ShieldQuestion, Store, Users as UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";

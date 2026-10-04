@@ -21,7 +21,7 @@ export function merchantSettlementPostings(input: {
         { ownerType: "merchant" as const, ownerId: input.merchantId, purpose: "settlement_in_transit", environment: input.environment, amount: -totalDebit },
         { ownerType: "provider" as const, ownerId: input.provider, purpose: "settlement_clearing", environment: input.environment, amount: input.amount },
         ...(input.fee > 0
-          ? [{ ownerType: "platform" as const, ownerId: "tuma", purpose: "settlement_fee_revenue", environment: input.environment, amount: input.fee }]
+          ? [{ ownerType: "platform" as const, ownerId: "peebee", purpose: "settlement_fee_revenue", environment: input.environment, amount: input.fee }]
           : []),
       ]
     : [

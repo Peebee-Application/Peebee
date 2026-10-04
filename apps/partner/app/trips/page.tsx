@@ -1,6 +1,6 @@
 "use client";
 
-import type { CarpoolMyTrip } from "@tuma/shared";
+import type { CarpoolMyTrip } from "@peebee/shared";
 import { useCallback, useEffect, useState } from "react";
 import { ActiveRide } from "../../components/ActiveRide";
 import { PlaceSearch, type FoundPlace } from "../../components/PlaceSearch";

@@ -1,6 +1,6 @@
 "use client";
 
-import type { OrderRating } from "@tuma/shared";
+import type { OrderRating } from "@peebee/shared";
 import { Star, ThumbsUp } from "lucide-react";
 import { useState } from "react";
 import { api, errorMessage } from "../lib/api";

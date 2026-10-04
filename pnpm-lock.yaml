@@ -13,7 +13,7 @@ importers:
 
   apps/admin:
     dependencies:
-      '@tuma/shared':
+      '@peebee/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       lucide-react:
@@ -71,7 +71,7 @@ importers:
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
-      '@tuma/shared':
+      '@peebee/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       bcryptjs:
@@ -108,7 +108,7 @@ importers:
 
   apps/customer:
     dependencies:
-      '@tuma/shared':
+      '@peebee/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       leaflet:
@@ -172,7 +172,7 @@ importers:
 
   apps/merchant:
     dependencies:
-      '@tuma/shared':
+      '@peebee/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       lucide-react:
@@ -224,7 +224,7 @@ importers:
 
   apps/partner:
     dependencies:
-      '@tuma/shared':
+      '@peebee/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       lucide-react:
@@ -288,7 +288,7 @@ importers:
 
   apps/restaurant:
     dependencies:
-      '@tuma/shared':
+      '@peebee/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       leaflet:
@@ -352,7 +352,7 @@ importers:
 
   apps/rider:
     dependencies:
-      '@tuma/shared':
+      '@peebee/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       leaflet:

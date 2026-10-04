@@ -1,7 +1,7 @@
-import { createApiClient, createPracticeFetch, friendlyErrorMessage } from "@tuma/shared";
+import { createApiClient, createPracticeFetch, friendlyErrorMessage } from "@peebee/shared";
 
-export const TOKEN_KEY = "tuma_customer_token";
-export const USER_KEY = "tuma_customer_user";
+export const TOKEN_KEY = "peebee_customer_token";
+export const USER_KEY = "peebee_customer_user";
 
 export function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;

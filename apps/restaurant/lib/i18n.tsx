@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 export type Language = "en" | "lg";
 
-const STORAGE_KEY = "tuma-language";
+const STORAGE_KEY = "peebee-language";
 
 // Starter dictionary — covers the always-visible chrome (nav, header,
 // account). Translating every screen in both apps is a much bigger job;

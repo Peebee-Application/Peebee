@@ -1,9 +1,9 @@
 {
-  "name": "tuma-api",
+  "name": "peebee-api",
   "private": true,
   "type": "module",
   "scripts": {
-    "deploy:staging": "wrangler deploy --name tuma-api-staging",
+    "deploy:staging": "wrangler deploy --name peebee-api-staging",
     "dev": "wrangler dev"
   },
   "devDependencies": {

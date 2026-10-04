@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEFAULT_TIME_FEES, timeFeeNotice, timeFeePolicy } from "@tuma/shared";
+import { DEFAULT_TIME_FEES, timeFeeNotice, timeFeePolicy } from "@peebee/shared";
 
 test("default cancellation and waiting fees are simple UGX 500 charges", () => {
   const policy = timeFeePolicy(DEFAULT_TIME_FEES, 2_102);

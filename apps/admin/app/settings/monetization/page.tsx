@@ -7,7 +7,7 @@ import {
   type ServiceFeeType,
   type SubscriptionCadence,
   type SubscriptionMode,
-} from "@tuma/shared";
+} from "@peebee/shared";
 import { useEffect, useState } from "react";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
 import { api, errorMessage } from "../../../lib/api";
@@ -341,7 +341,7 @@ export default function MonetizationSettingsPage() {
           <div className="rounded-xl border border-[var(--border-faint)] p-3 space-y-2.5">
             <span className="text-sm font-semibold text-ink">Cash-order platform fee</span>
             <p className="text-xs text-ink-500">
-              On a cash order the customer pays the rider everything in person — items, delivery, and Tuma&apos;s
+              On a cash order the customer pays the rider everything in person — items, delivery, and Peebee&apos;s
               own cut all together. Pick where that cut comes back out of.
             </p>
             <div className="space-y-1">

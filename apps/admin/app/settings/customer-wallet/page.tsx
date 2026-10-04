@@ -1,6 +1,6 @@
 "use client";
 
-import { hasPermission } from "@tuma/shared";
+import { hasPermission } from "@peebee/shared";
 import { useEffect, useState } from "react";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
 import { api, errorMessage } from "../../../lib/api";

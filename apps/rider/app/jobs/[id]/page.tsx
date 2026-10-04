@@ -1,6 +1,6 @@
 "use client";
 
-import { isPracticeMode, isProSubscriptionCurrent, type MerchantPayment, type OrderDetail } from "@tuma/shared";
+import { isPracticeMode, isProSubscriptionCurrent, type MerchantPayment, type OrderDetail } from "@peebee/shared";
 import { Crown, MapPin, MessageCircle, Pencil, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -59,7 +59,7 @@ export default function JobDetailPage() {
 
   useEffect(() => {
     if (!isPracticeMode()) return;
-    setOutletCode("TUMA-DEMO");
+    setOutletCode("PEEBEE-DEMO");
     setMerchantAmount("28000");
     setReceiptReference("PRACTICE-001");
   }, []);
@@ -569,7 +569,7 @@ export default function JobDetailPage() {
         {order.type === "shopping" && order.funds_model === "merchant_allocations_v1" && canDeliver && (
           <div className="space-y-3 border-t border-[var(--border-faint)] pt-3">
             <div>
-              <p className="text-sm font-semibold text-ink">Pay a Tuma merchant</p>
+              <p className="text-sm font-semibold text-ink">Pay a Peebee merchant</p>
               <p className="text-xs text-ink-500">The merchant must check and confirm the exact amount before you leave with the goods.</p>
             </div>
             {!showMerchantPayment && !merchantPayment && (

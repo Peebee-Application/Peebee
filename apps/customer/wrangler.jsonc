@@ -1,10 +1,11 @@
 {
-  "name": "tuma-customer",
+  "account_id": "5b3ae942adb5457f1fa4d7f5effbf3ff",
+  "name": "peebee-customer",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-09-12",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
-  "routes": [{ "pattern": "customer.tumaffe.online", "custom_domain": true }],
+  "routes": [{ "pattern": "customer.peebee.online", "custom_domain": true }],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"

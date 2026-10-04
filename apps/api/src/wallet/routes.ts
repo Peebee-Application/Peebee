@@ -184,7 +184,7 @@ walletRoutes.post("/wallet/transfer", requireAuth, requireRole("customer"), asyn
 
   const target = await resolveCustomerByIdentifier(recipient);
   if (!target) {
-    return c.json({ error: "recipient_not_found", message: "We couldn't find a Tuma customer with that phone number or email." }, 404);
+    return c.json({ error: "recipient_not_found", message: "We couldn't find a Peebee customer with that phone number or email." }, 404);
   }
   if (target.id === user.sub) {
     return c.json({ error: "self_transfer", message: "You can't send money to your own wallet." }, 400);
@@ -238,7 +238,7 @@ walletRoutes.post("/wallet/shares", requireAuth, requireRole("customer"), async 
 
   const target = await resolveCustomerByIdentifier(parsed.data.recipient);
   if (!target) {
-    return c.json({ error: "recipient_not_found", message: "We couldn't find a Tuma customer with that phone number or email." }, 404);
+    return c.json({ error: "recipient_not_found", message: "We couldn't find a Peebee customer with that phone number or email." }, 404);
   }
   if (target.id === user.sub) {
     return c.json({ error: "self_share", message: "You can't share your wallet with yourself." }, 400);

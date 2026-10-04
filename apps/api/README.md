@@ -1,6 +1,6 @@
-# tuma-api
+# peebee-api
 
-Hono API for Tuma Concierge. Real order lifecycle, auth, rider matching, MoMo
+Hono API for Peebee Concierge. Real order lifecycle, auth, rider matching, MoMo
 escrow, and chat. Runs as a Cloudflare Worker (`src/worker.ts`) backed by D1
 (`env.DB`, native binding, no HTTP hop) — and unchanged as a Node process
 (`src/index.ts`) for local dev, backed by Turso (libsql over HTTP) since a D1
@@ -62,13 +62,13 @@ To test against the free sandbox:
 4. Fund an order (`POST /v1/orders/:id/fund`) with a sandbox test MSISDN,
    then poll `GET /v1/payments/:id/refresh` until `status: "successful"`.
 
-## Cloudflare Workers (`tuma-api`) — primary deploy target
+## Cloudflare Workers (`peebee-api`) — primary deploy target
 
 ```bash
 pnpm --filter api deploy   # wrangler deploy
 ```
 
-DB is the `DB` D1 binding declared in `wrangler.jsonc` (database `tuma-api`) — no DB secrets
+DB is the `DB` D1 binding declared in `wrangler.jsonc` (database `peebee-api`) — no DB secrets
 needed in production. Secrets via `wrangler secret put <NAME>`: `JWT_SECRET` (set), MoMo
 credentials (optional). See `infra/CLOUDFLARE.md` for the full picture (including known
 bundling gotchas) and `infra/ENV.md` for the env name matrix.

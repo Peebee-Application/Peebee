@@ -1,4 +1,4 @@
-# Tuma Merchant sandbox test run
+# Peebee Merchant sandbox test run
 
 The sandbox reproduces the production workflow without moving real money. It uses separate orders, balances, ledger entries, merchant payables, and provider operations. Every sandbox collection and settlement is forced through the simulator even when live provider credentials are saved.
 
@@ -10,7 +10,7 @@ The sandbox reproduces the production workflow without moving real money. It use
 
 ## Onboard and approve a merchant
 
-1. Sign into Tuma Merchant with a customer account and submit a formal-business application.
+1. Sign into Peebee Merchant with a customer account and submit a formal-business application.
 2. Upload the owner identity and business-registration documents, then submit the registration number, tax ID, and declaration.
 3. In Admin **Settings → Merchant payments**, review the application and documents, then choose **Approve and activate**.
 4. Confirm that the merchant app shows the blue **Sandbox** badge and **Safe test mode** notice.
@@ -22,7 +22,7 @@ KYC and administrator approval remain mandatory in sandbox so the test exercises
 1. As a customer, create and fund a new shopping order.
 2. Complete rider matching and have the rider enter or scan the active merchant outlet code.
 3. The rider enters the exact purchase amount and confirms it. Location, remaining budget, duplicate-reference, related-party, and order-state checks still run.
-4. In Tuma Merchant, open **Payments**, look up the payment code if necessary, verify the amount, and confirm goods handover.
+4. In Peebee Merchant, open **Payments**, look up the payment code if necessary, verify the amount, and confirm goods handover.
 5. Verify that the merchant available balance increases, the customer sees the purchase, and the order spending balance decreases by exactly the same amount.
 
 ## Test settlement

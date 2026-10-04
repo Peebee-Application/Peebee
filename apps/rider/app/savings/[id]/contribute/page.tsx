@@ -1,6 +1,6 @@
 "use client";
 
-import type { StageContribution } from "@tuma/shared";
+import type { StageContribution } from "@peebee/shared";
 import { Camera, MessageCircle, Phone } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";

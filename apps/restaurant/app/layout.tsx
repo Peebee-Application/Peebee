@@ -15,7 +15,7 @@ import { LanguageProvider } from "../lib/i18n";
 const THEME_INIT_SCRIPT = `
 (function () {
   try {
-    var stored = localStorage.getItem("tuma-theme"); // "light" | "dark" | "auto" | null
+    var stored = localStorage.getItem("peebee-theme"); // "light" | "dark" | "auto" | null
     var mode = stored === "light" || stored === "dark" || stored === "auto" ? stored : "auto";
     var theme;
     if (mode === "auto") {
@@ -30,8 +30,8 @@ const THEME_INIT_SCRIPT = `
 `;
 
 export const metadata: Metadata = {
-  title: "Tuma Restaurant",
-  description: "Tuma Concierge — restaurant app",
+  title: "Peebee Restaurant",
+  description: "Peebee Concierge — restaurant app",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Tuma Restaurant",
+    title: "Peebee Restaurant",
   },
 };
 

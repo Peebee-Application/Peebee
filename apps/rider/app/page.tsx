@@ -1,7 +1,7 @@
 "use client";
 
-import type { AvailableJob, OrderRow, Rider } from "@tuma/shared";
-import { isRiderProfileComplete } from "@tuma/shared";
+import type { AvailableJob, OrderRow, Rider } from "@peebee/shared";
+import { isRiderProfileComplete } from "@peebee/shared";
 import { Bike, ChevronDown, ChevronRight, MapPin, Package, ShoppingCart, TriangleAlert, Utensils } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

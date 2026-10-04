@@ -1,7 +1,7 @@
 {
-  "name": "Tuma Admin",
-  "short_name": "Tuma Admin",
-  "description": "Tuma Concierge — admin dashboard.",
+  "name": "Peebee Admin",
+  "short_name": "Peebee Admin",
+  "description": "Peebee Concierge — admin dashboard.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

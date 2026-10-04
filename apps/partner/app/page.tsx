@@ -1,6 +1,6 @@
 "use client";
 
-import type { CarDriverActive, CarOwnerRides } from "@tuma/shared";
+import type { CarDriverActive, CarOwnerRides } from "@peebee/shared";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ActiveRide } from "../components/ActiveRide";
@@ -47,7 +47,7 @@ function DriverHome() {
         <ApplyCard mode="driver" />
         <KycCard mode="driver" />
         {me?.driverStatus === "pending" && me.needsVehicle && (
-          <p className="home-card text-xs text-ink-500">You told us you don&apos;t have a car. Once you&apos;re approved you can ask owners to drive theirs, or Tuma can assign you one.</p>
+          <p className="home-card text-xs text-ink-500">You told us you don&apos;t have a car. Once you&apos;re approved you can ask owners to drive theirs, or Peebee can assign you one.</p>
         )}
         {me?.driverStatus === "pending" && !me.needsVehicle && (
           <Link href="/vehicles" className="home-card block text-sm font-semibold text-ink">Add your car now →</Link>
@@ -77,7 +77,7 @@ function DriverHome() {
       <KycCard mode="driver" />
       <header>
         <h1 className="text-2xl font-black text-ink">Driver</h1>
-        <p className="text-sm text-ink-500">{vehicle ? `${vehicle.plate} · ${vehicle.category_name}` : "No vehicle assigned yet — Tuma will assign one."}</p>
+        <p className="text-sm text-ink-500">{vehicle ? `${vehicle.plate} · ${vehicle.category_name}` : "No vehicle assigned yet — Peebee will assign one."}</p>
       </header>
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       {data?.active && <ActiveRide ride={data.active} onChange={load} />}
@@ -160,7 +160,7 @@ function OwnerHome() {
       <KycCard mode="owner" />
       <header>
         <h1 className="text-2xl font-black text-ink">Owner</h1>
-        <p className="text-sm text-ink-500">{me.vehicles.length} vehicle{me.vehicles.length === 1 ? "" : "s"} with Tuma</p>
+        <p className="text-sm text-ink-500">{me.vehicles.length} vehicle{me.vehicles.length === 1 ? "" : "s"} with Peebee</p>
       </header>
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       <section className="home-card">
@@ -199,7 +199,7 @@ function OwnerHome() {
                 <strong>{ugx(r.owner_amount ?? 0)}</strong>
               </div>
               <p className="text-xs text-ink-500">
-                {r.driver_name ? `${r.driver_name} earned ${ugx(r.driver_amount ?? 0)} · ` : ""}Tuma {ugx(r.platform_amount ?? 0)} · ride total {ugx(r.pool_amount ?? 0)}
+                {r.driver_name ? `${r.driver_name} earned ${ugx(r.driver_amount ?? 0)} · ` : ""}Peebee {ugx(r.platform_amount ?? 0)} · ride total {ugx(r.pool_amount ?? 0)}
               </p>
             </div>
           ))}

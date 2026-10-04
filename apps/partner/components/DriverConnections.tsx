@@ -1,6 +1,6 @@
 "use client";
 
-import type { DriverDeals } from "@tuma/shared";
+import type { DriverDeals } from "@peebee/shared";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../lib/api";
 import { describeTerms } from "../lib/terms";

@@ -1,5 +1,5 @@
-const STATIC_CACHE = "tuma-static-v2";
-const RUNTIME_CACHE = "tuma-runtime-v2";
+const STATIC_CACHE = "peebee-static-v2";
+const RUNTIME_CACHE = "peebee-runtime-v2";
 const OFFLINE_URL = "/offline.html";
 const STATIC_ASSETS = ["/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png", OFFLINE_URL];
 
@@ -101,7 +101,7 @@ self.addEventListener("fetch", (event) => {
   // A page navigation — try the network first (so a signed-in user always
   // sees the real, current page when there's connectivity), and only fall
   // back to a cached copy or the offline page when there truly isn't one,
-  // so a dead connection shows Tuma's own offline screen instead of the
+  // so a dead connection shows Peebee's own offline screen instead of the
   // browser's generic error page.
   if (request.mode === "navigate") {
     event.respondWith(
@@ -123,13 +123,13 @@ self.addEventListener("push", (event) => {
   } catch {
     // Non-JSON payload — fall back to the defaults below.
   }
-  const title = data.title || "Tuma";
+  const title = data.title || "Peebee";
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "You have a new message",
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
-      tag: data.tag || "tuma-chat",
+      tag: data.tag || "peebee-chat",
       data: { url: data.url || "/" },
     }),
   );

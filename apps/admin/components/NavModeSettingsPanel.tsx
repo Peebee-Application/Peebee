@@ -1,6 +1,6 @@
 "use client";
 
-import type { NavMode } from "@tuma/shared";
+import type { NavMode } from "@peebee/shared";
 import { Navigation } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../lib/api";

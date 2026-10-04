@@ -1,6 +1,6 @@
 "use client";
 
-import { hasPermission } from "@tuma/shared";
+import { hasPermission } from "@peebee/shared";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "../../lib/auth-context";

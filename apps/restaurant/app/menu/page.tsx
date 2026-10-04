@@ -1,7 +1,7 @@
 "use client";
 
-import { ApiError } from "@tuma/shared";
-import type { MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, RestaurantMenu } from "@tuma/shared";
+import { ApiError } from "@peebee/shared";
+import type { MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, RestaurantMenu } from "@peebee/shared";
 import { Camera, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";

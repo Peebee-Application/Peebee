@@ -1,4 +1,4 @@
-import { GEMINI_TTS_VOICES, DEFAULT_GEMINI_VOICE } from "@tuma/shared";
+import { GEMINI_TTS_VOICES, DEFAULT_GEMINI_VOICE } from "@peebee/shared";
 import { GeminiApiError, withGeminiKey } from "./ai-keys.js";
 
 /**

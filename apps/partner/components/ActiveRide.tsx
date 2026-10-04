@@ -1,6 +1,6 @@
 "use client";
 
-import type { CarDriverActive } from "@tuma/shared";
+import type { CarDriverActive } from "@peebee/shared";
 import { MessageCircle, Navigation } from "lucide-react";
 import { useState } from "react";
 import { api, errorMessage } from "../lib/api";

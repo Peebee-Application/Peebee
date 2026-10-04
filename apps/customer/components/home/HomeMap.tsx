@@ -65,12 +65,12 @@ export default function HomeMap() {
         zoom={position ? 16 : 13}
         zoomControl={false}
         scrollWheelZoom={false}
-        className={`tuma-map h-full w-full${tiles.jawg ? " tuma-map-native" : ""}`}
+        className={`peebee-map h-full w-full${tiles.jawg ? " peebee-map-native" : ""}`}
       >
         <TileLayer key={tileUrl} url={tileUrl} attribution={tiles.attribution} />
         <FlyTo target={position} nonce={nonce} />
         {position && <Marker position={position} icon={meIcon} interactive={false} />}
-        <div className="tuma-map-tint" aria-hidden />
+        <div className="peebee-map-tint" aria-hidden />
       </MapContainer>
       <button
         type="button"

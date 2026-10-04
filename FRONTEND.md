@@ -1,11 +1,11 @@
-# Tuma Concierge — Frontend
+# Peebee Concierge — Frontend
 
-pnpm monorepo: `apps/customer`, `apps/rider`, `packages/shared` (`@tuma/shared`).
+pnpm monorepo: `apps/customer`, `apps/rider`, `packages/shared` (`@peebee/shared`).
 Full order lifecycle wired to the real API (auth, orders, matching, MoMo escrow, chat, rider
 verification). Still missing: maps/live location and VoIP/call support.
 
 **Hosting:** Render free **Node 22** Web Services
-`tuma-customer-staging` / `tuma-rider-staging` — **not** Cloudflare Pages / OpenNext.
+`peebee-customer-staging` / `peebee-rider-staging` — **not** Cloudflare Pages / OpenNext.
 `next.config`: `output: "standalone"`. FE talks to API via `NEXT_PUBLIC_API_URL` (Turso/API is backend-side).
 Deploy config lives in the root `render.yaml` (all three services, `autoDeploy: true` on `main`).
 
@@ -65,7 +65,7 @@ pnpm --filter rider start
 
 | | Customer | Rider |
 |--|----------|-------|
-| Service name | `tuma-customer-staging` | `tuma-rider-staging` |
+| Service name | `peebee-customer-staging` | `peebee-rider-staging` |
 | Plan | Free | Free |
 | Runtime | Node 22 | Node 22 |
 | Root directory | `apps/customer` (or repo root — see build) | `apps/rider` |
@@ -84,7 +84,7 @@ If Root Directory is `apps/customer`, start path is relative to that app:
 ```
 apps/customer   # Home · Orders · Chat · Account + /orders/[id]/<stage>
 apps/rider      # Jobs · Active · Wallet · Account + /jobs/[id]/<stage>
-packages/shared # OrderStage, PaymentRail, createApiClient (@tuma/shared) — now backed by a real API
+packages/shared # OrderStage, PaymentRail, createApiClient (@peebee/shared) — now backed by a real API
 ```
 
 `workers/` legacy CF scaffold — left alone. `apps/api` now has a real backend (auth, orders,
@@ -98,8 +98,8 @@ in each app.
 
 See **`BRAND.md`** for palette, surface tokens, and asset source paths.
 
-- CSS vars + `.card` in each app `app/globals.css` (from `tuma-brand/SURFACE-TOKENS.md`)
+- CSS vars + `.card` in each app `app/globals.css` (from `peebee-brand/SURFACE-TOKENS.md`)
 - Tailwind colors: `cream`, `gold`, `ink`/`black`, `green`
 - Lockup + sibling app icons (SVG only) under `apps/*/public/brand/`
 - Lucide map: `packages/shared/docs/LUCIDE-MAP.md`
-- PNG cascade remains in `tuma-brand/exports/` (copy later; not committed here)
+- PNG cascade remains in `peebee-brand/exports/` (copy later; not committed here)

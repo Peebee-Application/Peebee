@@ -45,7 +45,7 @@ export async function sendVerificationSms(to: string, code: string): Promise<voi
     body: new URLSearchParams({
       username: username(),
       to,
-      message: `Your Tuma verification code is ${code}. It expires in 10 minutes.`,
+      message: `Your Peebee verification code is ${code}. It expires in 10 minutes.`,
     }),
   });
   if (!res.ok) {

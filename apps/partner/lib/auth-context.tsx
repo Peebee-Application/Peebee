@@ -1,11 +1,11 @@
 "use client";
 
-import type { AuthUser, CarMe } from "@tuma/shared";
+import type { AuthUser, CarMe } from "@peebee/shared";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, TOKEN_KEY, USER_KEY } from "./api";
 
 export type PartnerMode = "owner" | "driver";
-const MODE_KEY = "tuma_partner_mode";
+const MODE_KEY = "peebee_partner_mode";
 
 type AuthState = {
   user: AuthUser | null;
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const persist = useCallback((token: string, nextUser: AuthUser) => {
-    if (nextUser.role !== "customer") throw new Error("Use a customer account for Tuma Car.");
+    if (nextUser.role !== "customer") throw new Error("Use a customer account for Peebee Car.");
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
     setUser(nextUser);

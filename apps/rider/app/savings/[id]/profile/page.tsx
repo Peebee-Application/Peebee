@@ -1,14 +1,14 @@
 "use client";
 
-import { UGANDA_DISTRICTS, type StageMemberProfile } from "@tuma/shared";
+import { UGANDA_DISTRICTS, type StageMemberProfile } from "@peebee/shared";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../../../lib/api";
 
 /** RSLA membership profile — nationality, district, gender, date of birth,
- * household size, literacy. Separate from the rider's core Tuma profile
+ * household size, literacy. Separate from the rider's core Peebee profile
  * (see migration 0062_stage_member_profile.sql for why): these matter for
- * the savings association's own records, not for Tuma's own rider
+ * the savings association's own records, not for Peebee's own rider
  * verification. */
 export default function StageMemberProfilePage() {
   const params = useParams<{ id: string }>();
@@ -72,7 +72,7 @@ export default function StageMemberProfilePage() {
         <h1 className="text-xl font-bold text-ink">RSLA membership profile</h1>
         <p className="text-sm text-ink-500">
           A few extra details the association keeps on file. Your phone, name, and photo already come from your
-          Tuma rider profile.
+          Peebee rider profile.
         </p>
       </div>
 

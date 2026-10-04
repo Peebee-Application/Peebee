@@ -1,6 +1,6 @@
 "use client";
 
-import type { CustomerWallet, CustomerWalletSummary, WalletLedgerEntry, WalletShares, WalletUsageReport } from "@tuma/shared";
+import type { CustomerWallet, CustomerWalletSummary, WalletLedgerEntry, WalletShares, WalletUsageReport } from "@peebee/shared";
 import {
   ArrowDownLeft,
   ArrowLeftRight,

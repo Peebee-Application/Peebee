@@ -1,4 +1,4 @@
-import type { OrderEvent, OrderRow } from "@tuma/shared";
+import type { OrderEvent, OrderRow } from "@peebee/shared";
 import { Bike, Check, CheckCircle2, MapPin, Package, ShoppingBag } from "lucide-react";
 
 type Step = {

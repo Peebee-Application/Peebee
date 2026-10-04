@@ -159,9 +159,9 @@ dealRoutes.post("/car/deals/requests/:id/decision", async (c) => {
 
   // Connected straight away — but only if the driver and the car are both still approved and the car is free.
   const driver = (await db.execute({ sql: "SELECT driver_status FROM car_partners WHERE user_id = ?", args: [String(req.driver_id)] })).rows[0] as Row | undefined;
-  if (driver?.driver_status !== "approved") return c.json({ error: "driver_not_approved", message: "This driver isn't approved by Tuma." }, 409);
+  if (driver?.driver_status !== "approved") return c.json({ error: "driver_not_approved", message: "This driver isn't approved by Peebee." }, 409);
   const vehicle = (await db.execute({ sql: "SELECT status FROM vehicles WHERE id = ?", args: [String(req.vehicle_id)] })).rows[0] as Row | undefined;
-  if (vehicle?.status !== "approved") return c.json({ error: "vehicle_not_approved", message: "Your car needs Tuma's approval first." }, 409);
+  if (vehicle?.status !== "approved") return c.json({ error: "vehicle_not_approved", message: "Your car needs Peebee's approval first." }, 409);
   // Re-check the terms still fit the admin's current limits (they may have changed since the application).
   const checked = validateTerms(
     { feeType: req.fee_type === "rent" ? "rent" : "share", ownerSharePercent: req.owner_share_percent != null ? Number(req.owner_share_percent) : undefined, rentAmount: req.rent_amount != null ? Number(req.rent_amount) : undefined, rentPeriod: req.rent_period === "week" ? "week" : req.rent_period === "day" ? "day" : undefined },

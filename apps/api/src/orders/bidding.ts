@@ -1,4 +1,4 @@
-import { roundFare, type MatchingMode } from "@tuma/shared";
+import { roundFare, type MatchingMode } from "@peebee/shared";
 import { getBiddingSettings, getMatchingSettings, type BiddingSettings } from "../lib/settings.js";
 
 type Row = Record<string, unknown>;

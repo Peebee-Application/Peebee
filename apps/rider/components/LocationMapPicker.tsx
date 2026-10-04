@@ -1,6 +1,6 @@
 "use client";
 
-import type { JawgLightStyle } from "@tuma/shared";
+import type { JawgLightStyle } from "@peebee/shared";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Restaurant } from "@tuma/shared";
+import type { Restaurant } from "@peebee/shared";
 import { Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";

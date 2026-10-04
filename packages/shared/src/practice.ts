@@ -1,4 +1,4 @@
-export const PRACTICE_MODE_STORAGE_KEY = "tuma_practice_mode";
+export const PRACTICE_MODE_STORAGE_KEY = "peebee_practice_mode";
 
 export type PracticeRole = "customer" | "rider" | "restaurant" | "merchant";
 
@@ -66,7 +66,7 @@ export const PRACTICE_JOURNEYS: Record<PracticeRole, PracticeJourney> = {
   },
   merchant: {
     roleLabel: "Merchant",
-    heading: "Practise accepting a Tuma payment",
+    heading: "Practise accepting a Peebee payment",
     introduction: "Confirm a sample rider purchase, watch the balance update and request a simulated settlement.",
     sampleAmount: "UGX 28,000",
     completionMessage: "You completed a merchant sale and simulated settlement without moving real money.",

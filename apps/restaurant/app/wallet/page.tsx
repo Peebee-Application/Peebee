@@ -1,6 +1,6 @@
 "use client";
 
-import type { MerchantBalance, MerchantSettlement, MerchantSettlementAccount } from "@tuma/shared";
+import type { MerchantBalance, MerchantSettlement, MerchantSettlementAccount } from "@peebee/shared";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -119,7 +119,7 @@ export default function MerchantWalletPage() {
 
   if (!restaurantReady) return <p className="px-4 py-10 text-center text-sm text-ink-500">Loading…</p>;
   if (!restaurant || !merchantId) {
-    return <div className="px-4 py-8 text-sm text-ink-500">This restaurant has not yet been connected to Tuma Merchant.</div>;
+    return <div className="px-4 py-8 text-sm text-ink-500">This restaurant has not yet been connected to Peebee Merchant.</div>;
   }
 
   return (
@@ -139,7 +139,7 @@ export default function MerchantWalletPage() {
 
       {accounts.length === 0 ? (
         <section className="home-card space-y-3">
-          <div><h2 className="text-sm font-bold text-ink">Add a Mobile Money destination</h2><p className="text-xs text-ink-500">It must be verified by Tuma and then complete a 24-hour security cooling period.</p></div>
+          <div><h2 className="text-sm font-bold text-ink">Add a Mobile Money destination</h2><p className="text-xs text-ink-500">It must be verified by Peebee and then complete a 24-hour security cooling period.</p></div>
           <select value={network} onChange={(event) => setNetwork(event.target.value as "MTN" | "Airtel")} className="w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 py-3 text-sm"><option>MTN</option><option>Airtel</option></select>
           <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Mobile Money number" className="w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 py-3 text-sm" />
           <button disabled={busy || phone.trim().length < 6} onClick={addDestination} className="w-full rounded-xl bg-gold px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? "Saving…" : "Save destination"}</button>

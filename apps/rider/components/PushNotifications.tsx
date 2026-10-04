@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../lib/auth-context";
 import { pushSupported, subscribeToPush } from "../lib/push";
 
-const DISMISS_KEY = "tuma-push-dismissed-at";
+const DISMISS_KEY = "peebee-push-dismissed-at";
 const DISMISS_DAYS = 7;
 
 function isStandalone(): boolean {

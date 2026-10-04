@@ -5,7 +5,7 @@ import {
   type VslaAdminLedgerVisibility,
   type VslaContributionRecorderRole,
   type VslaFeaturePlacement,
-} from "@tuma/shared";
+} from "@peebee/shared";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
@@ -126,7 +126,7 @@ export default function StageSavingsSettingsPage() {
             <span>
               <span className="block text-sm font-semibold text-ink">Loans carry interest</span>
               <span className="block text-xs text-ink-500">
-                Interest is paid back into the group&apos;s own pot, never to Tuma — it&apos;s how the group&apos;s
+                Interest is paid back into the group&apos;s own pot, never to Peebee — it&apos;s how the group&apos;s
                 savings grow before share-out.
               </span>
             </span>
@@ -254,7 +254,7 @@ export default function StageSavingsSettingsPage() {
             onChange={(e) => setAdminLedgerVisibility(e.target.value as VslaAdminLedgerVisibility)}
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
           >
-            <option value="read_only_all">Tuma admin can view every stage&apos;s ledger (read-only)</option>
+            <option value="read_only_all">Peebee admin can view every stage&apos;s ledger (read-only)</option>
             <option value="private_per_stage">Fully private — only each stage&apos;s own members can see it</option>
           </select>
           <p className="text-xs text-ink-500">
@@ -307,9 +307,9 @@ export default function StageSavingsSettingsPage() {
             <span>
               <span className="block text-sm font-semibold text-ink">Custodial mode (not yet functional)</span>
               <span className="block text-xs text-ink-500">
-                Placeholder for once Tuma is BOU-licensed to hold funds directly. Off (non-custodial) is the only
+                Placeholder for once Peebee is BOU-licensed to hold funds directly. Off (non-custodial) is the only
                 real mode right now — every RSLA money step stays a record between members&apos; own phones/hands,
-                never through a Tuma-controlled account. Turning this on doesn&apos;t change that behavior yet.
+                never through a Peebee-controlled account. Turning this on doesn&apos;t change that behavior yet.
               </span>
             </span>
           </label>

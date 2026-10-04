@@ -20,16 +20,16 @@ import { openForDriversSql, scheduledAvailable, toDbTime, validateScheduledFor }
 
 type Row = Record<string, unknown>;
 
-/** Customer, owner and driver endpoints for Tuma Car. Everything stays closed
+/** Customer, owner and driver endpoints for Peebee Car. Everything stays closed
  * until an admin turns Car on (and migration 0065 has been applied). */
 export const carRoutes = new Hono();
 carRoutes.use("/car/*", requireAuth);
 
 // 503 until the car tables exist, 403 while Car is switched off.
 carRoutes.use("/car/*", async (c, next) => {
-  if (!(await hasTable("car_bookings"))) return c.json({ error: "car_unavailable", message: "Tuma Car isn't ready yet." }, 503);
+  if (!(await hasTable("car_bookings"))) return c.json({ error: "car_unavailable", message: "Peebee Car isn't ready yet." }, 503);
   const settings = await getCarSettings();
-  if (!settings.enabled) return c.json({ error: "car_disabled", message: "Tuma Car isn't available right now." }, 403);
+  if (!settings.enabled) return c.json({ error: "car_disabled", message: "Peebee Car isn't available right now." }, 403);
   await next();
 });
 
@@ -88,7 +88,7 @@ const applySchema = z.object({
   licenceExpiry: z.string().max(20).optional(),
   idDocumentKey: z.string().max(300).optional(),
   licenceKey: z.string().max(300).optional(),
-  /** A driver who doesn't have a car: Tuma or an owner can provide one. */
+  /** A driver who doesn't have a car: Peebee or an owner can provide one. */
   needsVehicle: z.boolean().optional(),
 });
 
@@ -743,7 +743,7 @@ carRoutes.post("/car/vehicles/:id/drive", async (c) => {
   if (partner?.driver_status !== "approved") return c.json({ error: "not_a_driver", message: "You need to be an approved driver first." }, 403);
   const vehicle = (await db.execute({ sql: "SELECT status FROM vehicles WHERE id = ? AND owner_id = ?", args: [vehicleId, user.sub] })).rows[0] as Row | undefined;
   if (!vehicle) return c.json({ error: "not_found" }, 404);
-  if (vehicle.status !== "approved") return c.json({ error: "vehicle_not_approved", message: "Your vehicle needs Tuma's approval before you can drive it." }, 409);
+  if (vehicle.status !== "approved") return c.json({ error: "vehicle_not_approved", message: "Your vehicle needs Peebee's approval before you can drive it." }, 409);
   const current = (await db.execute({ sql: "SELECT driver_id FROM vehicle_assignments WHERE vehicle_id = ? AND status = 'active'", args: [vehicleId] })).rows[0] as Row | undefined;
   if (current && current.driver_id !== user.sub) return c.json({ error: "has_driver", message: "Another driver is using this vehicle. End that first." }, 409);
   if (!current) {

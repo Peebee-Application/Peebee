@@ -14,7 +14,7 @@ const riderIcon = L.divIcon({
     <circle cx="12" cy="12" r="9" fill="#0A0A0A" fill-opacity="0.15"/>
     <circle cx="12" cy="12" r="7" fill="#C9A227" stroke="#FDFBF7" stroke-width="2.5"/>
   </svg>`,
-  className: "tuma-rider-dot",
+  className: "peebee-rider-dot",
   iconSize: [26, 26],
   iconAnchor: [13, 13],
 });
@@ -24,7 +24,7 @@ const destinationIcon = L.divIcon({
     <path d="M12 22s7-7.94 7-12.75A7 7 0 0 0 5 9.25C5 14.06 12 22 12 22Z" fill="#0A0A0A" stroke="#FDFBF7" stroke-width="1.1"/>
     <circle cx="12" cy="9.4" r="2.6" fill="#FDFBF7"/>
   </svg>`,
-  className: "tuma-destination-marker",
+  className: "peebee-destination-marker",
   iconSize: [30, 30],
   iconAnchor: [15, 28],
 });
@@ -155,7 +155,7 @@ export function InAppNavigation({
             <Loader2 className="h-6 w-6 animate-spin text-gold" strokeWidth={2.5} aria-hidden />
           </div>
         ) : (
-          <MapContainer center={position} zoom={16} className={`tuma-map h-full w-full${tiles.jawg ? " tuma-map-native" : ""}`} attributionControl>
+          <MapContainer center={position} zoom={16} className={`peebee-map h-full w-full${tiles.jawg ? " peebee-map-native" : ""}`} attributionControl>
             <TileLayer
               key={tiles.jawg ? jawgStyle : "static"}
               url={tiles.jawg ? jawgTileUrl(jawgStyle, tiles.jawg.accessToken) : tiles.tileUrl}
@@ -167,7 +167,7 @@ export function InAppNavigation({
             <Marker position={destination} icon={destinationIcon} />
             <Marker position={position} icon={riderIcon} />
             <RecenterOnRider position={position} follow={follow} />
-            <div className="tuma-map-tint" aria-hidden />
+            <div className="peebee-map-tint" aria-hidden />
           </MapContainer>
         )}
 

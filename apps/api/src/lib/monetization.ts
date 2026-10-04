@@ -9,13 +9,13 @@
  * between.
  *
  * Deliberately excluded: float-rail orders (no money ever passes through
- * Tuma to take a cut of) and, for the processing fee specifically,
+ * Peebee to take a cut of) and, for the processing fee specifically,
  * wallet-funded orders (no external payment rail actually processed
  * anything). See computeCheckoutFees' `payingWithWallet` param.
  */
 
 import type { MonetizationSettings } from "./settings.js";
-import type { OrderType } from "@tuma/shared";
+import type { OrderType } from "@peebee/shared";
 
 export type CheckoutFees = {
   /** 100% platform revenue, added on top of what the customer pays. */

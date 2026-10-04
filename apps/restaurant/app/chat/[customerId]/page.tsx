@@ -1,6 +1,6 @@
 "use client";
 
-import type { RestaurantChatMessage } from "@tuma/shared";
+import type { RestaurantChatMessage } from "@peebee/shared";
 import {
   ArrowLeft,
   Ban,
@@ -498,7 +498,7 @@ export default function RestaurantChatThreadPage() {
         </header>
 
         <PhotoProvider>
-          <div className="tuma-chat-bg min-h-0 flex-1">
+          <div className="peebee-chat-bg min-h-0 flex-1">
           <div className="h-full space-y-3 overflow-y-auto px-4 py-4">
             {messages.length === 0 && <p className="py-8 text-center text-xs text-ink-500">No messages yet.</p>}
             {messages.map((m) => {

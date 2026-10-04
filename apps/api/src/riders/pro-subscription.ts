@@ -139,7 +139,7 @@ export async function renewProSubscriptions(): Promise<{ attempted: number; rene
         referenceId: paymentId,
         msisdn,
         amount: settings.recurringAmount,
-        narrative: "Tuma rider Pro renewal",
+        narrative: "Peebee rider Pro renewal",
         forceMock: environment === "sandbox",
       });
       const periodEnd = nextProPaidThrough("recurring", settings.recurringCadence);

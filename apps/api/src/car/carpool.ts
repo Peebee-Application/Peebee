@@ -162,7 +162,7 @@ carpoolRoutes.post("/car/carpool/trips/:id/status", async (c) => {
   const allowed: Record<string, string[]> = { open: ["departed", "cancelled"], full: ["departed", "cancelled"], departed: ["completed"] };
   if (!(allowed[String(trip.status)] ?? []).includes(next)) return c.json({ error: "invalid_status", message: `A ${trip.status} trip can't be marked ${next}.` }, 409);
   if (next === "cancelled" && Number(trip.seats_taken) > 0) {
-    return c.json({ error: "has_passengers", message: "Passengers have booked this trip — please contact Tuma support to cancel it." }, 409);
+    return c.json({ error: "has_passengers", message: "Passengers have booked this trip — please contact Peebee support to cancel it." }, 409);
   }
   await db.execute({ sql: "UPDATE carpool_trips SET status = ?, updated_at = datetime('now') WHERE id = ?", args: [next, id] });
   return c.json({ ok: true });

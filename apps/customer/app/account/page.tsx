@@ -1,6 +1,6 @@
 "use client";
 
-import { MATCHING_MODE_DESCRIPTIONS, MATCHING_MODE_LABELS, type MatchingMode } from "@tuma/shared";
+import { MATCHING_MODE_DESCRIPTIONS, MATCHING_MODE_LABELS, type MatchingMode } from "@peebee/shared";
 import { LogOut, Shield, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";

@@ -1,6 +1,6 @@
 "use client";
 
-import type { RestaurantChatThread } from "@tuma/shared";
+import type { RestaurantChatThread } from "@peebee/shared";
 import { ChevronRight, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useState } from "react";

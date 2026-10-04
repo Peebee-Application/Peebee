@@ -1,6 +1,6 @@
 "use client";
 
-import type { StageMessage } from "@tuma/shared";
+import type { StageMessage } from "@peebee/shared";
 import { Send } from "lucide-react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";

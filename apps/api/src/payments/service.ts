@@ -8,7 +8,7 @@
  * mode or an explicitly sandbox-scoped transaction.
  */
 
-import { detectMobileMoneyNetwork, mobileMoneyNetworkLabel, type MobileMoneyNetwork } from "@tuma/shared";
+import { detectMobileMoneyNetwork, mobileMoneyNetworkLabel, type MobileMoneyNetwork } from "@peebee/shared";
 import { getActiveProviders, getPaymentsDemoMode, type PaymentProviderIdentity } from "../lib/settings.js";
 import { credentialFieldStatus } from "./credentials.js";
 import { PaymentProviderError, type GatewayResult, type PaymentGatewayAdapter } from "./gateway.js";
@@ -231,12 +231,12 @@ async function initiate(
 
 /** Collections: pulls funds from the customer into escrow (or a wallet top-up). */
 export async function initiateCollection(input: InitiateInput): Promise<InitiateResult> {
-  return initiate("collection", input, "Tuma order escrow funding");
+  return initiate("collection", input, "Peebee order escrow funding");
 }
 
 /** Disbursements: pays a rider out of escrow (or their wallet) at withdrawal time. */
 export async function initiateDisbursement(input: InitiateInput): Promise<InitiateResult> {
-  return initiate("disbursement", input, "Tuma rider payout");
+  return initiate("disbursement", input, "Peebee rider payout");
 }
 
 export type DbPaymentStatus = "pending" | "unknown" | "successful" | "failed";

@@ -1,6 +1,6 @@
 "use client";
 
-import type { JawgLightStyle } from "@tuma/shared";
+import type { JawgLightStyle } from "@peebee/shared";
 import { useEffect, useState } from "react";
 import { useResolvedTheme } from "./theme";
 
@@ -11,8 +11,8 @@ import { useResolvedTheme } from "./theme";
 export type MapStylePref = "auto" | "normal" | "light" | "dark";
 export type JawgStyle = "normal" | "light" | "dark";
 
-const STORAGE_KEY = "tuma-map-style";
-const CHANGE_EVENT = "tuma-map-style-change";
+const STORAGE_KEY = "peebee-map-style";
+const CHANGE_EVENT = "peebee-map-style-change";
 
 const JAWG_STYLE_IDS: Record<JawgStyle, string> = {
   normal: "jawg-sunny",

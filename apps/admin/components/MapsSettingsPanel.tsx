@@ -1,6 +1,6 @@
 "use client";
 
-import type { JawgLightStyle, MapsCredentialFieldStatus, MapsProviderIdentity, MapsAdminSettings } from "@tuma/shared";
+import type { JawgLightStyle, MapsCredentialFieldStatus, MapsProviderIdentity, MapsAdminSettings } from "@peebee/shared";
 import { Map } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../lib/api";

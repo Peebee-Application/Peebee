@@ -1,6 +1,6 @@
 "use client";
 
-import type { FeeProposal, OrderRow } from "@tuma/shared";
+import type { FeeProposal, OrderRow } from "@peebee/shared";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";

@@ -12,7 +12,7 @@ import { AuthProvider } from "../lib/auth-context";
 const THEME_INIT_SCRIPT = `
 (function () {
   try {
-    var stored = localStorage.getItem("tuma-theme");
+    var stored = localStorage.getItem("peebee-theme");
     var theme = stored === "light" || stored === "dark"
       ? stored
       : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
@@ -22,8 +22,8 @@ const THEME_INIT_SCRIPT = `
 `;
 
 export const metadata: Metadata = {
-  title: "Tuma Admin",
-  description: "Tuma Concierge — admin dashboard",
+  title: "Peebee Admin",
+  description: "Peebee Concierge — admin dashboard",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Tuma Admin",
+    title: "Peebee Admin",
   },
 };
 

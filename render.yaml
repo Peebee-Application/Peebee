@@ -6,7 +6,7 @@
 
 services:
   - type: web
-    name: tuma-api-staging
+    name: peebee-api-staging
     runtime: node
     plan: free
     region: oregon
@@ -25,7 +25,7 @@ services:
       - key: JWT_SECRET
         sync: false
       - key: CORS_ORIGINS
-        value: "https://tuma-customer-staging.onrender.com,https://tuma-rider-staging.onrender.com"
+        value: "https://peebee-customer-staging.onrender.com,https://peebee-rider-staging.onrender.com"
       - key: MOMO_TARGET_ENV
         value: "sandbox"
       - key: MOMO_SUBSCRIPTION_KEY
@@ -36,7 +36,7 @@ services:
         sync: false
 
   - type: web
-    name: tuma-customer-staging
+    name: peebee-customer-staging
     runtime: node
     plan: free
     region: oregon
@@ -52,7 +52,7 @@ services:
         sync: false
 
   - type: web
-    name: tuma-rider-staging
+    name: peebee-rider-staging
     runtime: node
     plan: free
     region: oregon

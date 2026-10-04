@@ -203,7 +203,7 @@ export type JobExpiryUnit = "minutes" | "hours";
 
 /** Price bidding on rides/parcels: applicants may name their own price, the
  * customer picks. Needs "customer selects" to be an enabled matching mode. */
-/** Tuma Car work modes + the default owner/driver/platform split of a settled ride (totals 100). */
+/** Peebee Car work modes + the default owner/driver/platform split of a settled ride (totals 100). */
 export type CarSettings = {
   enabled: boolean;
   onDemandEnabled: boolean;
@@ -224,7 +224,7 @@ export type CarSettings = {
     enabled: boolean;
     shareEnabled: boolean;
     rentEnabled: boolean;
-    /** Range of the owner's agreed share of what is left after Tuma's cut (%). */
+    /** Range of the owner's agreed share of what is left after Peebee's cut (%). */
     minOwnerSharePercent: number;
     maxOwnerSharePercent: number;
     /** Highest fixed rent per day (UGX); 0 = no limit. */
@@ -232,7 +232,7 @@ export type CarSettings = {
   };
   selfDrive: {
     enabled: boolean;
-    /** Tuma's share of the rent (%); null = not decided, so self-drive stays off. */
+    /** Peebee's share of the rent (%); null = not decided, so self-drive stays off. */
     platformPercent: number | null;
     maxDays: number;
     /** Lowest deposit an owner may ask for (UGX). */
@@ -307,7 +307,7 @@ export type DeliverySettings = {
   rideForOtherDistanceM: number;
   /** Whole-service switches (admin → Settings → Services). Off = no new orders of
    * that kind; anything already in flight finishes. Shopping, parcels, rides
-   * (incl. Tuma Car bookings) and food. */
+   * (incl. Peebee Car bookings) and food. */
   services: ServiceSwitches;
   enabledModes: MatchingMode[];
   nearestWindowSeconds: number;
@@ -495,10 +495,10 @@ export type VslaSettings = {
    * subscription — except a rider who already has a stage membership,
    * grandfathered so nothing is taken away from existing members. */
   vslaRequiresPro: boolean;
-  /** Architecture hook for after Tuma is BOU-licensed to hold funds
+  /** Architecture hook for after Peebee is BOU-licensed to hold funds
    * directly. Off (non-custodial) by default and today — every RSLA
    * money-moving step stays a two-part intent/officer-confirmed record
-   * between members' own phones/hands, never through a Tuma-controlled
+   * between members' own phones/hands, never through a Peebee-controlled
    * account. This flag doesn't change that behavior yet. */
   vslaCustodialMode: boolean;
 };
@@ -1353,7 +1353,7 @@ export type AuthUser = {
    * (an OTP to its verified email, same as any other reset). */
   passwordSet: boolean;
   /** Non-null only for role === "admin" — which kind of staff member this
-   * is. See @tuma/shared's permissions.ts for what each role can do. */
+   * is. See @peebee/shared's permissions.ts for what each role can do. */
   adminRole: AdminRole | null;
   /** True right after a staff account is invited or has its password reset
    * by another admin. The API rejects nearly everything else while this is
@@ -1771,7 +1771,7 @@ export type Stage = {
 export type StageMemberSummary = { rider_id: string; role: StageMemberRole; name: string };
 
 /** RSLA-specific membership profile details — kept separate from a
- * member's core Tuma rider profile (see the migration comment on
+ * member's core Peebee rider profile (see the migration comment on
  * stage_members for why). Read/written only for the requesting member's
  * own row (GET/PUT /stages/:id/members/me/profile), not exposed for other
  * members via the general member list. */
@@ -1966,7 +1966,7 @@ export type AdminStageSummary = Stage & { member_count: number };
 
 export type AdminStageDetail = { stage: Stage; members: StageMemberSummary[]; cycle: StageCycle | null };
 
-// ---- Tuma Car (admin) ----------------------------------------------------
+// ---- Peebee Car (admin) ----------------------------------------------------
 
 export type CarPartnerStatus = "none" | "pending" | "approved" | "rejected" | "suspended";
 
@@ -2044,7 +2044,7 @@ export type AdminCarBooking = {
   platform_amount: number | null;
 };
 
-// ---- Tuma Car (customer) ----------------------------------------------------
+// ---- Peebee Car (customer) ----------------------------------------------------
 
 export type CarCategory = {
   id: string;
@@ -2069,7 +2069,7 @@ export type CarConfig = {
   scheduled: { maxAdvanceHours: number | null; minLeadMinutes: number } | null;
   /** Present only when carpool is switched on. */
   carpool: { maxSeatsPerBooking: number; maxRepeatWeeks: number } | null;
-  /** Present only when self-drive hire is switched on and Tuma's percentage is set. */
+  /** Present only when self-drive hire is switched on and Peebee's percentage is set. */
   selfDrive: { maxDays: number } | null;
   matchingMode: "customer_selects" | "first_to_claim";
   categories: CarCategory[];
@@ -2207,7 +2207,7 @@ export type CarpoolMyTrip = {
   }>;
 };
 
-// ---- Tuma Car (partner app) -------------------------------------------------
+// ---- Peebee Car (partner app) -------------------------------------------------
 
 export type CarMe = {
   /** A driver who said they don't have a car and wants one provided. */
@@ -2284,7 +2284,7 @@ export type CarOwnerRides = {
 /** What an owner and driver agree for a car: a share of each ride, or a fixed rent. */
 export type DealTermsView = {
   feeType: "share" | "rent";
-  /** Owner's part of what is left after Tuma's cut (%), for a share deal. */
+  /** Owner's part of what is left after Peebee's cut (%), for a share deal. */
   ownerSharePercent: number | null;
   rentAmount: number | null;
   rentPeriod: "day" | "week" | null;

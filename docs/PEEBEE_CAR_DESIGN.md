@@ -1,4 +1,4 @@
-# Tuma Car — design document (phase a)
+# Peebee Car — design document (phase a)
 
 Status: **Draft for review — no code written.** Waiting for approval before phase (b).
 Scope: car/van/truck transport next to boda — on-demand rides, carpooling, self-drive hire, scheduled rides.
@@ -10,7 +10,7 @@ Legend: **[V]** verified in the repo at `main` (file named). **[A]** assumption 
 ## 0. Things in the brief that don't match the repo (please read first)
 
 1. **TomTom is map tiles only [V].** `apps/*/lib/map-tiles.ts` / `navTiles.ts` only build raster tile URLs. There is no TomTom routing, search or ETA call. Geocoding is OSM Nominatim, driving routes are the public OSRM demo router (`router.project-osrm.org`). → Scheduled-ride tracking should **not** depend on a routing API (see §6.4).
-2. **There are no QR payments [V].** The only "code" payment is the merchant **outlet code** (`merchant_outlets.code`) used by riders paying merchants. Tuma Car does not need QR for v1; I list it as out of scope unless you want pickup/handover QR codes.
+2. **There are no QR payments [V].** The only "code" payment is the merchant **outlet code** (`merchant_outlets.code`) used by riders paying merchants. Peebee Car does not need QR for v1; I list it as out of scope unless you want pickup/handover QR codes.
 3. **No licence registry or "KYC tier" exists [V].** KYC today = phone/email verified (`users.phone_verified_at`), rider national-ID scan + admin verify (`riders.national_id_key`, `riders.verified`), and `merchant_kyc_cases` for merchants. Nothing queries a national registry; nothing is called "tier". RSLA has a member profile (`stage_members`, migration 0062) but no formal deeper-KYC level. → I propose a `kyc_level` column and a licence-verification adapter that is **manual-review at launch** (§5).
 4. **`users.role` is `CHECK (customer|rider|admin)` [V, 0001_init.sql]** on a live table. Adding a `driver`/`owner` role means rebuilding `users`. Precedent for avoiding that: ride orders reuse `orders.type='parcel'` + `is_ride` (0039) and restaurants hang off `restaurants.owner_id` with admin approval (0032). → Car owners/drivers stay `role='customer'` and are identified by rows in new tables.
 5. **`payments.order_id` is `NOT NULL REFERENCES orders` [V, 0001]** and `orders.type` is `CHECK (shopping|parcel)`. Money flows (collection/refund/disbursement) are order-shaped. → Every car booking gets a linked `orders` row (see §3.1, decision D1).
@@ -48,7 +48,7 @@ Legend: **[V]** verified in the repo at `main` (file named). **[A]** assumption 
 |---|---|---|
 | D1 | **Booking model.** (A) every car booking = a commercial `car_bookings` row **plus a linked shadow `orders` row** (so payments, chat, calls, events, push links, ratings, tracking, time-fees all work unchanged); or (B) a fully parallel set of tables. | **A.** Far less to rebuild; `orders.type` stays `parcel`. Costs: a few new nullable columns on `orders`; carpool seats map to one shadow order per seat-booking. |
 | D2 | **Where do owner/driver earnings sit?** Rider wallet columns are on `riders`; customer wallet is on `users`. | Credit **`users.wallet_balance`** (they are users) via ledger-backed postings; generalise `wallet_withdrawals` to non-riders (it is `rider_id`-keyed today). |
-| D3 | **New app name/host.** | `apps/car` → `car.tumaffe.online` (one worker, owner + driver modes behind one sign-in). Needs deploy-matrix + preview-hub + CORS entries. |
+| D3 | **New app name/host.** | `apps/car` → `car.peebee.online` (one worker, owner + driver modes behind one sign-in). Needs deploy-matrix + preview-hub + CORS entries. |
 | D4 | **Owner vs driver identity.** One person can be both. | One `car_partners` row per user with capability flags `is_owner`, `is_driver`; drivers may be attached to an owner's listing. |
 | D5 | Seat price: do you want the **suggested price** table maintained by admin only (manual), or fed externally later? (listed as undecided in the brief) | Manual admin table at launch, with `source` + `updated_at` columns so a feed can replace it. |
 
@@ -59,14 +59,14 @@ Legend: **[V]** verified in the repo at `main` (file named). **[A]** assumption 
 | D1 | **Yes** — every car booking carries a linked `orders` row, so payments, chat, calls, tracking, ratings and fees work unchanged. Car rides "work the same way boda rides work". |
 | D2 | **Yes** — owner and driver earnings are credited to the wallet balance; withdrawals are opened to non-riders. |
 | D3 | **Two separate apps, not one:** an **Owner app** and a **Driver app**. A driver can also be an owner (one account, both apps). The Owner app shows the owner's vehicles and **rides currently being taken** (live). |
-| D3a | **Supply flow:** owners put a car up for service → Tuma managers see newly available cars in the admin app → managers **assign drivers** to them → drivers use those cars on the Driver app. (So "listing" = owner offers a vehicle; "assignment" = admin links it to a driver. A car with no assigned driver is not bookable with-driver.) |
+| D3a | **Supply flow:** owners put a car up for service → Peebee managers see newly available cars in the admin app → managers **assign drivers** to them → drivers use those cars on the Driver app. (So "listing" = owner offers a vehicle; "assignment" = admin links it to a driver. A car with no assigned driver is not bookable with-driver.) |
 | D3b | **Predefined profit share** between **owner / driver / platform**, set by admin (per category, with a global default), applied when a booking completes. Replaces the idea of the owner pricing a separate driver fee. |
 | D4 | **Yes** — one person can be both owner and driver. |
 | D5 | **Prices are determined in the app** (category rates / suggested price). In addition, **drivers and riders can bid** with a different price; the customer sees all bids and **picks** one. Bidding only works when the admin has allowed multiple applications ("Let me choose" matching mode) and switched bidding on. **Applies to boda rides too.** |
 
 **Delivered so far (this PR): D5 for boda** — `bidding_enabled`, `bidding_min_percent`, `bidding_max_percent` settings (Admin → Rider matching); `order_applications.bid_amount`, `orders.app_price` (migration 0064); riders/drivers apply with a price inside the allowed range; the customer sees every bid beside the app price (best first) and picks; the chosen bid becomes the order total; auto-matching never applies a bid. Car drivers reuse the same endpoints/columns when the Driver app arrives.
 
-Still open from your brief and **not decided here**: Tuma commission (§4 has the field, default off), advance-booking window (setting, no default — feature stays off until set), deposit amounts, penalty values, self-drive legal/insurance (lawyer).
+Still open from your brief and **not decided here**: Peebee commission (§4 has the field, default off), advance-booking window (setting, no default — feature stays off until set), deposit amounts, penalty values, self-drive legal/insurance (lawyer).
 
 ---
 
@@ -156,7 +156,7 @@ Book boda or car for later (window = `scheduled_max_advance_hours`, **no default
 
 ---
 
-## 7. Admin settings (all in Admin → new "Tuma Car" section; stored in `settings`, audited via the activity log; new permission `car.manage` + `car.vetting`)
+## 7. Admin settings (all in Admin → new "Peebee Car" section; stored in `settings`, audited via the activity log; new permission `car.manage` + `car.vetting`)
 
 Categories (CRUD, reference image, suggested price, deposit [?]); required vetting documents per role/category; carpool: `waiting_minutes`, no-show fee (amount or %), driver share of no-show %, late-cancel window + fee (amount or %), door pickup/drop-off fee guidance, seat-price reference table, `trip_materialise_days`; self-drive: required inspection slots, deposit per category [?]; scheduled: `max_advance_hours` (no default), `watch_minutes`, notify threshold; platform fee per mode (**fields exist, empty/off — [?] undecided**); document-expiry grace days.
 
@@ -178,7 +178,7 @@ Categories (CRUD, reference image, suggested price, deposit [?]); required vetti
 
 **Customer app (changes):** Ride entry gets **Boda | Car** toggle (extends the existing "Where to?" / Ride tile) → category grid → vehicle pool cards → listing detail → booking summary (with driver / self-drive, extras, total, penalties disclosed up front) → payment (existing pay screen). Tabs/entries for **Carpool** (search, trip detail with meeting points + seat count), **Rent a car** (licence, deposit, inspection camera flow), **Schedule** (date/time picker inside the same flow). Bookings list shows all modes; tracking page reused. Wording per mode via the PlaceFlow `concept` pattern.
 
-**Tuma Car app (`apps/partner`):** onboarding/KYC; **Owner:** vehicles & documents, listings (photos, price vs suggested, service mode, driver fee, availability calendar), drivers, carpool routes + calendar, bookings, earnings/withdraw. **Driver:** job inbox, active job (navigate, arrived/waiting timer, start/finish), inspection capture (self-drive handover), earnings.
+**Peebee Car app (`apps/partner`):** onboarding/KYC; **Owner:** vehicles & documents, listings (photos, price vs suggested, service mode, driver fee, availability calendar), drivers, carpool routes + calendar, bookings, earnings/withdraw. **Driver:** job inbox, active job (navigate, arrived/waiting timer, start/finish), inspection capture (self-drive handover), earnings.
 
 **Admin app:** the settings in §7 plus Vetting queue (partners, vehicles, documents, renter licences), Listings moderation, Bookings & Disputes (photo viewer), Car reports.
 
@@ -222,5 +222,5 @@ Deliberate differences from the plan above:
 - **No new columns on `orders`.** A car ride links to its order through `car_bookings.order_id`; boda behaviour is unchanged.
 - **Scheduled rides** open to drivers `openMinutes` before pickup instead of locking a driver at booking, so no driver is blocked for days. The customer pays after choosing a driver, as for any ride.
 - **Carpool** uses single published trips (with an optional weekly repeat within an admin limit) rather than recurring schedule rules and a nightly materialiser. Meeting points, door pickup fees, no-show and late-cancel fees are not built (undecided values).
-- **Self-drive** holds rent + deposit from the renter's wallet and releases them at the end (deposit back unless the owner claims damage, ruled on by an admin). Inspection photos, late-return fees and a licence verifier are not built; the licence is recorded, not verified. Needs Tuma's percentage set and a legal review before live money.
-- Navigation in the Tuma Car app opens the phone's maps app; there is no in-app map.
+- **Self-drive** holds rent + deposit from the renter's wallet and releases them at the end (deposit back unless the owner claims damage, ruled on by an admin). Inspection photos, late-return fees and a licence verifier are not built; the licence is recorded, not verified. Needs Peebee's percentage set and a legal review before live money.
+- Navigation in the Peebee Car app opens the phone's maps app; there is no in-app map.

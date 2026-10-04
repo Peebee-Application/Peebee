@@ -11,9 +11,9 @@ const CODE_TTL_MINUTES = 10;
  * on separate domains. */
 export function appBaseUrl(role: string | null | undefined): string {
   const isProd = (process.env.ENVIRONMENT ?? "development") !== "development";
-  if (role === "rider") return process.env.RIDER_APP_URL ?? (isProd ? "https://rider.tumaffe.online" : "http://localhost:3001");
-  if (role === "admin") return process.env.ADMIN_APP_URL ?? (isProd ? "https://admin.tumaffe.online" : "http://localhost:3002");
-  return process.env.CUSTOMER_APP_URL ?? (isProd ? "https://customer.tumaffe.online" : "http://localhost:3000");
+  if (role === "rider") return process.env.RIDER_APP_URL ?? (isProd ? "https://rider.peebee.online" : "http://localhost:3001");
+  if (role === "admin") return process.env.ADMIN_APP_URL ?? (isProd ? "https://admin.peebee.online" : "http://localhost:3002");
+  return process.env.CUSTOMER_APP_URL ?? (isProd ? "https://customer.peebee.online" : "http://localhost:3000");
 }
 
 export function maskTarget(channel: "sms" | "email", target: string): string {
@@ -56,7 +56,7 @@ export async function createAndSendOtp(
 
   if (channel === "email" && await isResendConfigured()) {
     const verifyLink = linkToken
-      ? `${process.env.PUBLIC_API_URL ?? "https://tuma-api.doxalight-inc.workers.dev"}/v1/auth/verify/confirm-link?token=${linkToken}`
+      ? `${process.env.PUBLIC_API_URL ?? "https://peebee-api.peebeeapp.workers.dev"}/v1/auth/verify/confirm-link?token=${linkToken}`
       : undefined;
     await sendVerificationEmail(target, code, verifyLink);
     return {};

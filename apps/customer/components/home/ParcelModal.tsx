@@ -1,6 +1,6 @@
 "use client";
 
-import { roundFare } from "@tuma/shared";
+import { roundFare } from "@peebee/shared";
 import { Route } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
