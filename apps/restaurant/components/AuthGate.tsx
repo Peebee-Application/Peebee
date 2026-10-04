@@ -1,6 +1,6 @@
 "use client";
 
-import { isUserVerified } from "@tuma/shared";
+import { isUserVerified } from "@peebee/shared";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "../lib/auth-context";

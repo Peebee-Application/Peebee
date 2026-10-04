@@ -1,6 +1,6 @@
 "use client";
 
-import type { OrderDetail, OrderRating } from "@tuma/shared";
+import type { OrderDetail, OrderRating } from "@peebee/shared";
 import { MapPin, MessageCircle, TriangleAlert, User } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";

@@ -1,6 +1,6 @@
 "use client";
 
-import { hasPermission, type PlatformEnvironment } from "@tuma/shared";
+import { hasPermission, type PlatformEnvironment } from "@peebee/shared";
 import { FlaskConical, GraduationCap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SettingsPageShell } from "../../../components/SettingsPageShell";

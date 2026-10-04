@@ -1,4 +1,4 @@
-import { isAdminRole } from "@tuma/shared";
+import { isAdminRole } from "@peebee/shared";
 
 type UserRow = {
   id: string;

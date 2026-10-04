@@ -1,12 +1,12 @@
 "use client";
 
-import { isUserVerified } from "@tuma/shared";
+import { isUserVerified } from "@peebee/shared";
 import { useEffect, useState } from "react";
 import { SaveLocationPrompt } from "../SaveLocationPrompt";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 
-const DISMISS_KEY = "tuma-location-prompt-dismissed";
+const DISMISS_KEY = "peebee-location-prompt-dismissed";
 
 /** Prompts a verified customer with no saved locations yet to save one
  * (Home/Office), shown once per browser on their first real visit —

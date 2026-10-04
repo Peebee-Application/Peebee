@@ -43,7 +43,7 @@ const devOrigins = [
   "http://localhost:3006", // apps/partner dev server
 ];
 
-const defaultOrigins = ["https://tuma-customer-staging.onrender.com", "https://tuma-rider-staging.onrender.com"];
+const defaultOrigins = ["https://peebee-customer-staging.onrender.com", "https://peebee-rider-staging.onrender.com"];
 
 /** Anything a developer runs on their own machine can call the API from the
  * browser — which is exactly what you want locally, and exactly what you
@@ -67,8 +67,8 @@ app.use("*", (c, next) => {
     origin: (origin) => {
       if (!origin) return undefined;
       if (allowOrigins.includes(origin)) return origin;
-      // Allow any Cloudflare preview or staging/production domain on doxalight-inc.workers.dev or tumaffe.online
-      if (/^https:\/\/([a-zA-Z0-9-]+\.)*(doxalight-inc\.workers\.dev|tumaffe\.online)$/i.test(origin)) {
+      // Allow any Cloudflare preview or staging/production domain on doxalight-inc.workers.dev or peebee.online
+      if (/^https:\/\/([a-zA-Z0-9-]+\.)*(doxalight-inc\.workers\.dev|peebee\.online)$/i.test(origin)) {
         return origin;
       }
       return undefined;
@@ -80,7 +80,7 @@ app.use("*", (c, next) => {
 
 app.get("/", (c) =>
   c.json({
-    service: "tuma-api",
+    service: "peebee-api",
     message: "bootstrap",
     health: "/health",
     v1: "/v1",
@@ -90,14 +90,14 @@ app.get("/", (c) =>
 app.get("/health", (c) =>
   c.json({
     ok: true,
-    service: "tuma-api",
+    service: "peebee-api",
     env: process.env.ENVIRONMENT ?? "development",
   }),
 );
 
 app.get("/v1", (c) =>
   c.json({
-    name: "tuma-api",
+    name: "peebee-api",
     version: "0.1.0",
     status: "live",
     note: "Auth, orders, matching, mobile money escrow via Yo! Payments (mock by default), chat, rider verification",

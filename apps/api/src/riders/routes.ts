@@ -1,4 +1,4 @@
-import { isRiderProfileComplete, type MobileMoneyNetwork, type Rider } from "@tuma/shared";
+import { isRiderProfileComplete, type MobileMoneyNetwork, type Rider } from "@peebee/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 import { logActivity } from "../admin/activity.js";
@@ -169,7 +169,7 @@ const ALLOWED_PHOTO_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 /**
  * Uploads the rider's own face photo — mandatory for profile completion
- * (see isRiderProfileComplete in @tuma/shared). Unlike the National ID scan,
+ * (see isRiderProfileComplete in @peebee/shared). Unlike the National ID scan,
  * this one is meant to be seen: it's what a customer sees on their order
  * once a rider takes it, so it builds the same trust a driver photo does in
  * any ride-hailing app. Served back via GET /riders/:userId/photo, not
@@ -332,7 +332,7 @@ riderRoutes.get("/riders/jobs/available", requireAuth, requireRole("rider"), asy
   const riderLat = rider.stage_lat as number | null;
   const riderLng = rider.stage_lng as number | null;
 
-  // Tuma Car rides are for car drivers only — never in the boda feed.
+  // Peebee Car rides are for car drivers only — never in the boda feed.
   const carFilter = (await hasTable("car_bookings")) ? "AND NOT EXISTS (SELECT 1 FROM car_bookings cb WHERE cb.order_id = o.id)" : "";
   const [res, appliedRes] = await Promise.all([
     db.execute({
@@ -918,7 +918,7 @@ riderRoutes.post("/riders/me/subscription/pay", requireAuth, requireRole("rider"
       msisdn,
       amount: settings.subscriptionAmount,
       name: user.name,
-      narrative: settings.subscriptionMode === "once" ? "Tuma rider lifetime subscription" : "Tuma rider subscription",
+      narrative: settings.subscriptionMode === "once" ? "Peebee rider lifetime subscription" : "Peebee rider subscription",
       forceMock: environment === "sandbox",
     });
     await db.execute({
@@ -1048,7 +1048,7 @@ riderRoutes.post("/riders/me/pro-subscription/pay", requireAuth, requireRole("ri
       msisdn,
       amount,
       name: user.name,
-      narrative: mode === "once" ? "Tuma rider Pro (lifetime)" : "Tuma rider Pro",
+      narrative: mode === "once" ? "Peebee rider Pro (lifetime)" : "Peebee rider Pro",
       forceMock: environment === "sandbox",
     });
     await db.execute({

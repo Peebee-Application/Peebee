@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { GEMINI_TTS_VOICES } from "@tuma/shared";
+import { GEMINI_TTS_VOICES } from "@peebee/shared";
 import { pcmToWav, resolveGeminiVoice, synthesizeLuganda, translateToLuganda } from "./gemini.js";
 
 test("legacy voice ids map onto stable, distinct Gemini voices; real names pass through", () => {

@@ -1,12 +1,12 @@
 /**
- * Hono-side wiring for the role/permission data in @tuma/shared — the
+ * Hono-side wiring for the role/permission data in @peebee/shared — the
  * frontend uses that same package to hide what a role can't do, but this
  * file is what actually enforces it. Re-exported here so callers in
  * apps/api only need one import for both the data and the middleware.
  */
 
 import type { Context, Next } from "hono";
-import { hasPermission, type AdminRole, type Permission } from "@tuma/shared";
+import { hasPermission, type AdminRole, type Permission } from "@peebee/shared";
 import type { RequestUser } from "../auth/middleware.js";
 
 export {
@@ -18,7 +18,7 @@ export {
   permissionsFor,
   type AdminRole,
   type Permission,
-} from "@tuma/shared";
+} from "@peebee/shared";
 
 /** Hono middleware: rejects unless the signed-in staff member's role
  * carries this permission. Mount after requireAuth + requireRole("admin")

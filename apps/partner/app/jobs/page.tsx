@@ -1,6 +1,6 @@
 "use client";
 
-import type { CarDriverJob } from "@tuma/shared";
+import type { CarDriverJob } from "@peebee/shared";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";

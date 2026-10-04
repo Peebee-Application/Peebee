@@ -8,7 +8,7 @@ import {
   type MerchantProviderOperation,
   type MerchantReconciliationRow,
   type PlatformEnvironment,
-} from "@tuma/shared";
+} from "@peebee/shared";
 import { useCallback, useEffect, useState } from "react";
 import { SettingsPageShell } from "../../../components/SettingsPageShell";
 import { api, errorMessage } from "../../../lib/api";

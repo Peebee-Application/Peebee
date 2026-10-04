@@ -1,7 +1,7 @@
 -- SUPERSEDED — kept only because these columns/table are already live in
 -- production and dropping them isn't worth the risk for dead schema.
 --
--- Originally: a running "amount owed to Tuma from cash orders" counter
+-- Originally: a running "amount owed to Peebee from cash orders" counter
 -- plus a per-order audit table. Replaced before ever being used by a
 -- simpler design (see apps/api/src/orders/routes.ts POST
 -- /orders/:id/settle and apps/api/src/lib/monetization.ts

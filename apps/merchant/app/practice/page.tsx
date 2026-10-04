@@ -1,6 +1,6 @@
 "use client";
 
-import { startPracticeMode } from "@tuma/shared";
+import { startPracticeMode } from "@peebee/shared";
 import { useEffect } from "react";
 
 export default function PracticeEntryPage() {

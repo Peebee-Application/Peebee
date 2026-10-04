@@ -7,7 +7,7 @@
  * routes) talks to ../service.ts only; adapters never leak upward.
  */
 
-import type { MobileMoneyNetwork } from "@tuma/shared";
+import type { MobileMoneyNetwork } from "@peebee/shared";
 
 export type GatewayStatus = "PENDING" | "SUCCEEDED" | "FAILED" | "INDETERMINATE";
 

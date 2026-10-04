@@ -6,7 +6,7 @@ import {
   type PaymentCredentialFieldStatus,
   type PaymentProviderIdentity,
   type PaymentProviderInfo,
-} from "@tuma/shared";
+} from "@peebee/shared";
 import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";

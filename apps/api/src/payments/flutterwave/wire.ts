@@ -3,7 +3,7 @@
  * page) rather than their raw per-method "Direct Charge" endpoints. Two
  * reasons: it's the one integration that covers both mobile money and
  * cards at once instead of two separate flows to build and maintain, and
- * it means a card number never touches Tuma's own server — the customer
+ * it means a card number never touches Peebee's own server — the customer
  * enters it on Flutterwave's page, which is what keeps this integration
  * out of full PCI-DSS card-data-handling scope (SAQ-A eligible) instead of
  * the much heavier bar direct card charges would require.
@@ -41,7 +41,7 @@ export function isFlutterwaveConfigured(): Promise<boolean> {
  * requires one — Flutterwave never actually sends mail to it, the field is
  * just an account identifier on their side. */
 function customerEmail(input: GatewayChargeInput): string {
-  return input.email?.trim() || `${input.referenceId}@customers.tumaffe.online`;
+  return input.email?.trim() || `${input.referenceId}@customers.peebee.online`;
 }
 
 type CreatePaymentResponse = {
@@ -127,7 +127,7 @@ async function createPaymentLink(input: GatewayChargeInput): Promise<GatewayResu
         phonenumber: input.msisdn,
         name: input.name,
       },
-      customizations: { title: "Tuma" },
+      customizations: { title: "Peebee" },
       payment_options: "card, mobilemoneyuganda",
       meta: { narrative: input.narrative },
     }),
@@ -190,7 +190,7 @@ export const flutterwaveAdapter: PaymentGatewayAdapter = {
   // ../service.ts resolveProvider().
   supportsDisbursement: false,
   // Standard Checkout lets the customer pick MTN/Airtel/card on
-  // Flutterwave's own page — Tuma never needs to resolve a network first.
+  // Flutterwave's own page — Peebee never needs to resolve a network first.
   requiresNetwork: false,
   depositFunds: createPaymentLink,
   async withdrawFunds(): Promise<GatewayResult> {

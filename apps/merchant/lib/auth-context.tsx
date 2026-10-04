@@ -1,6 +1,6 @@
 "use client";
 
-import type { AuthUser, Merchant } from "@tuma/shared";
+import type { AuthUser, Merchant } from "@peebee/shared";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, TOKEN_KEY, USER_KEY } from "./api";
 
@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const raw = localStorage.getItem(USER_KEY);
       if (raw) setUser(JSON.parse(raw) as AuthUser);
-      setSelectedId(localStorage.getItem("tuma_merchant_selected"));
+      setSelectedId(localStorage.getItem("peebee_merchant_selected"));
     } finally {
       setReady(true);
     }
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshMerchants, user?.id]);
 
   const persist = useCallback((token: string, nextUser: AuthUser) => {
-    if (nextUser.role !== "customer") throw new Error("Use a customer account for Tuma Merchant.");
+    if (nextUser.role !== "customer") throw new Error("Use a customer account for Peebee Merchant.");
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
     setUser(nextUser);
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [persist]);
 
   const selectMerchant = useCallback((id: string) => {
-    localStorage.setItem("tuma_merchant_selected", id);
+    localStorage.setItem("peebee_merchant_selected", id);
     setSelectedId(id);
   }, []);
 
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void api.logout().catch(() => undefined);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
-    localStorage.removeItem("tuma_merchant_selected");
+    localStorage.removeItem("peebee_merchant_selected");
     setUser(null);
     setMerchants([]);
   }, []);

@@ -1,4 +1,4 @@
-const STORAGE_KEY = "tuma_seen_fee_proposals";
+const STORAGE_KEY = "peebee_seen_fee_proposals";
 
 /** A fee proposal the customer has already viewed (opened the order while
  * it was pending) or acted on, so the home screen's reminder card doesn't

@@ -1,6 +1,6 @@
 "use client";
 
-import type { OwnerDeals } from "@tuma/shared";
+import type { OwnerDeals } from "@peebee/shared";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../lib/api";
 import { describeTerms } from "../lib/terms";
@@ -42,7 +42,7 @@ export function OwnerDealsPanel() {
           {data.requests.map((r) => (
             <div key={r.id} className="space-y-2 border-t border-[var(--border-faint)] pt-3 first:border-t-0 first:pt-0">
               <p className="text-sm font-semibold text-ink">{r.driverName} <span className="font-normal text-ink-500">· {r.plate}</span></p>
-              <p className="text-xs text-ink-500">{r.ridesDone} completed ride{r.ridesDone === 1 ? "" : "s"} on Tuma{r.licenceExpiry ? ` · licence to ${r.licenceExpiry}` : ""}</p>
+              <p className="text-xs text-ink-500">{r.ridesDone} completed ride{r.ridesDone === 1 ? "" : "s"} on Peebee{r.licenceExpiry ? ` · licence to ${r.licenceExpiry}` : ""}</p>
               <p className="text-xs text-ink">{describeTerms(r.terms)}</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => act(() => api.dealsDecide(r.id, true))} className="min-h-10 flex-1 rounded-full bg-gold px-3 text-sm font-bold text-ink-gold">Accept</button>

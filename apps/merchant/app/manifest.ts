@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Tuma Merchant",
-    short_name: "Tuma Merchant",
-    description: "Accept Tuma payments and manage merchant settlements.",
+    name: "Peebee Merchant",
+    short_name: "Peebee Merchant",
+    description: "Accept Peebee payments and manage merchant settlements.",
     id: "/",
     start_url: "/",
     scope: "/",

@@ -1,21 +1,21 @@
 {
-  "name": "tuma-api",
+  "name": "peebee-api",
   "main": "src/worker.ts",
   "compatibility_date": "2026-09-12",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
-  "routes": [{ "pattern": "api.tumaffe.online", "custom_domain": true }],
+  "routes": [{ "pattern": "api.peebee.online", "custom_domain": true }],
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "tuma-api",
+      "database_name": "peebee-api",
       "database_id": "26926e12-d2f4-4b40-8b1b-019f6c169e10"
     }
   ],
   "r2_buckets": [
     {
       "binding": "RIDER_DOCS",
-      "bucket_name": "tuma"
+      "bucket_name": "peebee"
     }
   ],
   "ai": {
@@ -48,7 +48,7 @@
   ],
   "vars": {
     "ENVIRONMENT": "staging",
-    "CORS_ORIGINS": "https://tumaffe.online,https://www.tumaffe.online,https://customer.tumaffe.online,https://rider.tumaffe.online,https://admin.tumaffe.online,https://restaurant.tumaffe.online,https://merchant.tumaffe.online,https://car.tumaffe.online,https://partner.tumaffe.online,https://tuma-customer.doxalight-inc.workers.dev,https://tuma-rider.doxalight-inc.workers.dev,https://tuma-admin.doxalight-inc.workers.dev,https://tuma-restaurant.doxalight-inc.workers.dev,https://tuma-merchant.doxalight-inc.workers.dev,https://tuma-partner.doxalight-inc.workers.dev,https://tuma-web.doxalight-inc.workers.dev,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3005,http://localhost:3006",
+    "CORS_ORIGINS": "https://peebee.online,https://www.peebee.online,https://customer.peebee.online,https://rider.peebee.online,https://admin.peebee.online,https://restaurant.peebee.online,https://merchant.peebee.online,https://car.peebee.online,https://partner.peebee.online,https://peebee-customer.doxalight-inc.workers.dev,https://peebee-rider.doxalight-inc.workers.dev,https://peebee-admin.doxalight-inc.workers.dev,https://peebee-restaurant.doxalight-inc.workers.dev,https://peebee-merchant.doxalight-inc.workers.dev,https://peebee-partner.doxalight-inc.workers.dev,https://peebee-web.doxalight-inc.workers.dev,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3005,http://localhost:3006",
     "PAYMENTS_PROVIDER": "yo_mock",
     "GOOGLE_CLIENT_ID": "744058453576-1hofgakvhp2mt8ub63k8v9ddlocbb3u7.apps.googleusercontent.com",
     // Public half of the VAPID keypair used to sign Web Push requests — safe

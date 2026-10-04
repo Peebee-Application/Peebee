@@ -1,6 +1,6 @@
 "use client";
 
-import type { CarConfig, OwnerDeals } from "@tuma/shared";
+import type { CarConfig, OwnerDeals } from "@peebee/shared";
 import { useState } from "react";
 import { api, errorMessage } from "../lib/api";
 
@@ -41,7 +41,7 @@ export function TermsEditor({ vehicle, limits, onSaved }: { vehicle: Vehicle; li
   }
 
   const types = [...(limits.shareEnabled ? (["share"] as const) : []), ...(limits.rentEnabled ? (["rent"] as const) : [])];
-  if (vehicle.status !== "approved") return <p className="text-xs text-ink-500">Once Tuma approves this car you can offer it to drivers.</p>;
+  if (vehicle.status !== "approved") return <p className="text-xs text-ink-500">Once Peebee approves this car you can offer it to drivers.</p>;
   if (vehicle.driver) return null;
   return (
     <div className="space-y-3 rounded-xl border border-[var(--border-faint)] p-3">
@@ -57,7 +57,7 @@ export function TermsEditor({ vehicle, limits, onSaved }: { vehicle: Vehicle; li
       )}
       {feeType === "share" ? (
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-ink-500">Your share of each ride after Tuma&apos;s cut (%), {limits.minOwnerSharePercent}–{limits.maxOwnerSharePercent}</label>
+          <label className="text-xs font-semibold text-ink-500">Your share of each ride after Peebee&apos;s cut (%), {limits.minOwnerSharePercent}–{limits.maxOwnerSharePercent}</label>
           <input inputMode="numeric" value={share} onChange={(e) => setShare(e.target.value.replace(/\D/g, ""))} className={field} />
           <p className="text-xs text-ink-500">The driver gets the other {100 - (Number(share) || 0)}%.</p>
         </div>

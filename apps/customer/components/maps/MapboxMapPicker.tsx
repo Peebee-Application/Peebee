@@ -80,8 +80,8 @@ export function MapboxMapPicker({ initial, onConfirm, onCancel, accessToken }: M
 
   useEffect(() => {
     let cancelled = false;
-    loadStylesheet(`https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_GL_VERSION}/mapbox-gl.css`, "tuma-mapbox-css");
-    loadScript(`https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_GL_VERSION}/mapbox-gl.js`, "tuma-mapbox-js")
+    loadStylesheet(`https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_GL_VERSION}/mapbox-gl.css`, "peebee-mapbox-css");
+    loadScript(`https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_GL_VERSION}/mapbox-gl.js`, "peebee-mapbox-js")
       .then(() => {
         if (!cancelled) setReady(true);
       })

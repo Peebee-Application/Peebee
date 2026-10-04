@@ -1,6 +1,6 @@
 "use client";
 
-import type { CarpoolTrip } from "@tuma/shared";
+import type { CarpoolTrip } from "@peebee/shared";
 import { ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";

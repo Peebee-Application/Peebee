@@ -1,6 +1,6 @@
 "use client";
 
-import type { RidePassenger, SavedLocation, SavedPassenger } from "@tuma/shared";
+import type { RidePassenger, SavedLocation, SavedPassenger } from "@peebee/shared";
 import { ArrowLeft, Briefcase, Clock, History, Home, Loader2, Map as MapIcon, MapPin, Navigation, Search, X, ArrowUpDown } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Rider } from "@tuma/shared";
+import type { Rider } from "@peebee/shared";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";

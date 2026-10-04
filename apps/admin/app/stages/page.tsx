@@ -1,6 +1,6 @@
 "use client";
 
-import { hasPermission, type AdminStageSummary } from "@tuma/shared";
+import { hasPermission, type AdminStageSummary } from "@peebee/shared";
 import { ChevronRight, PiggyBank, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";

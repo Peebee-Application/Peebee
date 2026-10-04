@@ -4,7 +4,7 @@ import {
   createPracticeFetch,
   isPracticeJourneyComplete,
   startPracticeMode,
-} from "@tuma/shared";
+} from "@peebee/shared";
 
 function installStorage() {
   const values = new Map<string, string>();

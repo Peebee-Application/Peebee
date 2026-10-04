@@ -1,6 +1,6 @@
 "use client";
 
-import type { SharedTrip } from "@tuma/shared";
+import type { SharedTrip } from "@peebee/shared";
 import { MapPin, Navigation } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useState } from "react";

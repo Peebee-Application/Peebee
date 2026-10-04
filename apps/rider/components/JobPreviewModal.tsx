@@ -1,6 +1,6 @@
 "use client";
 
-import type { AvailableJob, ListItem } from "@tuma/shared";
+import type { AvailableJob, ListItem } from "@peebee/shared";
 import { MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Modal } from "./Modal";

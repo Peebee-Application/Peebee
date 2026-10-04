@@ -5,9 +5,9 @@ export interface Env {
 
 const APPS = [
   { id: "customer", name: "Customer App", icon: "📱", desc: "Customer ordering & concierge interface" },
-  { id: "rider", name: "Tuma Rider App", icon: "🛵", desc: "Rider delivery & earnings interface" },
+  { id: "rider", name: "Peebee Rider App", icon: "🛵", desc: "Rider delivery & earnings interface" },
   { id: "merchant", name: "Merchant App", icon: "🏪", desc: "Merchant store & orders management" },
-  { id: "partner", name: "Tuma Car App", icon: "🚗", desc: "Car owners and drivers: vehicles, rides, earnings" },
+  { id: "partner", name: "Peebee Car App", icon: "🚗", desc: "Car owners and drivers: vehicles, rides, earnings" },
   { id: "restaurant", name: "Restaurant App", icon: "🍽️", desc: "Restaurant kitchen & menu dashboard" },
   { id: "admin", name: "Admin Dashboard", icon: "⚙️", desc: "Superadmin, operations, and cycle control" },
   { id: "web", name: "Marketing Landing", icon: "🌐", desc: "Public landing page and downloads" },
@@ -23,7 +23,7 @@ function sanitizeBranch(raw: string): string {
 }
 
 function getAppPreviewUrl(alias: string, app: string, accountSubdomain: string): string {
-  return `https://${alias}-tuma-${app}.${accountSubdomain}.workers.dev`;
+  return `https://${alias}-peebee-${app}.${accountSubdomain}.workers.dev`;
 }
 
 interface BranchInfo {
@@ -39,7 +39,7 @@ async function fetchRecentBranches(repo: string): Promise<BranchInfo[]> {
   try {
     const res = await fetch(`https://api.github.com/repos/${repo}/actions/runs?per_page=20`, {
       headers: {
-        "User-Agent": "TumaPreviewHub/1.0",
+        "User-Agent": "PeebeePreviewHub/1.0",
         Accept: "application/vnd.github.v3+json",
       },
       cf: {
@@ -89,10 +89,10 @@ export default {
     const url = new URL(request.url);
     const host = url.hostname.toLowerCase();
     const subdomain = env.ACCOUNT_SUBDOMAIN || "doxalight-inc";
-    const repo = env.GITHUB_REPO || "Tuma-Concierge/tuma-concierge";
+    const repo = env.GITHUB_REPO || "Peebee-Application/Peebee";
 
-    // 1. Direct App Subdomains (e.g. customer-preview.tumaffe.online)
-    const appSubdomainMatch = host.match(/^([a-z0-9-]+)-preview\.tumaffe\.online$/);
+    // 1. Direct App Subdomains (e.g. customer-preview.peebee.online)
+    const appSubdomainMatch = host.match(/^([a-z0-9-]+)-preview\.peebee\.online$/);
     if (appSubdomainMatch) {
       const requestedApp = appSubdomainMatch[1];
       const validApp = APPS.find((a) => a.id === requestedApp);
@@ -123,7 +123,7 @@ export default {
     // 3. Path-based short route: /:branch/:app (e.g. /feat-orders/customer or /customer)
     const pathParts = url.pathname.split("/").filter(Boolean);
 
-    // If single path segment is an app id (e.g. preview.tumaffe.online/customer)
+    // If single path segment is an app id (e.g. preview.peebee.online/customer)
     if (pathParts.length === 1) {
       const matchedApp = APPS.find((a) => a.id === pathParts[0]);
       if (matchedApp) {
@@ -168,7 +168,7 @@ function renderDashboardHtml(branches: BranchInfo[], subdomain: string): string 
     .map((b) => {
       const appButtons = APPS.map((app) => {
         const url = getAppPreviewUrl(b.alias, app.id, subdomain);
-        const shortUrl = `https://preview.tumaffe.online/${b.alias}/${app.id}`;
+        const shortUrl = `https://preview.peebee.online/${b.alias}/${app.id}`;
         return `
           <a href="${url}" target="_blank" rel="noopener" class="app-chip" title="${app.name} (${shortUrl})">
             <span>${app.icon}</span>
@@ -207,13 +207,13 @@ function renderDashboardHtml(branches: BranchInfo[], subdomain: string): string 
     .join("");
 
   const appSubdomainCards = APPS.map((app) => {
-    const subUrl = `https://${app.id}-preview.tumaffe.online`;
+    const subUrl = `https://${app.id}-preview.peebee.online`;
     return `
       <a href="${subUrl}" target="_blank" class="subdomain-card">
         <div class="subdomain-icon">${app.icon}</div>
         <div class="subdomain-info">
           <h4>${app.name}</h4>
-          <code>${app.id}-preview.tumaffe.online</code>
+          <code>${app.id}-preview.peebee.online</code>
         </div>
         <div class="subdomain-arrow">↗</div>
       </a>
@@ -225,7 +225,7 @@ function renderDashboardHtml(branches: BranchInfo[], subdomain: string): string 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tuma Concierge · Cloudflare Preview Hub</title>
+  <title>Peebee Concierge · Cloudflare Preview Hub</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -478,7 +478,7 @@ function renderDashboardHtml(branches: BranchInfo[], subdomain: string): string 
     <div class="logo-container">
       <div class="logo-icon">🛵</div>
       <div>
-        <h1>Tuma Concierge · Preview Hub</h1>
+        <h1>Peebee Concierge · Preview Hub</h1>
         <div class="subtitle">Cloudflare Automated Staging & Branch Previews</div>
       </div>
     </div>
@@ -491,7 +491,7 @@ function renderDashboardHtml(branches: BranchInfo[], subdomain: string): string 
   <main>
     <div class="hero-banner">
       <h2>Short Preview Router</h2>
-      <p>Visit any app directly via its short subdomain (e.g. <code>customer-preview.tumaffe.online</code>) or jump directly to any branch using <code>preview.tumaffe.online/&lt;branch&gt;/&lt;app&gt;</code>.</p>
+      <p>Visit any app directly via its short subdomain (e.g. <code>customer-preview.peebee.online</code>) or jump directly to any branch using <code>preview.peebee.online/&lt;branch&gt;/&lt;app&gt;</code>.</p>
       <div class="quick-box">
         <input type="text" id="quickBranch" class="quick-input" placeholder="Enter branch (e.g. feat-orders)" />
         <select id="quickApp" class="quick-input" style="max-width: 140px;">
@@ -525,7 +525,7 @@ function renderDashboardHtml(branches: BranchInfo[], subdomain: string): string 
   </main>
 
   <footer>
-    Tuma Concierge · Automated Cloudflare Previews · Domain: <a href="https://tumaffe.online" target="_blank">tumaffe.online</a>
+    Peebee Concierge · Automated Cloudflare Previews · Domain: <a href="https://peebee.online" target="_blank">peebee.online</a>
   </footer>
 
   <script>

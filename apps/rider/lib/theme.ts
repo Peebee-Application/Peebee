@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 export type ThemeMode = "light" | "dark" | "auto";
 
-const STORAGE_KEY = "tuma-theme";
+const STORAGE_KEY = "peebee-theme";
 
 function computeTheme(mode: ThemeMode): "light" | "dark" {
   if (mode !== "auto") return mode;

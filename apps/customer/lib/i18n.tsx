@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 export type Language = "en" | "lg";
 
-const STORAGE_KEY = "tuma-language";
+const STORAGE_KEY = "peebee-language";
 
 // Starter dictionary — covers the always-visible chrome (nav, header,
 // account). Translating every screen in both apps is a much bigger job;
@@ -89,9 +89,9 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   who_bad_phone: { en: "Enter a valid phone number.", lg: "Teeka ennamba ya ssimu entuufu." },
   trip_riding: { en: "Riding: {name}", lg: "Agenda: {name}" },
   trip_share: { en: "Share trip link", lg: "Gabana link y'olugendo" },
-  trip_share_text: { en: "Follow your Tuma ride here:", lg: "Goberera olugendo lwo olwa Tuma wano:" },
+  trip_share_text: { en: "Follow your Peebee ride here:", lg: "Goberera olugendo lwo olwa Peebee wano:" },
   trip_copied: { en: "Link copied", lg: "Link ekoppeddwa" },
-  trip_page_title: { en: "Your Tuma ride", lg: "Olugendo lwo olwa Tuma" },
+  trip_page_title: { en: "Your Peebee ride", lg: "Olugendo lwo olwa Peebee" },
   trip_driver: { en: "Driver", lg: "Omugoba" },
   trip_not_found: { en: "This trip link isn't valid.", lg: "Link y'olugendo eno si ntuufu." },
   bid_best_price: { en: "Best price", lg: "Omuwendo ogusinga obulungi" },
@@ -278,7 +278,7 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   rider_comments_count: { en: "{count} comments", lg: "Ebirowoozo {count}" },
   rider_no_reviews: { en: "No reviews yet", lg: "Tewali ndowooza" },
   rider_verified: { en: "Verified rider", lg: "Omutambuze akakasiddwa" },
-  rider_days_on_app: { en: "{count} days on Tuma", lg: "Ennaku {count} ku Tuma" },
+  rider_days_on_app: { en: "{count} days on Peebee", lg: "Ennaku {count} ku Peebee" },
   rider_joined: { en: "Joined {date}", lg: "Yeegatta {date}" },
   rider_completed: { en: "Completed jobs", lg: "Emirimu egimaliriziddwa" },
   rider_rides: { en: "Rides", lg: "Engendo" },

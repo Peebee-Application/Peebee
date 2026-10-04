@@ -65,7 +65,7 @@ test("agreed-deal money rules", () => {
   const share = { feeType: "share" as const, ownerSharePercent: 70, rentAmount: null, rentPeriod: null };
   const rent = { feeType: "rent" as const, ownerSharePercent: null, rentAmount: 1000, rentPeriod: "day" as const };
   assert.deepEqual(splitWithDeal(5000, shares, null, 0), { owner: 3000, driver: 1500, platform: 500, rentCollected: 0 }, "no agreement: the default split");
-  assert.deepEqual(splitWithDeal(5000, shares, share, 0), { owner: 3150, driver: 1350, platform: 500, rentCollected: 0 }, "70% of what's left after Tuma's 10%");
+  assert.deepEqual(splitWithDeal(5000, shares, share, 0), { owner: 3150, driver: 1350, platform: 500, rentCollected: 0 }, "70% of what's left after Peebee's 10%");
   assert.deepEqual(splitWithDeal(5000, shares, rent, 1000), { owner: 1000, driver: 3500, platform: 500, rentCollected: 1000 });
   assert.deepEqual(splitWithDeal(5000, shares, rent, 0), { owner: 0, driver: 4500, platform: 500, rentCollected: 0 }, "rent already paid: the driver keeps it all");
   assert.deepEqual(splitWithDeal(900, shares, rent, 5000), { owner: 810, driver: 0, platform: 90, rentCollected: 810 }, "rent is capped at what the ride leaves");
@@ -100,7 +100,7 @@ test("scheduled ride rules", () => {
   assert.equal(judgeDriver({ distanceKm: null, minutesToPickup: 20, avgSpeedKmh: 25, lastPingAgeMinutes: null, noSignalMinutes: 10 }).verdict, "no_signal");
 });
 
-test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle split", async (t) => {
+test("peebee car: category -> approvals -> assignment -> booking -> bid -> settle split", async (t) => {
   process.env.JWT_SECRET = "local-car-test-secret-only";
   resetSchemaCache();
   const client = createClient({ url: "file::memory:" });
@@ -388,7 +388,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
     await client.execute("UPDATE users SET wallet_balance = 0 WHERE id IN ('owner', 'cust', 'p2')");
 
     await settings({ ...SELFDRIVE, platformPercent: null });
-    assert.equal((await call("GET", "/car/rentals/my-vehicles", "owner")).status, 403, "off until Tuma's percentage is decided");
+    assert.equal((await call("GET", "/car/rentals/my-vehicles", "owner")).status, 403, "off until Peebee's percentage is decided");
     await settings(SELFDRIVE);
 
     assert.equal((await call("PUT", `/car/rentals/listings/${vehicleId}`, "cust", { dailyPrice: 100000, depositAmount: 50000 })).status, 404, "only the owner lists a vehicle");
@@ -425,7 +425,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
     const ownerBefore = await balance("owner");
     const returned = await call("POST", `/car/rentals/${rentalId}/return`, "owner", {});
     assert.equal((await json(returned)).status, "completed");
-    assert.equal(await balance("owner") - ownerBefore, 180000, "rent minus Tuma's 10%");
+    assert.equal(await balance("owner") - ownerBefore, 180000, "rent minus Peebee's 10%");
     assert.equal(await balance("cust"), 100000, "deposit back");
     assert.equal((await call("POST", `/car/rentals/${rentalId}/return`, "owner", {})).status, 409, "paid out once");
     const ownerWallet = await json(await call("GET", "/car/wallet", "owner"));
@@ -454,7 +454,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
     const ownerMid = await balance("owner");
     assert.equal((await call("POST", `/admin/car/rentals/${fourth.id}/resolve`, "admin", { damageAmount: 10000 })).status, 200);
     assert.equal(await balance("cust") - custHeld, 40000, "deposit 50,000 minus 10,000 damage");
-    assert.equal(await balance("owner") - ownerMid, 90000 + 10000, "rent after Tuma's cut plus the damage awarded");
+    assert.equal(await balance("owner") - ownerMid, 90000 + 10000, "rent after Peebee's cut plus the damage awarded");
     assert.equal((await call("POST", `/admin/car/rentals/${fourth.id}/resolve`, "admin", { damageAmount: 10000 })).status, 404, "settled once");
   });
 
@@ -630,7 +630,7 @@ test("tuma car: category -> approvals -> assignment -> booking -> bid -> settle 
     assert.equal((await call("POST", "/car/driver/online", "d1", { online: true, lat: 0.3, lng: 32.58 })).status, 200, "the driver can pick the car and work");
     assert.equal((await json(await call("GET", "/car/deals/cars", "d2"))).cars.length, 0, "cars with a driver leave the list");
 
-    // Money: a settled ride is split by the agreed share; Tuma's cut comes off first.
+    // Money: a settled ride is split by the agreed share; Peebee's cut comes off first.
     let n = 0;
     const settle = async (driver: string, vehicle: string, pool: number) => {
       n += 1;

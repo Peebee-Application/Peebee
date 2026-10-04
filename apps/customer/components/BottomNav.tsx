@@ -1,6 +1,6 @@
 "use client";
 
-import type { OrderRow } from "@tuma/shared";
+import type { OrderRow } from "@peebee/shared";
 import { ChevronRight, Home, MessageCircle, ShoppingBag, ShoppingCart, User, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";

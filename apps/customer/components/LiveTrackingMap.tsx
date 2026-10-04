@@ -1,6 +1,6 @@
 "use client";
 
-import type { OrderEvent, OrderRow } from "@tuma/shared";
+import type { OrderEvent, OrderRow } from "@peebee/shared";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Loader2, Navigation } from "lucide-react";
@@ -15,7 +15,7 @@ const riderIcon = L.divIcon({
     <circle cx="12" cy="12" r="9" fill="#0A0A0A" fill-opacity="0.15"/>
     <circle cx="12" cy="12" r="7" fill="#C9A227" stroke="#FDFBF7" stroke-width="2.5"/>
   </svg>`,
-  className: "tuma-rider-dot",
+  className: "peebee-rider-dot",
   iconSize: [26, 26],
   iconAnchor: [13, 13],
 });
@@ -25,7 +25,7 @@ const destinationIcon = L.divIcon({
     <path d="M12 22s7-7.94 7-12.75A7 7 0 0 0 5 9.25C5 14.06 12 22 12 22Z" fill="#0A0A0A" stroke="#FDFBF7" stroke-width="1.1"/>
     <circle cx="12" cy="9.4" r="2.6" fill="#FDFBF7"/>
   </svg>`,
-  className: "tuma-destination-marker",
+  className: "peebee-destination-marker",
   iconSize: [30, 30],
   iconAnchor: [15, 28],
 });
@@ -125,7 +125,7 @@ export function LiveTrackingMap({ order, events }: { order: OrderRow; events: Or
             <Loader2 className="h-5 w-5 animate-spin text-gold" strokeWidth={2.5} aria-hidden />
           </div>
         ) : (
-          <MapContainer center={[riderLat, riderLng]} zoom={14} className={`tuma-map h-full w-full${tiles.jawg ? " tuma-map-native" : ""}`} attributionControl={false} zoomControl={false} dragging={false} scrollWheelZoom={false} doubleClickZoom={false}>
+          <MapContainer center={[riderLat, riderLng]} zoom={14} className={`peebee-map h-full w-full${tiles.jawg ? " peebee-map-native" : ""}`} attributionControl={false} zoomControl={false} dragging={false} scrollWheelZoom={false} doubleClickZoom={false}>
             <TileLayer
               key={tiles.jawg ? jawgStyle : "static"}
               url={tiles.jawg ? jawgTileUrl(jawgStyle, tiles.jawg.accessToken) : tiles.tileUrl}
@@ -137,7 +137,7 @@ export function LiveTrackingMap({ order, events }: { order: OrderRow; events: Or
             {targetLat != null && targetLng != null && <Marker position={[targetLat, targetLng]} icon={destinationIcon} />}
             <Marker position={[riderLat, riderLng]} icon={riderIcon} />
             <FitToMarkers points={points} />
-            <div className="tuma-map-tint" aria-hidden />
+            <div className="peebee-map-tint" aria-hidden />
           </MapContainer>
         )}
       </div>

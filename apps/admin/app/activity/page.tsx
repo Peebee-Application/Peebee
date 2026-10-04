@@ -1,6 +1,6 @@
 "use client";
 
-import { hasPermission, type ActivityLogEntry } from "@tuma/shared";
+import { hasPermission, type ActivityLogEntry } from "@peebee/shared";
 import { History, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";

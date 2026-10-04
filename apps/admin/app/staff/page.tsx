@@ -1,6 +1,6 @@
 "use client";
 
-import { ADMIN_ROLE_DESCRIPTIONS, ADMIN_ROLE_LABELS, ADMIN_ROLES, type AdminRole, type StaffMember } from "@tuma/shared";
+import { ADMIN_ROLE_DESCRIPTIONS, ADMIN_ROLE_LABELS, ADMIN_ROLES, type AdminRole, type StaffMember } from "@peebee/shared";
 import { KeyRound, Mail, Plus, ShieldOff, UserCheck, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
@@ -81,7 +81,7 @@ function InviteForm({ onInvited, onCancel }: { onInvited: () => void; onCancel: 
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="jane@tumaffe.online"
+          placeholder="jane@peebee.online"
           className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
         />
         <p className="text-xs text-ink-500">Their temporary password is sent here.</p>

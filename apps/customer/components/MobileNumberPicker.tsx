@@ -1,7 +1,7 @@
 "use client";
 
-import type { MobileNumberPurpose, SavedMobileNumber } from "@tuma/shared";
-import { detectMobileMoneyNetwork, mobileMoneyNetworkLabel } from "@tuma/shared";
+import type { MobileNumberPurpose, SavedMobileNumber } from "@peebee/shared";
+import { detectMobileMoneyNetwork, mobileMoneyNetworkLabel } from "@peebee/shared";
 import { Check, Plus, Star, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../lib/api";

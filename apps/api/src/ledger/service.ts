@@ -37,6 +37,17 @@ function accountId(ref: LedgerAccountRef): string {
 }
 
 export async function ensureLedgerAccount(ref: LedgerAccountRef): Promise<string> {
+  // The platform is one owner. Reuse its existing account across brand
+  // changes so new postings and reversals keep the same ledger history.
+  if (ref.ownerType === "platform") {
+    const existing = await db.execute({
+      sql: `SELECT id FROM ledger_accounts
+            WHERE owner_type = 'platform' AND purpose = ? AND currency = ? AND environment = ?
+            ORDER BY created_at, id LIMIT 1`,
+      args: [ref.purpose, ref.currency ?? "UGX", ref.environment],
+    });
+    if (existing.rows[0]) return String((existing.rows[0] as Row).id);
+  }
   const id = accountId(ref);
   await db.execute({
     sql: `INSERT OR IGNORE INTO ledger_accounts
@@ -146,9 +157,9 @@ export async function ledgerBalance(ref: LedgerAccountRef): Promise<number> {
   const result = await db.execute({
     sql: `SELECT COALESCE(SUM(e.amount), 0) AS balance
           FROM ledger_accounts a LEFT JOIN ledger_entries e ON e.account_id = a.id
-          WHERE a.owner_type = ? AND a.owner_id = ? AND a.purpose = ?
+          WHERE a.owner_type = ? AND (? = 'platform' OR a.owner_id = ?) AND a.purpose = ?
             AND a.currency = ? AND a.environment = ?`,
-    args: [ref.ownerType, ref.ownerId, ref.purpose, ref.currency ?? "UGX", ref.environment],
+    args: [ref.ownerType, ref.ownerType, ref.ownerId, ref.purpose, ref.currency ?? "UGX", ref.environment],
   });
   return Number((result.rows[0] as Row | undefined)?.balance ?? 0);
 }

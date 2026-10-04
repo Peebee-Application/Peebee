@@ -35,7 +35,7 @@ const config: Config = {
           400: "rgb(var(--color-green-400) / <alpha-value>)",
           600: "rgb(var(--color-green-600) / <alpha-value>)",
         },
-        // From the Tuma wordmark — used for brand chrome (header accents,
+        // From the Peebee wordmark — used for brand chrome (header accents,
         // headings-as-brand, trust badges), kept separate from `gold`
         // which stays the one CTA/interactive accent.
         navy: {

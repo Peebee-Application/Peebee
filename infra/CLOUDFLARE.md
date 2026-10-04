@@ -5,18 +5,18 @@ for reference/rollback but is no longer the active deploy target.
 
 | Service | Type | URL |
 |---|---|---|
-| `tuma-api` | Worker (Hono) | https://api.tumaffe.online |
-| `tuma-customer` | Worker (Next.js via OpenNext) | https://tuma-customer.doxalight-inc.workers.dev |
-| `tuma-rider` | Worker (Next.js via OpenNext) | https://tuma-rider.doxalight-inc.workers.dev |
-| `tuma-admin` | Worker (Next.js via OpenNext) | not yet deployed — `apps/admin`, same deploy flow as customer/rider |
-| `tuma-restaurant` | Worker (Next.js via OpenNext) | `restaurant.tumaffe.online` when deployed |
-| `tuma-merchant` | Worker (Next.js via OpenNext) | `merchant.tumaffe.online` when deployed |
-| `tuma-partner` | Worker (Next.js via OpenNext) | `car.tumaffe.online` — Tuma Car app: owners and drivers (one app, Owner/Driver switch) |
-| `tuma-web` | Worker (Next.js via OpenNext) | `tumaffe.online` when deployed |
+| `peebee-api` | Worker (Hono) | https://api.peebee.online |
+| `peebee-customer` | Worker (Next.js via OpenNext) | https://peebee-customer.doxalight-inc.workers.dev |
+| `peebee-rider` | Worker (Next.js via OpenNext) | https://peebee-rider.doxalight-inc.workers.dev |
+| `peebee-admin` | Worker (Next.js via OpenNext) | not yet deployed — `apps/admin`, same deploy flow as customer/rider |
+| `peebee-restaurant` | Worker (Next.js via OpenNext) | `restaurant.peebee.online` when deployed |
+| `peebee-merchant` | Worker (Next.js via OpenNext) | `merchant.peebee.online` when deployed |
+| `peebee-partner` | Worker (Next.js via OpenNext) | `car.peebee.online` — Peebee Car app: owners and drivers (one app, Owner/Driver switch) |
+| `peebee-web` | Worker (Next.js via OpenNext) | `peebee.online` when deployed |
 
-**Database: Cloudflare D1** (`tuma-api`, id `26926e12-d2f4-4b40-8b1b-019f6c169e10`), bound
-natively to the `tuma-api` Worker as `env.DB` — no cross-provider HTTP hop. This is a
-*separate* database from the old Turso `tuma-staging` one: that DB has its own unrelated
+**Database: Cloudflare D1** (`peebee-api`, id `26926e12-d2f4-4b40-8b1b-019f6c169e10`), bound
+natively to the `peebee-api` Worker as `env.DB` — no cross-provider HTTP hop. This is a
+*separate* database from the old Turso `peebee-staging` one: that DB has its own unrelated
 19-table schema from earlier scaffolding (a real `users` table with different columns —
 discovered the hard way, via `no such column: id` in production), so rather than touch
 tables we don't understand, this app gets a dedicated D1 database with its own schema.
@@ -35,20 +35,20 @@ D1 binding is present, e.g. under plain `pnpm dev`) — see `TURSO_DATABASE_URL`
 Deployments are automated through `.github/workflows/deploy.yml`:
 
 - **Branch Push (Preview):** Any push to a non-`main` branch automatically deploys changed apps to **Cloudflare Preview** via `wrangler versions upload --preview-alias <branch-alias>`.
-- **Short Preview Subdomains on tumaffe.online:**
-  - **Central Preview Hub:** `https://preview.tumaffe.online` (dashboard listing all branches and 1-click launch chips for all apps)
-  - **Short Path Router:** `https://preview.tumaffe.online/<branch-or-alias>/<app>` (e.g. `https://preview.tumaffe.online/feat-orders/customer`)
+- **Short Preview Subdomains on peebee.online:**
+  - **Central Preview Hub:** `https://preview.peebee.online` (dashboard listing all branches and 1-click launch chips for all apps)
+  - **Short Path Router:** `https://preview.peebee.online/<branch-or-alias>/<app>` (e.g. `https://preview.peebee.online/feat-orders/customer`)
   - **Direct App Subdomains:**
-    - Customer Web: `https://customer-preview.tumaffe.online`
-    - Rider Web: `https://rider-preview.tumaffe.online`
-    - Merchant Web: `https://merchant-preview.tumaffe.online`
-    - Tuma Car Web: `https://partner-preview.tumaffe.online`
-    - Restaurant Web: `https://restaurant-preview.tumaffe.online`
-    - Admin Dashboard: `https://admin-preview.tumaffe.online`
-    - Marketing / Web: `https://web-preview.tumaffe.online`
-    - API Service: `https://api-preview.tumaffe.online`
+    - Customer Web: `https://customer-preview.peebee.online`
+    - Rider Web: `https://rider-preview.peebee.online`
+    - Merchant Web: `https://merchant-preview.peebee.online`
+    - Peebee Car Web: `https://partner-preview.peebee.online`
+    - Restaurant Web: `https://restaurant-preview.peebee.online`
+    - Admin Dashboard: `https://admin-preview.peebee.online`
+    - Marketing / Web: `https://web-preview.peebee.online`
+    - API Service: `https://api-preview.peebee.online`
   - *(Optionally pass `?b=<branch>` to view a specific branch preview on any app subdomain)*
-  - **Full Worker URL:** `https://<branch-alias>-tuma-<app>.doxalight-inc.workers.dev`
+  - **Full Worker URL:** `https://<branch-alias>-peebee-<app>.doxalight-inc.workers.dev`
 - **Main Merge (Live):** Any push/merge to `main` automatically deploys changed apps to **Cloudflare Live** (production domains and live `workers.dev`) using `pnpm run deploy` (with `scripts/preflight-deploy.mjs` verification).
 - **Required GitHub Secrets:**
   - `CLOUDFLARE_API_TOKEN` (API token with *Edit Cloudflare Workers* / *Account > Workers Scripts > Edit* permissions)
@@ -82,7 +82,7 @@ pnpm --filter web deploy:preview
 
 ## Config
 
-- `apps/api/wrangler.jsonc` — `d1_databases` binding (`DB` → `tuma-api`), `vars` for CORS
+- `apps/api/wrangler.jsonc` — `d1_databases` binding (`DB` → `peebee-api`), `vars` for CORS
   origins and MoMo sandbox settings. Secrets (`JWT_SECRET`, MoMo credentials) are set via
   `wrangler secret put <NAME>` — never committed, never put in `vars`.
 - Frontend `wrangler.jsonc` files under `apps/customer`, `apps/rider`, `apps/admin`,
@@ -108,7 +108,7 @@ wrangler secret put MOMO_API_KEY
 `apps/api/src/db/client.ts` uses D1 (`env.DB`) when running as a Worker, and falls back to
 `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` when no D1 binding exists (plain `pnpm dev`/`tsx`,
 which can't see D1 bindings). For local dev, point that at a `turso dev` instance — **not**
-the old `tuma-staging` Turso DB, which has an unrelated schema (see above). Run
+the old `peebee-staging` Turso DB, which has an unrelated schema (see above). Run
 `pnpm --filter api migrate` against it to apply this app's schema.
 
 ## Known gotchas (already worked around in this repo)

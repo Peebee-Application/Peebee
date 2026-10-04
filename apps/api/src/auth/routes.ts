@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { Hono } from "hono";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { z } from "zod";
-import { isAdminRole } from "@tuma/shared";
+import { isAdminRole } from "@peebee/shared";
 import { logActivity } from "../admin/activity.js";
 import { db } from "../db/client.js";
 import {
@@ -91,7 +91,7 @@ authRoutes.post("/register", async (c) => {
   }
 
   // A "taken" answer tells whoever asked that this number or address has a
-  // Tuma account, which is why the rate limit above matters: the leak only
+  // Peebee account, which is why the rate limit above matters: the leak only
   // pays off when you can test thousands of identifiers, and five a minute
   // per address makes that pointless. The response deliberately doesn't say
   // *which* field clashed. Closing the leak completely means not returning a

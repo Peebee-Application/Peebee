@@ -44,7 +44,7 @@ const TILE_PROVIDERS = [
 
 /**
  * @param {object} [options]
- * @param {string} [options.apiUrl] Origin of the Tuma API (NEXT_PUBLIC_API_URL).
+ * @param {string} [options.apiUrl] Origin of the Peebee API (NEXT_PUBLIC_API_URL).
  * @param {boolean} [options.dev] Relax the policy for `next dev`.
  */
 export function buildSecurityHeaders({ apiUrl = "", dev = false } = {}) {

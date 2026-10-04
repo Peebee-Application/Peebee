@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const CACHE_KEY = "tuma-location-label";
+const CACHE_KEY = "peebee-location-label";
 const CACHE_MAX_AGE_MS = 30 * 60 * 1000;
 
 type Cached = { label: string; lat: number; lng: number; at: number };

@@ -18,7 +18,7 @@ export function ApplyCard({ mode }: { mode: PartnerMode }) {
     return (
       <section className="home-card space-y-1">
         <p className="font-bold text-ink">Application received</p>
-        <p className="text-xs text-ink-500">A Tuma manager is reviewing your application to be {noun}. We&apos;ll open this screen up once it&apos;s approved.</p>
+        <p className="text-xs text-ink-500">A Peebee manager is reviewing your application to be {noun}. We&apos;ll open this screen up once it&apos;s approved.</p>
       </section>
     );
   }
@@ -26,7 +26,7 @@ export function ApplyCard({ mode }: { mode: PartnerMode }) {
     return (
       <section className="home-card">
         <p className="font-bold text-ink">Account paused</p>
-        <p className="text-xs text-ink-500">Your {mode} access is paused. Please contact Tuma support.</p>
+        <p className="text-xs text-ink-500">Your {mode} access is paused. Please contact Peebee support.</p>
       </section>
     );
   }
@@ -51,8 +51,8 @@ export function ApplyCard({ mode }: { mode: PartnerMode }) {
         <p className="font-bold text-ink">Become {noun}</p>
         <p className="text-xs text-ink-500">
           {mode === "owner"
-            ? "Put your car, van or truck up for service. Tuma approves it and assigns a driver, and you earn your share of every ride."
-            : "Drive a vehicle that Tuma assigns to you and earn your share of every ride."}
+            ? "Put your car, van or truck up for service. Peebee approves it and assigns a driver, and you earn your share of every ride."
+            : "Drive a vehicle that Peebee assigns to you and earn your share of every ride."}
         </p>
         {status === "rejected" && <p className="mt-1 text-xs font-semibold text-red-600">Your last application wasn&apos;t approved. You can apply again.</p>}
       </div>
@@ -61,7 +61,7 @@ export function ApplyCard({ mode }: { mode: PartnerMode }) {
           <p className="text-xs font-semibold text-ink-500">Do you have a car to drive?</p>
           {[
             [true, "Yes, I have my own car", "You'll add it and have it approved."],
-            [false, "No, I need a car", "Apply to owners to drive their car, or Tuma can assign you one."],
+            [false, "No, I need a car", "Apply to owners to drive their car, or Peebee can assign you one."],
           ].map(([value, label, hint]) => (
             <button
               key={String(value)}

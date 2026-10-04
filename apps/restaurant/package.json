@@ -13,7 +13,7 @@
     "deploy:preview": "opennextjs-cloudflare build && wrangler versions upload"
   },
   "dependencies": {
-    "@tuma/shared": "workspace:*",
+    "@peebee/shared": "workspace:*",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.468.0",
     "next": "^15.1.0",

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ServiceKey } from "@tuma/shared";
+import type { ServiceKey } from "@peebee/shared";
 import { PauseCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
@@ -8,7 +8,7 @@ import { api } from "../lib/api";
 const NAMES: Record<ServiceKey, string> = { shopping: "Shopping lists", parcel: "Parcel delivery", ride: "Rides", food: "Food ordering" };
 const WATCH: ServiceKey[] = ["ride"];
 
-/** Tells a Tuma Car owner/driver that rides are paused. */
+/** Tells a Peebee Car owner/driver that rides are paused. */
 export function ServiceBanner() {
   const [paused, setPaused] = useState<ServiceKey[]>([]);
 

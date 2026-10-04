@@ -295,7 +295,7 @@ const createStageSchema = z.object({
 });
 
 /** A rider proposing a stage — always allowed, but goes into
- * approval_status='pending' until Tuma admin reviews it (see
+ * approval_status='pending' until Peebee admin reviews it (see
  * POST /admin/stages/:id/approve). Every stage is canonical once approved:
  * the case/whitespace-insensitive uniqueness index on stages(name) means
  * "Airport Stage" and "airport stage " can't both exist, so this checks
@@ -339,7 +339,7 @@ const stageMemberProfileSchema = z.object({
   literate: z.union([z.literal(0), z.literal(1)]).nullable().optional(),
 });
 
-/** RSLA-specific membership details — separate from the rider's core Tuma
+/** RSLA-specific membership details — separate from the rider's core Peebee
  * profile (see migration 0062). Self-service only: a member reads/writes
  * their own row, never another member's. */
 stageRoutes.get("/stages/:id/members/me/profile", async (c) => {
@@ -1795,7 +1795,7 @@ stageRoutes.post("/stages/:id/messages", async (c) => {
 // ---- Admin oversight ------------------------------------------------------
 // Read-only, gated by the vslaAdminLedgerVisibility setting (default
 // "read_only_all") — support/technical visibility only. Money disagreements
-// between members are the group's own to resolve, never Tuma's to referee.
+// between members are the group's own to resolve, never Peebee's to referee.
 
 export const stageAdminRoutes = new Hono();
 stageAdminRoutes.use("/admin/stages/*", requireAuth, requireRole("admin"), requirePermission("riders.view"));

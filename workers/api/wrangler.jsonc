@@ -1,5 +1,5 @@
 {
-  "name": "tuma-api-staging",
+  "name": "peebee-api-staging",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-10",
   "compatibility_flags": ["nodejs_compat"],
@@ -7,7 +7,7 @@
   "r2_buckets": [
     {
       "binding": "STORAGE",
-      "bucket_name": "tuma-staging"
+      "bucket_name": "peebee-staging"
     }
   ]
 }

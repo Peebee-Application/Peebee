@@ -1,6 +1,6 @@
 "use client";
 
-import type { SavedLocation } from "@tuma/shared";
+import type { SavedLocation } from "@peebee/shared";
 import { ChevronRight, Home, Map, MapPin } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";

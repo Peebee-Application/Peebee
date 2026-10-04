@@ -1,6 +1,6 @@
 "use client";
 
-import { isPracticeMode, practicePaymentCode, type MerchantPayment } from "@tuma/shared";
+import { isPracticeMode, practicePaymentCode, type MerchantPayment } from "@peebee/shared";
 import { CheckCircle2, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";

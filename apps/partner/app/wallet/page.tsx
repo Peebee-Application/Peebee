@@ -1,6 +1,6 @@
 "use client";
 
-import type { CarWallet, SavedMobileNumber } from "@tuma/shared";
+import type { CarWallet, SavedMobileNumber } from "@peebee/shared";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 

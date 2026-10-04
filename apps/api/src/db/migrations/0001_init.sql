@@ -1,4 +1,4 @@
--- Tuma Concierge core schema (staging). Idempotent — safe to re-run.
+-- Peebee Concierge core schema (staging). Idempotent — safe to re-run.
 
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,

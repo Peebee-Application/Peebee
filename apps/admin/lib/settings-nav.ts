@@ -1,4 +1,4 @@
-import { hasPermission } from "@tuma/shared";
+import { hasPermission } from "@peebee/shared";
 import {
   Banknote,
   Car,
@@ -54,7 +54,7 @@ export const SETTINGS_LINKS: SettingsLink[] = [
   },
   {
     href: "/settings/car",
-    label: "Tuma Car",
+    label: "Peebee Car",
     description: "Switch car rides on, how drivers are found, profit share, car types, owners, drivers and vehicles.",
     icon: Car,
     show: (role) => hasPermission(role, "car.view"),

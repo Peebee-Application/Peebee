@@ -7,7 +7,7 @@ import {
   practiceStartPath,
   startPracticeMode,
   type PracticeRole,
-} from "@tuma/shared";
+} from "@peebee/shared";
 import { FlaskConical, RotateCcw, Sparkles, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";

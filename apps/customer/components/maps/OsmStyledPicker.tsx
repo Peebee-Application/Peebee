@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { Loader2, LocateFixed, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
-import type { JawgLightStyle } from "@tuma/shared";
+import type { JawgLightStyle } from "@peebee/shared";
 import { jawgTileUrl, useJawgStyle } from "../../lib/mapStyle";
 import type { MapPickerProps } from "./map-types";
 
@@ -16,7 +16,7 @@ const markerIcon = L.divIcon({
     <path d="M12 22s7-7.94 7-12.75A7 7 0 0 0 5 9.25C5 14.06 12 22 12 22Z" fill="#C9A227" stroke="#0A0A0A" stroke-width="1.1"/>
     <circle cx="12" cy="9.4" r="2.6" fill="#FDFBF7"/>
   </svg>`,
-  className: "tuma-marker",
+  className: "peebee-marker",
   iconSize: [34, 34],
   iconAnchor: [17, 32],
 });
@@ -78,7 +78,7 @@ export type OsmStyledPickerProps = MapPickerProps & {
   tileUrl: string;
   /** Jawg ships its own designed light and dark styles, so when set the
    * tiles follow the app theme / the user's map style choice instead of
-   * tileUrl, and skip the CSS recoloring (.tuma-map-native in globals.css). */
+   * tileUrl, and skip the CSS recoloring (.peebee-map-native in globals.css). */
   jawg?: { accessToken: string; adminLightStyle: JawgLightStyle };
   attribution: string;
 };
@@ -219,13 +219,13 @@ export function OsmStyledPicker({ initial, onConfirm, onCancel, tileUrl, jawg, a
       </div>
 
       <div className="relative flex-1">
-        <MapContainer center={center} zoom={zoom} className={`tuma-map h-full w-full${jawg ? " tuma-map-native" : ""}`} attributionControl>
+        <MapContainer center={center} zoom={zoom} className={`peebee-map h-full w-full${jawg ? " peebee-map-native" : ""}`} attributionControl>
           <TileLayer key={activeTileUrl} url={activeTileUrl} attribution={attribution} />
           <ClickToPlace onPick={place} />
           <RecenterOnChange center={center} zoom={zoom} />
           {marker && <Marker position={marker} icon={markerIcon} />}
-          {/* Dark-mode recolor layer — see .tuma-map-tint in globals.css */}
-          <div className="tuma-map-tint" aria-hidden />
+          {/* Dark-mode recolor layer — see .peebee-map-tint in globals.css */}
+          <div className="peebee-map-tint" aria-hidden />
         </MapContainer>
 
         {!marker && (

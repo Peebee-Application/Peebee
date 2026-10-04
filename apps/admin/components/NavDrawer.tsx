@@ -1,6 +1,6 @@
 "use client";
 
-import { hasPermission } from "@tuma/shared";
+import { hasPermission } from "@peebee/shared";
 import { User, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";

@@ -1,6 +1,6 @@
 "use client";
 
-import type { SavedLocation } from "@tuma/shared";
+import type { SavedLocation } from "@peebee/shared";
 import { MapPin, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { emptyPoint, resolvePoint, type PointState } from "./LocationPicker";

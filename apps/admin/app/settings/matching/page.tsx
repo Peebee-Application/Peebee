@@ -1,6 +1,6 @@
 "use client";
 
-import { MATCHING_MODE_DESCRIPTIONS, MATCHING_MODE_LABELS, type JobExpiryUnit, type MatchingMode } from "@tuma/shared";
+import { MATCHING_MODE_DESCRIPTIONS, MATCHING_MODE_LABELS, type JobExpiryUnit, type MatchingMode } from "@peebee/shared";
 import { useEffect, useState } from "react";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
 import { api, errorMessage } from "../../../lib/api";

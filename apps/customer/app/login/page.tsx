@@ -45,14 +45,14 @@ export default function LoginPage() {
       <div className="mx-auto w-full max-w-sm space-y-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/brand/tuma-logo-navy.png"
-          alt="Tuma"
+          src="/brand/peebee-logo-navy.png"
+          alt="Peebee"
           className="mx-auto h-9 w-auto dark:hidden"
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/brand/tuma-logo-white.png"
-          alt="Tuma"
+          src="/brand/peebee-logo-white.png"
+          alt="Peebee"
           className="mx-auto hidden h-9 w-auto dark:block"
         />
 

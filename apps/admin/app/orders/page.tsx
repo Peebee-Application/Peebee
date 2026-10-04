@@ -1,6 +1,6 @@
 "use client";
 
-import { ORDER_STAGES, type AdminOrderRow, type OrderModuleKey, type OrderOverview, type OrderType } from "@tuma/shared";
+import { ORDER_STAGES, type AdminOrderRow, type OrderModuleKey, type OrderOverview, type OrderType } from "@peebee/shared";
 import { ChevronRight, Filter, Package, ShoppingBag, Store, Truck } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";

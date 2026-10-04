@@ -167,19 +167,19 @@ select {
    - light mode just warms the stock tiles very slightly toward --color-cream.
    - dark mode inverts the tiles' lightness (so light land/roads go dark,
      dark roads/text go light), then recolors them navy via a full-bleed
-     .tuma-map-tint layer in mix-blend-mode "color" — that keeps the
+     .peebee-map-tint layer in mix-blend-mode "color" — that keeps the
      inverted luminosity (roads still read lighter than land) while
      replacing hue/saturation outright, which a filter alone can't do
      without odd brown/orange casts on OSM's mostly-neutral fills. */
-.tuma-map {
+.peebee-map {
   isolation: isolate;
 }
 
-.tuma-map .leaflet-tile-pane {
+.peebee-map .leaflet-tile-pane {
   filter: saturate(0.95) sepia(0.05) hue-rotate(2deg) brightness(1.03);
 }
 
-.tuma-map-tint {
+.peebee-map-tint {
   position: absolute;
   inset: 0;
   z-index: 350;
@@ -190,46 +190,46 @@ select {
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .tuma-map .leaflet-tile-pane {
+  :root:not([data-theme="light"]) .peebee-map .leaflet-tile-pane {
     filter: invert(1) brightness(0.82) contrast(0.95);
   }
-  :root:not([data-theme="light"]) .tuma-map-tint {
+  :root:not([data-theme="light"]) .peebee-map-tint {
     opacity: 1;
   }
 }
 
-:root[data-theme="dark"] .tuma-map .leaflet-tile-pane {
+:root[data-theme="dark"] .peebee-map .leaflet-tile-pane {
   filter: invert(1) brightness(0.82) contrast(0.95);
 }
 
-:root[data-theme="dark"] .tuma-map-tint {
+:root[data-theme="dark"] .peebee-map-tint {
   opacity: 1;
 }
 
 /* Providers that ship their own designed light and dark styles (Jawg) swap
    tile URLs by theme instead (see components/maps/OsmStyledPicker.tsx), so
    none of the recoloring above is applied on top of them. */
-.tuma-map.tuma-map-native .leaflet-tile-pane {
+.peebee-map.peebee-map-native .leaflet-tile-pane {
   filter: none !important;
 }
 
-.tuma-map.tuma-map-native .tuma-map-tint {
+.peebee-map.peebee-map-native .peebee-map-tint {
   display: none;
 }
 
-.tuma-marker {
+.peebee-marker {
   background: transparent !important;
   border: none !important;
 }
 
-.tuma-map .leaflet-control-zoom {
+.peebee-map .leaflet-control-zoom {
   border: 1px solid var(--border-faint) !important;
   border-radius: 14px !important;
   overflow: hidden;
   box-shadow: var(--shadow-card);
 }
 
-.tuma-map .leaflet-control-zoom a {
+.peebee-map .leaflet-control-zoom a {
   background: rgb(var(--surface-card)) !important;
   color: rgb(var(--color-ink)) !important;
   width: 34px !important;
@@ -238,16 +238,16 @@ select {
   font-weight: 700;
 }
 
-.tuma-map .leaflet-control-zoom a:hover {
+.peebee-map .leaflet-control-zoom a:hover {
   background: rgb(var(--surface-muted)) !important;
   color: rgb(var(--color-gold)) !important;
 }
 
-.tuma-map .leaflet-control-zoom-in {
+.peebee-map .leaflet-control-zoom-in {
   border-bottom: 1px solid var(--border-faint) !important;
 }
 
-.tuma-map .leaflet-control-attribution {
+.peebee-map .leaflet-control-attribution {
   background: rgb(var(--surface-card) / 0.85) !important;
   color: rgb(var(--color-ink-500)) !important;
   border-radius: 8px 0 0 0;
@@ -255,23 +255,23 @@ select {
   padding: 2px 6px;
 }
 
-.tuma-map .leaflet-control-attribution a {
+.peebee-map .leaflet-control-attribution a {
   color: rgb(var(--color-ink-500)) !important;
 }
 
-.tuma-map .leaflet-marker-icon {
+.peebee-map .leaflet-marker-icon {
   filter: drop-shadow(0 3px 6px rgba(10, 10, 10, 0.35));
 }
 
 /* Faint grocery/delivery doodle wallpaper behind chat messages (WhatsApp-style).
    A pseudo-element rather than a background-image directly on the scrollable
    container, so its low opacity doesn't fade the bubbles sitting on top of it. */
-.tuma-chat-bg {
+.peebee-chat-bg {
   position: relative;
   isolation: isolate;
 }
 
-.tuma-chat-bg::before {
+.peebee-chat-bg::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -284,15 +284,15 @@ select {
 }
 
 /* Black line art reads as near-invisible on a dark navy background, so dark
-   mode inverts it to light strokes instead — same trick as .tuma-map-tint. */
+   mode inverts it to light strokes instead — same trick as .peebee-map-tint. */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .tuma-chat-bg::before {
+  :root:not([data-theme="light"]) .peebee-chat-bg::before {
     filter: invert(1);
     opacity: 0.07;
   }
 }
 
-:root[data-theme="dark"] .tuma-chat-bg::before {
+:root[data-theme="dark"] .peebee-chat-bg::before {
   filter: invert(1);
   opacity: 0.07;
 }

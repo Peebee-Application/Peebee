@@ -1,4 +1,4 @@
-import { timeFeePolicy, type TimeFeePolicy, type OrderTimeFees } from "@tuma/shared";
+import { timeFeePolicy, type TimeFeePolicy, type OrderTimeFees } from "@peebee/shared";
 import { db, executeBatch, type DbStatement } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { getTimeFeeSettings } from "../lib/settings.js";
@@ -27,7 +27,7 @@ function cancellationEligible(order: Row): boolean {
   if (order.rider_departed_at) return ["Deliver", "Arrived"].includes(String(order.stage));
   if (order.is_ride) return ["Create", "Match", "Fund", "Shop"].includes(String(order.stage));
   // A paid parcel can still be cancelled before the rider sets off. The
-  // collected amount is returned to the Tuma wallet; a fee only becomes due
+  // collected amount is returned to the Peebee wallet; a fee only becomes due
   // once rider_departed_at has been recorded above.
   return ["Create", "Match", "Fund", "Shop"].includes(String(order.stage));
 }
@@ -136,7 +136,7 @@ export async function cancelCustomerOrder(
 
   // Wallet payments return to the wallet that originally paid. A Mobile Money
   // collection has no wallet ledger owner, so it returns to the customer's
-  // primary Tuma wallet. The refund provider is always `wallet`; it must
+  // primary Peebee wallet. The refund provider is always `wallet`; it must
   // never initiate a second Mobile Money transaction.
   const source = await db.execute({ sql: "SELECT user_id, wallet_id FROM wallet_ledger WHERE order_id = ? AND type = 'order_payment' ORDER BY created_at", args: [id] });
   if (source.rows.length > 1) return { error: "This order has multiple wallet payments. Please contact support to cancel it." };
@@ -169,7 +169,7 @@ export async function cancelCustomerOrder(
     {
       sql: `INSERT INTO wallet_ledger (id, user_id, type, amount, balance_after, order_id, note, actor_id, environment, wallet_id)
             SELECT ?, ?, 'refund', amount, ${walletId ? `(SELECT ${refundColumn} FROM wallets WHERE id = ?)` : `(SELECT ${column} FROM users WHERE id = ?)`},
-              ?, 'Cancelled order: payment returned to your Tuma wallet', ?, ?, ? FROM payments WHERE id = ?`,
+              ?, 'Cancelled order: payment returned to your Peebee wallet', ?, ?, ? FROM payments WHERE id = ?`,
       args: [newId("wl"), owner, walletId ?? owner, id, actorId, String(order.environment), walletId ?? null, refundId],
     },
     ...chargeStatements(order, token, "cancellation", quote.cancellationDue, actorId),

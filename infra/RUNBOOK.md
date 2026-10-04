@@ -1,4 +1,4 @@
-# Tuma Concierge — Runbook
+# Peebee Concierge — Runbook
 
 Command reference for local dev, build, and deploy. Generated from the current repo state (`README.md`, `FRONTEND.md`, `apps/api/README.md`, `infra/DEPLOY.md`, `infra/STAGING.md`) on 2026-09-12.
 
@@ -30,7 +30,7 @@ Set in both:
 NEXT_PUBLIC_API_URL=http://localhost:10000
 ```
 
-(Points at the local API below. Swap for `https://tuma-api.doxalight-inc.workers.dev` to hit
+(Points at the local API below. Swap for `https://peebee-api.doxalight-inc.workers.dev` to hit
 staging instead.)
 
 The API (`apps/api`) is a real backend now — auth, orders lifecycle, matching, MoMo escrow, chat,
@@ -106,12 +106,12 @@ pnpm --filter rider deploy
 ```
 
 Currently live:
-- `tuma-api` → https://tuma-api.doxalight-inc.workers.dev (`GET /health`)
-- `tuma-customer` → https://tuma-customer.doxalight-inc.workers.dev
-- `tuma-rider` → https://tuma-rider.doxalight-inc.workers.dev
+- `peebee-api` → https://peebee-api.doxalight-inc.workers.dev (`GET /health`)
+- `peebee-customer` → https://peebee-customer.doxalight-inc.workers.dev
+- `peebee-rider` → https://peebee-rider.doxalight-inc.workers.dev
 
-Database: Cloudflare D1 (`tuma-api`), bound natively to the Worker as `env.DB` — schema
-applied, verified working end to end (auth, orders). Not the old Turso `tuma-staging` DB,
+Database: Cloudflare D1 (`peebee-api`), bound natively to the Worker as `env.DB` — schema
+applied, verified working end to end (auth, orders). Not the old Turso `peebee-staging` DB,
 which turned out to have an unrelated schema from earlier scaffolding — see
 `infra/STAGING.md`. Turso only backs local dev now (see `apps/api/README.md`).
 

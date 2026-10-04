@@ -1,6 +1,6 @@
 "use client";
 
-import { hasPermission } from "@tuma/shared";
+import { hasPermission } from "@peebee/shared";
 import { NavModeSettingsPanel } from "../../../components/NavModeSettingsPanel";
 import { SettingsPageShell } from "../../../components/SettingsPageShell";
 import { useAuth } from "../../../lib/auth-context";

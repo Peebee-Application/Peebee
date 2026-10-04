@@ -1,6 +1,6 @@
 "use client";
 
-import type { MerchantCategory } from "@tuma/shared";
+import type { MerchantCategory } from "@peebee/shared";
 import { LocateFixed, Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";

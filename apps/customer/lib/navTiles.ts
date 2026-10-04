@@ -1,4 +1,4 @@
-import type { DeliverySettings, JawgLightStyle } from "@tuma/shared";
+import type { DeliverySettings, JawgLightStyle } from "@peebee/shared";
 import { jawgTileUrl } from "./mapStyle";
 
 const OSM_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";

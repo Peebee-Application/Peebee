@@ -1,6 +1,6 @@
 "use client";
 
-import type { DriverCar, DriverDeals } from "@tuma/shared";
+import type { DriverCar, DriverDeals } from "@peebee/shared";
 import { useCallback, useEffect, useState } from "react";
 import { AuthImage } from "../../components/AuthImage";
 import { api, errorMessage } from "../../lib/api";
@@ -45,7 +45,7 @@ export default function FindCarPage() {
   return (
     <div className="space-y-5 px-4 py-5">
       <h1 className="text-2xl font-black text-ink">Find a car to drive</h1>
-      <p className="text-sm text-ink-500">Owners set the fee: a share of each ride, or a fixed rent. Apply, and when the owner accepts the car is yours to drive while you work on Tuma.</p>
+      <p className="text-sm text-ink-500">Owners set the fee: a share of each ride, or a fixed rent. Apply, and when the owner accepts the car is yours to drive while you work on Peebee.</p>
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
 
       {pending.length > 0 && (

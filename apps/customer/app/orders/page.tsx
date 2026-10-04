@@ -1,6 +1,6 @@
 "use client";
 
-import type { ListSummary, OrderRow } from "@tuma/shared";
+import type { ListSummary, OrderRow } from "@peebee/shared";
 import { ChevronRight, Plus, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";

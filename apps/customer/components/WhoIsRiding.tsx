@@ -1,6 +1,6 @@
 "use client";
 
-import type { RidePassenger, SavedPassenger } from "@tuma/shared";
+import type { RidePassenger, SavedPassenger } from "@peebee/shared";
 import { ArrowLeft, BookUser, Check, Plus, Trash2, User, UserPlus, X } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";

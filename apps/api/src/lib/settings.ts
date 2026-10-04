@@ -1,5 +1,5 @@
-import type { MatchingMode } from "@tuma/shared";
-import { DEFAULT_TIME_FEES, type JobExpirySettings, type TimeFeeSettings } from "@tuma/shared";
+import type { MatchingMode } from "@peebee/shared";
+import { DEFAULT_TIME_FEES, type JobExpirySettings, type TimeFeeSettings } from "@peebee/shared";
 import { db } from "../db/client.js";
 
 const DEFAULTS = {
@@ -220,10 +220,10 @@ const DEFAULTS = {
    * A rider who already has a stage membership row keeps free access even
    * after this is turned on — see stages/routes.ts's grandfather check. */
   vsla_requires_pro: "0",
-  /** Architecture hook for after Tuma is BOU-licensed to hold funds
+  /** Architecture hook for after Peebee is BOU-licensed to hold funds
    * directly. Off (non-custodial) by default and today: every RSLA
    * money-moving step stays a two-part "intent, then officer-confirmed"
-   * record between members' own phones/hands — Tuma never touches it.
+   * record between members' own phones/hands — Peebee never touches it.
    * This flag doesn't change that behavior yet; it only exists so the
    * platform admin can see and later flip the mode once custody is
    * actually implemented. */
@@ -249,7 +249,7 @@ const DEFAULTS = {
    * as its own request (the original behaviour); "whole_list" sends the whole
    * list in one request — far fewer requests against Google's limits. */
   luganda_translate_mode: "per_item",
-  /** Tuma Car — everything off until an admin switches it on, and nothing
+  /** Peebee Car — everything off until an admin switches it on, and nothing
    * works until migration 0065 (the car tables) has been applied. */
   car_enabled: "0",
   car_ondemand_enabled: "0",
@@ -291,7 +291,7 @@ const DEFAULTS = {
   car_carpool_match_radius_km: "10",
   /** Self-drive hire. Needs the platform percentage to be set before it works. */
   car_selfdrive_enabled: "0",
-  /** Tuma's share of the rent, in percent. Empty = not decided, so self-drive stays off. */
+  /** Peebee's share of the rent, in percent. Empty = not decided, so self-drive stays off. */
   car_selfdrive_platform_percent: "",
   car_selfdrive_max_days: "30",
   /** Lowest deposit an owner may ask for (UGX). */
@@ -310,7 +310,7 @@ const DEFAULTS = {
   car_deals_enabled: "0",
   car_deal_share_enabled: "1",
   car_deal_rent_enabled: "1",
-  /** Range of the owner's agreed share of what is left after Tuma's cut (%). */
+  /** Range of the owner's agreed share of what is left after Peebee's cut (%). */
   car_deal_min_owner_share_percent: "40",
   car_deal_max_owner_share_percent: "80",
   /** Highest fixed rent per day an owner may ask (UGX); 0 = no limit. */
@@ -363,7 +363,7 @@ export type CarDealSettings = {
 
 export type CarSelfDriveSettings = {
   enabled: boolean;
-  /** Tuma's share of the rent (%); null = not decided, so self-drive stays off. */
+  /** Peebee's share of the rent (%); null = not decided, so self-drive stays off. */
   platformPercent: number | null;
   maxDays: number;
   minDeposit: number;

@@ -1,6 +1,6 @@
 "use client";
 
-import type { OrderRow, SavedMobileNumber, Wallet } from "@tuma/shared";
+import type { OrderRow, SavedMobileNumber, Wallet } from "@peebee/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { formatUgx } from "../../lib/order-display";

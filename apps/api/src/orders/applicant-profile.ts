@@ -1,4 +1,4 @@
-import type { RiderApplicantProfile } from "@tuma/shared";
+import type { RiderApplicantProfile } from "@peebee/shared";
 import { db } from "../db/client.js";
 
 export async function getApplicantProfile(riderId: string, environment: string, offset: number): Promise<RiderApplicantProfile | null> {

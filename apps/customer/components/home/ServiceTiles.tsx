@@ -3,7 +3,7 @@
 import { Bike, Package, StickyNote, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import type { ServiceKey } from "@tuma/shared";
+import type { ServiceKey } from "@peebee/shared";
 import { useTranslate, type TranslationKey } from "../../lib/i18n";
 
 type Tile = { key: ServiceKey; labelKey: TranslationKey; icon: LucideIcon; href?: string; onClick?: () => void };

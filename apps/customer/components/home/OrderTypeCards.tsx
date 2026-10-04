@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ServiceSwitches } from "@tuma/shared";
+import type { ServiceSwitches } from "@peebee/shared";
 import { api } from "../../lib/api";
 import { loadMapTiles } from "../../lib/map-tiles";
 import { useTranslate } from "../../lib/i18n";

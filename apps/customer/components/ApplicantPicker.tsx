@@ -1,5 +1,5 @@
 "use client";
-import type { RiderApplicant } from "@tuma/shared";
+import type { RiderApplicant } from "@peebee/shared";
 import { MessageCircle, Star, ThumbsUp } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { RiderProfileModal } from "./RiderProfileModal";

@@ -5,17 +5,17 @@ import { SiteFooter } from "../../components/SiteFooter";
 import { ThemeModeToggle } from "../../components/ThemeModeToggle";
 
 export const metadata: Metadata = {
-  title: "Terms of Use | Tuma",
-  description: "Terms of Use for Tuma customers, riders, restaurants, and visitors.",
+  title: "Terms of Use | Peebee",
+  description: "Terms of Use for Peebee customers, riders, restaurants, and visitors.",
 };
 
 export default function TermsPage() {
   return (
     <main className="min-h-screen bg-cream">
       <header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
-        <Link href="/" aria-label="Tuma home">
-          <Image src="/brand/tuma-logo-navy.png" alt="Tuma" width={116} height={30} className="h-7 w-auto dark:hidden" priority />
-          <Image src="/brand/tuma-logo-white.png" alt="Tuma" width={116} height={30} className="hidden h-7 w-auto dark:block" priority />
+        <Link href="/" aria-label="Peebee home">
+          <Image src="/brand/peebee-logo-navy.png" alt="Peebee" width={116} height={30} className="h-7 w-auto dark:hidden" priority />
+          <Image src="/brand/peebee-logo-white.png" alt="Peebee" width={116} height={30} className="hidden h-7 w-auto dark:block" priority />
         </Link>
         <div className="flex items-center gap-2">
           <ThemeModeToggle />
@@ -32,9 +32,9 @@ export default function TermsPage() {
 
         <div className="legal-card mt-8 space-y-8">
           <section>
-            <h2>1. Using Tuma</h2>
+            <h2>1. Using Peebee</h2>
             <p>
-              Tuma provides technology that helps customers request rides, food delivery, shopping errands, and parcel delivery from independent riders and participating businesses. By using Tuma, you agree to use the platform lawfully, provide accurate information, and follow all applicable rules shown in the app.
+              Peebee provides technology that helps customers request rides, food delivery, shopping errands, and parcel delivery from independent riders and participating businesses. By using Peebee, you agree to use the platform lawfully, provide accurate information, and follow all applicable rules shown in the app.
             </p>
           </section>
 
@@ -55,35 +55,35 @@ export default function TermsPage() {
           <section>
             <h2>4. Payments</h2>
             <p>
-              Tuma may support mobile money, cash, wallet, or other payment methods. Fees, delivery charges, subscriptions, and payment rules may vary by service type and may be shown in the app before or during a transaction.
+              Peebee may support mobile money, cash, wallet, or other payment methods. Fees, delivery charges, subscriptions, and payment rules may vary by service type and may be shown in the app before or during a transaction.
             </p>
           </section>
 
           <section>
             <h2>5. Prohibited use</h2>
             <p>
-              Do not use Tuma for illegal goods, unsafe deliveries, harassment, fraud, impersonation, platform abuse, or any activity that could harm customers, riders, restaurants, staff, or the public.
+              Do not use Peebee for illegal goods, unsafe deliveries, harassment, fraud, impersonation, platform abuse, or any activity that could harm customers, riders, restaurants, staff, or the public.
             </p>
           </section>
 
           <section>
             <h2>6. Platform availability</h2>
             <p>
-              We work to keep Tuma reliable, but service availability may be affected by network conditions, maintenance, third-party providers, maps, payment services, or operational constraints.
+              We work to keep Peebee reliable, but service availability may be affected by network conditions, maintenance, third-party providers, maps, payment services, or operational constraints.
             </p>
           </section>
 
           <section>
             <h2>7. Changes to these terms</h2>
             <p>
-              We may update these Terms of Use as Tuma grows. Updated terms will be posted on this page, and continued use of Tuma means you accept the updated terms.
+              We may update these Terms of Use as Peebee grows. Updated terms will be posted on this page, and continued use of Peebee means you accept the updated terms.
             </p>
           </section>
 
           <section>
             <h2>8. Contact</h2>
             <p>
-              For questions about these terms, contact Tuma at <a href="mailto:support@tumaffe.online">support@tumaffe.online</a> or visit us at Plot 15, Mugula Road, Entebbe.
+              For questions about these terms, contact Peebee at <a href="mailto:support@peebee.online">support@peebee.online</a> or visit us at Plot 15, Mugula Road, Entebbe.
             </p>
           </section>
         </div>

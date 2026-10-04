@@ -5,6 +5,7 @@ import test from "node:test";
 import { createClient, type Client } from "@libsql/client/node";
 import { setD1Binding, type D1Database } from "../db/client.js";
 import { splitSqlStatements } from "../db/split-sql.js";
+import { ensureLedgerAccount, ledgerBalance, postLedgerTransaction, reverseLedgerTransaction } from "../ledger/service.js";
 import { finalizeMerchantPayment, merchantPaymentsEnabled, settleMerchantOrderFinancials } from "./service.js";
 
 type Prepared = {
@@ -56,6 +57,38 @@ async function migrate(client: Client) {
     for (const sql of splitSqlStatements(readFileSync(join(migrations, file), "utf8"))) await client.execute(sql);
   }
 }
+
+test("platform ledger history survives a brand change without moving funds", async () => {
+  const client = createClient({ url: "file::memory:" });
+  await migrate(client);
+  setD1Binding(d1Binding(client));
+  try {
+    const platform = { ownerType: "platform" as const, ownerId: "peebee", purpose: "order_revenue", environment: "sandbox" as const };
+    await client.execute(`INSERT INTO ledger_accounts (id, owner_type, owner_id, purpose, environment)
+      VALUES ('legacy-platform-account', 'platform', 'previous-brand', 'order_revenue', 'sandbox')`);
+    assert.equal(await ensureLedgerAccount(platform), "legacy-platform-account");
+
+    const transaction = await postLedgerTransaction({
+      kind: "brand_continuity_test", idempotencyKey: "brand-continuity", environment: "sandbox",
+      postings: [
+        { ...platform, amount: 500 },
+        { ownerType: "order", ownerId: "order-1", purpose: "principal", environment: "sandbox", amount: -500 },
+      ],
+    });
+    assert.equal(await ledgerBalance(platform), 500);
+    assert.equal(await ledgerBalance({ ...platform, environment: "live" }), 0);
+    assert.equal(await ledgerBalance({ ...platform, purpose: "settlement_fee_revenue" }), 0);
+    assert.equal(await ledgerBalance({ ownerType: "order", ownerId: "order-2", purpose: "principal", environment: "sandbox" }), 0);
+    const accounts = await client.execute("SELECT COUNT(*) AS count FROM ledger_accounts WHERE owner_type = 'platform'");
+    assert.equal(Number(accounts.rows[0].count), 1);
+
+    await reverseLedgerTransaction({ transactionId: transaction.id, idempotencyKey: "brand-continuity-reversal" });
+    assert.equal(await ledgerBalance(platform), 0);
+  } finally {
+    setD1Binding(undefined);
+    client.close();
+  }
+});
 
 test("merchant onboarding exposes the approved taxonomy and excludes restaurants", async () => {
   const client = createClient({ url: "file::memory:" });
@@ -126,7 +159,7 @@ test("merchant allocation preserves principal and cannot double-credit", async (
       VALUES ('merchant-1', 'Merchant Ltd', 'Merchant', 'active', 'standard', 'sandbox', datetime('now'))`);
     await client.execute(`INSERT INTO merchant_outlets
       (id, merchant_id, category_id, name, code, lat, lng)
-      VALUES ('outlet-1', 'merchant-1', 'mcat_retail', 'Merchant Main', 'TUMA-TEST', 0.347596, 32.58252)`);
+      VALUES ('outlet-1', 'merchant-1', 'mcat_retail', 'Merchant Main', 'PEEBEE-TEST', 0.347596, 32.58252)`);
     await client.execute("INSERT INTO merchant_members (merchant_id, user_id, role, status) VALUES ('merchant-1', 'owner-1', 'owner', 'active')");
     await client.execute("INSERT INTO merchant_balances (merchant_id, environment) VALUES ('merchant-1', 'sandbox')");
     await client.execute(`INSERT INTO merchant_payments

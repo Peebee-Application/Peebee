@@ -14,7 +14,7 @@ import { endAssignment } from "./service.js";
 
 type Row = Record<string, unknown>;
 
-/** Tuma managers' side of Tuma Car: what can be booked, who may drive/own,
+/** Peebee managers' side of Peebee Car: what can be booked, who may drive/own,
  * which vehicles are on the road and who drives them. */
 export const carAdminRoutes = new Hono();
 carAdminRoutes.use("/admin/car/*", requireAuth, requireRole("admin"));
