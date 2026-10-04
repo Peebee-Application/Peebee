@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo } from "../../components/BrandLogo";
+
 import { useState } from "react";
 import { PasswordInput } from "../../components/PasswordInput";
 import { errorMessage } from "../../lib/api";
@@ -28,10 +30,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-dvh flex-col justify-center px-6 py-10">
       <div className="mx-auto w-full max-w-sm space-y-6">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/peebee-logo-navy.png" alt="Peebee" className="mx-auto h-9 w-auto dark:hidden" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/peebee-logo-white.png" alt="Peebee" className="mx-auto hidden h-9 w-auto dark:block" />
+        <BrandLogo wordmark={false} className="justify-center" />
         <p className="text-center text-sm font-semibold uppercase tracking-wide text-ink-500">Admin</p>
 
         <form onSubmit={onSubmit} className="card space-y-4 !p-5">

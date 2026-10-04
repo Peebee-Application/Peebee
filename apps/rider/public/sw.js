@@ -1,7 +1,7 @@
-const STATIC_CACHE = "peebee-driver-static-v2";
-const RUNTIME_CACHE = "peebee-driver-runtime-v2";
+const STATIC_CACHE = "peebee-driver-static-v3";
+const RUNTIME_CACHE = "peebee-driver-runtime-v3";
 const OFFLINE_URL = "/offline.html";
-const STATIC_ASSETS = ["/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png", OFFLINE_URL];
+const STATIC_ASSETS = ["/manifest.json", "/icons/icon-192.png?v=official-1", "/icons/icon-512.png?v=official-1", OFFLINE_URL];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_ASSETS)));
@@ -127,8 +127,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "You have a new message",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      icon: "/icons/icon-192.png?v=official-1",
+      badge: "/icons/icon-192.png?v=official-1",
       tag: data.tag || "peebee-chat",
       data: { url: data.url || "/" },
     }),

@@ -1,3 +1,4 @@
+import { BrandLogo } from "../components/BrandLogo";
 import {
   ArrowRight,
   Bike,
@@ -71,8 +72,7 @@ export default function Home() {
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[rgb(var(--color-cream))] to-transparent" />
 
         <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between py-5">
-          <Image src="/brand/peebee-logo-navy.png" alt="Peebee" width={116} height={30} className="h-7 w-auto dark:hidden" priority />
-          <Image src="/brand/peebee-logo-white.png" alt="Peebee" width={116} height={30} className="hidden h-7 w-auto dark:block" priority />
+          <BrandLogo />
           <nav className="hidden items-center gap-7 text-sm font-semibold text-ink-500 md:flex">
             <Link href="#services" className="transition hover:text-ink">
               Services

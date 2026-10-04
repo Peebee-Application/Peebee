@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo } from "../../components/BrandLogo";
+
 import { isUserVerified } from "@peebee/shared";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -88,10 +90,7 @@ export default function VerifyPage() {
   return (
     <div className="flex min-h-dvh flex-col justify-center px-6 py-10">
       <div className="mx-auto w-full max-w-sm space-y-6">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/peebee-logo-navy.png" alt="Peebee" className="mx-auto h-9 w-auto dark:hidden" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/peebee-logo-white.png" alt="Peebee" className="mx-auto hidden h-9 w-auto dark:block" />
+        <BrandLogo wordmark={false} className="justify-center" />
 
         <div className="space-y-1 text-center">
           <h1 className="text-xl font-bold text-ink">Verify your account</h1>

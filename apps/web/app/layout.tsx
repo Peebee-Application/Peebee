@@ -23,10 +23,10 @@ export const metadata: Metadata = {
   description: "Rides, food, shopping, and parcels — one app, verified riders. Fast, reliable, trusted.",
   icons: {
     icon: [
-      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/favicon-32.png?v=official-1", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png?v=official-1", sizes: "192x192", type: "image/png" },
     ],
-    apple: "/icons/apple-touch-icon.png",
+    apple: "/icons/apple-touch-icon.png?v=official-1",
   },
 };
 

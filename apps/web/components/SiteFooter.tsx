@@ -1,5 +1,5 @@
+import { BrandLogo } from "./BrandLogo";
 import { Mail, MapPin, Phone } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 
 export function SiteFooter() {
@@ -7,8 +7,7 @@ export function SiteFooter() {
     <footer className="site-footer px-5 py-10 sm:px-8">
       <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
         <div>
-          <Image src="/brand/peebee-logo-navy.png" alt="Peebee" width={96} height={26} className="h-6 w-auto dark:hidden" />
-          <Image src="/brand/peebee-logo-white.png" alt="Peebee" width={96} height={26} className="hidden h-6 w-auto dark:block" />
+          <BrandLogo />
           <p className="mt-4 max-w-sm text-sm leading-6 text-ink-500">
             Peebee connects customers, riders, restaurants, and businesses for rides, food, shopping, and parcel delivery in Uganda.
           </p>

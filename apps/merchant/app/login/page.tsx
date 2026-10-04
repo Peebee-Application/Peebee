@@ -1,6 +1,7 @@
 "use client";
 
-import Image from "next/image";
+import { BrandLogo } from "../../components/BrandLogo";
+
 import { useState } from "react";
 import { GoogleSignInButton } from "../../components/GoogleSignInButton";
 import { errorMessage } from "../../lib/api";
@@ -32,8 +33,7 @@ export default function LoginPage() {
 
   return <div className="flex min-h-dvh items-center px-5 py-10"><div className="mx-auto w-full max-w-sm space-y-6">
     <div className="text-center">
-      <Image src="/brand/peebee-logo-navy.png" alt="Peebee" width={160} height={48} priority className="mx-auto h-10 w-auto dark:hidden" />
-      <Image src="/brand/peebee-logo-white.png" alt="Peebee" width={160} height={48} priority className="mx-auto hidden h-10 w-auto dark:block" />
+      <BrandLogo wordmark={false} className="justify-center" />
       <h1 className="mt-3 text-2xl font-black text-navy">Merchant</h1>
       <p className="text-sm text-ink-500">Receive digital shopping payments without asking riders to cash out.</p>
     </div>
