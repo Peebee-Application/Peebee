@@ -26,8 +26,8 @@ test("production CORS accepts configured Peebee apps and rejects unrelated origi
       assert.equal(preflight.headers.get("access-control-allow-origin"), origin);
     }
     for (const origin of [
-      "https://customer.peebee.online",
-      "https://peebee-customer.peebeeapp.workers.dev",
+      "https://customer.other-project.example",
+      "https://other-customer.other-account.workers.dev",
       "https://customer.peebee.online.attacker.example",
       "https://unconfigured.peebee.online",
       "http://localhost:3000",
