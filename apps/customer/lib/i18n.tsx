@@ -51,6 +51,8 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   place_select_on_map: { en: "Select on map", lg: "Londa ku maapu" },
   place_search: { en: "Search location", lg: "Noonya ekifo" },
   place_route: { en: "Route", lg: "Ekkubo" },
+  place_route_loading: { en: "Finding the road route…", lg: "Kunoonya ekkubo…" },
+  place_route_unavailable: { en: "Road route unavailable right now", lg: "Ekkubo terirabika kati" },
   place_pickup: { en: "Pickup location", lg: "Ekifo eky'okukimibwa" },
   place_destination: { en: "Destination", lg: "Gy'ogenda" },
   place_delivery: { en: "Delivery location", lg: "Ekifo eky'okutuusaayo" },

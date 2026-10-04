@@ -1,6 +1,5 @@
 "use client";
 
-import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { LocateFixed } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -9,6 +8,7 @@ import { OSM_TILES, loadMapTiles, type Tiles } from "../../lib/map-tiles";
 import { jawgTileUrl, useJawgStyle } from "../../lib/mapStyle";
 import { cachedPosition } from "../../lib/places";
 import { destinationIcon, meIcon, pickupIcon } from "./map-icons";
+import { SelectedRoadRoute } from "./SelectedRoadRoute";
 
 type LatLng = { lat: number; lng: number } | null;
 
@@ -16,24 +16,6 @@ const KAMPALA: [number, number] = [0.3476, 32.5825];
 
 function Tap({ onPick }: { onPick: (lat: number, lng: number) => void }) {
   useMapEvents({ click: (e) => onPick(e.latlng.lat, e.latlng.lng) });
-  return null;
-}
-
-/** Frames whatever is chosen: both points together, or the one point, kept
- * clear of the sheet/fields overlaying the bottom of the map. */
-function Frame({ pickup, destination, bottomInset }: { pickup: LatLng; destination: LatLng; bottomInset: number }) {
-  const map = useMap();
-  useEffect(() => {
-    const pts = [pickup, destination].filter((p): p is { lat: number; lng: number } => !!p).map((p) => [p.lat, p.lng] as [number, number]);
-    if (pts.length === 0) return;
-    map.fitBounds(L.latLngBounds(pts), {
-      paddingTopLeft: [40, 110],
-      paddingBottomRight: [40, bottomInset + 30],
-      maxZoom: 16,
-      animate: true,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickup?.lat, pickup?.lng, destination?.lat, destination?.lng, bottomInset]);
   return null;
 }
 
@@ -81,13 +63,13 @@ export default function PlaceMap({
     };
   }, []);
 
-  function locate() {
+  function locate(recenter = true) {
     if (!navigator.geolocation) return;
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setMe([pos.coords.latitude, pos.coords.longitude]);
-        setNonce((n) => n + 1);
+        if (recenter) setNonce((n) => n + 1);
         setLocating(false);
       },
       () => setLocating(false),
@@ -97,7 +79,7 @@ export default function PlaceMap({
 
   // First paint uses the cached position if there is one; otherwise ask once.
   useEffect(() => {
-    if (!me) locate();
+    if (!me) locate(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -114,7 +96,7 @@ export default function PlaceMap({
       >
         <TileLayer key={tileUrl} url={tileUrl} attribution={tiles.attribution} />
         <Tap onPick={onPick} />
-        <Frame pickup={pickup} destination={destination} bottomInset={bottomInset} />
+        <SelectedRoadRoute pickup={pickup} destination={destination} bottomInset={bottomInset} topInset={110} />
         <FlyToMe target={me} nonce={nonce} />
         {me && <Marker position={me} icon={meIcon} interactive={false} />}
         {pickup && <Marker position={[pickup.lat, pickup.lng]} icon={pickupIcon} interactive={false} />}
@@ -123,7 +105,7 @@ export default function PlaceMap({
       </MapContainer>
       <button
         type="button"
-        onClick={locate}
+        onClick={() => locate()}
         disabled={locating}
         aria-label="Centre on my location"
         className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[500] flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--surface-card))] text-ink shadow-[var(--shadow-float-capsule)] active:scale-95 disabled:opacity-60"

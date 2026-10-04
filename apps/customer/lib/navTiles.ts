@@ -75,15 +75,18 @@ export type OsrmRoute = { coordinates: [number, number][]; distanceMeters: numbe
 export async function fetchDrivingRoute(
   from: { lat: number; lng: number },
   to: { lat: number; lng: number },
+  signal?: AbortSignal,
 ): Promise<OsrmRoute | null> {
   const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
-  const res = await fetch(url).catch(() => null);
+  const res = await fetch(url, { signal }).catch(() => null);
   if (!res || !res.ok) return null;
   const data = (await res.json().catch(() => null)) as {
     routes?: { geometry: { coordinates: [number, number][] }; distance: number; duration: number }[];
   } | null;
   const route = data?.routes?.[0];
-  if (!route) return null;
+  if (!route || !Array.isArray(route.geometry?.coordinates) || route.geometry.coordinates.length < 2 ||
+      !route.geometry.coordinates.every((point) => Array.isArray(point) && point.length >= 2 && Number.isFinite(point[0]) && Number.isFinite(point[1])) ||
+      !Number.isFinite(route.distance) || !Number.isFinite(route.duration)) return null;
   return {
     coordinates: route.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
     distanceMeters: route.distance,
