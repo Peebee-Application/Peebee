@@ -1,12 +1,12 @@
 {
-  "name": "tuma-web",
+  "name": "peebee",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-09-12",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "routes": [
-    { "pattern": "tumaffe.online", "custom_domain": true },
-    { "pattern": "www.tumaffe.online/*", "zone_name": "tumaffe.online" }
+    { "pattern": "peebee.online", "custom_domain": true },
+    { "pattern": "www.peebee.online", "custom_domain": true }
   ],
   "assets": {
     "directory": ".open-next/assets",
