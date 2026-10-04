@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { MerchantCategory } from "@peebee/shared";
 import { LocateFixed, Store } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -46,7 +48,7 @@ export default function ApplyPage() {
     <form onSubmit={submit} className="home-card space-y-3">
       <input required value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="Registered legal name" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"/>
       <input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Trading name customers know" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"/>
-      <select required value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"><option value="">Business category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
+      <Select aria-label="Business category" required value={categoryId} onValueChange={(value) => setCategoryId(value)} className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"><option value="">Business category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</Select>
       <input required value={outletName} onChange={(e) => setOutletName(e.target.value)} placeholder="First outlet name" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"/>
       <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Business phone" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"/>
       <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Outlet address" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"/>

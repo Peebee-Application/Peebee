@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { AdminCarBooking, AdminCarCategory, AdminCarPartner, AdminCarVehicle, AdminRental } from "@peebee/shared";
 import { useCallback, useEffect, useState } from "react";
 import { SettingsPageShell } from "../../../../components/SettingsPageShell";
@@ -145,17 +147,17 @@ export default function CarFleetPage() {
                 {v.status === "approved" && (
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-ink-500" htmlFor={`drv-${v.id}`}>Driver</label>
-                    <select
+                    <Select
                       id={`drv-${v.id}`}
                       value={v.driver_id ?? ""}
-                      onChange={(e) => act(() => api.adminAssignCarDriver(v.id, e.target.value || null))}
+                      onValueChange={(value) => act(() => api.adminAssignCarDriver(v.id, value || null))}
                       className={field}
                     >
                       <option value="">No driver</option>
                       {drivers.map((d) => (
                         <option key={d.user_id} value={d.user_id}>{d.name}</option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                 )}
               </li>
@@ -288,10 +290,10 @@ function Categories({ categories, act }: { categories: AdminCarCategory[]; act: 
 
       <form onSubmit={save} className="home-card space-y-3">
         <p className="text-sm font-bold text-ink">{editing ? "Edit car type" : "Add a car type"}</p>
-        <select value={form.kind} onChange={(e) => set({ kind: e.target.value as "passenger" | "cargo" })} className={field} aria-label="Kind">
+        <Select value={form.kind} onValueChange={(value) => set({ kind: value as "passenger" | "cargo" })} className={field} aria-label="Kind">
           <option value="passenger">Passenger car (by seats)</option>
           <option value="cargo">Cargo van / truck</option>
-        </select>
+        </Select>
         <input value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="Name, e.g. Sedan or 3-ton truck" className={field} required />
         {form.kind === "passenger" ? (
           <input inputMode="numeric" value={form.seats} onChange={(e) => set({ seats: digits(e.target.value) })} placeholder="Seats" className={field} />

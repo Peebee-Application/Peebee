@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { CustomerWalletSummary, OrderDetail, WalletShareReceived } from "@peebee/shared";
 import { detectMobileMoneyNetwork, mobileMoneyNetworkLabel } from "@peebee/shared";
 import { Banknote, Smartphone, Wallet } from "lucide-react";
@@ -129,9 +131,9 @@ export default function PaymentPage() {
                 {choices.length > 1 && (
                   <div className="space-y-2">
                     <label htmlFor="payment-wallet" className="block text-sm font-semibold">Select wallet</label>
-                    <select id="payment-wallet" value={walletKey} onChange={(e) => setWalletKey(e.target.value)} disabled={busy || pending} className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 text-base">
+                    <Select id="payment-wallet" value={walletKey} onValueChange={(value) => setWalletKey(value)} disabled={busy || pending} className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 text-base">
                       {choices.map((w) => <option key={w.key} value={w.key}>{w.name}</option>)}
-                    </select>
+                    </Select>
                   </div>
                 )}
                 <p className="text-sm text-ink-500">{selectedWallet?.name}</p>

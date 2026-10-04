@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { MerchantBalance, MerchantSettlement, MerchantSettlementAccount } from "@peebee/shared";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -140,7 +142,7 @@ export default function MerchantWalletPage() {
       {accounts.length === 0 ? (
         <section className="home-card space-y-3">
           <div><h2 className="text-sm font-bold text-ink">Add a Mobile Money destination</h2><p className="text-xs text-ink-500">It must be verified by Peebee and then complete a 24-hour security cooling period.</p></div>
-          <select value={network} onChange={(event) => setNetwork(event.target.value as "MTN" | "Airtel")} className="w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 py-3 text-sm"><option>MTN</option><option>Airtel</option></select>
+          <Select aria-label="Mobile Money network" value={network} onValueChange={(value) => setNetwork(value as "MTN" | "Airtel")} className="w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 py-3 text-sm"><option>MTN</option><option>Airtel</option></Select>
           <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Mobile Money number" className="w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 py-3 text-sm" />
           <button disabled={busy || phone.trim().length < 6} onClick={addDestination} className="w-full rounded-xl bg-gold px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? "Saving…" : "Save destination"}</button>
         </section>
@@ -150,7 +152,7 @@ export default function MerchantWalletPage() {
         <section className="home-card space-y-3">
           <div><h2 className="text-sm font-bold text-ink">Settle to Mobile Money</h2><p className="text-xs text-ink-500">{verifiedAccount.network_or_bank} {verifiedAccount.masked_account_ref}</p></div>
           <input inputMode="numeric" value={amount} onChange={(event) => { setAmount(event.target.value.replace(/\D/g, "")); setQuote(null); }} placeholder="Amount in UGX" className="w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 py-3 text-sm" />
-          <select value={mode} onChange={(event) => { setMode(event.target.value as "instant" | "scheduled"); setQuote(null); }} className="w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 py-3 text-sm"><option value="scheduled">Scheduled settlement</option><option value="instant">Instant settlement</option></select>
+          <Select aria-label="Settlement mode" value={mode} onValueChange={(value) => { setMode(value as "instant" | "scheduled"); setQuote(null); }} className="w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 py-3 text-sm"><option value="scheduled">Scheduled settlement</option><option value="instant">Instant settlement</option></Select>
           {!quote ? <button disabled={busy || !amount} onClick={requestQuote} className="w-full rounded-xl bg-gold px-4 py-3 text-sm font-bold text-white disabled:opacity-50">Review settlement</button> : <div className="space-y-3 rounded-xl border border-gold/40 p-3 text-sm"><div className="flex justify-between"><span>Merchant receives</span><strong>{ugx(quote.amount)}</strong></div><div className="flex justify-between"><span>Settlement fee</span><strong>{ugx(quote.fee)}</strong></div><div className="flex justify-between border-t border-[var(--border-faint)] pt-2"><span>Total balance debit</span><strong>{ugx(quote.totalDebit)}</strong></div><button disabled={busy} onClick={confirmSettlement} className="w-full rounded-xl bg-gold px-4 py-3 font-bold text-white">Confirm settlement</button></div>}
         </section>
       )}

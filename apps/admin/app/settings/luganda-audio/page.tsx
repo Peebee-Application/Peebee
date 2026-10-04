@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import { GEMINI_TTS_VOICES, type LugandaVoice } from "@peebee/shared";
 import { Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -150,9 +152,9 @@ export default function LugandaAudioSettingsPage() {
             ))}
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <select
+            <Select
               value={newId}
-              onChange={(e) => setNewId(e.target.value)}
+              onValueChange={(value) => setNewId(value)}
               aria-label="Google voice"
               className="rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm"
             >
@@ -161,7 +163,7 @@ export default function LugandaAudioSettingsPage() {
                   {name}
                 </option>
               ))}
-            </select>
+            </Select>
             <input
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
@@ -182,10 +184,10 @@ export default function LugandaAudioSettingsPage() {
           <label className="text-xs font-semibold text-ink-500" htmlFor="default-voice">
             Default voice
           </label>
-          <select
+          <Select
             id="default-voice"
             value={defaultVoice}
-            onChange={(e) => setDefaultVoice(e.target.value)}
+            onValueChange={(value) => setDefaultVoice(value)}
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm"
           >
             {voices.map((voice) => (
@@ -193,7 +195,7 @@ export default function LugandaAudioSettingsPage() {
                 {voice.label}
               </option>
             ))}
-          </select>
+          </Select>
           <p className="text-xs text-ink-500">Used for a rider who hasn&apos;t picked their own voice yet.</p>
         </section>
 

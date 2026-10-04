@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { StageDetail, StageFineSchedule, StageFineType, StageLoanApprovalWorkflowRow, StageMemberRole } from "@peebee/shared";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -436,9 +438,9 @@ export default function CycleSetupPage() {
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm outline-none focus:border-gold disabled:opacity-50"
           />
           <div className="grid grid-cols-2 gap-2">
-            <select
+            <Select aria-label="Fine schedule"
               value={fineSchedule}
-              onChange={(e) => setFineSchedule(e.target.value as StageFineSchedule)}
+              onValueChange={(value) => setFineSchedule(value as StageFineSchedule)}
               disabled={!detail.cycle}
               className="rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm outline-none focus:border-gold disabled:opacity-50"
             >
@@ -446,7 +448,7 @@ export default function CycleSetupPage() {
               <option value="daily">Every day overdue</option>
               <option value="weekly">Every week overdue</option>
               <option value="monthly">Every month overdue</option>
-            </select>
+            </Select>
             <input
               inputMode="numeric"
               value={fineAmount}

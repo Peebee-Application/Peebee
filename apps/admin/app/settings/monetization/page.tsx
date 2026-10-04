@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import {
   hasPermission,
   type CashFeeSource,
@@ -221,15 +223,15 @@ export default function MonetizationSettingsPage() {
                   <label className="text-xs font-semibold text-ink-500" htmlFor="serviceFeeType">
                     Type
                   </label>
-                  <select
+                  <Select
                     id="serviceFeeType"
                     value={serviceFeeType}
-                    onChange={(e) => setServiceFeeType(e.target.value as ServiceFeeType)}
+                    onValueChange={(value) => setServiceFeeType(value as ServiceFeeType)}
                     className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
                   >
                     <option value="flat">Flat amount</option>
                     <option value="percent">Percentage</option>
-                  </select>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-ink-500" htmlFor="serviceFeeValue">
@@ -307,16 +309,16 @@ export default function MonetizationSettingsPage() {
                     <label className="text-xs font-semibold text-ink-500" htmlFor="processingFeeMode">
                       Who bears it
                     </label>
-                    <select
+                    <Select
                       id="processingFeeMode"
                       value={processingFeeMode}
-                      onChange={(e) => setProcessingFeeMode(e.target.value as ProcessingFeeMode)}
+                      onValueChange={(value) => setProcessingFeeMode(value as ProcessingFeeMode)}
                       className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
                     >
                       <option value="customer">Customer (added at checkout)</option>
                       <option value="rider">Rider (withheld at settle)</option>
                       <option value="split">Split between both</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
                 {processingFeeMode === "split" && (
@@ -345,14 +347,14 @@ export default function MonetizationSettingsPage() {
               own cut all together. Pick where that cut comes back out of.
             </p>
             <div className="space-y-1">
-              <select
+              <Select aria-label="Cash fee source"
                 value={cashFeeSource}
-                onChange={(e) => setCashFeeSource(e.target.value as CashFeeSource)}
+                onValueChange={(value) => setCashFeeSource(value as CashFeeSource)}
                 className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
               >
                 <option value="wallet">Rider&apos;s wallet (can go negative, nets against their next payout)</option>
                 <option value="deposit">Rider&apos;s deposit (blocks new jobs until topped back up)</option>
-              </select>
+              </Select>
               <p className="text-xs text-ink-500">
                 {cashFeeSource === "deposit"
                   ? "Uses the rider minimum-balance reserve as the required deposit — once a rider's balance drops below it, they can't claim or apply for anything new until they top back up."
@@ -384,15 +386,15 @@ export default function MonetizationSettingsPage() {
                   <label className="text-xs font-semibold text-ink-500" htmlFor="subscriptionMode">
                     Billing mode
                   </label>
-                  <select
+                  <Select
                     id="subscriptionMode"
                     value={subscriptionMode}
-                    onChange={(e) => setSubscriptionMode(e.target.value as SubscriptionMode)}
+                    onValueChange={(value) => setSubscriptionMode(value as SubscriptionMode)}
                     className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
                   >
                     <option value="recurring">Recurring — bills every cadence</option>
                     <option value="once">One-time — a single lifetime fee at activation</option>
-                  </select>
+                  </Select>
                   <p className="text-xs text-ink-500">
                     {subscriptionMode === "once"
                       ? "Charged once. A rider who pays never needs to renew — their subscription stays active for good."
@@ -417,16 +419,16 @@ export default function MonetizationSettingsPage() {
                       <label className="text-xs font-semibold text-ink-500" htmlFor="subscriptionCadence">
                         Cadence
                       </label>
-                      <select
+                      <Select
                         id="subscriptionCadence"
                         value={subscriptionCadence}
-                        onChange={(e) => setSubscriptionCadence(e.target.value as SubscriptionCadence)}
+                        onValueChange={(value) => setSubscriptionCadence(value as SubscriptionCadence)}
                         className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
                       >
                         <option value="daily">Daily</option>
                         <option value="weekly">Weekly</option>
                         <option value="monthly">Monthly</option>
-                      </select>
+                      </Select>
                     </div>
                   )}
                 </div>
@@ -488,16 +490,16 @@ export default function MonetizationSettingsPage() {
                         <label className="text-xs font-semibold text-ink-500" htmlFor="proRecurringCadence">
                           Cadence
                         </label>
-                        <select
+                        <Select
                           id="proRecurringCadence"
                           value={proRecurringCadence}
-                          onChange={(e) => setProRecurringCadence(e.target.value as SubscriptionCadence)}
+                          onValueChange={(value) => setProRecurringCadence(value as SubscriptionCadence)}
                           className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
                         >
                           <option value="daily">Daily</option>
                           <option value="weekly">Weekly</option>
                           <option value="monthly">Monthly</option>
-                        </select>
+                        </Select>
                       </div>
                     </div>
                   )}

@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { CarpoolTrip } from "@peebee/shared";
 import { ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -81,11 +83,11 @@ export default function CarpoolPage() {
             </p>
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm text-ink"><strong>{ugx(t.seatPrice)}</strong> per seat · {t.seatsLeft} left</p>
-              <select value={n} onChange={(e) => setSeats((s) => ({ ...s, [t.id]: Number(e.target.value) }))} aria-label="Seats" className="rounded-xl border border-[var(--border-faint)] px-2 py-2 text-sm">
+              <Select value={n} onValueChange={(value) => setSeats((s) => ({ ...s, [t.id]: Number(value) }))} aria-label="Seats" className="rounded-xl border border-[var(--border-faint)] px-2 py-2 text-sm">
                 {Array.from({ length: Math.min(t.seatsLeft, maxSeats) }, (_, i) => i + 1).map((k) => (
                   <option key={k} value={k}>{k} seat{k === 1 ? "" : "s"}</option>
                 ))}
-              </select>
+              </Select>
             </div>
             <button disabled={busy === t.id} onClick={() => book(t)} className="min-h-11 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-60">
               {busy === t.id ? "Please wait…" : `Book ${n} seat${n === 1 ? "" : "s"} · ${ugx(t.seatPrice * n)}`}

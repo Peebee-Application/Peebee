@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import { MATCHING_MODE_DESCRIPTIONS, MATCHING_MODE_LABELS, type JobExpiryUnit, type MatchingMode } from "@peebee/shared";
 import { useEffect, useState } from "react";
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
@@ -241,16 +243,16 @@ export default function RiderMatchingPage() {
               <label className="text-xs font-semibold text-ink-500" htmlFor="expiry-unit">
                 Unit
               </label>
-              <select
+              <Select
                 id="expiry-unit"
                 value={expiryUnit}
                 disabled={!expiryEnabled}
-                onChange={(e) => setExpiryUnit(e.target.value as JobExpiryUnit)}
+                onValueChange={(value) => setExpiryUnit(value as JobExpiryUnit)}
                 className="w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3 py-2.5 text-[15px] outline-none focus:border-gold disabled:opacity-50"
               >
                 <option value="minutes">Minutes</option>
                 <option value="hours">Hours</option>
-              </select>
+              </Select>
             </div>
           </div>
           <p className="text-xs text-ink-500">

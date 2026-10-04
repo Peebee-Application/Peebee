@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import { ApiError } from "@peebee/shared";
 import type { MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, RestaurantMenu } from "@peebee/shared";
 import { Camera, ChevronRight, Plus, Trash2 } from "lucide-react";
@@ -250,9 +252,9 @@ function ItemEditor({
 
         <div className="space-y-1">
           <label className="text-xs font-semibold text-ink-500">Category</label>
-          <select
+          <Select aria-label="Menu category"
             value={selectedCategoryId}
-            onChange={(e) => setSelectedCategoryId(e.target.value)}
+            onValueChange={(value) => setSelectedCategoryId(value)}
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
           >
             <option value="">Uncategorized</option>
@@ -261,7 +263,7 @@ function ItemEditor({
                 {c.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <label className="flex items-center gap-2.5">

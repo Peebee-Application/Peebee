@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { CarSettings } from "@peebee/shared";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -186,10 +188,10 @@ export default function CarSettingsPage() {
           </label>
           <div className="space-y-1 border-t border-[var(--border-faint)] pt-3">
             <label className="text-xs font-semibold text-ink-500" htmlFor="car-mode">How a driver is found</label>
-            <select id="car-mode" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)} className={input}>
+            <Select id="car-mode" value={mode} onValueChange={(value) => setMode(value as typeof mode)} className={input}>
               <option value="customer_selects">Customer chooses from drivers who applied (bidding possible)</option>
               <option value="first_to_claim">Nearest available driver is assigned automatically</option>
-            </select>
+            </Select>
             <p className="text-xs text-ink-500">Bids only work in &ldquo;customer chooses&rdquo; and when bidding is on under Rider matching.</p>
           </div>
           <div className="space-y-1">

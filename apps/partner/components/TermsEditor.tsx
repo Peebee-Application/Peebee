@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@peebee/shared/select";
+
 import type { CarConfig, OwnerDeals } from "@peebee/shared";
 import { useState } from "react";
 import { api, errorMessage } from "../lib/api";
@@ -64,10 +66,10 @@ export function TermsEditor({ vehicle, limits, onSaved }: { vehicle: Vehicle; li
       ) : (
         <div className="grid grid-cols-2 gap-3">
           <input inputMode="numeric" value={rent} onChange={(e) => setRent(e.target.value.replace(/\D/g, ""))} placeholder="Rent (UGX)" className={field} />
-          <select value={period} onChange={(e) => setPeriod(e.target.value as "day" | "week")} className={field} aria-label="Per">
+          <Select value={period} onValueChange={(value) => setPeriod(value as "day" | "week")} className={field} aria-label="Per">
             <option value="day">per day</option>
             <option value="week">per week</option>
-          </select>
+          </Select>
           <p className="col-span-2 text-xs text-ink-500">The driver keeps their ride earnings and pays you this rent, taken from their rides or paid from their wallet.{limits.maxRentPerDay > 0 ? ` At most UGX ${limits.maxRentPerDay.toLocaleString("en-UG")} a day.` : ""}</p>
         </div>
       )}
