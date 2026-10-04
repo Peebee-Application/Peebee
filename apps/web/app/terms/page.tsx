@@ -1,5 +1,5 @@
+import { BrandLogo } from "../../components/BrandLogo";
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { SiteFooter } from "../../components/SiteFooter";
 import { ThemeModeToggle } from "../../components/ThemeModeToggle";
@@ -14,8 +14,7 @@ export default function TermsPage() {
     <main className="min-h-screen bg-cream">
       <header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
         <Link href="/" aria-label="Peebee home">
-          <Image src="/brand/peebee-logo-navy.png" alt="Peebee" width={116} height={30} className="h-7 w-auto dark:hidden" priority />
-          <Image src="/brand/peebee-logo-white.png" alt="Peebee" width={116} height={30} className="hidden h-7 w-auto dark:block" priority />
+          <BrandLogo />
         </Link>
         <div className="flex items-center gap-2">
           <ThemeModeToggle />

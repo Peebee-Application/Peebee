@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo } from "../../../components/BrandLogo";
+
 import { CheckCircle2, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -38,10 +40,7 @@ function ConfirmedContent() {
   return (
     <div className="flex min-h-dvh flex-col justify-center px-6 py-10">
       <div className="mx-auto w-full max-w-sm space-y-6 text-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/peebee-logo-navy.png" alt="Peebee" className="mx-auto h-9 w-auto dark:hidden" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/peebee-logo-white.png" alt="Peebee" className="mx-auto hidden h-9 w-auto dark:block" />
+        <BrandLogo wordmark={false} className="justify-center" />
 
         <div className="card space-y-4 !p-8">
           {ok ? (

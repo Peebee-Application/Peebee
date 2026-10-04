@@ -1,3 +1,4 @@
+import { BrandLogo } from "./BrandLogo";
 import { Menu } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -15,22 +16,7 @@ export function BrandHeader({ onMenuClick }: { onMenuClick?: () => void }) {
             <Menu className="h-5 w-5" strokeWidth={1.75} aria-hidden />
           </button>
         )}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/brand/peebee-logo-navy.png"
-          alt="Peebee"
-          width={140}
-          height={53}
-          className="h-8 w-auto dark:hidden"
-        />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/brand/peebee-logo-white.png"
-          alt="Peebee"
-          width={140}
-          height={53}
-          className="hidden h-8 w-auto dark:block"
-        />
+        <BrandLogo />
         <span className="ml-auto rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-medium text-ink">
           Admin
         </span>
