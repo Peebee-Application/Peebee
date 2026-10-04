@@ -1,13 +1,13 @@
-const STATIC_CACHE = "peebee-merchant-static-v5";
+const STATIC_CACHE = "peebee-merchant-static-v6";
 const OFFLINE_URL = "/offline.html";
 const STATIC_ASSETS = ["/sounds/notification.mp3",
   "/manifest.webmanifest",
-  "/brand/peebee-logo-light.png?v=opaque-2",
-  "/brand/peebee-logo-dark.png?v=opaque-2",
-  "/icons/icon-192.png?v=opaque-2",
-  "/icons/icon-512.png?v=opaque-2",
-  "/icons/apple-touch-icon.png?v=opaque-2",
-  "/icons/favicon-32.png?v=opaque-2",
+  "/brand/peebee-logo-light.png?v=logos-3",
+  "/brand/peebee-logo-dark.png?v=logos-3",
+  "/icons/icon-192.png?v=logos-3",
+  "/icons/icon-512.png?v=logos-3",
+  "/icons/apple-touch-icon.png?v=logos-3",
+  "/icons/favicon-32.png?v=logos-3",
   OFFLINE_URL,
 ];
 
@@ -49,8 +49,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(Promise.all([
     self.registration.showNotification(data.title || "Peebee", {
       body: data.body || "You have a new notification",
-      icon: "/icons/icon-192.png?v=opaque-2",
-      badge: "/icons/icon-192.png?v=opaque-2",
+      icon: "/icons/icon-192.png?v=logos-3",
+      badge: "/icons/icon-192.png?v=logos-3",
       tag: data.tag || "peebee-alert",
       data: { url: data.url || "/" },
     }),
