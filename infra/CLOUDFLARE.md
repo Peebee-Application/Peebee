@@ -36,8 +36,11 @@ D1 binding is present, e.g. under plain `pnpm dev`) — see `TURSO_DATABASE_URL`
 
 The public website connects `Peebee-Application/Peebee` to the `peebee` Worker.
 Set its root directory to `apps/web`, leave the build command empty, set the
-deploy command to `pnpm run deploy`, and select `main` as the production branch.
-The deploy script checks the Git source, builds the OpenNext Worker, then deploys.
+deploy command to `git switch main && pnpm run deploy`, and select `main` as the
+production branch. Cloudflare build retries check out a detached commit; switching
+to `main` lets the existing preflight enforce a clean checkout matching the latest
+`origin/main`. The deploy script checks the Git source, builds the OpenNext Worker,
+then deploys. Keep this command limited to the production branch.
 Running the default `npx wrangler deploy` from the repository root cannot select
 an application in this workspace.
 
