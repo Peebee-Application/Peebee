@@ -29,7 +29,7 @@ export async function hasColumn(table: "order_applications" | "orders" | "car_bo
 }
 
 /** Same idea for a whole table: code that reads a table added by a hand-applied migration. */
-export async function hasTable(table: "car_bookings" | "vehicle_categories" | "car_withdrawals" | "scheduled_checks" | "carpool_trips" | "rentals" | "saved_passengers" | "vehicle_photos" | "ai_api_keys" | "ai_key_limits" | "car_partner_documents" | "driver_requests"): Promise<boolean> {
+export async function hasTable(table: "car_bookings" | "vehicle_categories" | "car_withdrawals" | "scheduled_checks" | "carpool_trips" | "rentals" | "saved_passengers" | "vehicle_photos" | "ai_api_keys" | "ai_key_limits" | "car_partner_documents" | "driver_requests" | "email_api_keys" | "email_api_usage"): Promise<boolean> {
   const key = `table.${table}`;
   const known = answers.get(key);
   if (known && (known.exists || Date.now() - known.at < NO_TTL_MS)) return known.exists;

@@ -240,6 +240,14 @@ const DEFAULTS = {
    * enabled test key (skipping any that have run out of quota); "paid" uses
    * only the master key. See ../speech/ai-keys.ts. */
   gemini_key_mode: "test",
+  /** Zero preserves per-request rotation; positive values select clock slots. */
+  gemini_rotation_seconds: "0",
+  resend_key_mode: "live",
+  resend_rotation_seconds: "300",
+  /** Testing request budget per Resend account group; zero disables it. */
+  resend_window_requests: "0",
+  resend_window_seconds: "86400",
+  resend_quota_retry_seconds: "3600",
   luganda_audio_enabled: "0",
   luganda_audio_voices: '[{"id":"Kore","label":"Voice 1"}]',
   luganda_audio_default_voice: "Kore",
