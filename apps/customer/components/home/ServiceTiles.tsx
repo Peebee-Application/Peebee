@@ -31,27 +31,27 @@ export function ServiceTiles({
   ];
   const inner = (tile: Tile) => (
     <>
-      <span data-service={tile.key} className={`service-glass flex h-16 w-full items-center justify-center rounded-2xl text-ink ${paused[tile.key] ? "opacity-40" : ""}`}>
+      <span data-service={tile.key} className={`service-glass relative z-[1] flex aspect-square w-full shrink-0 items-center justify-center rounded-2xl text-ink ${paused[tile.key] ? "opacity-40" : ""}`}>
         <tile.icon className="h-7 w-7" strokeWidth={1.75} aria-hidden />
       </span>
-      <span className="text-[13px] font-semibold text-ink">{t(tile.labelKey)}</span>
-      {paused[tile.key] && <span className="-mt-1 text-[11px] font-semibold text-ink-500">{t("service_paused")}</span>}
+      <span className="relative z-[2] text-[13px] font-semibold text-ink">{t(tile.labelKey)}</span>
+      {paused[tile.key] && <span className="relative z-[2] -mt-1 text-[11px] font-semibold text-ink-500">{t("service_paused")}</span>}
     </>
   );
-  const cls = "flex flex-1 flex-col items-center gap-1.5 transition-transform active:scale-95";
+  const cls = "service-shortcut relative isolate flex min-w-0 flex-col items-center gap-1.5 overflow-visible transition-transform active:scale-95";
   return (
-    <div className="flex gap-3">
+    <div className="grid grid-cols-4 gap-3 overflow-visible">
       {tiles.map((tile) =>
         paused[tile.key] ? (
-          <button key={tile.key} type="button" disabled className={cls}>
+          <button key={tile.key} data-service={tile.key} type="button" disabled className={cls}>
             {inner(tile)}
           </button>
         ) : tile.href ? (
-          <Link key={tile.key} href={tile.href} className={cls}>
+          <Link key={tile.key} data-service={tile.key} href={tile.href} className={cls}>
             {inner(tile)}
           </Link>
         ) : (
-          <button key={tile.key} type="button" onClick={tile.onClick} className={cls}>
+          <button key={tile.key} data-service={tile.key} type="button" onClick={tile.onClick} className={cls}>
             {inner(tile)}
           </button>
         ),
