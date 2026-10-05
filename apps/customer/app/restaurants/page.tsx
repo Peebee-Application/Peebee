@@ -43,7 +43,7 @@ export default function RestaurantsPage() {
                 href={`/restaurants/${r.id}`}
                 icon={<Store className="h-5 w-5" strokeWidth={1.75} aria-hidden />}
                 title={r.name}
-                subtitle={r.cuisine ?? r.description ?? undefined}
+                subtitle={r.is_demo ? `Demo · ${r.cuisine ?? "Menu preview"}` : r.cuisine ?? r.description ?? undefined}
                 trailing={
                   !r.is_open ? (
                     <span className="shrink-0 rounded-full bg-[rgb(var(--surface-muted))] px-2 py-0.5 text-[10px] font-semibold text-ink-500">

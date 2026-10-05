@@ -152,11 +152,13 @@ type CartLine = {
 function ItemDetailModal({
   item,
   restaurantId,
+  isDemo = false,
   onClose,
   onAdd,
 }: {
   item: MenuItem;
   restaurantId: string;
+  isDemo?: boolean;
   onClose: () => void;
   onAdd: (line: { unitPrice: number; choiceIds: string[]; choiceNames: string[]; quantity: number }) => void;
 }) {
@@ -185,13 +187,13 @@ function ItemDetailModal({
         {item.photo_key && <MenuItemThumb itemId={item.id} size="modal" />}
         {item.description && <p className="text-sm text-ink-500">{item.description}</p>}
         <p className="text-lg font-bold text-ink">{formatUgx(item.price)}</p>
-        <Link
+        {!isDemo && <Link
           href={`/restaurants/${restaurantId}/chat?item=${item.id}&itemName=${encodeURIComponent(item.name)}`}
           className="inline-flex items-center gap-1.5 text-xs font-bold text-gold"
         >
           <MessageCircle className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
           {t("restaurant_ask_about_item")}
-        </Link>
+        </Link>}
 
         {item.options.map((option) => (
           <div key={option.id} className="space-y-1.5">
@@ -422,10 +424,10 @@ export default function RestaurantPage() {
           </button>
           <button
             onClick={checkout}
-            disabled={busy}
+            disabled={busy || restaurant.is_demo}
             className="min-h-12 flex-[2] rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
           >
-            {busy ? "Please wait…" : "Next: payment"}
+            {restaurant.is_demo ? "Demo preview · no payment" : busy ? "Please wait…" : "Next: payment"}
           </button>
         </div>
       </div>
@@ -449,14 +451,16 @@ export default function RestaurantPage() {
             {t("restaurant_closed")}
           </span>
         )}
-        <Link
+        {!restaurant.is_demo && <Link
           href={`/restaurants/${id}/chat`}
           className="flex shrink-0 items-center gap-1.5 rounded-full bg-[rgb(var(--surface-muted))] px-3 py-2 text-xs font-bold text-ink"
         >
           <MessageCircle className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
           {t("restaurant_chat")}
-        </Link>
+        </Link>}
       </section>
+
+      {restaurant.is_demo && <p className="rounded-2xl border border-gold/20 bg-gold/10 px-4 py-3 text-sm text-ink">Demo restaurant · explore the menu, options, and cart. No order or payment is placed.</p>}
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -505,6 +509,7 @@ export default function RestaurantPage() {
         <ItemDetailModal
           item={activeItem}
           restaurantId={id}
+          isDemo={restaurant.is_demo}
           onClose={() => setActiveItem(null)}
           onAdd={(line) => addToCart(activeItem, line)}
         />

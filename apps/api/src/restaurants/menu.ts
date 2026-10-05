@@ -18,6 +18,8 @@ import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
+import { demoFoodImage } from "@peebee/shared/demo-food";
+import { getPlatformEnvironment } from "../lib/settings.js";
 
 export const menuRoutes = new Hono();
 
@@ -380,6 +382,10 @@ menuRoutes.post("/restaurants/me/menu/items/:id/photo", requireAuth, requireRole
  * is public yet. */
 menuRoutes.get("/restaurants/menu-items/:id/photo", requireAuth, async (c) => {
   const id = c.req.param("id") as string;
+  if (id.startsWith("demo-food-") && await getPlatformEnvironment() === "sandbox") {
+    const image = demoFoodImage(id);
+    if (image) return c.body(image, 200, { "Content-Type": "image/svg+xml", "Cache-Control": "private, no-store" });
+  }
   const user = c.get("user");
 
   const res = await db.execute({

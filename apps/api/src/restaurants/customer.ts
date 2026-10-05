@@ -20,6 +20,7 @@ import { getDeliverySettings, getMatchingSettings, getMaxOrderValue, getPlatform
 import { servicePaused } from "../lib/service-gate.js";
 import type { MatchingMode } from "@peebee/shared";
 import { roundFare } from "@peebee/shared";
+import { DEMO_FOOD_RESTAURANTS, demoFoodMenu, demoFoodRestaurant } from "@peebee/shared/demo-food";
 import { snapshotTimeFees } from "../orders/time-fees.js";
 
 export const customerRestaurantRoutes = new Hono();
@@ -40,12 +41,17 @@ customerRestaurantRoutes.get("/restaurants", requireAuth, async (c) => {
     sql: "SELECT * FROM restaurants WHERE status = 'active' AND environment = ? ORDER BY is_open DESC, name",
     args: [environment],
   });
-  return c.json({ restaurants: res.rows });
+  const restaurants = environment === "sandbox"
+    ? [...res.rows, ...DEMO_FOOD_RESTAURANTS].sort((a, b) => Number(b.is_open) - Number(a.is_open) || String(a.name).localeCompare(String(b.name)))
+    : res.rows;
+  return c.json({ restaurants });
 });
 
 customerRestaurantRoutes.get("/restaurants/:id", requireAuth, async (c) => {
   const id = c.req.param("id") as string;
   const environment = await getPlatformEnvironment();
+  const demo = environment === "sandbox" ? demoFoodRestaurant(id) : undefined;
+  if (demo) return c.json({ restaurant: demo });
   const res = await db.execute({
     sql: "SELECT * FROM restaurants WHERE id = ? AND status = 'active' AND environment = ?",
     args: [id, environment],
@@ -61,6 +67,8 @@ customerRestaurantRoutes.get("/restaurants/:id", requireAuth, async (c) => {
 customerRestaurantRoutes.get("/restaurants/:id/menu", requireAuth, async (c) => {
   const id = c.req.param("id") as string;
   const environment = await getPlatformEnvironment();
+  const demoMenu = environment === "sandbox" ? demoFoodMenu(id) : undefined;
+  if (demoMenu) return c.json(demoMenu);
   const restaurantRes = await db.execute({
     sql: "SELECT id FROM restaurants WHERE id = ? AND status = 'active' AND environment = ?",
     args: [id, environment],
@@ -142,6 +150,9 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
   const d = parsed.data;
 
   const environment = await getPlatformEnvironment();
+  if (environment === "sandbox" && demoFoodRestaurant(restaurantId)) {
+    return c.json({ error: "demo_preview_only", message: "This is a demo menu for browsing and cart previews. No order is placed." }, 409);
+  }
   const restaurantRes = await db.execute({
     sql: "SELECT * FROM restaurants WHERE id = ? AND status = 'active' AND environment = ?",
     args: [restaurantId, environment],

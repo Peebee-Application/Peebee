@@ -1,5 +1,6 @@
 import { PRACTICE_MODE_STORAGE_KEY, type PracticeRole } from "./practice.js";
 import { roundFare } from "./fare.js";
+import { DEMO_FOOD_RESTAURANTS, demoFoodImage, demoFoodMenu, demoFoodRestaurant } from "./demo-food.js";
 
 const PRACTICE_STATE_VERSION = 2;
 const PRACTICE_ORDER_ID = "practice-order";
@@ -394,6 +395,17 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
     state = { ...state, ...patch };
     saveState(state);
   };
+
+  if (role === "customer" && method === "GET") {
+    if (path === "/v1/restaurants") return jsonResponse({ restaurants: DEMO_FOOD_RESTAURANTS });
+    const detail = path.match(/^\/v1\/restaurants\/(demo-food-[^/]+)$/);
+    if (detail && demoFoodRestaurant(detail[1])) return jsonResponse({ restaurant: demoFoodRestaurant(detail[1]) });
+    const menu = path.match(/^\/v1\/restaurants\/(demo-food-[^/]+)\/menu$/);
+    if (menu && demoFoodMenu(menu[1])) return jsonResponse(demoFoodMenu(menu[1]));
+    const photo = path.match(/^\/v1\/restaurants\/menu-items\/([^/]+)\/photo$/);
+    const image = photo ? demoFoodImage(photo[1]) : undefined;
+    if (image) return new Response(image, { headers: { "Content-Type": "image/svg+xml" } });
+  }
 
   if (method === "GET" && path === "/v1/orders/active") {
     return jsonResponse({ activeOrder: state.hasOrder && state.stage !== "Settle" ? orderFor(state) : null, pendingFeeProposal: null });
