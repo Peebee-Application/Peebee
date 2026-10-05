@@ -1,3 +1,4 @@
+import '@peebee/shared/auth.css';
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { AppShell } from "../components/AppShell";

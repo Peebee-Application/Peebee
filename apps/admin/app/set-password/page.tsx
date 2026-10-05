@@ -1,6 +1,6 @@
 "use client";
+import { AuthScene } from "@peebee/shared/auth";
 
-import { BrandLogo } from "../../components/BrandLogo";
 
 import { useRouter } from "next/navigation";
 import { ChangePasswordPanel } from "../../components/ChangePasswordPanel";
@@ -15,9 +15,8 @@ export default function SetPasswordPage() {
   const router = useRouter();
 
   return (
-    <div className="flex min-h-dvh flex-col justify-center px-6 py-10">
+    <AuthScene><div className="auth-legacy">
       <div className="mx-auto w-full max-w-sm space-y-6">
-        <BrandLogo wordmark={false} className="justify-center" />
 
         <div className="space-y-1 text-center">
           <h1 className="text-lg font-bold text-ink">Set your password</h1>
@@ -28,6 +27,6 @@ export default function SetPasswordPage() {
 
         <ChangePasswordPanel onDone={() => router.replace("/")} />
       </div>
-    </div>
+    </div></AuthScene>
   );
 }

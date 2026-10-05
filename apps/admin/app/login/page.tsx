@@ -1,6 +1,6 @@
 "use client";
+import { AuthJourney } from "@peebee/shared/auth";
 
-import { BrandLogo } from "../../components/BrandLogo";
 
 import { useState } from "react";
 import { PasswordInput } from "../../components/PasswordInput";
@@ -27,12 +27,7 @@ export default function LoginPage() {
     }
   }
 
-  return (
-    <div className="flex min-h-dvh flex-col justify-center px-6 py-10">
-      <div className="mx-auto w-full max-w-sm space-y-6">
-        <BrandLogo wordmark={false} className="justify-center" />
-        <p className="text-center text-sm font-semibold uppercase tracking-wide text-ink-500">Admin</p>
-
+  return <AuthJourney mode="login" onModeChange={() => {}} canSignup={false} busy={busy} welcomeTitle="Everything in one place." description="Keep the Peebee community moving, from one clear workspace." signupTitle="">
         <form onSubmit={onSubmit} className="card space-y-4 !p-5">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-ink-500" htmlFor="identifier">
@@ -76,7 +71,5 @@ export default function LoginPage() {
         <p className="text-center text-xs text-ink-500">
           Admin accounts are provisioned by the platform team — there&apos;s no self-signup here.
         </p>
-      </div>
-    </div>
-  );
+  </AuthJourney>;
 }

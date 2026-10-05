@@ -1,6 +1,6 @@
 "use client";
+import { AuthScene } from "@peebee/shared/auth";
 
-import { BrandLogo } from "../../../components/BrandLogo";
 
 import { CheckCircle2, XCircle } from "lucide-react";
 import Link from "next/link";
@@ -38,9 +38,8 @@ function ConfirmedContent() {
   }, [ok, ready, user, updateUser]);
 
   return (
-    <div className="flex min-h-dvh flex-col justify-center px-6 py-10">
+    <AuthScene><div className="auth-legacy">
       <div className="mx-auto w-full max-w-sm space-y-6 text-center">
-        <BrandLogo wordmark={false} className="justify-center" />
 
         <div className="card space-y-4 !p-8">
           {ok ? (
@@ -65,7 +64,7 @@ function ConfirmedContent() {
           </Link>
         </div>
       </div>
-    </div>
+    </div></AuthScene>
   );
 }
 
