@@ -32,10 +32,10 @@ const field =
   "min-w-0 flex-1 bg-transparent px-1.5 text-base font-semibold text-ink outline-none placeholder:font-normal placeholder:text-ink-500/60";
 const chip = "block max-w-full truncate px-1 py-1.5 text-sm font-semibold text-ink";
 
-/** Shopping-list entry: name → quantity → price. Names have room to type;
- * numeric fields fit their values and wrap with their action on narrow screens.
- * Confirmed fields become chips, then the item settles into a summary line.
- * Tap a chip or the summary to edit again. */
+/** A full-width, single-line shopping entry: name → quantity → price.
+ * Text columns share the available width in proportion to their contents;
+ * the unit and action controls stay compact. Confirmed fields become chips,
+ * then the item settles into a summary. Tap a chip or summary to edit again. */
 export function ListItemLine({
   item,
   canRemove,
@@ -105,18 +105,15 @@ export function ListItemLine({
       advance();
     }
   };
-  // Leave room to type names; numeric stages fit their values instead of
-  // stretching a short quantity or price across the entire shopping row.
-  const seg = (active: boolean): React.CSSProperties => {
-    if (active && stage === 0) return { flexGrow: 1, flexShrink: 1, flexBasis: "0%", minWidth: 0 };
-    return {
-      flexGrow: 0, flexShrink: 1, flexBasis: "auto", maxWidth: active ? "100%" : "40%",
-      minWidth: active && stage === 1
-        ? `min(100%, calc(${Math.max(2, unitLabel.length)}ch + 7.75rem))`
-        : active && stage === 2 ? "min(100%, calc(4ch + 3.5rem))" : 0,
-    };
-  };
-  const segClass = "flex items-center gap-1.5 transition-[flex-grow] duration-300 ease-out";
+  // Zero bases let every column shrink within one row. Content weights give
+  // longer values more room without forcing equal widths or minimums that wrap.
+  const seg = (text: string, minimum: number, maximum: number): React.CSSProperties => ({
+    flexGrow: Math.min(maximum, Math.max(minimum, text.length)),
+    flexShrink: 1,
+    flexBasis: "0%",
+    minWidth: 0,
+  });
+  const segClass = "flex min-w-0 items-center transition-[flex-grow] duration-200 ease-out";
   const nextButton = (
     <button
       type="button"
@@ -130,8 +127,8 @@ export function ListItemLine({
   );
 
   return (
-    <div className={`field-box flex min-h-14 max-w-full flex-wrap items-center gap-2 rounded-2xl border border-[var(--border-faint)] px-2.5 py-1 ${stage === 0 ? "w-full" : "w-fit"}`}>
-      <div className={segClass} style={seg(stage === 0)}>
+    <div className="field-box flex h-14 w-full min-w-0 flex-nowrap items-center gap-1.5 rounded-2xl border border-[var(--border-faint)] px-2.5">
+      <div className={segClass} style={seg(item.name, 4, 24)}>
         {stage === 0 ? (
           <input
             ref={nameRef}
@@ -143,54 +140,51 @@ export function ListItemLine({
             className={field}
           />
         ) : (
-          <button type="button" onClick={() => onChange({ stage: 0 })} className={chip}>
+          <button type="button" onClick={() => onChange({ stage: 0 })} className={`${chip} w-full text-left`} title={item.name}>
             {item.name}
           </button>
         )}
       </div>
 
       {stage >= 1 && (
-        <div className={segClass} style={seg(stage === 1)}>
+        <div className={segClass} style={seg(stage === 1 ? item.quantity : qtyLabel(item), stage === 1 ? 2 : 3, 12)}>
           {stage === 1 ? (
-            <>
-              <input
-                ref={qtyRef}
-                value={item.quantity}
-                onChange={(e) => onChange({ quantity: e.target.value.replace(/[^\d]/g, "") })}
-                onKeyDown={onEnter}
-                inputMode="numeric"
-                placeholder={t("list_quantity_label")}
-                aria-label={t("list_quantity_label")}
-                enterKeyHint="next"
-                className={field}
-                style={{ flex: "0 1 auto", width: `calc(${Math.min(10, Math.max(2, item.quantity.length + 1))}ch + 0.75rem)`, minWidth: "calc(2ch + 0.75rem)", maxWidth: "100%" }}
-              />
-              <Select
-                value={item.unit}
-                displayValue={unitLabel}
-                onValueChange={(value) => onChange({ unit: value as Unit })}
-                aria-label={t("list_unit_label")}
-                className="shrink-0 text-sm font-semibold text-ink outline-none"
-                style={{ minWidth: "4rem" }}
-              >
-                {(Object.keys(UNIT_KEYS) as Unit[]).map((u) => (
-                  <option key={u} value={u}>
-                    {t(UNIT_KEYS[u])}
-                  </option>
-                ))}
-              </Select>
-              {nextButton}
-            </>
+            <input
+              ref={qtyRef}
+              value={item.quantity}
+              onChange={(e) => onChange({ quantity: e.target.value.replace(/[^\d]/g, "") })}
+              onKeyDown={onEnter}
+              inputMode="numeric"
+              placeholder={t("list_quantity_label")}
+              aria-label={t("list_quantity_label")}
+              enterKeyHint="next"
+              className={field}
+            />
           ) : (
-            <button type="button" onClick={() => onChange({ stage: 1 })} className={chip}>
+            <button type="button" onClick={() => onChange({ stage: 1 })} className={`${chip} w-full text-left`} title={qtyLabel(item)}>
               {qtyLabel(item)}
             </button>
           )}
         </div>
       )}
 
+      {stage === 1 && (
+        <Select
+          value={item.unit}
+          displayValue={unitLabel}
+          onValueChange={(value) => onChange({ unit: value as Unit })}
+          aria-label={t("list_unit_label")}
+          className="text-sm font-semibold text-ink outline-none"
+          style={{ flex: "0 1 auto", maxWidth: "40%" }}
+        >
+          {(Object.keys(UNIT_KEYS) as Unit[]).map((u) => (
+            <option key={u} value={u}>{t(UNIT_KEYS[u])}</option>
+          ))}
+        </Select>
+      )}
+
       {stage === 2 && (
-        <div className={segClass} style={seg(true)}>
+        <div className={segClass} style={seg(item.unitCost, 5, 12)}>
           <input
             ref={priceRef}
             value={item.unitCost}
@@ -201,13 +195,11 @@ export function ListItemLine({
             aria-label={t("list_price_short")}
             enterKeyHint="done"
             className={field}
-            style={{ flex: "0 1 auto", width: `calc(${Math.min(12, Math.max(5, item.unitCost.length + 1))}ch + 0.75rem)`, minWidth: "calc(4ch + 0.75rem)", maxWidth: "100%" }}
           />
-          {nextButton}
         </div>
       )}
 
-      {stage === 0 && nextButton}
+      {nextButton}
       {canRemove && (
         <button type="button" onClick={onRemove} aria-label={t("list_remove_item")} className="shrink-0 p-1 text-ink-500/60 hover:text-red-600">
           <X className="h-4 w-4" strokeWidth={2} aria-hidden />
