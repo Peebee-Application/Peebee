@@ -141,13 +141,16 @@ body::before {
 .glass-header { background: rgb(var(--color-cream) / .72); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
 
 /* Reflections follow the object: cool ride, warmer food, gold list, green parcel. */
-.service-glass { --reflection: var(--scene-primary); position: relative; isolation: isolate; overflow: visible; }
-.service-glass[data-service="food"] { --reflection: var(--scene-secondary); }
-.service-glass[data-service="shopping"] { --reflection: var(--color-gold); }
-.service-glass[data-service="parcel"] { --reflection: var(--color-green); }
-.service-glass::before {
-  content: ""; position: absolute; inset: -12px; z-index: -1; pointer-events: none; border-radius: inherit;
-  background: radial-gradient(ellipse at 50% 65%, rgb(var(--reflection) / .2), transparent 70%);
+.service-shortcut { --reflection: var(--scene-primary); }
+.service-shortcut[data-service="food"] { --reflection: var(--scene-secondary); }
+.service-shortcut[data-service="shopping"] { --reflection: var(--color-gold); }
+.service-shortcut[data-service="parcel"] { --reflection: var(--color-green); }
+/* Keep the reflection outside the glass surface's backdrop-filter layer.
+   It fades behind the label instead of ending at the rounded tile edge. */
+.service-shortcut::before {
+  content: ""; position: absolute; inset: 0 0 -16px;
+  z-index: 0; pointer-events: none; filter: blur(8px);
+  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgb(var(--reflection) / .2), transparent 100%);
 }
 .service-glass svg { color: rgb(var(--color-navy)); filter: drop-shadow(0 3px 6px rgb(var(--reflection) / .2)); }
 .service-glass[data-service="shopping"] svg { color: rgb(var(--color-gold)); }
