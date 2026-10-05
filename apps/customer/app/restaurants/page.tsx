@@ -1,6 +1,7 @@
 "use client";
 
 import type { Restaurant } from "@peebee/shared";
+import { demoRestaurantPhotoPath } from "@peebee/shared/demo-food";
 import { Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
@@ -42,6 +43,10 @@ export default function RestaurantsPage() {
               <ListRow
                 href={`/restaurants/${r.id}`}
                 icon={<Store className="h-5 w-5" strokeWidth={1.75} aria-hidden />}
+                leading={r.is_demo && demoRestaurantPhotoPath(r.id) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={demoRestaurantPhotoPath(r.id)} alt="" width={64} height={64} loading="lazy" className="h-16 w-16 shrink-0 rounded-2xl object-cover shadow-sm" />
+                ) : undefined}
                 title={r.name}
                 subtitle={r.is_demo ? `Demo · ${r.cuisine ?? "Menu preview"}` : r.cuisine ?? r.description ?? undefined}
                 trailing={

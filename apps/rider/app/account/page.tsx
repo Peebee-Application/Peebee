@@ -10,7 +10,7 @@ import {
 import { CheckCircle2, LogOut, MapPin, PiggyBank, TriangleAlert, Upload, User } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { AppearanceSettings } from "../../components/AppearanceSettings";
 import { ChangePasswordPanel } from "../../components/ChangePasswordPanel";
 import { LanguageSettings } from "../../components/LanguageSettings";
@@ -44,13 +44,15 @@ function Field({
   required?: boolean;
   type?: string;
 }) {
+  const fieldId = useId();
   return (
     <div className="space-y-1">
-      <label className="text-xs font-semibold text-ink-500">
+      <label htmlFor={fieldId} className="text-xs font-semibold text-ink-500">
         {label}
         {required && <span className="text-red-500"> *</span>}
       </label>
       <input
+        id={fieldId}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -74,8 +76,15 @@ export default function AccountPage() {
       .catch(() => {});
   }, []);
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [firstName, setFirstName] = useState(authRider?.first_name ?? "");
+  const [lastName, setLastName] = useState(authRider?.last_name ?? "");
+  // Google already supplies users.name. Suggest it without submitting it as
+  // the rider's legal name; accepting or editing remains an explicit action.
+  const suggestedNames = useMemo(() => {
+    if (!user?.emailVerifiedAt || !user.name || user.name === user.email?.split('@')[0]) return null;
+    const parts = user.name.trim().split(/\s+/);
+    return { first: parts[0] ?? '', last: parts.slice(1).join(' ') };
+  }, [user?.emailVerifiedAt, user?.email, user?.name]);
   const [email, setEmail] = useState("");
   const [altPhone, setAltPhone] = useState("");
   const [vehicleInfo, setVehicleInfo] = useState("");
@@ -298,9 +307,16 @@ export default function AccountPage() {
         <section className="home-card space-y-3">
           <h2 className="text-sm font-semibold text-ink">{t("acc_personal_details")}</h2>
           <div className="grid grid-cols-2 gap-3">
-            <Field label={t("acc_first_name")} value={firstName} onChange={setFirstName} placeholder="Juma" required />
-            <Field label={t("acc_last_name")} value={lastName} onChange={setLastName} placeholder="Okello" required />
+            <Field label={t("acc_first_name")} value={firstName} onChange={setFirstName} placeholder={suggestedNames?.first || t("acc_first_name")} required />
+            <Field label={t("acc_last_name")} value={lastName} onChange={setLastName} placeholder={suggestedNames?.last || t("acc_last_name")} required />
           </div>
+          <p className="text-xs text-ink-500">{t("acc_name_id_guidance")}</p>
+          {suggestedNames?.first && !firstName && !lastName && (
+            <button type="button" onClick={() => { setFirstName(suggestedNames.first); setLastName(suggestedNames.last); }}
+              className="min-h-11 rounded-full border border-gold/40 bg-gold/10 px-4 py-2 text-sm font-semibold text-ink">
+              {t("acc_confirm_suggested_name")} · {suggestedNames.first} {suggestedNames.last}
+            </button>
+          )}
           <Field label={t("acc_email_optional")} value={email} onChange={setEmail} placeholder="you@example.com" type="email" />
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">

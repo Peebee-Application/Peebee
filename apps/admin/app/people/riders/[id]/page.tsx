@@ -121,6 +121,8 @@ export default function RiderDetailPage() {
 
       <section className="home-card space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">National ID</h2>
+        <Row label="Submitted name" value={[rider.first_name, rider.last_name].filter(Boolean).join(' ')} />
+        <p className="text-sm text-ink-500">Before verifying this rider, check that their submitted name is similar to the name on their ID. A Google account name alone does not verify identity.</p>
         {!rider.national_id_key && <p className="text-sm text-ink-500">Not uploaded yet.</p>}
         {rider.national_id_key && !docUrl && <p className="text-sm text-ink-500">Loading document…</p>}
         {docUrl && (

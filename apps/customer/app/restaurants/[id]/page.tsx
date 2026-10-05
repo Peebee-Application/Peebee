@@ -2,6 +2,7 @@
 
 import type { MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, Restaurant, RestaurantMenu } from "@peebee/shared";
 import { roundFare } from "@peebee/shared";
+import { demoFoodPhotoPath, demoRestaurantPhotoPath } from "@peebee/shared/demo-food";
 import { ArrowUpRight, MessageCircle, Minus, Plus, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -28,10 +29,12 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 
 /** A menu item's photo, fetched lazily since it's not inlined in the menu
  * response (mirrors ItemEditor's own photo fetch in apps/restaurant). */
-function MenuItemThumb({ itemId, size = "row" }: { itemId: string; size?: "row" | "modal" }) {
+function useMenuItemPhoto(itemId: string, hasPhoto = true) {
+  const demoPhoto = demoFoodPhotoPath(itemId);
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    if (demoPhoto || !hasPhoto) return;
     let cancelled = false;
     let objectUrl: string | null = null;
     api
@@ -46,7 +49,13 @@ function MenuItemThumb({ itemId, size = "row" }: { itemId: string; size?: "row" 
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [itemId]);
+  }, [itemId, demoPhoto, hasPhoto]);
+
+  return demoPhoto ?? (hasPhoto ? url : null);
+}
+
+function MenuItemThumb({ itemId, size = "row" }: { itemId: string; size?: "row" | "modal" }) {
+  const url = useMenuItemPhoto(itemId);
 
   if (!url) return null;
   const dims = size === "row" ? "h-16 w-16" : "h-40 w-full";
@@ -77,28 +86,7 @@ const BADGE_KEYS: Record<MenuItemBadge, "restaurant_badge_sale" | "restaurant_ba
  * restaurant's set one, and price + "Order Now" bottom-right. */
 function FoodItemCard({ item, onOpen }: { item: MenuItem; onOpen: () => void }) {
   const t = useTranslate();
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!item.photo_key) {
-      setPhotoUrl(null);
-      return;
-    }
-    let cancelled = false;
-    let objectUrl: string | null = null;
-    api
-      .menuItemPhotoBlob(item.id)
-      .then((blob) => {
-        if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
-        setPhotoUrl(objectUrl);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [item.id, item.photo_key]);
+  const photoUrl = useMenuItemPhoto(item.id, !!item.photo_key);
 
   return (
     <button
@@ -437,9 +425,12 @@ export default function RestaurantPage() {
   return (
     <div className="space-y-5 px-4 pb-28 pt-4">
       <section className="home-card flex items-center gap-3">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
+        {restaurant.is_demo && demoRestaurantPhotoPath(restaurant.id) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={demoRestaurantPhotoPath(restaurant.id)} alt="" width={64} height={64} className="h-16 w-16 shrink-0 rounded-2xl object-cover shadow-sm" />
+        ) : <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
           <Store className="h-6 w-6" strokeWidth={1.75} aria-hidden />
-        </span>
+        </span>}
         <span className="min-w-0 flex-1">
           <span className="block text-lg font-bold text-ink">{restaurant.name}</span>
           {(restaurant.cuisine || restaurant.description) && (
