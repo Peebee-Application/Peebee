@@ -79,6 +79,8 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   acc_profile_incomplete: { en: "Complete your profile below — an admin can only review and approve you once every required field (marked *) is filled in.", lg: "Maliriza ebikwata ku ggwe wansi — omukulembeze asobola kwekenneenya n'okukkiriza ggwe bwe muba mumaze okujjuza buli kifo ekyetaagisa (ekiriko *)." },
   acc_personal_details: { en: "Personal details", lg: "Ebikwata ku ggwe" },
   acc_first_name: { en: "First name", lg: "Erinnya ery'olubereberye" },
+  acc_name_id_guidance: { en: "Confirm or edit your name. It must be similar to the name on your ID for your account to be verified.", lg: "Kakasa oba kyusa erinnya lyo. Lirina okufaanana n'eriri ku ndagamuntu yo akawunti yo okukakasibwa." },
+  acc_confirm_suggested_name: { en: "Confirm this name", lg: "Kakasa erinnya lino" },
   acc_last_name: { en: "Last name", lg: "Erinnya ery'enkomerero" },
   acc_email_optional: { en: "Email (optional)", lg: "Email (si kyetaagisa)" },
   acc_phone: { en: "Phone", lg: "Essimu" },

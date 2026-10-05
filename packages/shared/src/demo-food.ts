@@ -47,6 +47,26 @@ export function demoFoodRestaurant(id: string): Restaurant | undefined {
   return DEMO_FOOD_RESTAURANTS.find((restaurant) => restaurant.id === id);
 }
 
+const dishPhotos: Record<string, string[]> = {
+  lakeview: ['chicken-pilau', 'beef-luwombo', 'tilapia-chips', 'garden-salad', 'passion-juice'],
+  'brick-oven': ['margherita-pizza', 'bbq-pizza', 'vegetable-pizza', 'garlic-bread', 'lemon-cooler'],
+  'bun-yard': ['beef-burger', 'chicken-burger', 'plant-burger', 'loaded-chips', 'vanilla-shake'],
+  'green-table': ['avocado-bowl', 'chicken-salad', 'vegetable-rice', 'fruit-bowl', 'mango-smoothie'],
+};
+
+/** Generated photos shipped with the customer app, also used in Practice. */
+export function demoFoodPhotoPath(itemId: string): string | undefined {
+  for (const [slug, photos] of Object.entries(dishPhotos)) {
+    const index = photos.findIndex((_, index) => itemId === `demo-food-${slug}-item-${index + 1}`);
+    if (index >= 0) return `/demo-food/${photos[index]}.webp`;
+  }
+}
+
+export function demoRestaurantPhotoPath(id: string): string | undefined {
+  const slug = seeds.find(seed => id === `demo-food-${seed.slug}`)?.slug;
+  return slug ? `/demo-food/${slug}-restaurant.webp` : undefined;
+}
+
 export function demoFoodMenu(id: string): RestaurantMenu | undefined {
   const seed = seeds.find((seed) => `demo-food-${seed.slug}` === id);
   if (!seed) return undefined;
