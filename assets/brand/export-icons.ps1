@@ -32,7 +32,7 @@ function Export-LogoPng($image, [int]$size, [string]$destination, $background) {
 }
 
 try {
-  foreach ($appName in @('web','customer','rider','admin','restaurant','merchant','partner')) {
+  foreach ($appName in @('web','customer','rider','admin','restaurant','merchant','partner','sales')) {
     $publicPath = Join-Path $brandRoot "apps/$appName/public"
     [IO.File]::WriteAllText((Join-Path $publicPath 'brand/peebee-logo-light.svg'), $logoSvg)
     [IO.File]::WriteAllText((Join-Path $publicPath 'brand/peebee-logo-dark.svg'), $darkSvg)
@@ -48,7 +48,7 @@ try {
     [IO.File]::WriteAllText((Join-Path $publicPath 'brand/app-icon.svg'), $logoSvg)
     [IO.File]::WriteAllText((Join-Path $publicPath 'favicon.svg'), $adaptiveSvg)
   }
-  Write-Output 'Exported black/white SVG logos, compatibility PNGs, and app icons for all seven frontends.'
+  Write-Output 'Exported supplied light/dark PNG logos and app icons for all eight frontends.'
 } finally {
   $lightLogo.Dispose()
   $darkLogo.Dispose()

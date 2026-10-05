@@ -12,13 +12,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const isApply = pathname === "/apply";
 
   useEffect(() => {
-    if (!ready) return;
+    if (pathname === "/activate" || !ready) return;
     if (!user && !isLogin) router.replace("/login");
     if (user && isLogin) router.replace(merchant ? "/" : "/apply");
     if (user && merchantsReady && !merchant && !isApply) router.replace("/apply");
     if (user && merchant && isApply) router.replace("/");
-  }, [isApply, isLogin, merchant, merchantsReady, ready, router, user]);
+  }, [pathname, isApply, isLogin, merchant, merchantsReady, ready, router, user]);
 
+  if (pathname === "/activate") return <>{children}</>;
   if (!ready || (user && !merchantsReady && !isLogin)) return null;
   if (!user && !isLogin) return null;
   if (user && isLogin) return null;

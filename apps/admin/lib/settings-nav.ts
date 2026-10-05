@@ -28,6 +28,7 @@ export type SettingsLink = {
 };
 
 export const SETTINGS_LINKS: SettingsLink[] = [
+  {href:"/onboarding",label:"Sales onboarding",description:"Sales-agent access, activation messages and onboarding policy.",icon:Store,show:(role)=>role==="super_admin"},
   {
     href: "/settings/shopping-units",
     label: "Shopping units",

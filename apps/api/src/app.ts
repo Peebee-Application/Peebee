@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { onboardingRoutes } from "./onboarding/routes.js";
 import { cors } from "hono/cors";
 import { mobileNumberRoutes } from "./account/mobile-numbers.js";
 import { adminRoutes } from "./admin/routes.js";
@@ -42,6 +43,7 @@ const devOrigins = [
   "http://localhost:3003", // apps/restaurant dev server
   "http://localhost:3005", // apps/merchant dev server
   "http://localhost:3006", // apps/partner dev server
+  "http://localhost:3007", // sales onboarding
 ];
 
 const defaultOrigins = [
@@ -52,6 +54,7 @@ const defaultOrigins = [
   "https://merchant.peebee.online",
   "https://car.peebee.online",
   "https://partner.peebee.online",
+  "https://sales.peebee.online",
 ];
 
 /** Anything a developer runs on their own machine can call the API from the
@@ -203,6 +206,7 @@ app.get("/v1", (c) =>
 );
 
 app.route("/v1/auth", authRoutes);
+app.route("/v1", onboardingRoutes);
 app.route("/v1/auth", verifyRoutes);
 // Public (token-gated) trip page for rides booked for someone else — mounted
 // before the authenticated /v1 routers on purpose.

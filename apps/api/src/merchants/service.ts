@@ -1,4 +1,4 @@
-import { db, executeBatch } from "../db/client.js";
+import { db, executeBatch, type DbStatement } from "../db/client.js";
 import { ledgerBalance, postLedgerTransaction } from "../ledger/service.js";
 import { newId } from "../lib/ids.js";
 import { haversineKm } from "../lib/geo.js";
@@ -75,7 +75,7 @@ export function assessPurchaseLocation(input: PurchaseLocationInput): PurchaseRi
   return { decision: "pass", distanceM, reason: "location_verified" };
 }
 
-export async function createMerchantBusiness(input: {
+export function merchantBusinessStatements(input: {
   ownerId: string;
   legalName: string;
   displayName: string;
@@ -89,11 +89,11 @@ export async function createMerchantBusiness(input: {
   environment: PlatformEnvironment;
   merchantId?: string;
   outletId?: string;
-}): Promise<{ merchantId: string; outletId: string; code: string }> {
+}): { statements: DbStatement[]; created: { merchantId: string; outletId: string; code: string } } {
   const merchantId = input.merchantId ?? newId("mer");
   const outletId = input.outletId ?? newId("out");
   const code = `PEEBEE-${outletId.slice(-8).toUpperCase()}`;
-  await executeBatch([
+  const statements: DbStatement[] = [
     {
       sql: `INSERT INTO merchants
             (id, legal_name, display_name, business_kind, environment)
@@ -128,8 +128,14 @@ export async function createMerchantBusiness(input: {
       sql: "INSERT INTO merchant_balances (merchant_id, environment) VALUES (?, ?)",
       args: [merchantId, input.environment],
     },
-  ]);
-  return { merchantId, outletId, code };
+  ];
+  return { statements, created: { merchantId, outletId, code } };
+}
+
+export async function createMerchantBusiness(input: Parameters<typeof merchantBusinessStatements>[0]) {
+  const result = merchantBusinessStatements(input);
+  await executeBatch(result.statements);
+  return result.created;
 }
 
 export async function ensureOrderBudget(orderId: string): Promise<Row> {

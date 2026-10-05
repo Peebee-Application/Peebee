@@ -13,7 +13,7 @@ import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./Pra
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { merchant } = useAuth();
-  const bare = pathname === "/login" || pathname === "/apply";
+  const bare = pathname === "/login" || pathname === "/apply" || pathname === "/activate";
   return <AuthGate>
     <PracticeModeGuard role="merchant" pathname={pathname} />
     {!bare && <PracticeModePrompt role="merchant" />}

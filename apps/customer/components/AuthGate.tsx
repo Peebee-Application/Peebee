@@ -12,7 +12,7 @@ const ALWAYS_ALLOWED_PATHS = ["/verify"];
 // Reachable no matter the auth state at all — this is where the emailed
 // "Verify Email Address" link redirects to, and the person clicking it may
 // be signed out here (different device/browser than where they signed up).
-const UNGATED_PATHS = ["/verify/confirmed"];
+const UNGATED_PATHS = ["/verify/confirmed", "/activate"];
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, ready } = useAuth();
