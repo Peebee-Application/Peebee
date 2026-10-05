@@ -14,6 +14,7 @@ type SelectProps = Omit<ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
   required?: boolean;
   form?: string;
   displayValue?: ReactNode;
+  sizing?: "content" | "stretch";
 };
 
 // Keep existing translated/dynamic option declarations at each call site.
@@ -39,7 +40,7 @@ function Chevron({ up = false }: { up?: boolean }) {
 
 /** Shared, themed single-select: portalled menu, touch/keyboard navigation,
  * typeahead, focus restoration and native form participation via Radix. */
-export function Select({ children, value, defaultValue, onValueChange, name, required, form, disabled, displayValue, className = "", ...triggerProps }: SelectProps) {
+export function Select({ children, value, defaultValue, onValueChange, name, required, form, disabled, displayValue, sizing = "content", className = "", ...triggerProps }: SelectProps) {
   const options = optionsFrom(children);
   const [localValue, setLocalValue] = useState(() => String(defaultValue ?? options[0]?.value ?? ""));
   const [open, setOpen] = useState(false);
@@ -65,7 +66,7 @@ export function Select({ children, value, defaultValue, onValueChange, name, req
       setInvalid(required === true && result === "");
       onValueChange?.(result);
     }} name={name} required={required} disabled={disabled} form={form}>
-      <SelectPrimitive.Trigger aria-invalid={(invalid && required && selected === "") || undefined} {...triggerProps} className={`peebee-select-trigger ${className}`}>
+      <SelectPrimitive.Trigger aria-invalid={(invalid && required && selected === "") || undefined} {...triggerProps} data-sizing={sizing} className={`peebee-select-trigger ${className}`}>
         <span className="peebee-select-value"><SelectPrimitive.Value placeholder={emptyOption?.label ?? "Select…"}>{displayValue}</SelectPrimitive.Value></span>
         <SelectPrimitive.Icon className="peebee-select-chevron"><Chevron /></SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>

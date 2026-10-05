@@ -29,14 +29,13 @@ const money = (n: number) => n.toLocaleString("en-UG");
 const qtyLabel = (item: Item) => `${item.quantity || "1"}${UNIT_ABBR[item.unit] ? ` ${UNIT_ABBR[item.unit]}` : ""}`;
 
 const field =
-  "min-w-0 flex-1 bg-transparent text-base font-semibold text-ink outline-none placeholder:font-normal placeholder:text-ink-500/60";
+  "min-w-0 flex-1 bg-transparent px-1.5 text-base font-semibold text-ink outline-none placeholder:font-normal placeholder:text-ink-500/60";
 const chip = "block max-w-full truncate px-1 py-1.5 text-sm font-semibold text-ink";
 
-/** One shopping-list item on a single line. The field being filled in takes
- * the width; once you confirm it (Enter or the arrow) it shrinks to a chip on
- * the left and the next field grows: name → quantity → price. After the
- * price the whole item settles into one small summary line. Tap a chip or the
- * summary to edit again. */
+/** Shopping-list entry: name → quantity → price. Names have room to type;
+ * numeric fields fit their values and wrap with their action on narrow screens.
+ * Confirmed fields become chips, then the item settles into a summary line.
+ * Tap a chip or the summary to edit again. */
 export function ListItemLine({
   item,
   canRemove,
@@ -89,6 +88,7 @@ export function ListItemLine({
   }
 
   const canAdvance = stage === 0 ? item.name.trim().length > 0 : stage === 1 ? Number(item.quantity) > 0 : true;
+  const unitLabel = UNIT_ABBR[item.unit] || t("unit_pcs");
 
   function advance() {
     if (!canAdvance) return;
@@ -105,13 +105,32 @@ export function ListItemLine({
       advance();
     }
   };
-  // The active field takes the free width; finished ones keep their own size.
-  const seg = (active: boolean): React.CSSProperties =>
-    active ? { flexGrow: 1, flexShrink: 1, flexBasis: "0%", minWidth: 0 } : { flexGrow: 0, flexShrink: 0, flexBasis: "auto", maxWidth: "40%", minWidth: 0 };
+  // Leave room to type names; numeric stages fit their values instead of
+  // stretching a short quantity or price across the entire shopping row.
+  const seg = (active: boolean): React.CSSProperties => {
+    if (active && stage === 0) return { flexGrow: 1, flexShrink: 1, flexBasis: "0%", minWidth: 0 };
+    return {
+      flexGrow: 0, flexShrink: 1, flexBasis: "auto", maxWidth: active ? "100%" : "40%",
+      minWidth: active && stage === 1
+        ? `min(100%, calc(${Math.max(2, unitLabel.length)}ch + 7.75rem))`
+        : active && stage === 2 ? "min(100%, calc(4ch + 3.5rem))" : 0,
+    };
+  };
   const segClass = "flex items-center gap-1.5 transition-[flex-grow] duration-300 ease-out";
+  const nextButton = (
+    <button
+      type="button"
+      onClick={advance}
+      disabled={!canAdvance}
+      aria-label="Next"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold text-ink-gold transition-opacity disabled:opacity-35"
+    >
+      {stage === 2 ? <Check className="h-4 w-4" strokeWidth={2.75} aria-hidden /> : <ArrowRight className="h-4 w-4" strokeWidth={2.5} aria-hidden />}
+    </button>
+  );
 
   return (
-    <div className="field-box flex h-14 items-center gap-2 rounded-2xl border border-[var(--border-faint)] px-2.5">
+    <div className={`field-box flex min-h-14 max-w-full flex-wrap items-center gap-2 rounded-2xl border border-[var(--border-faint)] px-2.5 py-1 ${stage === 0 ? "w-full" : "w-fit"}`}>
       <div className={segClass} style={seg(stage === 0)}>
         {stage === 0 ? (
           <input
@@ -141,15 +160,18 @@ export function ListItemLine({
                 onKeyDown={onEnter}
                 inputMode="numeric"
                 placeholder={t("list_quantity_label")}
+                aria-label={t("list_quantity_label")}
                 enterKeyHint="next"
                 className={field}
+                style={{ flex: "0 1 auto", width: `calc(${Math.min(10, Math.max(2, item.quantity.length + 1))}ch + 0.75rem)`, minWidth: "calc(2ch + 0.75rem)", maxWidth: "100%" }}
               />
               <Select
                 value={item.unit}
-                displayValue={UNIT_ABBR[item.unit] || t("unit_pcs")}
+                displayValue={unitLabel}
                 onValueChange={(value) => onChange({ unit: value as Unit })}
                 aria-label={t("list_unit_label")}
-                className="w-[5.5rem] shrink-0 py-1.5 text-sm font-semibold text-ink outline-none"
+                className="shrink-0 text-sm font-semibold text-ink outline-none"
+                style={{ minWidth: "4rem" }}
               >
                 {(Object.keys(UNIT_KEYS) as Unit[]).map((u) => (
                   <option key={u} value={u}>
@@ -157,6 +179,7 @@ export function ListItemLine({
                   </option>
                 ))}
               </Select>
+              {nextButton}
             </>
           ) : (
             <button type="button" onClick={() => onChange({ stage: 1 })} className={chip}>
@@ -175,21 +198,16 @@ export function ListItemLine({
             onKeyDown={onEnter}
             inputMode="numeric"
             placeholder={t("list_price_short")}
+            aria-label={t("list_price_short")}
             enterKeyHint="done"
             className={field}
+            style={{ flex: "0 1 auto", width: `calc(${Math.min(12, Math.max(5, item.unitCost.length + 1))}ch + 0.75rem)`, minWidth: "calc(4ch + 0.75rem)", maxWidth: "100%" }}
           />
+          {nextButton}
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={advance}
-        disabled={!canAdvance}
-        aria-label="Next"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold text-ink-gold transition-opacity disabled:opacity-35"
-      >
-        {stage === 2 ? <Check className="h-4 w-4" strokeWidth={2.75} aria-hidden /> : <ArrowRight className="h-4 w-4" strokeWidth={2.5} aria-hidden />}
-      </button>
+      {stage === 0 && nextButton}
       {canRemove && (
         <button type="button" onClick={onRemove} aria-label={t("list_remove_item")} className="shrink-0 p-1 text-ink-500/60 hover:text-red-600">
           <X className="h-4 w-4" strokeWidth={2} aria-hidden />
