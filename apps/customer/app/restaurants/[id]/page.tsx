@@ -424,10 +424,10 @@ export default function RestaurantPage() {
           </button>
           <button
             onClick={checkout}
-            disabled={busy || restaurant.is_demo}
+            disabled={busy || (restaurant.is_demo && !restaurant.demo_checkout_enabled)}
             className="min-h-12 flex-[2] rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
           >
-            {restaurant.is_demo ? "Demo preview · no payment" : busy ? "Please wait…" : "Next: payment"}
+            {restaurant.is_demo && !restaurant.demo_checkout_enabled ? "Demo preview · no payment" : busy ? "Please wait…" : "Next: payment"}
           </button>
         </div>
       </div>
@@ -460,7 +460,9 @@ export default function RestaurantPage() {
         </Link>}
       </section>
 
-      {restaurant.is_demo && <p className="rounded-2xl border border-gold/20 bg-gold/10 px-4 py-3 text-sm text-ink">Demo restaurant · explore the menu, options, and cart. No order or payment is placed.</p>}
+      {restaurant.is_demo && <p className="rounded-2xl border border-gold/20 bg-gold/10 px-4 py-3 text-sm text-ink">{restaurant.demo_checkout_enabled
+        ? "Sandbox demo restaurant · payments are simulated. Riders in Sandbox can pick up and deliver your order."
+        : "Demo restaurant · explore the menu, options, and cart. No order or payment is placed."}</p>}
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 

@@ -1,6 +1,6 @@
 import type { MenuItem, Restaurant, RestaurantMenu } from "./domain.js";
 
-// Fictional catalogue for sandbox UI previews. Nothing is inserted into live tables.
+// Shared fictional catalogue for sandbox testing; entries stay hidden in live mode.
 const CREATED = "2026-01-01T00:00:00.000Z";
 type Dish = { name: string; description: string; price: number; art: "rice" | "grill" | "pizza" | "burger" | "salad" | "drink"; badge?: MenuItem["badge"]; options?: boolean };
 const seeds = [
@@ -36,7 +36,7 @@ const seeds = [
 
 export const DEMO_FOOD_RESTAURANTS: Restaurant[] = seeds.map((seed) => ({
   id: `demo-food-${seed.slug}`, owner_id: "demo-food-owner", name: seed.name,
-  description: "Fictional restaurant for sandbox UI previews.", cuisine: seed.cuisine,
+  description: "Fictional restaurant for sandbox testing.", cuisine: seed.cuisine,
   phone: null, address: seed.address, lat: 0.0645, lng: 32.4594,
   logo_key: null, cover_key: null, status: "active", is_open: seed.open ? 1 : 0,
   open_time: null, close_time: null, merchant_id: null, outlet_id: null,
