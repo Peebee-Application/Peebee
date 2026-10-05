@@ -2,6 +2,14 @@
 
 final result: passed
 
+## Google button follow-up — 2026-10-05
+
+All six apps with Google authentication now use a shared branded surface matching the main action's full width, 54px standard height and 17px corners. Google's original gradient G, Google Sans Medium and light/dark identity colours are preserved. The Google SDK remains the interactive control; authentication endpoints, ID-token callbacks and approval rules are unchanged.
+
+Local production preview evidence: `.auth-qa/google-login-mobile.jpg` at 390 × 844. DOM geometry confirms both buttons have the same width, 54px height and 17px radius at that size. At 320 × 740 the page has no horizontal overflow; a long sales registration caption can wrap in its existing primary action. The Google font loaded successfully. Read-only hit-area checks at the left, center and right resolve within the Google SDK control. Tabbing from Password focuses its actual button and displays the outer focus ring. Switching between login and registration keeps the control present. Production-preview browser error logs were empty. No Google account was selected and no credential or account form was submitted.
+
+Shared and all six affected app TypeScript checks passed, and the sales production build passed. The matching surface uses ResizeObserver so its interactive area follows responsive layout changes, with observer cleanup on unmount. Google's published branding guidance and the asset/font source are recorded in `assets/auth/README.md`.
+
 ## Reference and comparison
 
 Source: `C:/Users/Administrator/Documents/PeebeeCodex/.codex-remote-attachments/01a1065a-c941-72a1-9f15-e3791a6a7a87/9e184308-5d40-48e6-93c6-766a66c06a94/1-Photo-1.jpg` (853 × 1280).
