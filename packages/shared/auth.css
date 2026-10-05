@@ -33,10 +33,12 @@
 .auth-scene .auth-footnote{font-size:12px;margin-top:22px}.auth-scene .space-y-1>label+input,.auth-scene .space-y-1>label+div{margin-top:0}
 /* Google colours and font follow its identity branding; Peebee controls geometry. */
 @font-face{font-family:PeebeeGoogleSans;src:url('/brand/google-sans-medium-latin.woff2') format('woff2');font-style:normal;font-weight:500;font-display:swap}
-.auth-google-button{position:relative;width:100%;height:54px;border-radius:17px;background:#fff;box-shadow:inset 0 0 0 1px #747775;overflow:hidden;transition:box-shadow .2s,opacity .2s}
+.auth-google-button{position:relative;width:100%;height:44px;border-radius:22px;background:#fff;box-shadow:inset 0 0 0 1px #747775;overflow:hidden;transition:box-shadow .2s,opacity .2s}
 .auth-google-face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:12px;color:#1f1f1f;font-family:PeebeeGoogleSans,Arial,sans-serif;font-size:15px;font-weight:500;pointer-events:none}
 .auth-google-face img{position:absolute;left:18px;width:20px;height:20px;object-fit:contain}
-.auth-google-control{position:relative;height:40px;transform-origin:top left;opacity:0}
+.auth-google-control{position:absolute;top:2px;left:0;height:40px}
+.auth-google-button[data-ready=true]{background:transparent!important;box-shadow:none!important}
+.auth-google-button[data-disabled=true] .auth-google-control{visibility:hidden}
 .auth-google-button:hover{box-shadow:inset 0 0 0 1px #747775,0 2px 6px rgb(var(--auth-ink)/.08)}
 .auth-google-button:focus-within{outline:2px solid rgb(var(--auth-gold));outline-offset:3px}
 .auth-google-button[data-disabled=true]{opacity:.55;pointer-events:none}
