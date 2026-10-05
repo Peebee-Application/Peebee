@@ -29,6 +29,13 @@ export type SettingsLink = {
 
 export const SETTINGS_LINKS: SettingsLink[] = [
   {
+    href: "/settings/shopping-units",
+    label: "Shopping units",
+    description: "Smart unit suggestions, custom measures and buying by amount.",
+    icon: SettingsIcon,
+    show: (role) => hasPermission(role, "settings.manage"),
+  },
+  {
     href: "/settings/email-keys",
     label: "Email API keys",
     description: "Resend live and testing keys, timed rotation, account budgets and usage.",

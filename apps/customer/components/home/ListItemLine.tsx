@@ -1,32 +1,25 @@
 "use client";
 
-import { Select } from "@peebee/shared/select";
+import { DEFAULT_SHOPPING_UNIT_SETTINGS, SHOPPING_UNITS, shoppingItemTotal, shoppingNamePatch, suggestShoppingUnits, type ShoppingUnit, type ShoppingUnitSettings } from "@peebee/shared";
 
 import { ArrowRight, Check, X } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { useTranslate, type TranslationKey } from "../../lib/i18n";
+import { useTranslate } from "../../lib/i18n";
+import { ShoppingUnitPicker } from "./ShoppingUnitPicker";
 
 /** Uganda's everyday market units — produce and groceries are almost
  * always sold by weight or volume rather than by piece. */
-export type Unit = "pcs" | "kg" | "g" | "l" | "ml" | "m";
-export const UNIT_KEYS: Record<Unit, TranslationKey> = {
-  pcs: "unit_pcs",
-  kg: "unit_kg",
-  g: "unit_g",
-  l: "unit_l",
-  ml: "unit_ml",
-  m: "unit_m",
-};
-export const UNIT_ABBR: Record<Unit, string> = { pcs: "", kg: "kg", g: "g", l: "L", ml: "ml", m: "m" };
+export type Unit = ShoppingUnit;
 
 /** 0 = typing the name, 1 = quantity, 2 = price, 3 = finished (one small line). */
 export type Stage = 0 | 1 | 2 | 3;
-export type Item = { name: string; quantity: string; unitCost: string; unit: Unit; stage: Stage };
+export type Item = { name: string; quantity: string; unitCost: string; unit: Unit; stage: Stage; unitSource?: "auto" | "manual"; customUnit?: string };
 
-export const blankItem = (): Item => ({ name: "", quantity: "1", unitCost: "", unit: "pcs", stage: 0 });
+export const blankItem = (): Item => ({ name: "", quantity: "1", unitCost: "", unit: "pcs", stage: 0, unitSource: "auto" });
 
 const money = (n: number) => n.toLocaleString("en-UG");
-const qtyLabel = (item: Item) => `${item.quantity || "1"}${UNIT_ABBR[item.unit] ? ` ${UNIT_ABBR[item.unit]}` : ""}`;
+const unitAbbr = (item: Item) => item.unit === "other" ? item.customUnit || "unit" : item.unit === "pcs" ? "" : SHOPPING_UNITS[item.unit].short;
+const qtyLabel = (item: Item) => `${item.quantity || "1"}${unitAbbr(item) ? ` ${unitAbbr(item)}` : ""}`;
 
 const field =
   "min-w-0 flex-1 bg-transparent px-1.5 text-base font-semibold text-ink outline-none placeholder:font-normal placeholder:text-ink-500/60";
@@ -42,12 +35,14 @@ export function ListItemLine({
   onChange,
   onRemove,
   onComplete,
+  unitSettings = DEFAULT_SHOPPING_UNIT_SETTINGS,
 }: {
   item: Item;
   canRemove: boolean;
   onChange: (patch: Partial<Item>) => void;
   onRemove: () => void;
   onComplete: () => void;
+  unitSettings?: ShoppingUnitSettings;
 }) {
   const t = useTranslate();
   const nameRef = useRef<HTMLInputElement>(null);
@@ -63,7 +58,7 @@ export function ListItemLine({
 
   if (stage === 3) {
     const price = Number(item.unitCost) || 0;
-    const total = (Number(item.quantity) || 1) * price;
+    const total = shoppingItemTotal(item);
     return (
       <div className="flex items-center gap-2 py-1.5">
         <button
@@ -72,9 +67,9 @@ export function ListItemLine({
           className="flex min-w-0 flex-1 items-baseline gap-2 text-left"
         >
           <span className="truncate text-sm font-semibold text-ink">{item.name}</span>
-          <span className="shrink-0 text-xs text-ink-500">
-            {qtyLabel(item)}
-            {price > 0 && ` × ${money(price)}`}
+          <span className="max-w-[55%] truncate text-xs text-ink-500">
+            {item.unit === "budget" ? t("list_budget_short") : qtyLabel(item)}
+            {price > 0 && item.unit !== "budget" && ` × ${money(price)}`}
           </span>
         </button>
         {price > 0 && <span className="shrink-0 text-sm font-bold text-ink">{money(total)}</span>}
@@ -87,16 +82,23 @@ export function ListItemLine({
     );
   }
 
-  const canAdvance = stage === 0 ? item.name.trim().length > 0 : stage === 1 ? Number(item.quantity) > 0 : true;
-  const unitLabel = UNIT_ABBR[item.unit] || t("unit_pcs");
+  const budget = item.unit === "budget";
+  const quantityValue = budget ? item.unitCost : item.quantity;
+  const canAdvance = stage === 0 ? item.name.trim().length > 0 : stage === 1 ? Number(quantityValue) > 0 : true;
+  const suggestions = suggestShoppingUnits(item.name, unitSettings);
+
+  function pickUnit(unit: Unit, customUnit?: string) {
+    const changedMode = budget !== (unit === "budget");
+    onChange({ unit, customUnit, unitSource: "manual", ...(unit !== item.unit || customUnit !== item.customUnit ? { unitCost: "" } : {}), ...(changedMode ? { quantity: "1" } : {}) });
+  }
 
   function advance() {
     if (!canAdvance) return;
-    if (stage === 2) {
-      onChange({ stage: 3 });
+    if (stage === 2 || (stage === 1 && budget)) {
+      onChange({ stage: 3, ...(budget ? { quantity: "1" } : {}) });
       onComplete();
     } else {
-      onChange({ stage: (stage + 1) as Stage });
+      onChange({ ...(stage === 0 ? shoppingNamePatch(item, item.name, unitSettings) : {}), stage: (stage + 1) as Stage });
     }
   }
   const onEnter = (e: React.KeyboardEvent) => {
@@ -122,7 +124,7 @@ export function ListItemLine({
       aria-label="Next"
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold text-ink-gold transition-opacity disabled:opacity-35"
     >
-      {stage === 2 ? <Check className="h-4 w-4" strokeWidth={2.75} aria-hidden /> : <ArrowRight className="h-4 w-4" strokeWidth={2.5} aria-hidden />}
+      {stage === 2 || (stage === 1 && budget) ? <Check className="h-4 w-4" strokeWidth={2.75} aria-hidden /> : <ArrowRight className="h-4 w-4" strokeWidth={2.5} aria-hidden />}
     </button>
   );
 
@@ -133,7 +135,7 @@ export function ListItemLine({
           <input
             ref={nameRef}
             value={item.name}
-            onChange={(e) => onChange({ name: e.target.value })}
+            onChange={(e) => onChange(shoppingNamePatch(item, e.target.value, unitSettings))}
             onKeyDown={onEnter}
             placeholder={t("list_item_name_placeholder")}
             enterKeyHint="next"
@@ -147,17 +149,17 @@ export function ListItemLine({
       </div>
 
       {stage >= 1 && (
-        <div className={segClass} style={seg(stage === 1 ? item.quantity : qtyLabel(item), stage === 1 ? 2 : 3, 12)}>
+        <div className={segClass} style={seg(stage === 1 ? quantityValue : qtyLabel(item), budget ? 5 : stage === 1 ? 2 : 3, 12)}>
           {stage === 1 ? (
             <input
               ref={qtyRef}
-              value={item.quantity}
-              onChange={(e) => onChange({ quantity: e.target.value.replace(/[^\d]/g, "") })}
+              value={quantityValue}
+              onChange={(e) => onChange(budget ? { unitCost: e.target.value.replace(/[^\d]/g, ""), quantity: "1" } : { quantity: e.target.value.replace(/[^\d]/g, "") })}
               onKeyDown={onEnter}
               inputMode="numeric"
-              placeholder={t("list_quantity_label")}
-              aria-label={t("list_quantity_label")}
-              enterKeyHint="next"
+              placeholder={t(budget ? "list_budget_amount" : "list_quantity_label")}
+              aria-label={t(budget ? "list_budget_amount" : "list_quantity_label")}
+              enterKeyHint={budget ? "done" : "next"}
               className={field}
             />
           ) : (
@@ -169,18 +171,7 @@ export function ListItemLine({
       )}
 
       {stage === 1 && (
-        <Select
-          value={item.unit}
-          displayValue={unitLabel}
-          onValueChange={(value) => onChange({ unit: value as Unit })}
-          aria-label={t("list_unit_label")}
-          className="text-sm font-semibold text-ink outline-none"
-          style={{ flex: "0 1 auto", maxWidth: "40%" }}
-        >
-          {(Object.keys(UNIT_KEYS) as Unit[]).map((u) => (
-            <option key={u} value={u}>{t(UNIT_KEYS[u])}</option>
-          ))}
-        </Select>
+        <ShoppingUnitPicker value={item.unit} customUnit={item.customUnit} suggestions={suggestions} config={unitSettings} onPick={pickUnit} />
       )}
 
       {stage === 2 && (

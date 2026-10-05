@@ -1,6 +1,6 @@
 "use client";
 
-import { roundFare } from "@peebee/shared";
+import { DEFAULT_SHOPPING_UNIT_SETTINGS, roundFare, serializeShoppingItem, shoppingItemTotal, type ShoppingUnitSettings } from "@peebee/shared";
 import { List, Mic, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,7 +10,7 @@ import { api, errorMessage } from "../../lib/api";
 import { useTranslate } from "../../lib/i18n";
 import { placeFields, type Place } from "../../lib/places";
 import { RouteSummary } from "./RouteSummary";
-import { ListItemLine, UNIT_ABBR, blankItem, type Item, type Unit } from "./ListItemLine";
+import { ListItemLine, blankItem, type Item } from "./ListItemLine";
 import { OrderVoiceNoteRecorder } from "./OrderVoiceNoteRecorder";
 
 /** "list": type each item with its own cost — today's flow. "voice": speak
@@ -26,10 +26,6 @@ function currency(n: number) {
  * order schema only has a plain name + quantity multiplier — this is the
  * least invasive way to carry "2 kg" through to the rider's shopping list
  * without a backend/schema change. Plain pieces need no suffix. */
-function nameWithUnit(name: string, unit: Unit): string {
-  return unit === "pcs" ? name : `${name} (${UNIT_ABBR[unit]})`;
-}
-
 export function ShoppingListModal({ onClose }: { onClose: () => void }) {
   const t = useTranslate();
   const router = useRouter();
@@ -42,6 +38,7 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
   const [choosing, setChoosing] = useState(false);
   const [voiceNote, setVoiceNote] = useState<Blob | null>(null);
   const [deliveryFee, setDeliveryFee] = useState(0);
+  const [unitSettings, setUnitSettings] = useState<ShoppingUnitSettings>(DEFAULT_SHOPPING_UNIT_SETTINGS);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,11 +46,11 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     api
       .getSettings()
-      .then((res) => setDeliveryFee(roundFare(res.settings.shoppingDeliveryFee)))
+      .then((res) => { setDeliveryFee(roundFare(res.settings.shoppingDeliveryFee)); setUnitSettings(res.settings.shoppingUnits ?? DEFAULT_SHOPPING_UNIT_SETTINGS); })
       .catch(() => {});
   }, []);
 
-  const listTotal = items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitCost) || 0), 0);
+  const listTotal = items.reduce((sum, it) => sum + shoppingItemTotal(it), 0);
   const itemsTotal = mode === "voice" ? Number(voiceTotal) || 0 : listTotal;
   const total = itemsTotal + deliveryFee;
 
@@ -72,6 +69,10 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
       const clean = items.filter((it) => it.name.trim().length > 0);
       if (clean.length === 0) {
         setError(t("list_add_at_least_one"));
+        return;
+      }
+      if (clean.some((it) => (it.unit === "budget" && !(Number(it.unitCost) > 0)) || (it.unit === "other" && !it.customUnit?.trim()))) {
+        setError(t("list_complete_unit_amount"));
         return;
       }
     } else {
@@ -100,11 +101,7 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
     try {
       const cleanItems = items
         .filter((it) => it.name.trim())
-        .map((it) => ({
-          name: nameWithUnit(it.name.trim(), it.unit),
-          quantity: Math.max(1, Number(it.quantity) || 1),
-          unitCost: Number(it.unitCost) || 0,
-        }));
+        .map(serializeShoppingItem);
       const list = await api.createList({
         items: cleanItems.map((it) => ({ name: it.name, quantity: it.quantity, unitCost: it.unitCost })),
       });
@@ -162,6 +159,7 @@ export function ShoppingListModal({ onClose }: { onClose: () => void }) {
                 <ListItemLine
                   key={i}
                   item={item}
+                  unitSettings={unitSettings}
                   canRemove={items.length > 1}
                   onChange={(patch) => updateItem(i, patch)}
                   onRemove={() => removeItem(i)}

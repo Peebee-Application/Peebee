@@ -1,8 +1,9 @@
 import type { MatchingMode } from "@peebee/shared";
-import { DEFAULT_TIME_FEES, type JobExpirySettings, type TimeFeeSettings } from "@peebee/shared";
+import { DEFAULT_SHOPPING_UNIT_SETTINGS, DEFAULT_TIME_FEES, type JobExpirySettings, type TimeFeeSettings } from "@peebee/shared";
 import { db } from "../db/client.js";
 
 const DEFAULTS = {
+  shopping_units_config: JSON.stringify(DEFAULT_SHOPPING_UNIT_SETTINGS),
   time_fees: JSON.stringify(DEFAULT_TIME_FEES),
   /** Which dataset the whole platform — every customer, rider, and the
    * admin dashboard's default view — currently reads and writes against.

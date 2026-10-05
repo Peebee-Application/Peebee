@@ -295,6 +295,7 @@ export type DeliverySettings = {
    * — see apps/api/src/lib/settings.ts for why shopping can't be priced by
    * distance the way a parcel ride is. */
   shoppingDeliveryFee: number;
+  shoppingUnits?: import("./shopping-units.js").ShoppingUnitSettings;
   /** A passenger ride's own per-km rate and floor — priced the same way as
    * a parcel (distance × rate, never below the floor) but tracked
    * separately since carrying a person is a different real-world fare
