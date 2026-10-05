@@ -1,7 +1,7 @@
-const STATIC_CACHE = "peebee-driver-static-v7";
+const STATIC_CACHE = "peebee-driver-static-v8";
 const RUNTIME_CACHE = "peebee-driver-runtime-v7";
 const OFFLINE_URL = "/offline.html";
-const STATIC_ASSETS = ["/sounds/notification.mp3", "/manifest.json", "/icons/icon-192.png?v=logos-3", "/icons/icon-512.png?v=logos-3", OFFLINE_URL];
+const STATIC_ASSETS = ["/brand/peebee-logo-light.svg?v=svg-5", "/brand/peebee-logo-dark.svg?v=svg-5", "/sounds/notification.mp3", "/manifest.json", "/icons/icon-192.png?v=svg-5", "/icons/icon-512.png?v=svg-5", OFFLINE_URL];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_ASSETS)));
@@ -30,7 +30,7 @@ self.addEventListener("message", (event) => {
 // URL never changes, so it's safe to cache forever. This is the single
 // biggest saving on a repeat visit: zero JS/CSS re-downloaded.
 function isImmutableAsset(url) {
-  return url.pathname.startsWith("/_next/static/") || STATIC_ASSETS.includes(url.pathname);
+  return url.pathname.startsWith("/_next/static/") || (STATIC_ASSETS.includes(url.pathname) || STATIC_ASSETS.includes(url.pathname + url.search));
 }
 
 // Media that never changes once it exists — a sent chat photo/voice note,
@@ -122,8 +122,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(Promise.all([
     self.registration.showNotification(data.title || "Peebee", {
       body: data.body || "You have a new notification",
-      icon: "/icons/icon-192.png?v=logos-3",
-      badge: "/icons/icon-192.png?v=logos-3",
+      icon: "/icons/icon-192.png?v=svg-5",
+      badge: "/icons/icon-192.png?v=svg-5",
       tag: data.tag || "peebee-alert",
       data: { url: data.url || "/" },
     }),
