@@ -2,6 +2,7 @@ import type { Context, Next } from "hono";
 import { db } from "../db/client.js";
 import { isAdminRole, type AdminRole } from "../admin/permissions.js";
 import { verifyToken, type AuthTokenPayload } from "./jwt.js";
+import { isAwaitingActivation } from "../onboarding/state.js";
 
 /** What every route handler actually gets from `c.get("user")` — the JWT's
  * own claims plus a few things that can change between logins and so are
@@ -91,6 +92,9 @@ export async function requireAuth(c: Context, next: Next) {
   }
   if (row.status === "suspended") {
     return c.json({ error: "account_suspended", message: "This account has been suspended" }, 403);
+  }
+  if (await isAwaitingActivation(payload.sub)) {
+    return c.json({ error: "activation_required", message: "Activate your account using the link sent by your sales agent." }, 403);
   }
   if (row.sessions_valid_from) {
     // Both sides are whole seconds, and a token issued by the same request

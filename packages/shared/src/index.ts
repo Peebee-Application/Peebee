@@ -228,3 +228,4 @@ export type {
 } from "./domain.js";
 
 export { NotificationSnapshots, installNotificationSound, observeNotificationSnapshot, playNotificationSound, resetNotificationSnapshots } from "./notification-sound.js";
+export * from "./onboarding.js";

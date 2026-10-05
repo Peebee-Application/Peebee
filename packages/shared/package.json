@@ -8,7 +8,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./select": "./src/Select.tsx",
-    "./select.css": "./select.css"
+    "./select.css": "./select.css",
+    "./activation": "./src/ActivationPage.tsx"
   },
   "scripts": {
     "lint": "tsc --noEmit",

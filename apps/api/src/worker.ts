@@ -10,6 +10,7 @@ import { sweepScheduledRides } from "./car/scheduled.js";
 import { releaseStaleSeats } from "./car/carpool.js";
 import { sweepRentalRequests } from "./car/selfdrive.js";
 import { sweepStageEscalations, sweepStageFines, sweepElectionSessions } from "./stages/escalation.js";
+import { sweepActivationMessages } from "./onboarding/service.js";
 
 /** Minimal local stand-in so we don't need @cloudflare/workers-types (which
  * conflicts with @types/node's DOM-lib globals) just for one field. */
@@ -41,6 +42,7 @@ export default {
    * additionally renews recurring rider subscriptions. */
   async scheduled(event: { cron?: string }, env: WorkerEnv, ctx: CfExecutionContext): Promise<void> {
     bindEnv(env);
+    ctx.waitUntil(sweepActivationMessages().catch(() => console.error('Activation message retry failed')));
     ctx.waitUntil(
       sweepProviderOperations()
         .then((result) => console.log("Provider reconciliation sweep:", JSON.stringify(result)))

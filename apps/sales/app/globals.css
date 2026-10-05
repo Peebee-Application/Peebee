@@ -1,0 +1,59 @@
+@import "../../../packages/shared/select.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --cream: 247 243 238;
+  --ink: 14 28 50;
+  --ink-muted: 94 108 126;
+  --gold: 201 162 39;
+  --navy: 21 58 117;
+  --green: 27 122 78;
+  --surface: 255 255 255;
+  --surface-muted: 238 234 227;
+  --surface-input: 255 255 255;
+  --border-faint: rgba(14, 28, 50, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --cream: 13 32 61;
+    --ink: 247 243 238;
+    --ink-muted: 168 180 200;
+    --navy: 120 155 214;
+    --green: 47 168 106;
+    --surface: 22 48 88;
+    --surface-muted: 40 76 122;
+    --surface-input: 33 63 106;
+    --border-faint: rgba(247, 243, 238, 0.11);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --cream: 13 32 61;
+  --ink: 247 243 238;
+  --ink-muted: 168 180 200;
+  --navy: 120 155 214;
+  --green: 47 168 106;
+  --surface: 22 48 88;
+  --surface-muted: 40 76 122;
+  --surface-input: 33 63 106;
+  --border-faint: rgba(247, 243, 238, 0.11);
+}
+
+html { font-size: 17px; }
+body { background: rgb(var(--cream)); color: rgb(var(--ink)); line-height: 1.55; }
+.home-card { border: 1px solid var(--border-faint); border-radius: 22px; background: rgb(var(--surface)); padding: 24px; box-shadow: 0 5px 18px rgba(8, 20, 38, 0.07); }
+input, select, textarea { background: rgb(var(--surface-input)); }
+.sales-input { display:block; width:100%; border:1px solid var(--border-faint); border-radius:12px; padding:12px 14px; color:rgb(var(--ink)); background:rgb(var(--surface-input)); font-weight:400; outline:none; }
+.sales-input:focus-visible { border-color:rgb(var(--gold)); box-shadow:0 0 0 2px rgb(var(--gold) / .18); }
+.sales-primary { display:flex; justify-content:center; align-items:center; gap:10px; border-radius:999px; background:rgb(var(--gold)); color:#101828; padding:14px 20px; font-weight:800; }
+.sales-tab { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 15px; border:1px solid var(--border-faint); border-radius:999px; font-size:14px; font-weight:700; }
+.sales-tab-active { background:rgb(var(--ink)); color:rgb(var(--cream)); }
+button:disabled { opacity:.55; cursor:wait; }
+button:focus-visible,a:focus-visible { outline:2px solid rgb(var(--gold)); outline-offset:3px; }
