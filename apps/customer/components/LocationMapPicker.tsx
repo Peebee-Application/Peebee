@@ -2,7 +2,8 @@
 
 import type { JawgLightStyle } from "@peebee/shared";
 import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../lib/api";
 import { GoogleMapPicker } from "./maps/GoogleMapPicker";
 import { MapboxMapPicker } from "./maps/MapboxMapPicker";
@@ -32,6 +33,36 @@ type ResolvedProvider =
  * them. */
 export function LocationMapPicker(props: MapPickerProps) {
   const [provider, setProvider] = useState<ResolvedProvider | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef(props.onCancel);
+  cancelRef.current = props.onCancel;
+
+  useEffect(() => {
+    setMounted(true);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    dialog?.focus();
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); cancelRef.current(); }
+      if (event.key !== "Tab") return;
+      event.stopImmediatePropagation();
+      const elements = Array.from(dialog?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), a[href], [tabindex="0"]') ?? []).filter(element => element.getClientRects().length > 0);
+      const first = elements[0], last = elements[elements.length - 1];
+      if (!first) { event.preventDefault(); dialog?.focus(); }
+      else if (event.shiftKey && (document.activeElement === first || !dialog?.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !dialog?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", keydown, true);
+    return () => { document.removeEventListener("keydown", keydown, true); if (previousFocus?.isConnected) previousFocus.focus(); };
+  }, [mounted]);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,30 +97,34 @@ export function LocationMapPicker(props: MapPickerProps) {
     };
   }, []);
 
+  if (!mounted) return null;
+  let content: React.ReactNode;
   if (!provider) {
-    return (
+    content = (
       <div className="fixed inset-0 z-[80] flex items-center justify-center bg-cream">
+        <button type="button" onClick={props.onCancel} className="absolute left-4 top-4 min-h-11 rounded-full border border-[var(--border-faint)] px-4 font-semibold text-ink">Cancel</button>
         <Loader2 className="h-6 w-6 animate-spin text-gold" strokeWidth={2.5} aria-hidden />
       </div>
     );
-  }
-
-  switch (provider.kind) {
+  } else switch (provider.kind) {
     case "google":
-      return <GoogleMapPicker {...props} apiKey={provider.apiKey} />;
+      content = <GoogleMapPicker {...props} apiKey={provider.apiKey} />; break;
     case "mapbox":
-      return <MapboxMapPicker {...props} accessToken={provider.accessToken} />;
+      content = <MapboxMapPicker {...props} accessToken={provider.accessToken} />; break;
     case "maptiler":
-      return <MapTilerPicker {...props} apiKey={provider.apiKey} />;
+      content = <MapTilerPicker {...props} apiKey={provider.apiKey} />; break;
     case "stadia":
-      return <StadiaMapsPicker {...props} apiKey={provider.apiKey} />;
+      content = <StadiaMapsPicker {...props} apiKey={provider.apiKey} />; break;
     case "thunderforest":
-      return <ThunderforestPicker {...props} apiKey={provider.apiKey} />;
+      content = <ThunderforestPicker {...props} apiKey={provider.apiKey} />; break;
     case "jawg":
-      return <JawgMapsPicker {...props} accessToken={provider.accessToken} adminLightStyle={provider.adminLightStyle} />;
+      content = <JawgMapsPicker {...props} accessToken={provider.accessToken} adminLightStyle={provider.adminLightStyle} />; break;
     case "tomtom":
-      return <TomTomPicker {...props} apiKey={provider.apiKey} />;
+      content = <TomTomPicker {...props} apiKey={provider.apiKey} />; break;
     default:
-      return <StreetMapsPicker {...props} />;
+      content = <StreetMapsPicker {...props} />;
   }
+  // Glass cards use transforms/filters, which contain fixed descendants.
+  // Rendering at body level keeps every map provider at viewport size.
+  return createPortal(<div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Choose map location" tabIndex={-1} className="fixed inset-0 z-[80] bg-cream">{content}</div>, document.body);
 }
