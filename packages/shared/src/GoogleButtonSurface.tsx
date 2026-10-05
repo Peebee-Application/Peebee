@@ -3,19 +3,17 @@ import type { RefObject } from 'react';
 
 type Renderer = (parent: HTMLElement, options: Record<string, unknown>) => void;
 
-/** Keep the Google SDK as the real mouse/keyboard control. Its transparent
- * layer fills the branded surface, so no synthetic click or One Tap fallback
- * is needed and the existing ID-token callback remains unchanged. */
+/** Keep Google's real mouse/keyboard/touch control at its native size.
+ * Scaling its iframe breaks Android taps. Center the SDK control inside the
+ * branded surface and leave the existing ID-token callback unchanged. */
 export function mountGoogleButton(node: HTMLElement, renderButton: Renderer) {
-  const scale = 54 / 40;
   let previousWidth = 0;
   function render() {
     const width = Math.round(node.parentElement?.clientWidth ?? 0);
     if (!width || width === previousWidth) return;
     previousWidth = width;
-    const sdkWidth = Math.min(400, Math.floor(width / scale));
+    const sdkWidth = Math.min(400, width);
     node.style.width = `${sdkWidth}px`;
-    node.style.transform = `scale(${width / sdkWidth}, ${scale})`;
     node.replaceChildren();
     renderButton(node, { type: 'standard', theme: 'outline', size: 'large',
       shape: 'rectangular', width: sdkWidth, text: 'continue_with' });
