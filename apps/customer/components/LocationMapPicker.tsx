@@ -57,8 +57,8 @@ export function LocationMapPicker(props: MapPickerProps) {
       const elements = Array.from(dialog?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), a[href], [tabindex="0"]') ?? []).filter(element => element.getClientRects().length > 0);
       const first = elements[0], last = elements[elements.length - 1];
       if (!first) { event.preventDefault(); dialog?.focus(); }
-      else if (event.shiftKey && (document.activeElement === first || !dialog?.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && (document.activeElement === last || !dialog?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+      else if (event.shiftKey && (document.activeElement === dialog || document.activeElement === first || !dialog?.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === dialog || document.activeElement === last || !dialog?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
     };
     document.addEventListener("keydown", keydown, true);
     return () => { document.removeEventListener("keydown", keydown, true); if (previousFocus?.isConnected) previousFocus.focus(); };
