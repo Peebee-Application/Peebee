@@ -1,4 +1,5 @@
 "use client";
+import { GoogleButtonSurface, mountGoogleButton } from "@peebee/shared/google-button";
 import Script from 'next/script';
 import { useEffect,useRef,useState } from 'react';
 import { request } from '../lib/api';
@@ -17,9 +18,9 @@ export function GoogleSignInButton(){
       catch(e){if(alive)setError(e instanceof Error?e.message:'Google sign-in failed.');}
       finally{if(alive)setBusy(false);}
     }});
-    google.accounts.id.renderButton(ref.current,{type:'standard',theme:'outline',size:'large',shape:'pill',width:320,text:'continue_with'});
-    return()=>{alive=false;};
+    const stopSizing=mountGoogleButton(ref.current,(node,options)=>google.accounts.id.renderButton(node,options));
+    return()=>{alive=false;stopSizing();};
   },[ready]);
   if(!clientId)return null;
-  return <div className="mt-6 space-y-3"><Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onReady={()=>setReady(true)} onError={()=>setError('Google could not load. Refresh the page or sign in with your password.')}/><div className="flex items-center gap-3 text-xs text-ink-500"><span className="h-px flex-1 bg-[var(--border-faint)]"/>OR<span className="h-px flex-1 bg-[var(--border-faint)]"/></div><div ref={ref} className={`flex justify-center ${busy?'pointer-events-none opacity-60':''}`} aria-busy={busy}/>{busy&&<p role="status" className="text-center text-sm">Signing in…</p>}{error&&<p role="alert" className="text-sm">{error}</p>}</div>;
+  return <div className="mt-6 space-y-3"><Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onReady={()=>setReady(true)} onError={()=>setError('Google could not load. Refresh the page or sign in with your password.')}/><div className="flex items-center gap-3 text-xs text-ink-500"><span className="h-px flex-1 bg-[var(--border-faint)]"/>OR<span className="h-px flex-1 bg-[var(--border-faint)]"/></div><GoogleButtonSurface buttonRef={ref} ready={ready} busy={busy}/>{busy&&<p role="status" className="text-center text-sm">Signing in…</p>}{error&&<p role="alert" className="text-sm">{error}</p>}</div>;
 }

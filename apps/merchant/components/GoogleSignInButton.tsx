@@ -1,4 +1,5 @@
 "use client";
+import { GoogleButtonSurface, mountGoogleButton } from "@peebee/shared/google-button";
 
 import Script from "next/script";
 import { useRouter } from "next/navigation";
@@ -46,14 +47,8 @@ export function GoogleSignInButton() {
         }
       },
     });
-    window.google.accounts.id.renderButton(buttonRef.current, {
-      type: "standard",
-      theme: "outline",
-      size: "large",
-      shape: "pill",
-      width: 320,
-      text: "continue_with",
-    });
+    const google = window.google;
+    return mountGoogleButton(buttonRef.current, (node, options) => google.accounts.id.renderButton(node, options));
   }, [router, scriptReady, setSession]);
 
   if (!CLIENT_ID) return null;
@@ -63,14 +58,14 @@ export function GoogleSignInButton() {
       <Script
         src="https://accounts.google.com/gsi/client"
         strategy="afterInteractive"
-        onReady={() => setScriptReady(true)}
+        onReady={() => setScriptReady(true)} onError={() => setError("Google could not load. Refresh the page or sign in with your password.")}
       />
       <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-[var(--border-faint)]" />
         <span className="text-xs font-semibold text-ink-500">OR</span>
         <span className="h-px flex-1 bg-[var(--border-faint)]" />
       </div>
-      <div ref={buttonRef} className="flex justify-center" />
+      <GoogleButtonSurface buttonRef={buttonRef} ready={scriptReady} />
       {error ? <p className="text-center text-xs text-red-600">{error}</p> : null}
     </div>
   );

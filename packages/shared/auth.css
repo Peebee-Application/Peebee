@@ -30,6 +30,18 @@
 .auth-scene button:disabled{opacity:.55;cursor:wait}.auth-scene form input.pr-11{padding-right:48px!important}
 .auth-scene .auth-switch{text-align:center;font-size:12px;margin-top:24px}.auth-switch button{font-weight:800;color:rgb(var(--auth-ink));text-decoration:underline;text-underline-offset:3px}
 .auth-scene .auth-footnote{font-size:12px;margin-top:22px}.auth-scene .space-y-1>label+input,.auth-scene .space-y-1>label+div{margin-top:0}
+/* Google colours and font follow its identity branding; Peebee controls geometry. */
+@font-face{font-family:PeebeeGoogleSans;src:url('/brand/google-sans-medium-latin.woff2') format('woff2');font-style:normal;font-weight:500;font-display:swap}
+.auth-google-button{position:relative;width:100%;height:54px;border-radius:17px;background:#fff;box-shadow:inset 0 0 0 1px #747775;overflow:hidden;transition:box-shadow .2s,opacity .2s}
+.auth-google-face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:12px;color:#1f1f1f;font-family:PeebeeGoogleSans,Arial,sans-serif;font-size:15px;font-weight:500;pointer-events:none}
+.auth-google-face img{position:absolute;left:18px;width:20px;height:20px;object-fit:contain}
+.auth-google-control{position:relative;height:40px;transform-origin:top left;opacity:0}
+.auth-google-button:hover{box-shadow:inset 0 0 0 1px #747775,0 2px 6px rgb(var(--auth-ink)/.08)}
+.auth-google-button:focus-within{outline:2px solid rgb(var(--auth-gold));outline-offset:3px}
+.auth-google-button[data-disabled=true]{opacity:.55;pointer-events:none}
+.auth-google-loading{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+html[data-theme=dark] .auth-google-button{background:#131314;box-shadow:inset 0 0 0 1px #8e918f}
+html[data-theme=dark] .auth-google-face{color:#e3e3e3}
 .auth-scene .auth-form-body>p:last-child{font-size:12px;text-align:center}.auth-scene .auth-form-body .auth-old-tabs{display:none}
 .auth-scene>.auth-content>div.flex.min-h-dvh,.auth-scene>.auth-content>section.min-h-dvh,.auth-scene>.auth-content>main.min-h-dvh{min-height:0;padding:0;display:block;max-width:none}
 .auth-scene .auth-content>.auth-legacy{padding:0;min-height:0}.auth-scene .auth-content>.auth-legacy>div{max-width:none}

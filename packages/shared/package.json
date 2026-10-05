@@ -11,7 +11,8 @@
     "./select.css": "./select.css",
     "./activation": "./src/ActivationPage.tsx",
     "./auth": "./src/AuthScene.tsx",
-    "./auth.css": "./auth.css"
+    "./auth.css": "./auth.css",
+    "./google-button": "./src/GoogleButtonSurface.tsx"
   },
   "scripts": {
     "lint": "tsc --noEmit",
