@@ -2,6 +2,12 @@
 
 final result: passed
 
+## Form navigation follow-up — 2026-10-05
+
+The second screen (login/registration) no longer renders the Peebee logo or wordmark. The welcome screen retains its branding. Back is an icon-only left chevron positioned at the screen's top-left, outside the centered form, with safe-area spacing, a 44 × 44px tap target, existing keyboard focus styling, an accessible `Back to welcome` name and the existing busy-state guard.
+
+Production-preview evidence: `.auth-qa/chevron-login-mobile.jpg` at 390 × 844. DOM checks confirm zero `.auth-brand` elements on the form, no visible Back text, and the chevron's 44 × 44px target at (16,16). Clicking it restores the welcome screen and its logo; entering registration again shows the same icon-only navigation without a logo. Browser error logs were empty. Shared TypeScript and the sales production build passed. No authentication form was submitted. The shared change applies to all seven applications using AuthJourney.
+
 ## Google button follow-up — 2026-10-05
 
 All six apps with Google authentication now use a shared branded surface matching the main action's full width, 54px standard height and 17px corners. Google's original gradient G, Google Sans Medium and light/dark identity colours are preserved. The Google SDK remains the interactive control; authentication endpoints, ID-token callbacks and approval rules are unchanged.

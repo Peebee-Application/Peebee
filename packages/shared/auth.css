@@ -13,8 +13,9 @@
 .auth-primary{background:rgb(var(--auth-ink));color:rgb(var(--auth-bg));border:1.5px solid rgb(var(--auth-ink))}
 .auth-secondary{background:transparent;color:rgb(var(--auth-ink));border:1.5px solid rgb(var(--auth-gold))}
 .auth-primary:hover,.auth-secondary:hover{transform:translateY(-2px)}.auth-primary:active,.auth-secondary:active{transform:translateY(0)}
-.auth-back{margin:0 0 20px;color:rgb(var(--auth-muted));font-size:13px;font-weight:700;padding:4px 0}
-.auth-form .auth-content{padding-top:175px}.auth-form .auth-art{height:245px;width:min(100%,368px)}.auth-form .auth-art img{object-fit:contain;object-position:center top;mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent);-webkit-mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent)}.auth-form .auth-brand{margin-bottom:16px}.auth-form .auth-back{margin-bottom:14px}.auth-form h1{font-size:30px}.auth-form-copy>p{margin-bottom:20px}
+.auth-back{position:absolute;z-index:2;top:max(16px,env(safe-area-inset-top));left:max(16px,env(safe-area-inset-left));display:grid;place-items:center;width:44px;height:44px;padding:0;border:0;border-radius:50%;background:rgb(var(--auth-bg)/.92);color:rgb(var(--auth-ink));transition:background .2s,transform .2s}
+.auth-back:hover{transform:translateX(-2px)}.auth-back:active{transform:translateX(0)}
+.auth-form .auth-content{padding-top:175px}.auth-form .auth-art{height:245px;width:min(100%,368px)}.auth-form .auth-art img{object-fit:contain;object-position:center top;mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent);-webkit-mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent)}.auth-form h1{font-size:30px}.auth-form-copy>p{margin-bottom:20px}
 .auth-form-body .space-y-5>:not([hidden])~:not([hidden]){margin-top:14px}.auth-form-body .mt-6{margin-top:18px}
 .auth-form-copy{animation:auth-enter .32s ease-out both}.auth-form-copy>p{margin:0 0 24px}
 .auth-form-body{display:grid;gap:19px}.auth-form-body>[role=img],.auth-form-body>.auth-old-heading{display:none}
