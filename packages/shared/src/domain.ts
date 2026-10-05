@@ -807,6 +807,8 @@ export type RestaurantStatus = "pending_approval" | "active" | "suspended";
  * apps/api/src/db/migrations/0032_restaurants.sql for why); owner_id
  * points at a normal customer-role account that manages it. */
 export type Restaurant = {
+  /** Fictional sandbox catalogue entry; browsing and cart previews only. */
+  is_demo?: boolean;
   id: string;
   owner_id: string;
   name: string;
