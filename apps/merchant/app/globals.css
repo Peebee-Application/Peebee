@@ -4,6 +4,15 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* Text stays inset even when a field has no explicit padding utility.
+     Compound fields share their wrapper's spacing and single fill. */
+  input:where(:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="submit"], [type="button"], [type="color"])):where(:not(.field-box *)),
+  textarea:where(:not(.field-box *)) {
+    padding: 0.625rem 0.75rem;
+  }
+}
+
 :root {
   color-scheme: light;
   --cream: 247 243 238;
