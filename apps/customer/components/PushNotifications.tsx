@@ -57,7 +57,7 @@ export function PushNotifications() {
 
   return (
     <div className="fixed inset-x-0 bottom-20 z-[60] mx-auto max-w-lg px-4">
-      <div className="flex items-center gap-3 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3 shadow-lg">
+      <div className="flex items-center gap-3 rounded-2xl border border-[var(--border-faint)] glass-panel p-3 shadow-lg">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold">
           <Bell className="h-5 w-5" strokeWidth={2} aria-hidden />
         </span>

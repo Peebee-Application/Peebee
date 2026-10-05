@@ -108,7 +108,7 @@ export default function VerifyPage() {
                 type="button"
                 onClick={() => switchChannel(c)}
                 className={`flex-1 rounded-full py-2 text-sm font-semibold transition-colors ${
-                  channel === c ? "bg-[rgb(var(--surface-card))] text-ink shadow-sm" : "text-ink-500"
+                  channel === c ? "glass-panel text-ink shadow-sm" : "text-ink-500"
                 }`}
               >
                 {c === "sms" ? "By SMS" : "By email"}

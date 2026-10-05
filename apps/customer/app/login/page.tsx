@@ -81,7 +81,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => setIdentifierType(t)}
                     className={`flex-1 rounded-full py-2 text-xs font-bold capitalize transition-colors ${
-                      identifierType === t ? "bg-[rgb(var(--surface-card))] text-ink shadow-sm" : "text-ink-500"
+                      identifierType === t ? "glass-panel text-ink shadow-sm" : "text-ink-500"
                     }`}
                   >
                     {t}

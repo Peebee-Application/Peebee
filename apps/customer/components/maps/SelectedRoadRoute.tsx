@@ -71,7 +71,7 @@ export function SelectedRoadRoute({ pickup, destination, bottomInset = 0, topIns
       <Polyline positions={route.coordinates} interactive={false} pathOptions={{ color: "#C9A227", weight: 5, opacity: 1 }} />
     </>}
     {!route && <div role="status" className="pointer-events-none absolute inset-x-3 top-16 z-[500] flex justify-center">
-      <span className="rounded-full bg-[rgb(var(--surface-card))] px-3 py-2 text-xs font-semibold text-ink shadow-[var(--shadow-float-capsule)]">
+      <span className="rounded-full glass-panel px-3 py-2 text-xs font-semibold text-ink shadow-[var(--shadow-float-capsule)]">
         {t(current ? "place_route_unavailable" : "place_route_loading")}
       </span>
     </div>}

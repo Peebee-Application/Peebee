@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useColourScene } from "../lib/use-colour-scene";
 import { AuthGate } from "./AuthGate";
 import { BottomNav } from "./BottomNav";
 import { BrandHeader } from "./BrandHeader";
@@ -8,6 +9,7 @@ import { OfflineBanner } from "./OfflineBanner";
 import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./PracticeMode";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  useColourScene();
   const pathname = usePathname();
   const isAuthPage = pathname === "/login" || pathname === "/activate" || pathname === "/forgot-password" || pathname.startsWith("/verify") || pathname.startsWith("/trip/");
   // "/chat" itself is a normal list screen (conversations) with the usual

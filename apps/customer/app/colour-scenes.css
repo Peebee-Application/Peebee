@@ -1,0 +1,187 @@
+/* Scene hues are sampled from the owner's references. Gold is always Peebee gold. */
+:root {
+  --scene-primary: 8 120 188;
+  --scene-secondary: 48 164 220;
+  --scene-warm: 255 207 121;
+  --scene-page-light: 244 248 250;
+  --scene-page-dark: 13 23 31;
+  --scene-surface-dark: 29 44 55;
+  --scene-input-dark: 38 55 67;
+  --scene-text-dark: 171 195 210;
+  --scene-link-light: 12 91 141;
+  --scene-link-dark: 133 205 242;
+}
+:root[data-colour-scene="forest"] {
+  --scene-primary: 73 101 29; --scene-secondary: 140 166 61; --scene-warm: 213 211 109;
+  --scene-page-light: 247 248 238; --scene-page-dark: 20 25 13;
+  --scene-surface-dark: 38 45 25; --scene-input-dark: 47 55 34;
+  --scene-text-dark: 192 202 167; --scene-link-light: 66 92 26; --scene-link-dark: 200 218 139;
+}
+:root[data-colour-scene="viola"] {
+  --scene-primary: 126 32 150; --scene-secondary: 196 82 182; --scene-warm: 255 204 118;
+  --scene-page-light: 250 244 249; --scene-page-dark: 28 18 31;
+  --scene-surface-dark: 48 33 53; --scene-input-dark: 60 43 65;
+  --scene-text-dark: 211 185 214; --scene-link-light: 114 30 130; --scene-link-dark: 227 166 230;
+}
+:root[data-colour-scene="violet-dusk"] {
+  --scene-primary: 85 50 93; --scene-secondary: 150 84 119; --scene-warm: 245 217 191;
+  --scene-page-light: 248 244 247; --scene-page-dark: 25 17 31;
+  --scene-surface-dark: 44 32 49; --scene-input-dark: 56 44 59;
+  --scene-text-dark: 203 183 202; --scene-link-light: 92 49 98; --scene-link-dark: 218 178 205;
+}
+:root[data-colour-scene="luigi"] {
+  --scene-primary: 44 175 87; --scene-secondary: 123 203 104; --scene-warm: 192 220 113;
+  --scene-page-light: 243 249 240; --scene-page-dark: 14 26 19;
+  --scene-surface-dark: 28 46 34; --scene-input-dark: 39 58 44;
+  --scene-text-dark: 178 204 180; --scene-link-light: 27 105 49; --scene-link-dark: 151 221 155;
+}
+:root[data-colour-scene="sunset"] {
+  --scene-primary: 235 101 17; --scene-secondary: 249 146 37; --scene-warm: 250 187 50;
+  --scene-page-light: 253 247 239; --scene-page-dark: 29 21 17;
+  --scene-surface-dark: 49 36 28; --scene-input-dark: 63 47 36;
+  --scene-text-dark: 218 192 168; --scene-link-light: 151 67 17; --scene-link-dark: 255 193 127;
+}
+:root[data-colour-scene="blush"] {
+  --scene-primary: 157 21 72; --scene-secondary: 196 72 96; --scene-warm: 255 128 83;
+  --scene-page-light: 253 244 244; --scene-page-dark: 31 16 22;
+  --scene-surface-dark: 53 30 39; --scene-input-dark: 66 41 49;
+  --scene-text-dark: 215 183 185; --scene-link-light: 140 25 64; --scene-link-dark: 249 167 179;
+}
+:root[data-colour-scene="sicily"] {
+  --scene-primary: 35 90 188; --scene-secondary: 119 185 250; --scene-warm: 255 191 25;
+  --scene-page-light: 244 248 252; --scene-page-dark: 12 24 36;
+  --scene-surface-dark: 28 44 62; --scene-input-dark: 39 56 76;
+  --scene-text-dark: 177 197 219; --scene-link-light: 36 78 151; --scene-link-dark: 152 198 255;
+}
+:root[data-colour-scene="ocean-blue"] {
+  --scene-primary: 8 6 95; --scene-secondary: 4 125 175; --scene-warm: 69 197 222;
+  --scene-page-light: 240 248 251; --scene-page-dark: 7 21 33;
+  --scene-surface-dark: 22 42 56; --scene-input-dark: 32 54 69;
+  --scene-text-dark: 169 200 214; --scene-link-light: 14 93 133; --scene-link-dark: 132 218 236;
+}
+:root[data-colour-scene="marple"] {
+  --scene-primary: 197 42 83; --scene-secondary: 255 103 107; --scene-warm: 255 180 119;
+  --scene-page-light: 253 245 241; --scene-page-dark: 30 20 23;
+  --scene-surface-dark: 52 34 40; --scene-input-dark: 65 44 49;
+  --scene-text-dark: 220 186 179; --scene-link-light: 157 35 64; --scene-link-dark: 255 174 160;
+}
+
+:root {
+  --color-cream: var(--scene-page-light);
+  --color-cream-50: var(--scene-page-light);
+  --color-cream-100: var(--scene-page-light);
+  --surface-card: 255 255 255;
+  --surface-muted: var(--scene-page-light);
+  --surface-input: 255 255 255;
+  --color-navy: var(--scene-link-light);
+  --color-navy-400: var(--scene-link-light);
+  --color-navy-700: var(--scene-link-light);
+  --glass-opacity: .76;
+  --glass-drawer-opacity: .94;
+  --glass-shine: 255 255 255;
+  --glass-edge: rgb(255 255 255 / .82);
+  --glass-edge-side: rgb(255 255 255 / .55);
+  --blob-opacity: .19;
+  --border-faint: rgb(var(--scene-primary) / .12);
+  --shadow-card: inset 0 .5px 0 rgb(255 255 255 / .8), 0 7px 25px -12px rgb(var(--scene-primary) / .22), 0 2px 5px rgb(16 24 32 / .04);
+  --shadow-card-hover: inset 0 .5px 0 rgb(255 255 255 / .85), 0 12px 30px -12px rgb(var(--scene-primary) / .28), 0 3px 8px rgb(16 24 32 / .05);
+  --shadow-float-capsule: inset 0 .5px 0 rgb(255 255 255 / .65), 0 12px 32px -8px rgb(var(--scene-primary) / .2);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-cream: var(--scene-page-dark); --color-cream-50: var(--scene-page-dark); --color-cream-100: var(--scene-surface-dark);
+    --surface-card: var(--scene-surface-dark); --surface-muted: var(--scene-input-dark); --surface-input: var(--scene-input-dark);
+    --color-ink-500: var(--scene-text-dark);
+    --color-navy: var(--scene-link-dark); --color-navy-400: var(--scene-link-dark); --color-navy-700: var(--scene-link-dark);
+    --glass-opacity: .8; --glass-shine: var(--scene-text-dark);
+    --glass-edge: rgb(255 255 255 / .2); --glass-edge-side: rgb(255 255 255 / .1);
+    --blob-opacity: .25; --border-faint: rgb(var(--scene-text-dark) / .11);
+    --shadow-card: inset 0 .5px 0 rgb(255 255 255 / .12), 0 10px 28px -13px rgb(0 0 0 / .55), 0 2px 5px rgb(0 0 0 / .16);
+    --shadow-card-hover: inset 0 .5px 0 rgb(255 255 255 / .16), 0 14px 34px -12px rgb(0 0 0 / .65);
+    --shadow-float-capsule: inset 0 .5px 0 rgb(255 255 255 / .16), 0 14px 32px -8px rgb(0 0 0 / .5);
+  }
+}
+:root[data-theme="dark"] {
+  --color-cream: var(--scene-page-dark); --color-cream-50: var(--scene-page-dark); --color-cream-100: var(--scene-surface-dark);
+  --surface-card: var(--scene-surface-dark); --surface-muted: var(--scene-input-dark); --surface-input: var(--scene-input-dark);
+  --color-ink-500: var(--scene-text-dark);
+  --color-navy: var(--scene-link-dark); --color-navy-400: var(--scene-link-dark); --color-navy-700: var(--scene-link-dark);
+  --glass-opacity: .8; --glass-shine: var(--scene-text-dark);
+  --glass-edge: rgb(255 255 255 / .2); --glass-edge-side: rgb(255 255 255 / .1);
+  --blob-opacity: .25; --border-faint: rgb(var(--scene-text-dark) / .11);
+  --shadow-card: inset 0 .5px 0 rgb(255 255 255 / .12), 0 10px 28px -13px rgb(0 0 0 / .55), 0 2px 5px rgb(0 0 0 / .16);
+  --shadow-card-hover: inset 0 .5px 0 rgb(255 255 255 / .16), 0 14px 34px -12px rgb(0 0 0 / .65);
+  --shadow-float-capsule: inset 0 .5px 0 rgb(255 255 255 / .16), 0 14px 32px -8px rgb(0 0 0 / .5);
+}
+
+/* Stationary, diffuse blobs give colour reflection without continuous animation. */
+body { position: relative; isolation: isolate; }
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 8% 12%, rgb(var(--scene-primary) / .85), transparent 52%),
+    radial-gradient(ellipse at 92% 42%, rgb(var(--scene-secondary) / .7), transparent 50%),
+    radial-gradient(ellipse at 20% 88%, rgb(var(--scene-warm) / .8), transparent 52%);
+  opacity: var(--blob-opacity);
+}
+
+.card, .home-card, .glass-panel, .soft-capsule, .soft-drawer, .service-glass {
+  background: linear-gradient(135deg, rgb(var(--glass-shine) / .07), transparent 50%), rgb(var(--surface-card) / var(--glass-opacity));
+  border: 1px solid var(--border-faint);
+  border-top-color: var(--glass-edge);
+  border-left-color: var(--glass-edge-side);
+  box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: blur(18px) saturate(115%);
+  backdrop-filter: blur(18px) saturate(115%);
+}
+.soft-capsule { box-shadow: var(--shadow-float-capsule); }
+.soft-drawer, .glass-panel[role="dialog"], [role="dialog"] .glass-panel { --glass-opacity: var(--glass-drawer-opacity); }
+.glass-muted { background-color: rgb(var(--surface-muted) / .7); }
+.glass-header { background: rgb(var(--color-cream) / .72); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+
+/* Reflections follow the object: cool ride, warmer food, gold list, green parcel. */
+.service-glass { --reflection: var(--scene-primary); position: relative; isolation: isolate; overflow: visible; }
+.service-glass[data-service="food"] { --reflection: var(--scene-secondary); }
+.service-glass[data-service="shopping"] { --reflection: var(--color-gold); }
+.service-glass[data-service="parcel"] { --reflection: var(--color-green); }
+.service-glass::before {
+  content: ""; position: absolute; inset: -12px; z-index: -1; pointer-events: none; border-radius: inherit;
+  background: radial-gradient(ellipse at 50% 65%, rgb(var(--reflection) / .2), transparent 70%);
+}
+.service-glass svg { color: rgb(var(--color-navy)); filter: drop-shadow(0 3px 6px rgb(var(--reflection) / .2)); }
+.service-glass[data-service="shopping"] svg { color: rgb(var(--color-gold)); }
+.service-glass[data-service="parcel"] svg { color: rgb(var(--color-green)); }
+
+.scene-choice {
+  min-height: 88px; min-width: 0; border-radius: 18px; padding: 12px; text-align: left;
+  background: rgb(var(--surface-card) / .48); border: 1px solid var(--border-faint);
+  border-top-color: var(--glass-edge); box-shadow: inset 0 .5px 0 rgb(255 255 255 / .15);
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.scene-choice-selected { border-color: rgb(var(--color-gold)); background: rgb(var(--color-gold) / .1); }
+.scene-swatches { display: flex; align-items: center; margin-bottom: 10px; padding-left: 3px; }
+.scene-swatches > span { width: 30px; height: 30px; border-radius: 50%; margin-left: -3px; border: .5px solid rgb(255 255 255 / .3); box-shadow: 0 2px 4px rgb(0 0 0 / .1); }
+:where(button, a, input, select, textarea):focus-visible { outline: 2px solid rgb(var(--color-gold)); outline-offset: 3px; }
+
+/* The account journey shares the chosen scene while its gold artwork stays warm. */
+:root[data-colour-scene] .auth-scene { background: transparent; }
+:root[data-colour-scene] .auth-primary { background: rgb(var(--color-gold)); color: rgb(var(--color-ink-gold)); border-color: rgb(var(--color-gold)); box-shadow: var(--shadow-glow-gold); }
+:root[data-colour-scene] .auth-secondary, :root[data-colour-scene] .auth-back {
+  background: rgb(var(--surface-card) / .6); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: var(--shadow-card);
+}
+
+/* One flat fill across each field, including compound fields. */
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]), textarea, select, .field-box {
+  background-color: rgb(var(--surface-input) / .94);
+}
+.field-box :is(input, select, textarea):not([type="checkbox"], [type="radio"]) { background-color: transparent; }
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .card, .home-card, .glass-panel, .soft-capsule, .soft-drawer, .service-glass { background: rgb(var(--surface-card)); }
+  .glass-header { background: rgb(var(--color-cream)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card, .home-card, .scene-choice { transition: none; }
+  .card:hover { transform: none; }
+}

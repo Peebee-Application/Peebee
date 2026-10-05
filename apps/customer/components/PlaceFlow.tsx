@@ -72,7 +72,7 @@ function SavedSlider({ saved, onPick, heading }: { saved: SavedLocation[]; onPic
               key={loc.id}
               type="button"
               onClick={() => onPick(place)}
-              className={`flex shrink-0 snap-start items-center gap-3 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3.5 py-3 text-left active:bg-[rgb(var(--surface-muted))] ${
+              className={`flex shrink-0 snap-start items-center gap-3 rounded-2xl border border-[var(--border-faint)] glass-panel px-3.5 py-3 text-left active:bg-[rgb(var(--surface-muted))] ${
                 many ? "w-[70%]" : "w-full"
               }`}
             >
@@ -442,11 +442,11 @@ export function PlaceFlow({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--surface-card))] text-ink shadow-[var(--shadow-float-capsule)] active:scale-95"
+            className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full glass-panel text-ink shadow-[var(--shadow-float-capsule)] active:scale-95"
           >
             <X className="h-5 w-5" strokeWidth={2.25} />
           </button>
-          <span className="pointer-events-none mt-1 rounded-full bg-[rgb(var(--surface-card))] px-4 py-2.5 text-[15px] font-bold text-ink shadow-[var(--shadow-float-capsule)]">
+          <span className="pointer-events-none mt-1 rounded-full glass-panel px-4 py-2.5 text-[15px] font-bold text-ink shadow-[var(--shadow-float-capsule)]">
             {mapTitle}
           </span>
           <span className="h-11 w-11" aria-hidden />
@@ -472,7 +472,7 @@ export function PlaceFlow({
 
       {view === "map" && (
         <div className="absolute inset-x-0 bottom-0 z-20 mx-auto max-w-lg px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <div className="space-y-2.5 rounded-3xl bg-[rgb(var(--surface-card))] p-3 shadow-[var(--shadow-float-capsule)]">
+          <div className="space-y-2.5 rounded-3xl glass-panel p-3 shadow-[var(--shadow-float-capsule)]">
             {fieldRows(false)}
             {confirmButton}
           </div>
@@ -480,7 +480,7 @@ export function PlaceFlow({
       )}
 
       {view === "search" && (
-        <div className="absolute inset-0 z-30 mx-auto flex max-w-lg animate-drawer-in flex-col bg-[rgb(var(--surface-card))]">
+        <div className="absolute inset-0 z-30 mx-auto flex max-w-lg animate-drawer-in flex-col glass-panel">
           <div className="shrink-0 space-y-3 border-b border-[var(--border-faint)] px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <div className="flex items-center gap-2">
               <button

@@ -68,7 +68,7 @@ export default function ChatThreadPage() {
     // it. `fixed` can't be scrolled away by an ancestor no matter what.
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden bg-cream pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col overflow-hidden">
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5">
+        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border-faint)] glass-panel px-3 py-2.5">
           <button
             type="button"
             onClick={() => router.push("/chat")}

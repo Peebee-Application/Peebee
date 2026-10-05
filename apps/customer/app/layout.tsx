@@ -2,6 +2,8 @@ import '@peebee/shared/auth.css';
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
+import "./colour-scenes.css";
+import { COLOUR_SCENE_INIT_SCRIPT } from "../lib/colour-scenes";
 import { AppShell } from "../components/AppShell";
 import { CallOverlay } from "../components/CallOverlay";
 import { InstallPrompt } from "../components/InstallPrompt";
@@ -63,7 +65,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-dvh bg-cream text-ink">
         <Script id="theme-init" strategy="beforeInteractive">
-          {THEME_INIT_SCRIPT}
+          {THEME_INIT_SCRIPT + COLOUR_SCENE_INIT_SCRIPT}
         </Script>
         <ServiceWorkerRegister />
         <OfflineBanner />

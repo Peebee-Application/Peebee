@@ -144,7 +144,7 @@ export function LocationPicker({
       )}
 
       {hasMapLocation && (
-        <details className="group rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))]">
+        <details className="group rounded-2xl border border-[var(--border-faint)] glass-panel">
           <summary className="cursor-pointer list-none px-4 py-3.5 text-base font-semibold text-ink marker:hidden">
             Add address details <span className="font-normal text-ink-500">(optional)</span>
           </summary>

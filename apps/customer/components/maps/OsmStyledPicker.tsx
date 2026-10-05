@@ -203,7 +203,7 @@ export function OsmStyledPicker({ initial, onConfirm, onCancel, tileUrl, jawg, a
           />
         </div>
         {(searching || results.length > 0) && (
-          <div className="absolute inset-x-3 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] shadow-lg">
+          <div className="absolute inset-x-3 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-[var(--border-faint)] glass-panel shadow-lg">
             {searching && <div className="p-3 text-sm text-ink-500">Searching…</div>}
             {results.map((r, i) => (
               <button

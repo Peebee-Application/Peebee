@@ -72,7 +72,7 @@ export function InstallPrompt() {
 
   return (
     <div className="fixed inset-x-0 bottom-20 z-[60] mx-auto max-w-lg px-4">
-      <div className="flex items-center gap-3 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3 shadow-lg">
+      <div className="flex items-center gap-3 rounded-2xl border border-[var(--border-faint)] glass-panel p-3 shadow-lg">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/icons/icon-192.png" alt="" className="h-10 w-10 shrink-0 rounded-xl" />
         <div className="min-w-0 flex-1">

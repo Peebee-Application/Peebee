@@ -643,7 +643,7 @@ export default function WalletPage() {
                 onClick={() => setRecipientCategory(cat)}
                 className={`flex-1 rounded-full py-1 text-[11px] font-bold transition-all ${
                   recipientCategory === cat
-                    ? "bg-[rgb(var(--surface-card))] text-ink shadow-sm"
+                    ? "glass-panel text-ink shadow-sm"
                     : "text-ink-500 hover:text-ink"
                 }`}
               >
@@ -662,7 +662,7 @@ export default function WalletPage() {
               value={sendRecipient}
               onChange={(e) => setSendRecipient(e.target.value)}
               placeholder="Recipient phone or email"
-              className="w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+              className="w-full rounded-xl border border-[var(--border-faint)] glass-panel px-3 py-2.5 text-[15px] outline-none focus:border-gold"
             />
             <div className="relative flex items-center">
               <span className="pointer-events-none absolute left-3 text-xs font-bold text-ink-500">UGX</span>
@@ -672,14 +672,14 @@ export default function WalletPage() {
                 value={sendAmount}
                 onChange={(e) => setSendAmount(e.target.value.replace(/[^\d]/g, ""))}
                 placeholder="Amount to send"
-                className="w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] py-2.5 pl-12 pr-3 text-[15px] font-semibold text-ink outline-none focus:border-gold"
+                className="w-full rounded-xl border border-[var(--border-faint)] glass-panel py-2.5 pl-12 pr-3 text-[15px] font-semibold text-ink outline-none focus:border-gold"
               />
             </div>
             <input
               value={sendNote}
               onChange={(e) => setSendNote(e.target.value.slice(0, 140))}
               placeholder="Note (e.g. Groceries or rent share)"
-              className="w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+              className="w-full rounded-xl border border-[var(--border-faint)] glass-panel px-3 py-2.5 text-[15px] outline-none focus:border-gold"
             />
 
             <div className="space-y-2 pt-1">
@@ -855,7 +855,7 @@ export default function WalletPage() {
                 type="button"
                 onClick={() => setReportPeriod(p)}
                 className={`rounded-full px-2.5 py-1 text-[11px] font-bold capitalize ${
-                  reportPeriod === p ? "bg-[rgb(var(--surface-card))] text-ink shadow-sm" : "text-ink-500"
+                  reportPeriod === p ? "glass-panel text-ink shadow-sm" : "text-ink-500"
                 }`}
               >
                 {p}
