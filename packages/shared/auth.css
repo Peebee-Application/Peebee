@@ -1,7 +1,7 @@
 .auth-scene{--auth-ink:var(--color-ink,var(--ink));--auth-muted:var(--color-ink-500,var(--ink-muted));--auth-bg:var(--color-cream,var(--cream));--auth-gold:var(--color-gold,var(--gold));--auth-ink-gold:var(--color-ink-gold,10 10 10);position:relative;isolation:isolate;min-height:100dvh;overflow:hidden;background:rgb(var(--auth-bg));color:rgb(var(--auth-ink));padding:32px 24px 40px}
 .auth-content{position:relative;z-index:1;width:100%;max-width:390px;margin:0 auto;padding-top:210px;animation:auth-enter .5s ease-out both}
 .auth-art{position:absolute;z-index:0;pointer-events:none;top:0;left:50%;width:min(100%,820px);height:350px;transform:translateX(-50%);mask-image:linear-gradient(to bottom,#000 0%,#000 48%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 48%,transparent 100%)}
-.auth-art img{height:100%;width:100%;object-fit:cover;object-position:center 36%;animation:auth-float 14s ease-in-out infinite}
+.auth-art img{height:100%;width:100%;object-fit:cover;object-position:center top;animation:auth-float 14s ease-in-out infinite}
 .auth-brand{display:flex;align-items:center;gap:8px;margin-bottom:28px;font-size:22px;font-weight:900;letter-spacing:-.8px}
 .auth-brand img{width:32px;height:32px;object-fit:contain}.auth-logo-dark{display:none}
 .auth-scene h1{font-size:34px;line-height:1.08;font-weight:900;letter-spacing:-1.2px;margin:0 0 12px;max-width:340px;text-align:left}
