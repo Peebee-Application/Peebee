@@ -15,6 +15,7 @@ import { extensionForMime, baseMimeType } from '../lib/mime.js';
 import { activate, activationPreview, enroll, enrollmentSchema, invite, OnboardingError, normalizePhone } from './service.js';
 import { onboardingSettings, saveOnboardingSettings, settingsSchema } from './messaging.js';
 import { isAwaitingActivation } from './state.js';
+import { salesAccess } from './access.js';
 
 export const onboardingRoutes=new Hono();
 onboardingRoutes.onError((error,c)=>{
@@ -37,6 +38,41 @@ async function agent(c:Context,next:Next) {
 onboardingRoutes.use('/sales/*',requireAuth,ready,agent);
 onboardingRoutes.use('/admin/onboarding/*',requireAuth,ready,requireSuperAdmin());
 onboardingRoutes.use('/onboarding/*',ready);
+onboardingRoutes.use('/sales-access/*',requireAuth,ready);
+onboardingRoutes.get('/sales-access/status',async c=>{
+  const user=c.get('user');
+  return c.json({status:await salesAccess(user.sub,user.adminRole==='super_admin')});
+});
+onboardingRoutes.post('/sales-access/request',async c=>{
+  const parsed=z.object({consent:z.literal(true)}).safeParse(await c.req.json().catch(()=>null));
+  if(!parsed.success)return c.json({error:'consent_required',message:'Confirm that you want to apply for sales-agent access.'},400);
+  if(!(await hasTable('sales_agent_requests')))return c.json({error:'sales_requests_not_ready',message:'Sales applications are temporarily unavailable.'},503);
+  const user=c.get('user'),status=await salesAccess(user.sub,user.adminRole==='super_admin');
+  if(status==='none'){
+    if(!(await onboardingSettings()).enabled)return c.json({error:'onboarding_disabled',message:'Sales applications are paused by Admin.'},403);
+    const r=await db.execute({sql:"INSERT INTO sales_agent_requests (user_id) VALUES (?) ON CONFLICT(user_id) DO NOTHING",args:[user.sub]});
+    if(r.rowsAffected)await logActivity({actor:user,action:'sales.agent.apply',entityType:'user',entityId:user.sub,summary:'Requested sales-agent approval',ip:clientIp(c)});
+  }
+  return c.json({status:await salesAccess(user.sub,user.adminRole==='super_admin')});
+});
+onboardingRoutes.get('/admin/onboarding/requests',async c=>{
+  if(!(await hasTable('sales_agent_requests')))return c.json({requests:[]});
+  return c.json({requests:(await db.execute("SELECT r.user_id,r.status,r.created_at,u.name,u.email,u.phone FROM sales_agent_requests r JOIN users u ON u.id=r.user_id ORDER BY r.created_at DESC LIMIT 100")).rows});
+});
+onboardingRoutes.post('/admin/onboarding/requests/:id',async c=>{
+  const parsed=z.object({decision:z.enum(['approved','rejected'])}).safeParse(await c.req.json().catch(()=>null));
+  if(!parsed.success)return c.json({error:'invalid_body'},400);
+  if(!(await hasTable('sales_agent_requests')))return c.json({error:'sales_requests_not_ready'},503);
+  const id=c.req.param('id'),user=c.get('user'),decision=parsed.data.decision;
+  const results=await executeBatch([
+    {sql:"UPDATE sales_agent_requests SET status=?,reviewed_by=?,reviewed_at=datetime('now') WHERE user_id=? AND status='pending' AND EXISTS (SELECT 1 FROM users u WHERE u.id=user_id AND u.status='active')",args:[decision,user.sub,id]},
+    // Only the winning reviewer may grant access; a replay or competing decision cannot re-enable an agent.
+    {sql:"INSERT INTO sales_agents (user_id,created_by) SELECT r.user_id,? FROM sales_agent_requests r JOIN users u ON u.id=r.user_id WHERE r.user_id=? AND r.status='approved' AND r.reviewed_by=? AND u.status='active' ON CONFLICT(user_id) DO NOTHING",args:[user.sub,id,user.sub]},
+  ]);
+  if(!results[0])return c.json({error:'already_reviewed',message:'This application has already been reviewed.'},409);
+  await logActivity({actor:user,action:`sales.agent.${decision}`,entityType:'user',entityId:id,summary:`${decision==='approved'?'Approved':'Rejected'} sales-agent application`,ip:clientIp(c)});
+  return c.json({ok:true});
+});
 
 onboardingRoutes.get('/sales/me',c=>c.json({user:{id:c.get('user').sub,name:c.get('user').name},superAdmin:c.get('user').adminRole==='super_admin'}));
 onboardingRoutes.get('/sales/categories',async c=>c.json({categories:(await db.execute('SELECT id,name FROM merchant_categories WHERE active=1 ORDER BY sort_order,name')).rows}));

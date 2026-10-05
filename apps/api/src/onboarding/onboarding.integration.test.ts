@@ -2,6 +2,13 @@ import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import test from 'node:test';
+import {generateKeyPair,exportJWK,SignJWT} from 'jose';
+import https from 'node:https';
+import {syncBuiltinESMExports} from 'node:module';
+import {EventEmitter} from 'node:events';
+import {Readable} from 'node:stream';
+import {hashCode} from '../verify/otp.js';
+import {activateGoogleAgent} from './access.js';
 import {createClient,type InArgs} from '@libsql/client/node';
 import {setD1Binding,type D1Database} from '../db/client.js';
 import {splitSqlStatements} from '../db/split-sql.js';
@@ -28,7 +35,17 @@ test('sales onboarding: access, atomic profiles, messaging and one-time activati
   await client.execute("INSERT INTO sales_agents (user_id,created_by) VALUES ('agent','admin'),('other','admin')");
   const tokens:Record<string,string>={};for(const who of ['admin','agent','other','plain'])tokens[who]=await signToken({sub:who,role:who==='admin'?'admin':'customer'});
   const outbox:Array<{to:string;link:string}>=[];let mode:'success'|'reject'|'unknown'='success';
+  const keys=await generateKeyPair('RS256');const publicKey={...await exportJWK(keys.publicKey),kid:'sales-test',alg:'RS256',use:'sig'};
+  process.env.GOOGLE_CLIENT_ID='sales-test-client';
+  t.mock.method(https,'get',(url:unknown)=>{
+    assert.equal(String(url),'https://www.googleapis.com/oauth2/v3/certs');
+    const request=new EventEmitter();
+    process.nextTick(()=>request.emit('response',Object.assign(Readable.from([Buffer.from(JSON.stringify({keys:[publicKey]}))]),{statusCode:200})));
+    return request as ReturnType<typeof https.get>;
+  });
+  syncBuiltinESMExports();
   globalThis.fetch=async(url,options)=>{
+    if(String(url)==='https://www.googleapis.com/oauth2/v3/certs')return new Response(JSON.stringify({keys:[publicKey]}),{status:200,headers:{'Content-Type':'application/json'}});
     assert.match(String(url),/^https:\/\/(api\.resend\.com|graph\.facebook\.com|api\.africastalking\.com)/);
     if(mode==='unknown')throw new Error('network outcome unknown');
     if(mode==='reject')return new Response(JSON.stringify({name:'provider_error'}),{status:400,headers:{'Content-Type':'application/json'}});
@@ -126,5 +143,53 @@ test('sales onboarding: access, atomic profiles, messaging and one-time activati
     await t.test('disabling an agent immediately removes their access',async()=>{
       await client.execute("UPDATE sales_agents SET enabled=0 WHERE user_id='agent'");assert.equal((await call('GET','/sales/onboarding')).status,403);
     });
-  }finally{globalThis.fetch=realFetch;process.env=environment;setD1Binding(undefined);resetSchemaCache();client.close();}
+    await t.test('Google signup remains pending until a super admin approves, with idempotent decisions',async()=>{
+      const credential=await new SignJWT({email:'google-sales@example.invalid',email_verified:true,name:'Google Sales'}).setProtectedHeader({alg:'RS256',kid:'sales-test'}).setIssuer('https://accounts.google.com').setAudience('sales-test-client').setSubject('google-sales').setIssuedAt().setExpirationTime('5m').sign(keys.privateKey);
+      const signedIn=await call('POST','/auth/google',{idToken:credential,app:'sales'},'none');assert.equal(signedIn.status,200);
+      const session=await signedIn.json() as {token:string;user:{id:string}};tokens.google=session.token;
+      assert.equal((await call('POST','/sales-access/request',{consent:false},'google')).status,400);
+      assert.equal((await (await call('POST','/sales-access/request',{consent:true},'google')).json() as {status:string}).status,'pending');
+      await call('POST','/sales-access/request',{consent:true},'google');
+      assert.equal((await client.execute({sql:'SELECT COUNT(*) AS n FROM sales_agent_requests WHERE user_id=?',args:[session.user.id]})).rows[0].n,1);
+      assert.equal((await call('GET','/sales/me',undefined,'google')).status,403);
+      assert.equal((await call('POST',`/admin/onboarding/requests/${session.user.id}`,{decision:'approved'},'agent')).status,403);
+      assert.equal((await call('POST',`/admin/onboarding/requests/${session.user.id}`,{decision:'approved'},'admin')).status,200);
+      assert.equal((await call('GET','/sales/me',undefined,'google')).status,200);
+      await client.execute({sql:'UPDATE sales_agents SET enabled=0 WHERE user_id=?',args:[session.user.id]});
+      assert.equal((await call('POST',`/admin/onboarding/requests/${session.user.id}`,{decision:'approved'},'admin')).status,409);
+      const again=await call('POST','/auth/google',{idToken:credential,app:'sales'},'none');assert.equal(again.status,200);
+      tokens.google=(await again.json() as {token:string}).token;
+      assert.equal((await (await call('POST','/sales-access/request',{consent:true},'google')).json() as {status:string}).status,'disabled');
+      assert.equal((await call('GET','/sales/onboarding',undefined,'google')).status,403);
+      assert.equal((await call('POST','/auth/google',{idToken:'invalid-google-token',app:'sales'},'none')).status,401);
+    });
+    await t.test('rejected applications and competing reviews cannot grant sales access',async()=>{
+      await call('POST','/sales-access/request',{consent:true},'plain');
+      const result=await Promise.all([call('POST','/admin/onboarding/requests/plain',{decision:'rejected'},'admin'),call('POST','/admin/onboarding/requests/plain',{decision:'approved'},'admin')]);
+      assert.deepEqual(result.map(r=>r.status).sort(),[200,409]);
+      assert.equal((await call('GET','/sales/me',undefined,'plain')).status,403);
+      assert.equal((await (await call('POST','/sales-access/request',{consent:true},'plain')).json() as {status:string}).status,'rejected');
+    });
+    await t.test('password recovery preserves approval and rejects wrong or reused codes',async()=>{
+      const hash=await hashCode('123456');
+      await client.execute({sql:"INSERT INTO otp_codes (id,user_id,channel,target,code_hash,purpose,expires_at) VALUES ('sales-reset','agent','email','agent@example.invalid',?,'reset',?)",args:[hash,new Date(Date.now()+600000).toISOString()]});
+      assert.equal((await call('POST','/auth/password/reset/confirm',{identifier:'agent@example.invalid',code:'000000',newPassword:'RecoveredPassword123'},'none')).status,400);
+      const reset=await call('POST','/auth/password/reset/confirm',{identifier:'agent@example.invalid',code:'123456',newPassword:'RecoveredPassword123'},'none');assert.equal(reset.status,200);
+      tokens.agent=(await reset.json() as {token:string}).token;
+      assert.equal((await call('GET','/sales/me')).status,403);
+      assert.equal((await (await call('GET','/sales-access/status')).json() as {status:string}).status,'disabled');
+      assert.equal((await call('POST','/auth/password/reset/confirm',{identifier:'agent@example.invalid',code:'123456',newPassword:'OtherPassword123'},'none')).status,400);
+      assert.equal((await call('POST','/auth/login',{identifier:'agent@example.invalid',password:'RecoveredPassword123'},'none')).status,200);
+    });
+    await t.test('Google activation only activates invited agents and never approves them',async()=>{
+      const account=await enroll(emailOnly('customer','stillunactivated'),'other');
+      const id=String((await client.execute({sql:'SELECT user_id FROM onboarding_accounts WHERE id=?',args:[account.id]})).rows[0].user_id);
+      await activateGoogleAgent(id);
+      assert.equal((await client.execute({sql:'SELECT activated_at FROM onboarding_accounts WHERE id=?',args:[account.id]})).rows[0].activated_at,null);
+      await client.execute({sql:"UPDATE onboarding_accounts SET account_type='agent' WHERE id=?",args:[account.id]});
+      await activateGoogleAgent(id);
+      assert.ok((await client.execute({sql:'SELECT activated_at FROM onboarding_accounts WHERE id=?',args:[account.id]})).rows[0].activated_at);
+      assert.equal((await client.execute({sql:'SELECT 1 FROM sales_agents WHERE user_id=?',args:[id]})).rows.length,0);
+    });
+  }finally{t.mock.restoreAll();syncBuiltinESMExports();globalThis.fetch=realFetch;process.env=environment;setD1Binding(undefined);resetSchemaCache();client.close();}
 });

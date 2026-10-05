@@ -18,7 +18,7 @@ export default function Sales(){
   const requestId=useRef('');const draft=drafts[type];
   const load=useCallback(async()=>{const data=await request<{records:OnboardingRecord[]}>('/sales/onboarding');setRecords(data.records);},[]);
   useEffect(()=>{let alive=true;requestId.current=crypto.randomUUID();if(!localStorage.getItem(TOKEN_KEY)){window.location.replace('/login');return;}
-    Promise.all([request<{user:{name:string};superAdmin:boolean}>('/sales/me'),request<{categories:Array<{id:string;name:string}>}>('/sales/categories')]).then(([session,data])=>{if(alive){setMe(session);setCategories(data.categories);return load();}}).catch(e=>{if(alive)setError(e.message);});return()=>{alive=false;};},[load]);
+    request<{status:string}>('/sales-access/status').then(async access=>{if(!alive)return;if(access.status!=='approved'){window.location.replace('/approval');return;}const [session,data]=await Promise.all([request<{user:{name:string};superAdmin:boolean}>('/sales/me'),request<{categories:Array<{id:string;name:string}>}>('/sales/categories')]);if(alive){setMe(session);setCategories(data.categories);await load();}}).catch(e=>{if(alive)setError(e.message);});return()=>{alive=false;};},[load]);
   function profile(key:string,value:string|number){setDrafts(old=>({...old,[type]:{...old[type],profile:{...old[type].profile,[key]:value}}}));}
   function file(key:string,value:File|undefined){setDrafts(old=>{const files={...old[type].files};if(value)files[key]=value;else delete files[key];return {...old,[type]:{...old[type],files}};});}
   async function locate(){setError('');if(!navigator.geolocation){setError('Location is unavailable on this device. Enter the coordinates below.');return;}
