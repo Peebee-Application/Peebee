@@ -20,6 +20,7 @@ import { appBaseUrl, createAndSendOtp, maskTarget } from "../verify/service.js";
 import { toAuthUser } from "./serialize.js";
 import { signToken, TOKEN_TTL_SECONDS } from "./jwt.js";
 import { requireAuth } from "./middleware.js";
+import { activateGoogleAgent } from "../onboarding/access.js";
 
 export const authRoutes = new Hono();
 
@@ -239,12 +240,13 @@ const googleJwks = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2
 const googleAuthSchema = z.object({
   idToken: z.string().min(10),
   role: z.enum(["customer", "rider"]).default("customer"),
+  app: z.literal('sales').optional(),
 });
 
 authRoutes.post("/google", async (c) => {
   const parsed = googleAuthSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
-  const { idToken, role } = parsed.data;
+  const { idToken, role, app } = parsed.data;
 
   const ipCheck = await ipLimited(c, "login");
   if (!ipCheck.allowed) {
@@ -281,7 +283,7 @@ authRoutes.post("/google", async (c) => {
   // here as-is would hand back a token that every route in this app rejects
   // (e.g. a customer landing in the rider app gets 403s everywhere). Tell
   // them where their account actually lives instead of leaving them stuck.
-  if (row && row.role !== role) {
+  if (row && row.role !== role && app !== 'sales') {
     const appName = row.role === "rider" ? "rider" : row.role === "admin" ? "admin" : "customer";
     return c.json(
       {
@@ -320,6 +322,7 @@ authRoutes.post("/google", async (c) => {
     row = userRow.rows[0] as unknown as typeof row;
   }
 
+  if (app === 'sales') await activateGoogleAgent(row!.id);
   const token = await signToken({ sub: row!.id, role: row!.role, phone: row!.phone });
   return c.json({
     token,
