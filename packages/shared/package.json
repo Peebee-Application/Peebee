@@ -9,7 +9,9 @@
     ".": "./src/index.ts",
     "./select": "./src/Select.tsx",
     "./select.css": "./select.css",
-    "./activation": "./src/ActivationPage.tsx"
+    "./activation": "./src/ActivationPage.tsx",
+    "./auth": "./src/AuthScene.tsx",
+    "./auth.css": "./auth.css"
   },
   "scripts": {
     "lint": "tsc --noEmit",

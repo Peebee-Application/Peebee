@@ -9,7 +9,7 @@ import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./Pra
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAuthPage = pathname === "/login" || pathname === "/forgot-password" || pathname.startsWith("/verify") || pathname.startsWith("/trip/");
+  const isAuthPage = pathname === "/login" || pathname === "/activate" || pathname === "/forgot-password" || pathname.startsWith("/verify") || pathname.startsWith("/trip/");
   // "/chat" itself is a normal list screen (conversations) with the usual
   // header + nav; a specific thread ("/chat/<counterpartId>" for order
   // chat, or "/restaurants/<id>/chat" for restaurant chat) takes over the

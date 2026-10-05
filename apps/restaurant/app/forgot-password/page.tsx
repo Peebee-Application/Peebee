@@ -1,6 +1,6 @@
 "use client";
+import { AuthScene } from "@peebee/shared/auth";
 
-import { BrandLogo } from "../../components/BrandLogo";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -53,9 +53,8 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col justify-center px-6 py-10">
+    <AuthScene><div className="auth-legacy">
       <div className="mx-auto w-full max-w-sm space-y-6">
-        <BrandLogo wordmark={false} className="justify-center" />
 
         <div className="space-y-1 text-center">
           <h1 className="text-xl font-bold text-ink">Reset your password</h1>
@@ -156,6 +155,6 @@ export default function ForgotPasswordPage() {
           Back to log in
         </Link>
       </div>
-    </div>
+    </div></AuthScene>
   );
 }

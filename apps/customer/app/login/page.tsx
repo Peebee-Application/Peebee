@@ -1,6 +1,6 @@
 "use client";
+import { AuthJourney } from "@peebee/shared/auth";
 
-import { BrandLogo } from "../../components/BrandLogo";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -42,26 +42,7 @@ export default function LoginPage() {
     }
   }
 
-  return (
-    <div className="flex min-h-dvh flex-col justify-center px-6 py-10">
-      <div className="mx-auto w-full max-w-sm space-y-6">
-        <BrandLogo wordmark={false} className="justify-center" />
-
-        <div className="flex rounded-full bg-[rgb(var(--surface-muted))] p-1">
-          {(["login", "register"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={`flex-1 rounded-full py-2 text-sm font-semibold transition-colors ${
-                mode === m ? "bg-[rgb(var(--surface-card))] text-ink shadow-sm" : "text-ink-500"
-              }`}
-            >
-              {m === "login" ? "Log in" : "Sign up"}
-            </button>
-          ))}
-        </div>
-
+  return <AuthJourney mode={mode} onModeChange={setMode} busy={busy} welcomeTitle="Your day, delivered." description="Shopping, errands and rides. Let Peebee take care of the little things." signupTitle="Ready to start?">
         <form onSubmit={onSubmit} className="card space-y-4 !p-5">
           {mode === "login" ? (
             <div className="space-y-1">
@@ -160,7 +141,8 @@ export default function LoginPage() {
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
           )}
 
-          <button
+          <GoogleSignInButton role="customer" />
+<button
             type="submit"
             disabled={busy}
             className="flex min-h-12 w-full items-center justify-center rounded-full bg-gold px-4 py-3 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
@@ -175,8 +157,6 @@ export default function LoginPage() {
           )}
         </form>
 
-        <GoogleSignInButton role="customer" />
-      </div>
-    </div>
-  );
+
+  </AuthJourney>;
 }

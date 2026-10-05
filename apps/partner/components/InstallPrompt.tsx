@@ -1,4 +1,5 @@
 "use client";
+import { usePathname } from "next/navigation";
 
 import Image from "next/image";
 import { Download, X } from "lucide-react";
@@ -24,6 +25,7 @@ function isIos() {
 }
 
 export function InstallPrompt() {
+  const pathname = usePathname();
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [iosHint, setIosHint] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -63,7 +65,7 @@ export function InstallPrompt() {
     setVisible(false);
   }
 
-  if (!visible) return null;
+  if (!visible || ["/login", "/forgot-password", "/activate", "/set-password", "/approval"].includes(pathname) || pathname.startsWith("/verify")) return null;
 
   return (
     <div className="fixed inset-x-0 bottom-20 z-[60] mx-auto max-w-lg px-4">

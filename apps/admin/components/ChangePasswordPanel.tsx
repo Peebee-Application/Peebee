@@ -63,6 +63,7 @@ export function ChangePasswordPanel({ onDone }: { onDone?: () => void } = {}) {
         </label>
         <PasswordInput
           id="currentPassword"
+          placeholder="Current password"
           required
           autoComplete="current-password"
           value={currentPassword}
@@ -77,6 +78,7 @@ export function ChangePasswordPanel({ onDone }: { onDone?: () => void } = {}) {
         </label>
         <PasswordInput
           id="newPassword"
+          placeholder="New password"
           required
           minLength={6}
           autoComplete="new-password"
@@ -92,6 +94,7 @@ export function ChangePasswordPanel({ onDone }: { onDone?: () => void } = {}) {
         </label>
         <PasswordInput
           id="confirmPassword"
+          placeholder="Confirm new password"
           required
           minLength={6}
           autoComplete="new-password"

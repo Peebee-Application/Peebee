@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
+import { AuthScene } from './AuthScene.js';
 import type { AuthUser } from './domain.js';
 
 export function ActivationPage({apiUrl,accountType,onActivated}:{apiUrl:string;accountType:string;onActivated:(token:string,user:AuthUser)=>void}) {
@@ -22,9 +23,7 @@ export function ActivationPage({apiUrl,accountType,onActivated}:{apiUrl:string;a
       onActivated(data.token,data.user);window.history.replaceState(null,'','/activate');window.location.replace('/');
     }catch(e){setError(e instanceof Error?e.message:'Activation could not be completed.');}finally{setBusy(false);}
   }
-  return <section className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-12">
-    <img src="/brand/peebee-logo-light.png?v=logos-3" className="mx-auto h-20 w-20 dark:hidden" alt="Peebee" width={256} height={256}/>
-    <img src="/brand/peebee-logo-dark.png?v=dark-4" className="mx-auto hidden h-20 w-20 dark:block" alt="Peebee" width={256} height={256}/>
+  return <AuthScene><section className="auth-legacy">
     <h1 className="mt-6 text-center text-2xl font-black">Activate your account</h1>
     <p className="mt-2 text-center text-sm text-ink-500">{name?`Welcome, ${name}. `:''}Your {accountType==='agent'?'sales-agent':accountType} details are already saved. Choose your password to get started.</p>
     {error&&<p role="alert" className="mt-5 rounded-xl border border-[var(--border-faint)] p-4 text-sm">{error}</p>}
@@ -35,5 +34,5 @@ export function ActivationPage({apiUrl,accountType,onActivated}:{apiUrl:string;a
       <label className="block text-sm font-semibold">Confirm password<input type="password" autoComplete="new-password" minLength={10} maxLength={100} required value={confirm} onChange={e=>setConfirm(e.target.value)} className="mt-2 w-full rounded-xl border border-[var(--border-faint)] px-4 py-3"/></label>
       <button disabled={busy} className="w-full rounded-full bg-gold px-5 py-3 font-bold text-ink-gold">{busy?'Activating…':'Activate my account'}</button>
     </form>}
-  </section>;
+  </section></AuthScene>;
 }

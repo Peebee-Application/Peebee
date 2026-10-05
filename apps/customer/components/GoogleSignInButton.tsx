@@ -60,7 +60,7 @@ export function GoogleSignInButton({ role }: { role: "customer" | "rider" }) {
 
   return (
     <div className="space-y-2">
-      <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
+      <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onReady={() => setScriptReady(true)} />
       <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-[var(--border-faint)]" />
         <span className="text-xs font-semibold text-ink-500">OR</span>

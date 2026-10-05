@@ -1,6 +1,6 @@
 "use client";
+import { AuthScene } from "@peebee/shared/auth";
 
-import { BrandLogo } from "../../components/BrandLogo";
 
 import { isUserVerified } from "@peebee/shared";
 import { useRouter } from "next/navigation";
@@ -88,9 +88,8 @@ export default function VerifyPage() {
   const hasBothChannels = hasEmail && hasPhone;
 
   return (
-    <div className="flex min-h-dvh flex-col justify-center px-6 py-10">
+    <AuthScene><div className="auth-legacy">
       <div className="mx-auto w-full max-w-sm space-y-6">
-        <BrandLogo wordmark={false} className="justify-center" />
 
         <div className="space-y-1 text-center">
           <h1 className="text-xl font-bold text-ink">Verify your account</h1>
@@ -165,6 +164,6 @@ export default function VerifyPage() {
           Log out
         </button>
       </div>
-    </div>
+    </div></AuthScene>
   );
 }
