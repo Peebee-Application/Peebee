@@ -104,7 +104,7 @@ function FoodItemCard({ item, onOpen }: { item: MenuItem; onOpen: () => void }) 
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full flex-col overflow-hidden rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-left shadow-sm"
+      className="flex w-full flex-col overflow-hidden rounded-3xl border border-[var(--border-faint)] glass-panel text-left shadow-sm"
     >
       <div className="relative flex h-32 w-full items-center justify-center bg-green/10">
         {item.badge && (
@@ -226,7 +226,7 @@ function ItemDetailModal({
             <button
               type="button"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgb(var(--surface-card))] text-ink"
+              className="flex h-8 w-8 items-center justify-center rounded-full glass-panel text-ink"
             >
               <Minus className="h-4 w-4" strokeWidth={2} aria-hidden />
             </button>
@@ -234,7 +234,7 @@ function ItemDetailModal({
             <button
               type="button"
               onClick={() => setQuantity((q) => q + 1)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgb(var(--surface-card))] text-ink"
+              className="flex h-8 w-8 items-center justify-center rounded-full glass-panel text-ink"
             >
               <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
             </button>

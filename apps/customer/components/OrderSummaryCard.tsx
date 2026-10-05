@@ -15,7 +15,7 @@ export function OrderSummaryCard({ order, items }: { order: OrderRow; items: Lis
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="shrink-0 border-b border-[var(--border-faint)] bg-[rgb(var(--surface-card))]">
+    <div className="shrink-0 border-b border-[var(--border-faint)] glass-panel">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

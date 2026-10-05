@@ -131,7 +131,7 @@ export default function PaymentPage() {
                 {choices.length > 1 && (
                   <div className="space-y-2">
                     <label htmlFor="payment-wallet" className="block text-sm font-semibold">Select wallet</label>
-                    <Select id="payment-wallet" value={walletKey} onValueChange={(value) => setWalletKey(value)} disabled={busy || pending} className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 text-base">
+                    <Select id="payment-wallet" value={walletKey} onValueChange={(value) => setWalletKey(value)} disabled={busy || pending} className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] glass-panel px-3 text-base">
                       {choices.map((w) => <option key={w.key} value={w.key}>{w.name}</option>)}
                     </Select>
                   </div>

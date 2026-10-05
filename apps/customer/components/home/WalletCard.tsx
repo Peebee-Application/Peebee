@@ -62,7 +62,7 @@ export function WalletCard() {
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {/* Card 1: Primary Personal MoMo Wallet */}
-        <div className="snap-start w-[84vw] max-w-[320px] shrink-0 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm hover:border-gold/30 transition-all flex flex-col justify-between">
+        <div className="snap-start w-[84vw] max-w-[320px] shrink-0 rounded-2xl border border-[var(--border-faint)] glass-panel p-4 shadow-sm hover:border-gold/30 transition-all flex flex-col justify-between">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2.5">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
@@ -109,7 +109,7 @@ export function WalletCard() {
         {activeReceived.map((share) => (
           <div
             key={share.id}
-            className="snap-start w-[84vw] max-w-[320px] shrink-0 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm hover:border-gold/30 transition-all flex flex-col justify-between"
+            className="snap-start w-[84vw] max-w-[320px] shrink-0 rounded-2xl border border-[var(--border-faint)] glass-panel p-4 shadow-sm hover:border-gold/30 transition-all flex flex-col justify-between"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2.5">
@@ -147,7 +147,7 @@ export function WalletCard() {
 
         {/* Card Granted: Shared Wallets Managed by You */}
         {activeGranted.length > 0 && (
-          <div className="snap-start w-[84vw] max-w-[320px] shrink-0 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm hover:border-gold/30 transition-all flex flex-col justify-between">
+          <div className="snap-start w-[84vw] max-w-[320px] shrink-0 rounded-2xl border border-[var(--border-faint)] glass-panel p-4 shadow-sm hover:border-gold/30 transition-all flex flex-col justify-between">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2.5">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy/15 text-navy">

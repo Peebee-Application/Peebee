@@ -68,7 +68,7 @@ export function MessageActionSheet({
     <div className="fixed inset-0 z-[90]">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
-        className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-[rgb(var(--surface-card))] pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(10,10,10,0.2)]"
+        className="absolute inset-x-0 bottom-0 rounded-t-3xl glass-panel pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(10,10,10,0.2)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-center pb-1 pt-2.5">

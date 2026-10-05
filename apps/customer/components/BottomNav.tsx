@@ -81,7 +81,7 @@ export function BottomNav() {
             <button
               type="button"
               onClick={() => setTrackerDrawerOpen(true)}
-              className="pointer-events-auto flex items-center gap-2 rounded-full bg-[rgb(var(--surface-card))] border border-gold/30 px-3.5 py-1.5 shadow-[var(--shadow-float-capsule)] animate-drawer-in active:scale-95 transition-transform"
+              className="pointer-events-auto flex items-center gap-2 rounded-full glass-panel border border-gold/30 px-3.5 py-1.5 shadow-[var(--shadow-float-capsule)] animate-drawer-in active:scale-95 transition-transform"
             >
               <span className="flex h-2 w-2 rounded-full bg-green animate-pulse" />
               <ShoppingBag className="h-3.5 w-3.5 text-gold" strokeWidth={2.2} />

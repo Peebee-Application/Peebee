@@ -31,7 +31,7 @@ export function ServiceTiles({
   ];
   const inner = (tile: Tile) => (
     <>
-      <span className={`flex h-16 w-full items-center justify-center rounded-2xl bg-[rgb(var(--surface-muted))] text-ink ${paused[tile.key] ? "opacity-40" : ""}`}>
+      <span data-service={tile.key} className={`service-glass flex h-16 w-full items-center justify-center rounded-2xl text-ink ${paused[tile.key] ? "opacity-40" : ""}`}>
         <tile.icon className="h-7 w-7" strokeWidth={1.75} aria-hidden />
       </span>
       <span className="text-[13px] font-semibold text-ink">{t(tile.labelKey)}</span>

@@ -84,7 +84,7 @@ export function OrderTimeline({
                       ? "border-green bg-green/10 text-green"
                       : isCurrent
                         ? "border-gold bg-gold/10 text-gold"
-                        : "border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-ink-500/40"
+                        : "border-[var(--border-faint)] glass-panel text-ink-500/40"
                   }`}
                 >
                   <Icon className="h-4 w-4" strokeWidth={2} aria-hidden />

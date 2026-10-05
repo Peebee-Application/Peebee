@@ -1,10 +1,12 @@
 "use client";
 
-import { Map, Moon, Smartphone, Sun } from "lucide-react";
+import { Check, Map, Moon, Smartphone, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useMapStylePref, type MapStylePref } from "../lib/mapStyle";
 import { useThemeMode, type ThemeMode } from "../lib/theme";
+import { COLOUR_SCENES } from "../lib/colour-scenes";
+import { useColourScene } from "../lib/use-colour-scene";
 
 const OPTIONS: { mode: ThemeMode; label: string; hint: string; icon: typeof Sun }[] = [
   { mode: "auto", label: "Auto", hint: "Switches with the time of day", icon: Smartphone },
@@ -60,6 +62,7 @@ function MapStyleSetting() {
 
 export function AppearanceSettings() {
   const { mode, setMode } = useThemeMode();
+  const { scene, setScene } = useColourScene();
 
   return (
     <section className="home-card space-y-2.5">
@@ -72,6 +75,7 @@ export function AppearanceSettings() {
             <button
               key={opt.mode}
               type="button"
+              aria-pressed={active}
               onClick={() => setMode(opt.mode)}
               className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center ${
                 active ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"
@@ -84,6 +88,28 @@ export function AppearanceSettings() {
         })}
       </div>
       <p className="text-xs text-ink-500">{OPTIONS.find((o) => o.mode === mode)?.hint}</p>
+      <div className="space-y-3 border-t border-[var(--border-faint)] pt-4">
+        <h3 className="text-sm font-semibold text-ink">Colour theme</h3>
+        <p className="text-xs text-ink-500">Find your colour. Gold stays with you in every theme.</p>
+        <div className="grid grid-cols-2 gap-2.5" role="group" aria-label="Colour theme">
+          {COLOUR_SCENES.map((option) => {
+            const selected = scene === option.id;
+            return (
+              <button key={option.id} type="button" onClick={() => setScene(option.id)}
+                aria-pressed={selected} aria-label={`${option.name} colour theme`}
+                className={`scene-choice ${selected ? "scene-choice-selected" : ""}`}>
+                <span aria-hidden="true" className="scene-swatches">
+                  {option.colours.map((colour) => <span key={colour} style={{ backgroundColor: colour }} />)}
+                </span>
+                <span className="flex items-center justify-between gap-1 text-xs font-semibold text-ink">
+                  {option.name}
+                  {selected && <Check className="h-3.5 w-3.5 shrink-0 text-gold" aria-hidden="true" />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
       <MapStyleSetting />
     </section>
   );

@@ -204,7 +204,7 @@ export function MobileNumberPicker({
                 if (autoSave && numbers !== null && !atLimit && detectMobileMoneyNetwork(customPhone)) void saveThisNumber();
               }}
               placeholder="e.g. 0772345678"
-              className={prominent ? "min-h-16 w-full rounded-xl border-2 border-gold bg-[rgb(var(--surface-card))] px-4 py-4 text-xl font-semibold outline-none focus:ring-2 focus:ring-gold/30" : "w-full rounded-lg border border-[var(--border-faint)] px-3 py-2 text-[15px] outline-none focus:border-gold"}
+              className={prominent ? "min-h-16 w-full rounded-xl border-2 border-gold glass-panel px-4 py-4 text-xl font-semibold outline-none focus:ring-2 focus:ring-gold/30" : "w-full rounded-lg border border-[var(--border-faint)] px-3 py-2 text-[15px] outline-none focus:border-gold"}
             />
             {autoSave && !atLimit && <p className="text-xs text-ink-500">Your number is saved automatically for next time. You can choose which saved number is your default.</p>}
             {network && <p className="text-xs font-semibold text-ink-500">{mobileMoneyNetworkLabel(network)} detected</p>}
