@@ -267,13 +267,7 @@ function renderDashboardHtml(branches: BranchInfo[], subdomain: string): string 
       align-items: center;
       gap: 0.75rem;
     }
-    .logo-icon {
-      font-size: 1.75rem;
-      background: #1e293b;
-      padding: 0.35rem 0.6rem;
-      border-radius: 10px;
-      border: 1px solid #334155;
-    }
+    .logo-icon { width: 48px; height: 48px; color: #fff; flex-shrink: 0; }
     h1 { font-size: 1.25rem; font-weight: 700; color: #fff; }
     .subtitle { font-size: 0.825rem; color: var(--text-muted); }
     .live-status {
@@ -476,7 +470,13 @@ function renderDashboardHtml(branches: BranchInfo[], subdomain: string): string 
 <body>
   <header>
     <div class="logo-container">
-      <div class="logo-icon">🛵</div>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1250 1250" class="logo-icon" aria-hidden="true">
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke-width="54" d="M630 241 A385 385 0 0 1 640 1011 C560 1011 497 975 497 925 C497 860 550 810 625 805 C700 800 755 735 755 662 A159 159 0 0 0 437 662 L437 865 C437 900 420 915 388 915 C365 915 350 900 340 888 C290 830 252 750 252 660 A345 345 0 0 1 600 317 C760 317 880 430 910 575"/>
+    <path stroke-width="54" d="M650 410 C730 425 795 480 815 560"/>
+    <circle stroke-width="42" cx="600" cy="665" r="59"/>
+  </g>
+</svg>
       <div>
         <h1>Peebee Concierge · Preview Hub</h1>
         <div class="subtitle">Cloudflare Automated Staging & Branch Previews</div>

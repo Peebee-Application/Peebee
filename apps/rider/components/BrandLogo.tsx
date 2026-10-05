@@ -4,10 +4,10 @@ export function BrandLogo({ wordmark = true, className = "" }: { wordmark?: bool
   return (
     <span role="img" aria-label="Peebee" className={"flex shrink-0 items-center gap-2 " + className}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/brand/peebee-logo-light.png?v=logos-3" alt="" width={256} height={256} className={size + " shrink-0 object-contain dark:hidden"} />
+      <img src="/brand/peebee-logo-light.svg?v=svg-5" alt="" width={256} height={256} className={size + " shrink-0 object-contain dark:hidden"} />
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/brand/peebee-logo-dark.png?v=dark-4" alt="" width={256} height={256} className={"hidden " + size + " shrink-0 object-contain dark:block"} />
-      {wordmark && <span aria-hidden="true" className="text-2xl font-black leading-none text-ink">Peebee</span>}
+      <img src="/brand/peebee-logo-dark.svg?v=svg-5" alt="" width={256} height={256} className={"hidden " + size + " shrink-0 object-contain dark:block"} />
+      {wordmark && <span aria-hidden="true" className="text-2xl font-black leading-none text-[#000] dark:text-[#fff]">Peebee</span>}
     </span>
   );
 }

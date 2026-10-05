@@ -1,13 +1,13 @@
-const STATIC_CACHE = "peebee-merchant-static-v7";
+const STATIC_CACHE = "peebee-merchant-static-v8";
 const OFFLINE_URL = "/offline.html";
 const STATIC_ASSETS = ["/sounds/notification.mp3",
   "/manifest.webmanifest",
-  "/brand/peebee-logo-light.png?v=logos-3",
-  "/brand/peebee-logo-dark.png?v=dark-4",
-  "/icons/icon-192.png?v=logos-3",
-  "/icons/icon-512.png?v=logos-3",
-  "/icons/apple-touch-icon.png?v=logos-3",
-  "/icons/favicon-32.png?v=logos-3",
+  "/brand/peebee-logo-light.svg?v=svg-5",
+  "/brand/peebee-logo-dark.svg?v=svg-5",
+  "/icons/icon-192.png?v=svg-5",
+  "/icons/icon-512.png?v=svg-5",
+  "/icons/apple-touch-icon.png?v=svg-5",
+  "/icons/favicon-32.png?v=svg-5",
   OFFLINE_URL,
 ];
 
@@ -28,7 +28,7 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  if (url.origin === self.location.origin && (url.pathname.startsWith("/_next/static/") || STATIC_ASSETS.includes(url.pathname))) {
+  if (url.origin === self.location.origin && (url.pathname.startsWith("/_next/static/") || (STATIC_ASSETS.includes(url.pathname) || STATIC_ASSETS.includes(url.pathname + url.search)))) {
     event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
       if (response.ok) caches.open(STATIC_CACHE).then((cache) => cache.put(request, response.clone()));
       return response;
@@ -49,8 +49,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(Promise.all([
     self.registration.showNotification(data.title || "Peebee", {
       body: data.body || "You have a new notification",
-      icon: "/icons/icon-192.png?v=logos-3",
-      badge: "/icons/icon-192.png?v=logos-3",
+      icon: "/icons/icon-192.png?v=svg-5",
+      badge: "/icons/icon-192.png?v=svg-5",
       tag: data.tag || "peebee-alert",
       data: { url: data.url || "/" },
     }),

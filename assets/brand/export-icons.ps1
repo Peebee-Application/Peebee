@@ -1,7 +1,10 @@
-# Export the owner's PNG artwork, preserving the logo's transparent surround.
+# Export themed SVGs and PNG compatibility/app icons from the owner's artwork.
 $ErrorActionPreference = 'Stop'
 $brandRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 Add-Type -AssemblyName System.Drawing
+$logoSvg = [IO.File]::ReadAllText((Join-Path $brandRoot 'assets/brand/logo.svg'))
+$darkSvg = $logoSvg.Replace('stroke="#000"', 'stroke="#fff"')
+$adaptiveSvg = $logoSvg.Replace('<g fill=', '<style>g { stroke: #000; } @media (prefers-color-scheme: dark) { g { stroke: #fff; } }</style><g fill=')
 $lightLogo = [System.Drawing.Image]::FromFile((Join-Path $brandRoot 'assets/brand/logo-light.png'))
 $darkLogo = [System.Drawing.Image]::FromFile((Join-Path $brandRoot 'assets/brand/logo-dark.png'))
 
@@ -31,6 +34,8 @@ function Export-LogoPng($image, [int]$size, [string]$destination, $background) {
 try {
   foreach ($appName in @('web','customer','rider','admin','restaurant','merchant','partner')) {
     $publicPath = Join-Path $brandRoot "apps/$appName/public"
+    [IO.File]::WriteAllText((Join-Path $publicPath 'brand/peebee-logo-light.svg'), $logoSvg)
+    [IO.File]::WriteAllText((Join-Path $publicPath 'brand/peebee-logo-dark.svg'), $darkSvg)
     foreach ($lightName in @('peebee-logo-light.png','peebee-logo-navy.png')) {
       Export-LogoPng $lightLogo 256 (Join-Path $publicPath "brand/$lightName") ([System.Drawing.Color]::Transparent)
     }
@@ -40,14 +45,10 @@ try {
     foreach ($icon in @(@('favicon-32.png',32),@('apple-touch-icon.png',180),@('icon-192.png',192),@('icon-512.png',512))) {
       Export-LogoPng $lightLogo $icon[1] (Join-Path $publicPath "icons/$($icon[0])") ([System.Drawing.Color]::White)
     }
-    $pngData = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $publicPath 'icons/icon-512.png')))
-    $iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><image width="512" height="512" href="data:image/png;base64,' + $pngData + '"/></svg>'
-    foreach ($svgPath in @('brand/app-icon.svg','favicon.svg')) {
-      $targetSvg = Join-Path $publicPath $svgPath
-      if (Test-Path -LiteralPath $targetSvg) { [IO.File]::WriteAllText($targetSvg,$iconSvg) }
-    }
+    [IO.File]::WriteAllText((Join-Path $publicPath 'brand/app-icon.svg'), $logoSvg)
+    [IO.File]::WriteAllText((Join-Path $publicPath 'favicon.svg'), $adaptiveSvg)
   }
-  Write-Output 'Exported supplied light/dark PNG logos and app icons for all seven frontends.'
+  Write-Output 'Exported black/white SVG logos, compatibility PNGs, and app icons for all seven frontends.'
 } finally {
   $lightLogo.Dispose()
   $darkLogo.Dispose()
