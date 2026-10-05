@@ -22,6 +22,7 @@ import type { MatchingMode } from "@peebee/shared";
 import { roundFare } from "@peebee/shared";
 import { DEMO_FOOD_RESTAURANTS, demoFoodMenu, demoFoodRestaurant } from "@peebee/shared/demo-food";
 import { snapshotTimeFees } from "../orders/time-fees.js";
+import { ensureSandboxDemoRestaurant } from "./demo-orders.js";
 
 export const customerRestaurantRoutes = new Hono();
 
@@ -42,7 +43,7 @@ customerRestaurantRoutes.get("/restaurants", requireAuth, async (c) => {
     args: [environment],
   });
   const restaurants = environment === "sandbox"
-    ? [...res.rows, ...DEMO_FOOD_RESTAURANTS].sort((a, b) => Number(b.is_open) - Number(a.is_open) || String(a.name).localeCompare(String(b.name)))
+    ? [...res.rows.filter((row) => !demoFoodRestaurant(String(row.id))), ...DEMO_FOOD_RESTAURANTS.map((restaurant) => ({ ...restaurant, demo_checkout_enabled: true }))].sort((a, b) => Number(b.is_open) - Number(a.is_open) || String(a.name).localeCompare(String(b.name)))
     : res.rows;
   return c.json({ restaurants });
 });
@@ -51,7 +52,7 @@ customerRestaurantRoutes.get("/restaurants/:id", requireAuth, async (c) => {
   const id = c.req.param("id") as string;
   const environment = await getPlatformEnvironment();
   const demo = environment === "sandbox" ? demoFoodRestaurant(id) : undefined;
-  if (demo) return c.json({ restaurant: demo });
+  if (demo) return c.json({ restaurant: { ...demo, demo_checkout_enabled: true } });
   const res = await db.execute({
     sql: "SELECT * FROM restaurants WHERE id = ? AND status = 'active' AND environment = ?",
     args: [id, environment],
@@ -150,10 +151,9 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
   const d = parsed.data;
 
   const environment = await getPlatformEnvironment();
-  if (environment === "sandbox" && demoFoodRestaurant(restaurantId)) {
-    return c.json({ error: "demo_preview_only", message: "This is a demo menu for browsing and cart previews. No order is placed." }, 409);
-  }
-  const restaurantRes = await db.execute({
+  const demoRestaurant = environment === "sandbox" ? demoFoodRestaurant(restaurantId) : undefined;
+  const demoItems = demoRestaurant ? demoFoodMenu(restaurantId)!.categories.flatMap((category) => category.items) : undefined;
+  const restaurantRes = demoRestaurant ? { rows: [{ ...demoRestaurant }] } : await db.execute({
     sql: "SELECT * FROM restaurants WHERE id = ? AND status = 'active' AND environment = ?",
     args: [restaurantId, environment],
   });
@@ -168,14 +168,14 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
   // client, which only ever sends *which* item/choices, not what they cost.
   const lineItems: { name: string; quantity: number; unitPrice: number }[] = [];
   for (const line of d.items) {
-    const itemRes = await db.execute({
+    const itemRes = demoItems ? { rows: demoItems.filter((item) => item.id === line.menuItemId) } : await db.execute({
       sql: "SELECT * FROM menu_items WHERE id = ? AND restaurant_id = ? AND available = 1",
       args: [line.menuItemId, restaurantId],
     });
     const item = itemRes.rows[0] as Row | undefined;
     if (!item) return c.json({ error: "item_unavailable", message: "One of the items in your cart is no longer available" }, 409);
 
-    const optionsRes = await db.execute({
+    const optionsRes = demoItems ? { rows: demoItems.find((item) => item.id === line.menuItemId)!.options } : await db.execute({
       sql: "SELECT * FROM menu_item_options WHERE menu_item_id = ? ORDER BY sort_order",
       args: [item.id as string],
     });
@@ -185,7 +185,7 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
     const chosenNames: string[] = [];
 
     for (const option of options) {
-      const choicesRes = await db.execute({
+      const choicesRes = demoItems ? { rows: (option.choices as Row[]) } : await db.execute({
         sql: "SELECT * FROM menu_item_option_choices WHERE option_id = ? ORDER BY sort_order",
         args: [option.id as string],
       });
@@ -254,6 +254,9 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
         : null;
 
   const listId = newId("list");
+  if (demoRestaurant && !await ensureSandboxDemoRestaurant(demoRestaurant)) {
+    return c.json({ error: "demo_restaurant_unavailable", message: "This sandbox restaurant is unavailable. Try another demo menu." }, 409);
+  }
   await db.execute({
     sql: "INSERT INTO lists (id, customer_id, title, status, environment) VALUES (?, ?, ?, 'active', ?)",
     args: [listId, user.sub, restaurant.name as string, environment],
