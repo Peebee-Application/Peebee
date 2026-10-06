@@ -213,8 +213,8 @@ export default function AccountPage() {
             />
           </div>
           <p className="text-xs text-ink-500">
-            When set, you&apos;ll be prompted to open or close automatically at these times — the Home screen toggle
-            always has the final say.
+            Your business opens and closes automatically at these times (Uganda time), even when the app is closed.
+            A manual change lasts until the next scheduled opening or closing time. Leave both empty for manual control.
           </p>
         </div>
 

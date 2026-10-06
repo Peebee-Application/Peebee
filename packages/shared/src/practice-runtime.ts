@@ -389,7 +389,7 @@ function practiceError(message = "That action is outside this practice scenario.
   return jsonResponse({ error: "practice_action_unavailable", message }, 409);
 }
 
-function handlePracticeRequest(role: PracticeRole, path: string, method: string, body: Record<string, unknown>): Response {
+function handlePracticeRequest(role: PracticeRole, path: string, method: string, body: Record<string, unknown>, query = new URLSearchParams()): Response {
   let state = loadState(role);
   const save = (patch: Partial<PracticeState>) => {
     state = { ...state, ...patch };
@@ -518,6 +518,12 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
     return jsonResponse({ restaurant: sampleRestaurant(state) });
   }
   if (method === "GET" && path === "/v1/restaurants/me/menu") return jsonResponse(sampleMenu());
+  if (role === "restaurant" && method === "GET" && path === "/v1/restaurants/me/orders") {
+    const completed = state.settlementStatus === "successful";
+    const history = query.get("view") === "history";
+    const order = { id: PRACTICE_ORDER_ID, stage: completed ? "Settle" : state.merchantPaymentStatus === "available" ? "Deliver" : "Shop", customerId: "practice-customer", customerName: "Amina", riderName: "Daniel", createdAt: new Date(state.startedAt).toISOString(), updatedAt: nowIso(), items: state.items.map(item => ({ name: item.name, quantity: item.quantity, unitPrice: item.unitPrice })), itemsTotal: state.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0) };
+    return jsonResponse({ orders: history === completed && !query.has("cursor") ? [order] : [], counts: { active: completed ? 0 : 1, history: completed ? 1 : 0 }, nextCursor: null });
+  }
 
   if (method === "GET" && path === "/v1/chat/threads") return jsonResponse({ threads: [] });
   if (method === "GET" && path === "/v1/restaurants/me/chat") return jsonResponse({ threads: [] });
@@ -538,6 +544,6 @@ export function createPracticeFetch(role: PracticeRole, realFetch: typeof fetch 
     if (url.pathname === "/v1/settings" || url.pathname.startsWith("/v1/practice/") || (url.pathname === "/v1/auth/me" && method === "GET")) return realFetch(input, init);
     if (url.pathname === "/v1/auth/logout" && method === "POST") return jsonResponse({ ok: true });
     if (!url.pathname.startsWith("/v1/")) return realFetch(input, init);
-    return handlePracticeRequest(role, url.pathname, method, parseBody(init));
+    return handlePracticeRequest(role, url.pathname, method, parseBody(init), url.searchParams);
   }) as typeof fetch;
 }

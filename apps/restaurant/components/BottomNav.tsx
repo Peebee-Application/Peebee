@@ -1,13 +1,13 @@
 "use client";
 
-import { LayoutGrid, MessageCircle, User, UtensilsCrossed } from "lucide-react";
+import { ClipboardList, MessageCircle, User, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { useTranslate, type TranslationKey } from "../lib/i18n";
 
 const tabs: { href: string; labelKey: TranslationKey; icon: LucideIcon }[] = [
-  { href: "/", labelKey: "nav_home", icon: LayoutGrid },
+  { href: "/", labelKey: "nav_orders", icon: ClipboardList },
   { href: "/menu", labelKey: "nav_menu", icon: UtensilsCrossed },
   { href: "/chat", labelKey: "nav_chat", icon: MessageCircle },
   { href: "/account", labelKey: "nav_account", icon: User },

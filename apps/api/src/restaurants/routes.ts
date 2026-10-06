@@ -20,6 +20,7 @@ import { hasColumn } from "../lib/schema.js";
 import { newId } from "../lib/ids.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { getPlatformEnvironment } from "../lib/settings.js";
+import { reconcileFoodHours } from "./hours.js";
 
 export const restaurantRoutes = new Hono();
 
@@ -97,7 +98,7 @@ restaurantRoutes.get("/restaurants/me", requireAuth, requireRole("customer"), as
   const res = await db.execute({ sql: "SELECT * FROM restaurants WHERE owner_id = ?", args: [user.sub] });
   const restaurant = res.rows[0] as Row | undefined;
   if (!restaurant) return c.json({ error: "not_found" }, 404);
-  return c.json({ restaurant });
+  return c.json({ restaurant: await reconcileFoodHours(restaurant) });
 });
 
 const updateSchema = profileSchema.partial().extend({

@@ -1,10 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  type FoodSellerOrders,
   createPracticeFetch,
   isPracticeJourneyComplete,
   startPracticeMode,
 } from "@peebee/shared";
+
+test("Food practice order tabs stay local and follow the sample settlement", async () => {
+  installStorage();
+  const fetcher = createPracticeFetch("restaurant", (async () => { throw new Error("Must not access live orders"); }) as typeof fetch);
+  startPracticeMode("restaurant");
+  const first = await (await fetcher("https://api.test/v1/restaurants/me/orders?view=active")).json() as FoodSellerOrders;
+  assert.equal(first.orders.length, 1); assert.equal(first.orders[0].stage, "Shop");
+  assert.equal((await (await fetcher("https://api.test/v1/restaurants/me/orders?view=history")).json() as FoodSellerOrders).orders.length, 0);
+  await fetcher("https://api.test/v1/merchant-payments/mpay_practice/merchant-confirm", { method: "POST", body: "{}" });
+  await fetcher("https://api.test/v1/merchants/merchant-practice/settlements", { method: "POST", body: "{}" });
+  const history = await (await fetcher("https://api.test/v1/restaurants/me/orders?view=history")).json() as FoodSellerOrders;
+  assert.equal(history.orders.length, 1); assert.equal(history.orders[0].stage, "Settle"); assert.deepEqual(history.counts, { active: 0, history: 1 });
+});
 
 function installStorage() {
   const values = new Map<string, string>();

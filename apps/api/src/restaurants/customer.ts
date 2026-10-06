@@ -23,6 +23,7 @@ import { roundFare } from "@peebee/shared";
 import { DEMO_FOOD_RESTAURANTS, demoFoodMenu, demoFoodRestaurant } from "@peebee/shared/demo-food";
 import { snapshotTimeFees } from "../orders/time-fees.js";
 import { ensureSandboxDemoRestaurant } from "./demo-orders.js";
+import { reconcileFoodHours } from "./hours.js";
 
 export const customerRestaurantRoutes = new Hono();
 
@@ -42,9 +43,10 @@ customerRestaurantRoutes.get("/restaurants", requireAuth, async (c) => {
     sql: "SELECT * FROM restaurants WHERE status = 'active' AND environment = ? ORDER BY is_open DESC, name",
     args: [environment],
   });
+  const scheduled = await Promise.all(res.rows.map((row) => reconcileFoodHours(row)));
   const restaurants = environment === "sandbox"
-    ? [...res.rows.filter((row) => !demoFoodRestaurant(String(row.id))), ...DEMO_FOOD_RESTAURANTS.map((restaurant) => ({ ...restaurant, demo_checkout_enabled: true }))].sort((a, b) => Number(b.is_open) - Number(a.is_open) || String(a.name).localeCompare(String(b.name)))
-    : res.rows;
+    ? [...scheduled.filter((row) => !demoFoodRestaurant(String(row.id))), ...DEMO_FOOD_RESTAURANTS.map((restaurant) => ({ ...restaurant, demo_checkout_enabled: true }))].sort((a, b) => Number(b.is_open) - Number(a.is_open) || String(a.name).localeCompare(String(b.name)))
+    : scheduled.sort((a, b) => Number(b.is_open) - Number(a.is_open) || String(a.name).localeCompare(String(b.name)));
   return c.json({ restaurants });
 });
 
@@ -59,7 +61,7 @@ customerRestaurantRoutes.get("/restaurants/:id", requireAuth, async (c) => {
   });
   const restaurant = res.rows[0] as Row | undefined;
   if (!restaurant) return c.json({ error: "not_found" }, 404);
-  return c.json({ restaurant });
+  return c.json({ restaurant: await reconcileFoodHours(restaurant) });
 });
 
 /** Same tree shape as the owner's GET /restaurants/me/menu, filtered down
@@ -157,8 +159,9 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
     sql: "SELECT * FROM restaurants WHERE id = ? AND status = 'active' AND environment = ?",
     args: [restaurantId, environment],
   });
-  const restaurant = restaurantRes.rows[0] as Row | undefined;
+  let restaurant = restaurantRes.rows[0] as Row | undefined;
   if (!restaurant) return c.json({ error: "not_found" }, 404);
+  if (!demoRestaurant) restaurant = await reconcileFoodHours(restaurant);
   if (!restaurant.is_open) {
     return c.json({ error: "restaurant_closed", message: `${restaurant.name} is currently closed` }, 409);
   }
