@@ -22,7 +22,7 @@ Verified on 6 October 2026 with fictional local menu data at a 390px phone viewp
 
 Three automated tests cover validation before persistence, failed photo upload followed by retry against the acknowledged item ID, and clearing optional fields while retaining unavailable status. A new or edited dish remains unavailable during the multi-request save until choices and photo finish. A failed first create request without an acknowledged ID is outside this client checkpoint guarantee.
 
-Existing backend ownership, business approval and menu contracts are unchanged. No migration is needed.
+An API integration test verifies clearing optional fields, rejecting invalid preparation times/prices, retaining ownership checks and keeping creation validation strict. PATCH now accepts null for description and preparation time, matching the existing typed client contract. Business approval remains unchanged. No migration is needed.
 
 ## Visual evidence
 
