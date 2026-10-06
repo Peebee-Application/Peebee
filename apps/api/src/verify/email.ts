@@ -13,7 +13,7 @@ import { emailProviderConfigured, sendResendEmail } from "./email-keys.js";
 /** Where the app's own logo is hosted — email clients load images over
  * plain HTTP(S), not from the local bundle, so this has to be a real URL. */
 function logoUrl(): string {
-  return process.env.CUSTOMER_APP_URL_LOGO ?? "https://customer.peebee.online/brand/peebee-logo-light.svg?v=svg-5";
+  return process.env.CUSTOMER_APP_URL_LOGO ?? "https://customer.peebee.online/brand/peebee-logo-light.svg?v=logo-6";
 }
 
 export const isResendConfigured = emailProviderConfigured;

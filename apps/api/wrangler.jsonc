@@ -37,7 +37,7 @@
     "CUSTOMER_APP_URL": "https://customer.peebee.online",
     "RIDER_APP_URL": "https://rider.peebee.online",
     "ADMIN_APP_URL": "https://admin.peebee.online",
-    "CUSTOMER_APP_URL_LOGO": "https://customer.peebee.online/brand/peebee-logo-light.svg?v=svg-5",
+    "CUSTOMER_APP_URL_LOGO": "https://customer.peebee.online/brand/peebee-logo-light.svg?v=logo-6",
     "PAYMENTS_PROVIDER": "yo_mock",
     "VAPID_PUBLIC_KEY": "BGbpg3q8fU6-wKotX4qxWcue9mn5dzourGStQEBs4RF6F1du6j8OJAsAUf49dq6CU1xNyumwzHu9CaDnSCw800Y"
   }

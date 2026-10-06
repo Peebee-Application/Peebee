@@ -1,7 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1250 1250" width="1250" height="1250">
-  <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
-    <path stroke-width="54" d="M630 241 A385 385 0 0 1 640 1011 C560 1011 497 975 497 925 C497 860 550 810 625 805 C700 800 755 735 755 662 A159 159 0 0 0 437 662 L437 865 C437 900 420 915 388 915 C365 915 350 900 340 888 C290 830 252 750 252 660 A345 345 0 0 1 600 317 C760 317 880 430 910 575"/>
-    <path stroke-width="54" d="M650 410 C730 425 795 480 815 560"/>
-    <circle stroke-width="42" cx="600" cy="665" r="59"/>
+<svg data-theme="light" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1260 1260" class="logo" role="img" aria-label="Logo">
+  <style>
+    /* ---- Theme: automatic. Black in light mode, white in dark mode.
+          Force a mode with data-theme="light" or data-theme="dark". ---- */
+    .logo { --ink: #0b0b0b; }
+    @media (prefers-color-scheme: dark) { .logo { --ink: #ffffff; } }
+    .logo[data-theme="light"] { --ink: #0b0b0b; }
+    .logo[data-theme="dark"]  { --ink: #ffffff; }
+
+    /* ---- Accent gradient (default: gold) ---- */
+    .logo { --accent-1: #FFDF5E; --accent-2: #E4A323; --accent-3: #B96C05; }
+    .logo[data-accent="gold"]   { --accent-1: #FFDF5E; --accent-2: #E4A323; --accent-3: #B96C05; }
+    .logo[data-accent="green"]  { --accent-1: #8CF0A6; --accent-2: #2DBE5E; --accent-3: #0B7A33; }
+    .logo[data-accent="blue"]   { --accent-1: #8BD0FF; --accent-2: #2F86F0; --accent-3: #123F9E; }
+    .logo[data-accent="red"]    { --accent-1: #FF9A8A; --accent-2: #E5392B; --accent-3: #9B1208; }
+    .logo[data-accent="purple"] { --accent-1: #D3A8FF; --accent-2: #8A4DE0; --accent-3: #4B1A9A; }
+
+    .ink-fill   { fill: var(--ink); }
+    .ink-stroke { stroke: var(--ink); fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+  <defs>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"   style="stop-color: var(--accent-1, #FFDF5E)"/>
+      <stop offset="0.5" style="stop-color: var(--accent-2, #E4A323)"/>
+      <stop offset="1"   style="stop-color: var(--accent-3, #B96C05)"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <!-- spiral ring (single continuous stroke) -->
+    <path class="ink-stroke" stroke-width="88" d="M458,92 C900,60 1160,350 1160,655 C1160,955 900,1168 600,1168 C300,1168 105,950 105,700 C105,430 320,218 580,218 C760,218 910,320 975,470"/>
+    <!-- small inner arc -->
+    <path class="ink-stroke" stroke-width="80" d="M570,352 C690,345 790,410 842,492"/>
+    <!-- pin -->
+    <path class="ink-fill" d="M305,680 C305,540 410,435 550,435 C690,435 790,540 790,670 C790,780 720,850 600,885 C500,915 435,990 435,1060 C435,1100 465,1118 500,1124 L420,1160 L342,1050 C320,980 305,850 305,680 Z"/>
   </g>
+  <!-- accent dot -->
+  <circle cx="549" cy="671" r="131" fill="url(#accent)"/>
 </svg>

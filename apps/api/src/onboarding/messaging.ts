@@ -55,7 +55,7 @@ export async function sendActivation(channel:'email'|'sms'|'whatsapp',target:str
   if(channel==='email') {
     await sendResendEmail({to:[target],subject:'Activate your Peebee account',
       text:`Hello ${name}, your Peebee account has been registered. Activate it and choose your password: ${link}\nYour details are already saved. This link expires in ${settings.activationHours} hours. If you did not request this account, ignore this message.`,
-      html:`<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px"><img src="https://peebee.online/brand/peebee-logo-light.png?v=logos-3" width="48" height="48" alt="Peebee"/><h1>Welcome to Peebee, ${escape(name)}</h1><p>Your account details are saved. Activate your account and choose your own password.</p><p><a href="${escape(link)}" style="background:#C9A227;color:#101828;padding:14px 24px;border-radius:24px;display:inline-block">Activate my account</a></p><p>This link expires in ${settings.activationHours} hours. If you did not request this account, ignore this message.</p></div>`});
+      html:`<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px"><img src="https://peebee.online/brand/peebee-logo-light.png?v=logo-6" width="48" height="48" alt="Peebee"/><h1>Welcome to Peebee, ${escape(name)}</h1><p>Your account details are saved. Activate your account and choose your own password.</p><p><a href="${escape(link)}" style="background:#C9A227;color:#101828;padding:14px 24px;border-radius:24px;display:inline-block">Activate my account</a></p><p>This link expires in ${settings.activationHours} hours. If you did not request this account, ignore this message.</p></div>`});
     return;
   }
   if(channel==='sms') {
