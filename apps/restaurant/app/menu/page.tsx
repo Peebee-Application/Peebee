@@ -1,429 +1,293 @@
 "use client";
 
-import { Select } from "@peebee/shared/select";
-
-import { ApiError } from "@peebee/shared";
-import type { MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, RestaurantMenu } from "@peebee/shared";
-import { Camera, ChevronRight, Plus, Trash2 } from "lucide-react";
+import {
+  ApiError,
+  type MenuCategory,
+  type MenuItem,
+  type RestaurantMenu,
+} from "@peebee/shared";
+import {
+  Camera,
+  Check,
+  ChevronRight,
+  FolderOpen,
+  Plus,
+  Search,
+  Settings2,
+  UtensilsCrossed,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { MenuItemEditor } from "../../components/MenuItemEditor";
+import { MenuPhoto } from "../../components/MenuPhoto";
 import { Modal } from "../../components/Modal";
 import { api, errorMessage } from "../../lib/api";
-import { compressImage } from "../../lib/image-compress";
 
-function formatUgx(n: number): string {
-  return `UGX ${n.toLocaleString("en-UG")}`;
-}
+const money = (value: number) => `UGX ${value.toLocaleString("en-UG")}`;
 
-type EditableOption = {
-  key: string;
-  name: string;
-  required: boolean;
-  multiSelect: boolean;
-  choices: { key: string; name: string; priceDelta: string }[];
-};
-
-function optionsFromItem(item: MenuItem | null): EditableOption[] {
-  if (!item) return [];
-  return item.options.map((o: MenuItemOption) => ({
-    key: o.id,
-    name: o.name,
-    required: !!o.required,
-    multiSelect: !!o.multi_select,
-    choices: o.choices.map((c) => ({ key: c.id, name: c.name, priceDelta: String(c.price_delta) })),
-  }));
-}
-
-let uid = 0;
-function nextKey() {
-  uid += 1;
-  return `new-${uid}`;
-}
-
-function ItemEditor({
-  item,
-  categoryId,
+function SectionManager({
   categories,
   onClose,
-  onSaved,
-  onDeleted,
+  onChanged,
 }: {
-  /** Null when creating a new item. */
-  item: MenuItem | null;
-  /** Preselected category when creating from inside a category section. */
-  categoryId: string | null;
   categories: MenuCategory[];
   onClose: () => void;
-  onSaved: () => void;
-  onDeleted: () => void;
+  onChanged: () => Promise<void>;
 }) {
-  const [name, setName] = useState(item?.name ?? "");
-  const [description, setDescription] = useState(item?.description ?? "");
-  const [price, setPrice] = useState(item ? String(item.price) : "");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(item?.category_id ?? categoryId ?? "");
-  const [available, setAvailable] = useState(item ? !!item.available : true);
-  const [prepTime, setPrepTime] = useState(item?.prep_time_minutes != null ? String(item.prep_time_minutes) : "");
-  const [badge, setBadge] = useState<MenuItemBadge | "">(item?.badge ?? "");
-  const [options, setOptions] = useState<EditableOption[]>(optionsFromItem(item));
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [name, setName] = useState("");
+  const [rename, setRename] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  const [remove, setRemove] = useState<MenuCategory | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!item?.photo_key) {
-      setPhotoUrl(null);
-      return;
-    }
-    let revoked = false;
-    api
-      .menuItemPhotoBlob(item.id)
-      .then((blob) => {
-        if (!revoked) setPhotoUrl(URL.createObjectURL(blob));
-      })
-      .catch(() => {});
-    return () => {
-      revoked = true;
-    };
-  }, [item?.id, item?.photo_key]);
-
-  function addOption() {
-    setOptions((prev) => [
-      ...prev,
-      { key: nextKey(), name: "", required: false, multiSelect: false, choices: [{ key: nextKey(), name: "", priceDelta: "0" }] },
-    ]);
-  }
-  function removeOption(key: string) {
-    setOptions((prev) => prev.filter((o) => o.key !== key));
-  }
-  function updateOption(key: string, patch: Partial<EditableOption>) {
-    setOptions((prev) => prev.map((o) => (o.key === key ? { ...o, ...patch } : o)));
-  }
-  function addChoice(optionKey: string) {
-    setOptions((prev) =>
-      prev.map((o) => (o.key === optionKey ? { ...o, choices: [...o.choices, { key: nextKey(), name: "", priceDelta: "0" }] } : o)),
-    );
-  }
-  function removeChoice(optionKey: string, choiceKey: string) {
-    setOptions((prev) =>
-      prev.map((o) => (o.key === optionKey ? { ...o, choices: o.choices.filter((c) => c.key !== choiceKey) } : o)),
-    );
-  }
-  function updateChoice(optionKey: string, choiceKey: string, patch: Partial<{ name: string; priceDelta: string }>) {
-    setOptions((prev) =>
-      prev.map((o) =>
-        o.key === optionKey
-          ? { ...o, choices: o.choices.map((c) => (c.key === choiceKey ? { ...c, ...patch } : c)) }
-          : o,
-      ),
-    );
-  }
-
-  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !item) return;
-    setUploadingPhoto(true);
-    setError(null);
-    try {
-      const compressed = await compressImage(file);
-      await api.uploadMenuItemPhoto(item.id, compressed);
-      setPhotoUrl(URL.createObjectURL(compressed));
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setUploadingPhoto(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
-  async function save() {
-    if (!name.trim() || !price.trim()) return;
+  const locked = useRef(false);
+  async function change(action: () => Promise<unknown>) {
+    if (locked.current) return;
+    locked.current = true;
     setBusy(true);
     setError(null);
     try {
-      const input = {
-        name: name.trim(),
-        description: description.trim() || undefined,
-        price: Math.round(Number(price)),
-        categoryId: selectedCategoryId || null,
-        available,
-        prepTimeMinutes: prepTime.trim() ? Math.round(Number(prepTime)) : undefined,
-        badge: badge || null,
-      };
-      const saved = item ? (await api.updateMenuItem(item.id, input)).item : (await api.createMenuItem(input)).item;
-      const validOptions = options.filter((o) => o.name.trim() && o.choices.some((c) => c.name.trim()));
-      await api.setMenuItemOptions(saved.id, validOptions.map((o) => ({
-        name: o.name.trim(),
-        required: o.required,
-        multiSelect: o.multiSelect,
-        choices: o.choices.filter((c) => c.name.trim()).map((c) => ({ name: c.name.trim(), priceDelta: Number(c.priceDelta) || 0 })),
-      })));
-      onSaved();
+      await action();
+      setName("");
+      setRename(null);
+      setRemove(null);
+      await onChanged();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
+      locked.current = false;
       setBusy(false);
     }
   }
-
-  async function remove() {
-    if (!item) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await api.deleteMenuItem(item.id);
-      onDeleted();
-    } catch (err) {
-      setError(errorMessage(err));
-      setBusy(false);
-    }
-  }
-
   return (
-    <Modal title={item ? "Edit item" : "New item"} onClose={onClose}>
-      <div className="space-y-4 pb-4">
-        {item && (
-          <div className="flex justify-center">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadingPhoto}
-              className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))]"
-            >
-              {photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photoUrl} alt={name} className="h-full w-full object-cover" />
-              ) : (
-                <Camera className="h-6 w-6 text-ink-500" strokeWidth={1.75} aria-hidden />
-              )}
-              {uploadingPhoto && (
-                <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-xs font-semibold text-white">
-                  Uploading…
-                </span>
-              )}
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+    <Modal
+      title="Menu sections"
+      onClose={() => {
+        if (!busy) onClose();
+      }}
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-ink-500">
+          Group dishes so customers can find what they want. Removing a section
+          keeps its dishes under “No section”.
+        </p>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (
+              name.trim() &&
+              !categories.some(
+                (category) =>
+                  category.name.toLowerCase() === name.trim().toLowerCase(),
+              )
+            )
+              void change(() => api.createMenuCategory({ name: name.trim() }));
+            else setError("Use a new section name.");
+          }}
+          className="space-y-2"
+        >
+          <input
+            aria-label="New menu section name"
+            maxLength={120}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="New section · e.g. Breakfast"
+            disabled={busy}
+            className="min-h-12 w-full rounded-2xl px-3 text-sm"
+          />
+          <button
+            disabled={busy || !name.trim()}
+            className="min-h-11 rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-50"
+          >
+            Add section
+          </button>
+        </form>
+        {categories.map((category) => (
+          <div
+            key={category.id}
+            className="space-y-2 rounded-2xl border border-[var(--border-faint)] p-3"
+          >
+            {rename?.id === category.id ? (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (rename.name.trim())
+                    void change(() =>
+                      api.updateMenuCategory(category.id, {
+                        name: rename.name.trim(),
+                      }),
+                    );
+                }}
+                className="space-y-2"
+              >
+                <input
+                  aria-label={`Rename ${category.name}`}
+                  maxLength={120}
+                  value={rename.name}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setRename({ id: category.id, name: event.target.value })
+                  }
+                  className="min-h-12 w-full rounded-xl px-3 text-sm"
+                />
+                <div className="flex gap-4">
+                  <button
+                    disabled={busy || !rename.name.trim()}
+                    className="min-h-11 text-sm font-bold text-gold"
+                  >
+                    Save name
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setRename(null)}
+                    className="min-h-11 text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <p className="font-bold">
+                  {category.name}{" "}
+                  <span className="text-xs font-normal text-ink-500">
+                    {category.items.length} dishes
+                  </span>
+                </p>
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      setRename({ id: category.id, name: category.name })
+                    }
+                    className="min-h-11 text-sm font-bold text-gold"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setRemove(category)}
+                    className="min-h-11 text-sm text-ink-500"
+                  >
+                    Remove section
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+        {remove && (
+          <div className="space-y-2 rounded-2xl border border-[var(--border-faint)] p-3">
+            <p className="text-sm">
+              Remove “{remove.name}”? Its dishes will remain on your menu.
+            </p>
+            <div className="flex gap-4">
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void change(() => api.deleteMenuCategory(remove.id))
+                }
+                className="min-h-11 text-sm font-bold text-gold"
+              >
+                Remove section
+              </button>
+              <button
+                disabled={busy}
+                onClick={() => setRemove(null)}
+                className="min-h-11 text-sm"
+              >
+                Keep section
+              </button>
+            </div>
           </div>
         )}
-
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-ink-500">Name *</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Chicken Luwombo"
-            className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
-          />
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-ink-500">Description</label>
-          <input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="A short line about this dish"
-            className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-ink-500">Price (UGX) *</label>
-            <input
-              inputMode="numeric"
-              value={price}
-              onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ""))}
-              placeholder="15000"
-              className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-ink-500">Prep time (min)</label>
-            <input
-              inputMode="numeric"
-              value={prepTime}
-              onChange={(e) => setPrepTime(e.target.value.replace(/[^\d]/g, ""))}
-              placeholder="20"
-              className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-ink-500">Category</label>
-          <Select aria-label="Menu category"
-            value={selectedCategoryId}
-            onValueChange={(value) => setSelectedCategoryId(value)}
-            className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
-          >
-            <option value="">Uncategorized</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-
-        <label className="flex items-center gap-2.5">
-          <input
-            type="checkbox"
-            checked={available}
-            onChange={(e) => setAvailable(e.target.checked)}
-            className="h-4 w-4 accent-gold"
-          />
-          <span className="text-sm text-ink">Available (uncheck to 86 this item)</span>
-        </label>
-
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-ink-500">Badge (optional)</label>
-          <div className="flex gap-1.5">
-            {([
-              { value: "", label: "None" },
-              { value: "sale", label: "Sale" },
-              { value: "new", label: "New" },
-              { value: "trending", label: "Trending" },
-            ] as const).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setBadge(opt.value as MenuItemBadge | "")}
-                className={`flex-1 rounded-full border px-2 py-2 text-xs font-bold ${
-                  badge === opt.value ? "border-gold bg-gold/10 text-ink" : "border-[var(--border-faint)] text-ink-500"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-ink-500">Shows as a small pill on the item&apos;s card in the customer app.</p>
-        </div>
-
-        <div className="space-y-2 border-t border-[var(--border-faint)] pt-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Options</p>
-            <button type="button" onClick={addOption} className="text-xs font-bold text-gold">
-              + Add option
-            </button>
-          </div>
-          <p className="text-xs text-ink-500">e.g. &quot;Size&quot; (required, pick one) or &quot;Extras&quot; (optional, pick several).</p>
-
-          {options.map((option) => (
-            <div key={option.key} className="space-y-2 rounded-xl border border-[var(--border-faint)] p-3">
-              <div className="flex items-center gap-2">
-                <input
-                  value={option.name}
-                  onChange={(e) => updateOption(option.key, { name: e.target.value })}
-                  placeholder="Option name, e.g. Size"
-                  className="min-w-0 flex-1 rounded-lg border border-[var(--border-faint)] px-2.5 py-2 text-sm outline-none focus:border-gold"
-                />
-                <button type="button" onClick={() => removeOption(option.key)} className="shrink-0 text-red-500">
-                  <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                </button>
-              </div>
-              <div className="flex gap-3">
-                <label className="flex items-center gap-1.5 text-xs text-ink-500">
-                  <input
-                    type="checkbox"
-                    checked={option.required}
-                    onChange={(e) => updateOption(option.key, { required: e.target.checked })}
-                    className="h-3.5 w-3.5 accent-gold"
-                  />
-                  Required
-                </label>
-                <label className="flex items-center gap-1.5 text-xs text-ink-500">
-                  <input
-                    type="checkbox"
-                    checked={option.multiSelect}
-                    onChange={(e) => updateOption(option.key, { multiSelect: e.target.checked })}
-                    className="h-3.5 w-3.5 accent-gold"
-                  />
-                  Pick multiple
-                </label>
-              </div>
-              <div className="space-y-1.5">
-                {option.choices.map((choice) => (
-                  <div key={choice.key} className="flex items-center gap-2">
-                    <input
-                      value={choice.name}
-                      onChange={(e) => updateChoice(option.key, choice.key, { name: e.target.value })}
-                      placeholder="Choice, e.g. Large"
-                      className="min-w-0 flex-1 rounded-lg border border-[var(--border-faint)] px-2.5 py-1.5 text-xs outline-none focus:border-gold"
-                    />
-                    <input
-                      inputMode="numeric"
-                      value={choice.priceDelta}
-                      onChange={(e) => updateChoice(option.key, choice.key, { priceDelta: e.target.value.replace(/[^\d]/g, "") })}
-                      placeholder="+0"
-                      className="w-20 shrink-0 rounded-lg border border-[var(--border-faint)] px-2.5 py-1.5 text-xs outline-none focus:border-gold"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeChoice(option.key, choice.key)}
-                      className="shrink-0 text-red-500"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                    </button>
-                  </div>
-                ))}
-                <button type="button" onClick={() => addChoice(option.key)} className="text-xs font-bold text-gold">
-                  + Add choice
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-
-        <div className="flex gap-2 pt-1">
-          {item && (
-            <button
-              type="button"
-              onClick={remove}
-              disabled={busy}
-              className="min-h-11 rounded-full border border-red-200 px-4 text-sm font-bold text-red-600 disabled:opacity-60"
-            >
-              Delete
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={save}
-            disabled={busy || !name.trim() || !price.trim()}
-            className="min-h-11 flex-1 rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
-          >
-            {busy ? "Saving…" : "Save item"}
-          </button>
-        </div>
+        {error && (
+          <p role="alert" className="text-sm">
+            {error}
+          </p>
+        )}
+        {busy && (
+          <p role="status" className="text-sm text-ink-500">
+            Saving sections…
+          </p>
+        )}
       </div>
     </Modal>
   );
 }
 
-function ItemRow({ item, onClick }: { item: MenuItem; onClick: () => void }) {
+function DishRow({
+  item,
+  onEdit,
+  onToggle,
+  busy,
+  photoRevision,
+}: {
+  item: MenuItem;
+  onEdit: () => void;
+  onToggle: () => void;
+  busy: boolean;
+  photoRevision: number;
+}) {
   return (
-    <button
-      onClick={onClick}
-      className="home-card flex w-full items-center gap-3 !rounded-2xl !px-3 !py-3 text-left"
-    >
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5">
-          <span className="truncate text-[15px] font-bold text-ink">{item.name}</span>
-          {!item.available && (
-            <span className="shrink-0 rounded-full bg-[rgb(var(--surface-muted))] px-2 py-0.5 text-[10px] font-semibold text-ink-500">
-              86&apos;d
-            </span>
+    <article className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3">
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-label={`Edit ${item.name}`}
+        className="flex w-full items-center gap-3 text-left"
+      >
+        <div className="w-20 shrink-0 overflow-hidden rounded-xl">
+          <MenuPhoto
+            id={item.id}
+            hasPhoto={!!item.photo_key}
+            revision={photoRevision}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="break-words font-bold">{item.name}</h3>
+          <p className="mt-1 text-sm">{money(item.price)}</p>
+          <p className="mt-1 text-xs text-ink-500">
+            {item.options.length
+              ? `${item.options.length} choice group${item.options.length === 1 ? "" : "s"}`
+              : "One price, no choices"}
+            {!item.photo_key ? " · Add a photo" : ""}
+          </p>
+        </div>
+        <ChevronRight size={18} className="shrink-0 text-ink-500" />
+      </button>
+      <div className="mt-2 flex items-center justify-between border-t border-[var(--border-faint)] pt-2">
+        <span className="text-xs text-ink-500">
+          {item.prep_time_minutes
+            ? `${item.prep_time_minutes} min preparation`
+            : "Ready when you are"}
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={!!item.available}
+          aria-label={`${item.name} available to order`}
+          onClick={onToggle}
+          disabled={busy}
+          className={`flex min-h-11 items-center gap-2 rounded-full px-3 text-xs font-bold disabled:opacity-50 ${item.available ? "bg-gold/15 text-ink" : "bg-[rgb(var(--surface-muted))] text-ink-500"}`}
+        >
+          {busy ? (
+            "Updating…"
+          ) : item.available ? (
+            <>
+              <Check size={14} />
+              Available
+            </>
+          ) : (
+            "Unavailable"
           )}
-        </span>
-        <span className="mt-0.5 block truncate text-xs text-ink-500">
-          {formatUgx(item.price)}
-          {item.options.length > 0 ? ` · ${item.options.length} option${item.options.length === 1 ? "" : "s"}` : ""}
-        </span>
-      </span>
-      <ChevronRight className="h-4.5 w-4.5 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
-    </button>
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -431,145 +295,295 @@ export default function MenuPage() {
   const router = useRouter();
   const [menu, setMenu] = useState<RestaurantMenu | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [addingCategory, setAddingCategory] = useState(false);
-  const [editing, setEditing] = useState<{ item: MenuItem | null; categoryId: string | null } | null>(null);
-
-  const load = useCallback(() => {
-    api
-      .myMenu()
-      .then(setMenu)
-      .catch((err) => {
-        // No restaurant registered yet — send them to set one up instead of
-        // showing a raw "not found" error on a page that assumes one exists.
-        if (err instanceof ApiError && err.status === 404) {
-          router.replace("/account");
-          return;
-        }
-        setError(errorMessage(err));
-      });
+  const [notice, setNotice] = useState("");
+  const [photoRevision, setPhotoRevision] = useState(0);
+  const [query, setQuery] = useState("");
+  const [selectedSection, setSelectedSection] = useState("all");
+  const [managing, setManaging] = useState(false);
+  const [updating, setUpdating] = useState<Set<string>>(new Set());
+  const inFlight = useRef(new Set<string>());
+  const [editing, setEditing] = useState<{
+    key: number;
+    item: MenuItem | null;
+    categoryId: string | null;
+  } | null>(null);
+  const editorKey = useRef(0);
+  const load = useCallback(async () => {
+    try {
+      const result = await api.myMenu();
+      setMenu(result);
+      setError(null);
+      setSelectedSection((previous) =>
+        previous === "all" ||
+        previous === "none" ||
+        result.categories.some((category) => category.id === previous)
+          ? previous
+          : "all",
+      );
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404)
+        router.replace("/account");
+      else setError(errorMessage(err));
+    }
   }, [router]);
-
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
-
-  async function addCategory() {
-    if (!newCategoryName.trim()) return;
-    setAddingCategory(true);
+  const categories = menu?.categories ?? [];
+  const items = [
+    ...categories.flatMap((category) => category.items),
+    ...(menu?.uncategorizedItems ?? []),
+  ];
+  function openEditor(item: MenuItem | null, categoryId: string | null) {
+    setNotice("");
+    setEditing({ key: ++editorKey.current, item, categoryId });
+  }
+  async function toggle(item: MenuItem) {
+    if (inFlight.current.has(item.id)) return;
+    inFlight.current.add(item.id);
+    setUpdating(new Set(inFlight.current));
     setError(null);
     try {
-      await api.createMenuCategory({ name: newCategoryName.trim() });
-      setNewCategoryName("");
-      load();
+      await api.updateMenuItem(item.id, { available: !item.available });
+      await load();
+      setNotice(
+        `${item.name} is now ${item.available ? "unavailable" : "available to order"}.`,
+      );
     } catch (err) {
       setError(errorMessage(err));
     } finally {
-      setAddingCategory(false);
+      inFlight.current.delete(item.id);
+      setUpdating(new Set(inFlight.current));
     }
   }
-
-  async function removeCategory(id: string) {
-    setError(null);
-    try {
-      await api.deleteMenuCategory(id);
-      load();
-    } catch (err) {
-      setError(errorMessage(err));
-    }
-  }
-
-  const categories = menu?.categories ?? [];
-  const uncategorized = menu?.uncategorizedItems ?? [];
+  const sections = [
+    ...categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      items: category.items,
+    })),
+    { id: "none", name: "No section", items: menu?.uncategorizedItems ?? [] },
+  ];
+  const visible = sections
+    .filter(
+      (section) => selectedSection === "all" || selectedSection === section.id,
+    )
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) =>
+        `${item.name} ${item.description ?? ""}`
+          .toLowerCase()
+          .includes(query.trim().toLowerCase()),
+      ),
+    }));
 
   return (
-    <div className="space-y-5 px-4 pb-6 pt-4">
-      <h1 className="text-xl font-bold text-ink">Menu</h1>
-
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-
-      <div className="flex gap-2">
-        <input
-          value={newCategoryName}
-          onChange={(e) => setNewCategoryName(e.target.value)}
-          placeholder="New category, e.g. Mains"
-          className="min-w-0 flex-1 rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
-        />
+    <div className="space-y-5 px-4 pb-8 pt-4">
+      <header className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold text-ink-500">
+            Create. Organise. Serve.
+          </p>
+          <h1 className="mt-1 text-2xl font-bold">Your menu</h1>
+        </div>
         <button
-          onClick={addCategory}
-          disabled={addingCategory || !newCategoryName.trim()}
-          className="shrink-0 rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
+          type="button"
+          disabled={!menu}
+          onClick={() =>
+            openEditor(
+              null,
+              selectedSection === "all" || selectedSection === "none"
+                ? null
+                : selectedSection,
+            )
+          }
+          className="flex min-h-12 shrink-0 items-center gap-2 rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-50"
         >
-          Add
+          <Plus size={18} />
+          Add dish
         </button>
-      </div>
-
-      {categories.map((cat) => (
-        <section key={cat.id} className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">{cat.name}</h2>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setEditing({ item: null, categoryId: cat.id })}
-                className="flex items-center gap-1 text-xs font-bold text-gold"
-              >
-                <Plus className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden /> Item
-              </button>
-              <button onClick={() => removeCategory(cat.id)} className="text-xs font-semibold text-red-500">
-                Remove
-              </button>
-            </div>
-          </div>
-          {cat.items.length === 0 ? (
-            <p className="py-2 text-center text-xs text-ink-500">No items yet.</p>
-          ) : (
-            <ul className="space-y-2">
-              {cat.items.map((item) => (
-                <li key={item.id}>
-                  <ItemRow item={item} onClick={() => setEditing({ item, categoryId: cat.id })} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ))}
-
-      <section className="space-y-2.5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">Uncategorized</h2>
+      </header>
+      {menu && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <p className="text-ink-500">
+            {items.length} dish{items.length === 1 ? "" : "es"} ·{" "}
+            {items.filter((item) => item.available).length} available
+          </p>
           <button
-            onClick={() => setEditing({ item: null, categoryId: null })}
-            className="flex items-center gap-1 text-xs font-bold text-gold"
+            type="button"
+            onClick={() => setManaging(true)}
+            className="flex min-h-11 items-center gap-2 font-bold text-gold"
           >
-            <Plus className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden /> Item
+            <Settings2 size={16} />
+            Sections
           </button>
         </div>
-        {uncategorized.length === 0 ? (
-          <p className="py-2 text-center text-xs text-ink-500">Nothing here.</p>
-        ) : (
-          <ul className="space-y-2">
-            {uncategorized.map((item) => (
-              <li key={item.id}>
-                <ItemRow item={item} onClick={() => setEditing({ item, categoryId: null })} />
-              </li>
+      )}
+      {notice && (
+        <p role="status" className="rounded-2xl bg-gold/10 p-3 text-sm">
+          {notice}
+        </p>
+      )}
+      {error && (
+        <div
+          role="alert"
+          className="space-y-2 rounded-2xl border border-[var(--border-faint)] p-3"
+        >
+          <p className="text-sm">{error}</p>
+          <button
+            onClick={() => void load()}
+            className="min-h-11 text-sm font-bold text-gold"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+      {!menu && !error && (
+        <p role="status" className="py-10 text-center text-sm text-ink-500">
+          Loading your menu…
+        </p>
+      )}
+      {menu && !items.length && (
+        <section className="space-y-4 rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-6">
+          <UtensilsCrossed className="text-gold" size={32} />
+          <h2 className="text-xl font-bold">Your first dish starts here.</h2>
+          <p className="text-sm text-ink-500">
+            Add a name and price, choose a photo, then preview. Create sections
+            as you go.
+          </p>
+          <button
+            onClick={() => openEditor(null, null)}
+            className="min-h-12 rounded-full bg-gold px-5 text-sm font-bold text-ink-gold"
+          >
+            Create your first dish
+          </button>
+          <div className="flex flex-wrap gap-4 text-xs text-ink-500">
+            <span className="flex items-center gap-1">
+              <Camera size={14} />
+              Photos before saving
+            </span>
+            <span className="flex items-center gap-1">
+              <FolderOpen size={14} />
+              Easy menu sections
+            </span>
+          </div>
+        </section>
+      )}
+      {menu && items.length > 0 && (
+        <>
+          <div className="field-box flex min-h-12 items-center gap-2 rounded-2xl px-3">
+            <Search size={18} className="shrink-0 text-ink-500" />
+            <input
+              aria-label="Search your dishes"
+              placeholder="Find a dish…"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="min-w-0 flex-1 border-0 outline-none"
+            />
+          </div>
+          <div
+            className="flex gap-2 overflow-x-auto pb-1"
+            aria-label="Filter menu sections"
+          >
+            {[
+              { id: "all", name: "All dishes", count: items.length },
+              ...sections
+                .filter(
+                  (section) => section.items.length || section.id !== "none",
+                )
+                .map((section) => ({
+                  id: section.id,
+                  name: section.name,
+                  count: section.items.length,
+                })),
+            ].map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                aria-pressed={selectedSection === section.id}
+                onClick={() => setSelectedSection(section.id)}
+                className={`min-h-11 shrink-0 rounded-full border px-4 text-xs font-bold ${selectedSection === section.id ? "border-gold bg-gold/15 text-ink" : "border-[var(--border-faint)] text-ink-500"}`}
+              >
+                {section.name} · {section.count}
+              </button>
             ))}
-          </ul>
-        )}
-      </section>
-
+          </div>
+          {visible.map((section) =>
+            section.items.length ? (
+              <section key={section.id} className="space-y-3">
+                <h2 className="text-sm font-bold text-ink-500">
+                  {section.name}
+                </h2>
+                <div className="space-y-3">
+                  {section.items.map((item) => (
+                    <DishRow
+                      key={item.id}
+                      item={item}
+                      onEdit={() => openEditor(item, item.category_id ?? null)}
+                      onToggle={() => void toggle(item)}
+                      busy={updating.has(item.id)}
+                      photoRevision={photoRevision}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : selectedSection === section.id && !query ? (
+              <div
+                key={section.id}
+                className="rounded-2xl border border-[var(--border-faint)] p-5 text-sm text-ink-500"
+              >
+                No dishes in this section yet. Tap Add dish to start.
+              </div>
+            ) : null,
+          )}
+          {query && !visible.some((section) => section.items.length) && (
+            <p className="py-8 text-center text-sm text-ink-500">
+              No dishes match “{query}”.
+            </p>
+          )}
+        </>
+      )}
+      {managing && (
+        <SectionManager
+          categories={categories}
+          onClose={() => setManaging(false)}
+          onChanged={load}
+        />
+      )}
       {editing && (
-        <ItemEditor
+        <MenuItemEditor
+          key={editing.key}
           item={editing.item}
           categoryId={editing.categoryId}
           categories={categories}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
+          onClose={() => {
             setEditing(null);
-            load();
+            void load();
           }}
-          onDeleted={() => {
-            setEditing(null);
-            load();
+          onCategoryCreated={(category) =>
+            setMenu((previous) =>
+              previous
+                ? {
+                    ...previous,
+                    categories: [
+                      ...previous.categories,
+                      { ...category, items: category.items ?? [] },
+                    ],
+                  }
+                : previous,
+            )
+          }
+          onSaved={(another, categoryId) => {
+            setPhotoRevision((previous) => previous + 1);
+            void load();
+            setNotice(
+              another
+                ? "Dish saved. Add your next one."
+                : "Your menu has been updated.",
+            );
+            if (another)
+              setEditing({ key: ++editorKey.current, item: null, categoryId });
+            else setEditing(null);
           }}
         />
       )}
