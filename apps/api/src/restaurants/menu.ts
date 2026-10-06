@@ -225,7 +225,10 @@ menuRoutes.patch("/restaurants/me/menu/items/:id", requireAuth, requireRole("cus
   const id = c.req.param("id") as string;
   const restaurantId = await ownedRestaurantId(user.sub);
   if (!restaurantId) return c.json({ error: "not_found" }, 404);
-  const parsed = itemSchema.partial().safeParse(await c.req.json().catch(() => ({})));
+  const parsed = itemSchema.partial().extend({
+    description: itemSchema.shape.description.unwrap().nullable().optional(),
+    prepTimeMinutes: itemSchema.shape.prepTimeMinutes.unwrap().nullable().optional(),
+  }).safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
 
   const owned = await db.execute({ sql: "SELECT 1 FROM menu_items WHERE id = ? AND restaurant_id = ?", args: [id, restaurantId] });

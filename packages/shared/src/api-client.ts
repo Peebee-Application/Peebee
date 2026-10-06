@@ -1144,8 +1144,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       return json<{ ok: true }>(res);
     },
     /** Streams a menu item's photo as a Blob (not JSON — raw fetch, mirrors uploadMenuItemPhoto). */
-    async menuItemPhotoBlob(itemId: string): Promise<Blob> {
-      const res = await f(`${root}/v1/restaurants/menu-items/${itemId}/photo`, { headers: authHeaders() });
+    async menuItemPhotoBlob(itemId: string, revision?: number): Promise<Blob> {
+      const suffix = revision ? `?v=${encodeURIComponent(String(revision))}` : "";
+      const res = await f(`${root}/v1/restaurants/menu-items/${itemId}/photo${suffix}`, { headers: authHeaders() });
       if (!res.ok) throw new Error(`API ${res.status}: failed to load photo`);
       return res.blob();
     },

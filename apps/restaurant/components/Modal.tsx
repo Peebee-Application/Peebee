@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export function Modal({
@@ -14,6 +14,49 @@ export function Modal({
   children: React.ReactNode;
 }) {
   const [mounted, setMounted] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  useEffect(() => {
+    if (!mounted) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const controls = () =>
+      Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]',
+        ) ?? [],
+      ).filter((element) => element.getClientRects().length > 0);
+    controls()[0]?.focus();
+    function keydown(event: KeyboardEvent) {
+      if (event.defaultPrevented) return;
+      if (event.key === "Escape") {
+        if (!dialogRef.current?.contains(event.target as Node)) return;
+        event.preventDefault();
+        closeRef.current();
+      }
+      if (event.key !== "Tab") return;
+      const elements = controls();
+      const first = elements[0],
+        last = elements.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (
+        !event.shiftKey &&
+        (document.activeElement === last ||
+          !dialogRef.current?.contains(document.activeElement))
+      ) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }
+    document.addEventListener("keydown", keydown);
+    return () => {
+      document.removeEventListener("keydown", keydown);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [mounted]);
 
   useEffect(() => {
     setMounted(true);
@@ -30,7 +73,8 @@ export function Modal({
 
     return () => {
       document.body.style.overflow = "";
-      if (meta && previousThemeColor !== null) meta.setAttribute("content", previousThemeColor);
+      if (meta && previousThemeColor !== null)
+        meta.setAttribute("content", previousThemeColor);
     };
   }, []);
 
@@ -44,6 +88,7 @@ export function Modal({
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center">
       <div
+        ref={dialogRef}
         className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-[28px] bg-cream shadow-2xl sm:rounded-[28px]"
         role="dialog"
         aria-modal="true"

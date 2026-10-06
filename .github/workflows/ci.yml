@@ -47,6 +47,8 @@ jobs:
       - name: API tests
         working-directory: apps/api
         run: npm test
+      - name: Menu editor save and retry tests
+        run: pnpm --filter api exec tsx --test ../restaurant/lib/menu-editor.test.ts
 
   # Every Next.js app must still build.
   build:
