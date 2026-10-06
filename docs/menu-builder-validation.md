@@ -16,7 +16,7 @@ Verified on 6 October 2026 with fictional local menu data at a 390px phone viewp
 - Editing price preserves existing choices and photo; unsaved edits prompt before closing.
 - Renaming a section updates its heading/filter. Removing it retains both dishes under No section.
 - Search filters saved dishes by name.
-- Dialog focus stays within its controls; Escape requests close and unsaved-change handling still applies.
+- Dialog opens with focus on Close and restores focus to the opening control when closed.
 
 ## Save correctness
 
