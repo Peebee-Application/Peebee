@@ -1,4 +1,5 @@
 "use client";
+import { FoodCover } from "@peebee/shared/food-cover";
 import { foodBusinessLabel, hasPermission, type AdminRestaurant } from "@peebee/shared";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -20,6 +21,7 @@ export default function FoodPreview(){
     <Link href="/people?tab=restaurants" className="inline-flex min-h-11 items-center gap-2 text-sm font-bold"><ArrowLeft size={18}/>Users</Link>
     <header className="home-card flex items-center gap-3 !rounded-3xl !p-5"><PersonPhoto kind="restaurants" id={id} name={profile.name}/><div className="min-w-0"><p className="text-xs text-ink-500">Food business preview</p><h1 className="break-words text-xl font-bold">{profile.name}</h1><p className="mt-1 text-sm text-gold">{profile.status==="active"?"Approved":profile.status.replaceAll("_"," ")}</p></div></header>
     {error&&<p role="alert" className="rounded-2xl border border-[var(--border-faint)] p-3">{error}</p>}
+    <FoodCover id={id} name={profile.name} description={profile.cuisine} coverKey={profile.cover_key} loadCover={api.restaurantCoverBlob}/>
     <SubmittedFields title="Business details" fields={[["Business name",profile.name],["Category",foodBusinessLabel(profile.business_type)],["Description",profile.description],["Cuisine",profile.cuisine],["Business phone",profile.phone],["Address",profile.address],["Pickup latitude",profile.lat],["Pickup longitude",profile.lng]]}/>
     <SubmittedFields title="Owner details" fields={[["Name",profile.owner_name],["Phone",profile.owner_phone],["Email",profile.owner_email]]}/>
     <SubmittedFields title="Working hours and account" fields={[["Opening time (Uganda)",profile.open_time],["Closing time (Uganda)",profile.close_time],["Accepting orders",profile.is_open?"Open":"Closed"],["Status",profile.status.replaceAll("_"," ")],["Registered",profile.created_at],["Last updated",profile.updated_at],["Business reference",profile.id]]}/>

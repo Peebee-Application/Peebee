@@ -6,6 +6,7 @@ import { LogOut, MapPin, Store, User } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { AppearanceSettings } from "../../components/AppearanceSettings";
+import { CoverEditor } from "../../components/CoverEditor";
 import { ChangePasswordPanel } from "../../components/ChangePasswordPanel";
 import { LanguageSettings } from "../../components/LanguageSettings";
 import { PracticeModeCard } from "../../components/PracticeMode";
@@ -186,6 +187,7 @@ export default function AccountPage() {
         </section>
       )}
 
+      {restaurant&&<CoverEditor restaurant={restaurant} onSaved={async()=>{const res=await api.myRestaurant();setRestaurant(res.restaurant);await refreshRestaurant();}}/>}
       <form onSubmit={submit} className="home-card space-y-3">
         <h2 className="text-sm font-semibold text-ink">{restaurant ? "Food business profile" : "Register your food business"}</h2>
         <fieldset className="food-type-picker"><legend className="mb-3 text-sm font-semibold">What kind of food business do you run?</legend><div className="grid grid-cols-2 gap-3">{FOOD_BUSINESS_TYPES.map(type => <label key={type.value} className={`food-type-option ${businessType === type.value ? "selected" : ""}`}><input type="radio" name="businessType" required value={type.value} checked={businessType === type.value} onChange={() => setBusinessType(type.value)} /><span className="block font-bold">{type.label}</span><span className="mt-1 block text-xs text-ink-500">{type.description}</span></label>)}</div></fieldset>
