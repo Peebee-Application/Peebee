@@ -1,4 +1,5 @@
 "use client";
+import { FoodCover } from "@peebee/shared/food-cover";
 
 import type { MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, Restaurant, RestaurantMenu } from "@peebee/shared";
 import { foodBusinessLabel, roundFare } from "@peebee/shared";
@@ -424,6 +425,8 @@ export default function RestaurantPage() {
   return (
     <div className="space-y-5 px-4 pb-28 pt-4">
       <Link href="/restaurants" aria-label="Back to food businesses" className="inline-flex h-11 w-11 items-center justify-center rounded-full glass-panel"><ChevronLeft size={22}/></Link>
+      <FoodCover id={restaurant.id} name={restaurant.name} description={restaurant.cuisine} coverKey={restaurant.cover_key} loadCover={api.restaurantCoverBlob} previewUrl={restaurant.is_demo?demoRestaurantPhotoPath(restaurant.id)??undefined:undefined} menuLink="#food-menu"/>
+      <div id="food-menu" className="scroll-mt-16"/>
       <p className="text-xs font-semibold text-gold">{foodBusinessLabel(restaurant.business_type)}</p>
       <section className="home-card flex items-center gap-3">
         {restaurant.is_demo && demoRestaurantPhotoPath(restaurant.id) ? (

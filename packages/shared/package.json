@@ -13,7 +13,8 @@
     "./activation": "./src/ActivationPage.tsx",
     "./auth": "./src/AuthScene.tsx",
     "./auth.css": "./auth.css",
-    "./google-button": "./src/GoogleButtonSurface.tsx"
+    "./google-button": "./src/GoogleButtonSurface.tsx",
+    "./food-cover": "./src/FoodCover.tsx"
   },
   "scripts": {
     "lint": "tsc --noEmit",

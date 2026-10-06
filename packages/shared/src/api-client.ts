@@ -1779,6 +1779,17 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async adminGetRestaurant(id: string) {
       return request<{restaurant: AdminRestaurant}>(`/v1/admin/restaurants/${encodeURIComponent(id)}`);
     },
+    async uploadRestaurantCover(file: Blob) {
+      const form=new FormData();form.append("file",file,"cover.jpg");
+      const response=await f(`${root}/v1/restaurants/me/cover`,{method:"POST",headers:authHeaders(),body:form});
+      if(!response.ok)throw new Error("Could not save your cover. Use a JPG, PNG or WebP image under 4 MB.");
+      return response.json() as Promise<{ok:true;coverKey:string}>;
+    },
+    async restaurantCoverBlob(id:string,revision?:string) {
+      const response=await f(`${root}/v1/restaurants/${encodeURIComponent(id)}/cover${revision?`?v=${encodeURIComponent(revision)}`:""}`,{headers:authHeaders()});
+      if(!response.ok)throw new Error("Cover unavailable");
+      return response.blob();
+    },
     async adminPersonPhoto(kind: "riders" | "customers" | "restaurants" | "merchants", id: string): Promise<Blob> {
       const res=await f(`${root}/v1/admin/people/${kind}/${encodeURIComponent(id)}/photo`,{headers:authHeaders()});
       if (!res.ok) throw new Error("Photo unavailable");
