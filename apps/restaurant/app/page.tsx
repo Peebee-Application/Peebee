@@ -182,6 +182,8 @@ function OrdersInbox() {
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
+      // This ref is a request generation counter, not a captured DOM node.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       request.current++;
       inFlight.current = false;
       if (interval) clearInterval(interval);
@@ -288,9 +290,29 @@ export default function HomePage() {
   if (!restaurant) return null;
   return (
     <div className="space-y-4 px-4 pb-8 pt-4">
-      <header>
-        <p className="text-sm text-ink-500">{restaurant.name}</p>
-        <h1 className="mt-1 text-2xl font-bold">Orders</h1>
+      <header className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm text-ink-500">{restaurant.name}</p>
+          <h1 className="mt-1 text-2xl font-bold">Orders</h1>
+        </div>
+        {restaurant.status === "active" ? (
+          <OpenStatusCard
+            compact
+            restaurant={restaurant}
+            onUpdated={refreshRestaurant}
+          />
+        ) : (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={false}
+            aria-label={`${restaurant.name} accepting new orders`}
+            disabled
+            className="min-h-12 shrink-0 rounded-full border border-[var(--border-faint)] px-3 text-xs font-bold text-ink-500 opacity-60"
+          >
+            Closed
+          </button>
+        )}
       </header>
       {restaurant.status !== "active" ? (
         <section
@@ -314,9 +336,7 @@ export default function HomePage() {
             Manage menu →
           </Link>
         </section>
-      ) : (
-        <OpenStatusCard restaurant={restaurant} onUpdated={refreshRestaurant} />
-      )}
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Link
           href="/payments"

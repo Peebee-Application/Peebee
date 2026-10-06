@@ -8,8 +8,11 @@ import type { FoodSellerOrders } from "@peebee/shared";
 import { signToken } from "../auth/jwt.js";
 import { setD1Binding, type D1Database } from "../db/client.js";
 import { splitSqlStatements } from "../db/split-sql.js";
-import { setPlatformEnvironment } from "../lib/settings.js";
+import { setPlatformEnvironment, setServiceSwitches } from "../lib/settings.js";
 import { sellerOrderRoutes } from "./seller-orders.js";
+import { restaurantRoutes } from "./routes.js";
+import { customerRestaurantRoutes } from "./customer.js";
+import { reconcileFoodHours } from "./hours.js";
 
 test("Food seller inbox isolates businesses/environments, paginates and excludes private order fields", async () => {
   process.env.JWT_SECRET = "seller-orders-test-only";
@@ -70,7 +73,15 @@ test("Food seller inbox isolates businesses/environments, paginates and excludes
       });
       await client.execute({
         sql: "INSERT INTO orders(id,list_id,customer_id,rider_id,restaurant_id,stage,environment,pin_code,share_token,destination_lat,rider_lat,created_at) VALUES (?,?,?,'rider',?,?,?,'SECRET_PIN',?,1.234,2.345,'2026-10-06 10:00:00')",
-        args: [id, `list-${id}`, customer, business, stage, environment, `PRIVATE_TOKEN-${id}`],
+        args: [
+          id,
+          `list-${id}`,
+          customer,
+          business,
+          stage,
+          environment,
+          `PRIVATE_TOKEN-${id}`,
+        ],
       });
     }
     for (let i = 0; i < 51; i++)
@@ -83,7 +94,10 @@ test("Food seller inbox isolates businesses/environments, paginates and excludes
     const ownerB = await signToken({ sub: "owner-b", role: "customer" });
     const genericCustomer = await signToken({ sub: "alice", role: "customer" });
     const rider = await signToken({ sub: "rider", role: "rider" });
-    const app = new Hono().route("/v1", sellerOrderRoutes);
+    const app = new Hono()
+      .route("/v1", sellerOrderRoutes)
+      .route("/v1", restaurantRoutes)
+      .route("/v1", customerRestaurantRoutes);
     const call = (query = "", token = ownerA) =>
       app.request(`/v1/restaurants/me/orders${query}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -134,6 +148,51 @@ test("Food seller inbox isolates businesses/environments, paginates and excludes
     );
     assert.equal((await call("?cursor=bad-json")).status, 400);
     assert.equal((await call("?view=all")).status, 400);
+    const closed = await app.request("/v1/restaurants/me", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${ownerA}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ isOpen: false }),
+    });
+    assert.equal(closed.status, 200);
+    assert.equal(
+      (
+        await client.execute(
+          "SELECT is_open FROM restaurants WHERE id='food-a'",
+        )
+      ).rows[0].is_open,
+      0,
+    );
+    assert.equal(
+      ((await (await call()).json()) as FoodSellerOrders).counts.active,
+      51,
+      "closing must retain existing orders",
+    );
+    await setServiceSwitches({ food: true });
+    const blocked = await app.request("/v1/restaurants/food-a/order", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${genericCustomer}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        items: [{ menuItemId: "missing-item", quantity: 1 }],
+      }),
+    });
+    assert.equal(blocked.status, 409);
+    assert.equal(
+      ((await blocked.json()) as { error: string }).error,
+      "restaurant_closed",
+    );
+    await client.execute("UPDATE restaurants SET open_time='09:00',close_time='18:00',updated_at='2026-10-06 05:00:00' WHERE id='food-a'");
+    const beforeHours = (await client.execute("SELECT * FROM restaurants WHERE id='food-a'")).rows[0];
+    const openedByHours = await reconcileFoodHours(beforeHours, new Date("2026-10-06T06:00:00Z"));
+    assert.equal(openedByHours.is_open, 1, "opening time persists an open business even without a seller session");
+    const closedByHours = await reconcileFoodHours(openedByHours, new Date("2026-10-06T15:00:00Z"));
+    assert.equal(closedByHours.is_open, 0, "closing time persists a closed business");
+    assert.equal(((await (await call()).json()) as FoodSellerOrders).counts.active, 51);
     await setPlatformEnvironment("sandbox");
     const sandbox = (await (await call()).json()) as FoodSellerOrders;
     assert.deepEqual(

@@ -1,6 +1,6 @@
 "use client";
 
-import { resetNotificationSnapshots } from "@peebee/shared";
+import { ApiError, resetNotificationSnapshots } from "@peebee/shared";
 
 import type { AuthUser, Restaurant } from "@peebee/shared";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
@@ -54,8 +54,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.myRestaurant();
       setRestaurant(res.restaurant);
-    } catch {
-      setRestaurant(null);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) setRestaurant(null);
     } finally {
       setRestaurantReady(true);
     }
@@ -66,6 +66,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void refreshRestaurant();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Keep the server-controlled working-hours state fresh on every seller tab.
+  useEffect(() => {
+    if (!user?.id || !restaurant?.id) return;
+    const refresh = () => { if (document.visibilityState === "visible") void refreshRestaurant(); };
+    const timer = setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    return () => { clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, [user?.id, restaurant?.id, refreshRestaurant]);
 
   const persist = useCallback((token: string, nextUser: AuthUser) => {
     resetNotificationSnapshots();
