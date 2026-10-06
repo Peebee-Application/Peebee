@@ -21,6 +21,7 @@ import { newId } from "../lib/ids.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { getPlatformEnvironment } from "../lib/settings.js";
 import { reconcileFoodHours } from "./hours.js";
+import { isColourScene } from "@peebee/shared";
 
 export const restaurantRoutes = new Hono();
 
@@ -102,6 +103,8 @@ restaurantRoutes.get("/restaurants/me", requireAuth, requireRole("customer"), as
 });
 
 const updateSchema = profileSchema.partial().extend({
+  themeScene: z.string().refine(isColourScene).optional(),
+  themeMode: z.enum(["auto","light","dark"]).optional(),
   isOpen: z.boolean().optional(),
 });
 
@@ -117,6 +120,11 @@ restaurantRoutes.patch("/restaurants/me", requireAuth, requireRole("customer"), 
   if (existing.rows.length === 0) return c.json({ error: "not_found" }, 404);
 
   const fields: Record<string, unknown> = {};
+  if(d.themeScene!==undefined||d.themeMode!==undefined){
+    if(!await hasColumn("restaurants","theme_scene")||!await hasColumn("restaurants","theme_mode"))return c.json({error:"food_style_unavailable",message:"Food business themes are being enabled. Please try again shortly."},503);
+    if(d.themeScene!==undefined)fields.theme_scene=d.themeScene;
+    if(d.themeMode!==undefined)fields.theme_mode=d.themeMode;
+  }
   if (d.businessType !== undefined) {
     if (await hasColumn("restaurants", "business_type")) fields.business_type = d.businessType;
     else if (d.businessType !== "restaurant") return c.json({error:"food_categories_unavailable", message:"Food categories are being enabled. Please try again shortly."}, 503);
@@ -136,7 +144,7 @@ restaurantRoutes.patch("/restaurants/me", requireAuth, requireRole("customer"), 
   if (keys.length > 0) {
     const setClause = keys.map((k) => `${k} = ?`).join(", ");
     await db.execute({
-      sql: `UPDATE restaurants SET ${setClause}, updated_at = datetime('now') WHERE owner_id = ?`,
+      sql: `UPDATE restaurants SET ${setClause}${keys.every(key=>key.startsWith("theme_"))?"":", updated_at = datetime('now')"} WHERE owner_id = ?`,
       args: [...keys.map((k) => fields[k]), user.sub] as never,
     });
   }

@@ -382,3 +382,12 @@ select {
 .food-type-option input { margin-bottom:10px; accent-color:rgb(var(--color-gold)); }
 @media (prefers-reduced-motion:no-preference) { .food-hero,.food-menu-card { animation:food-enter .45s ease-out both; } .food-categories span { transition:transform .2s ease,background .2s ease; } .food-categories a:hover span,.food-categories button:hover span { transform:translateY(-2px); } }
 @keyframes food-enter { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:translateY(0); } }
+@media (prefers-reduced-motion: no-preference) {
+  .food-dish-rail.rail-visible > button { animation: food-card-arrive .55s ease-out both; }
+  .food-dish-rail.rail-visible > button:nth-child(2) { animation-delay: .06s; }
+  .food-dish-rail.rail-visible > button:nth-child(3) { animation-delay: .12s; }
+  @keyframes food-card-arrive { from { opacity:.65; transform:translateX(-18px); } to { opacity:1; transform:translateX(0); } }
+}
+
+.food-dish-rail { scrollbar-width: none; }
+.food-dish-rail::-webkit-scrollbar { display: none; }

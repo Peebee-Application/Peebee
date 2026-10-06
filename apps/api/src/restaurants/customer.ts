@@ -24,6 +24,7 @@ import { DEMO_FOOD_RESTAURANTS, demoFoodMenu, demoFoodRestaurant } from "@peebee
 import { snapshotTimeFees } from "../orders/time-fees.js";
 import { ensureSandboxDemoRestaurant } from "./demo-orders.js";
 import { reconcileFoodHours } from "./hours.js";
+import { hasColumn } from "../lib/schema.js";
 
 export const customerRestaurantRoutes = new Hono();
 
@@ -169,7 +170,7 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
   // Server-computed line by line — a menu item's price (and its options'
   // price deltas) are the restaurant's to set, never trusted from the
   // client, which only ever sends *which* item/choices, not what they cost.
-  const lineItems: { name: string; quantity: number; unitPrice: number }[] = [];
+  const lineItems: { name: string; quantity: number; unitPrice: number; menuItemId:string }[] = [];
   for (const line of d.items) {
     const itemRes = demoItems ? { rows: demoItems.filter((item) => item.id === line.menuItemId) } : await db.execute({
       sql: "SELECT * FROM menu_items WHERE id = ? AND restaurant_id = ? AND available = 1",
@@ -211,6 +212,7 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
     }
 
     lineItems.push({
+      menuItemId:line.menuItemId,
       name: chosenNames.length > 0 ? `${item.name as string} (${chosenNames.join(", ")})` : (item.name as string),
       quantity: line.quantity,
       unitPrice,
@@ -264,10 +266,11 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
     sql: "INSERT INTO lists (id, customer_id, title, status, environment) VALUES (?, ?, ?, 'active', ?)",
     args: [listId, user.sub, restaurant.name as string, environment],
   });
+  const tracksMenuItems=await hasColumn("list_items","source_menu_item_id");
   for (const li of lineItems) {
     await db.execute({
-      sql: "INSERT INTO list_items (id, list_id, name, quantity, unit_price) VALUES (?, ?, ?, ?, ?)",
-      args: [newId("item"), listId, li.name, li.quantity, li.unitPrice],
+      sql: `INSERT INTO list_items (id, list_id, name, quantity, unit_price${tracksMenuItems?",source_menu_item_id":""}) VALUES (?, ?, ?, ?, ?${tracksMenuItems?",?":""})`,
+      args: [newId("item"), listId, li.name, li.quantity, li.unitPrice,...(tracksMenuItems?[li.menuItemId]:[])],
     });
   }
 

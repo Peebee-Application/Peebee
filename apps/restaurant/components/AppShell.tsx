@@ -1,6 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { BusinessTheme } from "@peebee/shared/business-theme";
+import { useAuth } from "../lib/auth-context";
 import { AuthGate } from "./AuthGate";
 import { BottomNav } from "./BottomNav";
 import { BrandHeader } from "./BrandHeader";
@@ -8,6 +10,7 @@ import { ServiceBanner } from "./ServiceBanner";
 import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./PracticeMode";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const {restaurant}=useAuth();
   const pathname = usePathname();
   const isAuthPage = pathname === "/login" || pathname === "/activate" || pathname === "/forgot-password" || pathname.startsWith("/verify");
   // A specific chat thread ("/chat/<customerId>") is a full-screen
@@ -19,6 +22,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthGate>
+      {restaurant&&<BusinessTheme scene={restaurant.theme_scene} mode={restaurant.theme_mode}/>}
       <PracticeModeGuard role="restaurant" pathname={pathname} />
       {!isAuthPage && <PracticeModePrompt role="restaurant" />}
       {showHeader && <BrandHeader />}

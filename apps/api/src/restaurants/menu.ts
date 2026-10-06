@@ -20,6 +20,7 @@ import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
 import { demoFoodImage } from "@peebee/shared/demo-food";
 import { getPlatformEnvironment } from "../lib/settings.js";
+import { hasColumn } from "../lib/schema.js";
 
 export const menuRoutes = new Hono();
 
@@ -168,6 +169,7 @@ menuRoutes.delete("/restaurants/me/menu/categories/:id", requireAuth, requireRol
 // ---------------------------------------------------------------------------
 
 const itemSchema = z.object({
+  featured: z.boolean().optional(),
   name: z.string().min(1).max(120),
   description: z.string().max(2000).optional(),
   price: z.number().int().nonnegative(),
@@ -200,9 +202,11 @@ menuRoutes.post("/restaurants/me/menu/items", requireAuth, requireRole("customer
   }
 
   const id = newId("mit");
+  const hasFeatured=await hasColumn("menu_items","is_featured");
+  if(parsed.data.featured&&!hasFeatured)return c.json({error:"featured_unavailable",message:"Featured dishes are being enabled. Please try again shortly."},503);
   await db.execute({
-    sql: `INSERT INTO menu_items (id, restaurant_id, category_id, name, description, price, available, prep_time_minutes, sort_order, badge)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO menu_items (id, restaurant_id, category_id, name, description, price, available, prep_time_minutes, sort_order, badge${hasFeatured?",is_featured":""})
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?${hasFeatured?",?":""})`,
     args: [
       id,
       restaurantId,
@@ -214,6 +218,7 @@ menuRoutes.post("/restaurants/me/menu/items", requireAuth, requireRole("customer
       parsed.data.prepTimeMinutes ?? null,
       parsed.data.sortOrder ?? 0,
       parsed.data.badge ?? null,
+      ...(hasFeatured?[parsed.data.featured?1:0]:[]),
     ],
   });
   const res = await db.execute({ sql: "SELECT * FROM menu_items WHERE id = ?", args: [id] });
@@ -238,6 +243,7 @@ menuRoutes.patch("/restaurants/me/menu/items/:id", requireAuth, requireRole("cus
   }
 
   const fields: Record<string, unknown> = {};
+  if(parsed.data.featured!==undefined){if(!await hasColumn("menu_items","is_featured"))return c.json({error:"featured_unavailable",message:"Featured dishes are being enabled. Please try again shortly."},503);fields.is_featured=parsed.data.featured?1:0;}
   if (parsed.data.name != null) fields.name = parsed.data.name;
   if (parsed.data.description !== undefined) fields.description = parsed.data.description ?? null;
   if (parsed.data.price != null) fields.price = parsed.data.price;
