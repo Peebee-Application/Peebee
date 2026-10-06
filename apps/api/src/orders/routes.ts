@@ -20,6 +20,7 @@ import {
   type ServiceKey,
 } from "../lib/settings.js";
 import { servicePaused } from "../lib/service-gate.js";
+import { getRideTrackingSettings } from "../settings/ride-tracking.js";
 import { computeCheckoutFees, isCashDepositOk, riderPayout } from "../lib/monetization.js";
 import { notifyUser } from "../lib/webpush.js";
 import { currentVisibilityRadiusKm, orderMatchPoint, parseDbTimestamp } from "./matching.js";
@@ -2014,9 +2015,9 @@ orderRoutes.get("/orders/:id/fee-proposals/:proposalId/voice-note", async (c) =>
 // ---------------------------------------------------------------------------
 // Live rider location — powers the customer-facing tracking map (see
 // apps/customer/components/LiveTrackingMap.tsx). Only ever called by the
-// rider app's InAppNavigation while nav_mode = "in_app" (see
-// apps/api/src/lib/settings.ts getNavMode); pings land here every few
-// seconds while a job is open, so this deliberately writes straight to
+// rider app's ActiveJourneyTracking for an assigned active journey;
+// pings land here at the admin's configured interval while Peebee is open,
+// so this deliberately writes straight to
 // the row rather than going through touchOrder — bumping updated_at on
 // every GPS tick would make "last updated" misleading everywhere else
 // the field is used (admin order lists, etc).
@@ -2038,16 +2039,17 @@ orderRoutes.post("/orders/:id/location", async (c) => {
     if (e instanceof HttpError) return c.json({ error: e.message }, e.status);
     throw e;
   }
-  if (["Settle", "Create"].includes(order.stage as string)) {
+  if (["Settle", "Create", "Cancelled", "Handover"].includes(order.stage as string)) {
     return c.json({ error: "invalid_stage", message: `No active journey to track at stage ${order.stage}` }, 409);
   }
 
   const parsed = orderLocationSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  if (!(await getRideTrackingSettings()).enabled) return c.json({ error: "tracking_disabled" }, 409);
 
   await db.execute({
-    sql: "UPDATE orders SET rider_lat = ?, rider_lng = ?, rider_location_updated_at = datetime('now') WHERE id = ?",
-    args: [parsed.data.lat, parsed.data.lng, id],
+    sql: "UPDATE orders SET rider_lat = ?, rider_lng = ?, rider_location_updated_at = datetime('now') WHERE id = ? AND rider_id = ? AND stage NOT IN ('Settle', 'Create', 'Cancelled', 'Handover')",
+    args: [parsed.data.lat, parsed.data.lng, id, user.sub],
   });
 
   return c.json({ ok: true });

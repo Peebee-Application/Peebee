@@ -1,12 +1,15 @@
 import { executeBatch } from "../db/client.js";
+import { hasColumn } from "../lib/schema.js";
 
 /** Reserve the rider and resolve applications in one transaction, across every matching mode. */
 export async function assignAvailableRider(
   orderId: string, riderId: string, nextStage: string, outOfRange: boolean, environment: string,
 ): Promise<boolean> {
+  const clearLocation = await hasColumn("orders", "rider_location_updated_at")
+    ? ", rider_lat = NULL, rider_lng = NULL, rider_location_updated_at = NULL" : "";
   const changes = await executeBatch([
     {
-      sql: `UPDATE orders SET rider_id = ?, stage = ?, matched_out_of_range = ?, updated_at = datetime('now')
+      sql: `UPDATE orders SET rider_id = ?, stage = ?, matched_out_of_range = ?, updated_at = datetime('now')${clearLocation}
             WHERE id = ? AND environment = ? AND rider_id IS NULL AND stage IN ('Create', 'Match')
             AND NOT EXISTS (SELECT 1 FROM orders busy WHERE busy.rider_id = ?
               AND busy.environment = ? AND busy.stage NOT IN ('Settle', 'Cancelled'))`,

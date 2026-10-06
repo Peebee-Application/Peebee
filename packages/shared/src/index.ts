@@ -13,6 +13,7 @@ export type { CallEngineState, CallEnginePhase, CallEngineOptions } from "./call
 export { isRiderProfileComplete, isUserVerified, isProSubscriptionCurrent, MATCHING_MODE_LABELS, MATCHING_MODE_DESCRIPTIONS, GEMINI_TTS_VOICES, DEFAULT_GEMINI_VOICE } from "./domain.js";
 export { UGANDA_DISTRICTS } from "./uganda-locations.js";
 export * from "./shopping-units.js";
+export * from "./ride-tracking.js";
 export type { UgandaDistrict } from "./uganda-locations.js";
 export {
   detectMobileMoneyNetwork,

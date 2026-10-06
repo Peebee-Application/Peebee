@@ -1,6 +1,6 @@
 "use client";
 
-import type { OrderEvent, OrderRow } from "@peebee/shared";
+import { DEFAULT_RIDE_TRACKING_SETTINGS, isFreshLocation, rideIsEnRoute, travelMinutes, type OrderEvent, type OrderRow, type RideTrackingSettings } from "@peebee/shared";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Loader2, Navigation } from "lucide-react";
@@ -8,7 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet";
 import { api } from "../lib/api";
 import { jawgTileUrl, useJawgStyle } from "../lib/mapStyle";
-import { fetchDrivingRoute, resolveNavTiles, type NavTiles, type OsrmRoute } from "../lib/navTiles";
+import { resolveNavTiles, type NavTiles } from "../lib/navTiles";
+import { useRoadRoute } from "../lib/useRoadRoute";
 
 const riderIcon = L.divIcon({
   html: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -32,16 +33,41 @@ const destinationIcon = L.divIcon({
 
 function FitToMarkers({ points }: { points: [number, number][] }) {
   const map = useMap();
+  const lastTarget = useRef("");
   useEffect(() => {
     if (points.length < 2) return;
+    const target = points[points.length - 1].join(",");
+    if (lastTarget.current === target && points.every((point) => map.getBounds().contains(L.latLng(point)))) return;
+    lastTarget.current = target;
     map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 16 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [points.map((p) => p.join(",")).join("|")]);
   return null;
 }
 
+function MovingRider({ lat, lng, live }: { lat: number; lng: number; live: boolean }) {
+  const marker = useRef<L.Marker | null>(null);
+  useEffect(() => {
+    const current = marker.current;
+    if (!current) return;
+    const from = current.getLatLng();
+    if (!live || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { current.setLatLng([lat, lng]); return; }
+    const started = performance.now();
+    let frame = 0;
+    function move(time: number) {
+      const progress = Math.min(1, (time - started) / 1000);
+      current!.setLatLng([from.lat + (lat - from.lat) * progress, from.lng + (lng - from.lng) * progress]);
+      if (progress < 1) frame = requestAnimationFrame(move);
+    }
+    frame = requestAnimationFrame(move);
+    return () => cancelAnimationFrame(frame);
+  }, [lat, lng, live]);
+  const initial = useRef<[number, number]>([lat, lng]);
+  return <Marker ref={marker} position={initial.current} icon={riderIcon} />;
+}
+
 function elapsedLabel(sinceIso: string, nowMs: number): string {
-  const since = new Date(sinceIso.includes("T") ? sinceIso : `${sinceIso.replace(" ", "T")}Z`).getTime();
+  const since = Date.parse(/(?:Z|[+-]\d\d:\d\d)$/.test(sinceIso) ? sinceIso : `${sinceIso.replace(" ", "T")}Z`);
   if (Number.isNaN(since)) return "";
   const seconds = Math.max(0, Math.floor((nowMs - since) / 1000));
   if (seconds < 60) return `${seconds}s ago`;
@@ -51,25 +77,20 @@ function elapsedLabel(sinceIso: string, nowMs: number): string {
   return `${hrs}h ${mins % 60}m ago`;
 }
 
-/** Live tracking map on the customer's order-detail page — only rendered
- * while admin has rider navigation set to "in_app" (see
- * apps/api/src/lib/settings.ts getNavMode): that's the only mode where
- * the rider app is actually reporting a live position (see
- * apps/rider/components/InAppNavigation.tsx POST /orders/:id/location).
- * When nav mode is "external" the rider's out in Google Maps and no
- * position ever lands here, so this card just doesn't render — the
- * existing OrderTimeline still covers stage-by-stage progress either way. */
+/** Assigned journey GPS, with separate pickup and destination estimates. */
 export function LiveTrackingMap({ order, events }: { order: OrderRow; events: OrderEvent[] }) {
   const [tiles, setTiles] = useState<NavTiles | null>(null);
   const jawgStyle = useJawgStyle(tiles?.jawg?.adminLightStyle ?? "normal");
-  const [route, setRoute] = useState<OsrmRoute | null>(null);
+  const [settings, setSettings] = useState<RideTrackingSettings | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const lastRoutedFor = useRef<string | null>(null);
 
   useEffect(() => {
     api
       .getSettings()
-      .then((res) => setTiles(resolveNavTiles(res.settings)))
+      .then((res) => {
+        setTiles(resolveNavTiles(res.settings));
+        setSettings(res.settings.rideTracking ?? DEFAULT_RIDE_TRACKING_SETTINGS);
+      })
       .catch(() => {});
   }, []);
 
@@ -80,27 +101,24 @@ export function LiveTrackingMap({ order, events }: { order: OrderRow; events: Or
 
   const riderLat = order.rider_lat;
   const riderLng = order.rider_lng;
-  const isRecent =
-    !!order.rider_location_updated_at &&
-    now - new Date(`${order.rider_location_updated_at.replace(" ", "T")}Z`).getTime() < 2 * 60 * 1000;
+  const isRecent = isFreshLocation(order.rider_location_updated_at, now, settings?.staleAfterSeconds ?? DEFAULT_RIDE_TRACKING_SETTINGS.staleAfterSeconds);
 
   // Heading to the customer's own destination once en route; heading to
   // the pickup point beforehand (rides only — parcels/shopping have no
   // "go collect the passenger" leg for the customer to watch).
-  const targetLat = order.stage === "Deliver" || order.stage === "Arrived" || order.stage === "Handover" ? order.destination_lat : order.pickup_lat ?? order.destination_lat;
-  const targetLng = order.stage === "Deliver" || order.stage === "Arrived" || order.stage === "Handover" ? order.destination_lng : order.pickup_lng ?? order.destination_lng;
+  const enRoute = rideIsEnRoute(order.stage);
+  const targetLat = enRoute ? order.destination_lat : order.pickup_lat ?? order.destination_lat;
+  const targetLng = enRoute ? order.destination_lng : order.pickup_lng ?? order.destination_lng;
+  const currentLeg = useRoadRoute(settings?.enabled && isRecent ? riderLat : null, settings?.enabled && isRecent ? riderLng : null, targetLat, targetLng, settings?.routeRefreshSeconds);
+  const trip = useRoadRoute(settings?.showEstimates && order.is_ride ? order.pickup_lat : null, order.pickup_lng, order.destination_lat, order.destination_lng);
+  const route = currentLeg?.route;
+  const currentMinutes = currentLeg ? travelMinutes(currentLeg.route.durationSeconds) : null;
+  const tripMinutes = trip ? travelMinutes(trip.route.durationSeconds) : null;
+  const arrivalSeconds = enRoute ? currentLeg?.route.durationSeconds : currentLeg && trip ? currentLeg.route.durationSeconds + trip.route.durationSeconds : undefined;
+  const arrivalTime = arrivalSeconds != null && currentLeg ? new Date(currentLeg.updatedAt + arrivalSeconds * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
 
-  useEffect(() => {
-    if (riderLat == null || riderLng == null || targetLat == null || targetLng == null) return;
-    const key = `${Math.round(riderLat * 500)},${Math.round(riderLng * 500)}->${targetLat},${targetLng}`;
-    if (lastRoutedFor.current === key) return;
-    lastRoutedFor.current = key;
-    fetchDrivingRoute({ lat: riderLat, lng: riderLng }, { lat: targetLat, lng: targetLng }).then((r) => {
-      if (r) setRoute(r);
-    });
-  }, [riderLat, riderLng, targetLat, targetLng]);
-
-  if (riderLat == null || riderLng == null || !isRecent) return null;
+  if (!settings?.enabled) return null;
+  if (riderLat == null || riderLng == null) return <section className="home-card space-y-2"><h2 className="text-sm font-semibold">Waiting for your rider’s location</h2><p className="text-xs text-ink-500">Pickup arrival time will appear when your rider shares a fresh location.</p>{settings.showEstimates && order.is_ride && tripMinutes && <p className="text-sm font-semibold">Approximately {tripMinutes} min from pickup to destination</p>}</section>;
 
   const dispatchEvent = events.find((e) => e.stage === "Match");
   const enRouteEvent = events.find((e) => e.stage === "Deliver" || e.stage === "PickedUp");
@@ -116,8 +134,16 @@ export function LiveTrackingMap({ order, events }: { order: OrderRow; events: Or
           </span>
           <h2 className="text-sm font-semibold text-ink">Live tracking</h2>
         </div>
-        {route && <span className="text-xs font-semibold text-ink-500">~{Math.max(1, Math.round(route.durationSeconds / 60))} min away</span>}
+        <span className="text-xs font-semibold text-ink-500">{isRecent ? "Live location" : "Last known location"}</span>
       </div>
+
+      {!isRecent && <p role="status" className="text-xs text-ink-500">Location updates paused{order.rider_location_updated_at ? ` · last updated ${elapsedLabel(order.rider_location_updated_at, now)}` : ""}. Arrival estimates resume with a fresh location.</p>}
+      {settings.showEstimates && order.is_ride && <div className="grid grid-cols-2 gap-3 text-sm">
+        <div><p className="text-xs text-ink-500">Pickup</p><p className="font-bold">{enRoute ? "Picked up" : currentMinutes && isRecent ? `~${currentMinutes} min away` : "Waiting for estimate"}</p></div>
+        <div><p className="text-xs text-ink-500">Destination</p><p className="font-bold">{order.stage === "Arrived" ? "Arrived" : enRoute ? currentMinutes && isRecent ? `~${currentMinutes} min remaining` : "Waiting for estimate" : tripMinutes ? `~${tripMinutes} min ride` : "Waiting for estimate"}</p>{isRecent && arrivalTime && order.stage !== "Arrived" && <p className="text-xs text-ink-500">Est. arrival {arrivalTime}</p>}</div>
+      </div>}
+      {settings.showEstimates && !order.is_ride && isRecent && currentMinutes && <p className="text-sm font-semibold">~{currentMinutes} min away</p>}
+      {settings.showEstimates && <p className="text-xs text-ink-500">Road estimates exclude live traffic and pickup waiting time.</p>}
 
       <div className="relative h-56 w-full overflow-hidden rounded-xl">
         {!tiles ? (
@@ -135,7 +161,7 @@ export function LiveTrackingMap({ order, events }: { order: OrderRow; events: Or
               <Polyline positions={route.coordinates} pathOptions={{ color: "#C9A227", weight: 4, opacity: 0.85 }} />
             )}
             {targetLat != null && targetLng != null && <Marker position={[targetLat, targetLng]} icon={destinationIcon} />}
-            <Marker position={[riderLat, riderLng]} icon={riderIcon} />
+            <MovingRider lat={riderLat} lng={riderLng} live={isRecent} />
             <FitToMarkers points={points} />
             <div className="peebee-map-tint" aria-hidden />
           </MapContainer>

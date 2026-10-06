@@ -86,7 +86,7 @@ export async function fetchDrivingRoute(
   const route = data?.routes?.[0];
   if (!route || !Array.isArray(route.geometry?.coordinates) || route.geometry.coordinates.length < 2 ||
       !route.geometry.coordinates.every((point) => Array.isArray(point) && point.length >= 2 && Number.isFinite(point[0]) && Number.isFinite(point[1])) ||
-      !Number.isFinite(route.distance) || !Number.isFinite(route.duration)) return null;
+      !Number.isFinite(route.distance) || route.distance < 0 || !Number.isFinite(route.duration) || route.duration < 0) return null;
   return {
     coordinates: route.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
     distanceMeters: route.distance,

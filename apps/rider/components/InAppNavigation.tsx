@@ -79,7 +79,6 @@ export function InAppNavigation({
   const [follow, setFollow] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const routeFetched = useRef(false);
-  const lastBroadcast = useRef(0);
   const destination: [number, number] = [destinationLat, destinationLng];
 
   useEffect(() => {
@@ -106,13 +105,7 @@ export function InAppNavigation({
             },
           );
         }
-        // Powers the customer's live tracking map — throttled to once
-        // every ~5s so a fast GPS tick rate doesn't hammer the API.
-        const nowMs = Date.now();
-        if (nowMs - lastBroadcast.current > 5000) {
-          lastBroadcast.current = nowMs;
-          api.postOrderLocation(orderId, next[0], next[1]).catch(() => {});
-        }
+        // ActiveJourneyTracking owns customer broadcasts across all screens.
       },
       () => setError("Couldn't get your location — check location permissions."),
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 },

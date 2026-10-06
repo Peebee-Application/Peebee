@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { AuthGate } from "./AuthGate";
+import { ActiveJourneyTracking } from "./ActiveJourneyTracking";
 import { BottomNav } from "./BottomNav";
 import { BrandHeader } from "./BrandHeader";
 import { ServiceBanner } from "./ServiceBanner";
@@ -26,6 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {showHeader && <BrandHeader />}
       {!isAuthPage && <PracticeModeBanner role="rider" />}
       {!isAuthPage && <ServiceBanner />}
+      {!isAuthPage && <ActiveJourneyTracking />}
       <main
         className={`mx-auto max-w-lg ${showHeader ? "min-h-[calc(100dvh-3.5rem)]" : "min-h-dvh"} ${
           showNav ? "pb-[calc(3.5rem+env(safe-area-inset-bottom))]" : ""
