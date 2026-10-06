@@ -117,10 +117,10 @@ export const SETTINGS_LINKS: SettingsLink[] = [
   },
   {
     href: "/settings/navigation",
-    label: "Navigation mode",
-    description: "How riders get turn-by-turn directions.",
+    label: "Navigation and tracking",
+    description: "Rider directions, live journey location and time estimates.",
     icon: Compass,
-    show: (role) => hasPermission(role, "payments.manage"),
+    show: (role) => hasPermission(role, "payments.manage") || hasPermission(role, "settings.manage"),
   },
   {
     href: "/settings/customer-wallet",

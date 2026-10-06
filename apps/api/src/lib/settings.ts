@@ -1,8 +1,9 @@
 import type { MatchingMode } from "@peebee/shared";
-import { DEFAULT_SHOPPING_UNIT_SETTINGS, DEFAULT_TIME_FEES, type JobExpirySettings, type TimeFeeSettings } from "@peebee/shared";
+import { DEFAULT_RIDE_TRACKING_SETTINGS, DEFAULT_SHOPPING_UNIT_SETTINGS, DEFAULT_TIME_FEES, type JobExpirySettings, type TimeFeeSettings } from "@peebee/shared";
 import { db } from "../db/client.js";
 
 const DEFAULTS = {
+  ride_tracking: JSON.stringify(DEFAULT_RIDE_TRACKING_SETTINGS),
   shopping_units_config: JSON.stringify(DEFAULT_SHOPPING_UNIT_SETTINGS),
   time_fees: JSON.stringify(DEFAULT_TIME_FEES),
   /** Which dataset the whole platform — every customer, rider, and the

@@ -1,6 +1,6 @@
 "use client";
 
-import { roundFare, type CarCategory } from "@peebee/shared";
+import { DEFAULT_RIDE_TRACKING_SETTINGS, roundFare, type CarCategory } from "@peebee/shared";
 import type { RidePassenger, SavedPassenger } from "@peebee/shared";
 import { ChevronRight, Route, User, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import { api, errorMessage } from "../../lib/api";
 import { useTranslate } from "../../lib/i18n";
 import { placeFields } from "../../lib/places";
 import { RouteSummary } from "./RouteSummary";
+import { RideTimeEstimate } from "./RideTimeEstimate";
 import { WhoIsRiding } from "../WhoIsRiding";
 
 /** Great-circle distance in km — mirrors apps/api/src/lib/geo.ts, used only
@@ -54,6 +55,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<"boda" | "car">("boda");
   const [carId, setCarId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showEstimates, setShowEstimates] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,7 +68,10 @@ export function RideModal({ onClose }: { onClose: () => void }) {
       .catch(() => {});
     api
       .getSettings()
-      .then((res) => setPricing({ ratePerKm: res.settings.rideRatePerKm, minimum: res.settings.rideMinimumFare }))
+      .then((res) => {
+        setPricing({ ratePerKm: res.settings.rideRatePerKm, minimum: res.settings.rideMinimumFare });
+        setShowEstimates((res.settings.rideTracking ?? DEFAULT_RIDE_TRACKING_SETTINGS).showEstimates);
+      })
       .catch(() => {});
     api
       .getCarConfig()
@@ -158,6 +163,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
     <Modal withMap mapRoute={route} title={t("ride_title")} onClose={onClose}>
       <div className="space-y-4">
         <RouteSummary pickup={route.pickup} destination={route.destination} destinationLabel={t("place_destination")} onChange={() => setChoosing(true)} />
+        {showEstimates && <RideTimeEstimate pickupLat={p?.lat} pickupLng={p?.lng} destinationLat={d?.lat} destinationLng={d?.lng} />}
 
         {forOtherOn && (
           <button

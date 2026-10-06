@@ -296,6 +296,7 @@ export type DeliverySettings = {
    * distance the way a parcel ride is. */
   shoppingDeliveryFee: number;
   shoppingUnits?: import("./shopping-units.js").ShoppingUnitSettings;
+  rideTracking?: import("./ride-tracking.js").RideTrackingSettings;
   /** A passenger ride's own per-km rate and floor — priced the same way as
    * a parcel (distance × rate, never below the floor) but tracked
    * separately since carrying a person is a different real-world fare
