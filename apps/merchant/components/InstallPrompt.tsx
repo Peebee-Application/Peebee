@@ -70,7 +70,7 @@ export function InstallPrompt() {
   return (
     <div className="fixed inset-x-0 bottom-20 z-[60] mx-auto max-w-lg px-4">
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface))] p-3 shadow-lg">
-        <Image src="/icons/icon-192.png" alt="" width={40} height={40} className="shrink-0 rounded-xl" />
+        <Image src="/icons/icon-192.png?v=logo-6" alt="" width={40} height={40} className="shrink-0 rounded-xl" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-ink">Install Peebee Merchant</p>
           <p className="truncate text-xs text-ink-500">

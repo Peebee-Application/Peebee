@@ -3,8 +3,9 @@ $ErrorActionPreference = 'Stop'
 $brandRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 Add-Type -AssemblyName System.Drawing
 $logoSvg = [IO.File]::ReadAllText((Join-Path $brandRoot 'assets/brand/logo.svg'))
-$darkSvg = $logoSvg.Replace('stroke="#000"', 'stroke="#fff"')
-$adaptiveSvg = $logoSvg.Replace('<g fill=', '<style>g { stroke: #000; } @media (prefers-color-scheme: dark) { g { stroke: #fff; } }</style><g fill=')
+$lightSvg = $logoSvg.Replace('<svg ', '<svg data-theme="light" ')
+$darkSvg = $logoSvg.Replace('<svg ', '<svg data-theme="dark" ')
+$adaptiveSvg = $logoSvg
 $lightLogo = [System.Drawing.Image]::FromFile((Join-Path $brandRoot 'assets/brand/logo-light.png'))
 $darkLogo = [System.Drawing.Image]::FromFile((Join-Path $brandRoot 'assets/brand/logo-dark.png'))
 
@@ -34,7 +35,7 @@ function Export-LogoPng($image, [int]$size, [string]$destination, $background) {
 try {
   foreach ($appName in @('web','customer','rider','admin','restaurant','merchant','partner','sales')) {
     $publicPath = Join-Path $brandRoot "apps/$appName/public"
-    [IO.File]::WriteAllText((Join-Path $publicPath 'brand/peebee-logo-light.svg'), $logoSvg)
+    [IO.File]::WriteAllText((Join-Path $publicPath 'brand/peebee-logo-light.svg'), $lightSvg)
     [IO.File]::WriteAllText((Join-Path $publicPath 'brand/peebee-logo-dark.svg'), $darkSvg)
     foreach ($lightName in @('peebee-logo-light.png','peebee-logo-navy.png')) {
       Export-LogoPng $lightLogo 256 (Join-Path $publicPath "brand/$lightName") ([System.Drawing.Color]::Transparent)
@@ -45,7 +46,7 @@ try {
     foreach ($icon in @(@('favicon-32.png',32),@('apple-touch-icon.png',180),@('icon-192.png',192),@('icon-512.png',512))) {
       Export-LogoPng $lightLogo $icon[1] (Join-Path $publicPath "icons/$($icon[0])") ([System.Drawing.Color]::White)
     }
-    [IO.File]::WriteAllText((Join-Path $publicPath 'brand/app-icon.svg'), $logoSvg)
+    [IO.File]::WriteAllText((Join-Path $publicPath 'brand/app-icon.svg'), $lightSvg)
     [IO.File]::WriteAllText((Join-Path $publicPath 'favicon.svg'), $adaptiveSvg)
   }
   Write-Output 'Exported supplied light/dark PNG logos and app icons for all eight frontends.'

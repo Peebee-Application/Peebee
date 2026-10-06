@@ -16,7 +16,7 @@ function styleFields(children:ReactNode,label?:string):ReactNode {
     });
   });
 }
-function Brand(){return <div className="auth-brand"><img src="/brand/peebee-logo-light.png?v=svg-5" alt="" className="auth-logo-light" width={40} height={40}/><img src="/brand/peebee-logo-dark.png?v=svg-5" alt="" className="auth-logo-dark" width={40} height={40}/><span>Peebee</span></div>;}
+function Brand(){return <div className="auth-brand"><img src="/brand/peebee-logo-light.svg?v=logo-6" alt="" className="auth-logo-light" width={40} height={40}/><img src="/brand/peebee-logo-dark.svg?v=logo-6" alt="" className="auth-logo-dark" width={40} height={40}/><span>Peebee</span></div>;}
 export function AuthScene({children,className='',showBrand=true,navigation}:{children:ReactNode;className?:string;showBrand?:boolean;navigation?:ReactNode}){
   return <section aria-label="Account access" className={`auth-scene ${className}`}><div className="auth-art" aria-hidden="true"><img src="/brand/auth-illustration.webp" alt="" width={1536} height={1024}/></div>{navigation}<div className="auth-content">{showBrand&&<Brand/>}{styleFields(children)}</div></section>;
 }
