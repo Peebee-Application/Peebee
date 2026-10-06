@@ -73,6 +73,8 @@ export function OpenStatusCard({
       </button>
 
       {compact && !isOpen && (
+        <>
+        <div aria-hidden className="pointer-events-none fixed inset-x-0 top-14 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 mx-auto max-w-lg bg-cream/30 backdrop-blur-md" />
         <div className="fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 mx-auto max-w-sm rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 text-center shadow-xl">
           <p className="text-lg font-bold">Your business is closed</p>
           <p className="mt-1 text-sm text-ink-500">Ready to take new orders? Your other tabs are still available.</p>
@@ -81,6 +83,7 @@ export function OpenStatusCard({
           </button>
           {restaurant.open_time && restaurant.close_time && <p className="mt-3 text-xs text-ink-500">Working hours: {restaurant.open_time}–{restaurant.close_time} (Uganda). Your schedule resumes at its next opening or closing time.</p>}
         </div>
+        </>
       )}
 
       {error && (
