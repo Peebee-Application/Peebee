@@ -22,6 +22,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../../../../lib/api";
 import { useAuth } from "../../../../lib/auth-context";
+import { PersonPhoto } from "../../../../components/PersonPreview";
 
 const RANGE_LABEL: Record<AdminMerchantRange, string> = {
   day: "Day",
@@ -60,7 +61,7 @@ function titleCase(value: string | null | undefined): string {
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex justify-between gap-4 border-b border-[var(--border-faint)] py-2 last:border-0">
-      <span className="text-sm text-ink-500">{label}</span>
+      <span className="break-words text-sm text-ink-500">{label}</span>
       <span className="max-w-[62%] text-right text-sm font-semibold text-ink">{value || "—"}</span>
     </div>
   );
@@ -96,6 +97,9 @@ function DocumentCard({
       </div>
       {present && !preview && <p className="mt-3 text-xs text-ink-500">Loading secure preview…</p>}
       {preview && (
+        <div className="mt-3">
+          {preview.contentType.startsWith("image/") && <img src={preview.url} alt={label} className="max-h-96 w-full rounded-xl object-contain"/>}
+          {preview.contentType === "application/pdf" && <iframe src={preview.url} title={label} className="h-96 w-full rounded-xl"/>}
         <a
           href={preview.url}
           target="_blank"
@@ -105,6 +109,7 @@ function DocumentCard({
           Open attached file
           <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
         </a>
+        </div>
       )}
     </div>
   );
@@ -197,11 +202,11 @@ export default function MerchantDetailPage() {
   if (!profile) {
     return (
       <div className="space-y-4 p-4">
-        <Link href="/people" className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-500">
+        <Link href="/people?tab=merchants" className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-500">
           <ArrowLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
           Users
         </Link>
-        <p className="text-sm text-ink-500">{error ?? "Loading merchant profile…"}</p>
+        <p className="break-words text-sm text-ink-500">{error ?? "Loading merchant profile…"}</p>
       </div>
     );
   }
@@ -211,16 +216,17 @@ export default function MerchantDetailPage() {
 
   return (
     <div className="space-y-5 px-4 pb-8 pt-4">
-      <Link href="/people" className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-500">
+      <Link href="/people?tab=merchants" className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-500">
         <ArrowLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
         Users
       </Link>
 
-      <header className="flex items-start justify-between gap-3">
+      <header className="home-card flex items-start justify-between gap-3 !rounded-3xl !p-5">
+        <PersonPhoto kind="merchants" id={merchantId} name={merchant.display_name}/>
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-wide text-gold">Merchant profile</p>
-          <h1 className="truncate text-xl font-bold text-ink">{merchant.display_name}</h1>
-          <p className="truncate text-sm text-ink-500">{merchant.legal_name}</p>
+          <h1 className="break-words text-xl font-bold text-ink">{merchant.display_name}</h1>
+          <p className="break-words text-sm text-ink-500">{merchant.legal_name}</p>
         </div>
         <StatusPill status={merchant.status} />
       </header>
@@ -328,7 +334,7 @@ export default function MerchantDetailPage() {
           <Store className="h-4 w-4 text-gold" strokeWidth={1.8} aria-hidden />
           <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">Outlets ({outlets.length})</h2>
         </div>
-        {outlets.length === 0 && <p className="text-sm text-ink-500">No outlets registered.</p>}
+        {outlets.length === 0 && <p className="break-words text-sm text-ink-500">No outlets registered.</p>}
         {outlets.map((outlet) => (
           <article key={outlet.id} className="rounded-2xl border border-[var(--border-faint)] p-3">
             <div className="flex items-start justify-between gap-3">
@@ -359,7 +365,7 @@ export default function MerchantDetailPage() {
           <Users className="h-4 w-4 text-gold" strokeWidth={1.8} aria-hidden />
           <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">Owners and staff ({members.length})</h2>
         </div>
-        {members.length === 0 && <p className="text-sm text-ink-500">No merchant members found.</p>}
+        {members.length === 0 && <p className="break-words text-sm text-ink-500">No merchant members found.</p>}
         {members.map((member) => {
           const assignedOutlet = outlets.find((outlet) => outlet.id === member.outlet_id);
           return (
@@ -394,7 +400,7 @@ export default function MerchantDetailPage() {
             <p className="text-[11px] text-ink-500">Settling</p><p className="mt-1 text-xs font-bold text-ink">{money(merchant.settling)}</p>
           </div>
         </div>
-        {settlementAccounts.length === 0 && <p className="text-sm text-ink-500">No payout destination added.</p>}
+        {settlementAccounts.length === 0 && <p className="break-words text-sm text-ink-500">No payout destination added.</p>}
         {settlementAccounts.map((account) => (
           <article key={account.id} className="rounded-2xl border border-[var(--border-faint)] p-3">
             <div className="flex items-center justify-between gap-2">
@@ -454,7 +460,7 @@ export default function MerchantDetailPage() {
 
             <div className="home-card space-y-3">
               <h3 className="text-sm font-bold text-ink">Merchant payments</h3>
-              {payments.length === 0 && <p className="text-sm text-ink-500">No payments in this period.</p>}
+              {payments.length === 0 && <p className="break-words text-sm text-ink-500">No payments in this period.</p>}
               {payments.map((payment) => (
                 <article key={payment.id} className="border-b border-[var(--border-faint)] pb-3 last:border-0 last:pb-0">
                   <div className="flex items-start justify-between gap-3">
@@ -474,7 +480,7 @@ export default function MerchantDetailPage() {
 
             <div className="home-card space-y-3">
               <h3 className="text-sm font-bold text-ink">Withdrawals and settlements</h3>
-              {settlements.length === 0 && <p className="text-sm text-ink-500">No settlements in this period.</p>}
+              {settlements.length === 0 && <p className="break-words text-sm text-ink-500">No settlements in this period.</p>}
               {settlements.map((settlement) => (
                 <article key={settlement.id} className="border-b border-[var(--border-faint)] pb-3 last:border-0 last:pb-0">
                   <div className="flex items-start justify-between gap-3">
@@ -495,7 +501,7 @@ export default function MerchantDetailPage() {
 
             <div className="home-card space-y-3">
               <h3 className="text-sm font-bold text-ink">Ledger entries</h3>
-              {transactions.length === 0 && <p className="text-sm text-ink-500">No ledger entries in this period.</p>}
+              {transactions.length === 0 && <p className="break-words text-sm text-ink-500">No ledger entries in this period.</p>}
               {transactions.map((transaction) => (
                 <article key={transaction.id} className="flex items-start justify-between gap-3 border-b border-[var(--border-faint)] pb-3 last:border-0 last:pb-0">
                   <div className="min-w-0">

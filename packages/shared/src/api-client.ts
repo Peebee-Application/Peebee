@@ -1776,6 +1776,14 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async adminListRiders() {
       return request<{ riders: AdminRider[] }>("/v1/admin/riders");
     },
+    async adminGetRestaurant(id: string) {
+      return request<{restaurant: AdminRestaurant}>(`/v1/admin/restaurants/${encodeURIComponent(id)}`);
+    },
+    async adminPersonPhoto(kind: "riders" | "customers" | "restaurants" | "merchants", id: string): Promise<Blob> {
+      const res=await f(`${root}/v1/admin/people/${kind}/${encodeURIComponent(id)}/photo`,{headers:authHeaders()});
+      if (!res.ok) throw new Error("Photo unavailable");
+      return res.blob();
+    },
     async adminVerifyRider(userId: string, verified: boolean) {
       return request<{ rider: Rider }>(`/v1/admin/riders/${userId}/verify`, {
         method: "POST",

@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../../../lib/api";
 import { useAuth } from "../../../../lib/auth-context";
+import { PersonPhoto, SubmittedFields } from "../../../../components/PersonPreview";
 import { formatUgx, orderTitle, stageLabel } from "../../../../lib/order-display";
 
 export default function CustomerDetailPage() {
@@ -66,18 +67,23 @@ export default function CustomerDetailPage() {
 
   return (
     <div className="space-y-5 px-4 pb-6 pt-4">
-      <Link href="/people" className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-500">
+      <Link href="/people?tab=customers" className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-500">
         <ArrowLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
         Users
       </Link>
 
-      <header>
-        <h1 className="text-xl font-bold text-ink">{customer.name}</h1>
-        <p className="text-sm text-ink-500">
+      <header className="home-card flex items-center gap-3 !rounded-3xl !p-5">
+        <PersonPhoto kind="customers" id={customerId} name={customer.name}/>
+        <div className="min-w-0">
+        <h1 className="min-w-0 flex-1 break-words text-xl font-bold text-ink">{customer.name}</h1>
+        <p className="break-words text-sm text-ink-500">
           {customer.phone}
           {customer.email ? ` · ${customer.email}` : ""}
         </p>
+        </div>
       </header>
+
+      <SubmittedFields title="Submitted profile" fields={[["Name",customer.name],["Phone",customer.phone],["Email",customer.email],["Phone verified",customer.phone_verified_at],["Email verified",customer.email_verified_at],["Matching preference",customer.default_matching_mode],["Account status",customer.status === "active" ? "Active" : "Suspended"],["Registered",customer.created_at]]}/>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
 
