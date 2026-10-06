@@ -383,7 +383,8 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
     await setPlatformEnvironment("live");
     const settings = (selfDrive: unknown) => setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: false, withdrawalMinAmount: 0, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: selfDrive as typeof SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC, deals: DEALS });
     const day = 86400_000;
-    const at = (d: number) => new Date(Date.now() + d * day).toISOString();
+    const rentalClock = Date.now();
+    const at = (d: number) => new Date(rentalClock + d * day).toISOString();
     const balance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance AS b FROM users WHERE id = ?", args: [id] })).rows[0].b);
     await client.execute("UPDATE users SET wallet_balance = 0 WHERE id IN ('owner', 'cust', 'p2')");
 
