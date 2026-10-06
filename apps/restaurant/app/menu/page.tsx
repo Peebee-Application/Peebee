@@ -224,17 +224,20 @@ function DishRow({
   item,
   onEdit,
   onToggle,
+  onFeature,
   busy,
   photoRevision,
 }: {
   item: MenuItem;
   onEdit: () => void;
   onToggle: () => void;
+  onFeature: () => void;
   busy: boolean;
   photoRevision: number;
 }) {
   return (
     <article className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3">
+      <button type="button" role="switch" aria-checked={!!item.is_featured} aria-label={`${item.name} featured`} disabled={busy} onClick={onFeature} className={`mb-3 min-h-11 w-full rounded-full border border-[var(--border-faint)] text-xs font-bold ${item.is_featured?"bg-gold/15 text-ink":"text-ink-500"}`}>{item.is_featured?"Featured in your storefront":"Feature this dish"}</button>
       <button
         type="button"
         onClick={onEdit}
@@ -340,16 +343,16 @@ export default function MenuPage() {
     setNotice("");
     setEditing({ key: ++editorKey.current, item, categoryId });
   }
-  async function toggle(item: MenuItem) {
+  async function toggle(item: MenuItem,featured=false) {
     if (inFlight.current.has(item.id)) return;
     inFlight.current.add(item.id);
     setUpdating(new Set(inFlight.current));
     setError(null);
     try {
-      await api.updateMenuItem(item.id, { available: !item.available });
+      await api.updateMenuItem(item.id, featured?{featured:!item.is_featured}:{ available: !item.available });
       await load();
       setNotice(
-        `${item.name} is now ${item.available ? "unavailable" : "available to order"}.`,
+        featured?`${item.name} ${item.is_featured?"removed from":"added to"} featured dishes.`:`${item.name} is now ${item.available ? "unavailable" : "available to order"}.`,
       );
     } catch (err) {
       setError(errorMessage(err));
@@ -523,6 +526,7 @@ export default function MenuPage() {
                       item={item}
                       onEdit={() => openEditor(item, item.category_id ?? null)}
                       onToggle={() => void toggle(item)}
+                      onFeature={() => void toggle(item,true)}
                       busy={updating.has(item.id)}
                       photoRevision={photoRevisions[item.id] ?? 0}
                     />

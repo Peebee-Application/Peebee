@@ -14,7 +14,9 @@
     "./auth": "./src/AuthScene.tsx",
     "./auth.css": "./auth.css",
     "./google-button": "./src/GoogleButtonSurface.tsx",
-    "./food-cover": "./src/FoodCover.tsx"
+    "./food-cover": "./src/FoodCover.tsx",
+    "./colour-scenes.css": "./colour-scenes.css",
+    "./business-theme": "./src/BusinessTheme.tsx"
   },
   "scripts": {
     "lint": "tsc --noEmit",

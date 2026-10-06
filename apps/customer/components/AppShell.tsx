@@ -5,12 +5,15 @@ import { useColourScene } from "../lib/use-colour-scene";
 import { AuthGate } from "./AuthGate";
 import { BottomNav } from "./BottomNav";
 import { BrandHeader } from "./BrandHeader";
+import { FoodBusinessTheme } from "./FoodBusinessTheme";
 import { OfflineBanner } from "./OfflineBanner";
 import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./PracticeMode";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   useColourScene();
   const pathname = usePathname();
+  const foodBusinessId=/^\/restaurants\/([^/]+)/.exec(pathname)?.[1];
+  const isFoodDetail=/^\/restaurants\/[^/]+\/items\/[^/]+$/.test(pathname);
   const isAuthPage = pathname === "/login" || pathname === "/activate" || pathname === "/forgot-password" || pathname.startsWith("/verify") || pathname.startsWith("/trip/");
   // "/chat" itself is a normal list screen (conversations) with the usual
   // header + nav; a specific thread ("/chat/<counterpartId>" for order
@@ -18,11 +21,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // whole screen — its own header/footer replace BrandHeader/BottomNav so
   // the conversation gets the full viewport with nothing floating over it.
   const isChatThread = pathname.startsWith("/chat/") || /^\/restaurants\/[^/]+\/chat$/.test(pathname);
-  const showHeader = !isAuthPage && !isChatThread;
-  const showNav = !isAuthPage && !isChatThread;
+  const showHeader = !isAuthPage && !isChatThread && !isFoodDetail;
+  const showNav = !isAuthPage && !isChatThread && !isFoodDetail;
 
   return (
     <AuthGate>
+      {foodBusinessId&&<FoodBusinessTheme id={foodBusinessId}/>}
       <PracticeModeGuard role="customer" pathname={pathname} />
       {!isAuthPage && <PracticeModePrompt role="customer" />}
       {!isAuthPage && <OfflineBanner />}

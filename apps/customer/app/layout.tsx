@@ -2,7 +2,7 @@ import '@peebee/shared/auth.css';
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
-import "./colour-scenes.css";
+import "@peebee/shared/colour-scenes.css";
 import { COLOUR_SCENE_INIT_SCRIPT } from "../lib/colour-scenes";
 import { AppShell } from "../components/AppShell";
 import { CallOverlay } from "../components/CallOverlay";

@@ -883,6 +883,8 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       return request<import('./food-orders.js').FoodSellerOrders>(`/v1/restaurants/me/orders?${query}`);
     },
     async updateRestaurant(input: Partial<{
+      themeScene: import("./colour-scenes.js").ColourScene;
+      themeMode: "auto" | "light" | "dark";
       businessType: import("./food-business.js").FoodBusinessType;
       name: string;
       description: string;
@@ -1104,6 +1106,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async updateMenuItem(
       id: string,
       input: Partial<{
+        featured: boolean;
         name: string;
         description: string | null;
         price: number;
@@ -1790,6 +1793,11 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       if(!response.ok)throw new Error("Cover unavailable");
       return response.blob();
     },
+    async uploadRestaurantLogo(file:Blob){const form=new FormData();form.append("file",file,"logo.png");const response=await f(`${root}/v1/restaurants/me/logo`,{method:"POST",headers:authHeaders(),body:form});if(!response.ok)throw new Error("Could not save your logo. Use a JPG, PNG or WebP image under 4 MB.");return response.json() as Promise<{ok:true;logoKey:string}>;},
+    async restaurantLogoBlob(id:string,revision?:string){const response=await f(`${root}/v1/restaurants/${encodeURIComponent(id)}/logo${revision?`?v=${encodeURIComponent(revision)}`:""}`,{headers:authHeaders()});if(!response.ok)throw new Error("Logo unavailable");return response.blob();},
+    async foodMenuInsights(id:string){return request<{items:Record<string,import("./food-feedback.js").FoodItemInsight>;available:boolean}>(`/v1/restaurants/${encodeURIComponent(id)}/menu/insights`);},
+    async foodItemFeedback(id:string,itemId:string){return request<import("./food-feedback.js").FoodItemFeedback>(`/v1/restaurants/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}/reviews`);},
+    async saveFoodItemReview(id:string,itemId:string,input:{orderId:string;rating:number;comment:string;recommended:boolean}){return request<{ok:true}>(`/v1/restaurants/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}/review`,{method:"PUT",body:JSON.stringify(input)});},
     async adminPersonPhoto(kind: "riders" | "customers" | "restaurants" | "merchants", id: string): Promise<Blob> {
       const res=await f(`${root}/v1/admin/people/${kind}/${encodeURIComponent(id)}/photo`,{headers:authHeaders()});
       if (!res.ok) throw new Error("Photo unavailable");

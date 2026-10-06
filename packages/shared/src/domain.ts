@@ -808,6 +808,8 @@ export type RestaurantStatus = "pending_approval" | "active" | "suspended";
  * apps/api/src/db/migrations/0032_restaurants.sql for why); owner_id
  * points at a normal customer-role account that manages it. */
 export type Restaurant = {
+  theme_scene?: import("./colour-scenes.js").ColourScene | null;
+  theme_mode?: "auto" | "light" | "dark" | null;
   business_type?: import("./food-business.js").FoodBusinessType;
   /** Fictional catalogue entry. Shared ordering is enabled only by the sandbox API. */
   is_demo?: boolean;
@@ -1112,6 +1114,7 @@ export type MenuItemOption = {
 export type MenuItemBadge = "sale" | "new" | "trending";
 
 export type MenuItem = {
+  is_featured?: number;
   id: string;
   restaurant_id: string;
   category_id: string | null;
