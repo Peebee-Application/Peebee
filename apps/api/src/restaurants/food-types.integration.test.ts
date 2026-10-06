@@ -53,5 +53,5 @@ test("food types persist, approval gates discovery, and missing migration stays 
     const response=await app.request('/v1/restaurants/me',{method:'PATCH',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({businessType:'kitchen'})});
     assert.equal(response.status,503);
     assert.equal((await app.request('/v1/restaurants/me',{headers:{Authorization:`Bearer ${token}`}})).status,200);
-  } finally { setD1Binding(null);resetSchemaCache();client.close(); }
+  } finally { setD1Binding(undefined);resetSchemaCache();client.close(); }
 });
