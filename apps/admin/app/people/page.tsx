@@ -1,4 +1,5 @@
 "use client";
+import { foodBusinessLabel } from "@peebee/shared";
 
 import {
   hasPermission,
@@ -337,7 +338,7 @@ function RestaurantsTab() {
       </div>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
-      {filtered.length === 0 && <p className="py-6 text-center text-sm text-ink-500">No restaurants here.</p>}
+      {filtered.length === 0 && <p className="py-6 text-center text-sm text-ink-500">No food businesses here.</p>}
 
       <ul className="space-y-2.5">
         {filtered.map((r) => (
@@ -348,6 +349,7 @@ function RestaurantsTab() {
                 <span className="block truncate text-[15px] font-bold text-ink">{r.name}</span>
                 <span className="mt-0.5 block truncate text-xs text-ink-500">
                   {r.owner_name}
+                  {` · ${foodBusinessLabel(r.business_type)}`}
                   {r.cuisine ? ` · ${r.cuisine}` : ""}
                 </span>
               </span>
@@ -524,7 +526,7 @@ function SummaryStrip() {
       <div className="home-card !py-3 text-center">
         <Store className="mx-auto h-4 w-4 text-gold" strokeWidth={1.75} aria-hidden />
         <p className="mt-1 text-lg font-bold text-ink">{restaurants.length}</p>
-        <p className="text-[11px] text-ink-500">Restaurants</p>
+        <p className="text-[11px] text-ink-500">Food</p>
       </div>
       <div className="home-card !py-3 text-center">
         <Store className="mx-auto h-4 w-4 text-gold" strokeWidth={1.75} aria-hidden />
@@ -557,7 +559,7 @@ export default function UsersPage() {
               tab === t ? "bg-gold text-ink-gold shadow-sm" : "text-ink-500"
             }`}
           >
-            {t}
+            {t === "restaurants" ? "Food" : t}
           </button>
         ))}
       </div>

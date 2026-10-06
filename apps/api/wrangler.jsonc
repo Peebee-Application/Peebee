@@ -32,10 +32,11 @@
   "vars": {
     "ENVIRONMENT": "production",
     "GOOGLE_CLIENT_ID": "800078968934-7va1llsnhh3rdegsk6k65sq59iligtsg.apps.googleusercontent.com",
-    "CORS_ORIGINS": "https://peebee.online,https://www.peebee.online,https://customer.peebee.online,https://rider.peebee.online,https://admin.peebee.online,https://restaurant.peebee.online,https://merchant.peebee.online,https://car.peebee.online,https://partner.peebee.online,https://sales.peebee.online,https://peebee-customer.peebeeapp.workers.dev,https://peebee-rider.peebeeapp.workers.dev,https://peebee-admin.peebeeapp.workers.dev,https://peebee-restaurant.peebeeapp.workers.dev,https://peebee-merchant.peebeeapp.workers.dev,https://peebee-partner.peebeeapp.workers.dev,https://peebee-sales.peebeeapp.workers.dev,https://peebee.peebeeapp.workers.dev",
+    "CORS_ORIGINS": "https://peebee.online,https://www.peebee.online,https://customer.peebee.online,https://rider.peebee.online,https://admin.peebee.online,https://food.peebee.online,https://restaurant.peebee.online,https://merchant.peebee.online,https://car.peebee.online,https://partner.peebee.online,https://sales.peebee.online,https://peebee-customer.peebeeapp.workers.dev,https://peebee-rider.peebeeapp.workers.dev,https://peebee-admin.peebeeapp.workers.dev,https://peebee-restaurant.peebeeapp.workers.dev,https://peebee-merchant.peebeeapp.workers.dev,https://peebee-partner.peebeeapp.workers.dev,https://peebee-sales.peebeeapp.workers.dev,https://peebee.peebeeapp.workers.dev",
     "PUBLIC_API_URL": "https://api.peebee.online",
     "CUSTOMER_APP_URL": "https://customer.peebee.online",
     "RIDER_APP_URL": "https://rider.peebee.online",
+    "RESTAURANT_APP_URL": "https://food.peebee.online",
     "ADMIN_APP_URL": "https://admin.peebee.online",
     "CUSTOMER_APP_URL_LOGO": "https://customer.peebee.online/brand/peebee-logo-light.svg?v=logo-6",
     "PAYMENTS_PROVIDER": "yo_mock",

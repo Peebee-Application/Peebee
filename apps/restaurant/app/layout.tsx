@@ -31,8 +31,8 @@ const THEME_INIT_SCRIPT = `
 `;
 
 export const metadata: Metadata = {
-  title: "Peebee Restaurant",
-  description: "Peebee Concierge — restaurant app",
+  title: "Peebee Food",
+  description: "Peebee Food — restaurants, kitchens, street food and bakeries",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Peebee Restaurant",
+    title: "Peebee Food",
   },
 };
 

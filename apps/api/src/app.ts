@@ -50,6 +50,7 @@ const defaultOrigins = [
   "https://customer.peebee.online",
   "https://rider.peebee.online",
   "https://admin.peebee.online",
+  "https://food.peebee.online",
   "https://restaurant.peebee.online",
   "https://merchant.peebee.online",
   "https://car.peebee.online",

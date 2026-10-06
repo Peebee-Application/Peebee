@@ -10,7 +10,7 @@ import { signToken } from '../auth/jwt.js';
 import { toAuthUser } from '../auth/serialize.js';
 import { ActivationDeliveryRejected, onboardingSettings, sendActivation } from './messaging.js';
 import { ResendDeliveryError } from '../verify/email-keys.js';
-import { hasTable } from '../lib/schema.js';
+import { hasColumn, hasTable } from '../lib/schema.js';
 
 export const normalizePhone = (value:string)=>{
   let s=value.replace(/[\s().-]/g,'');
@@ -21,6 +21,7 @@ export const normalizePhone = (value:string)=>{
 const optionalText=(max:number)=>z.preprocess(v=>v===''?undefined:v,z.string().trim().min(1).max(max).optional());
 const phone=z.preprocess(v=>typeof v==='string'&&v.trim()?normalizePhone(v):undefined,z.string().regex(/^\+[1-9]\d{7,14}$/,'Use a valid international phone number.').optional());
 const profileSchema=z.object({
+  businessType:z.enum(["restaurant","kitchen","street_food","bakery"]).optional(),
   firstName:optionalText(60),lastName:optionalText(60),area:optionalText(120),vehicleInfo:optionalText(120),momoMsisdn:phone,altPhone:phone,
   stageAddress:optionalText(240),homeAddress:optionalText(240),stageName:optionalText(120),stageChairmanName:optionalText(120),stageChairmanContact:phone,
   emergencyContactName:optionalText(120),emergencyContactPhone:phone,
@@ -42,7 +43,7 @@ export const enrollmentSchema=z.object({
 export class OnboardingError extends Error {constructor(public code:string,public status:400|403|404|409|410|429|503,message:string){super(message);}}
 export function appUrl(type:string):string {
   const prod=(process.env.ENVIRONMENT??'development')!=='development';
-  const values:Record<string,[string,string,string]>={customer:['CUSTOMER_APP_URL','https://customer.peebee.online','http://localhost:3000'],rider:['RIDER_APP_URL','https://rider.peebee.online','http://localhost:3001'],restaurant:['RESTAURANT_APP_URL','https://restaurant.peebee.online','http://localhost:3003'],merchant:['MERCHANT_APP_URL','https://merchant.peebee.online','http://localhost:3005'],agent:['SALES_APP_URL','https://sales.peebee.online','http://localhost:3007']};
+  const values:Record<string,[string,string,string]>={customer:['CUSTOMER_APP_URL','https://customer.peebee.online','http://localhost:3000'],rider:['RIDER_APP_URL','https://rider.peebee.online','http://localhost:3001'],restaurant:['RESTAURANT_APP_URL','https://food.peebee.online','http://localhost:3003'],merchant:['MERCHANT_APP_URL','https://merchant.peebee.online','http://localhost:3005'],agent:['SALES_APP_URL','https://sales.peebee.online','http://localhost:3007']};
   const [env,live,local]=values[type]??values.customer;
   return (process.env[env]??(prod?live:local)).replace(/\/$/,'');
 }
@@ -67,7 +68,11 @@ export async function enroll(input:z.infer<typeof enrollmentSchema>,agentId:stri
   if(input.accountType==='rider') statements.push({
     sql:`INSERT INTO riders (user_id,first_name,last_name,area,vehicle_info,momo_msisdn,alt_phone,stage_address,home_address,stage_lat,stage_lng,stage_name,stage_chairman_name,stage_chairman_contact,emergency_contact_name,emergency_contact_phone,national_id_key,profile_photo_key)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,args:[userId,p.firstName??null,p.lastName??null,p.area??null,p.vehicleInfo??null,p.momoMsisdn??null,p.altPhone??null,p.stageAddress??null,p.homeAddress??null,p.lat??null,p.lng??null,p.stageName??null,p.stageChairmanName??null,p.stageChairmanContact??null,p.emergencyContactName??null,p.emergencyContactPhone??null,documents.riderId??null,documents.photo??null]});
-  if(input.accountType==='restaurant')statements.push({sql:'INSERT INTO restaurants (id,owner_id,name,description,cuisine,phone,address,lat,lng,open_time,close_time,environment) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',args:[newId('rst'),userId,p.businessName!,p.description??null,p.cuisine??null,input.phone??null,p.address??null,p.lat??null,p.lng??null,p.openTime??null,p.closeTime??null,await getPlatformEnvironment()]});
+  if(input.accountType==='restaurant') {
+    const hasType=await hasColumn('restaurants','business_type');
+    if(!hasType&&p.businessType&&p.businessType!=='restaurant') throw new OnboardingError('food_categories_unavailable',503,'Food categories are being enabled. Please try again shortly.');
+    statements.push({sql:`INSERT INTO restaurants (id,owner_id,name,description,cuisine,phone,address,lat,lng,open_time,close_time,environment${hasType?',business_type':''}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?${hasType?',?':''})`,args:[newId('rst'),userId,p.businessName!,p.description??null,p.cuisine??null,input.phone??null,p.address??null,p.lat??null,p.lng??null,p.openTime??null,p.closeTime??null,await getPlatformEnvironment(),...(hasType?[p.businessType??'restaurant']:[])]});
+  }
   if(input.accountType==='rider'&&[p.firstName,p.lastName,p.vehicleInfo,p.stageAddress,p.homeAddress,p.stageName,p.stageChairmanName,p.stageChairmanContact,p.emergencyContactName,p.emergencyContactPhone,documents.riderId,documents.photo].every(Boolean)&&p.lat!=null&&p.lng!=null) {
     statements.push({sql:"UPDATE riders SET profile_completed_at=datetime('now') WHERE user_id=?",args:[userId]});
   }

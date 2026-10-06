@@ -1,102 +1,37 @@
 "use client";
-
-import { ChevronRight, ShieldCheck, Store, UtensilsCrossed, WalletCards } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { OpenStatusCard } from "../components/OpenStatusCard";
-import { useAuth } from "../lib/auth-context";
+import { FOOD_BUSINESS_TYPES, foodBusinessLabel, type MenuItem } from '@peebee/shared';
+import { ChefHat, CookingPot, Croissant, Search, UtensilsCrossed, WalletCards, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { MenuPhoto } from '../components/MenuPhoto';
+import { FoodHero } from '../components/FoodHero';
+import { OpenStatusCard } from '../components/OpenStatusCard';
+import { useAuth } from '../lib/auth-context';
+import { api } from '../lib/api';
 
 export default function HomePage() {
-  const { user, restaurant, restaurantReady, refreshRestaurant } = useAuth();
+  const { restaurant, restaurantReady, refreshRestaurant } = useAuth();
   const router = useRouter();
-
-  // No restaurant registered yet — send them straight to the form rather
-  // than showing an empty dashboard they can't do anything with.
-  useEffect(() => {
-    if (restaurantReady && !restaurant) router.replace("/account");
-  }, [restaurantReady, restaurant, router]);
-
-  if (!restaurantReady) {
-    return <p className="px-4 py-10 text-center text-sm text-ink-500">Loading…</p>;
-  }
-
+  const [query, setQuery] = useState('');
+  const [items, setItems] = useState<MenuItem[] | null>(null);
+  const [menuError, setMenuError] = useState(false);
+  useEffect(() => { if (restaurantReady && !restaurant) router.replace('/account'); }, [restaurantReady, restaurant, router]);
+  useEffect(() => { let cancelled=false; if (restaurant) api.myMenu().then(result => {if(!cancelled)setItems([...result.categories.flatMap(category=>category.items),...result.uncategorizedItems]);}).catch(() => {if(!cancelled)setMenuError(true);}); return()=>{cancelled=true;}; }, [restaurant?.id]);
+  if (!restaurantReady) return <p className="p-8 text-center">Loading your food business…</p>;
   if (!restaurant) return null;
-
-  if (restaurant.status === "pending_approval") {
-    return (
-      <div className="space-y-5 px-4 pb-6 pt-4">
-        <h1 className="text-xl font-bold text-ink">Welcome, {user?.name}</h1>
-        <section className="home-card flex flex-col items-center gap-3 py-8 text-center">
-          <Store className="h-10 w-10 text-gold" strokeWidth={1.5} aria-hidden />
-          <p className="text-sm font-semibold text-ink">{restaurant.name} is pending approval</p>
-          <p className="text-sm text-ink-500">
-            An admin needs to review and approve your restaurant before customers can see it — you can build out
-            your menu in the meantime, it&apos;ll be ready the moment you&apos;re approved.
-          </p>
-          <Link href="/menu" className="mt-2 text-sm font-bold text-gold">
-            Go to Menu →
-          </Link>
-        </section>
-      </div>
-    );
-  }
-
-  if (restaurant.status === "suspended") {
-    return (
-      <div className="space-y-5 px-4 pb-6 pt-4">
-        <h1 className="text-xl font-bold text-ink">{restaurant.name}</h1>
-        <section className="home-card flex flex-col items-center gap-3 py-8 text-center !border-l-4 !border-l-red-400">
-          <p className="text-sm font-semibold text-ink">This restaurant has been suspended</p>
-          <p className="text-sm text-ink-500">Contact support if you think this is a mistake.</p>
-        </section>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-5 px-4 pb-6 pt-4">
-      <h1 className="text-xl font-bold text-ink">{restaurant.name}</h1>
-
-      <OpenStatusCard restaurant={restaurant} onUpdated={refreshRestaurant} />
-
-      <Link href="/menu" className="home-card flex items-center gap-3 !rounded-2xl">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
-          <UtensilsCrossed className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-bold text-ink">Manage menu</span>
-          <span className="block text-xs text-ink-500">Categories, items, prices, and options</span>
-        </span>
-        <ChevronRight className="h-5 w-5 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
-      </Link>
-
-      <Link href="/wallet" className="home-card flex items-center gap-3 !rounded-2xl">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
-          <WalletCards className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-bold text-ink">Merchant balance</span>
-          <span className="block text-xs text-ink-500">Sales, held funds, and Mobile Money settlement</span>
-        </span>
-        <ChevronRight className="h-5 w-5 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
-      </Link>
-
-      <Link href="/payments" className="home-card flex items-center gap-3 !rounded-2xl">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
-          <ShieldCheck className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-bold text-ink">Confirm rider payment</span>
-          <span className="block text-xs text-ink-500">Check the exact amount before accepting a goods handover</span>
-        </span>
-        <ChevronRight className="h-5 w-5 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
-      </Link>
-
-      <section className="home-card space-y-1">
-        <p className="text-sm font-semibold text-ink">Orders</p>
-        <p className="text-xs text-ink-500">Coming soon — you&apos;ll see incoming orders here once ordering opens.</p>
-      </section>
-    </div>
-  );
+  const filtered = items?.filter(item => item.name.toLowerCase().includes(query.toLowerCase())) ?? [];
+  return <div className="space-y-5 px-4 pb-8 pt-4">
+    <div className="flex items-center justify-between"><div><p className="text-xs font-semibold text-ink-500">{foodBusinessLabel(restaurant.business_type)}</p><h1 className="text-xl font-bold">{restaurant.name}</h1></div><Link href="/account" className="text-sm font-bold text-gold">Profile</Link></div>
+    {restaurant.status !== 'active' && <section role="status" className="home-card"><p className="font-bold">{restaurant.status === 'pending_approval' ? 'Awaiting admin approval' : 'Business suspended'}</p><p className="mt-1 text-sm text-ink-500">{restaurant.status === 'pending_approval' ? 'Prepare your menu while we review your business. Customers can order after approval.' : 'Contact support to restore your business. Ordering is unavailable while suspended.'}</p></section>}
+    <div className="field-box flex min-h-12 items-center gap-2 rounded-2xl px-4"><Search size={18} className="text-ink-500"/><input aria-label="Search your menu" placeholder="Search dishes, pastries, snacks…" value={query} onChange={event=>setQuery(event.target.value)} className="w-full border-0 outline-none"/></div>
+    <FoodHero/>
+    <div className="food-categories">{FOOD_BUSINESS_TYPES.map((type,index)=>{const Icon=[UtensilsCrossed,ChefHat,CookingPot,Croissant][index];return <Link href="/account" key={type.value} className={(restaurant.business_type ?? 'restaurant')===type.value ? 'active' : ''}><span><Icon size={23} strokeWidth={1.5}/></span><strong>{type.label}</strong></Link>;})}</div>
+    <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">Your menu</h2><Link href="/menu" className="text-sm font-semibold text-gold">View all →</Link></div>
+      {menuError ? <p role="status" className="home-card text-sm">Menu could not load. <Link href="/menu" className="underline">Open menu management</Link></p> : items===null ? <p className="text-sm text-ink-500">Loading menu…</p> : items.length===0 ? <div className="home-card"><p className="font-semibold">Your next favourite starts here.</p><p className="mt-1 text-sm text-ink-500">Add dishes, prices and photos to bring your menu to life.</p><Link href="/menu" className="mt-3 inline-block font-bold text-gold">Add your first item →</Link></div> : <div className="grid grid-cols-2 gap-3">{filtered.slice(0,6).map(item=><Link href="/menu" key={item.id} className="food-menu-card"><MenuPhoto id={item.id} hasPhoto={!!item.photo_key}/><h3 className="font-bold">{item.name}</h3><p className="mt-1 text-sm">UGX {item.price.toLocaleString()}</p><p className="mt-2 text-xs text-ink-500">{item.available?'Available':'Unavailable'}</p></Link>)}</div>}
+      {items && items.length>0 && filtered.length===0 && <p className="py-4 text-sm text-ink-500">No items match your search.</p>}
+    </section>
+    {restaurant.status==='active' && <OpenStatusCard restaurant={restaurant} onUpdated={refreshRestaurant}/>}
+    <div className="grid grid-cols-2 gap-3"><Link href="/wallet" className="food-menu-card"><WalletCards className="mb-3 text-gold"/><h2 className="font-bold">Business balance</h2><p className="mt-1 text-xs text-ink-500">Sales and settlements</p></Link><Link href="/payments" className="food-menu-card"><ShieldCheck className="mb-3 text-gold"/><h2 className="font-bold">Rider payment</h2><p className="mt-1 text-xs text-ink-500">Confirm your handover</p></Link></div>
+  </div>;
 }

@@ -19,7 +19,7 @@ import { ThemeModeToggle } from "../components/ThemeModeToggle";
 
 const CUSTOMER_APP_URL = "https://customer.peebee.online";
 const RIDER_APP_URL = "https://rider.peebee.online";
-const RESTAURANT_APP_URL = "https://restaurant.peebee.online";
+const RESTAURANT_APP_URL = "https://food.peebee.online";
 
 const SERVICES = [
   {
@@ -29,7 +29,7 @@ const SERVICES = [
   },
   {
     title: "Food",
-    body: "Order from nearby restaurants and keep the conversation in one place.",
+    body: "Order from restaurants, home kitchens, street food stalls and bakeries and keep the conversation in one place.",
     icon: UtensilsCrossed,
   },
   {
@@ -196,10 +196,10 @@ export default function Home() {
         </article>
         <article className="partner-panel bg-[rgb(var(--surface-card))] text-ink">
           <Store className="h-7 w-7 text-green" aria-hidden />
-          <h2>List your restaurant</h2>
+          <h2>Grow your food business</h2>
           <p>Bring your menu online, chat with customers, and let Peebee's rider network handle the handoff.</p>
           <a href={RESTAURANT_APP_URL} className="button button-outline">
-            Join as a restaurant
+            Join Peebee Food
             <ArrowRight className="h-4 w-4" aria-hidden />
           </a>
         </article>
