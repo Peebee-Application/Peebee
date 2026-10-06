@@ -296,7 +296,9 @@ export default function MenuPage() {
   const [menu, setMenu] = useState<RestaurantMenu | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
-  const [photoRevision, setPhotoRevision] = useState(0);
+  const [photoRevisions, setPhotoRevisions] = useState<Record<string, number>>(
+    {},
+  );
   const [query, setQuery] = useState("");
   const [selectedSection, setSelectedSection] = useState("all");
   const [managing, setManaging] = useState(false);
@@ -522,7 +524,7 @@ export default function MenuPage() {
                       onEdit={() => openEditor(item, item.category_id ?? null)}
                       onToggle={() => void toggle(item)}
                       busy={updating.has(item.id)}
-                      photoRevision={photoRevision}
+                      photoRevision={photoRevisions[item.id] ?? 0}
                     />
                   ))}
                 </div>
@@ -573,8 +575,12 @@ export default function MenuPage() {
                 : previous,
             )
           }
-          onSaved={(another, categoryId) => {
-            setPhotoRevision(Date.now());
+          onSaved={(another, categoryId, photoItemId) => {
+            if (photoItemId)
+              setPhotoRevisions((previous) => ({
+                ...previous,
+                [photoItemId]: Date.now(),
+              }));
             void load();
             setNotice(
               another

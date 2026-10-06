@@ -51,7 +51,11 @@ export function MenuItemEditor({
   categoryId: string | null;
   categories: MenuCategory[];
   onClose: () => void;
-  onSaved: (another: boolean, categoryId: string | null) => void;
+  onSaved: (
+    another: boolean,
+    categoryId: string | null,
+    photoItemId?: string,
+  ) => void;
   onCategoryCreated: (category: MenuCategory) => void;
 }) {
   const initial: DishDraft = {
@@ -210,8 +214,15 @@ export function MenuItemEditor({
     saving.current = true;
     setError(null);
     try {
-      await saveDish(api, checkpoint.current, draft, options, photo, setStage);
-      onSaved(another, draft.categoryId || null);
+      const savedId = await saveDish(
+        api,
+        checkpoint.current,
+        draft,
+        options,
+        photo,
+        setStage,
+      );
+      onSaved(another, draft.categoryId || null, photo ? savedId : undefined);
     } catch (err) {
       setError(
         `${errorMessage(err)}${checkpoint.current.unavailable ? " This dish is saved as unavailable. Retry to finish saving it." : ""}`,
