@@ -17,7 +17,7 @@ export function MenuPhoto({
     setUrl(null);
     if (hasPhoto)
       api
-        .menuItemPhotoBlob(id)
+        .menuItemPhotoBlob(id, revision)
         .then((blob) => {
           if (!cancelled && blob.type.startsWith("image/")) {
             objectUrl = URL.createObjectURL(blob);

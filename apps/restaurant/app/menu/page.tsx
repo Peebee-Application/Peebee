@@ -574,7 +574,7 @@ export default function MenuPage() {
             )
           }
           onSaved={(another, categoryId) => {
-            setPhotoRevision((previous) => previous + 1);
+            setPhotoRevision(Date.now());
             void load();
             setNotice(
               another
