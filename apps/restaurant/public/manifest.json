@@ -1,7 +1,7 @@
 {
-  "name": "Peebee Restaurant",
-  "short_name": "Peebee Restaurant",
-  "description": "Manage your menu and orders — the Peebee restaurant app.",
+  "name": "Peebee Food",
+  "short_name": "Peebee Food",
+  "description": "Manage your menu and orders — the Peebee Food app.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

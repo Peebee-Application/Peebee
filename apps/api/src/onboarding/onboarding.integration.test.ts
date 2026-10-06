@@ -95,13 +95,14 @@ test('sales onboarding: access, atomic profiles, messaging and one-time activati
     await t.test('switching the active type creates the matching business records',async()=>{
       const category=String((await client.execute('SELECT id FROM merchant_categories WHERE active=1 LIMIT 1')).rows[0].id);
       for(const type of ['restaurant','merchant'] as const){
-        const data=emailOnly(type,type,{businessName:`Test ${type}`,legalName:'Test business ltd',outletName:'Main outlet',categoryId:category,address:'Test address',lat:0.3,lng:32.5});
+        const data=emailOnly(type,type,{businessName:`Test ${type}`,legalName:'Test business ltd',outletName:'Main outlet',categoryId:category,businessType:'kitchen',address:'Test address',lat:0.3,lng:32.5});
         const created=await enroll(data,'agent');await invite(created.id);
         const token=new URL(outbox.at(-1)!.link).hash.slice('#token='.length);assert.equal(new URL(outbox.at(-1)!.link).port,type==='restaurant'?'3003':'3005');
         const session=await activate(token,'BusinessPassword123');
         const path=type==='restaurant'?'/restaurants/me':'/merchants/me';
         const response=await app.request(`http://test/v1${path}`,{headers:{Authorization:`Bearer ${session.token}`}});assert.equal(response.status,200);
-        const body=await response.json() as {restaurant?:{name:string};merchants?:Array<{display_name:string}>};assert.equal(type==='restaurant'?body.restaurant?.name:body.merchants?.[0].display_name,`Test ${type}`);
+        const body=await response.json() as {restaurant?:{name:string;business_type:string};merchants?:Array<{display_name:string}>};assert.equal(type==='restaurant'?body.restaurant?.name:body.merchants?.[0].display_name,`Test ${type}`);
+        if(type==='restaurant')assert.equal(body.restaurant?.business_type,'kitchen');
       }
     });
     await t.test('complete rider details and uploads are retained; approval is separate',async()=>{

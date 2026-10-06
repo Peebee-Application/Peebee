@@ -8,7 +8,7 @@ export function BrandHeader() {
         <Link href="/" aria-label="Go to home" className="shrink-0">
           <BrandLogo />
         </Link>
-        <span className="ml-auto rounded-full bg-green/15 px-2.5 py-0.5 text-xs font-medium text-green-600">Restaurant</span>
+        <span className="ml-auto rounded-full bg-green/15 px-2.5 py-0.5 text-xs font-medium text-green-600">Food</span>
       </div>
     </header>
   );

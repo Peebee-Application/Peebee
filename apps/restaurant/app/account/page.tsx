@@ -1,5 +1,6 @@
 "use client";
 
+import { FOOD_BUSINESS_TYPES, type FoodBusinessType } from "@peebee/shared";
 import type { Restaurant } from "@peebee/shared";
 import { LogOut, MapPin, Store, User } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -55,6 +56,7 @@ export default function AccountPage() {
   const { user, restaurant: authRestaurant, refreshRestaurant, logout } = useAuth();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(authRestaurant);
 
+  const [businessType, setBusinessType] = useState<FoodBusinessType | "">("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [cuisine, setCuisine] = useState("");
@@ -80,6 +82,7 @@ export default function AccountPage() {
   function applyRestaurant(r: Restaurant) {
     setRestaurant(r);
     setName(r.name);
+    setBusinessType(r.business_type ?? "restaurant");
     setDescription(r.description ?? "");
     setCuisine(r.cuisine ?? "");
     setPhone(r.phone ?? "");
@@ -95,7 +98,9 @@ export default function AccountPage() {
     setError(null);
     setSaved(false);
     try {
+      if (!businessType) throw new Error("Choose your food business type.");
       const input = {
+        businessType,
         name,
         description: description || undefined,
         cuisine: cuisine || undefined,
@@ -159,7 +164,7 @@ export default function AccountPage() {
             <span className="block text-sm font-semibold text-ink">{STATUS_LABEL[restaurant.status]}</span>
             {restaurant.status === "pending_approval" && (
               <span className="block text-xs text-ink-500">
-                An admin needs to approve your restaurant before customers can see it.
+                An admin needs to approve your food business before customers can see it.
               </span>
             )}
             {restaurant.status === "suspended" && (
@@ -182,10 +187,11 @@ export default function AccountPage() {
       )}
 
       <form onSubmit={submit} className="home-card space-y-3">
-        <h2 className="text-sm font-semibold text-ink">{restaurant ? "Restaurant profile" : "Register your restaurant"}</h2>
+        <h2 className="text-sm font-semibold text-ink">{restaurant ? "Food business profile" : "Register your food business"}</h2>
+        <fieldset className="food-type-picker"><legend className="mb-3 text-sm font-semibold">What kind of food business do you run?</legend><div className="grid grid-cols-2 gap-3">{FOOD_BUSINESS_TYPES.map(type => <label key={type.value} className={`food-type-option ${businessType === type.value ? "selected" : ""}`}><input type="radio" name="businessType" required value={type.value} checked={businessType === type.value} onChange={() => setBusinessType(type.value)} /><span className="block font-bold">{type.label}</span><span className="mt-1 block text-xs text-ink-500">{type.description}</span></label>)}</div></fieldset>
         <Field label="Name" value={name} onChange={setName} placeholder="e.g. Kampala Kitchen" required />
         <Field label="Cuisine" value={cuisine} onChange={setCuisine} placeholder="e.g. Ugandan, fast food, pizza" />
-        <Field label="Description" value={description} onChange={setDescription} placeholder="A short line about your restaurant" />
+        <Field label="Description" value={description} onChange={setDescription} placeholder="A short line about your food business" />
         <Field label="Phone" value={phone} onChange={setPhone} placeholder="+256…" />
         <Field label="Address" value={address} onChange={setAddress} placeholder="Street, area" />
 
@@ -231,10 +237,10 @@ export default function AccountPage() {
 
         <button
           type="submit"
-          disabled={busy || !name.trim()}
+          disabled={busy || !name.trim() || !businessType}
           className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
         >
-          {busy ? "Saving…" : restaurant ? "Save changes" : "Register restaurant"}
+          {busy ? "Saving…" : restaurant ? "Save changes" : "Register food business"}
         </button>
       </form>
 

@@ -808,6 +808,7 @@ export type RestaurantStatus = "pending_approval" | "active" | "suspended";
  * apps/api/src/db/migrations/0032_restaurants.sql for why); owner_id
  * points at a normal customer-role account that manages it. */
 export type Restaurant = {
+  business_type?: import("./food-business.js").FoodBusinessType;
   /** Fictional catalogue entry. Shared ordering is enabled only by the sandbox API. */
   is_demo?: boolean;
   demo_checkout_enabled?: boolean;

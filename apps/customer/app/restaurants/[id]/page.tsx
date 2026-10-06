@@ -1,9 +1,9 @@
 "use client";
 
 import type { MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, Restaurant, RestaurantMenu } from "@peebee/shared";
-import { roundFare } from "@peebee/shared";
+import { foodBusinessLabel, roundFare } from "@peebee/shared";
 import { demoFoodPhotoPath, demoRestaurantPhotoPath } from "@peebee/shared/demo-food";
-import { ArrowUpRight, MessageCircle, Minus, Plus, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, MessageCircle, Minus, Plus, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -40,7 +40,7 @@ function useMenuItemPhoto(itemId: string, hasPhoto = true) {
     api
       .menuItemPhotoBlob(itemId)
       .then((blob) => {
-        if (cancelled) return;
+        if (cancelled || !blob.type.startsWith("image/")) return;
         objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);
       })
@@ -57,14 +57,13 @@ function useMenuItemPhoto(itemId: string, hasPhoto = true) {
 function MenuItemThumb({ itemId, size = "row" }: { itemId: string; size?: "row" | "modal" }) {
   const url = useMenuItemPhoto(itemId);
 
-  if (!url) return null;
-  const dims = size === "row" ? "h-16 w-16" : "h-40 w-full";
+  const dims = size === "row" ? "h-16 w-16" : "h-64 w-full";
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={url}
-      alt=""
-      className={`${dims} shrink-0 rounded-xl object-cover ${size === "modal" ? "mb-1" : ""}`}
+      src={url ?? "/brand/food-hero.webp"}
+      alt={url ? "Menu item photo" : "Food illustration"}
+      className={`${dims} shrink-0 rounded-3xl object-cover ${size === "modal" ? "mb-1" : ""}`}
     />
   );
 }
@@ -94,7 +93,7 @@ function FoodItemCard({ item, onOpen }: { item: MenuItem; onOpen: () => void }) 
       onClick={onOpen}
       className="flex w-full flex-col overflow-hidden rounded-3xl border border-[var(--border-faint)] glass-panel text-left shadow-sm"
     >
-      <div className="relative flex h-32 w-full items-center justify-center bg-green/10">
+      <div className="relative flex h-40 w-full items-center justify-center bg-[rgb(var(--surface-muted))]">
         {item.badge && (
           <span
             className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${BADGE_STYLES[item.badge]}`}
@@ -215,6 +214,7 @@ function ItemDetailModal({
           <div className="flex items-center gap-3">
             <button
               type="button"
+              aria-label="Decrease quantity"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
               className="flex h-8 w-8 items-center justify-center rounded-full glass-panel text-ink"
             >
@@ -223,6 +223,7 @@ function ItemDetailModal({
             <span className="w-5 text-center text-sm font-bold text-ink">{quantity}</span>
             <button
               type="button"
+              aria-label="Increase quantity"
               onClick={() => setQuantity((q) => q + 1)}
               className="flex h-8 w-8 items-center justify-center rounded-full glass-panel text-ink"
             >
@@ -327,11 +328,7 @@ export default function RestaurantPage() {
     return roundFare(deliverySettings.shoppingDeliveryFee);
   }, [restaurant, delivery, deliverySettings]);
 
-  // Checkout starts with where to deliver.
-  useEffect(() => {
-    if (step === "checkout" && !delivery) setChoosing(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+
 
   async function checkout() {
     const d = placeFields(delivery);
@@ -367,12 +364,14 @@ export default function RestaurantPage() {
   if (step === "checkout") {
     return (
       <div className="space-y-5 px-4 pb-28 pt-4">
-        <h1 className="text-xl font-bold text-ink">{t("restaurant_delivery_details")}</h1>
+        <div className="flex items-center gap-3"><button aria-label="Back to menu" onClick={() => setStep("menu")} className="flex h-11 w-11 items-center justify-center rounded-full glass-panel"><ChevronLeft size={22}/></button><h1 className="text-2xl font-bold text-ink">Your cart</h1></div>
+        <ul className="space-y-3">{cart.map(line => <li key={line.key} className="food-menu-card flex items-center gap-3"><MenuItemThumb itemId={line.menuItemId}/><div className="min-w-0 flex-1"><h2 className="font-bold">{line.name}</h2><p className="mt-1 text-sm text-ink-500">{formatUgx(line.unitPrice)}</p><div className="mt-3 flex items-center gap-3"><button aria-label={`Decrease ${line.name} quantity`} className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))]" onClick={() => setCart(prev => prev.flatMap(row => row.key !== line.key ? [row] : row.quantity > 1 ? [{...row, quantity: row.quantity - 1}] : []))}><Minus size={16}/></button><span>{line.quantity}</span><button aria-label={`Increase ${line.name} quantity`} className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))]" onClick={() => setCart(prev => prev.map(row => row.key === line.key ? {...row, quantity: row.quantity + 1} : row))}><Plus size={16}/></button><button className="ml-auto text-xs text-ink-500 underline" onClick={() => removeLine(line.key)}>Remove</button></div></div></li>)}</ul>
+        {!delivery && !choosing && <button onClick={() => setChoosing(true)} className="food-menu-card w-full text-left font-semibold">Choose delivery location →</button>}
 
         {delivery && (
           <RouteSummary pickup={null} destination={delivery} destinationLabel={t("place_delivery")} onChange={() => setChoosing(true)} />
         )}
-        {(choosing || !delivery) && (
+        {choosing && (
           <PlaceFlow
             concept="food"
             initial={{ destination: delivery }}
@@ -386,7 +385,7 @@ export default function RestaurantPage() {
 
 
 
-        <div className="space-y-1.5 rounded-xl bg-[rgb(var(--surface-muted))] px-4 py-3">
+        <div className="food-menu-card space-y-3 px-4 py-5">
           <div className="flex items-center justify-between text-sm text-ink-500">
             <span>{t("restaurant_items_total")}</span>
             <span>{formatUgx(itemsTotal)}</span>
@@ -397,7 +396,7 @@ export default function RestaurantPage() {
           </div>
           <div className="flex items-center justify-between border-t border-[var(--border-faint)] pt-1.5 text-sm font-bold text-ink">
             <span>{t("restaurant_estimated_total")}</span>
-            <span>{formatUgx(itemsTotal + (estimatedDeliveryFee ?? 0))}</span>
+            <span>{estimatedDeliveryFee != null ? formatUgx(itemsTotal + estimatedDeliveryFee) : t("loading")}</span>
           </div>
         </div>
 
@@ -412,7 +411,7 @@ export default function RestaurantPage() {
           </button>
           <button
             onClick={checkout}
-            disabled={busy || (restaurant.is_demo && !restaurant.demo_checkout_enabled)}
+            disabled={busy || !delivery || cart.length === 0 || !restaurant.is_open || (restaurant.is_demo && !restaurant.demo_checkout_enabled)}
             className="min-h-12 flex-[2] rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
           >
             {restaurant.is_demo && !restaurant.demo_checkout_enabled ? "Demo preview · no payment" : busy ? "Please wait…" : "Next: payment"}
@@ -424,6 +423,8 @@ export default function RestaurantPage() {
 
   return (
     <div className="space-y-5 px-4 pb-28 pt-4">
+      <Link href="/restaurants" aria-label="Back to food businesses" className="inline-flex h-11 w-11 items-center justify-center rounded-full glass-panel"><ChevronLeft size={22}/></Link>
+      <p className="text-xs font-semibold text-gold">{foodBusinessLabel(restaurant.business_type)}</p>
       <section className="home-card flex items-center gap-3">
         {restaurant.is_demo && demoRestaurantPhotoPath(restaurant.id) ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -466,9 +467,7 @@ export default function RestaurantPage() {
                 key={item.id}
                 item={item}
                 onOpen={() =>
-                  item.options.length > 0
-                    ? setActiveItem(item)
-                    : addToCart(item, { unitPrice: item.price, choiceIds: [], choiceNames: [], quantity: 1 })
+                  setActiveItem(item)
                 }
               />
             ))}
@@ -484,9 +483,7 @@ export default function RestaurantPage() {
                 key={item.id}
                 item={item}
                 onOpen={() =>
-                  item.options.length > 0
-                    ? setActiveItem(item)
-                    : addToCart(item, { unitPrice: item.price, choiceIds: [], choiceNames: [], quantity: 1 })
+                  setActiveItem(item)
                 }
               />
             ))}
@@ -509,7 +506,7 @@ export default function RestaurantPage() {
       )}
 
       {cart.length > 0 && (
-        <div className="fixed inset-x-0 bottom-14 z-40 px-4 pb-3">
+        <div className="fixed inset-x-0 bottom-20 z-40 px-4 pb-3">
           <button
             onClick={() => setStep("checkout")}
             className="mx-auto flex min-h-12 w-full max-w-lg items-center justify-between rounded-full bg-gold px-5 text-sm font-bold text-ink-gold shadow-[0_4px_16px_rgba(201,162,39,0.4)]"

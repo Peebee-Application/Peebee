@@ -24,7 +24,7 @@ const SERVICES: Array<{ key: ServiceKey; label: string; affects: string }> = [
   {
     key: "food",
     label: "Food ordering",
-    affects: "Restaurants disappear from the customer app and can't take new orders; the restaurant app shows a paused notice and riders get no new food jobs.",
+    affects: "Food businesses disappear from the customer app and can't take new orders; the Food app shows a paused notice and riders get no new food jobs.",
   },
 ];
 
