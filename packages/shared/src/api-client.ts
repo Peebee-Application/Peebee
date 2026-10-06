@@ -858,6 +858,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     // Restaurants — Phase 1 (see apps/api/src/restaurants/routes.ts). Not
     // yet a first-class account role; any signed-in customer can apply.
     async applyAsRestaurant(input: {
+      businessType?: import("./food-business.js").FoodBusinessType;
       name: string;
       description?: string;
       cuisine?: string;
@@ -877,6 +878,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       return request<{ restaurant: Restaurant }>("/v1/restaurants/me");
     },
     async updateRestaurant(input: Partial<{
+      businessType: import("./food-business.js").FoodBusinessType;
       name: string;
       description: string;
       cuisine: string;

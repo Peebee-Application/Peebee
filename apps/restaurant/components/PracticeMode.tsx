@@ -15,12 +15,12 @@ import { api } from "../lib/api";
 const HINTS: Record<PracticeRole, string> = {
   customer: "Use the normal home screen to create, fund, track and complete a sample order.",
   rider: "Claim the sample job and complete it using the same controls as a live delivery.",
-  restaurant: "Use the real restaurant dashboard to confirm the sample rider payment and explore settlement.",
+  restaurant: "Use the real Food dashboard to confirm the sample rider payment and explore settlement.",
   merchant: "Use the real merchant dashboard to confirm the sample payment and test settlement.",
 };
 
 const ROLE_LABELS: Record<PracticeRole, string> = {
-  customer: "customer", rider: "rider", restaurant: "restaurant", merchant: "merchant",
+  customer: "customer", rider: "rider", restaurant: "Food", merchant: "merchant",
 };
 
 export function PracticeModeCard({ role }: { role: PracticeRole }) {

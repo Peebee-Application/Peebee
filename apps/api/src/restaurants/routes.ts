@@ -16,6 +16,7 @@ import { logActivity } from "../admin/activity.js";
 import { isAdminRole, requirePermission } from "../admin/permissions.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { db } from "../db/client.js";
+import { hasColumn } from "../lib/schema.js";
 import { newId } from "../lib/ids.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { getPlatformEnvironment } from "../lib/settings.js";
@@ -29,6 +30,7 @@ const timeOfDay = z
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected HH:MM (24-hour)");
 
 const profileSchema = z.object({
+  businessType: z.enum(["restaurant", "kitchen", "street_food", "bakery"]).optional(),
   name: z.string().min(1).max(120),
   description: z.string().max(2000).optional(),
   cuisine: z.string().max(120).optional(),
@@ -61,9 +63,11 @@ restaurantRoutes.post("/restaurants/apply", requireAuth, requireRole("customer")
 
   const id = newId("rst");
   const environment = await getPlatformEnvironment();
+  const hasType = await hasColumn("restaurants", "business_type");
+  if (!hasType && d.businessType && d.businessType !== "restaurant") return c.json({error:"food_categories_unavailable", message:"Food categories are being enabled. Please try again shortly."}, 503);
   await db.execute({
-    sql: `INSERT INTO restaurants (id, owner_id, name, description, cuisine, phone, address, lat, lng, open_time, close_time, environment)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO restaurants (id, owner_id, name, description, cuisine, phone, address, lat, lng, open_time, close_time, environment${hasType ? ", business_type" : ""})
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${hasType ? ", ?" : ""})`,
     args: [
       id,
       user.sub,
@@ -77,6 +81,7 @@ restaurantRoutes.post("/restaurants/apply", requireAuth, requireRole("customer")
       d.openTime ?? null,
       d.closeTime ?? null,
       environment,
+      ...(hasType ? [d.businessType ?? "restaurant"] : []),
     ],
   });
 
@@ -111,6 +116,10 @@ restaurantRoutes.patch("/restaurants/me", requireAuth, requireRole("customer"), 
   if (existing.rows.length === 0) return c.json({ error: "not_found" }, 404);
 
   const fields: Record<string, unknown> = {};
+  if (d.businessType !== undefined) {
+    if (await hasColumn("restaurants", "business_type")) fields.business_type = d.businessType;
+    else if (d.businessType !== "restaurant") return c.json({error:"food_categories_unavailable", message:"Food categories are being enabled. Please try again shortly."}, 503);
+  }
   if (d.name != null) fields.name = d.name;
   if (d.description != null) fields.description = d.description;
   if (d.cuisine != null) fields.cuisine = d.cuisine;
