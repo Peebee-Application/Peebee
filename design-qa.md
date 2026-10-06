@@ -1,48 +1,44 @@
-# Peebee account screens — design QA
+# Peebee Food design QA
 
-final result: passed
+final result: blocked
 
-## Form navigation follow-up — 2026-10-05
+## Scope and reference
 
-The second screen (login/registration) no longer renders the Peebee logo or wordmark. The welcome screen retains its branding. Back is an icon-only left chevron positioned at the screen's top-left, outside the centered form, with safe-area spacing, a 44 × 44px tap target, existing keyboard focus styling, an accessible `Back to welcome` name and the existing busy-state guard.
+Adapt the supplied four-screen plant-shop reference to Peebee Food: customer food browsing, item detail and cart, plus the seller Food dashboard and business profile. Preserve the repository's cream/ink/gold/surface colour tokens and existing functional authentication, delivery, payment and approval flows.
 
-Production-preview evidence: `.auth-qa/chevron-login-mobile.jpg` at 390 × 844. DOM checks confirm zero `.auth-brand` elements on the form, no visible Back text, and the chevron's 44 × 44px target at (16,16). Clicking it restores the welcome screen and its logo; entering registration again shows the same icon-only navigation without a logo. Browser error logs were empty. Shared TypeScript and the sales production build passed. No authentication form was submitted. The shared change applies to all seven applications using AuthJourney.
+Reference: `../.codex-remote-attachments/01a1065a-c941-72a1-9f15-e3791a6a7a87/c44b547f-9b86-4a6c-adea-8011bc0b9cc8/1-1000901563.jpg`.
 
-## Google button follow-up — 2026-10-05
+## Evidence collected
 
-All six apps with Google authentication now use a shared branded surface matching the main action's full width, 54px standard height and 17px corners. Google's original gradient G, Google Sans Medium and light/dark identity colours are preserved. The Google SDK remains the interactive control; authentication endpoints, ID-token callbacks and approval rules are unchanged.
+- `../food-seller-full.png`: rendered seller dashboard at 390 CSS pixels wide, with photograph hero, four business category tiles, menu cards and floating navigation.
+- `../food-profile-qa.png`: rendered business profile with all four category choices; switching to Kitchens was checked through the UI.
+- `../food-customer-qa.png`: rendered desktop customer browsing, with photograph hero, four category filters and business grid. Kitchens filter and resetting the filter were exercised.
+- `../food-detail-qa.png`: item detail interaction with quantity control; increasing quantity updates the add-to-cart amount. This initial fixture had no product photograph.
+- `../food-cart-qa.png`: initial cart interaction, quantity controls and delivery/payment gating. This capture predates the image MIME/fallback correction and is not final release evidence.
+- `../food-google-origin-saved.png`: Google Console confirms the new Food authorized origin was saved.
 
-Local production preview evidence: `.auth-qa/google-login-mobile.jpg` at 390 × 844. DOM geometry confirms both buttons have the same width, 54px height and 17px radius at that size. At 320 × 740 the page has no horizontal overflow; a long sales registration caption can wrap in its existing primary action. The Google font loaded successfully. Read-only hit-area checks at the left, center and right resolve within the Google SDK control. Tabbing from Password focuses its actual button and displays the outer focus ring. Switching between login and registration keeps the control present. Production-preview browser error logs were empty. No Google account was selected and no credential or account form was submitted.
+Local UI tests used fictional same-origin fixtures only. No production accounts or orders were created. Fixture routes and API overrides are excluded from the feature.
 
-Shared and all six affected app TypeScript checks passed, and the sales production build passed. The matching surface uses ResizeObserver so its interactive area follows responsive layout changes, with observer cleanup on unmount. Google's published branding guidance and the asset/font source are recorded in `assets/auth/README.md`.
+## Findings and fixes
 
-## Reference and comparison
+1. P2: search wrappers were too short. Fixed with a minimum 48-pixel field height in both customer browsing and seller dashboard.
+2. P2: initial cart fixture returned JSON for a photo endpoint, producing a broken blob image. Image consumers now accept only image MIME types and use the supplied Food illustration as the fallback. Illustration alt text distinguishes it from a real item photograph.
+3. P2: cart lacked item images and per-line quantity controls. Added thumbnails, increase/decrease/remove controls and a dedicated cart view with delivery selection and totals.
 
-Source: `C:/Users/Administrator/Documents/PeebeeCodex/.codex-remote-attachments/01a1065a-c941-72a1-9f15-e3791a6a7a87/9e184308-5d40-48e6-93c6-766a66c06a94/1-Photo-1.jpg` (853 × 1280).
+The fixes compile and pass CI. Final post-fix visual validation remains unresolved: the local customer browser now displays only its background and no accessible page content. Repeated browser recovery and one server restart did not restore a usable page. Therefore these fixes are not declared visually passed and this report does not authorize release.
 
-The welcome crop (67,350–411,1043) and registration crop (441,234–784,929) were compared with the implementation at 390 × 844. Local evidence: `.auth-qa/reference-comparison.jpg` (1560 × 890), `.auth-qa/sales-welcome-mobile.jpg`, `.auth-qa/sales-signup-mobile-final.jpg`, `.auth-qa/customer-signup-mobile-final.jpg`, `.auth-qa/customer-recovery-mobile.jpg`, `.auth-qa/sales-signup-dark-mobile.jpg`, and `.auth-qa/sales-signup-dark-final.jpg`.
+## Technical validation
 
-This is an intentional adaptation of the reference's two-screen concept, typography hierarchy, button hierarchy and filled rounded fields. Peebee cream, ink and gold replace green; a generated delivery/market illustration replaces the reference characters. Google is the sole social provider. Admin access remains invitation-only and sales access still requires approval.
+- GitHub CI run 37421654500 on 07c5c0e: all jobs passed, including all app type checks, full API test suite and eight frontend builds.
+- Preview deployment run 37421649064: all deployment jobs passed.
+- Focused Food/onboarding/demo fulfillment tests: 20 passed.
+- Migration 0079_food_business_type.sql applied manually to live D1; schema verified. Missing-column compatibility is covered by tests.
+- Google authorized origin https://food.peebee.online saved with explicit user approval.
 
-## Visual checks
+## Remaining release gate
 
-- Welcome: bold left-aligned 34px heading, short description, solid Sign up and outlined Log in actions. Form: compact 30px heading, description, 54px filled fields with 17px corners, Google action and primary submit.
-- Fields have no visible external labels; existing labels remain accessible and inputs have meaningful placeholders and accessible names. Solid surface tokens cover the entire input, including password controls.
-- Artwork is a sharp 1536 × 1024 WebP (93,166 bytes), clear at the top and masked progressively toward the content. Form artwork uses contain sizing to preserve the rider's head. Horizontal fading softens dark-theme edges.
-- Mobile screenshots show both Google and the primary submit action. Longer supporting content scrolls naturally with no horizontal overflow. Desktop stays centered at a readable width.
-- Light and dark themes retain existing palette tokens and logo variants. Entry, image float and hover motions are gentle; reduced-motion disables animations and transitions.
+Capture the post-fix customer browsing, photographed detail and cart states; compare those with the supplied reference at corresponding viewport and interaction states; verify search height, photo fallbacks, cart totals and responsive layout; then update this report to passed only when no P0/P1/P2 issues remain. Keep PR #35 unmerged until this gate passes.
 
-## Findings resolved
+## Intentional adaptations
 
-1. Form artwork cropped the rider's head: switched to contain sizing and adjusted the art region.
-2. Long registration headings and repeated sales approval copy pushed actions too low: shortened headings and condensed the duplicate message.
-3. Dark artwork had a rectangular edge: added horizontal fading and reduced art opacity while retaining gold.
-4. The customer install banner covered Google: account routes now suppress install prompts. Final customer screenshot confirms the action is unobstructed.
-
-## Interaction and implementation checks
-
-Verified welcome → registration/login, Back to welcome, login/registration switching, customer email/phone switching, password reveal/hide and recovery navigation. Google remains rendered after switching forms. Browser error logs were empty in the production customer preview. No real credentials were submitted, accounts created, messages sent or Google account selected during QA.
-
-Shared and all seven app TypeScript checks passed. Sales and customer production builds passed; customer was rebuilt after the banner fix. Existing authentication handlers, activation, verification and approval rules are preserved. No database migration is required.
-
-Illustration source and final generation prompt: `assets/auth/README.md`. Screenshot evidence is local and ignored by Git; the temporary dark-theme preview route was removed.
+Food imagery and Peebee's existing typography/palette replace plants and green branding. Actual food options, delivery and payment controls replace plant-care attributes and unsupported promotional controls. Seller management actions replace customer shopping actions in the seller companion app.
