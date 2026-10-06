@@ -1379,6 +1379,10 @@ export function isUserVerified(user: AuthUser | null | undefined): boolean {
 }
 
 export type AdminCustomer = {
+  profile_photo_key?: string | null;
+  phone_verified_at?: string | null;
+  email_verified_at?: string | null;
+  default_matching_mode?: string | null;
   id: string;
   name: string;
   phone: string | null;

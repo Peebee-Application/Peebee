@@ -19,6 +19,7 @@ import {
 import { countSuperAdmins, inviteStaff, listStaff, resetStaffPassword } from "./staff.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { refundOrderToWallet } from "../wallet/service.js";
+import { uploadResponseHeaders } from "../storage/r2.js";
 
 export const adminRoutes = new Hono();
 // Scoped to /admin/* rather than "*" on purpose. This router is mounted on
@@ -30,6 +31,33 @@ export const adminRoutes = new Hono();
 adminRoutes.use("/admin/*", requireAuth, requireRole("admin"));
 
 type Row = Record<string, unknown>;
+
+const previewPermissions = { riders: "riders.view", customers: "customers.view", restaurants: "restaurants.view", merchants: "merchants.view" } as const;
+adminRoutes.get("/admin/people/:kind/:id/photo", async (c, next) => {
+  const kind = c.req.param("kind") as keyof typeof previewPermissions;
+  if (!Object.hasOwn(previewPermissions,kind)) return c.json({error:"not_found"},404);
+  return requirePermission(previewPermissions[kind])(c, next);
+}, async (c) => {
+  const kind = c.req.param("kind"), id = c.req.param("id");
+  const queries: Record<string,string> = {
+    riders: "SELECT profile_photo_key AS photo FROM riders WHERE user_id=?",
+    customers: "SELECT profile_photo_key AS photo FROM users WHERE id=? AND role='customer'",
+    restaurants: "SELECT COALESCE(r.logo_key,r.cover_key,u.profile_photo_key) AS photo FROM restaurants r JOIN users u ON u.id=r.owner_id WHERE r.id=?",
+    merchants: "SELECT u.profile_photo_key AS photo FROM merchant_members m JOIN users u ON u.id=m.user_id WHERE m.merchant_id=? AND m.role='owner' ORDER BY m.created_at LIMIT 1",
+  };
+  const result = await db.execute({sql:queries[kind],args:[id]});
+  const key=result.rows[0]?.photo;
+  if (!key) return c.json({error:"not_found"},404);
+  const object=await getR2Bucket().get(String(key));
+  if (!object) return c.json({error:"not_found"},404);
+  return new Response(object.body,{headers:{...uploadResponseHeaders(object.httpMetadata?.contentType,"image/jpeg"),"Cache-Control":"private, no-store"}});
+});
+
+adminRoutes.get("/admin/restaurants/:id", requirePermission("restaurants.view"), async (c) => {
+  const result=await db.execute({sql:"SELECT r.*,u.name AS owner_name,u.phone AS owner_phone,u.email AS owner_email FROM restaurants r JOIN users u ON u.id=r.owner_id WHERE r.id=?",args:[String(c.req.param("id"))]});
+  if (!result.rows[0]) return c.json({error:"not_found"},404);
+  return c.json({restaurant:result.rows[0]});
+});
 
 // ---------------------------------------------------------------------------
 // Platform overview
@@ -203,7 +231,7 @@ adminRoutes.get("/admin/customers", requirePermission("customers.view"), async (
   const res = await db.execute(
     q
       ? {
-          sql: `SELECT u.id, u.name, u.phone, u.email, u.status, u.created_at,
+          sql: `SELECT u.id, u.name, u.phone, u.email, u.status, u.created_at, u.profile_photo_key, u.phone_verified_at, u.email_verified_at,
                   (SELECT COUNT(*) FROM orders WHERE customer_id = u.id AND environment = ?) as order_count,
                   ${citySubquery}
                 FROM users u WHERE u.role = 'customer' AND (u.name LIKE ? OR u.phone LIKE ?)
@@ -211,7 +239,7 @@ adminRoutes.get("/admin/customers", requirePermission("customers.view"), async (
           args: [environment, environment, `%${q}%`, `%${q}%`],
         }
       : {
-          sql: `SELECT u.id, u.name, u.phone, u.email, u.status, u.created_at,
+          sql: `SELECT u.id, u.name, u.phone, u.email, u.status, u.created_at, u.profile_photo_key, u.phone_verified_at, u.email_verified_at,
              (SELECT COUNT(*) FROM orders WHERE customer_id = u.id AND environment = ?) as order_count,
              ${citySubquery}
            FROM users u WHERE u.role = 'customer' ORDER BY u.created_at DESC LIMIT 100`,
@@ -225,7 +253,7 @@ adminRoutes.get("/admin/customers/:id", requirePermission("customers.view"), asy
   const id = c.req.param("id") as string;
   const environment = resolveViewEnvironment(c, await getPlatformEnvironment());
   const userRes = await db.execute({
-    sql: `SELECT id, name, phone, email, status, created_at FROM users WHERE id = ? AND role = 'customer'`,
+    sql: `SELECT id, name, phone, email, status, created_at, profile_photo_key, phone_verified_at, email_verified_at, default_matching_mode FROM users WHERE id = ? AND role = 'customer'`,
     args: [id],
   });
   const customer = userRes.rows[0];

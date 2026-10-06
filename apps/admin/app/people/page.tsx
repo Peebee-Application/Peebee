@@ -10,8 +10,8 @@ import {
   type Merchant,
   type RestaurantStatus,
 } from "@peebee/shared";
-import { ChevronRight, Filter, Search, ShieldCheck, ShieldQuestion, Store, Users as UsersIcon } from "lucide-react";
-import Link from "next/link";
+import { Filter, Search, Store, Users as UsersIcon } from "lucide-react";
+import { PersonCard } from "../../components/PersonPreview";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
@@ -72,11 +72,6 @@ function groupByCity<T>(rows: T[], cityOf_: (row: T) => string): Map<string, T[]
     else groups.set(city, [row]);
   }
   return new Map([...groups.entries()].sort((a, b) => b[1].length - a[1].length));
-}
-
-function StatusBadge({ status }: { status: "active" | "suspended" }) {
-  if (status === "active") return null;
-  return <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Suspended</span>;
 }
 
 /** A single consolidated "Filters" dropdown, replacing a row of segmented
@@ -152,6 +147,8 @@ function DateRangeTabs({ value, onChange }: { value: DateRange; onChange: (v: Da
 }
 
 function RidersTab({ dateRange }: { dateRange: DateRange }) {
+  const {user}=useAuth(); const [busyId,setBusyId]=useState<string|null>(null);
+  async function approve(id:string){setBusyId(id);setError(null);try{await api.adminVerifyRider(id,true);const res=await api.adminListRiders();setRiders(res.riders);}catch(err){setError(errorMessage(err));}finally{setBusyId(null);}}
   const [riders, setRiders] = useState<AdminRider[]>([]);
   const [filter, setFilter] = useState<RiderFilter>("all");
   const [error, setError] = useState<string | null>(null);
@@ -202,21 +199,7 @@ function RidersTab({ dateRange }: { dateRange: DateRange }) {
             </p>
             <ul className="space-y-2.5">
               {cityRiders.map((r) => (
-                <li key={r.user_id}>
-                  <Link href={`/people/riders/${r.user_id}`} className="home-card flex items-center gap-3 !rounded-2xl !px-3 !py-3">
-                    {r.verified ? (
-                      <ShieldCheck className="h-5 w-5 shrink-0 text-green" strokeWidth={1.75} aria-hidden />
-                    ) : (
-                      <ShieldQuestion className="h-5 w-5 shrink-0 text-ink-500" strokeWidth={1.75} aria-hidden />
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-bold text-ink">{r.name}</span>
-                      <span className="mt-0.5 block truncate text-xs text-ink-500">{r.phone}</span>
-                    </span>
-                    <StatusBadge status={r.status} />
-                    <ChevronRight className="h-5 w-5 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
-                  </Link>
-                </li>
+                <li key={r.user_id}><PersonCard kind="riders" id={r.user_id} name={r.name} description={[r.phone,r.area,r.vehicle_info].filter(Boolean).join(" · ")} status={r.status === "suspended" ? "Suspended" : "Pending"} approved={!!r.verified && r.status === "active"} canApprove={hasPermission(user?.adminRole ?? null,"riders.verify") && r.status === "active"} busy={busyId===r.user_id} onApprove={()=>void approve(r.user_id)} /></li>
               ))}
             </ul>
           </div>
@@ -227,6 +210,8 @@ function RidersTab({ dateRange }: { dateRange: DateRange }) {
 }
 
 function CustomersTab({ dateRange }: { dateRange: DateRange }) {
+  const {user}=useAuth(); const [busyId,setBusyId]=useState<string|null>(null);
+  async function approve(id:string){setBusyId(id);setError(null);try{await api.adminSetUserStatus(id,"active");const res=await api.adminListCustomers(q||undefined);setCustomers(res.customers);}catch(err){setError(errorMessage(err));}finally{setBusyId(null);}}
   const [customers, setCustomers] = useState<AdminCustomer[]>([]);
   const [q, setQ] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -248,7 +233,7 @@ function CustomersTab({ dateRange }: { dateRange: DateRange }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2">
+      <div className="field-box flex items-center gap-2 rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2">
         <Search className="h-4 w-4 shrink-0 text-ink-500" strokeWidth={2} aria-hidden />
         <input
           value={q}
@@ -270,18 +255,7 @@ function CustomersTab({ dateRange }: { dateRange: DateRange }) {
             </p>
             <ul className="space-y-2.5">
               {cityCustomers.map((c) => (
-                <li key={c.id}>
-                  <Link href={`/people/customers/${c.id}`} className="home-card flex items-center gap-3 !rounded-2xl !px-3 !py-3">
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-bold text-ink">{c.name}</span>
-                      <span className="mt-0.5 block truncate text-xs text-ink-500">
-                        {c.phone} · {c.order_count} order{c.order_count === 1 ? "" : "s"}
-                      </span>
-                    </span>
-                    <StatusBadge status={c.status} />
-                    <ChevronRight className="h-5 w-5 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
-                  </Link>
-                </li>
+                <li key={c.id}><PersonCard kind="customers" id={c.id} name={c.name} description={[c.phone,c.email].filter(Boolean).join(" · ")} status="Suspended" approved={c.status === "active"} canApprove={hasPermission(user?.adminRole ?? null,"customers.manage")} busy={busyId===c.id} onApprove={()=>void approve(c.id)} /></li>
               ))}
             </ul>
           </div>
@@ -328,7 +302,7 @@ function RestaurantsTab() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold text-ink-500">{filtered.length} restaurant{filtered.length === 1 ? "" : "s"}</p>
+        <p className="text-xs font-semibold text-ink-500">{filtered.length} food business{filtered.length === 1 ? "" : "es"}</p>
         <FilterDropdown
           value={filter}
           options={["all", "pending_approval", "active", "suspended"] as const}
@@ -342,52 +316,7 @@ function RestaurantsTab() {
 
       <ul className="space-y-2.5">
         {filtered.map((r) => (
-          <li key={r.id} className="home-card space-y-2 !rounded-2xl !px-3 !py-3">
-            <div className="flex items-center gap-3">
-              <Store className="h-5 w-5 shrink-0 text-ink-500" strokeWidth={1.75} aria-hidden />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-bold text-ink">{r.name}</span>
-                <span className="mt-0.5 block truncate text-xs text-ink-500">
-                  {r.owner_name}
-                  {` · ${foodBusinessLabel(r.business_type)}`}
-                  {r.cuisine ? ` · ${r.cuisine}` : ""}
-                </span>
-              </span>
-              <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                  r.status === "active"
-                    ? "bg-green/15 text-green"
-                    : r.status === "suspended"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-[rgb(var(--surface-muted))] text-ink-500"
-                }`}
-              >
-                {RESTAURANT_STATUS_LABEL[r.status]}
-              </span>
-            </div>
-            {canManage && (
-              <div className="flex gap-2">
-                {r.status !== "active" && (
-                  <button
-                    onClick={() => setStatus(r.id, "active")}
-                    disabled={busyId === r.id}
-                    className="min-h-9 flex-1 rounded-full bg-gold px-3 text-xs font-bold text-ink-gold disabled:opacity-60"
-                  >
-                    Approve
-                  </button>
-                )}
-                {r.status !== "suspended" && (
-                  <button
-                    onClick={() => setStatus(r.id, "suspended")}
-                    disabled={busyId === r.id}
-                    className="min-h-9 flex-1 rounded-full border border-red-200 px-3 text-xs font-bold text-red-600 disabled:opacity-60"
-                  >
-                    Suspend
-                  </button>
-                )}
-              </div>
-            )}
-          </li>
+          <li key={r.id}><PersonCard kind="restaurants" id={r.id} name={r.name} description={[r.owner_name,foodBusinessLabel(r.business_type),r.cuisine].filter(Boolean).join(" · ")} status={RESTAURANT_STATUS_LABEL[r.status]} approved={r.status === "active"} canApprove={canManage} busy={busyId===r.id} onApprove={()=>void setStatus(r.id,"active")} /></li>
         ))}
       </ul>
     </div>
@@ -447,51 +376,7 @@ function MerchantsTab() {
 
       <ul className="space-y-2.5">
         {filtered.map((merchant) => (
-          <li key={merchant.id} className="home-card space-y-2 !rounded-2xl !px-3 !py-3">
-            <Link href={`/people/merchants/${merchant.id}`} className="flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">
-              <Store className="h-5 w-5 shrink-0 text-ink-500" strokeWidth={1.75} aria-hidden />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-bold text-ink">{merchant.display_name}</span>
-                <span className="mt-0.5 block truncate text-xs text-ink-500">
-                  {merchant.legal_name} · {merchant.outlet_count} outlet{Number(merchant.outlet_count) === 1 ? "" : "s"}
-                </span>
-              </span>
-              <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                  merchant.status === "active"
-                    ? "bg-green/15 text-green"
-                    : merchant.status === "suspended" || merchant.status === "rejected"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-[rgb(var(--surface-muted))] text-ink-500"
-                }`}
-              >
-                {MERCHANT_STATUS_LABEL[merchant.status]}
-              </span>
-              <ChevronRight className="h-5 w-5 shrink-0 text-ink-500" strokeWidth={1.75} aria-hidden />
-            </Link>
-            {canManage && (
-              <div className="flex gap-2">
-                {merchant.status !== "active" && (
-                  <button
-                    onClick={() => setStatus(merchant.id, "active")}
-                    disabled={busyId === merchant.id}
-                    className="min-h-9 flex-1 rounded-full bg-gold px-3 text-xs font-bold text-ink-gold disabled:opacity-60"
-                  >
-                    Approve
-                  </button>
-                )}
-                {merchant.status !== "suspended" && (
-                  <button
-                    onClick={() => setStatus(merchant.id, "suspended")}
-                    disabled={busyId === merchant.id}
-                    className="min-h-9 flex-1 rounded-full border border-red-200 px-3 text-xs font-bold text-red-600 disabled:opacity-60"
-                  >
-                    Suspend
-                  </button>
-                )}
-              </div>
-            )}
-          </li>
+          <li key={merchant.id}><PersonCard kind="merchants" id={merchant.id} name={merchant.display_name} description={`${merchant.legal_name} · ${merchant.outlet_count} outlets`} status={MERCHANT_STATUS_LABEL[merchant.status]} approved={merchant.status === "active"} canApprove={canManage} busy={busyId===merchant.id} onApprove={()=>void setStatus(merchant.id,"active")} /></li>
         ))}
       </ul>
     </div>
@@ -539,6 +424,7 @@ function SummaryStrip() {
 
 export default function UsersPage() {
   const [tab, setTab] = useState<Tab>("riders");
+  useEffect(()=>{const saved=new URLSearchParams(window.location.search).get("tab");if(saved==="riders"||saved==="customers"||saved==="restaurants"||saved==="merchants")setTab(saved);},[]);
   const [dateRange, setDateRange] = useState<DateRange>("all");
 
   return (

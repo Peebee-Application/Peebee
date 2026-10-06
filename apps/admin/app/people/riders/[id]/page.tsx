@@ -7,13 +7,13 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../../../lib/api";
 import { useAuth } from "../../../../lib/auth-context";
+import { PersonPhoto, SubmittedFields } from "../../../../components/PersonPreview";
 
 function Row({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
   return (
     <div className="flex justify-between gap-4 text-sm">
       <span className="text-ink-500">{label}</span>
-      <span className="text-right font-medium text-ink">{value}</span>
+      <span className="max-w-[65%] whitespace-pre-wrap break-words text-right font-medium text-ink">{value || "Not supplied"}</span>
     </div>
   );
 }
@@ -26,6 +26,7 @@ export default function RiderDetailPage() {
   const canManage = hasPermission(user?.adminRole ?? null, "riders.manage");
   const [rider, setRider] = useState<AdminRider | null>(null);
   const [docUrl, setDocUrl] = useState<string | null>(null);
+  const [docType,setDocType]=useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,14 +44,18 @@ export default function RiderDetailPage() {
   useEffect(() => {
     if (!rider?.national_id_key) return;
     let url: string | null = null;
+    let disposed=false;
     api
       .adminRiderIdDocumentBlob(userId)
       .then((blob) => {
+        if(disposed)return;
+        setDocType(blob.type);
         url = URL.createObjectURL(blob);
         setDocUrl(url);
       })
       .catch(() => {});
     return () => {
+      disposed=true;
       if (url) URL.revokeObjectURL(url);
     };
   }, [rider?.national_id_key, userId]);
@@ -76,13 +81,14 @@ export default function RiderDetailPage() {
 
   return (
     <div className="space-y-5 px-4 pb-6 pt-4">
-      <Link href="/people" className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-500">
+      <Link href="/people?tab=riders" className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-500">
         <ArrowLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
         Users
       </Link>
 
-      <header className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-ink">{rider.name}</h1>
+      <header className="home-card flex items-center justify-between gap-3 !rounded-3xl !p-5">
+        <PersonPhoto kind="riders" id={userId} name={rider.name}/>
+        <h1 className="min-w-0 flex-1 break-words text-xl font-bold text-ink">{rider.name}</h1>
         <span
           className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
             rider.verified ? "bg-green/15 text-green" : "bg-[rgb(var(--surface-muted))] text-ink-500"
@@ -91,6 +97,8 @@ export default function RiderDetailPage() {
           {rider.verified ? "Verified" : "Pending"}
         </span>
       </header>
+
+      <SubmittedFields title="Registration details" fields={[["First name",rider.first_name],["Last name",rider.last_name],["Stage latitude",rider.stage_lat],["Stage longitude",rider.stage_lng],["Registered",rider.created_at],["Profile completed",rider.profile_completed_at],["Account status",rider.status]]}/>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
 
@@ -122,10 +130,13 @@ export default function RiderDetailPage() {
       <section className="home-card space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">National ID</h2>
         <Row label="Submitted name" value={[rider.first_name, rider.last_name].filter(Boolean).join(' ')} />
-        <p className="text-sm text-ink-500">Before verifying this rider, check that their submitted name is similar to the name on their ID. A Google account name alone does not verify identity.</p>
-        {!rider.national_id_key && <p className="text-sm text-ink-500">Not uploaded yet.</p>}
-        {rider.national_id_key && !docUrl && <p className="text-sm text-ink-500">Loading document…</p>}
+        <p className="break-words text-sm text-ink-500">Before verifying this rider, check that their submitted name is similar to the name on their ID. A Google account name alone does not verify identity.</p>
+        {!rider.national_id_key && <p className="break-words text-sm text-ink-500">Not uploaded yet.</p>}
+        {rider.national_id_key && !docUrl && <p className="break-words text-sm text-ink-500">Loading document…</p>}
         {docUrl && (
+          <div className="space-y-3">
+            {docType.startsWith("image/")&&<img src={docUrl} alt="Submitted national ID" className="max-h-96 w-full rounded-xl object-contain"/>}
+            {docType==="application/pdf"&&<iframe src={docUrl} title="Submitted national ID" className="h-96 w-full rounded-xl"/>}
           <a
             href={docUrl}
             target="_blank"
@@ -134,6 +145,7 @@ export default function RiderDetailPage() {
           >
             View document <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
           </a>
+          </div>
         )}
         {canVerify && (
           <button
@@ -143,7 +155,7 @@ export default function RiderDetailPage() {
               rider.verified ? "border border-[var(--border-faint)] text-ink" : "bg-gold text-ink-gold"
             }`}
           >
-            {rider.verified ? "Revoke verification" : "Verify rider"}
+            {rider.verified ? "Revoke approval" : "Approve"}
           </button>
         )}
       </section>
