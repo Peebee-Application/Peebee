@@ -877,6 +877,11 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async myRestaurant() {
       return request<{ restaurant: Restaurant }>("/v1/restaurants/me");
     },
+    async myFoodOrders(view: 'active' | 'history' = 'active', cursor?: string) {
+      const query = new URLSearchParams({ view });
+      if (cursor) query.set('cursor', cursor);
+      return request<import('./food-orders.js').FoodSellerOrders>(`/v1/restaurants/me/orders?${query}`);
+    },
     async updateRestaurant(input: Partial<{
       businessType: import("./food-business.js").FoodBusinessType;
       name: string;
