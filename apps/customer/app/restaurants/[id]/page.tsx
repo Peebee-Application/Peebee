@@ -4,7 +4,7 @@ import { FoodCover } from "@peebee/shared/food-cover";
 import type { FoodItemInsight, MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, Restaurant, RestaurantMenu } from "@peebee/shared";
 import { foodBusinessLabel, roundFare } from "@peebee/shared";
 import { demoFoodPhotoPath, demoRestaurantPhotoPath } from "@peebee/shared/demo-food";
-import { ArrowUpRight, ChevronLeft, ChevronDown, Star, MessageCircle, Minus, Plus, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronDown, ChevronRight, Star, MessageCircle, Minus, Plus, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -161,6 +161,81 @@ type CartLine = {
   choiceIds: string[];
 };
 
+function MenuOrderList({
+  cart,
+  itemsTotal,
+  cartCount,
+  onRemoveLine,
+  onViewCart,
+}: {
+  cart: CartLine[];
+  itemsTotal: number;
+  cartCount: number;
+  onRemoveLine: (key: string) => void;
+  onViewCart: () => void;
+}) {
+  const t = useTranslate();
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <section className="menu-item-order-list" aria-label={t("restaurant_order_list")}>
+      <button
+        type="button"
+        className="menu-item-order-list__toggle"
+        aria-expanded={expanded}
+        aria-controls="menu-item-order-list-content"
+        onClick={() => setExpanded((open) => !open)}
+      >
+        <span className="menu-item-order-list__title">
+          <ShoppingBag size={17} aria-hidden="true" />
+          <span>{t("restaurant_order_list")}</span>
+        </span>
+        <span className="menu-item-order-list__summary">
+          <span>{t("restaurant_order_list_item_count", { count: cartCount })}</span>
+          {cart.length > 0 && <strong>{formatUgx(itemsTotal)}</strong>}
+          <ChevronDown className={expanded ? "rotate-180" : ""} size={18} aria-hidden="true" />
+        </span>
+      </button>
+
+      <div className="menu-item-order-list__preview" aria-live="polite">
+        {cart.length > 0 ? cart.map((line) => (
+          <span className="menu-item-order-list__chip" key={line.key} title={line.name}>
+            <strong>{line.quantity}×</strong> <span>{line.name}</span>
+          </span>
+        )) : (
+          <span className="menu-item-order-list__empty">{t("restaurant_order_list_empty")}</span>
+        )}
+      </div>
+
+      <div id="menu-item-order-list-content" className="menu-item-order-list__content" hidden={!expanded}>
+          {cart.length > 0 ? (
+            <>
+              <ul className="menu-item-order-list__lines">
+                {cart.map((line) => (
+                  <li className="menu-item-order-list__line" key={line.key}>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{line.quantity}× {line.name}</span>
+                      <span className="block text-xs text-ink-500">{formatUgx(line.unitPrice * line.quantity)}</span>
+                    </span>
+                    <button type="button" className="menu-item-order-list__remove" onClick={() => onRemoveLine(line.key)}>
+                      {t("restaurant_remove")}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button type="button" className="menu-item-order-list__checkout" onClick={onViewCart}>
+                <span>{t("restaurant_view_full_order")}</span>
+                <span>{formatUgx(itemsTotal)}</span>
+              </button>
+            </>
+          ) : (
+            <p className="px-4 py-3 text-sm text-ink-500">{t("restaurant_order_list_empty")}</p>
+          )}
+      </div>
+    </section>
+  );
+}
+
 function MenuItemDeckCard({
   item,
   position,
@@ -168,7 +243,7 @@ function MenuItemDeckCard({
   onSelect,
 }: {
   item: MenuItem;
-  position: "past" | "active" | "next" | "next-two";
+  position: "far-previous" | "previous" | "active" | "next" | "far-next";
   isActive: boolean;
   onSelect: (item: MenuItem) => void;
 }) {
@@ -193,9 +268,8 @@ function MenuItemDeckCard({
         </span>
       )}
       {item.badge && <span className={`menu-item-deck__badge ${BADGE_STYLES[item.badge]}`}>{t(BADGE_KEYS[item.badge])}</span>}
-      <span className="menu-item-deck__caption">
-        <span className="min-w-0 truncate text-left font-bold">{item.name}</span>
-        <span className="shrink-0 text-sm font-bold">{formatUgx(item.price)}</span>
+      <span className="menu-item-deck__price">
+        {formatUgx(item.price)}
       </span>
     </button>
   );
@@ -236,7 +310,7 @@ function MenuItemDeck({
   }
 
   function handleWheel(event: React.WheelEvent<HTMLElement>) {
-    const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+    const delta = event.shiftKey && Math.abs(event.deltaX) < 12 ? event.deltaY : event.deltaX;
     if (Math.abs(delta) < 12 || (delta > 0 && index >= items.length - 1) || (delta < 0 && index === 0)) return;
     event.preventDefault();
     if (wheelLocked.current) return;
@@ -266,14 +340,13 @@ function MenuItemDeck({
     pointerStart.current = null;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < 44) return;
+    if (Math.abs(dx) < 44 || Math.abs(dx) < Math.abs(dy) * 1.15) return;
     suppressClick.current = true;
     setTimeout(() => { suppressClick.current = false; }, 450);
-    const towardNext = Math.abs(dy) >= Math.abs(dx) ? dy < 0 : dx < 0;
-    move(towardNext ? 1 : -1);
+    move(dx < 0 ? 1 : -1);
   }
 
-  const firstVisible = Math.max(0, index - 1);
+  const firstVisible = Math.max(0, index - 2);
   const lastVisible = Math.min(items.length, index + 3);
 
   return (
@@ -289,13 +362,21 @@ function MenuItemDeck({
       onPointerCancel={() => { pointerStart.current = null; }}
     >
       <div className="menu-item-deck__meta">
-        <span className="truncate font-semibold">{categoryName}</span>
-        <span aria-live="polite" className="shrink-0 tabular-nums">{t("restaurant_menu_item_count", { current: index + 1, total: items.length })}</span>
+        <button type="button" aria-label={t("restaurant_menu_previous_item")} disabled={index === 0} onClick={() => moveFromControl(-1)}>
+          <ChevronLeft size={18} />
+        </button>
+        <span className="menu-item-deck__meta-label">
+          <span className="truncate font-semibold">{categoryName}</span>
+          <span aria-live="polite" className="shrink-0 tabular-nums">{t("restaurant_menu_item_count", { current: index + 1, total: items.length })}</span>
+        </span>
+        <button type="button" aria-label={t("restaurant_menu_next_item")} disabled={index === items.length - 1} onClick={() => moveFromControl(1)}>
+          <ChevronRight size={18} />
+        </button>
       </div>
       <div className="menu-item-deck__stage">
         {items.slice(firstVisible, lastVisible).map((menuItem) => {
-          const distance = menuItem === items[index] ? 0 : menuItem === items[index + 1] ? 1 : menuItem === items[index + 2] ? 2 : -1;
-          const position = distance === 0 ? "active" : distance === 1 ? "next" : distance === 2 ? "next-two" : "past";
+          const distance = items.findIndex((row) => row.id === menuItem.id) - index;
+          const position = distance === 0 ? "active" : distance === -1 ? "previous" : distance === 1 ? "next" : distance < 0 ? "far-previous" : "far-next";
           return (
             <MenuItemDeckCard
               key={menuItem.id}
@@ -310,15 +391,6 @@ function MenuItemDeck({
           );
         })}
       </div>
-      <div className="menu-item-deck__controls" aria-label={t("restaurant_menu_item_navigation")}>
-        <button type="button" aria-label={t("restaurant_menu_previous_item")} disabled={index === 0} onClick={() => moveFromControl(-1)}>
-          <ChevronLeft size={19} />
-        </button>
-        <span>{t("restaurant_menu_browse_hint")}</span>
-        <button type="button" aria-label={t("restaurant_menu_next_item")} disabled={index === items.length - 1} onClick={() => moveFromControl(1)}>
-          <ChevronDown size={19} />
-        </button>
-      </div>
     </section>
   );
 }
@@ -327,27 +399,36 @@ function ItemDetailPage({
   item,
   items,
   categoryName,
+  cart,
+  itemsTotal,
+  cartCount,
   restaurantId,
   isDemo = false,
   isOpen = true,
   onClose,
   onSelectItem,
+  onRemoveLine,
+  onViewCart,
   onAdd,
 }: {
   item: MenuItem;
   items: MenuItem[];
   categoryName: string;
+  cart: CartLine[];
+  itemsTotal: number;
+  cartCount: number;
   restaurantId: string;
   isDemo?: boolean;
   isOpen?: boolean;
   onClose: () => void;
   onSelectItem: (item: MenuItem) => void;
+  onRemoveLine: (key: string) => void;
+  onViewCart: () => void;
   onAdd: (line: { unitPrice: number; choiceIds: string[]; choiceNames: string[]; quantity: number }) => void;
 }) {
   const t = useTranslate();
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [quantity, setQuantity] = useState(1);
-  const photo = useMenuItemPhoto(item.id, !!item.photo_key,item.updated_at);
 
   useEffect(() => {
     setSelected({});
@@ -371,13 +452,10 @@ function ItemDetailPage({
 
   return (
     <div className="relative min-h-dvh pb-28">
-      {items.length > 1 ? (
-        <MenuItemDeck items={items} categoryName={categoryName} activeItemId={item.id} onSelect={onSelectItem} />
-      ) : (
-        <div className="pointer-events-none fixed inset-x-0 top-0 mx-auto h-[65dvh] max-w-lg">{photo ? <img src={photo} alt={item.name} className="h-full w-full object-cover"/> : <div className="flex h-full items-center justify-center bg-[rgb(var(--surface-muted))]"><UtensilsCrossed size={64} className="text-gold"/></div>}<div className="absolute inset-x-0 bottom-0 h-1/3" style={{background:"linear-gradient(transparent,rgb(var(--color-cream)))"}}/></div>
-      )}
+      <MenuOrderList cart={cart} itemsTotal={itemsTotal} cartCount={cartCount} onRemoveLine={onRemoveLine} onViewCart={onViewCart} />
+      <MenuItemDeck items={items} categoryName={categoryName} activeItemId={item.id} onSelect={onSelectItem} />
       <button type="button" aria-label="Back to menu" onClick={onClose} className="fixed left-[max(1rem,calc((100vw-32rem)/2+1rem))] top-[calc(1rem+env(safe-area-inset-top))] z-30 flex h-12 w-12 items-center justify-center rounded-full glass-panel"><ChevronLeft size={24}/></button>
-      <div className={`relative z-10 ${items.length > 1 ? "pt-[51dvh]" : "pt-[48dvh]"}`}>
+      <div className="relative z-10 pt-[clamp(360px,58dvh,520px)]">
       <div className="glass-panel space-y-5 !rounded-t-[2.5rem] !rounded-b-none !p-6">
         <p className="text-xs font-bold uppercase tracking-wide text-gold">{item.is_featured ? "Featured dish" : "Made for you"}</p><h1 className="text-3xl font-bold">{item.name}</h1>
 
@@ -519,7 +597,6 @@ export default function RestaurantPage() {
     const existing=cart.find(l=>l.key===key);
     const next=existing?cart.map(l=>l.key===key?{...l,quantity:Math.min(50,l.quantity+line.quantity)}:l):[...cart,{key,menuItemId:item.id,name,unitPrice:line.unitPrice,quantity:line.quantity,choiceIds:line.choiceIds}];
     updateCart(next);
-    if(itemId)router.push(`/restaurants/${id}`);
   }
 
   function removeLine(key: string) {
@@ -591,11 +668,19 @@ export default function RestaurantPage() {
         item={item}
         items={categoryItems}
         categoryName={category?.name ?? t("restaurant_menu_items")}
+        cart={cart}
+        itemsTotal={itemsTotal}
+        cartCount={cartCount}
         restaurantId={id}
         isDemo={restaurant.is_demo}
         isOpen={!!restaurant.is_open}
         onClose={() => router.push(`/restaurants/${id}`)}
         onSelectItem={(nextItem) => router.push(`/restaurants/${id}/items/${nextItem.id}`, { scroll: false })}
+        onRemoveLine={removeLine}
+        onViewCart={() => {
+          setStep("checkout");
+          router.push(`/restaurants/${id}`, { scroll: false });
+        }}
         onAdd={(line) => addToCart(item, line)}
       />
     );
