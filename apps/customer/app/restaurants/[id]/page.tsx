@@ -104,9 +104,11 @@ function FoodItemCard({item,onOpen,featured=false,insight}:{item:MenuItem;onOpen
    {featured ? (
      <>
        <span className="food-item-card__image-base" aria-hidden="true">
+         {photoUrl && <img src={photoUrl} alt="" />}
+       </span>
+       <span className="food-item-card__photo" aria-hidden="true">
          {photoUrl ? <img src={photoUrl} alt="" /> : <UtensilsCrossed size={48} className="text-gold" />}
        </span>
-       {photoUrl && <img src={photoUrl} alt="" className="food-item-card__image" />}
        <span className="food-item-card__topline">
          {item.badge
            ? <span className={`rounded-full px-2.5 py-1.5 text-[11px] font-bold uppercase ${BADGE_STYLES[item.badge]}`}>{t(BADGE_KEYS[item.badge])}</span>
@@ -117,11 +119,14 @@ function FoodItemCard({item,onOpen,featured=false,insight}:{item:MenuItem;onOpen
        </span>
        <span className="food-item-card__glass">
          <span className="block truncate text-lg font-bold" title={item.name}>{item.name}</span>
-         <span className="flex items-center gap-1 text-xs">
-           <Star size={13} className="shrink-0 text-gold" />{rating}
-           {insight?.ratingCount ? ` · ${insight.ratingCount} ratings` : ""}
+         {item.description && <span className="food-item-card__description text-xs text-ink-500">{item.description}</span>}
+         <span className="food-item-card__details">
+           <span className="flex min-w-0 items-center gap-1 text-xs text-ink-500">
+             <Star size={13} className="shrink-0 text-gold" />{rating}
+             {insight?.ratingCount ? ` · ${insight.ratingCount}` : ""}
+           </span>
+           <span className="food-item-card__price">{formatUgx(item.price)}</span>
          </span>
-         <span className="block text-base font-bold">{formatUgx(item.price)}</span>
        </span>
      </>
    ) : (
@@ -134,11 +139,14 @@ function FoodItemCard({item,onOpen,featured=false,insight}:{item:MenuItem;onOpen
        </span>
        <span className="food-item-card__category-copy">
          <span className="block truncate text-base font-bold" title={item.name}>{item.name}</span>
-         <span className="flex items-center gap-1 text-xs text-ink-500">
-           <Star size={13} className="shrink-0 text-gold" />{rating}
-           {insight?.ratingCount ? ` · ${insight.ratingCount}` : ""}
+         {item.description && <span className="food-item-card__description text-xs text-ink-500">{item.description}</span>}
+         <span className="food-item-card__details">
+           <span className="flex min-w-0 items-center gap-1 text-xs text-ink-500">
+             <Star size={13} className="shrink-0 text-gold" />{rating}
+             {insight?.ratingCount ? ` · ${insight.ratingCount}` : ""}
+           </span>
+           <span className="food-item-card__price">{formatUgx(item.price)}</span>
          </span>
-         <span className="block text-sm font-bold">{formatUgx(item.price)}</span>
        </span>
      </>
    )}
