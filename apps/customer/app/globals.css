@@ -393,7 +393,7 @@ select {
 .food-dish-rail::-webkit-scrollbar { display: none; }
 
 /* Peebee's customer palette is fixed; restaurant scenes stay inside their content scope. */
-:root { --glass-opacity: .94; --glass-drawer-opacity: .98; --glass-shine: 255 255 255; --glass-edge: rgb(255 255 255 / .2); --glass-edge-side: rgb(255 255 255 / .08); }
+:root { --scene-primary: 26 26 26; --scene-secondary: 45 45 45; --scene-warm: 201 162 39; --glass-opacity: .94; --glass-drawer-opacity: .98; --glass-shine: 255 255 255; --glass-edge: rgb(255 255 255 / .2); --glass-edge-side: rgb(255 255 255 / .08); }
 .customer-header { background: rgb(var(--color-black-700)); color: white; border-bottom: 1px solid rgb(255 255 255 / .08); }
 :root[data-theme="dark"] .customer-header { background: #000; }
 .customer-profile-card { background: rgb(255 255 255 / .06); border: 1px solid rgb(255 255 255 / .12); }
