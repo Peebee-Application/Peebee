@@ -104,9 +104,11 @@ function FoodItemCard({item,onOpen,featured=false,insight}:{item:MenuItem;onOpen
    {featured ? (
      <>
        <span className="food-item-card__image-base" aria-hidden="true">
+         {photoUrl && <img src={photoUrl} alt="" />}
+       </span>
+       <span className="food-item-card__photo" aria-hidden="true">
          {photoUrl ? <img src={photoUrl} alt="" /> : <UtensilsCrossed size={48} className="text-gold" />}
        </span>
-       {photoUrl && <img src={photoUrl} alt="" className="food-item-card__image" />}
        <span className="food-item-card__topline">
          {item.badge
            ? <span className={`rounded-full px-2.5 py-1.5 text-[11px] font-bold uppercase ${BADGE_STYLES[item.badge]}`}>{t(BADGE_KEYS[item.badge])}</span>
