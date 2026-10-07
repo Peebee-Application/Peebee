@@ -1995,6 +1995,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       const res = await f(`${root}/v1/users/me/profile-photo`, { method: "POST", headers: authHeaders(), body: form });
       return json<{ hasProfilePhoto: true }>(res);
     },
+    async updateMyDisplayName(name: string) {
+      return request<{ name: string }>("/v1/users/me/profile", { method: "PATCH", body: JSON.stringify({ name }) });
+    },
     async deleteUserProfilePhoto() {
       return request<{ hasProfilePhoto: false }>("/v1/users/me/profile-photo", { method: "DELETE" });
     },

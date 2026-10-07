@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useColourScene } from "../lib/use-colour-scene";
 import { AuthGate } from "./AuthGate";
 import { BottomNav } from "./BottomNav";
 import { BrandHeader } from "./BrandHeader";
@@ -10,9 +9,8 @@ import { OfflineBanner } from "./OfflineBanner";
 import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./PracticeMode";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  useColourScene();
   const pathname = usePathname();
-  const foodBusinessId=/^\/restaurants\/([^/]+)/.exec(pathname)?.[1];
+  const foodBusinessId=/^\/restaurants\/([^/]+)(?:\/items\/[^/]+)?$/.exec(pathname)?.[1];
   const isFoodDetail=/^\/restaurants\/[^/]+\/items\/[^/]+$/.test(pathname);
   const isAuthPage = pathname === "/login" || pathname === "/activate" || pathname === "/forgot-password" || pathname.startsWith("/verify") || pathname.startsWith("/trip/");
   // "/chat" itself is a normal list screen (conversations) with the usual
@@ -26,18 +24,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthGate>
-      {foodBusinessId&&<FoodBusinessTheme id={foodBusinessId}/>}
+
       <PracticeModeGuard role="customer" pathname={pathname} />
       {!isAuthPage && <PracticeModePrompt role="customer" />}
       {!isAuthPage && <OfflineBanner />}
       {showHeader && <BrandHeader />}
       {!isAuthPage && <PracticeModeBanner role="customer" />}
       <main
-        className={`mx-auto max-w-lg ${showHeader ? "min-h-[calc(100dvh-3.5rem)]" : "min-h-dvh"} ${
+        className={`mx-auto max-w-lg ${showHeader ? "min-h-[calc(100dvh-4rem)]" : "min-h-dvh"} ${
           showNav ? "pb-[calc(5rem+env(safe-area-inset-bottom))]" : ""
         }`}
       >
-        {children}
+        {foodBusinessId ? <FoodBusinessTheme key={foodBusinessId} id={foodBusinessId}>{children}</FoodBusinessTheme> : children}
       </main>
       {showNav && <BottomNav />}
     </AuthGate>

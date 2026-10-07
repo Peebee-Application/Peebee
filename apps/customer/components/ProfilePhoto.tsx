@@ -41,7 +41,7 @@ export function ProfilePhoto() {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [user?.id, user?.hasProfilePhoto]);
+  }, [user]);
 
   async function onPick(file: File) {
     setError(null);

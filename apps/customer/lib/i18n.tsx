@@ -11,6 +11,7 @@ const STORAGE_KEY = "peebee-language";
 // this wires up the mechanism and the switch so screens can be added to
 // this dictionary incrementally without touching the plumbing again.
 const STRINGS: Record<string, { en: string; lg: string }> = {
+  greeting_welcome: { en: "Welcome", lg: "Tukusanyukidde" },
   nav_home: { en: "Home", lg: "Awaka" },
   nav_orders: { en: "Orders", lg: "Ebiragiddwa" },
   nav_food: { en: "Food", lg: "Emmere" },
