@@ -4,10 +4,11 @@ import { FoodCover } from "@peebee/shared/food-cover";
 import type { FoodItemInsight, MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, Restaurant, RestaurantMenu } from "@peebee/shared";
 import { foodBusinessLabel, roundFare } from "@peebee/shared";
 import { demoFoodPhotoPath, demoRestaurantPhotoPath } from "@peebee/shared/demo-food";
-import { ArrowUpRight, ChevronLeft, ChevronDown, ChevronRight, Star, MessageCircle, Minus, Plus, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronDown, ChevronRight, Star, MessageCircle, Minus, Plus, ShoppingBag, ShoppingCart, Store, UtensilsCrossed, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { PlaceFlow } from "../../../components/PlaceFlow";
 import { RouteSummary } from "../../../components/home/RouteSummary";
 import { placeFields, type Place } from "../../../lib/places";
@@ -165,90 +166,92 @@ function MenuOrderList({
   cart,
   itemsTotal,
   cartCount,
-  onBack,
+  isOpen,
+  onClose,
   onRemoveLine,
   onViewCart,
 }: {
   cart: CartLine[];
   itemsTotal: number;
   cartCount: number;
-  onBack: () => void;
+  isOpen: boolean;
+  onClose: () => void;
   onRemoveLine: (key: string) => void;
   onViewCart: () => void;
 }) {
   const t = useTranslate();
-  const [expanded, setExpanded] = useState(false);
-  const toggleRef = useRef<HTMLButtonElement>(null);
+  const [portalReady, setPortalReady] = useState(false);
 
-  return (
-    <section
-      className="menu-item-order-list customer-header"
-      aria-label={t("restaurant_order_list")}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          setExpanded(false);
-          toggleRef.current?.focus();
-        }
-      }}
-    >
-      <div className="menu-item-order-list__bar">
-        <button type="button" className="menu-item-order-list__back" aria-label={t("restaurant_back_to_menu")} onClick={onBack}>
-          <ChevronLeft size={24} aria-hidden="true" />
-        </button>
-        <div className="menu-item-order-list__heading">
-          <span className="menu-item-order-list__title">{t("restaurant_order_list")}</span>
-          <span className="menu-item-order-list__count" aria-live="polite" aria-label={t("restaurant_order_list_item_count", { count: cartCount })}>
-            {cartCount}
-          </span>
-        </div>
-        <button
-          ref={toggleRef}
-          type="button"
-          className="menu-item-order-list__toggle"
-          aria-label={expanded ? `Hide ${t("restaurant_order_list")}` : `Show ${t("restaurant_order_list")}`}
-          aria-expanded={expanded}
-          aria-controls="menu-item-order-list-content"
-          onClick={() => setExpanded((open) => !open)}
-        >
-          <ChevronDown className={expanded ? "rotate-180" : ""} size={24} aria-hidden="true" />
-        </button>
-      </div>
+  useEffect(() => setPortalReady(true), []);
 
-      <div
-        id="menu-item-order-list-content"
-        className={`menu-item-order-list__reveal${expanded ? " is-expanded" : ""}`}
-        aria-hidden={!expanded}
-        inert={!expanded}
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  if (!portalReady || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className={`menu-item-cart-layer${isOpen ? " is-open" : ""}`} aria-hidden={!isOpen}>
+      <button type="button" className="menu-item-cart-layer__backdrop" aria-label="Close cart" tabIndex={isOpen ? 0 : -1} onClick={onClose} />
+      <aside
+        className="menu-item-cart-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="menu-item-cart-title"
+        inert={!isOpen}
+        onClick={(event) => event.stopPropagation()}
       >
-        <div className="menu-item-order-list__reveal-inner">
-          <div className="menu-item-order-list__content">
-            {cart.length > 0 ? (
-              <>
-                <ul className="menu-item-order-list__lines">
-                  {cart.map((line) => (
-                    <li className="menu-item-order-list__line" key={line.key}>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">{line.quantity}× {line.name}</span>
-                        <span className="block text-xs text-ink-500">{formatUgx(line.unitPrice * line.quantity)}</span>
-                      </span>
-                      <button type="button" className="menu-item-order-list__remove" onClick={() => onRemoveLine(line.key)}>
-                        {t("restaurant_remove")}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <button type="button" className="menu-item-order-list__checkout" onClick={onViewCart}>
-                  <span>{t("restaurant_view_full_order")}</span>
-                  <span>{formatUgx(itemsTotal)}</span>
-                </button>
-              </>
-            ) : (
-              <p className="px-4 py-3 text-sm text-ink-500">{t("restaurant_order_list_empty")}</p>
-            )}
+        <div className="menu-item-cart-drawer__header">
+          <div>
+            <h2 id="menu-item-cart-title" className="menu-item-cart-drawer__title">{t("restaurant_your_cart")}</h2>
+            <p className="menu-item-cart-drawer__count" aria-live="polite">{t("restaurant_order_list_item_count", { count: cartCount })}</p>
           </div>
+          <button type="button" className="menu-item-cart-drawer__close" aria-label="Close cart" onClick={onClose}>
+            <X size={21} aria-hidden="true" />
+          </button>
         </div>
-      </div>
-    </section>
+        <div className="menu-item-cart-drawer__body">
+          {cart.length > 0 ? (
+            <ul className="menu-item-order-list__lines">
+              {cart.map((line) => (
+                <li className="menu-item-order-list__line" key={line.key}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">{line.quantity}× {line.name}</span>
+                    <span className="block text-xs text-ink-500">{formatUgx(line.unitPrice * line.quantity)}</span>
+                  </span>
+                  <button type="button" className="menu-item-order-list__remove" onClick={() => onRemoveLine(line.key)}>
+                    {t("restaurant_remove")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-1 py-3 text-sm text-ink-500">{t("restaurant_order_list_empty")}</p>
+          )}
+        </div>
+        <div className="menu-item-cart-drawer__footer">
+          <div className="menu-item-cart-drawer__total">
+            <span>{t("restaurant_items_total")}</span>
+            <strong>{formatUgx(itemsTotal)}</strong>
+          </div>
+          <button type="button" className="menu-item-order-list__checkout" onClick={onViewCart} disabled={cart.length === 0}>
+            <span>{t("restaurant_checkout")}</span>
+            <span>{formatUgx(itemsTotal)}</span>
+          </button>
+        </div>
+      </aside>
+    </div>,
+    document.body,
   );
 }
 
@@ -350,6 +353,7 @@ function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId
   const choiceIds = Object.values(selected).flat();
   const choices = item.options.flatMap((option) => option.choices).filter((choice) => choiceIds.includes(choice.id));
   const unitPrice = item.price + choices.reduce((sum, choice) => sum + choice.price_delta, 0);
+  const configuredTotal = unitPrice * quantity;
 
   function handleAdd() {
     if (missingRequired.length > 0 || !isOpen) return;
@@ -419,14 +423,17 @@ function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId
         </div>
       </section>
       <div className="menu-item-deck__footer">
-        <button type="button" disabled={missingRequired.length > 0 || !isOpen} onClick={handleAdd} className="menu-item-deck__add-btn">
-          {!isOpen
-            ? "Business closed"
-            : addedAnim
-            ? t("restaurant_added_to_list")
-            : missingRequired.length > 0
-            ? `${t("restaurant_choose")} ${missingRequired[0].name}`
-            : t("restaurant_add_to_list")}
+        <button
+          type="button"
+          disabled={missingRequired.length > 0 || !isOpen}
+          onClick={handleAdd}
+          className="menu-item-deck__add-btn"
+          data-added={addedAnim ? "true" : undefined}
+          aria-label={!isOpen ? "Business closed" : missingRequired.length > 0 ? `${t("restaurant_choose")} ${missingRequired[0].name}` : `${t("restaurant_add_to_list")} ${item.name}, ${formatUgx(configuredTotal)}`}
+        >
+          <span className="menu-item-deck__add-icon" aria-hidden="true"><Plus size={22} strokeWidth={2.5} /></span>
+          <span id="menu-item-current-price" className="menu-item-deck__add-price" aria-live="polite">{formatUgx(configuredTotal)}</span>
+          <span className="sr-only">{!isOpen ? "Business closed" : missingRequired.length > 0 ? `${t("restaurant_choose")} ${missingRequired[0].name}` : t("restaurant_add_to_list")}</span>
         </button>
       </div>
     </>
@@ -545,7 +552,6 @@ function MenuItemDeck({
       className="menu-item-deck"
       aria-label={t("restaurant_menu_browse_category", { category: categoryName })}
       aria-roledescription="item carousel"
-      aria-describedby="menu-item-current-price"
       tabIndex={0}
       onWheel={handleWheel}
       onKeyDown={handleKeyDown}
@@ -581,9 +587,6 @@ function MenuItemDeck({
           );
         })}
       </div>
-      <div id="menu-item-current-price" className="menu-item-deck__price-tag" aria-live="polite">
-        {formatUgx(items[index]?.price ?? 0)}
-      </div>
     </section>
   );
 }
@@ -617,21 +620,29 @@ function ItemDetailPage({
   onViewCart: () => void;
   onAdd: (item: MenuItem, line: { unitPrice: number; choiceIds: string[]; choiceNames: string[]; quantity: number }) => void;
 }) {
+  const t = useTranslate();
   const [activeItemId, setActiveItemId] = useState(item.id);
+  const [cartOpen, setCartOpen] = useState(false);
+  const cartTriggerRef = useRef<HTMLButtonElement>(null);
   const activeItem = items.find((row) => row.id === activeItemId) ?? item;
   const activePhoto = useMenuItemPhoto(activeItem.id, !!activeItem.photo_key, activeItem.updated_at);
+  const closeCart = useCallback(() => {
+    setCartOpen(false);
+    cartTriggerRef.current?.focus();
+  }, []);
 
   return (
     <div className="menu-item-detail-page">
-      <MenuOrderList
-        cart={cart}
-        itemsTotal={itemsTotal}
-        cartCount={cartCount}
-        onBack={onBack}
-        onRemoveLine={onRemoveLine}
-        onViewCart={onViewCart}
-      />
-      <main className="menu-item-detail-page__content">
+      <main className={`menu-item-detail-page__content${cartOpen ? " is-shifted" : ""}`}>
+        <div className="menu-item-floating-controls">
+          <button ref={cartTriggerRef} type="button" className="menu-item-cart-trigger" aria-label={`Open cart, ${cartCount} ${cartCount === 1 ? "item" : "items"}`} aria-expanded={cartOpen} onClick={() => setCartOpen(true)}>
+            <ShoppingCart size={21} strokeWidth={2} aria-hidden="true" />
+            <span className="menu-item-cart-trigger__count" aria-live="polite">{cartCount}</span>
+          </button>
+          <button type="button" className="menu-item-back-trigger" aria-label={t("restaurant_back_to_menu")} onClick={onBack}>
+            <ChevronLeft size={24} aria-hidden="true" />
+          </button>
+        </div>
         <div
           key={activeItem.id}
           className="menu-item-detail-page__ambient"
@@ -646,6 +657,18 @@ function ItemDetailPage({
         />
         <MenuItemDetailPanel item={activeItem} isOpen={isOpen} isDemo={isDemo} restaurantId={restaurantId} onAdd={onAdd} />
       </main>
+      <MenuOrderList
+        cart={cart}
+        itemsTotal={itemsTotal}
+        cartCount={cartCount}
+        isOpen={cartOpen}
+        onClose={closeCart}
+        onRemoveLine={onRemoveLine}
+        onViewCart={() => {
+          setCartOpen(false);
+          onViewCart();
+        }}
+      />
     </div>
   );
 }

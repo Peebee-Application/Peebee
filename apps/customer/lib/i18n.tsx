@@ -265,6 +265,7 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   restaurant_chat: { en: "Chat", lg: "Emboozi" },
   restaurant_no_menu_yet: { en: "This restaurant hasn't added any menu items yet.", lg: "Eduuka lino terinnateekawo bintu ku lukalala lwalyo." },
   restaurant_your_cart: { en: "Your cart", lg: "Ekikapu kyo" },
+  restaurant_checkout: { en: "Checkout", lg: "Wewaayo" },
   restaurant_remove: { en: "Remove", lg: "Ggyawo" },
   restaurant_delivery_details: { en: "Delivery details", lg: "Ebikwata ku kutuusa" },
   restaurant_payment: { en: "Payment", lg: "Okusasula" },
