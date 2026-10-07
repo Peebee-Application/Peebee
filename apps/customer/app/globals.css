@@ -409,7 +409,7 @@ select {
 .food-item-card:active { transform: scale(.985); }
 .food-item-card:focus-visible { outline: 3px solid rgb(var(--color-gold)); outline-offset: 3px; }
 .food-item-card--featured {
-  width: min(68vw, 196px);
+  width: min(calc(68vw + 10px), 206px);
   aspect-ratio: 2 / 3;
   isolation: isolate;
   color: rgb(var(--color-ink));
