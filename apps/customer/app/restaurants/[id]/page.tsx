@@ -176,38 +176,37 @@ function MenuOrderList({
 }) {
   const t = useTranslate();
   const [expanded, setExpanded] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <section className="menu-item-order-list customer-header" aria-label={t("restaurant_order_list")}>
+    <section
+      className="menu-item-order-list customer-header"
+      aria-label={t("restaurant_order_list")}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          setExpanded(false);
+          toggleRef.current?.focus();
+        }
+      }}
+    >
       <div className="menu-item-order-list__bar">
+        <div className="menu-item-order-list__heading">
+          <span className="menu-item-order-list__title">{t("restaurant_order_list")}</span>
+          <span className="menu-item-order-list__count" aria-live="polite" aria-label={t("restaurant_order_list_item_count", { count: cartCount })}>
+            {cartCount}
+          </span>
+        </div>
         <button
+          ref={toggleRef}
           type="button"
           className="menu-item-order-list__toggle"
+          aria-label={expanded ? `Hide ${t("restaurant_order_list")}` : `Show ${t("restaurant_order_list")}`}
           aria-expanded={expanded}
           aria-controls="menu-item-order-list-content"
           onClick={() => setExpanded((open) => !open)}
         >
-          <span className="menu-item-order-list__title">
-            <span>{t("restaurant_order_list")}</span>
-          </span>
-          <span className="menu-item-order-list__summary">
-            <span>{t("restaurant_order_list_item_count", { count: cartCount })}</span>
-            {cart.length > 0 && <strong>{formatUgx(itemsTotal)}</strong>}
-            <ChevronDown className={expanded ? "rotate-180" : ""} size={18} aria-hidden="true" />
-          </span>
+          <ChevronDown className={expanded ? "rotate-180" : ""} size={24} aria-hidden="true" />
         </button>
-      </div>
-
-      <div className="menu-item-order-list__preview" aria-live="polite">
-        {cart.length > 0 ? (
-          cart.map((line) => (
-            <span className="menu-item-order-list__chip" key={line.key} title={line.name}>
-              <strong>{line.quantity}×</strong> <span>{line.name}</span>
-            </span>
-          ))
-        ) : (
-          <span className="menu-item-order-list__empty">{t("restaurant_order_list_empty")}</span>
-        )}
       </div>
 
       <div id="menu-item-order-list-content" className="menu-item-order-list__content" hidden={!expanded}>
