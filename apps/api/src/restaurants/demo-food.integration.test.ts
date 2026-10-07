@@ -5,7 +5,7 @@ import test from "node:test";
 import { createClient, type InArgs } from "@libsql/client/node";
 import { Hono } from "hono";
 import { createPracticeFetch } from "@peebee/shared";
-import { DEMO_FOOD_RESTAURANTS } from "@peebee/shared/demo-food";
+import { DEMO_FOOD_RESTAURANTS, demoFoodMenu } from "@peebee/shared/demo-food";
 import { signToken } from "../auth/jwt.js";
 import { setD1Binding, type D1Database } from "../db/client.js";
 import { splitSqlStatements } from "../db/split-sql.js";
@@ -50,13 +50,15 @@ test("demo food supports sandbox payment and rider fulfillment without affecting
     assert.equal((await call(`/restaurants/${first}`)).status, 404);
     await setPlatformEnvironment("sandbox");
     const list = await (await call("/restaurants")).json() as {restaurants: Array<{id:string;is_demo?:boolean}>};
-    assert.equal(list.restaurants.length, 5);
-    assert.equal(list.restaurants.filter((r) => r.is_demo).length, 4);
+    assert.equal(list.restaurants.length, DEMO_FOOD_RESTAURANTS.length + 1);
+    assert.equal(list.restaurants.filter((r) => r.is_demo).length, DEMO_FOOD_RESTAURANTS.length);
     let itemId = "";
     for (const restaurant of DEMO_FOOD_RESTAURANTS) {
       assert.equal((await call(`/restaurants/${restaurant.id}`)).status, 200);
-      const menu = await (await call(`/restaurants/${restaurant.id}/menu`)).json() as {categories:Array<{items:Array<{id:string;photo_key:string;options:Array<{choices:unknown[]}>}>}>};
-      assert.equal(menu.categories.flatMap((c) => c.items).length, 5);
+      const menu = await (await call(`/restaurants/${restaurant.id}/menu`)).json() as {categories:Array<{name:string;items:Array<{id:string;photo_key:string;is_featured?:number;options:Array<{choices:unknown[]}>}>}>};
+      assert.equal(menu.categories.flatMap((c) => c.items).length, demoFoodMenu(restaurant.id)!.categories.flatMap((category) => category.items).length);
+      assert(menu.categories.length > 1, "demo menus use multiple named categories");
+      assert(menu.categories.some((category) => category.items.some((item) => item.is_featured)), "every demo business has a featured dish");
       for (const item of menu.categories.flatMap((c) => c.items)) {
         itemId = item.id;
         assert(item.photo_key);
