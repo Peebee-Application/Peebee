@@ -442,8 +442,7 @@ select {
 .food-item-card__photo {
   position: absolute;
   z-index: 1;
-  inset: 7px 7px auto;
-  height: 68%;
+  inset: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -451,8 +450,14 @@ select {
   background: transparent;
   color: rgb(var(--color-gold));
   border-radius: 22px;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 90%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 90%);
+}
+.food-item-card__photo--empty {
+  inset: 7px 7px auto;
+  height: 68%;
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 .food-item-card__photo img {
   width: 100%;
@@ -497,11 +502,7 @@ select {
   z-index: 0;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(180deg, rgb(var(--surface-card) / .08), rgb(var(--surface-card) / .56) 42%, rgb(var(--surface-card) / .78));
-  backdrop-filter: blur(24px) saturate(1.25);
-  -webkit-backdrop-filter: blur(24px) saturate(1.25);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 34px);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 34px);
+  background: linear-gradient(180deg, rgb(var(--surface-card) / 0), rgb(var(--surface-card) / .18) 30%, rgb(var(--surface-card) / .48) 72%, rgb(var(--surface-card) / .64));
   content: "";
 }
 .food-item-card__glass > * {

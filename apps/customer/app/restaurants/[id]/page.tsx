@@ -106,7 +106,7 @@ function FoodItemCard({item,onOpen,featured=false,insight}:{item:MenuItem;onOpen
        <span className="food-item-card__image-base" aria-hidden="true">
          {photoUrl && <img src={photoUrl} alt="" />}
        </span>
-       <span className="food-item-card__photo" aria-hidden="true">
+       <span className={`food-item-card__photo ${photoUrl ? "" : "food-item-card__photo--empty"}`} aria-hidden="true">
          {photoUrl ? <img src={photoUrl} alt="" /> : <UtensilsCrossed size={48} className="text-gold" />}
        </span>
        <span className="food-item-card__topline">
