@@ -10,6 +10,7 @@ import { ApplyCard } from "../components/ApplyCard";
 import { KycCard } from "../components/KycCard";
 import { DriverConnections } from "../components/DriverConnections";
 import { OwnerDealsPanel } from "../components/OwnerDeals";
+import { CarPracticeDemo } from "../components/CarPracticeDemo";
 import { api, errorMessage } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 
@@ -46,6 +47,7 @@ function DriverHome() {
   if (me?.driverStatus !== "approved") {
     return (
       <>
+        <CarPracticeDemo mode="driver" />
         <ApplyCard mode="driver" />
         <KycCard mode="driver" />
         {me?.driverStatus === "pending" && me.needsVehicle && (
@@ -76,6 +78,7 @@ function DriverHome() {
   const vehicle = me.assignedVehicles[0];
   return (
     <>
+      <CarPracticeDemo mode="driver" />
       <KycCard mode="driver" />
       <header>
         <h1 className="text-2xl font-black text-ink">Driver</h1>
@@ -148,6 +151,7 @@ function OwnerHome() {
   if (me?.ownerStatus !== "approved") {
     return (
       <>
+        <CarPracticeDemo mode="owner" />
         <ApplyCard mode="owner" />
         <KycCard mode="owner" />
         {me?.ownerStatus === "pending" && <Link href="/vehicles" className="home-card block text-sm font-semibold text-ink">Add your car now →</Link>}
@@ -159,6 +163,7 @@ function OwnerHome() {
   const past = data?.rides.filter((r) => r.status !== "requested") ?? [];
   return (
     <>
+      <CarPracticeDemo mode="owner" />
       <KycCard mode="owner" />
       <header>
         <h1 className="text-2xl font-black text-ink">Owner</h1>

@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 
 const HINTS: Record<PracticeRole, string> = {
-  customer: "Use the normal home screen to create, fund, track and complete a sample order.",
+  customer: "Try the demo car types, book a sample ride, and follow its assigned driver through pickup and arrival.",
   rider: "Claim the sample job and complete it using the same controls as a live delivery.",
   restaurant: "Use the real restaurant dashboard to confirm the sample rider payment and explore settlement.",
   merchant: "Use the real merchant dashboard to confirm the sample payment and test settlement.",

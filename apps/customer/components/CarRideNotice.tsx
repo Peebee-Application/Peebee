@@ -7,7 +7,7 @@ const SWAPPABLE = ["Match", "Shop", "Substitute", "Approve"];
 
 /** Shown on a car ride: its scheduled pickup time, and a way to choose another driver before the trip starts. */
 export function CarRideNotice({ orderId, stage, hasDriver, onChanged }: { orderId: string; stage: string; hasDriver: boolean; onChanged: () => void }) {
-  const [info, setInfo] = useState<{ scheduledFor: string | null } | null>(null);
+  const [info, setInfo] = useState<{ scheduledFor: string | null; categoryName?: string; plate?: string; vehicleName?: string; ownerName?: string; driverName?: string } | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -34,9 +34,10 @@ export function CarRideNotice({ orderId, stage, hasDriver, onChanged }: { orderI
     }
   }
 
-  if (!when && !canSwap) return null;
+  if (!when && !canSwap && !info.categoryName) return null;
   return (
     <section className="space-y-2 border-t border-[var(--border-faint)] pt-2">
+      {info.categoryName && <div className="rounded-xl bg-[rgb(var(--surface-muted))] px-3 py-2 text-sm"><p className="font-bold">{info.categoryName}{info.vehicleName ? ` · ${info.vehicleName}` : ""}</p><p className="text-xs text-ink-500">{info.plate}{info.driverName ? ` · Driver ${info.driverName}` : ""}{info.ownerName ? ` · Owner ${info.ownerName}` : ""}</p></div>}
       {when && <p className="text-sm font-semibold text-ink">Scheduled pickup: {when}</p>}
       {canSwap && !confirm && (
         <button type="button" onClick={() => setConfirm(true)} className="text-sm font-bold text-gold">Choose another driver</button>
