@@ -62,7 +62,7 @@ function SavedSlider({ saved, onPick, heading }: { saved: SavedLocation[]; onPic
   return (
     <section className="space-y-2">
       <h3 className="px-4 text-sm font-bold text-ink-500">{heading}</h3>
-      <div className="flex snap-x snap-mandatory scroll-pl-4 gap-3 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="edge-carousel edge-carousel-flush flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
         {places.map((place, i) => {
           const loc = saved[i];
           const Icon = savedIcon(loc.label);

@@ -58,7 +58,7 @@ export function WalletCard() {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-4 px-4 py-1"
+        className="edge-carousel flex gap-3 overflow-x-auto snap-x snap-mandatory py-1"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {/* Card 1: Primary Personal MoMo Wallet */}

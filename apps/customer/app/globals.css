@@ -405,3 +405,18 @@ select {
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .customer-header, :root:not([data-theme="light"]) .customer-nav .soft-capsule { background: #000; }
 }
+
+/* Padding scrolls with the cards; the clipping boundary stays at the page edge. */
+.edge-carousel {
+  --carousel-gutter: 1rem;
+  margin-inline: calc(-1 * var(--carousel-gutter));
+  padding-inline: var(--carousel-gutter);
+  scroll-padding-inline: var(--carousel-gutter);
+  scrollbar-width: none;
+}
+.edge-carousel::-webkit-scrollbar { display: none; }
+/* Full-width drawers already reach the edge; only their initial content is inset. */
+.edge-carousel-flush { margin-inline: 0; }
+.edge-carousel-dialog { --carousel-gutter: 1.25rem; }
+/* A rail inside a padded card also cancels that card's border and padding. */
+.edge-carousel-card { --carousel-gutter: calc(1rem + var(--pad-card) + 1px); }

@@ -417,7 +417,7 @@ export default function WalletPage() {
       <h1 className="text-xl font-bold text-ink">{t("wallet_title")}</h1>
 
       {/* Wallet switcher — up to 5 total (the original + up to 4 named ones) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <div className="edge-carousel flex items-center gap-2 overflow-x-auto pb-1">
         {wallets.map((w) => (
           <button
             key={w.id}
@@ -588,7 +588,7 @@ export default function WalletPage() {
 
         {/* Avatar-Driven Frequent Recipient Carousel / Grid */}
         <div className="space-y-2">
-          <div className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1 -mx-1 px-1">
+          <div className="edge-carousel edge-carousel-card flex items-center gap-3 overflow-x-auto py-1">
             {/* New recipient avatar */}
             <button
               type="button"

@@ -127,7 +127,7 @@ export function SavedLocations() {
         <div className="space-y-4">
           {step === "name" && <>
             <p className="text-sm text-ink-500">Choose a name, then select the location on the map.</p>
-            <div role="group" aria-label="Suggested location names" className="-mx-5 flex snap-x gap-2 overflow-x-auto px-5 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div role="group" aria-label="Suggested location names" className="edge-carousel edge-carousel-dialog flex snap-x gap-2 overflow-x-auto pb-2">
               {suggestedNames.map(({ label: name, Icon }) => <button key={name} type="button" onClick={() => chooseName(name)}
                 className="flex min-h-12 shrink-0 snap-start items-center gap-2 rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] px-4 text-sm font-semibold text-ink">
                 <Icon className="h-4 w-4 text-gold" strokeWidth={1.75} aria-hidden />{name}

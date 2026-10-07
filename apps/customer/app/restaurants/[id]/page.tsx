@@ -89,7 +89,7 @@ const BADGE_KEYS: Record<MenuItemBadge, "restaurant_badge_sale" | "restaurant_ba
 function DishRail({children,label}:{children:React.ReactNode;label:string}){
   const ref=useRef<HTMLDivElement>(null);
   useEffect(()=>{const node=ref.current;if(!node)return;if(!('IntersectionObserver' in window)){node.classList.add('rail-visible');return;}const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){node.classList.add('rail-visible');observer.disconnect();}},{threshold:.1});observer.observe(node);return()=>observer.disconnect();},[]);
-  return <div ref={ref} aria-label={label} dir="ltr" className="food-dish-rail flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4">{children}</div>;
+  return <div ref={ref} aria-label={label} dir="ltr" className="edge-carousel food-dish-rail flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4">{children}</div>;
 }
 function FoodItemCard({item,onOpen,featured=false,insight}:{item:MenuItem;onOpen:()=>void;featured?:boolean;insight?:FoodItemInsight}){
  const t=useTranslate();
