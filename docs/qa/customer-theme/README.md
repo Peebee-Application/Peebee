@@ -1,5 +1,7 @@
 # Customer standard palette and profile header
 
+Historical evidence for PR #43. The [restaurant mode follow-up](../food-theme-mode/README.md) supersedes mode precedence: the customer chooses light/dark and the owner chooses colours.
+
 Verified at a 390 x 844 mobile viewport using isolated fictional preview data on 2026-10-07. Temporary API fixtures were removed before commit. No production user details were edited.
 
 - [Dark home](customer-standard-dark.png): black header and floating dock, white logo/wordmark, charcoal page, expanded profile card and location beneath the welcome heading.
