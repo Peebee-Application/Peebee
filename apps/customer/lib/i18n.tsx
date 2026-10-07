@@ -254,6 +254,8 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   restaurant_order_list_item_count: { en: "{count} in order", lg: "{count} mu lukalala" },
   restaurant_order_list_empty: { en: "Items you add will appear here", lg: "Eby'okulya by'oyongerako bijja kulabikira wano" },
   restaurant_view_full_order: { en: "View full order", lg: "Laba olukalala lwonna" },
+  restaurant_add_to_list: { en: "Add to list", lg: "Gatta ku lukalala" },
+  restaurant_added_to_list: { en: "Added to list ✓", lg: "Kigattiddwa ✓" },
   restaurant_ask_about_item: { en: "Ask about this item", lg: "Buuza ku kintu kino" },
   restaurant_required: { en: "(required)", lg: "(kyetaagisa)" },
   restaurant_optional: { en: "(optional)", lg: "(si kyetaagisa)" },
