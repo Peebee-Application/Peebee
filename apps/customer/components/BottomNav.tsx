@@ -74,7 +74,7 @@ export function BottomNav() {
 
   return (
     <>
-      <nav className="fixed inset-x-0 bottom-3 z-40 px-3 pointer-events-none pb-[env(safe-area-inset-bottom)]">
+      <nav className="customer-nav fixed inset-x-0 bottom-3 z-40 px-3 pointer-events-none pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto flex max-w-md flex-col items-center gap-2">
           {/* Active Delivery Floating Capsule Chip */}
           {showActiveDeliveryBadge && (
@@ -113,7 +113,7 @@ export function BottomNav() {
                       className={`relative flex h-12 flex-col items-center justify-center gap-0.5 rounded-full transition-all duration-200 ${
                         active
                           ? "text-gold font-bold scale-105"
-                          : "text-ink-500 hover:text-ink font-medium"
+                          : "text-white/60 hover:text-white font-medium"
                       }`}
                     >
                       <span className="relative">

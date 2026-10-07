@@ -83,6 +83,7 @@ self.addEventListener("fetch", (event) => {
   // before. Only reads are ever served from a cache.
   if (request.method !== "GET") return;
 
+  if (/^\/v1\/users\/[^/]+\/photo$/.test(url.pathname)) { event.respondWith(fetch(request)); return; }
   if (/^\/v1\/restaurants\/.*\/(cover|logo|reviews|insights)$/.test(url.pathname)) { event.respondWith(fetch(request)); return; }
   if (isImmutableAsset(url)) {
     event.respondWith(cacheFirst(request, STATIC_CACHE));

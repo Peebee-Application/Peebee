@@ -7,6 +7,7 @@
  */
 
 import { Hono } from "hono";
+import { z } from "zod";
 import { db } from "../db/client.js";
 import { requireAuth } from "../auth/middleware.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
@@ -14,6 +15,13 @@ import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
 
 export const userRoutes = new Hono();
 userRoutes.use("*", requireAuth);
+
+userRoutes.patch("/users/me/profile", async (c) => {
+  const parsed = z.object({ name: z.string().trim().min(1).max(80) }).safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body", message: "Enter a display name between 1 and 80 characters." }, 400);
+  await db.execute({ sql: "UPDATE users SET name = ?, updated_at = datetime('now') WHERE id = ?", args: [parsed.data.name, c.get("user").sub] });
+  return c.json({ name: parsed.data.name });
+});
 
 const MAX_PROFILE_PHOTO_BYTES = 4 * 1024 * 1024;
 const ALLOWED_PHOTO_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);

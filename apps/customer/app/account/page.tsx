@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { AppearanceSettings } from "../../components/AppearanceSettings";
 import { ChangePasswordPanel } from "../../components/ChangePasswordPanel";
 import { LanguageSettings } from "../../components/LanguageSettings";
+import { DisplayNameSettings } from "../../components/DisplayNameSettings";
 import { ProfilePhoto } from "../../components/ProfilePhoto";
 import { PracticeModeCard } from "../../components/PracticeMode";
 import { SavedLocations } from "../../components/SavedLocations";
@@ -98,6 +99,8 @@ export default function AccountPage() {
         <Wallet className="h-5 w-5 text-gold" strokeWidth={1.75} aria-hidden />
         {t("nav_wallet")}
       </Link>
+
+      <DisplayNameSettings />
 
       <MatchingPreference />
 

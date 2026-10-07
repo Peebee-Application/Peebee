@@ -34,22 +34,22 @@
   --color-green: 27 122 78;
   --color-green-400: 47 168 106;
   --color-green-600: 27 122 78;
-  --color-cream: 253 251 247;
-  --color-cream-50: 253 251 247;
-  --color-cream-100: 247 243 238;
-  --color-navy: 21 58 117;
-  --color-navy-400: 61 102 166;
-  --color-navy-700: 15 42 87;
+  --color-cream: 255 255 255;
+  --color-cream-50: 255 255 255;
+  --color-cream-100: 245 245 245;
+  --color-navy: 48 48 48;
+  --color-navy-400: 68 68 68;
+  --color-navy-700: 32 32 32;
   /* Card surface — separate from --color-cream (the page background) so
      dark mode can give cards visible elevation against a darker page. */
   --surface-card: 255 255 255;
   /* Muted chip/pill surface (item badges, qty/unit inputs, total bars) —
      a step down from --surface-card, not the page background itself. */
-  --surface-muted: 236 232 226;
+  --surface-muted: 242 242 242;
   /* Text input fill. In light mode this is just white (browser default,
      unchanged); in dark mode it overrides the browser's native dark
      form-control fill (a flat gray from `color-scheme: dark`) with a
-     washed-out navy that actually matches the page. */
+     charcoal that matches the page. */
   --surface-input: 255 255 255;
   /* Surface tokens (SURFACE-TOKENS.md) */
   --radius-card: 24px;
@@ -70,52 +70,52 @@
   --duration-fluid: 260ms;
 }
 
-/* Dark mode — navy as the page background, gold stays the one constant
+/* Dark mode — sharp charcoal as the page background, gold stays the constant
    accent. Applies both to an explicit toggle (data-theme="dark") and,
    absent one, to the OS preference. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --color-black: 6 14 28;
-    --color-black-700: 12 24 46;
-    --color-black-900: 6 14 28;
-    --color-ink: 247 243 238;
-    --color-ink-500: 168 180 200;
-    --color-ink-900: 247 243 238;
+    --color-black: 0 0 0;
+    --color-black-700: 26 26 26;
+    --color-black-900: 0 0 0;
+    --color-ink: 245 245 245;
+    --color-ink-500: 170 170 170;
+    --color-ink-900: 245 245 245;
     --color-green: 47 168 106;
     --color-green-400: 62 196 128;
-    --color-cream: 13 32 61;
-    --color-cream-50: 13 32 61;
-    --color-cream-100: 19 44 82;
-    --color-navy: 90 130 196;
-    --color-navy-400: 120 155 214;
-    --color-navy-700: 150 180 224;
-    --surface-card: 22 48 88;
-    --surface-muted: 40 76 122;
-    --surface-input: 33 63 106;
+    --color-cream: 14 14 14;
+    --color-cream-50: 14 14 14;
+    --color-cream-100: 26 26 26;
+    --color-navy: 220 220 220;
+    --color-navy-400: 230 230 230;
+    --color-navy-700: 200 200 200;
+    --surface-card: 30 30 30;
+    --surface-muted: 39 39 39;
+    --surface-input: 36 36 36;
     --border-faint: rgba(247, 243, 238, 0.1);
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-black: 6 14 28;
-  --color-black-700: 12 24 46;
-  --color-black-900: 6 14 28;
-  --color-ink: 247 243 238;
-  --color-ink-500: 168 180 200;
-  --color-ink-900: 247 243 238;
+  --color-black: 0 0 0;
+  --color-black-700: 26 26 26;
+  --color-black-900: 0 0 0;
+  --color-ink: 245 245 245;
+  --color-ink-500: 170 170 170;
+  --color-ink-900: 245 245 245;
   --color-green: 47 168 106;
   --color-green-400: 62 196 128;
-  --color-cream: 13 32 61;
-  --color-cream-50: 13 32 61;
-  --color-cream-100: 19 44 82;
-  --color-navy: 90 130 196;
-  --color-navy-400: 120 155 214;
-  --color-navy-700: 150 180 224;
-  --surface-card: 22 48 88;
-  --surface-muted: 40 76 122;
-  --surface-input: 33 63 106;
+  --color-cream: 14 14 14;
+  --color-cream-50: 14 14 14;
+  --color-cream-100: 26 26 26;
+  --color-navy: 220 220 220;
+  --color-navy-400: 230 230 230;
+  --color-navy-700: 200 200 200;
+  --surface-card: 30 30 30;
+  --surface-muted: 39 39 39;
+  --surface-input: 36 36 36;
   --border-faint: rgba(247, 243, 238, 0.1);
 }
 
@@ -391,3 +391,17 @@ select {
 
 .food-dish-rail { scrollbar-width: none; }
 .food-dish-rail::-webkit-scrollbar { display: none; }
+
+/* Peebee's customer palette is fixed; restaurant scenes stay inside their content scope. */
+:root { --glass-opacity: .94; --glass-drawer-opacity: .98; --glass-shine: 255 255 255; --glass-edge: rgb(255 255 255 / .2); --glass-edge-side: rgb(255 255 255 / .08); }
+.customer-header { background: rgb(var(--color-black-700)); color: white; border-bottom: 1px solid rgb(255 255 255 / .08); }
+:root[data-theme="dark"] .customer-header { background: #000; }
+.customer-profile-card { background: rgb(255 255 255 / .06); border: 1px solid rgb(255 255 255 / .12); }
+.customer-profile-reveal { grid-template-rows: 0fr; transition: grid-template-rows 280ms ease, opacity 220ms ease; opacity: 0; }
+.customer-profile-reveal.is-expanded { grid-template-rows: 1fr; opacity: 1; }
+.customer-nav .soft-capsule { background: linear-gradient(135deg, rgb(var(--color-black-700)), rgb(var(--color-black-900))); border: 1px solid rgb(255 255 255 / .14); box-shadow: 0 12px 32px rgb(0 0 0 / .3); backdrop-filter: none; }
+:root[data-theme="dark"] .customer-nav .soft-capsule { background: #000; }
+@media (prefers-reduced-motion: reduce) { .customer-profile-reveal, .customer-header svg { transition: none; } }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .customer-header, :root:not([data-theme="light"]) .customer-nav .soft-capsule { background: #000; }
+}

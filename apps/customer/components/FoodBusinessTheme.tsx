@@ -1,6 +1,17 @@
 "use client";
-import {DEFAULT_COLOUR_SCENE,type Restaurant} from "@peebee/shared";
-import {BusinessTheme} from "@peebee/shared/business-theme";
-import {useEffect,useState} from "react";
+import {isColourScene,type Restaurant} from "@peebee/shared";
+import {useEffect,useState,type ReactNode} from "react";
 import {api} from "../lib/api";
-export function FoodBusinessTheme({id}:{id:string}){const [business,setBusiness]=useState<Restaurant|null>(null);useEffect(()=>{let disposed=false;setBusiness(null);api.getRestaurant(id).then(result=>{if(!disposed)setBusiness(result.restaurant);}).catch(()=>{});return()=>{disposed=true;};},[id]);return business?<BusinessTheme scene={business.theme_scene??DEFAULT_COLOUR_SCENE} mode={business.theme_mode}/>:null;}
+import {useResolvedTheme} from "../lib/theme";
+
+/** Owner appearance belongs to business content, never the document/app chrome. */
+export function FoodBusinessTheme({id,children}:{id:string;children:ReactNode}) {
+  const [business,setBusiness]=useState<Restaurant|null>(null);
+  const appTheme=useResolvedTheme();
+  const [autoTheme,setAutoTheme]=useState<"light"|"dark">("light");
+  useEffect(()=>{let disposed=false;api.getRestaurant(id).then(result=>{if(!disposed)setBusiness(result.restaurant);}).catch(()=>{});return()=>{disposed=true;};},[id]);
+  useEffect(()=>{const update=()=>{const hour=new Date().getHours();setAutoTheme(hour>=6&&hour<19?"light":"dark");};update();const timer=setInterval(update,60000);return()=>clearInterval(timer);},[]);
+  const themed=!!business&&isColourScene(business.theme_scene);
+  const theme=business?.theme_mode==="auto"?autoTheme:business?.theme_mode??appTheme;
+  return <div className={`${themed?"food-business-theme ":""}min-h-[inherit] bg-cream text-ink`} data-colour-scene={themed?business?.theme_scene:undefined} data-theme={themed?theme:undefined}>{children}</div>;
+}
