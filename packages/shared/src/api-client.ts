@@ -1631,7 +1631,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       return request<{ ok: true }>(`/v1/car/orders/${orderId}/apply`, { method: "POST", body: JSON.stringify({ bidAmount }) });
     },
     async carBookingInfo(orderId: string) {
-      return request<{ car: true; scheduledFor: string | null }>(`/v1/car/bookings/${orderId}/info`);
+      return request<{ car: true; scheduledFor: string | null; categoryName?: string; plate?: string; vehicleName?: string; ownerName?: string; driverName?: string }>(`/v1/car/bookings/${orderId}/info`);
     },
     async carRematch(orderId: string) {
       return request<{ ok: true }>(`/v1/car/bookings/${orderId}/rematch`, { method: "POST" });
