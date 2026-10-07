@@ -579,48 +579,36 @@ select {
   padding-top: env(safe-area-inset-top);
   background: rgb(var(--color-black-700));
   color: white;
-  box-shadow: 0 8px 24px rgb(0 0 0 / .18);
 }
 .menu-item-order-list__bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   width: 100%;
   max-width: 448px;
   height: 64px;
   margin-inline: auto;
-  padding-inline: 20px;
+  padding-inline: 16px;
 }
-.menu-item-order-list__back {
+.menu-item-order-list__heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+.menu-item-order-list__toggle {
   display: flex;
   width: 44px;
   height: 44px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
+  border: 1px solid rgb(255 255 255 / .15);
   border-radius: 50%;
-  border: 1px solid rgb(var(--color-ink) / .12);
-  background: rgb(var(--surface-card) / .92);
-  backdrop-filter: blur(16px);
-  color: rgb(var(--color-ink));
-  box-shadow: 0 4px 14px rgb(10 10 10 / .08);
-  transition: transform 160ms ease, background 160ms ease;
-}
-.menu-item-order-list__back:active { transform: scale(.94); }
-.menu-item-order-list__toggle {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  min-height: 48px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  border: 0;
-  border-radius: 14px;
-  padding: 6px 0;
+  padding: 0;
   background: transparent;
   color: white;
-  text-align: left;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition: background 160ms ease, transform 160ms ease;
 }
 .menu-item-order-list__toggle:hover {
   background: rgb(255 255 255 / .06);
@@ -629,73 +617,19 @@ select {
   outline: 2px solid rgb(var(--color-gold));
   outline-offset: 3px;
 }
-.menu-item-order-list__title,
-.menu-item-order-list__summary {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 7px;
-}
 .menu-item-order-list__title {
   font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
-.menu-item-order-list__summary {
+.menu-item-order-list__count {
+  font-size: 16px;
+  font-weight: 600;
   color: rgb(255 255 255 / .66);
-  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
-.menu-item-order-list__summary strong {
-  color: white;
-  white-space: nowrap;
-}
-.menu-item-order-list__summary svg {
-  flex: 0 0 auto;
+.menu-item-order-list__toggle svg {
   transition: transform 220ms ease;
-}
-@media (max-width: 380px) {
-  .menu-item-order-list__summary strong { display: none; }
-}
-.menu-item-order-list__preview {
-  display: flex;
-  min-height: 36px;
-  align-items: center;
-  gap: 6px;
-  overflow-x: auto;
-  max-width: 448px;
-  margin-inline: auto;
-  padding: 4px 20px 6px;
-  scrollbar-width: none;
-}
-.menu-item-order-list__preview::-webkit-scrollbar { display: none; }
-.menu-item-order-list__chip {
-  display: inline-flex;
-  flex: 0 0 auto;
-  max-width: 200px;
-  align-items: center;
-  gap: 4px;
-  overflow: hidden;
-  border: 1px solid rgb(255 255 255 / .12);
-  border-radius: 999px;
-  padding: 3px 8px;
-  background: rgb(255 255 255 / .08);
-  color: white;
-  font-size: 11px;
-  box-shadow: 0 2px 6px rgb(10 10 10 / .05);
-  animation: order-chip-pop 240ms cubic-bezier(.2,.8,.2,1);
-}
-@keyframes order-chip-pop {
-  from { transform: scale(0.85); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-.menu-item-order-list__chip strong {
-  flex: 0 0 auto;
-  color: rgb(var(--color-gold));
-}
-.menu-item-order-list__chip span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .menu-item-order-list__empty {
   padding-inline: 6px;
@@ -704,8 +638,10 @@ select {
 }
 .menu-item-order-list__content {
   max-height: min(44dvh, 320px);
+  width: calc(100% - 32px);
+  max-width: 416px;
   overflow-y: auto;
-  margin-top: 6px;
+  margin: 0 auto 12px;
   border: 1px solid rgb(var(--color-ink) / .12);
   border-radius: 20px;
   padding: 8px 12px 10px;
@@ -751,7 +687,7 @@ select {
 .menu-item-detail-page {
   position: fixed;
   z-index: 10;
-  inset: calc(env(safe-area-inset-top) + 100px) 0 calc(env(safe-area-inset-bottom) + 8px);
+  inset: calc(env(safe-area-inset-top) + 64px) 0 calc(env(safe-area-inset-bottom) + 8px);
   display: flex;
   max-width: 480px;
   flex-direction: column;
@@ -1061,7 +997,7 @@ select {
 @media (prefers-reduced-motion: reduce) {
   .menu-item-deck__card,
   .menu-item-deck__meta button,
-  .menu-item-order-list__chip { transition: none; animation: none; }
+  .menu-item-order-list__toggle svg { transition: none; animation: none; }
 }
 @media (max-height: 700px) {
   .menu-item-detail-page { padding-top: 6px; }
