@@ -413,22 +413,22 @@ select {
   aspect-ratio: 2 / 3;
   isolation: isolate;
   color: rgb(var(--color-ink));
-  background: rgb(var(--surface-muted));
-  border-color: rgb(var(--color-ink) / .12);
+  background: rgb(var(--surface-card));
+  border-color: rgb(var(--glass-shine) / .72);
+  border-radius: 32px;
   box-shadow: 0 12px 30px rgb(10 10 10 / .16), 0 2px 8px rgb(10 10 10 / .08);
 }
 .food-item-card__image-base {
   position: absolute;
   z-index: 0;
-  inset: 0;
+  inset: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   color: rgb(var(--color-gold));
   background: rgb(var(--surface-muted));
-  filter: blur(22px) brightness(.9);
-  transform: scale(1.08);
+  border-radius: 24px;
 }
 .food-item-card__image-base img {
   position: absolute;
@@ -436,18 +436,23 @@ select {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  filter: blur(22px) brightness(.9);
+  transform: scale(1.1);
 }
 .food-item-card__photo {
   position: absolute;
   z-index: 1;
-  inset: 7px 7px 38%;
+  inset: 7px 7px auto;
+  height: 68%;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: rgb(var(--surface-muted));
+  background: transparent;
   color: rgb(var(--color-gold));
   border-radius: 22px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
 }
 .food-item-card__photo img {
   width: 100%;
@@ -477,18 +482,31 @@ select {
 .food-item-card__glass {
   position: absolute;
   z-index: 2;
-  inset: 62% 0 0;
+  inset: 52% 7px 7px;
   display: grid;
-  align-content: center;
+  align-content: end;
   gap: 4px;
   overflow: hidden;
-  border-top: 1px solid rgb(var(--color-ink) / .16);
-  border-radius: 0;
-  padding: 6px 12px;
-  background: rgb(var(--surface-card) / .82);
+  border-radius: 0 0 22px 22px;
+  padding: 8px 12px 12px;
+  background: transparent;
   color: rgb(var(--color-ink));
+}
+.food-item-card__glass::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgb(var(--surface-card) / .08), rgb(var(--surface-card) / .56) 42%, rgb(var(--surface-card) / .78));
   backdrop-filter: blur(24px) saturate(1.25);
   -webkit-backdrop-filter: blur(24px) saturate(1.25);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 34px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 34px);
+  content: "";
+}
+.food-item-card__glass > * {
+  position: relative;
+  z-index: 1;
 }
 .food-item-card--category {
   width: 176px;
