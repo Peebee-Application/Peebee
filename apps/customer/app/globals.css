@@ -403,16 +403,19 @@ select {
   text-align: left;
   scroll-snap-align: start;
   box-shadow: var(--shadow-card);
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
+.food-item-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-card-hover); }
 .food-item-card:active { transform: scale(.985); }
 .food-item-card:focus-visible { outline: 3px solid rgb(var(--color-gold)); outline-offset: 3px; }
 .food-item-card--featured {
-  width: min(72vw, 280px);
+  width: min(62vw, 204px);
   aspect-ratio: 3 / 4;
   isolation: isolate;
-  color: white;
+  color: rgb(var(--color-ink));
   background: rgb(var(--surface-muted));
+  border-color: rgb(var(--glass-shine) / .62);
+  box-shadow: 0 12px 30px rgb(10 10 10 / .16), 0 2px 8px rgb(10 10 10 / .08);
 }
 .food-item-card__image-base {
   position: absolute;
@@ -424,7 +427,7 @@ select {
   overflow: hidden;
   color: rgb(var(--color-gold));
   background: rgb(var(--surface-muted));
-  filter: blur(18px) brightness(.72);
+  filter: blur(18px) brightness(.82);
   transform: scale(1.04);
 }
 .food-item-card__image-base img,
@@ -446,11 +449,11 @@ select {
 }
 .food-item-card__orders {
   flex: 0 0 auto;
-  border: 1px solid rgb(255 255 255 / .2);
+  border: 1px solid rgb(var(--color-ink) / .12);
   border-radius: 999px;
   padding: 7px 10px;
-  background: rgb(10 10 10 / .48);
-  color: white;
+  background: rgb(var(--surface-card) / .78);
+  color: rgb(var(--color-ink));
   font-size: 11px;
   font-weight: 700;
   backdrop-filter: blur(12px);
@@ -461,20 +464,23 @@ select {
   display: grid;
   gap: 6px;
   overflow: hidden;
-  border: 1px solid rgb(255 255 255 / .25);
+  border: 1px solid rgb(var(--glass-shine) / .5);
   border-radius: 22px;
   padding: 14px;
-  background: rgb(var(--surface-card) / .68);
+  background: rgb(var(--surface-card) / .78);
   color: rgb(var(--color-ink));
-  box-shadow: 0 8px 24px rgb(10 10 10 / .14);
-  backdrop-filter: blur(20px) saturate(1.25);
-  -webkit-backdrop-filter: blur(20px) saturate(1.25);
+  box-shadow: 0 8px 24px rgb(10 10 10 / .18);
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
 }
 .food-item-card--category {
   width: 176px;
   background: rgb(var(--surface-card));
   color: rgb(var(--color-ink));
+  box-shadow: var(--shadow-card);
 }
+.food-item-card--category:hover { border-color: rgb(var(--color-gold) / .5); }
+.food-item-card--featured:hover { border-color: rgb(var(--glass-shine) / .9); }
 .food-item-card__category-image {
   position: relative;
   display: flex;
