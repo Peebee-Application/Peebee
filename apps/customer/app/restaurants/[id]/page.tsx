@@ -161,25 +161,198 @@ type CartLine = {
   choiceIds: string[];
 };
 
+function MenuItemDeckCard({
+  item,
+  position,
+  isActive,
+  onSelect,
+}: {
+  item: MenuItem;
+  position: "past" | "active" | "next" | "next-two";
+  isActive: boolean;
+  onSelect: (item: MenuItem) => void;
+}) {
+  const t = useTranslate();
+  const photo = useMenuItemPhoto(item.id, !!item.photo_key, item.updated_at);
+
+  return (
+    <button
+      type="button"
+      className="menu-item-deck__card"
+      data-position={position}
+      aria-label={t("restaurant_menu_show_item", { item: item.name })}
+      aria-current={isActive ? "true" : undefined}
+      onClick={() => { if (!isActive) onSelect(item); }}
+    >
+      {photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="menu-item-deck__photo" src={photo} alt="" />
+      ) : (
+        <span className="menu-item-deck__photo menu-item-deck__photo--empty" aria-hidden="true">
+          <UtensilsCrossed size={48} />
+        </span>
+      )}
+      {item.badge && <span className={`menu-item-deck__badge ${BADGE_STYLES[item.badge]}`}>{t(BADGE_KEYS[item.badge])}</span>}
+      <span className="menu-item-deck__caption">
+        <span className="min-w-0 truncate text-left font-bold">{item.name}</span>
+        <span className="shrink-0 text-sm font-bold">{formatUgx(item.price)}</span>
+      </span>
+    </button>
+  );
+}
+
+function MenuItemDeck({
+  items,
+  categoryName,
+  activeItemId,
+  onSelect,
+}: {
+  items: MenuItem[];
+  categoryName: string;
+  activeItemId: string;
+  onSelect: (item: MenuItem) => void;
+}) {
+  const t = useTranslate();
+  const index = Math.max(0, items.findIndex((item) => item.id === activeItemId));
+  const wheelLocked = useRef(false);
+  const wheelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const suppressClick = useRef(false);
+
+  useEffect(() => () => {
+    if (wheelTimer.current) clearTimeout(wheelTimer.current);
+  }, []);
+
+  function move(delta: -1 | 1) {
+    const nextIndex = index + delta;
+    if (nextIndex < 0 || nextIndex >= items.length) return false;
+    onSelect(items[nextIndex]);
+    return true;
+  }
+
+  function moveFromControl(delta: -1 | 1) {
+    if (suppressClick.current) { suppressClick.current = false; return; }
+    move(delta);
+  }
+
+  function handleWheel(event: React.WheelEvent<HTMLElement>) {
+    const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+    if (Math.abs(delta) < 12 || (delta > 0 && index >= items.length - 1) || (delta < 0 && index === 0)) return;
+    event.preventDefault();
+    if (wheelLocked.current) return;
+    wheelLocked.current = true;
+    move(delta > 0 ? 1 : -1);
+    wheelTimer.current = setTimeout(() => { wheelLocked.current = false; }, 520);
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLElement>) {
+    if (!["ArrowDown", "ArrowRight", "PageDown", "ArrowUp", "ArrowLeft", "PageUp"].includes(event.key)) return;
+    const delta = ["ArrowDown", "ArrowRight", "PageDown"].includes(event.key) ? 1 : -1;
+    const nextIndex = index + delta;
+    if (nextIndex < 0 || nextIndex >= items.length) return;
+    event.preventDefault();
+    move(delta as -1 | 1);
+  }
+
+  function handlePointerDown(event: React.PointerEvent<HTMLElement>) {
+    if (event.pointerType === "touch" || event.pointerType === "pen") {
+      pointerStart.current = { x: event.clientX, y: event.clientY };
+    }
+  }
+
+  function handlePointerUp(event: React.PointerEvent<HTMLElement>) {
+    if (!pointerStart.current) return;
+    const start = pointerStart.current;
+    pointerStart.current = null;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 44) return;
+    suppressClick.current = true;
+    setTimeout(() => { suppressClick.current = false; }, 450);
+    const towardNext = Math.abs(dy) >= Math.abs(dx) ? dy < 0 : dx < 0;
+    move(towardNext ? 1 : -1);
+  }
+
+  const firstVisible = Math.max(0, index - 1);
+  const lastVisible = Math.min(items.length, index + 3);
+
+  return (
+    <section
+      className="menu-item-deck"
+      aria-label={t("restaurant_menu_browse_category", { category: categoryName })}
+      aria-roledescription="item carousel"
+      tabIndex={0}
+      onWheel={handleWheel}
+      onKeyDown={handleKeyDown}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={() => { pointerStart.current = null; }}
+    >
+      <div className="menu-item-deck__meta">
+        <span className="truncate font-semibold">{categoryName}</span>
+        <span aria-live="polite" className="shrink-0 tabular-nums">{t("restaurant_menu_item_count", { current: index + 1, total: items.length })}</span>
+      </div>
+      <div className="menu-item-deck__stage">
+        {items.slice(firstVisible, lastVisible).map((menuItem) => {
+          const distance = menuItem === items[index] ? 0 : menuItem === items[index + 1] ? 1 : menuItem === items[index + 2] ? 2 : -1;
+          const position = distance === 0 ? "active" : distance === 1 ? "next" : distance === 2 ? "next-two" : "past";
+          return (
+            <MenuItemDeckCard
+              key={menuItem.id}
+              item={menuItem}
+              position={position}
+              isActive={distance === 0}
+              onSelect={(nextItem) => {
+                if (suppressClick.current) { suppressClick.current = false; return; }
+                onSelect(nextItem);
+              }}
+            />
+          );
+        })}
+      </div>
+      <div className="menu-item-deck__controls" aria-label={t("restaurant_menu_item_navigation")}>
+        <button type="button" aria-label={t("restaurant_menu_previous_item")} disabled={index === 0} onClick={() => moveFromControl(-1)}>
+          <ChevronLeft size={19} />
+        </button>
+        <span>{t("restaurant_menu_browse_hint")}</span>
+        <button type="button" aria-label={t("restaurant_menu_next_item")} disabled={index === items.length - 1} onClick={() => moveFromControl(1)}>
+          <ChevronDown size={19} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function ItemDetailPage({
   item,
+  items,
+  categoryName,
   restaurantId,
   isDemo = false,
   isOpen = true,
   onClose,
+  onSelectItem,
   onAdd,
 }: {
   item: MenuItem;
+  items: MenuItem[];
+  categoryName: string;
   restaurantId: string;
   isDemo?: boolean;
   isOpen?: boolean;
   onClose: () => void;
+  onSelectItem: (item: MenuItem) => void;
   onAdd: (line: { unitPrice: number; choiceIds: string[]; choiceNames: string[]; quantity: number }) => void;
 }) {
   const t = useTranslate();
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [quantity, setQuantity] = useState(1);
   const photo = useMenuItemPhoto(item.id, !!item.photo_key,item.updated_at);
+
+  useEffect(() => {
+    setSelected({});
+    setQuantity(1);
+  }, [item.id]);
 
   function toggleChoice(option: MenuItemOption, choiceId: string) {
     setSelected((prev) => {
@@ -198,9 +371,13 @@ function ItemDetailPage({
 
   return (
     <div className="relative min-h-dvh pb-28">
-      <div className="pointer-events-none fixed inset-x-0 top-0 mx-auto h-[65dvh] max-w-lg">{photo ? <img src={photo} alt={item.name} className="h-full w-full object-cover"/> : <div className="flex h-full items-center justify-center bg-[rgb(var(--surface-muted))]"><UtensilsCrossed size={64} className="text-gold"/></div>}<div className="absolute inset-x-0 bottom-0 h-1/3" style={{background:"linear-gradient(transparent,rgb(var(--color-cream)))"}}/></div>
+      {items.length > 1 ? (
+        <MenuItemDeck items={items} categoryName={categoryName} activeItemId={item.id} onSelect={onSelectItem} />
+      ) : (
+        <div className="pointer-events-none fixed inset-x-0 top-0 mx-auto h-[65dvh] max-w-lg">{photo ? <img src={photo} alt={item.name} className="h-full w-full object-cover"/> : <div className="flex h-full items-center justify-center bg-[rgb(var(--surface-muted))]"><UtensilsCrossed size={64} className="text-gold"/></div>}<div className="absolute inset-x-0 bottom-0 h-1/3" style={{background:"linear-gradient(transparent,rgb(var(--color-cream)))"}}/></div>
+      )}
       <button type="button" aria-label="Back to menu" onClick={onClose} className="fixed left-[max(1rem,calc((100vw-32rem)/2+1rem))] top-[calc(1rem+env(safe-area-inset-top))] z-30 flex h-12 w-12 items-center justify-center rounded-full glass-panel"><ChevronLeft size={24}/></button>
-      <div className="relative z-10 pt-[48dvh]">
+      <div className={`relative z-10 ${items.length > 1 ? "pt-[51dvh]" : "pt-[48dvh]"}`}>
       <div className="glass-panel space-y-5 !rounded-t-[2.5rem] !rounded-b-none !p-6">
         <p className="text-xs font-bold uppercase tracking-wide text-gold">{item.is_featured ? "Featured dish" : "Made for you"}</p><h1 className="text-3xl font-bold">{item.name}</h1>
 
@@ -402,7 +579,27 @@ export default function RestaurantPage() {
 
   const allItems=[...menu.categories.flatMap(category=>category.items),...menu.uncategorizedItems];
   const featuredItems=allItems.filter(item=>item.is_featured);
-  if(itemId){const item=allItems.find(item=>item.id===itemId);return item?<ItemDetailPage key={item.id} item={item} restaurantId={id} isDemo={restaurant.is_demo} isOpen={!!restaurant.is_open} onClose={()=>router.push(`/restaurants/${id}`)} onAdd={line=>addToCart(item,line)}/>:<div className="p-6"><p>This dish is currently unavailable.</p><Link href={`/restaurants/${id}`} className="inline-flex min-h-12 items-center font-bold text-gold">Back to menu</Link></div>;}
+  if (itemId) {
+    const item = allItems.find((row) => row.id === itemId);
+    if (!item) {
+      return <div className="p-6"><p>This dish is currently unavailable.</p><Link href={`/restaurants/${id}`} className="inline-flex min-h-12 items-center font-bold text-gold">Back to menu</Link></div>;
+    }
+    const category = menu.categories.find((row) => row.items.some((rowItem) => rowItem.id === item.id));
+    const categoryItems = category?.items ?? [item];
+    return (
+      <ItemDetailPage
+        item={item}
+        items={categoryItems}
+        categoryName={category?.name ?? t("restaurant_menu_items")}
+        restaurantId={id}
+        isDemo={restaurant.is_demo}
+        isOpen={!!restaurant.is_open}
+        onClose={() => router.push(`/restaurants/${id}`)}
+        onSelectItem={(nextItem) => router.push(`/restaurants/${id}/items/${nextItem.id}`, { scroll: false })}
+        onAdd={(line) => addToCart(item, line)}
+      />
+    );
+  }
   if (step === "checkout") {
     return (
       <div className="space-y-6 px-4 pb-28">

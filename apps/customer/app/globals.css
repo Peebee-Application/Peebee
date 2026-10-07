@@ -450,8 +450,6 @@ select {
   background: transparent;
   color: rgb(var(--color-gold));
   border-radius: 22px;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 90%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 90%);
 }
 .food-item-card__photo--empty {
   inset: 7px 7px auto;
@@ -502,7 +500,7 @@ select {
   z-index: 0;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(180deg, rgb(var(--surface-card) / 0), rgb(var(--surface-card) / .18) 30%, rgb(var(--surface-card) / .48) 72%, rgb(var(--surface-card) / .64));
+  background: rgb(var(--surface-card) / .64);
   content: "";
 }
 .food-item-card__glass > * {
@@ -572,6 +570,144 @@ select {
   font-size: 12px;
   font-weight: 700;
   line-height: 1.2;
+}
+.menu-item-deck {
+  position: fixed;
+  z-index: 0;
+  inset: 0 0 auto;
+  width: 100%;
+  height: clamp(320px, 52dvh, 480px);
+  max-width: 448px;
+  margin-inline: auto;
+  padding-top: calc(env(safe-area-inset-top) + 68px);
+  touch-action: pan-x;
+  user-select: none;
+  outline: none;
+}
+.menu-item-deck:focus-visible { outline: 2px solid rgb(var(--color-gold)); outline-offset: -4px; }
+.menu-item-deck__meta {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 20px);
+  right: 18px;
+  left: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgb(var(--color-ink));
+  font-size: 12px;
+  text-shadow: 0 1px 12px rgb(var(--color-cream) / .75);
+}
+.menu-item-deck__stage {
+  position: absolute;
+  inset: calc(env(safe-area-inset-top) + 64px) 12px 42px;
+  perspective: 900px;
+}
+.menu-item-deck__card {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: calc(100% - 44px);
+  height: calc(100% - 2px);
+  overflow: hidden;
+  border: 1px solid rgb(var(--color-ink) / .1);
+  border-radius: 30px;
+  background: rgb(var(--surface-card));
+  color: rgb(var(--color-ink));
+  box-shadow: 0 20px 48px rgb(10 10 10 / .2), 0 4px 12px rgb(10 10 10 / .1);
+  transform-origin: center bottom;
+  transition: transform 560ms cubic-bezier(.2,.8,.2,1), opacity 460ms ease, box-shadow 460ms ease;
+  will-change: transform, opacity;
+}
+.menu-item-deck__card[data-position="active"] {
+  z-index: 4;
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+.menu-item-deck__card[data-position="next"] {
+  z-index: 3;
+  opacity: .86;
+  transform: translate(-50%, 13px) rotateX(-1deg) scale(.96);
+}
+.menu-item-deck__card[data-position="next-two"] {
+  z-index: 2;
+  opacity: .62;
+  transform: translate(-50%, 26px) rotateX(-2deg) scale(.92);
+}
+.menu-item-deck__card[data-position="past"] {
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(calc(-50% - 34px), -16px) rotate(-4deg) scale(.94);
+}
+.menu-item-deck__card[data-position="active"]:hover { box-shadow: 0 24px 54px rgb(10 10 10 / .24), 0 6px 16px rgb(10 10 10 / .12); }
+.menu-item-deck__photo {
+  position: absolute;
+  inset: 0 0 76px;
+  width: 100%;
+  height: calc(100% - 76px);
+  object-fit: cover;
+  background: rgb(var(--surface-muted));
+}
+.menu-item-deck__photo--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgb(var(--color-gold));
+}
+.menu-item-deck__caption {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  height: 76px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  background: rgb(var(--surface-card));
+  color: rgb(var(--color-ink));
+  text-align: left;
+}
+.menu-item-deck__badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.menu-item-deck__controls {
+  position: absolute;
+  z-index: 5;
+  right: 20px;
+  bottom: 2px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: rgb(var(--color-ink-500));
+  font-size: 11px;
+}
+.menu-item-deck__controls button {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(var(--color-ink) / .12);
+  border-radius: 50%;
+  background: rgb(var(--surface-card) / .84);
+  color: rgb(var(--color-ink));
+  backdrop-filter: blur(12px);
+  transition: background 180ms ease, transform 180ms ease, opacity 180ms ease;
+}
+.menu-item-deck__controls button:not(:disabled):hover { transform: scale(1.06); }
+.menu-item-deck__controls button:disabled { opacity: .35; }
+@media (prefers-reduced-motion: reduce) {
+  .menu-item-deck__card,
+  .menu-item-deck__controls button { transition: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .food-item-card,
