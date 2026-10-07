@@ -118,7 +118,7 @@ function FoodItemCard({item,onOpen,featured=false,insight}:{item:MenuItem;onOpen
          </span>
        </span>
        <span className="food-item-card__glass">
-         <span className="block truncate text-lg font-bold" title={item.name}>{item.name}</span>
+         <span className="block truncate text-base font-bold leading-tight" title={item.name}>{item.name}</span>
          {item.description && <span className="food-item-card__description text-xs text-ink-500">{item.description}</span>}
          <span className="food-item-card__details">
            <span className="flex min-w-0 items-center gap-1 text-xs text-ink-500">
