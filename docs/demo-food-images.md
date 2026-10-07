@@ -2,7 +2,7 @@
 
 Generated with the built-in image_gen tool. These depict fictional sandbox businesses and meals. Optimized deliverables are in `apps/customer/public/demo-food/`, as 600 px WebP images at quality 82. Originals remain in Codex's generated-image folder.
 
-The customer catalogue uses 20 distinct dish photos and four restaurant thumbnails in Sandbox and Practice Mode. The images do not create live restaurant listings.
+The customer catalogue includes ten fictional businesses across restaurants, kitchens, street food and bakeries. The original twenty dish photos and four business thumbnails remain in Sandbox and Practice Mode; added demo dishes use the shared local SVG artwork, and additional business covers reuse the existing food imagery. No live restaurant listings are created.
 
 ## Final prompt set
 
