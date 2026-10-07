@@ -95,17 +95,53 @@ function FoodItemCard({item,onOpen,featured=false,insight}:{item:MenuItem;onOpen
  const t=useTranslate();
  const photoUrl=useMenuItemPhoto(item.id,!!item.photo_key,item.updated_at);
  const rating=insight?.averageRating==null?'New':insight.averageRating.toFixed(1);
- return <button type="button" onClick={onOpen} aria-label={`View ${item.name}`} className={`relative shrink-0 snap-start overflow-hidden rounded-[2rem] border border-[var(--border-faint)] text-left ${featured?'w-[72vw] max-w-[280px]':'w-44 bg-[rgb(var(--surface-card))]'}`}>
-   <div className={`relative flex items-center justify-center bg-[rgb(var(--surface-muted))] ${featured?'aspect-[3/4]':'aspect-[4/3]'}`}>
-     {photoUrl?<img src={photoUrl} alt={item.name} className="absolute inset-0 h-full w-full object-cover"/>:<UtensilsCrossed size={40} className="text-gold"/>}
-     {item.badge&&<span className={`absolute left-3 top-3 rounded-full px-2 py-1 text-xs font-bold uppercase ${BADGE_STYLES[item.badge]}`}>{t(BADGE_KEYS[item.badge])}</span>}
-     {featured&&<span title="Orders recorded since dish tracking was enabled" className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-2 text-xs font-bold text-white">{insight ? `${insight.orderCount} orders` : "Orders —"}</span>}
-   </div>
-   <div className={featured?'absolute inset-x-0 bottom-0 space-y-2 bg-gradient-to-t from-black/90 via-black/65 to-transparent px-5 pb-5 pt-16 text-white':'space-y-2 p-3'}>
-      <span className="block truncate text-lg font-bold" title={item.name}>{item.name}</span>
-      <span className="flex items-center gap-1 text-xs"><Star size={13} className="text-gold"/>{rating}{insight?.ratingCount?` · ${insight.ratingCount} ratings`:''}</span>
-      <span className="block text-base font-bold">{formatUgx(item.price)}</span>
-   </div>
+ return <button
+   type="button"
+   onClick={onOpen}
+   aria-label={`View ${item.name}`}
+   className={`food-item-card ${featured?'food-item-card--featured':'food-item-card--category'}`}
+ >
+   {featured ? (
+     <>
+       <span className="food-item-card__image-base" aria-hidden="true">
+         {photoUrl ? <img src={photoUrl} alt="" /> : <UtensilsCrossed size={48} className="text-gold" />}
+       </span>
+       {photoUrl && <img src={photoUrl} alt="" className="food-item-card__image" />}
+       <span className="food-item-card__topline">
+         {item.badge
+           ? <span className={`rounded-full px-2.5 py-1.5 text-[11px] font-bold uppercase ${BADGE_STYLES[item.badge]}`}>{t(BADGE_KEYS[item.badge])}</span>
+           : <span />}
+         <span title="Orders recorded since dish tracking was enabled" className="food-item-card__orders">
+           {insight ? `${insight.orderCount} orders` : "Orders —"}
+         </span>
+       </span>
+       <span className="food-item-card__glass">
+         <span className="block truncate text-lg font-bold" title={item.name}>{item.name}</span>
+         <span className="flex items-center gap-1 text-xs">
+           <Star size={13} className="shrink-0 text-gold" />{rating}
+           {insight?.ratingCount ? ` · ${insight.ratingCount} ratings` : ""}
+         </span>
+         <span className="block text-base font-bold">{formatUgx(item.price)}</span>
+       </span>
+     </>
+   ) : (
+     <>
+       <span className="food-item-card__category-image">
+         {photoUrl
+           ? <img src={photoUrl} alt={item.name} />
+           : <UtensilsCrossed size={40} className="text-gold" />}
+         {item.badge && <span className={`absolute left-3 top-3 rounded-full px-2 py-1 text-[11px] font-bold uppercase ${BADGE_STYLES[item.badge]}`}>{t(BADGE_KEYS[item.badge])}</span>}
+       </span>
+       <span className="food-item-card__category-copy">
+         <span className="block truncate text-base font-bold" title={item.name}>{item.name}</span>
+         <span className="flex items-center gap-1 text-xs text-ink-500">
+           <Star size={13} className="shrink-0 text-gold" />{rating}
+           {insight?.ratingCount ? ` · ${insight.ratingCount}` : ""}
+         </span>
+         <span className="block text-sm font-bold">{formatUgx(item.price)}</span>
+       </span>
+     </>
+   )}
  </button>;
 }
 type CartLine = {
