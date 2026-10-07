@@ -543,17 +543,6 @@ select {
   object-fit: cover;
   transition: transform 220ms ease;
 }
-.food-item-card__category-image--photo::after {
-  position: absolute;
-  z-index: 1;
-  inset: auto 0 0;
-  height: 44%;
-  border-radius: 0 0 22px 22px;
-  background: linear-gradient(180deg, rgb(var(--surface-card) / 0), rgb(var(--surface-card) / .34) 42%, rgb(var(--surface-card)) 100%);
-  content: "";
-  pointer-events: none;
-}
-.food-item-card__category-image--photo > span { z-index: 2; }
 .food-item-card--category:hover .food-item-card__category-image img { transform: scale(1.035); }
 .food-item-card__category-copy {
   display: grid;
