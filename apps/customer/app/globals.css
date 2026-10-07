@@ -516,6 +516,12 @@ select {
 }
 .food-item-card--category:hover { border-color: rgb(var(--color-gold) / .5); }
 .food-item-card--featured:hover { border-color: rgb(var(--color-ink) / .24); }
+:root[data-theme="dark"] .food-item-card--featured { border-color: rgb(255 255 255 / .12); }
+:root[data-theme="dark"] .food-item-card--featured:hover { border-color: rgb(var(--color-gold) / .9); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .food-item-card--featured { border-color: rgb(255 255 255 / .12); }
+  :root:not([data-theme="light"]) .food-item-card--featured:hover { border-color: rgb(var(--color-gold) / .9); }
+}
 .food-item-card__category-image {
   position: relative;
   display: flex;
