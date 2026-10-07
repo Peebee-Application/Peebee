@@ -165,12 +165,14 @@ function MenuOrderList({
   cart,
   itemsTotal,
   cartCount,
+  onBack,
   onRemoveLine,
   onViewCart,
 }: {
   cart: CartLine[];
   itemsTotal: number;
   cartCount: number;
+  onBack: () => void;
   onRemoveLine: (key: string) => void;
   onViewCart: () => void;
 }) {
@@ -190,6 +192,9 @@ function MenuOrderList({
       }}
     >
       <div className="menu-item-order-list__bar">
+        <button type="button" className="menu-item-order-list__back" aria-label={t("restaurant_back_to_menu")} onClick={onBack}>
+          <ChevronLeft size={24} aria-hidden="true" />
+        </button>
         <div className="menu-item-order-list__heading">
           <span className="menu-item-order-list__title">{t("restaurant_order_list")}</span>
           <span className="menu-item-order-list__count" aria-live="polite" aria-label={t("restaurant_order_list_item_count", { count: cartCount })}>
@@ -209,30 +214,39 @@ function MenuOrderList({
         </button>
       </div>
 
-      <div id="menu-item-order-list-content" className="menu-item-order-list__content" hidden={!expanded}>
-        {cart.length > 0 ? (
-          <>
-            <ul className="menu-item-order-list__lines">
-              {cart.map((line) => (
-                <li className="menu-item-order-list__line" key={line.key}>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">{line.quantity}× {line.name}</span>
-                    <span className="block text-xs text-ink-500">{formatUgx(line.unitPrice * line.quantity)}</span>
-                  </span>
-                  <button type="button" className="menu-item-order-list__remove" onClick={() => onRemoveLine(line.key)}>
-                    {t("restaurant_remove")}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <button type="button" className="menu-item-order-list__checkout" onClick={onViewCart}>
-              <span>{t("restaurant_view_full_order")}</span>
-              <span>{formatUgx(itemsTotal)}</span>
-            </button>
-          </>
-        ) : (
-          <p className="px-4 py-3 text-sm text-ink-500">{t("restaurant_order_list_empty")}</p>
-        )}
+      <div
+        id="menu-item-order-list-content"
+        className={`menu-item-order-list__reveal${expanded ? " is-expanded" : ""}`}
+        aria-hidden={!expanded}
+        inert={!expanded}
+      >
+        <div className="menu-item-order-list__reveal-inner">
+          <div className="menu-item-order-list__content">
+            {cart.length > 0 ? (
+              <>
+                <ul className="menu-item-order-list__lines">
+                  {cart.map((line) => (
+                    <li className="menu-item-order-list__line" key={line.key}>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">{line.quantity}× {line.name}</span>
+                        <span className="block text-xs text-ink-500">{formatUgx(line.unitPrice * line.quantity)}</span>
+                      </span>
+                      <button type="button" className="menu-item-order-list__remove" onClick={() => onRemoveLine(line.key)}>
+                        {t("restaurant_remove")}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <button type="button" className="menu-item-order-list__checkout" onClick={onViewCart}>
+                  <span>{t("restaurant_view_full_order")}</span>
+                  <span>{formatUgx(itemsTotal)}</span>
+                </button>
+              </>
+            ) : (
+              <p className="px-4 py-3 text-sm text-ink-500">{t("restaurant_order_list_empty")}</p>
+            )}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -251,11 +265,11 @@ function MenuItemDeckCard({ item, position, isActive, dragOffset = 0, isDragging
   const dragStyle: React.CSSProperties = isDragging && dragOffset !== 0 ? {
     transition: "none",
     transform: isActive
-      ? `translateX(calc(-50% + ${dragOffset}px)) scale(${1 - Math.min(0.08, Math.abs(dragOffset) * 0.0003)}) translateZ(0)`
+      ? `translateX(calc(-50% + ${dragOffset}px)) translateY(-50%) scale(${1 - Math.min(0.08, Math.abs(dragOffset) * 0.0003)}) translateZ(0)`
       : position === "next"
-      ? `translateX(calc(-50% + 102% + ${dragOffset}px)) scale(${0.88 + (dragOffset < 0 ? Math.min(0.08, -dragOffset * 0.0003) : 0)}) rotateY(${-5 + (dragOffset < 0 ? 5 : 0)}deg) translateZ(-40px)`
+      ? `translateX(calc(-50% + 102% + ${dragOffset}px)) translateY(-50%) scale(${0.88 + (dragOffset < 0 ? Math.min(0.08, -dragOffset * 0.0003) : 0)}) rotateY(${-5 + (dragOffset < 0 ? 5 : 0)}deg) translateZ(-40px)`
       : position === "previous"
-      ? `translateX(calc(-50% - 102% + ${dragOffset}px)) scale(${0.88 + (dragOffset > 0 ? Math.min(0.08, dragOffset * 0.0003) : 0)}) rotateY(${5 - (dragOffset > 0 ? 5 : 0)}deg) translateZ(-40px)`
+      ? `translateX(calc(-50% - 102% + ${dragOffset}px)) translateY(-50%) scale(${0.88 + (dragOffset > 0 ? Math.min(0.08, dragOffset * 0.0003) : 0)}) rotateY(${5 - (dragOffset > 0 ? 5 : 0)}deg) translateZ(-40px)`
       : undefined,
   } : {};
 
@@ -348,6 +362,7 @@ function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId
     <>
       <section className="menu-item-detail-card" aria-live="polite">
         <div className="menu-item-detail-card__scroll">
+          <div key={item.id} className="menu-item-detail-card__content">
           <h1 className="menu-item-deck__title">{item.name}</h1>
           {item.description && <p className="menu-item-deck__desc">{item.description}</p>}
           {item.options.length > 0 && (
@@ -400,6 +415,7 @@ function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId
             </Link>
           )}
           <div className="pt-3"><DishReviews restaurantId={restaurantId} itemId={item.id} isDemo={isDemo} /></div>
+          </div>
         </div>
       </section>
       <div className="menu-item-deck__footer">
@@ -410,7 +426,7 @@ function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId
             ? t("restaurant_added_to_list")
             : missingRequired.length > 0
             ? `${t("restaurant_choose")} ${missingRequired[0].name}`
-            : `${t("restaurant_add_to_list")} · ${formatUgx(unitPrice * quantity)}`}
+            : t("restaurant_add_to_list")}
         </button>
       </div>
     </>
@@ -538,30 +554,6 @@ function MenuItemDeck({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
     >
-      <div className="menu-item-deck__meta">
-        <button
-          type="button"
-          aria-label={t("restaurant_menu_previous_item")}
-          disabled={index === 0}
-          onClick={() => move(-1)}
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <span className="menu-item-deck__meta-label">
-          <span className="truncate font-semibold">{categoryName}</span>
-          <span aria-live="polite" className="shrink-0 tabular-nums font-medium text-ink-500">
-            {t("restaurant_menu_item_count", { current: index + 1, total: items.length })}
-          </span>
-        </span>
-        <button
-          type="button"
-          aria-label={t("restaurant_menu_next_item")}
-          disabled={index === items.length - 1}
-          onClick={() => move(1)}
-        >
-          <ChevronRight size={18} />
-        </button>
-      </div>
       <div className="menu-item-deck__stage">
         {items.slice(firstVisible, lastVisible).map((menuItem) => {
           const distance = items.findIndex((row) => row.id === menuItem.id) - index;
@@ -604,6 +596,7 @@ function ItemDetailPage({
   itemsTotal,
   cartCount,
   restaurantId,
+  onBack,
   isDemo = false,
   isOpen = true,
   onRemoveLine,
@@ -617,6 +610,7 @@ function ItemDetailPage({
   itemsTotal: number;
   cartCount: number;
   restaurantId: string;
+  onBack: () => void;
   isDemo?: boolean;
   isOpen?: boolean;
   onRemoveLine: (key: string) => void;
@@ -625,6 +619,7 @@ function ItemDetailPage({
 }) {
   const [activeItemId, setActiveItemId] = useState(item.id);
   const activeItem = items.find((row) => row.id === activeItemId) ?? item;
+  const activePhoto = useMenuItemPhoto(activeItem.id, !!activeItem.photo_key, activeItem.updated_at);
 
   return (
     <div className="menu-item-detail-page">
@@ -632,16 +627,25 @@ function ItemDetailPage({
         cart={cart}
         itemsTotal={itemsTotal}
         cartCount={cartCount}
+        onBack={onBack}
         onRemoveLine={onRemoveLine}
         onViewCart={onViewCart}
       />
-      <MenuItemDeck
-        items={items}
-        categoryName={categoryName}
-        activeItemId={activeItem.id}
-        onSelect={(nextItem) => setActiveItemId(nextItem.id)}
-      />
-      <MenuItemDetailPanel item={activeItem} isOpen={isOpen} isDemo={isDemo} restaurantId={restaurantId} onAdd={onAdd} />
+      <main className="menu-item-detail-page__content">
+        <div
+          key={activeItem.id}
+          className="menu-item-detail-page__ambient"
+          aria-hidden="true"
+          style={activePhoto ? { backgroundImage: `url("${activePhoto}")` } : undefined}
+        />
+        <MenuItemDeck
+          items={items}
+          categoryName={categoryName}
+          activeItemId={activeItem.id}
+          onSelect={(nextItem) => setActiveItemId(nextItem.id)}
+        />
+        <MenuItemDetailPanel item={activeItem} isOpen={isOpen} isDemo={isDemo} restaurantId={restaurantId} onAdd={onAdd} />
+      </main>
     </div>
   );
 }
@@ -775,6 +779,7 @@ export default function RestaurantPage() {
         itemsTotal={itemsTotal}
         cartCount={cartCount}
         restaurantId={id}
+        onBack={() => router.push(`/restaurants/${id}`)}
         isDemo={restaurant.is_demo}
         isOpen={!!restaurant.is_open}
         onRemoveLine={removeLine}
