@@ -131,7 +131,7 @@ function FoodItemCard({item,onOpen,featured=false,insight}:{item:MenuItem;onOpen
      </>
    ) : (
      <>
-       <span className="food-item-card__category-image">
+       <span className={`food-item-card__category-image ${photoUrl ? "food-item-card__category-image--photo" : ""}`}>
          {photoUrl
            ? <img src={photoUrl} alt={item.name} />
            : <UtensilsCrossed size={40} className="text-gold" />}
