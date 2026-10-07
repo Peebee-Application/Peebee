@@ -167,31 +167,19 @@ function MenuOrderList({
   cartCount,
   onRemoveLine,
   onViewCart,
-  onBack,
 }: {
   cart: CartLine[];
   itemsTotal: number;
   cartCount: number;
   onRemoveLine: (key: string) => void;
   onViewCart: () => void;
-  onBack?: () => void;
 }) {
   const t = useTranslate();
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <section className="menu-item-order-list" aria-label={t("restaurant_order_list")}>
+    <section className="menu-item-order-list customer-header" aria-label={t("restaurant_order_list")}>
       <div className="menu-item-order-list__bar">
-        {onBack && (
-          <button
-            type="button"
-            aria-label="Back to menu"
-            onClick={onBack}
-            className="menu-item-order-list__back"
-          >
-            <ChevronLeft size={22} />
-          </button>
-        )}
         <button
           type="button"
           className="menu-item-order-list__toggle"
@@ -200,7 +188,6 @@ function MenuOrderList({
           onClick={() => setExpanded((open) => !open)}
         >
           <span className="menu-item-order-list__title">
-            <ShoppingBag size={17} aria-hidden="true" />
             <span>{t("restaurant_order_list")}</span>
           </span>
           <span className="menu-item-order-list__summary">
@@ -252,77 +239,24 @@ function MenuOrderList({
   );
 }
 
-function MenuItemDeckCard({
-  item,
-  position,
-  isActive,
-  isOpen = true,
-  isDemo = false,
-  restaurantId,
-  dragOffset = 0,
-  isDragging = false,
-  onSelect,
-  onAdd,
-}: {
+function MenuItemDeckCard({ item, position, isActive, dragOffset = 0, isDragging = false, onSelect }: {
   item: MenuItem;
   position: "far-previous" | "previous" | "active" | "next" | "far-next";
   isActive: boolean;
-  isOpen?: boolean;
-  isDemo?: boolean;
-  restaurantId: string;
   dragOffset?: number;
   isDragging?: boolean;
   onSelect: (item: MenuItem) => void;
-  onAdd: (item: MenuItem, line: { unitPrice: number; choiceIds: string[]; choiceNames: string[]; quantity: number }) => void;
 }) {
   const t = useTranslate();
   const photo = useMenuItemPhoto(item.id, !!item.photo_key, item.updated_at);
-  const [selected, setSelected] = useState<Record<string, string[]>>({});
-  const [quantity, setQuantity] = useState(1);
-  const [addedAnim, setAddedAnim] = useState(false);
-
-  function toggleChoice(option: MenuItemOption, choiceId: string) {
-    setSelected((prev) => {
-      const current = prev[option.id] ?? [];
-      if (option.multi_select) {
-        return {
-          ...prev,
-          [option.id]: current.includes(choiceId) ? current.filter((c) => c !== choiceId) : [...current, choiceId],
-        };
-      }
-      return {
-        ...prev,
-        [option.id]: current.includes(choiceId) ? [] : [choiceId],
-      };
-    });
-  }
-
-  const missingRequired = item.options.filter((o) => o.required && (selected[o.id] ?? []).length === 0);
-  const allChoiceIds = Object.values(selected).flat();
-  const allChoices = item.options.flatMap((o) => o.choices).filter((c) => allChoiceIds.includes(c.id));
-  const unitPrice = item.price + allChoices.reduce((sum, c) => sum + c.price_delta, 0);
-
-  function handleAdd(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (missingRequired.length > 0 || !isOpen) return;
-    onAdd(item, {
-      unitPrice,
-      choiceIds: allChoiceIds,
-      choiceNames: allChoices.map((c) => c.name),
-      quantity,
-    });
-    setAddedAnim(true);
-    setTimeout(() => setAddedAnim(false), 1400);
-  }
-
   const dragStyle: React.CSSProperties = isDragging && dragOffset !== 0 ? {
     transition: "none",
     transform: isActive
       ? `translateX(calc(-50% + ${dragOffset}px)) scale(${1 - Math.min(0.08, Math.abs(dragOffset) * 0.0003)}) translateZ(0)`
       : position === "next"
-      ? `translateX(calc(-50% + 94% + ${dragOffset}px)) scale(${0.89 + (dragOffset < 0 ? Math.min(0.08, -dragOffset * 0.0003) : 0)}) rotateY(${-5 + (dragOffset < 0 ? 5 : 0)}deg) translateZ(-40px)`
+      ? `translateX(calc(-50% + 102% + ${dragOffset}px)) scale(${0.88 + (dragOffset < 0 ? Math.min(0.08, -dragOffset * 0.0003) : 0)}) rotateY(${-5 + (dragOffset < 0 ? 5 : 0)}deg) translateZ(-40px)`
       : position === "previous"
-      ? `translateX(calc(-50% - 94% + ${dragOffset}px)) scale(${0.89 + (dragOffset > 0 ? Math.min(0.08, dragOffset * 0.0003) : 0)}) rotateY(${5 - (dragOffset > 0 ? 5 : 0)}deg) translateZ(-40px)`
+      ? `translateX(calc(-50% - 102% + ${dragOffset}px)) scale(${0.88 + (dragOffset > 0 ? Math.min(0.08, dragOffset * 0.0003) : 0)}) rotateY(${5 - (dragOffset > 0 ? 5 : 0)}deg) translateZ(-40px)`
       : undefined,
   } : {};
 
@@ -333,11 +267,18 @@ function MenuItemDeckCard({
       style={dragStyle}
       aria-current={isActive ? "true" : undefined}
       aria-label={t("restaurant_menu_show_item", { item: item.name })}
+      role="button"
+      tabIndex={isActive ? 0 : -1}
+      onKeyDown={(event) => {
+        if (!isActive && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onSelect(item);
+        }
+      }}
       onClick={() => {
         if (!isActive) onSelect(item);
       }}
     >
-      {/* 1. Food Photo Box */}
       <div className="menu-item-deck__photo-box" aria-hidden="true">
         {photo ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -353,116 +294,117 @@ function MenuItemDeckCard({
           </span>
         )}
       </div>
+    </div>
+  );
+}
 
-      {/* 2. Price Tag: directly below the food photo box */}
-      <div className="menu-item-deck__price-tag">
-        {formatUgx(unitPrice * quantity)}
-      </div>
+function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId, onAdd }: {
+  item: MenuItem;
+  isOpen?: boolean;
+  isDemo?: boolean;
+  restaurantId: string;
+  onAdd: (item: MenuItem, line: { unitPrice: number; choiceIds: string[]; choiceNames: string[]; quantity: number }) => void;
+}) {
+  const t = useTranslate();
+  const [configuration, setConfiguration] = useState<{ itemId: string; selected: Record<string, string[]>; quantity: number }>({
+    itemId: item.id,
+    selected: {},
+    quantity: 1,
+  });
+  const [addedItemId, setAddedItemId] = useState<string | null>(null);
+  const selected = configuration.itemId === item.id ? configuration.selected : {};
+  const quantity = configuration.itemId === item.id ? configuration.quantity : 1;
+  const addedAnim = addedItemId === item.id;
 
-      {/* 3. Details Card Body */}
-      <div className="menu-item-deck__body">
-        <h2 className="menu-item-deck__title">{item.name}</h2>
-        {item.description && (
-          <p className="menu-item-deck__desc">{item.description}</p>
-        )}
+  function updateConfiguration(update: (current: { selected: Record<string, string[]>; quantity: number }) => { selected: Record<string, string[]>; quantity: number }) {
+    setConfiguration((previous) => {
+      const current = previous.itemId === item.id ? previous : { itemId: item.id, selected: {}, quantity: 1 };
+      return { itemId: item.id, ...update(current) };
+    });
+  }
 
-        {/* Options / Add-on pills */}
-        {item.options.length > 0 && (
-          <div className="menu-item-deck__options">
-            {item.options.map((option) => (
-              <div key={option.id}>
-                <span className="menu-item-deck__option-title">
-                  {option.name} {option.required ? t("restaurant_required") : t("restaurant_optional")}
-                </span>
-                <div className="menu-item-deck__pills">
-                  {option.choices.map((choice) => {
-                    const activeChoice = (selected[option.id] ?? []).includes(choice.id);
-                    return (
-                      <button
-                        key={choice.id}
-                        type="button"
-                        className="menu-item-deck__pill"
-                        data-selected={activeChoice ? "true" : undefined}
-                        disabled={!isActive}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleChoice(option, choice.id);
-                        }}
-                      >
-                        <span>{choice.name}</span>
-                        <span className="menu-item-deck__pill-price">
-                          {activeChoice ? "✓" : choice.price_delta > 0 ? `+${formatUgx(choice.price_delta)}` : "+"}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+  function toggleChoice(option: MenuItemOption, choiceId: string) {
+    updateConfiguration((configuration) => {
+      const current = configuration.selected[option.id] ?? [];
+      const updated = option.multi_select
+        ? current.includes(choiceId) ? current.filter((id) => id !== choiceId) : [...current, choiceId]
+        : current.includes(choiceId) ? [] : [choiceId];
+      return { ...configuration, selected: { ...configuration.selected, [option.id]: updated } };
+    });
+  }
 
-        {/* Quantity selector */}
-        {isActive && (
+  const missingRequired = item.options.filter((option) => option.required && (selected[option.id] ?? []).length === 0);
+  const choiceIds = Object.values(selected).flat();
+  const choices = item.options.flatMap((option) => option.choices).filter((choice) => choiceIds.includes(choice.id));
+  const unitPrice = item.price + choices.reduce((sum, choice) => sum + choice.price_delta, 0);
+
+  function handleAdd() {
+    if (missingRequired.length > 0 || !isOpen) return;
+    onAdd(item, { unitPrice, choiceIds, choiceNames: choices.map((choice) => choice.name), quantity });
+    setAddedItemId(item.id);
+    setTimeout(() => setAddedItemId((current) => current === item.id ? null : current), 1400);
+  }
+
+  return (
+    <>
+      <section className="menu-item-detail-card" aria-live="polite">
+        <div className="menu-item-detail-card__scroll">
+          <h1 className="menu-item-deck__title">{item.name}</h1>
+          {item.description && <p className="menu-item-deck__desc">{item.description}</p>}
+          {item.options.length > 0 && (
+            <div className="menu-item-deck__options">
+              {item.options.map((option) => (
+                <fieldset className="menu-item-deck__option" key={option.id}>
+                  <legend className="menu-item-deck__option-title">
+                    {option.name} {option.required ? t("restaurant_required") : t("restaurant_optional")}
+                  </legend>
+                  <div className="menu-item-deck__pills">
+                    {option.choices.map((choice) => {
+                      const activeChoice = (selected[option.id] ?? []).includes(choice.id);
+                      return (
+                        <button
+                          key={choice.id}
+                          type="button"
+                          className="menu-item-deck__pill"
+                          data-selected={activeChoice ? "true" : undefined}
+                          aria-pressed={activeChoice}
+                          onClick={() => toggleChoice(option, choice.id)}
+                        >
+                          <span>{choice.name}</span>
+                          <span className="menu-item-deck__pill-price">
+                            {activeChoice ? "✓" : choice.price_delta > 0 ? `+${formatUgx(choice.price_delta)}` : "+"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              ))}
+            </div>
+          )}
           <div className="menu-item-deck__qty">
             <span className="text-xs font-semibold text-ink">{t("restaurant_quantity")}</span>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                aria-label="Decrease quantity"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setQuantity((q) => Math.max(1, q - 1));
-                }}
-                className="flex h-7 w-7 items-center justify-center rounded-full glass-panel text-ink"
-              >
-                <Minus size={13} strokeWidth={2.2} />
+              <button type="button" aria-label="Decrease quantity" onClick={() => updateConfiguration((current) => ({ ...current, quantity: Math.max(1, current.quantity - 1) }))} className="flex h-9 w-9 items-center justify-center rounded-full glass-panel text-ink">
+                <Minus size={15} strokeWidth={2.2} />
               </button>
-              <span className="w-5 text-center text-xs font-bold text-ink">{quantity}</span>
-              <button
-                type="button"
-                aria-label="Increase quantity"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setQuantity((q) => Math.min(50, q + 1));
-                }}
-                className="flex h-7 w-7 items-center justify-center rounded-full glass-panel text-ink"
-              >
-                <Plus size={13} strokeWidth={2.2} />
+              <span className="w-5 text-center text-sm font-bold text-ink">{quantity}</span>
+              <button type="button" aria-label="Increase quantity" onClick={() => updateConfiguration((current) => ({ ...current, quantity: Math.min(50, current.quantity + 1) }))} className="flex h-9 w-9 items-center justify-center rounded-full glass-panel text-ink">
+                <Plus size={15} strokeWidth={2.2} />
               </button>
             </div>
           </div>
-        )}
-
-        {/* Ask about item link & reviews */}
-        {isActive && !isDemo && (
-          <div className="pt-2">
-            <Link
-              href={`/restaurants/${restaurantId}/chat?item=${item.id}&itemName=${encodeURIComponent(item.name)}`}
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-gold hover:underline"
-            >
+          {!isDemo && (
+            <Link href={`/restaurants/${restaurantId}/chat?item=${item.id}&itemName=${encodeURIComponent(item.name)}`} className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-gold hover:underline">
               <MessageCircle className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
               {t("restaurant_ask_about_item")}
             </Link>
-          </div>
-        )}
-
-        {isActive && (
-          <div className="pt-2">
-            <DishReviews restaurantId={restaurantId} itemId={item.id} isDemo={isDemo} />
-          </div>
-        )}
-      </div>
-
-      {/* 4. Action Button: ADD TO LIST */}
+          )}
+          <div className="pt-3"><DishReviews restaurantId={restaurantId} itemId={item.id} isDemo={isDemo} /></div>
+        </div>
+      </section>
       <div className="menu-item-deck__footer">
-        <button
-          type="button"
-          disabled={!isActive || missingRequired.length > 0 || !isOpen}
-          onClick={handleAdd}
-          className="menu-item-deck__add-btn"
-        >
+        <button type="button" disabled={missingRequired.length > 0 || !isOpen} onClick={handleAdd} className="menu-item-deck__add-btn">
           {!isOpen
             ? "Business closed"
             : addedAnim
@@ -472,7 +414,7 @@ function MenuItemDeckCard({
             : `${t("restaurant_add_to_list")} · ${formatUgx(unitPrice * quantity)}`}
         </button>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -480,20 +422,12 @@ function MenuItemDeck({
   items,
   categoryName,
   activeItemId,
-  isOpen = true,
-  isDemo = false,
-  restaurantId,
   onSelect,
-  onAdd,
 }: {
   items: MenuItem[];
   categoryName: string;
   activeItemId: string;
-  isOpen?: boolean;
-  isDemo?: boolean;
-  restaurantId: string;
   onSelect: (item: MenuItem) => void;
-  onAdd: (item: MenuItem, line: { unitPrice: number; choiceIds: string[]; choiceNames: string[]; quantity: number }) => void;
 }) {
   const t = useTranslate();
   const index = Math.max(0, items.findIndex((item) => item.id === activeItemId));
@@ -596,6 +530,7 @@ function MenuItemDeck({
       className="menu-item-deck"
       aria-label={t("restaurant_menu_browse_category", { category: categoryName })}
       aria-roledescription="item carousel"
+      aria-describedby="menu-item-current-price"
       tabIndex={0}
       onWheel={handleWheel}
       onKeyDown={handleKeyDown}
@@ -648,16 +583,15 @@ function MenuItemDeck({
               item={menuItem}
               position={position}
               isActive={distance === 0}
-              isOpen={isOpen}
-              isDemo={isDemo}
-              restaurantId={restaurantId}
               dragOffset={dragOffset}
               isDragging={isDragging}
               onSelect={onSelect}
-              onAdd={onAdd}
             />
           );
         })}
+      </div>
+      <div id="menu-item-current-price" className="menu-item-deck__price-tag" aria-live="polite">
+        {formatUgx(items[index]?.price ?? 0)}
       </div>
     </section>
   );
@@ -673,8 +607,6 @@ function ItemDetailPage({
   restaurantId,
   isDemo = false,
   isOpen = true,
-  onClose,
-  onSelectItem,
   onRemoveLine,
   onViewCart,
   onAdd,
@@ -688,32 +620,29 @@ function ItemDetailPage({
   restaurantId: string;
   isDemo?: boolean;
   isOpen?: boolean;
-  onClose: () => void;
-  onSelectItem: (item: MenuItem) => void;
   onRemoveLine: (key: string) => void;
   onViewCart: () => void;
   onAdd: (item: MenuItem, line: { unitPrice: number; choiceIds: string[]; choiceNames: string[]; quantity: number }) => void;
 }) {
+  const [activeItemId, setActiveItemId] = useState(item.id);
+  const activeItem = items.find((row) => row.id === activeItemId) ?? item;
+
   return (
-    <div className="relative min-h-dvh">
+    <div className="menu-item-detail-page">
       <MenuOrderList
         cart={cart}
         itemsTotal={itemsTotal}
         cartCount={cartCount}
         onRemoveLine={onRemoveLine}
         onViewCart={onViewCart}
-        onBack={onClose}
       />
       <MenuItemDeck
         items={items}
         categoryName={categoryName}
-        activeItemId={item.id}
-        isOpen={isOpen}
-        isDemo={isDemo}
-        restaurantId={restaurantId}
-        onSelect={onSelectItem}
-        onAdd={onAdd}
+        activeItemId={activeItem.id}
+        onSelect={(nextItem) => setActiveItemId(nextItem.id)}
       />
+      <MenuItemDetailPanel item={activeItem} isOpen={isOpen} isDemo={isDemo} restaurantId={restaurantId} onAdd={onAdd} />
     </div>
   );
 }
@@ -849,8 +778,6 @@ export default function RestaurantPage() {
         restaurantId={id}
         isDemo={restaurant.is_demo}
         isOpen={!!restaurant.is_open}
-        onClose={() => router.push(`/restaurants/${id}`)}
-        onSelectItem={(nextItem) => router.replace(`/restaurants/${id}/items/${nextItem.id}`, { scroll: false })}
         onRemoveLine={removeLine}
         onViewCart={() => {
           setStep("checkout");
