@@ -36,6 +36,7 @@ carRoutes.use("/car/*", async (c, next) => {
 });
 
 carRoutes.get("/car/config", async (c) => {
+  c.header("Cache-Control", "private, no-store");
   const settings = await getCarSettings();
   const categories = await db.execute(
     `SELECT id, kind, name, seats, cargo_type, size_label, reference_image_key, rate_per_km, minimum_fare
@@ -53,6 +54,7 @@ carRoutes.get("/car/config", async (c) => {
 });
 
 carRoutes.get("/car/service-options", async (c) => {
+  c.header("Cache-Control", "private, no-store");
   if (!(await hasColumn("car_bookings", "service_tier")) || !(await hasColumn("vehicles", "accepts_convenient"))) return c.json({ error: "tiers_unavailable" }, 503);
   if (!(await hasColumn("car_bookings", "vehicle_size"))) return c.json({ error: "vehicle_sizes_unavailable" }, 503);
   const parsed = z.object({ pickupLat: z.coerce.number().min(-90).max(90), pickupLng: z.coerce.number().min(-180).max(180), destinationLat: z.coerce.number().min(-90).max(90), destinationLng: z.coerce.number().min(-180).max(180) }).safeParse(c.req.query());

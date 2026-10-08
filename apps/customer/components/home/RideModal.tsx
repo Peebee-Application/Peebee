@@ -1,6 +1,6 @@
 "use client";
 
-import { DEFAULT_RIDE_TRACKING_SETTINGS, roundFare, type CarCategory } from "@peebee/shared";
+import { DEFAULT_RIDE_TRACKING_SETTINGS, roundFare } from "@peebee/shared";
 import type { RidePassenger, SavedPassenger } from "@peebee/shared";
 import { ChevronRight, Route, User, Users } from "lucide-react";
 import Image from "next/image";
@@ -46,8 +46,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [pickingWho, setPickingWho] = useState(false);
   const [estimatedTotal, setEstimatedTotal] = useState("");
   const [pricing, setPricing] = useState<{ ratePerKm: number; minimum: number } | null>(null);
-  // Peebee Car: only offered when an admin has switched it on and added a car type.
-  const [cars, setCars] = useState<CarCategory[]>([]);
+  // Peebee Car is offered only when its service tiers are ready.
   const [tierPricing, setTierPricing] = useState<{ ratePerKm: number; minimumFare: number; comfortPremiumPercent: number; xlPremiumPercent: number; xlMinSeats: number } | null>(null);
   const [tier, setTier] = useState<"convenient" | "comfort">("convenient");
   const [vehicleSize, setVehicleSize] = useState<"normal" | "large">("normal");
@@ -60,7 +59,6 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [pickupAt, setPickupAt] = useState("");
   const [mode, setMode] = useState<"boda" | "car">("boda");
   const [carMenuOpen, setCarMenuOpen] = useState(false);
-  const [carId, setCarId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showEstimates, setShowEstimates] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,15 +81,14 @@ export function RideModal({ onClose }: { onClose: () => void }) {
     api
       .getCarConfig()
       .then((cfg) => {
-        setCars(cfg.onDemandEnabled || cfg.scheduled ? cfg.categories : []);
-        setTierPricing(cfg.serviceTiers ?? null);
+        setTierPricing(cfg.onDemandEnabled || cfg.scheduled ? cfg.serviceTiers ?? null : null);
         setCarpoolOn(!!cfg.carpool);
         setRentOn(!!cfg.selfDrive);
         setSchedule(cfg.scheduled);
         setNowOk(cfg.onDemandEnabled);
         if (!cfg.onDemandEnabled && cfg.scheduled) setWhen("later");
       })
-      .catch(() => setCars([]));
+      .catch(() => setTierPricing(null));
   }, []);
 
   const p = route?.pickup;
@@ -127,8 +124,6 @@ export function RideModal({ onClose }: { onClose: () => void }) {
     );
   }
 
-  const carFare = (c: CarCategory) => (distanceKm != null ? roundFare(distanceKm * c.rate_per_km, c.minimum_fare) : null);
-
   async function submit() {
     if (!route) return;
     const pf = placeFields(route.pickup);
@@ -136,10 +131,11 @@ export function RideModal({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      if (mode === "car" && (tierPricing || carId)) {
+      if (mode === "car" && tierPricing) {
         if (pf.lat == null || pf.lng == null || df.lat == null || df.lng == null) throw new Error("Please pin both places on the map.");
         const { order } = await api.bookCar({
-          ...(tierPricing ? { serviceTier: tier, vehicleSize } : { categoryId: carId! }),
+          serviceTier: tier,
+          vehicleSize,
           pickupArea: pf.area,
           pickupAddress: pf.address,
           pickupLat: pf.lat,
@@ -216,7 +212,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
           />
         )}
 
-        {(cars.length > 0 || carpoolOn || rentOn) && (!carMenuOpen ? (
+        {(tierPricing || carpoolOn || rentOn) && (!carMenuOpen ? (
           <div role="group" aria-label="Choose a ride" className="flex gap-2">
             <button type="button" aria-pressed={mode === "boda"} onClick={() => setMode("boda")} className={`min-h-10 flex-1 rounded-full px-3 text-sm font-bold ${mode === "boda" ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>{t("car_tab_boda")}</button>
             <button type="button" onClick={() => { setMode("car"); setCarMenuOpen(true); }} className="min-h-10 flex-1 rounded-full bg-gold/15 px-3 text-sm font-bold text-ink">{t("car_tab_car")}</button>
@@ -225,14 +221,14 @@ export function RideModal({ onClose }: { onClose: () => void }) {
           <div className="space-y-2">
             <button type="button" onClick={() => { setMode("boda"); setCarMenuOpen(false); }} className="min-h-9 text-sm font-bold text-gold">← Choose Boda or Car</button>
             <div role="group" aria-label="Choose a car service" className="flex gap-2">
-              {cars.length > 0 && <button type="button" aria-pressed={mode === "car"} onClick={() => setMode("car")} className="min-h-10 flex-1 rounded-full bg-gold px-3 text-sm font-bold text-ink-gold">Car</button>}
+              {tierPricing && <button type="button" aria-pressed={mode === "car"} onClick={() => setMode("car")} className="min-h-10 flex-1 rounded-full bg-gold px-3 text-sm font-bold text-ink-gold">Car</button>}
               {carpoolOn && <button type="button" onClick={() => { onClose(); router.push("/carpool"); }} className="min-h-10 flex-1 rounded-full bg-gold/15 px-3 text-sm font-bold text-ink">Rideshare</button>}
               {rentOn && <button type="button" onClick={() => { saveSelfDriveRoute(route); onClose(); router.push("/rent"); }} className="min-h-10 flex-1 rounded-full bg-gold/15 px-3 text-sm font-bold text-ink">Selfdrive</button>}
             </div>
           </div>
         ))}
 
-        {carMenuOpen && mode === "car" && cars.length > 0 ? (
+        {carMenuOpen && mode === "car" && tierPricing ? (
           <div className="space-y-2">
             {schedule && (
               <div className="space-y-2">
@@ -255,7 +251,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
                 )}
               </div>
             )}
-            {tierPricing ? <>
+            <>
               <p className="text-xs font-semibold text-ink-500">Choose your Peebee car</p>
               <div role="group" aria-label="Choose car size" className="grid grid-cols-2 gap-2">
                 {(["normal", "large"] as const).map((size) => {
@@ -294,26 +290,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
                   <button type="button" onClick={() => setTier(alternate.tier)} className="mt-2 block font-bold text-gold">Choose {alternate.tier}</button></div>
                   : <p className="rounded-xl bg-gold/10 p-3 text-sm text-ink">No Peebee Car driver is nearby right now. Try again shortly.</p>;
               })()}
-            </> : <><p className="text-xs font-semibold text-ink-500">{t("car_choose_type")}</p>{cars.map((c) => {
-              const fare = carFare(c);
-              const selected = carId === c.id;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setCarId(c.id)}
-                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left ${selected ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"}`}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold text-ink">{c.name}</span>
-                    <span className="block text-xs text-ink-500">
-                      {c.kind === "passenger" ? `${c.seats ?? ""} ${t("car_seats")}` : [c.cargo_type, c.size_label].filter(Boolean).join(" · ")}
-                    </span>
-                  </span>
-                  {fare != null && <span className="text-sm font-bold text-ink">UGX {fare.toLocaleString("en-UG")}</span>}
-                </button>
-              );
-            })}</>}
+            </>
           </div>
         ) : !carMenuOpen && liveEstimate != null ? (
           <div className="flex items-center gap-2 rounded-xl border border-gold bg-gold/10 p-3">
@@ -335,9 +312,9 @@ export function RideModal({ onClose }: { onClose: () => void }) {
 
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-        {(!carMenuOpen || cars.length > 0) && <button
+        {(!carMenuOpen || tierPricing) && <button
           onClick={submit}
-          disabled={busy || (mode === "car" && (tierPricing ? tierOptions.length === 0 || (when === "now" && !tierOptions.find((o) => o.size === vehicleSize && o.tier === tier)?.nearby) : !carId) || (when === "later" && !pickupAt))}
+          disabled={busy || (mode === "car" && (tierOptions.length === 0 || (when === "now" && !tierOptions.find((o) => o.size === vehicleSize && o.tier === tier)?.nearby) || (when === "later" && !pickupAt)))}
           className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
         >
           {busy ? "Please wait…" : "Next: payment"}
