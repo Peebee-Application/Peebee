@@ -15,12 +15,17 @@ export function FoodCover({id,name,description,coverKey,loadCover,previewUrl,men
     let frame = 0;
     const update = () => {
       frame = 0;
-      const progress = Math.min(1, Math.max(0, window.scrollY / Math.max(1, window.innerHeight * 0.65)));
+      const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      const progress = Math.min(1, Math.max(0, window.scrollY / maxScroll));
       const theme = getComputedStyle(document.documentElement);
       const maxShade = Number.parseFloat(theme.getPropertyValue("--restaurant-cover-scroll-max-shade")) || 0;
       const maxBlur = Number.parseFloat(theme.getPropertyValue("--restaurant-cover-scroll-max-blur")) || 0;
+      const clearStart = Math.max(0, figure.clientHeight * 0.34 - 50);
+      const parallaxDistance = Math.min(72, figure.clientHeight * 0.08);
       figure.style.setProperty("--restaurant-cover-scroll-shade", String(progress * maxShade));
       figure.style.setProperty("--restaurant-cover-scroll-blur", `${progress * maxBlur}px`);
+      figure.style.setProperty("--restaurant-cover-scroll-start", `${clearStart * (1 - progress)}px`);
+      figure.style.setProperty("--restaurant-cover-parallax-y", `${-progress * parallaxDistance}px`);
     };
     const scheduleUpdate = () => {
       if (!frame) frame = window.requestAnimationFrame(update);
@@ -47,6 +52,7 @@ export function FoodCover({id,name,description,coverKey,loadCover,previewUrl,men
     {edgeToEdge&&!parallax&&<div aria-hidden className="absolute inset-x-0 bottom-0 h-2/3" style={{background:"linear-gradient(to bottom, transparent, rgb(var(--color-cream) / .8) 60%, rgb(var(--color-cream)) 100%)"}}/>}
     {parallax&&<>
       <div aria-hidden className="restaurant-cover-base-fade pointer-events-none absolute inset-0"/>
+      <div aria-hidden className="restaurant-cover-base-blur pointer-events-none absolute inset-0"/>
       <div aria-hidden className="restaurant-cover-scroll-tint pointer-events-none absolute inset-0"/>
       <div aria-hidden className="restaurant-cover-scroll-blur pointer-events-none absolute inset-0"/>
     </>}
