@@ -53,6 +53,39 @@ test("customer practice runs the real order API contract without reaching live f
   assert.equal(liveCalls, 0);
 });
 
+test("practice car picker defaults to normal convenient and assigns random all-distance demo drivers", async () => {
+  installStorage();
+  const practiceFetch = createPracticeFetch("customer", (async () => { throw new Error("live fetch must not be called"); }) as typeof fetch);
+  startPracticeMode("customer");
+  const config = await (await practiceFetch("https://api.test/v1/car/config")).json() as { serviceTiers: object; categories: Array<{ id: string; seats: number }> };
+  assert.ok(config.serviceTiers);
+  assert.ok(config.categories.some((category) => category.seats === 4));
+  assert.ok(config.categories.some((category) => category.seats === 7));
+  const distantOptions = await (await practiceFetch("https://api.test/v1/car/service-options?pickupLat=80&pickupLng=140&destinationLat=-70&destinationLng=-140")).json() as { options: Array<{ size: string; tier: string; nearby: number }> };
+  assert.equal(distantOptions.options.length, 4);
+  assert.ok(distantOptions.options.every((option) => option.nearby === 2), "practice drivers are available regardless of distance");
+  const defaultOption = distantOptions.options.find((option) => option.size === "normal" && option.tier === "convenient");
+  assert.equal(defaultOption?.nearby, 2);
+
+  const originalRandom = Math.random;
+  try {
+    Math.random = () => 0;
+    let response = await practiceFetch("https://api.test/v1/car/bookings", { method: "POST", body: JSON.stringify({ vehicleSize: "large", serviceTier: "comfort", pickupLat: 0, pickupLng: 0, destinationLat: 0.01, destinationLng: 0.01 }) });
+    assert.equal(response.status, 201);
+    let info = await (await practiceFetch("https://api.test/v1/car/bookings/practice-order/info")).json() as { driverName: string; vehicleName: string };
+    assert.equal(info.driverName, "Amina Nankya");
+    assert.match(info.vehicleName, /Toyota Voxy/);
+    Math.random = () => 0.99;
+    response = await practiceFetch("https://api.test/v1/car/bookings", { method: "POST", body: JSON.stringify({ vehicleSize: "large", serviceTier: "comfort", pickupLat: -75, pickupLng: 100, destinationLat: 70, destinationLng: -100 }) });
+    assert.equal(response.status, 201);
+    info = await (await practiceFetch("https://api.test/v1/car/bookings/practice-order/info")).json() as { driverName: string; vehicleName: string };
+    assert.equal(info.driverName, "Ruth Atim");
+    assert.match(info.vehicleName, /Toyota Noah/);
+  } finally {
+    Math.random = originalRandom;
+  }
+});
+
 test("practice parcel fare and stored total use the same rounded amount", async () => {
   installStorage();
   const practiceFetch = createPracticeFetch("customer", (async () => { throw new Error("live fetch must not be called"); }) as typeof fetch);

@@ -2115,6 +2115,7 @@ export type CarConfig = {
 export type CarBookingInput = {
   categoryId?: string;
   serviceTier?: "convenient" | "comfort" | "xl";
+  vehicleSize?: "normal" | "large";
   pickupArea?: string;
   pickupAddress?: string;
   pickupLat: number;
@@ -2313,6 +2314,7 @@ export type CarMe = {
 export type CarDriverJob = {
   id: string;
   serviceTier?: "convenient" | "comfort" | "xl" | null;
+  vehicleSize?: "normal" | "large" | null;
   customerName: string;
   pickupAddress: string | null;
   destinationAddress: string | null;

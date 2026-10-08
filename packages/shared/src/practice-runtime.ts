@@ -10,6 +10,16 @@ const PRACTICE_PAYMENT_ID = "mpay_practice";
 const PRACTICE_MERCHANT_ID = "merchant-practice";
 const PRACTICE_OUTLET_ID = "outlet-practice";
 const PRACTICE_CAR_CATEGORY_ID = "practice-car-comfort";
+const PRACTICE_CAR_RIDERS = [
+  { id: "practice-car-driver-01", name: "Daniel Kato", make: "Toyota", model: "Corolla", size: "normal", tier: "convenient", plate: "PRACTICE 01" },
+  { id: "practice-car-driver-02", name: "Sarah Namusoke", make: "Honda", model: "Civic", size: "normal", tier: "comfort", plate: "PRACTICE 02" },
+  { id: "practice-car-driver-03", name: "Peter Okello", make: "Toyota", model: "Noah", size: "large", tier: "convenient", plate: "PRACTICE 03" },
+  { id: "practice-car-driver-04", name: "Amina Nankya", make: "Toyota", model: "Voxy", size: "large", tier: "comfort", plate: "PRACTICE 04" },
+  { id: "practice-car-driver-05", name: "Mark Ssemanda", make: "Nissan", model: "Sylphy", size: "normal", tier: "convenient", plate: "PRACTICE 05" },
+  { id: "practice-car-driver-06", name: "Joyce Akello", make: "Mazda", model: "Axela", size: "normal", tier: "comfort", plate: "PRACTICE 06" },
+  { id: "practice-car-driver-07", name: "Isaac Mugisha", make: "Nissan", model: "Serena", size: "large", tier: "convenient", plate: "PRACTICE 07" },
+  { id: "practice-car-driver-08", name: "Ruth Atim", make: "Toyota", model: "Noah", size: "large", tier: "comfort", plate: "PRACTICE 08" },
+] as const;
 const PRACTICE_RENTALS_KEY = "peebee_practice_selfdrive_rentals_v1";
 const PRACTICE_RENTAL_CARS = [
   ...CAR_MODEL_CATALOG.map((model, i) => {
@@ -34,6 +44,9 @@ type PracticeState = {
   orderType: "shopping" | "parcel";
   isRide: boolean;
   carCategoryId: string | null;
+  carServiceTier: "convenient" | "comfort";
+  carVehicleSize: "normal" | "large";
+  demoCarRiderId: string | null;
   paymentRail: "escrow" | "float";
   items: PracticeItem[];
   total: number;
@@ -75,6 +88,9 @@ function initialState(role: PracticeRole): PracticeState {
     orderType: "shopping",
     isRide: false,
     carCategoryId: null,
+    carServiceTier: "convenient",
+    carVehicleSize: "normal",
+    demoCarRiderId: null,
     paymentRail: "escrow",
     items: DEFAULT_ITEMS,
     total: 35_000,
@@ -179,14 +195,14 @@ function orderFor(state: PracticeState) {
     list_id: PRACTICE_LIST_ID,
     customer_id: "practice-customer",
     customer_name: state.isRide ? "Grace N." : "Amina",
-    rider_id: riderAssigned ? "practice-rider" : null,
-    rider_name: riderAssigned ? (state.isRide ? practiceCar(state.carCategoryId).driver : "Daniel") : null,
-    car_category_name: state.isRide ? practiceCar(state.carCategoryId).name : null,
-    car_make: state.isRide ? practiceCar(state.carCategoryId).make : null,
-    car_model: state.isRide ? practiceCar(state.carCategoryId).model : null,
-    car_plate: state.isRide ? practiceCar(state.carCategoryId).plate : null,
-    car_driver_name: riderAssigned && state.isRide ? practiceCar(state.carCategoryId).driver : null,
-    car_owner_name: state.isRide ? practiceCar(state.carCategoryId).owner : null,
+    rider_id: riderAssigned ? (state.isRide ? (state.demoCarRiderId ?? PRACTICE_CAR_RIDERS[0].id) : "practice-rider") : null,
+    rider_name: riderAssigned ? (state.isRide ? practiceCar(state.demoCarRiderId).driver : "Daniel") : null,
+    car_category_name: state.isRide ? practiceCar(state.demoCarRiderId).name : null,
+    car_make: state.isRide ? practiceCar(state.demoCarRiderId).make : null,
+    car_model: state.isRide ? practiceCar(state.demoCarRiderId).model : null,
+    car_plate: state.isRide ? practiceCar(state.demoCarRiderId).plate : null,
+    car_driver_name: riderAssigned && state.isRide ? practiceCar(state.demoCarRiderId).driver : null,
+    car_owner_name: state.isRide ? practiceCar(state.demoCarRiderId).owner : null,
     matching_mode: "first_to_claim",
     stage: state.stage,
     type: state.orderType,
@@ -219,10 +235,9 @@ function orderFor(state: PracticeState) {
   };
 }
 
-function practiceCar(categoryId: string | null) {
-  if (categoryId === "practice-car-family") return { name: "Family SUV", make: "Toyota", model: "RAV4", plate: "UFX 316R", owner: "Peter O. · Demo owner", driver: "Sarah Namusoke" };
-  if (categoryId === "practice-car-van") return { name: "Small cargo van", make: "Nissan", model: "Caravan", plate: "UFX 529V", owner: "Peter O. · Demo owner", driver: "Sarah Namusoke" };
-  return { name: "Comfort sedan", make: "Toyota", model: "Corolla", plate: "UFX 248P", owner: "Amina N. · Demo owner", driver: "Daniel Kato" };
+function practiceCar(riderId: string | null) {
+  const rider = PRACTICE_CAR_RIDERS.find((entry) => entry.id === riderId) ?? PRACTICE_CAR_RIDERS[0];
+  return { name: rider.size === "large" ? "Large · 5–7 seats" : "Normal · 3–4 seats", make: rider.make, model: rider.model, plate: rider.plate, owner: "Peebee Practice Fleet", driver: rider.name };
 }
 
 function itemsFor(state: PracticeState) {
@@ -428,11 +443,18 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
     if (path === "/v1/car/rentals/listings") return jsonResponse({ days: 1, vehicles: PRACTICE_RENTAL_CARS });
     if (path === "/v1/car/rentals/mine") return jsonResponse({ rentals: canUseStorage() ? JSON.parse(window.localStorage.getItem(PRACTICE_RENTALS_KEY) ?? "[]") : [] });
     if (path === "/v1/car/rentals/renter-profile") return jsonResponse({ status: "approved", isSimulated: true, ninMasked: "••••••••••0000", residentialAddress: "Practice address · Entebbe", residenceMethod: "bill", hasNationalId: true, hasRentReceipt: false, hasLandlordLetter: false, hasResidenceBill: true, tenancyStart: null, tenancyEnd: null, reviewNotes: null });
-    if (path === "/v1/car/config") return jsonResponse({ onDemandEnabled: true, matchingMode: "first_to_claim", scheduled: null, carpool: null, selfDrive: null, vehiclePhotos: false, kyc: null, deals: null, categories: [
-      { id: PRACTICE_CAR_CATEGORY_ID, kind: "passenger", name: "Comfort sedan", seats: 4, cargo_type: null, size_label: null, reference_image_key: null, rate_per_km: 2_000, minimum_fare: 8_000 },
-      { id: "practice-car-family", kind: "passenger", name: "Family SUV", seats: 6, cargo_type: null, size_label: null, reference_image_key: null, rate_per_km: 3_000, minimum_fare: 12_000 },
-      { id: "practice-car-van", kind: "cargo", name: "Small cargo van", seats: null, cargo_type: "General goods", size_label: "Small", reference_image_key: null, rate_per_km: 3_500, minimum_fare: 15_000 },
+    if (path === "/v1/car/config") return jsonResponse({ onDemandEnabled: true, matchingMode: "first_to_claim", scheduled: null, carpool: null, selfDrive: null, serviceTiers: { ratePerKm: 2_000, minimumFare: 8_000, comfortPremiumPercent: 30, xlPremiumPercent: 50, xlMinSeats: 6 }, vehiclePhotos: false, kyc: null, deals: null, categories: [
+      { id: PRACTICE_CAR_CATEGORY_ID, kind: "passenger", name: "Normal · Saloon", seats: 4, cargo_type: null, size_label: null, reference_image_key: null, rate_per_km: 2_000, minimum_fare: 8_000 },
+      { id: "practice-car-large", kind: "passenger", name: "Large · Minivan", seats: 7, cargo_type: null, size_label: null, reference_image_key: null, rate_per_km: 3_000, minimum_fare: 12_000 },
     ] });
+    if (path === "/v1/car/service-options") {
+      const lat1 = Number(query.get("pickupLat")), lng1 = Number(query.get("pickupLng")), lat2 = Number(query.get("destinationLat")), lng2 = Number(query.get("destinationLng"));
+      const valid = [lat1, lng1, lat2, lng2].every(Number.isFinite);
+      const distanceKm = valid ? 6371 * 2 * Math.asin(Math.sqrt(Math.sin(((lat2 - lat1) * Math.PI) / 360) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(((lng2 - lng1) * Math.PI) / 360) ** 2)) : 0;
+      const baseFare = roundFare(distanceKm * 2_000, 8_000);
+      const options = (["normal", "large"] as const).flatMap((size) => (["convenient", "comfort"] as const).map((tier) => ({ size, tier, fare: roundFare(baseFare * (size === "large" ? 1.5 : 1) * (tier === "comfort" ? 1.3 : 1), 0), nearby: 2 })));
+      return jsonResponse({ distanceKm: Math.round(distanceKm * 10) / 10, options });
+    }
     if (path === "/v1/restaurants") return jsonResponse({ restaurants: DEMO_FOOD_RESTAURANTS });
     const detail = path.match(/^\/v1\/restaurants\/(demo-food-[^/]+)$/);
     if (detail && demoFoodRestaurant(detail[1])) return jsonResponse({ restaurant: demoFoodRestaurant(detail[1]) });
@@ -473,7 +495,8 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
     return jsonResponse({ activeOrder: state.hasOrder && state.stage !== "Settle" ? orderFor(state) : null, pendingFeeProposal: null });
   }
   if (method === "GET" && path.startsWith("/v1/lists/recent")) {
-    return jsonResponse({ lists: state.hasOrder ? [{ id: PRACTICE_LIST_ID, listId: PRACTICE_LIST_ID, title: "Practice shopping list", status: state.stage === "Settle" ? "delivered" : "active", itemCount: state.items.length, updatedAt: nowIso(), riderFirstName: state.riderClaimed || role === "customer" ? "Daniel" : null, riderId: state.riderClaimed || role === "customer" ? "practice-rider" : null, riderHasPhoto: false, area: state.destinationArea, orderId: PRACTICE_ORDER_ID }] : [] });
+    const driver = state.isRide ? practiceCar(state.demoCarRiderId) : null;
+    return jsonResponse({ lists: state.hasOrder ? [{ id: PRACTICE_LIST_ID, listId: PRACTICE_LIST_ID, title: state.isRide ? "Practice car ride" : "Practice shopping list", status: state.stage === "Settle" ? "delivered" : "active", itemCount: state.items.length, updatedAt: nowIso(), riderFirstName: state.riderClaimed || role === "customer" ? driver?.driver ?? "Daniel" : null, riderId: state.riderClaimed || role === "customer" ? state.demoCarRiderId ?? "practice-rider" : null, riderHasPhoto: false, area: state.destinationArea, orderId: PRACTICE_ORDER_ID }] : [] });
   }
   if (method === "POST" && path === "/v1/lists") {
     const rawItems = Array.isArray(body.items) ? body.items as Array<Record<string, unknown>> : [];
@@ -489,20 +512,22 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
     return jsonResponse({ order: orderFor(state) });
   }
   if (role === "customer" && method === "POST" && path === "/v1/car/bookings") {
-    const categoryId = typeof body.categoryId === "string" ? body.categoryId : PRACTICE_CAR_CATEGORY_ID;
-    const rate = categoryId === "practice-car-family" ? 3_000 : categoryId === "practice-car-van" ? 3_500 : 2_000;
-    const minimum = categoryId === "practice-car-family" ? 12_000 : categoryId === "practice-car-van" ? 15_000 : 8_000;
+    const vehicleSize = body.vehicleSize === "large" ? "large" : "normal";
+    const serviceTier = body.serviceTier === "comfort" ? "comfort" : "convenient";
     const lat1 = Number(body.pickupLat), lng1 = Number(body.pickupLng), lat2 = Number(body.destinationLat), lng2 = Number(body.destinationLng);
     const validCoords = [lat1, lng1, lat2, lng2].every(Number.isFinite);
     const distanceKm = validCoords ? 6371 * 2 * Math.asin(Math.sqrt(Math.sin(((lat2 - lat1) * Math.PI) / 360) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(((lng2 - lng1) * Math.PI) / 360) ** 2)) : 0;
-    const fare = roundFare(distanceKm * rate, minimum);
-    save({ hasOrder: true, riderClaimed: true, stage: "Match", orderType: "parcel", isRide: true, carCategoryId: categoryId, paymentRail: "escrow", total: fare, deliveryFee: fare, destinationArea: String(body.destinationArea ?? "Entebbe City"), destinationAddress: String(body.destinationAddress ?? "Kitoro Road"), autoAdvanceAt: null });
+    const baseFare = roundFare(distanceKm * 2_000, 8_000);
+    const fare = roundFare(baseFare * (vehicleSize === "large" ? 1.5 : 1) * (serviceTier === "comfort" ? 1.3 : 1), 0);
+    const eligible = PRACTICE_CAR_RIDERS.filter((rider) => rider.size === vehicleSize && rider.tier === serviceTier);
+    const demoRider = eligible[Math.floor(Math.random() * eligible.length)] ?? PRACTICE_CAR_RIDERS[0];
+    save({ hasOrder: true, riderClaimed: true, stage: "Match", orderType: "parcel", isRide: true, carCategoryId: vehicleSize === "large" ? "practice-car-large" : PRACTICE_CAR_CATEGORY_ID, carVehicleSize: vehicleSize, carServiceTier: serviceTier, demoCarRiderId: demoRider.id, paymentRail: "escrow", total: fare, deliveryFee: fare, destinationArea: String(body.destinationArea ?? "Entebbe City"), destinationAddress: String(body.destinationAddress ?? "Kitoro Road"), autoAdvanceAt: null });
     return jsonResponse({ order: orderFor(state) }, 201);
   }
   if (method === "GET" && path === `/v1/orders/${PRACTICE_ORDER_ID}`) return jsonResponse(orderDetail(state));
   if (method === "GET" && path === `/v1/orders/${PRACTICE_ORDER_ID}/checkout`) return jsonResponse({ baseAmount: state.total, mobileMoney: state.total, wallet: state.total, cash: state.total });
   if (method === "GET" && path === `/v1/car/bookings/${PRACTICE_ORDER_ID}/info`) {
-    const car = practiceCar(state.carCategoryId);
+    const car = practiceCar(state.demoCarRiderId);
     return jsonResponse({ car: true, scheduledFor: null, categoryName: car.name, vehicleName: `${car.make} ${car.model}`, plate: car.plate, ownerName: car.owner, driverName: car.driver });
   }
   if (method === "POST" && path === `/v1/orders/${PRACTICE_ORDER_ID}/match`) {

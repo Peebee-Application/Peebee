@@ -134,6 +134,14 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
   let vehicleId = "";
   let orderId = "";
 
+  await t.test("practice driver roster is active and unrestricted by distance", async () => {
+    const roster = await client.execute("SELECT active, any_distance, environment, vehicle_size FROM practice_demo_car_riders ORDER BY id");
+    assert.equal(roster.rows.length, 8);
+    assert.ok(roster.rows.every((r) => r.active === 1 && r.any_distance === 1 && r.environment === "sandbox"));
+    assert.equal(roster.rows.filter((r) => r.vehicle_size === "normal").length, 4);
+    assert.equal(roster.rows.filter((r) => r.vehicle_size === "large").length, 4);
+  });
+
   await t.test("everything is closed until an admin switches Car on", async () => {
     assert.equal((await call("GET", "/car/config", "cust")).status, 403);
     await setCarSettings({ enabled: true, onDemandEnabled: true, matchingMode: "customer_selects", shares: { owner: 60, driver: 30, platform: 10 }, maxPickupKm: 10, withdrawalsEnabled: true, withdrawalMinAmount: 1000, scheduled: SCHEDULED, carpool: CARPOOL, selfDrive: SELFDRIVE, vehiclePhotos: PHOTOS, kyc: KYC, deals: DEALS });

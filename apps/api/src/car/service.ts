@@ -106,7 +106,8 @@ export async function findCarCandidate(
   order: Row,
 ): Promise<{ riderId: string; riderName: string; outOfRange: boolean } | null> {
   const tierColumn = await hasColumn("car_bookings", "service_tier");
-  const booking = (await db.execute({ sql: `SELECT category_id${tierColumn ? ", service_tier" : ""} FROM car_bookings WHERE order_id = ?`, args: [orderId] })).rows[0] as Row | undefined;
+  const sizeColumn = await hasColumn("car_bookings", "vehicle_size");
+  const booking = (await db.execute({ sql: `SELECT category_id${tierColumn ? ", service_tier" : ""}${sizeColumn ? ", vehicle_size" : ""} FROM car_bookings WHERE order_id = ?`, args: [orderId] })).rows[0] as Row | undefined;
   if (!booking) return null;
   const carSettings = await getCarSettings();
   const { maxPickupKm } = carSettings;
@@ -116,6 +117,7 @@ export async function findCarCandidate(
     if (sched?.scheduled_for && new Date(`${String(sched.scheduled_for).replace(" ", "T")}Z`).getTime() > Date.now() + carSettings.scheduled.openMinutes * 60000) return null;
   }
   const tier = booking.service_tier as CarServiceTier | undefined;
+  const size = booking.vehicle_size === "large" ? "large" : "normal";
   const preference = tier && await hasColumn("vehicles", "accepts_convenient");
   const eligible = await db.execute({
     sql: `SELECT u.id, u.name, s.lat, s.lng${tier ? ", v.service_class, v.seat_capacity" : ""}${preference ? ", v.accepts_convenient" : ""} FROM car_driver_state s
@@ -133,7 +135,7 @@ export async function findCarCandidate(
   const lng = order.pickup_lng as number | null;
   let best: { row: Row; km: number | null; priority: number } | null = null;
   for (const row of eligible.rows as Row[]) {
-    if (tier && !acceptsTier(row as { service_class: unknown; accepts_convenient: unknown; seat_capacity: unknown; lat: unknown; lng: unknown }, tier, carSettings.servicePricing!.xlMinSeats)) continue;
+    if (tier && !acceptsTier(row as { service_class: unknown; accepts_convenient: unknown; seat_capacity: unknown; lat: unknown; lng: unknown }, tier, carSettings.servicePricing!.xlMinSeats, tier === "xl" ? "large" : size)) continue;
     if (tier && (row.lat == null || row.lng == null)) continue;
     const km = lat != null && lng != null && row.lat != null && row.lng != null ? haversineKm(lat, lng, Number(row.lat), Number(row.lng)) : null;
     if (km != null && km > maxPickupKm) continue;
