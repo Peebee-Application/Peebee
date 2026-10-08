@@ -19,8 +19,10 @@ export function FoodCover({id,name,description,coverKey,loadCover,previewUrl,men
       const theme = getComputedStyle(document.documentElement);
       const maxShade = Number.parseFloat(theme.getPropertyValue("--restaurant-cover-scroll-max-shade")) || 0;
       const maxBlur = Number.parseFloat(theme.getPropertyValue("--restaurant-cover-scroll-max-blur")) || 0;
+      const targetBrightness = Number.parseFloat(theme.getPropertyValue("--restaurant-cover-scroll-target-brightness")) || 1;
       figure.style.setProperty("--restaurant-cover-scroll-shade", String(progress * maxShade));
       figure.style.setProperty("--restaurant-cover-scroll-blur", `${progress * maxBlur}px`);
+      figure.style.setProperty("--restaurant-cover-scroll-brightness", String(1 + (targetBrightness - 1) * progress));
     };
     const scheduleUpdate = () => {
       if (!frame) frame = window.requestAnimationFrame(update);
@@ -47,7 +49,7 @@ export function FoodCover({id,name,description,coverKey,loadCover,previewUrl,men
     {edgeToEdge&&!parallax&&<div aria-hidden className="absolute inset-x-0 bottom-0 h-2/3" style={{background:"linear-gradient(to bottom, transparent, rgb(var(--color-cream) / .8) 60%, rgb(var(--color-cream)) 100%)"}}/>}
     {parallax&&<>
       <div aria-hidden className="pointer-events-none absolute inset-0" style={{background:"linear-gradient(to bottom, rgb(var(--color-black) / .015) 0%, transparent 27%, rgb(var(--color-black) / var(--restaurant-cover-mid-shade)) 62%, rgb(var(--color-black) / var(--restaurant-cover-end-shade)) 100%)"}}/>
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[rgb(var(--color-black))]" style={{opacity:"var(--restaurant-cover-scroll-shade, 0)"}}/>
+      <div aria-hidden className="pointer-events-none absolute inset-0" style={{backgroundColor:"rgb(var(--restaurant-cover-scroll-tint))",opacity:"var(--restaurant-cover-scroll-shade, 0)"}}/>
     </>}
     {overlay}
     {showCaption&&<figcaption className={`absolute inset-x-0 bottom-0 space-y-3 p-6 ${edgeToEdge?"text-ink":source?"bg-gradient-to-t from-black/85 via-black/60 to-transparent pt-20 text-white":"bg-[rgb(var(--surface-card))]/90 text-ink"}`}>

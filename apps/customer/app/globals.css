@@ -71,7 +71,9 @@
   --restaurant-cover-mid-shade: .32;
   --restaurant-cover-end-shade: .48;
   --restaurant-cover-scroll-max-shade: .12;
-  --restaurant-cover-scroll-max-blur: 1.2;
+  --restaurant-cover-scroll-tint: 255 255 255;
+  --restaurant-cover-scroll-target-brightness: 1.1;
+  --restaurant-cover-scroll-max-blur: 5;
 }
 
 /* Dark mode — sharp charcoal as the page background, gold stays the constant
@@ -100,8 +102,10 @@
     --border-faint: rgba(247, 243, 238, 0.1);
     --restaurant-cover-mid-shade: .58;
     --restaurant-cover-end-shade: .86;
-    --restaurant-cover-scroll-max-shade: .2;
-    --restaurant-cover-scroll-max-blur: 1.5;
+    --restaurant-cover-scroll-max-shade: .3;
+    --restaurant-cover-scroll-tint: 0 0 0;
+    --restaurant-cover-scroll-target-brightness: .84;
+    --restaurant-cover-scroll-max-blur: 6;
   }
 }
 
@@ -127,8 +131,10 @@
   --border-faint: rgba(247, 243, 238, 0.1);
   --restaurant-cover-mid-shade: .58;
   --restaurant-cover-end-shade: .86;
-  --restaurant-cover-scroll-max-shade: .2;
-  --restaurant-cover-scroll-max-blur: 1.5;
+  --restaurant-cover-scroll-max-shade: .3;
+  --restaurant-cover-scroll-tint: 0 0 0;
+  --restaurant-cover-scroll-target-brightness: .84;
+  --restaurant-cover-scroll-max-blur: 6;
 }
 
 html {
@@ -401,8 +407,8 @@ select {
 .restaurant-cover-pin { isolation:isolate; }
 .restaurant-profile-content { padding-top:34svh; }
 .restaurant-profile-intro { margin-bottom:20px; }
-.restaurant-profile-content .food-dish-rail { margin-inline:0; padding-inline:0; scroll-padding-inline:0; overscroll-behavior-inline:contain; }
-.restaurant-cover-image { transform:scale(1.035); filter:blur(var(--restaurant-cover-scroll-blur, 0px)); transition:filter 110ms linear; will-change:filter; }
+.restaurant-profile-content .food-dish-rail { overscroll-behavior-inline:contain; }
+.restaurant-cover-image { transform:scale(1.08); filter:brightness(var(--restaurant-cover-scroll-brightness, 1)) blur(var(--restaurant-cover-scroll-blur, 0px)); transition:filter 100ms linear; will-change:filter; }
 .restaurant-logo-trigger { transition:transform 140ms var(--ease-out-expo), box-shadow 180ms ease; }
 .restaurant-logo-trigger:active,.restaurant-logo-trigger.is-expanded { transform:scale(.9); }
 .restaurant-logo-trigger:focus-visible { outline:3px solid rgb(var(--color-gold)); outline-offset:3px; }
