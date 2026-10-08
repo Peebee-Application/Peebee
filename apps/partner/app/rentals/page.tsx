@@ -54,11 +54,12 @@ export default function RentalsPage() {
 
       {vehicles.length === 0 && <p className="text-sm text-ink-500">Once a vehicle is approved you can offer it for hire here.</p>}
       {vehicles.map((v) => {
-        const d = draft[v.id] ?? { price: String(v.daily_price ?? suggestedDayRate(v.make, v.model)), deposit: v.deposit_amount != null ? String(v.deposit_amount) : "", hourly: v.hourly_enabled !== 0, halfDay: v.half_day_enabled !== 0, fullDay: v.full_day_enabled !== 0 };
+        const d = draft[v.id] ?? { price: String(v.daily_price ?? v.standard_daily_price ?? suggestedDayRate(v.make, v.model)), deposit: v.deposit_amount != null ? String(v.deposit_amount) : "", hourly: v.hourly_enabled !== 0, halfDay: v.half_day_enabled !== 0, fullDay: v.full_day_enabled !== 0 };
         const set = (patch: Partial<typeof d>) => setDraft((x) => ({ ...x, [v.id]: { ...d, ...patch } }));
         return (
           <section key={v.id} className="home-card space-y-3">
             <p className="font-bold text-ink">{v.plate} <span className="font-normal text-ink-500">· {[v.make, v.model].filter(Boolean).join(" ")}</span></p>
+            <p className="text-xs text-ink-500">{v.service_class === "comfort" ? "Comfort" : "Convenient"}{v.condition_grade ? ` · ${v.condition_grade} condition` : ""}{v.seat_capacity ? ` · ${v.seat_capacity} seats` : ""}{v.standard_daily_price ? ` · reference ${ugx(v.standard_daily_price)}/day` : ""}. Set your own competitive rate below.</p>
             <p className="text-xs text-ink-500">{v.daily_price ? (v.active ? `Listed at ${ugx(v.daily_price)}/day` : "Listing paused") : "Not listed for hire"}</p>
             <div className="grid grid-cols-2 gap-3">
               <input inputMode="numeric" value={d.price} onChange={(e) => set({ price: e.target.value.replace(/\D/g, "") })} placeholder="Price per day (UGX)" className={field} />

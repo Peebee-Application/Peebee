@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { CAR_MODEL_CATALOG } from "@peebee/shared";
 import { requireAuth } from "../auth/middleware.js";
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
@@ -117,8 +118,9 @@ selfDriveRoutes.put("/car/rentals/listings/:vehicleId", async (c) => {
 
 selfDriveRoutes.get("/car/rentals/my-vehicles", async (c) => {
   const user = c.get("user");
+  const hasProfiles = await hasColumn("vehicles", "model_catalog_id") && await hasColumn("vehicles", "service_class") && await hasColumn("vehicles", "condition_grade") && await hasColumn("vehicles", "seat_capacity") && await hasColumn("vehicles", "features_json");
   const vehicles = await db.execute({
-    sql: `SELECT v.id, v.plate, v.make, v.model, v.status, l.daily_price, l.deposit_amount, l.active, l.notes${await hasColumn("rental_listings", "hourly_enabled") ? ", l.hourly_enabled, l.half_day_enabled, l.full_day_enabled" : ""}
+    sql: `SELECT v.id, v.plate, v.make, v.model, v.status, l.daily_price, l.deposit_amount, l.active, l.notes${hasProfiles ? ", v.model_catalog_id, v.service_class, v.condition_grade, v.seat_capacity" : ""}${await hasColumn("rental_listings", "hourly_enabled") ? ", l.hourly_enabled, l.half_day_enabled, l.full_day_enabled" : ""}
           FROM vehicles v LEFT JOIN rental_listings l ON l.vehicle_id = v.id${await hasColumn("rental_listings", "environment") ? " AND l.environment = ?" : ""} WHERE v.owner_id = ? AND v.status = 'approved' ORDER BY v.created_at DESC`,
     args: [...(await hasColumn("rental_listings", "environment") ? [await getPlatformEnvironment()] : []), user.sub],
   });
@@ -127,7 +129,7 @@ selfDriveRoutes.get("/car/rentals/my-vehicles", async (c) => {
           WHERE r.owner_id = ? AND r.environment = ? ORDER BY r.created_at DESC LIMIT 100`,
     args: [user.sub, await getPlatformEnvironment()],
   });
-  return c.json({ vehicles: vehicles.rows, rentals: rentals.rows.map(publicRental) });
+  return c.json({ vehicles: (vehicles.rows as Row[]).map((v) => ({ ...v, ...(hasProfiles ? { standard_daily_price: CAR_MODEL_CATALOG.find((m) => m.id === v.model_catalog_id)?.standardDailyUgx ?? null } : {}) })), rentals: rentals.rows.map(publicRental) });
 });
 
 function publicRental(r: Row) {
@@ -208,8 +210,9 @@ selfDriveRoutes.get("/car/rentals/listings", async (c) => {
   const user = c.get("user");
   const hasPeriods = await hasColumn("rental_listings", "hourly_enabled");
   const hasEnvironment = await hasColumn("rental_listings", "environment");
+  const hasProfiles = await hasColumn("vehicles", "model_catalog_id") && await hasColumn("vehicles", "service_class") && await hasColumn("vehicles", "condition_grade") && await hasColumn("vehicles", "seat_capacity") && await hasColumn("vehicles", "features_json");
   const rows = (await db.execute({
-    sql: `SELECT v.id, v.plate, v.make, v.model, v.colour, v.year, cat.name AS category_name, cat.seats, l.daily_price, l.deposit_amount, l.notes, u.name AS owner_name${hasPeriods ? ", l.hourly_enabled, l.half_day_enabled, l.full_day_enabled" : ""}
+    sql: `SELECT v.id, v.plate, v.make, v.model, v.colour, v.year, cat.name AS category_name, cat.seats, l.daily_price, l.deposit_amount, l.notes, u.name AS owner_name${hasPeriods ? ", l.hourly_enabled, l.half_day_enabled, l.full_day_enabled" : ""}${hasProfiles ? ", v.model_catalog_id, v.service_class, v.condition_grade, v.seat_capacity, v.features_json" : ""}
           FROM rental_listings l JOIN vehicles v ON v.id = l.vehicle_id AND v.status = 'approved' JOIN vehicle_categories cat ON cat.id = v.category_id
           JOIN users u ON u.id = v.owner_id
           WHERE l.active = 1 ${hasEnvironment ? "AND l.environment = ?" : ""} AND v.owner_id != ? ${q.data.categoryId ? "AND v.category_id = ?" : ""}
@@ -217,11 +220,18 @@ selfDriveRoutes.get("/car/rentals/listings", async (c) => {
           ORDER BY l.daily_price ASC LIMIT 100`,
     args: [...(hasEnvironment ? [await getPlatformEnvironment()] : []), user.sub, ...(q.data.categoryId ? [q.data.categoryId] : []), toDb(end), toDb(start)],
   })).rows as Row[];
+  const photoMap: Record<string, string[]> = {};
+  if (await hasTable("vehicle_photos")) {
+    const photos = await db.execute({ sql: `SELECT p.vehicle_id, p.id FROM vehicle_photos p JOIN rental_listings l ON l.vehicle_id = p.vehicle_id WHERE l.active = 1${hasEnvironment ? " AND l.environment = ?" : ""} ORDER BY p.sort`, args: hasEnvironment ? [await getPlatformEnvironment()] : [] });
+    for (const p of photos.rows as Row[]) (photoMap[String(p.vehicle_id)] ??= []).push(String(p.id));
+  }
   return c.json({
     days,
     vehicles: rows.map((v) => ({
-      id: v.id, name: [v.colour, v.make, v.model, v.year].filter(Boolean).join(" ") || String(v.category_name), category: v.category_name, seats: v.seats,
+      id: v.id, name: [v.colour, v.make, v.model, v.year].filter(Boolean).join(" ") || String(v.category_name), category: v.category_name, seats: hasProfiles ? Number(v.seat_capacity) || v.seats : v.seats,
       ownerName: String(v.owner_name ?? "Vehicle owner"), dailyPrice: Number(v.daily_price), hourlyPrice: rentalHourlyPrice(Number(v.daily_price)), halfDayPrice: Math.round(Number(v.daily_price) * 0.6), deposit: Number(v.deposit_amount), rent: Number(v.daily_price) * days, notes: v.notes,
+      ...(hasProfiles ? (() => { const model = CAR_MODEL_CATALOG.find((m) => m.id === v.model_catalog_id); let features: string[] = []; try { features = JSON.parse(String(v.features_json ?? "[]")); } catch { /* ignore malformed owner data */ } return { serviceClass: v.service_class, condition: v.condition_grade, modelCatalogId: v.model_catalog_id, fuelLitresPerKm: model?.fuelLitresPerKm ?? null, luggageLitres: model?.luggageLitres ?? null, luggageNote: model?.luggageNote ?? null, standardDailyPrice: model?.standardDailyUgx ?? null, features }; })() : {}),
+      photos: photoMap[String(v.id)] ?? [],
       hourlyEnabled: !hasPeriods || Number(v.hourly_enabled) === 1, halfDayEnabled: !hasPeriods || Number(v.half_day_enabled) === 1, fullDayEnabled: !hasPeriods || Number(v.full_day_enabled) === 1,
     })),
   });

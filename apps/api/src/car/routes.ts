@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { CAR_MODEL_CATALOG } from "@peebee/shared";
 import { requireAuth } from "../auth/middleware.js";
 import { db } from "../db/client.js";
 import { haversineKm } from "../lib/geo.js";
@@ -122,6 +123,11 @@ const vehicleSchema = z.object({
   model: z.string().trim().max(60).optional(),
   year: z.number().int().min(1980).max(2100).optional(),
   colour: z.string().trim().max(40).optional(),
+  modelCatalogId: z.string().max(80).optional(),
+  serviceClass: z.enum(["convenient", "comfort"]).default("convenient"),
+  conditionGrade: z.enum(["excellent", "good", "fair"]).default("good"),
+  seatCapacity: z.number().int().min(1).max(50).optional(),
+  features: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
 });
 
 /** An approved owner puts a vehicle up for service; a manager approves it and assigns a driver. */
@@ -141,11 +147,21 @@ carRoutes.post("/car/vehicles", async (c) => {
   const category = (await db.execute({ sql: "SELECT 1 FROM vehicle_categories WHERE id = ? AND active = 1", args: [parsed.data.categoryId] })).rows[0];
   if (!category) return c.json({ error: "invalid_category" }, 400);
   const id = newId("veh");
+  const model = parsed.data.modelCatalogId ? CAR_MODEL_CATALOG.find((m) => m.id === parsed.data.modelCatalogId) : undefined;
+  if (parsed.data.modelCatalogId && !model) return c.json({ error: "invalid_model" }, 400);
   try {
-    await db.execute({
-      sql: "INSERT INTO vehicles (id, owner_id, category_id, plate, make, model, year, colour) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      args: [id, user.sub, parsed.data.categoryId, parsed.data.plate, parsed.data.make ?? null, parsed.data.model ?? null, parsed.data.year ?? null, parsed.data.colour ?? null],
-    });
+    const profileColumns = ["model_catalog_id", "service_class", "condition_grade", "seat_capacity", "features_json"];
+    const profileReady = (await Promise.all(profileColumns.map((column) => hasColumn("vehicles", column)))).every(Boolean);
+    const make = model?.make ?? parsed.data.make ?? null;
+    const modelName = model ? `${model.model}${model.variant ? ` ${model.variant}` : ""}` : parsed.data.model ?? null;
+    if (profileReady) {
+      await db.execute({
+        sql: "INSERT INTO vehicles (id, owner_id, category_id, plate, make, model, year, colour, model_catalog_id, service_class, condition_grade, seat_capacity, features_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        args: [id, user.sub, parsed.data.categoryId, parsed.data.plate, make, modelName, parsed.data.year ?? null, parsed.data.colour ?? null, model?.id ?? null, parsed.data.serviceClass, parsed.data.conditionGrade, parsed.data.seatCapacity ?? model?.seats ?? null, JSON.stringify(parsed.data.features)],
+      });
+    } else {
+      await db.execute({ sql: "INSERT INTO vehicles (id, owner_id, category_id, plate, make, model, year, colour) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", args: [id, user.sub, parsed.data.categoryId, parsed.data.plate, make, modelName, parsed.data.year ?? null, parsed.data.colour ?? null] });
+    }
   } catch {
     return c.json({ error: "plate_taken", message: "A vehicle with that number plate is already registered." }, 409);
   }
@@ -714,20 +730,22 @@ carRoutes.delete("/car/vehicles/:id/photos/:photoId", async (c) => {
   return c.json({ ok: true });
 });
 
-/** A vehicle photo: visible to its owner, the driver it's assigned to, and staff. */
+/** A vehicle photo: visible to its owner, assigned driver, staff, or renter browsing an active listing. */
 carRoutes.get("/car/vehicles/:id/photos/:photoId", async (c) => {
   const vehicleId = c.req.param("id") as string;
   const photoId = c.req.param("photoId") as string;
   const user = c.get("user");
   if (!(await hasTable("vehicle_photos"))) return c.json({ error: "photos_unavailable" }, 503);
+  const rentalEnvironment = await hasColumn("rental_listings", "environment");
   const row = (await db.execute({
     sql: `SELECT p.object_key, v.owner_id,
-                 EXISTS (SELECT 1 FROM vehicle_assignments a WHERE a.vehicle_id = v.id AND a.driver_id = ? AND a.status = 'active') AS is_driver
+                 EXISTS (SELECT 1 FROM vehicle_assignments a WHERE a.vehicle_id = v.id AND a.driver_id = ? AND a.status = 'active') AS is_driver,
+                 EXISTS (SELECT 1 FROM rental_listings l WHERE l.vehicle_id = v.id AND l.active = 1${rentalEnvironment ? " AND l.environment = ?" : ""}) AS is_listed
           FROM vehicle_photos p JOIN vehicles v ON v.id = p.vehicle_id WHERE p.id = ? AND p.vehicle_id = ?`,
-    args: [user.sub, photoId, vehicleId],
+    args: [user.sub, ...(rentalEnvironment ? [await getPlatformEnvironment()] : []), photoId, vehicleId],
   })).rows[0] as Row | undefined;
   if (!row) return c.json({ error: "not_found" }, 404);
-  if (row.owner_id !== user.sub && !row.is_driver && user.role !== "admin") return c.json({ error: "forbidden" }, 403);
+  if (row.owner_id !== user.sub && !row.is_driver && !row.is_listed && user.role !== "admin") return c.json({ error: "forbidden" }, 403);
   const object = await getR2Bucket().get(String(row.object_key));
   if (!object) return c.json({ error: "not_found" }, 404);
   return new Response(object.body, { headers: uploadResponseHeaders(object.httpMetadata?.contentType, "application/octet-stream") });

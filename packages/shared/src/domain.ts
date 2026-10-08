@@ -2147,6 +2147,14 @@ export type RentalVehicle = {
   hourlyEnabled?: boolean;
   halfDayEnabled?: boolean;
   fullDayEnabled?: boolean;
+  serviceClass?: "convenient" | "comfort";
+  condition?: "excellent" | "good" | "fair";
+  fuelLitresPerKm?: number | null;
+  luggageLitres?: number | null;
+  luggageNote?: string | null;
+  standardDailyPrice?: number | null;
+  features?: string[];
+  photos?: string[];
 };
 
 export type Rental = {
@@ -2185,6 +2193,10 @@ export type OwnerRentalVehicle = {
   hourly_enabled?: number | null;
   half_day_enabled?: number | null;
   full_day_enabled?: number | null;
+  standard_daily_price?: number | null;
+  service_class?: "convenient" | "comfort";
+  condition_grade?: "excellent" | "good" | "fair";
+  seat_capacity?: number | null;
 };
 
 export type AdminRental = {

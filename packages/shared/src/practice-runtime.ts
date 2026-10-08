@@ -1,6 +1,7 @@
 import { PRACTICE_MODE_STORAGE_KEY, type PracticeRole } from "./practice.js";
 import { roundFare } from "./fare.js";
 import { DEMO_FOOD_RESTAURANTS, demoFoodImage, demoFoodMenu, demoFoodRestaurant } from "./demo-food.js";
+import { CAR_MODEL_CATALOG } from "./car-model-catalog.js";
 
 const PRACTICE_STATE_VERSION = 3;
 const PRACTICE_ORDER_ID = "practice-order";
@@ -11,8 +12,11 @@ const PRACTICE_OUTLET_ID = "outlet-practice";
 const PRACTICE_CAR_CATEGORY_ID = "practice-car-comfort";
 const PRACTICE_RENTALS_KEY = "peebee_practice_selfdrive_rentals_v1";
 const PRACTICE_RENTAL_CARS = [
-  { id: "practice-rent-sedan", name: "Silver Toyota Corolla 2021", category: "Saloon", seats: 4, dailyPrice: 100_000, deposit: 50_000, rent: 100_000, hourlyPrice: 5_000, halfDayPrice: 60_000, notes: "Demo owner · Amina Demo Rentals", ownerName: "Amina Demo Rentals", hourlyEnabled: true, halfDayEnabled: true, fullDayEnabled: true },
-  { id: "practice-rent-noah", name: "Black Toyota Noah 2020", category: "Family MPV", seats: 7, dailyPrice: 150_000, deposit: 75_000, rent: 150_000, hourlyPrice: 7_500, halfDayPrice: 90_000, notes: "Demo owner · Entebbe Family Cars", ownerName: "Entebbe Family Cars", hourlyEnabled: false, halfDayEnabled: true, fullDayEnabled: true },
+  ...CAR_MODEL_CATALOG.map((model, i) => {
+    const dailyPrice = model.standardDailyUgx;
+    const ownerName = ["Amina Demo Rentals", "Entebbe Family Cars", "Lakeview Van Hire"][i % 3];
+    return { id: `practice-rent-${model.id}`, name: `${model.make} ${model.model}${model.variant ? ` ${model.variant}` : ""}`, category: model.seats >= 7 ? "Family MPV" : "Saloon", seats: model.seats, dailyPrice, deposit: Math.round(dailyPrice / 2), rent: dailyPrice, hourlyPrice: Math.round(dailyPrice * 1.2 / 24), halfDayPrice: Math.round(dailyPrice * .6), notes: `Demo owner · ${ownerName}`, ownerName, hourlyEnabled: true, halfDayEnabled: true, fullDayEnabled: true, serviceClass: dailyPrice > 100_000 ? "comfort" as const : "convenient" as const, condition: dailyPrice > 100_000 ? "excellent" as const : "good" as const, fuelLitresPerKm: model.fuelLitresPerKm, luggageLitres: model.luggageLitres, luggageNote: model.luggageNote, standardDailyPrice: dailyPrice, features: dailyPrice > 100_000 ? ["Air conditioning", "Bluetooth"] : ["Air conditioning"], photos: [] as string[] };
+  }),
   { id: "practice-rent-hiace", name: "White Toyota Hiace 2019", category: "Minibus", seats: 14, dailyPrice: 200_000, deposit: 100_000, rent: 200_000, hourlyPrice: 10_000, halfDayPrice: 120_000, notes: "Demo owner · Lakeview Van Hire", ownerName: "Lakeview Van Hire", hourlyEnabled: false, halfDayEnabled: false, fullDayEnabled: true },
   { id: "practice-rent-suv", name: "Blue Nissan X-Trail 2022", category: "SUV", seats: 5, dailyPrice: 180_000, deposit: 90_000, rent: 180_000, hourlyPrice: 9_000, halfDayPrice: 108_000, notes: "Demo owner · Entebbe Family Cars", ownerName: "Entebbe Family Cars", hourlyEnabled: true, halfDayEnabled: false, fullDayEnabled: false },
 ];

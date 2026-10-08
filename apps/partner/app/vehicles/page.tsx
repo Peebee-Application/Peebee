@@ -2,7 +2,7 @@
 
 import { Select } from "@peebee/shared/select";
 
-import type { CarCategory, OwnerDeals } from "@peebee/shared";
+import { CAR_MODEL_CATALOG, type CarCategory, type OwnerDeals } from "@peebee/shared";
 import { Camera, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ApplyCard } from "../../components/ApplyCard";
@@ -26,6 +26,11 @@ export default function VehiclesPage() {
   const [plate, setPlate] = useState("");
   const [make, setMake] = useState("");
   const [model, setModel] = useState("");
+  const [modelCatalogId, setModelCatalogId] = useState("");
+  const [serviceClass, setServiceClass] = useState<"convenient" | "comfort">("convenient");
+  const [conditionGrade, setConditionGrade] = useState<"excellent" | "good" | "fair">("good");
+  const [seatCapacity, setSeatCapacity] = useState("");
+  const [features, setFeatures] = useState<string[]>([]);
   const [picked, setPicked] = useState<Picked[]>([]);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
@@ -87,7 +92,7 @@ export default function VehiclesPage() {
     setBusy(true);
     setError("");
     try {
-      const { id } = await api.carAddVehicle({ categoryId, plate, make: make || undefined, model: model || undefined });
+      const { id } = await api.carAddVehicle({ categoryId, plate, make: make || undefined, model: model || undefined, modelCatalogId: modelCatalogId || undefined, serviceClass, conditionGrade, seatCapacity: Number(seatCapacity) || undefined, features });
       const sent = await uploadAll(id, picked);
       if (sent < picked.length) setError(`The vehicle was submitted, but only ${sent} of ${picked.length} photos uploaded. You can add the rest from its card below.`);
       picked.forEach((p) => URL.revokeObjectURL(p.preview));
@@ -95,6 +100,7 @@ export default function VehiclesPage() {
       setPlate("");
       setMake("");
       setModel("");
+      setModelCatalogId(""); setServiceClass("convenient"); setConditionGrade("good"); setSeatCapacity(""); setFeatures([]);
       await refreshMe();
     } catch (err) {
       setError(errorMessage(err));
@@ -222,9 +228,20 @@ export default function VehiclesPage() {
         </Select>
         <input required value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="Number plate" className={field} />
         <div className="grid grid-cols-2 gap-3">
-          <input value={make} onChange={(e) => setMake(e.target.value)} placeholder="Make" className={field} />
-          <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Model" className={field} />
+          <input value={make} onChange={(e) => { setMake(e.target.value); setModelCatalogId(""); }} placeholder="Make" className={field} />
+          <input value={model} onChange={(e) => { setModel(e.target.value); setModelCatalogId(""); }} placeholder="Model" className={field} />
         </div>
+        <Select value={modelCatalogId} onValueChange={(value) => { setModelCatalogId(value); const profile = CAR_MODEL_CATALOG.find((m) => m.id === value); if (profile) { setMake(profile.make); setModel(`${profile.model}${profile.variant ? ` ${profile.variant}` : ""}`); setSeatCapacity(String(profile.seats)); } }} className={field} aria-label="Reference model profile">
+          <option value="">Choose a model profile (optional)</option>
+          {CAR_MODEL_CATALOG.map((m) => <option key={m.id} value={m.id}>{m.make} {m.model}{m.variant ? ` · ${m.variant}` : ""} · {m.seats} seats · {Math.round(m.fuelLitresPerKm * 1000)} L/100 km · reference {m.standardDailyUgx.toLocaleString("en-UG")}/day</option>)}
+        </Select>
+        {modelCatalogId && <p className="text-xs text-ink-500">Reference details help customers compare fuel use and luggage. Actual fuel use varies by year, trim and condition; you set your own hire price below.</p>}
+        <div className="grid grid-cols-2 gap-3">
+          <Select value={serviceClass} onValueChange={(v) => setServiceClass(v as typeof serviceClass)} className={field} aria-label="Vehicle class"><option value="convenient">Convenient · ordinary</option><option value="comfort">Comfort · newer or extra features</option></Select>
+          <Select value={conditionGrade} onValueChange={(v) => setConditionGrade(v as typeof conditionGrade)} className={field} aria-label="Vehicle condition"><option value="excellent">Excellent condition</option><option value="good">Good condition</option><option value="fair">Fair condition</option></Select>
+        </div>
+        <input type="number" min={1} max={50} value={seatCapacity} onChange={(e) => setSeatCapacity(e.target.value)} placeholder="Total passenger seats" className={field} />
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-ink-500">{["Air conditioning", "Bluetooth", "USB charging", "Child seat", "Automatic", "4WD"].map((feature) => <label key={feature} className="flex items-center gap-1.5"><input type="checkbox" checked={features.includes(feature)} onChange={(e) => setFeatures((prev) => e.target.checked ? [...prev, feature] : prev.filter((x) => x !== feature))} />{feature}</label>)}</div>
 
         <div className="space-y-2">
           <p className="text-xs font-semibold text-ink-500">

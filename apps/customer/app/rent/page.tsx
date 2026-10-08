@@ -5,6 +5,9 @@ import { ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
+import { PlaceFlow, type PlaceResult } from "../../components/PlaceFlow";
+import { useRoadRoute } from "../../lib/useRoadRoute";
+import { VehiclePhoto } from "../../components/VehiclePhoto";
 
 const ugx = (n: number | null) => `UGX ${Number(n ?? 0).toLocaleString("en-UG")}`;
 const field = "w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold";
@@ -24,6 +27,11 @@ export default function RentPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [now, setNow] = useState(Date.now());
+  const [route, setRoute] = useState<PlaceResult | null>(null);
+  const [routePicker, setRoutePicker] = useState(false);
+  const [fuelPrice, setFuelPrice] = useState(6900);
+  const roadRoute = useRoadRoute(route?.pickup?.lat, route?.pickup?.lng, route?.destination.lat, route?.destination.lng);
+  const roundTripKm = roadRoute ? roadRoute.route.distanceMeters / 1000 * 2 : null;
   const rentalEnd = () => {
     const start = new Date(startsAt);
     return new Date(start.getTime() + (periodType === "hourly" ? hourCount : periodType === "half_day" ? 6 : 24) * 3_600_000);
@@ -41,6 +49,7 @@ export default function RentPage() {
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
+    if (route?.pickup?.lat == null || route.pickup.lng == null || route.destination.lat == null || route.destination.lng == null) { setError("Set a pickup and destination so we can estimate fuel for the round trip."); return; }
     setBusy("search");
     setError("");
     setNotice("");
@@ -99,6 +108,8 @@ export default function RentPage() {
       {notice && <p className="text-sm font-medium text-green">{notice}</p>}
 
       <form onSubmit={search} className="home-card space-y-3">
+        <button type="button" onClick={() => setRoutePicker(true)} className="min-h-11 w-full rounded-xl border border-[var(--border-faint)] px-3 text-left text-sm font-semibold text-ink">{route ? `${route.pickup?.label ?? "Pickup"} → ${route.destination.label} · Change route` : "Set your route to estimate fuel"}</button>
+        <label className="block space-y-1 text-xs font-semibold text-ink-500">Fuel price per litre (UGX)<input type="number" min={1} value={fuelPrice} onChange={(e) => setFuelPrice(Math.max(1, Number(e.target.value) || 1))} className={field} /></label>
         <div className="space-y-1">
           <label className="text-xs font-semibold text-ink-500">Pickup</label>
           <input required type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className={field} />
@@ -118,12 +129,17 @@ export default function RentPage() {
         </div>
         <button disabled={busy === "search"} className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold disabled:opacity-60">{busy === "search" ? "Searching…" : "Find cars"}</button>
       </form>
+      {routePicker && <PlaceFlow concept="ride" initial={route ?? undefined} onDone={(value) => { setRoute(value); setRoutePicker(false); }} onClose={() => setRoutePicker(false)} />}
 
       {vehicles && vehicles.length === 0 && <p className="text-sm text-ink-500">No cars are free for those dates.</p>}
       {vehicles?.map((v) => (
         <section key={v.id} className="home-card space-y-2">
+          {v.photos?.length ? <div className="grid grid-cols-2 gap-2">{v.photos.slice(0, 4).map((photoId) => <VehiclePhoto key={photoId} vehicleId={v.id} photoId={photoId} />)}</div> : null}
           <p className="text-sm font-bold text-ink">{v.name}</p>
-          <p className="text-xs text-ink-500">{v.category}{v.seats ? ` · ${v.seats} seats` : ""} · Owner: {v.ownerName ?? "Vehicle owner"}{v.notes ? ` · ${v.notes}` : ""}</p>
+          <p className="text-xs text-ink-500">{v.category}{v.seats ? ` · ${v.seats} seats` : ""}{v.luggageLitres ? ` · ${v.luggageLitres} L boot${v.luggageNote ? ` ${v.luggageNote}` : ""}` : ""} · Owner: {v.ownerName ?? "Vehicle owner"}{v.notes ? ` · ${v.notes}` : ""}</p>
+          <p className="text-xs font-semibold text-ink-500">{v.serviceClass === "comfort" ? "Comfort" : "Convenient"} · {v.condition ?? "Condition not specified"}{v.features?.length ? ` · ${v.features.join(", ")}` : ""}</p>
+          {v.standardDailyPrice != null && <p className="text-xs text-ink-500">Model reference rate {ugx(v.standardDailyPrice)}/day · owner listing {ugx(v.dailyPrice)}/day</p>}
+          {roundTripKm != null && v.fuelLitresPerKm != null && <p className="rounded-xl bg-[rgb(var(--surface-muted))] px-3 py-2 text-xs text-ink-500">Estimated round trip {roundTripKm.toFixed(1)} km · about {(roundTripKm * v.fuelLitresPerKm).toFixed(1)} L fuel · {ugx(Math.ceil(roundTripKm * v.fuelLitresPerKm * fuelPrice))} at your entered fuel price. Assumes the same road route back; actual use varies by traffic, vehicle condition and driving style.</p>}
           <div className="grid grid-cols-3 gap-2 text-xs text-ink-500"><span className={v.hourlyEnabled === false ? "opacity-40" : ""}>Hourly<br/><strong className="text-ink">{ugx(v.hourlyPrice ?? Math.round(v.dailyPrice * 1.2 / 24))}/hr</strong></span><span className={v.halfDayEnabled === false ? "opacity-40" : ""}>6 hours<br/><strong className="text-ink">{ugx(v.halfDayPrice ?? Math.round(v.dailyPrice * 0.6))}</strong></span><span className={v.fullDayEnabled === false ? "opacity-40" : ""}>24 hours<br/><strong className="text-ink">{ugx(v.dailyPrice)}</strong></span></div>
           <p className="text-sm text-ink">Selected {periodType.replace("_", " ")} = <strong>{ugx(rentalQuote(v, periodType, hourCount))}</strong></p>
           <p className="text-xs text-ink-500">Plus a refundable deposit of {ugx(v.deposit)}. Both are taken from your wallet and held; the deposit comes back when the car is returned undamaged.</p>

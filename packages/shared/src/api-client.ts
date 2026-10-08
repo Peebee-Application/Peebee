@@ -1619,7 +1619,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async carReleaseVehicle(vehicleId: string) {
       return request<{ ok: true }>(`/v1/car/vehicles/${vehicleId}/release`, { method: "POST" });
     },
-    async carAddVehicle(input: { categoryId: string; plate: string; make?: string; model?: string; year?: number; colour?: string }) {
+    async carAddVehicle(input: { categoryId: string; plate: string; make?: string; model?: string; year?: number; colour?: string; modelCatalogId?: string; serviceClass?: "convenient" | "comfort"; conditionGrade?: "excellent" | "good" | "fair"; seatCapacity?: number; features?: string[] }) {
       return request<{ id: string }>("/v1/car/vehicles", { method: "POST", body: JSON.stringify(input) });
     },
     async carOwnerRides() {
