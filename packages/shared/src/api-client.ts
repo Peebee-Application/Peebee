@@ -27,6 +27,9 @@ import type {
   DriverDeals,
   OwnerDeals,
   AdminRental,
+  AdminSelfDriveRenterKyc,
+  SelfDriveRenterKycProfile,
+  SelfDriveResidenceMethod,
   OwnerRentalVehicle,
   Rental,
   RentalVehicle,
@@ -1619,7 +1622,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async carReleaseVehicle(vehicleId: string) {
       return request<{ ok: true }>(`/v1/car/vehicles/${vehicleId}/release`, { method: "POST" });
     },
-    async carAddVehicle(input: { categoryId: string; plate: string; make?: string; model?: string; year?: number; colour?: string; modelCatalogId?: string; serviceClass?: "convenient" | "comfort"; conditionGrade?: "excellent" | "good" | "fair"; seatCapacity?: number; features?: string[] }) {
+    async carAddVehicle(input: { categoryId: string; plate: string; make?: string; model?: string; year?: number; colour?: string; modelCatalogId?: string; serviceClass?: "convenient" | "comfort"; conditionGrade?: "excellent" | "good" | "fair"; seatCapacity?: number; lastServiceDate: string; features?: string[] }) {
       return request<{ id: string }>("/v1/car/vehicles", { method: "POST", body: JSON.stringify(input) });
     },
     async carOwnerRides() {
@@ -1687,11 +1690,36 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async returnRental(id: string, damageClaim?: number) {
       return request<{ ok: true; status: string }>(`/v1/car/rentals/${id}/return`, { method: "POST", body: JSON.stringify({ damageClaim }) });
     },
+    async selfDriveRenterProfile() {
+      return request<SelfDriveRenterKycProfile>("/v1/car/rentals/renter-profile");
+    },
+    async submitSelfDriveRenterProfile(input: { nin: string; residentialAddress: string; residenceMethod: SelfDriveResidenceMethod; nationalId: Blob; rentReceipt?: Blob; landlordLetter?: Blob; residenceBill?: Blob; tenancyStart?: string; tenancyEnd?: string }) {
+      const form = new FormData();
+      form.append("nin", input.nin); form.append("residentialAddress", input.residentialAddress); form.append("residenceMethod", input.residenceMethod); form.append("nationalId", input.nationalId, "national-id-document");
+      if (input.rentReceipt) form.append("rentReceipt", input.rentReceipt, "rent-receipt");
+      if (input.landlordLetter) form.append("landlordLetter", input.landlordLetter, "landlord-letter");
+      if (input.residenceBill) form.append("residenceBill", input.residenceBill, "residence-bill");
+      if (input.tenancyStart) form.append("tenancyStart", input.tenancyStart);
+      if (input.tenancyEnd) form.append("tenancyEnd", input.tenancyEnd);
+      const res = await f(`${root}/v1/car/rentals/renter-profile`, { method: "POST", headers: authHeaders(), body: form });
+      return json<{ ok: true; status: "pending" | "approved" }>(res);
+    },
     async finishDemoRental(id: string) {
       return request<{ ok: true; status: string }>(`/v1/car/rentals/${id}/demo-return`, { method: "POST" });
     },
     async adminCarRentals() {
       return request<{ rentals: AdminRental[] }>("/v1/admin/car/rentals");
+    },
+    async adminSelfDriveRenterKyc() {
+      return request<{ applicants: AdminSelfDriveRenterKyc[] }>("/v1/admin/car/renters/kyc");
+    },
+    async adminSelfDriveRenterDocument(userId: string, kind: "national_id" | "rent_receipt" | "landlord_letter" | "residence_bill"): Promise<Blob> {
+      const res = await f(`${root}/v1/admin/car/renters/${userId}/kyc/${kind}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error(`API ${res.status}: failed to load verification document`);
+      return res.blob();
+    },
+    async adminReviewSelfDriveRenter(userId: string, status: "approved" | "rejected", notes?: string) {
+      return request<{ ok: true }>(`/v1/admin/car/renters/${userId}/kyc/review`, { method: "POST", body: JSON.stringify({ status, notes }) });
     },
     async adminResolveRental(id: string, damageAmount: number) {
       return request<{ ok: true }>(`/v1/admin/car/rentals/${id}/resolve`, { method: "POST", body: JSON.stringify({ damageAmount }) });

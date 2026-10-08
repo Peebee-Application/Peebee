@@ -1,6 +1,6 @@
 "use client";
 
-import type { Rental, RentalVehicle } from "@peebee/shared";
+import type { Rental, RentalVehicle, SelfDriveResidenceMethod, SelfDriveRenterKycProfile } from "@peebee/shared";
 import { ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -30,6 +30,19 @@ export default function RentPage() {
   const [route, setRoute] = useState<PlaceResult | null>(null);
   const [routePicker, setRoutePicker] = useState(false);
   const [fuelPrice, setFuelPrice] = useState(6900);
+  const [renterProfile, setRenterProfile] = useState<SelfDriveRenterKycProfile | null>(null);
+  const [kycOpen, setKycOpen] = useState(false);
+  const [pendingVehicle, setPendingVehicle] = useState<RentalVehicle | null>(null);
+  const [nin, setNin] = useState("");
+  const [residentialAddress, setResidentialAddress] = useState("");
+  const [residenceMethod, setResidenceMethod] = useState<SelfDriveResidenceMethod>("rent_and_landlord_letter");
+  const [nationalIdFile, setNationalIdFile] = useState<File | null>(null);
+  const [rentReceiptFile, setRentReceiptFile] = useState<File | null>(null);
+  const [landlordLetterFile, setLandlordLetterFile] = useState<File | null>(null);
+  const [residenceBillFile, setResidenceBillFile] = useState<File | null>(null);
+  const [tenancyStart, setTenancyStart] = useState("");
+  const [tenancyEnd, setTenancyEnd] = useState("");
+  const [kycBusy, setKycBusy] = useState(false);
   const roadRoute = useRoadRoute(route?.pickup?.lat, route?.pickup?.lng, route?.destination.lat, route?.destination.lng);
   const roundTripKm = roadRoute ? roadRoute.route.distanceMeters / 1000 * 2 : null;
   const rentalEnd = () => {
@@ -46,6 +59,7 @@ export default function RentPage() {
     const clock = window.setInterval(() => setNow(Date.now()), 30000);
     return () => { window.clearInterval(timer); window.clearInterval(clock); };
   }, [loadMine]);
+  useEffect(() => { api.selfDriveRenterProfile().then(setRenterProfile).catch(() => setRenterProfile(null)); }, []);
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
@@ -64,7 +78,7 @@ export default function RentPage() {
     }
   }
 
-  async function request(v: RentalVehicle) {
+  async function placeRental(v: RentalVehicle) {
     setBusy(v.id);
     setError("");
     try {
@@ -78,6 +92,47 @@ export default function RentPage() {
     } finally {
       setBusy(null);
     }
+  }
+
+  async function request(v: RentalVehicle) {
+    setError("");
+    let profile = renterProfile;
+    if (!profile) {
+      try { profile = await api.selfDriveRenterProfile(); setRenterProfile(profile); }
+      catch (err) { setError(errorMessage(err)); return; }
+    }
+    if (profile.status !== "approved") {
+      setPendingVehicle(v);
+      setKycOpen(true);
+      setNotice("Complete renter identity and residence verification before placing this order.");
+      return;
+    }
+    await placeRental(v);
+  }
+
+  async function submitRenterProfile(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nationalIdFile || (residenceMethod === "rent_and_landlord_letter" && (!rentReceiptFile || !landlordLetterFile)) || (residenceMethod === "bill" && !residenceBillFile)) {
+      setError("Add your National ID scan and the selected proof of residence documents."); return;
+    }
+    setKycBusy(true); setError("");
+    try {
+      const result = await api.submitSelfDriveRenterProfile({ nin, residentialAddress, residenceMethod, nationalId: nationalIdFile, rentReceipt: rentReceiptFile ?? undefined, landlordLetter: landlordLetterFile ?? undefined, residenceBill: residenceBillFile ?? undefined, tenancyStart: tenancyStart || undefined, tenancyEnd: tenancyEnd || undefined });
+      const updated = await api.selfDriveRenterProfile();
+      setRenterProfile(updated);
+      setKycOpen(false);
+      setNotice(result.status === "approved" ? "Practice verification is simulated. Your demo rental can continue." : "Your verification documents were submitted privately for review. You can place the rental order after approval.");
+      if (updated.status === "approved" && pendingVehicle) { const chosen = pendingVehicle; setPendingVehicle(null); await placeRental(chosen); }
+    } catch (err) { setError(errorMessage(err)); }
+    finally { setKycBusy(false); }
+  }
+
+  async function refreshRenterProfile() {
+    try {
+      const updated = await api.selfDriveRenterProfile();
+      setRenterProfile(updated);
+      if (updated.status === "approved" && pendingVehicle) { const chosen = pendingVehicle; setPendingVehicle(null); setKycOpen(false); setNotice("Your profile is approved. Continuing with your selected car."); await placeRental(chosen); }
+    } catch (err) { setError(errorMessage(err)); }
   }
 
   async function cancel(id: string) {
@@ -106,6 +161,43 @@ export default function RentPage() {
       </div>
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {notice && <p className="text-sm font-medium text-green">{notice}</p>}
+      {renterProfile?.isSimulated && <p className="rounded-lg bg-gold/10 px-3 py-2 text-xs text-ink-500">Sandbox/Practice: renter verification is simulated. Do not upload real identity documents here.</p>}
+
+      {renterProfile?.status !== "approved" && (
+        <section className="home-card space-y-2">
+          <h2 className="text-sm font-bold text-ink">Renter identity and residence verification</h2>
+          <p className="text-xs text-ink-500">Self-drive orders require your 14-character NIN, a National ID scan, and proof that you currently live at your stated residence. Only authorised Peebee reviewers can view these documents; car owners cannot.</p>
+          {renterProfile?.status === "pending" && <p className="text-xs font-semibold text-ink">Your documents are awaiting review. {renterProfile.ninMasked ?? "NIN received"}.</p>}
+          {renterProfile?.status === "rejected" && <p className="text-xs font-semibold text-ink">Please correct and resubmit: {renterProfile.reviewNotes ?? "The documents need an update."}</p>}
+          {renterProfile?.status === "pending" && <button type="button" onClick={refreshRenterProfile} className="min-h-9 rounded-full bg-gold/15 px-3 text-xs font-bold text-ink">Check review status</button>}
+          {renterProfile?.status !== "pending" && <button type="button" onClick={() => setKycOpen((value) => !value)} className="min-h-9 rounded-full bg-gold px-3 text-xs font-bold text-ink-gold">{kycOpen ? "Close verification form" : renterProfile?.status === "rejected" ? "Update verification profile" : "Complete verification profile"}</button>}
+        </section>
+      )}
+      {kycOpen && renterProfile?.status !== "approved" && (
+        <form onSubmit={submitRenterProfile} className="home-card space-y-3">
+          <h2 className="text-sm font-bold text-ink">1 · Confirm your identity</h2>
+          <label className="block space-y-1 text-xs font-semibold text-ink-500">National Identification Number (NIN)<input required value={nin} onChange={(e) => setNin(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 14))} maxLength={14} minLength={14} autoComplete="off" placeholder="14-character NIN" className={field} /></label>
+          <label className="block space-y-1 text-xs font-semibold text-ink-500">Current residential address<input required minLength={5} maxLength={250} value={residentialAddress} onChange={(e) => setResidentialAddress(e.target.value)} placeholder="Area, street or village, house number or landmark" className={field} /></label>
+          <label className="block space-y-1 text-xs font-semibold text-ink-500">Scanned National ID (photo or PDF)<input required type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setNationalIdFile(e.target.files?.[0] ?? null)} className={field} /></label>
+          <h2 className="pt-1 text-sm font-bold text-ink">2 · Prove your current residence</h2>
+          <label className="block space-y-1 text-xs font-semibold text-ink-500">Choose one proof option<select value={residenceMethod} onChange={(e) => setResidenceMethod(e.target.value as SelfDriveResidenceMethod)} className={field}><option value="rent_and_landlord_letter">Recent rent receipt + landlord/landlady letter</option><option value="bill">Utility or service bill in my name</option></select></label>
+          {residenceMethod === "rent_and_landlord_letter" ? (
+            <>
+              <p className="text-xs text-ink-500">The letter should confirm that you are a tenant and state the tenancy agreement period. Upload both items.</p>
+              <label className="block space-y-1 text-xs font-semibold text-ink-500">Recent rent payment receipt<input required type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setRentReceiptFile(e.target.files?.[0] ?? null)} className={field} /></label>
+              <label className="block space-y-1 text-xs font-semibold text-ink-500">Landlord/landlady tenancy letter<input required type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setLandlordLetterFile(e.target.files?.[0] ?? null)} className={field} /></label>
+              <div className="grid grid-cols-2 gap-3"><label className="space-y-1 text-xs font-semibold text-ink-500">Agreement starts<input required type="date" value={tenancyStart} onChange={(e) => setTenancyStart(e.target.value)} className={field} /></label><label className="space-y-1 text-xs font-semibold text-ink-500">Agreement ends<input required type="date" value={tenancyEnd} onChange={(e) => setTenancyEnd(e.target.value)} className={field} /></label></div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-ink-500">Use a recent electricity, water, internet or other service bill that shows your name and current address.</p>
+              <label className="block space-y-1 text-xs font-semibold text-ink-500">Bill in your name<input required type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setResidenceBillFile(e.target.files?.[0] ?? null)} className={field} /></label>
+            </>
+          )}
+          <p className="text-xs text-ink-500">Accepted: JPG, PNG, WebP or PDF, up to 8 MB each. Documents are sent privately for manual review and are not shown to vehicle owners.</p>
+          <button disabled={kycBusy} className="min-h-11 w-full rounded-full bg-gold px-3 text-sm font-bold text-ink-gold disabled:opacity-60">{kycBusy ? "Submitting…" : "Submit for verification"}</button>
+        </form>
+      )}
 
       <form onSubmit={search} className="home-card space-y-3">
         <button type="button" onClick={() => setRoutePicker(true)} className="min-h-11 w-full rounded-xl border border-[var(--border-faint)] px-3 text-left text-sm font-semibold text-ink">{route ? `${route.pickup?.label ?? "Pickup"} → ${route.destination.label} · Change route` : "Set your route to estimate fuel"}</button>
@@ -138,6 +230,7 @@ export default function RentPage() {
           <p className="text-sm font-bold text-ink">{v.name}</p>
           <p className="text-xs text-ink-500">{v.category}{v.seats ? ` · ${v.seats} seats` : ""}{v.luggageLitres ? ` · ${v.luggageLitres} L boot${v.luggageNote ? ` ${v.luggageNote}` : ""}` : ""} · Owner: {v.ownerName ?? "Vehicle owner"}{v.notes ? ` · ${v.notes}` : ""}</p>
           <p className="text-xs font-semibold text-ink-500">{v.serviceClass === "comfort" ? "Comfort" : "Convenient"} · {v.condition ?? "Condition not specified"}{v.features?.length ? ` · ${v.features.join(", ")}` : ""}</p>
+          {v.lastServiceDate && <p className="text-xs text-ink-500">Last serviced {new Date(`${v.lastServiceDate}T00:00:00`).toLocaleDateString("en-UG", { dateStyle: "medium" })}</p>}
           {v.standardDailyPrice != null && <p className="text-xs text-ink-500">Model reference rate {ugx(v.standardDailyPrice)}/day · owner listing {ugx(v.dailyPrice)}/day</p>}
           {roundTripKm != null && v.fuelLitresPerKm != null && <p className="rounded-xl bg-[rgb(var(--surface-muted))] px-3 py-2 text-xs text-ink-500">Estimated round trip {roundTripKm.toFixed(1)} km · about {(roundTripKm * v.fuelLitresPerKm).toFixed(1)} L fuel · {ugx(Math.ceil(roundTripKm * v.fuelLitresPerKm * fuelPrice))} at your entered fuel price. Assumes the same road route back; actual use varies by traffic, vehicle condition and driving style.</p>}
           <div className="grid grid-cols-3 gap-2 text-xs text-ink-500"><span className={v.hourlyEnabled === false ? "opacity-40" : ""}>Hourly<br/><strong className="text-ink">{ugx(v.hourlyPrice ?? Math.round(v.dailyPrice * 1.2 / 24))}/hr</strong></span><span className={v.halfDayEnabled === false ? "opacity-40" : ""}>6 hours<br/><strong className="text-ink">{ugx(v.halfDayPrice ?? Math.round(v.dailyPrice * 0.6))}</strong></span><span className={v.fullDayEnabled === false ? "opacity-40" : ""}>24 hours<br/><strong className="text-ink">{ugx(v.dailyPrice)}</strong></span></div>

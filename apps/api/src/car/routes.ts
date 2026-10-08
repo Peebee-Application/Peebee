@@ -127,6 +127,7 @@ const vehicleSchema = z.object({
   serviceClass: z.enum(["convenient", "comfort"]).default("convenient"),
   conditionGrade: z.enum(["excellent", "good", "fair"]).default("good"),
   seatCapacity: z.number().int().min(1).max(50).optional(),
+  lastServiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   features: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
 });
 
@@ -135,6 +136,7 @@ carRoutes.post("/car/vehicles", async (c) => {
   const user = c.get("user");
   const parsed = vehicleSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  if (parsed.data.lastServiceDate && parsed.data.lastServiceDate > new Date().toISOString().slice(0, 10)) return c.json({ error: "invalid_service_date", message: "Last service date cannot be in the future." }, 400);
   // Owners can add vehicles; so can drivers (their own car). A driver who isn't an owner yet
   // becomes one, pending, so the car and the owner profile are vetted on their own.
   const partner = (await db.execute({ sql: "SELECT owner_status, driver_status FROM car_partners WHERE user_id = ?", args: [user.sub] })).rows[0] as Row | undefined;
@@ -150,14 +152,14 @@ carRoutes.post("/car/vehicles", async (c) => {
   const model = parsed.data.modelCatalogId ? CAR_MODEL_CATALOG.find((m) => m.id === parsed.data.modelCatalogId) : undefined;
   if (parsed.data.modelCatalogId && !model) return c.json({ error: "invalid_model" }, 400);
   try {
-    const profileColumns = ["model_catalog_id", "service_class", "condition_grade", "seat_capacity", "features_json"];
+    const profileColumns = ["model_catalog_id", "service_class", "condition_grade", "seat_capacity", "features_json", "last_service_date"];
     const profileReady = (await Promise.all(profileColumns.map((column) => hasColumn("vehicles", column)))).every(Boolean);
     const make = model?.make ?? parsed.data.make ?? null;
     const modelName = model ? `${model.model}${model.variant ? ` ${model.variant}` : ""}` : parsed.data.model ?? null;
     if (profileReady) {
       await db.execute({
-        sql: "INSERT INTO vehicles (id, owner_id, category_id, plate, make, model, year, colour, model_catalog_id, service_class, condition_grade, seat_capacity, features_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        args: [id, user.sub, parsed.data.categoryId, parsed.data.plate, make, modelName, parsed.data.year ?? null, parsed.data.colour ?? null, model?.id ?? null, parsed.data.serviceClass, parsed.data.conditionGrade, parsed.data.seatCapacity ?? model?.seats ?? null, JSON.stringify(parsed.data.features)],
+        sql: "INSERT INTO vehicles (id, owner_id, category_id, plate, make, model, year, colour, model_catalog_id, service_class, condition_grade, seat_capacity, features_json, last_service_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        args: [id, user.sub, parsed.data.categoryId, parsed.data.plate, make, modelName, parsed.data.year ?? null, parsed.data.colour ?? null, model?.id ?? null, parsed.data.serviceClass, parsed.data.conditionGrade, parsed.data.seatCapacity ?? model?.seats ?? null, JSON.stringify(parsed.data.features), parsed.data.lastServiceDate ?? null],
       });
     } else {
       await db.execute({ sql: "INSERT INTO vehicles (id, owner_id, category_id, plate, make, model, year, colour) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", args: [id, user.sub, parsed.data.categoryId, parsed.data.plate, make, modelName, parsed.data.year ?? null, parsed.data.colour ?? null] });

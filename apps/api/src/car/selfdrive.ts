@@ -1,13 +1,15 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { CAR_MODEL_CATALOG } from "@peebee/shared";
-import { requireAuth } from "../auth/middleware.js";
+import { requireAuth, requireRole } from "../auth/middleware.js";
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
 import { getCarSettings, getPlatformEnvironment } from "../lib/settings.js";
 import { notifyUser } from "../lib/webpush.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
+import { baseMimeType, extensionForMime } from "../lib/mime.js";
+import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
 
 type Row = Record<string, unknown>;
 type Env = "live" | "sandbox";
@@ -119,8 +121,9 @@ selfDriveRoutes.put("/car/rentals/listings/:vehicleId", async (c) => {
 selfDriveRoutes.get("/car/rentals/my-vehicles", async (c) => {
   const user = c.get("user");
   const hasProfiles = await hasColumn("vehicles", "model_catalog_id") && await hasColumn("vehicles", "service_class") && await hasColumn("vehicles", "condition_grade") && await hasColumn("vehicles", "seat_capacity") && await hasColumn("vehicles", "features_json");
+  const hasServiceDate = await hasColumn("vehicles", "last_service_date");
   const vehicles = await db.execute({
-    sql: `SELECT v.id, v.plate, v.make, v.model, v.status, l.daily_price, l.deposit_amount, l.active, l.notes${hasProfiles ? ", v.model_catalog_id, v.service_class, v.condition_grade, v.seat_capacity" : ""}${await hasColumn("rental_listings", "hourly_enabled") ? ", l.hourly_enabled, l.half_day_enabled, l.full_day_enabled" : ""}
+    sql: `SELECT v.id, v.plate, v.make, v.model, v.status, l.daily_price, l.deposit_amount, l.active, l.notes${hasProfiles ? ", v.model_catalog_id, v.service_class, v.condition_grade, v.seat_capacity" : ""}${hasServiceDate ? ", v.last_service_date" : ""}${await hasColumn("rental_listings", "hourly_enabled") ? ", l.hourly_enabled, l.half_day_enabled, l.full_day_enabled" : ""}
           FROM vehicles v LEFT JOIN rental_listings l ON l.vehicle_id = v.id${await hasColumn("rental_listings", "environment") ? " AND l.environment = ?" : ""} WHERE v.owner_id = ? AND v.status = 'approved' ORDER BY v.created_at DESC`,
     args: [...(await hasColumn("rental_listings", "environment") ? [await getPlatformEnvironment()] : []), user.sub],
   });
@@ -130,6 +133,72 @@ selfDriveRoutes.get("/car/rentals/my-vehicles", async (c) => {
     args: [user.sub, await getPlatformEnvironment()],
   });
   return c.json({ vehicles: (vehicles.rows as Row[]).map((v) => ({ ...v, ...(hasProfiles ? { standard_daily_price: CAR_MODEL_CATALOG.find((m) => m.id === v.model_catalog_id)?.standardDailyUgx ?? null } : {}) })), rentals: rentals.rows.map(publicRental) });
+});
+
+const RENTER_KYC_MIME = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+const RENTER_KYC_MAX_BYTES = 8 * 1024 * 1024;
+
+selfDriveRoutes.get("/car/rentals/renter-profile", requireRole("customer"), async (c) => {
+  if (await getPlatformEnvironment() === "sandbox") return c.json({ status: "approved", isSimulated: true, ninMasked: "••••••••••0000", residentialAddress: "Practice address · Entebbe", residenceMethod: "bill", hasNationalId: true, hasRentReceipt: false, hasLandlordLetter: false, hasResidenceBill: true, tenancyStart: null, tenancyEnd: null, reviewNotes: null });
+  if (!(await hasTable("selfdrive_renter_kyc"))) return c.json({ error: "verification_unavailable", message: "Renter verification is being set up. Please try again later." }, 503);
+  const user = c.get("user");
+  const row = (await db.execute({ sql: "SELECT nin, residential_address, residence_method, rent_receipt_key, landlord_letter_key, residence_bill_key, tenancy_start, tenancy_end, status, review_notes FROM selfdrive_renter_kyc WHERE user_id = ?", args: [user.sub] })).rows[0] as Row | undefined;
+  const nin = String(row?.nin ?? "");
+  return c.json({ status: row?.status ?? "incomplete", isSimulated: false, ninMasked: nin ? `••••••••••${nin.slice(-4)}` : null, residentialAddress: row?.residential_address ?? null, residenceMethod: row?.residence_method ?? null, hasNationalId: Boolean(row?.nin), hasRentReceipt: Boolean(row?.rent_receipt_key), hasLandlordLetter: Boolean(row?.landlord_letter_key), hasResidenceBill: Boolean(row?.residence_bill_key), tenancyStart: row?.tenancy_start ?? null, tenancyEnd: row?.tenancy_end ?? null, reviewNotes: row?.status === "rejected" ? row?.review_notes ?? null : null });
+});
+
+/** National ID and residence proofs are private: only the customer and authorised Car admins can retrieve them. */
+selfDriveRoutes.post("/car/rentals/renter-profile", requireRole("customer"), async (c) => {
+  if (await getPlatformEnvironment() === "sandbox") return c.json({ ok: true, status: "approved" }, 201);
+  if (!(await hasTable("selfdrive_renter_kyc"))) return c.json({ error: "verification_unavailable", message: "Renter verification is being set up. Please try again later." }, 503);
+  const user = c.get("user");
+  const form = await c.req.formData().catch(() => null);
+  if (!form) return c.json({ error: "invalid_body", message: "Complete the identity and residence form." }, 400);
+  const nin = String(form.get("nin") ?? "").trim().toUpperCase();
+  const residentialAddress = String(form.get("residentialAddress") ?? "").trim();
+  const method = form.get("residenceMethod");
+  if (!/^[A-Z0-9]{14}$/.test(nin)) return c.json({ error: "invalid_nin", message: "Enter the 14-character NIN shown on your National ID." }, 400);
+  if (residentialAddress.length < 5 || residentialAddress.length > 250) return c.json({ error: "invalid_residential_address", message: "Enter your current area, street or village, and house or landmark details." }, 400);
+  if (method !== "rent_and_landlord_letter" && method !== "bill") return c.json({ error: "invalid_residence_method" }, 400);
+  const files: Array<{ field: string; file: FormDataEntryValue | null }> = [{ field: "national_id", file: form.get("nationalId") }];
+  let tenancyStart: string | null = null;
+  let tenancyEnd: string | null = null;
+  if (method === "rent_and_landlord_letter") {
+    tenancyStart = String(form.get("tenancyStart") ?? "");
+    tenancyEnd = String(form.get("tenancyEnd") ?? "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(tenancyStart) || !/^\d{4}-\d{2}-\d{2}$/.test(tenancyEnd) || tenancyStart > tenancyEnd || tenancyEnd < new Date().toISOString().slice(0, 10)) return c.json({ error: "invalid_tenancy_dates", message: "Enter the start and current end date of your tenancy agreement." }, 400);
+    files.push({ field: "rent_receipt", file: form.get("rentReceipt") }, { field: "landlord_letter", file: form.get("landlordLetter") });
+  } else files.push({ field: "residence_bill", file: form.get("residenceBill") });
+  for (const item of files) {
+    if (!(item.file instanceof File)) return c.json({ error: "missing_document", message: `Upload the ${item.field.replaceAll("_", " ")} document.` }, 400);
+    if (!RENTER_KYC_MIME.has(baseMimeType(item.file.type))) return c.json({ error: "unsupported_file_type", message: "Documents must be JPG, PNG, WebP or PDF." }, 400);
+    if (item.file.size > RENTER_KYC_MAX_BYTES) return c.json({ error: "file_too_large", message: "Each document must be 8 MB or smaller." }, 400);
+  }
+  const bucket = getR2Bucket();
+  const keys: Record<string, string> = {};
+  const uploaded: string[] = [];
+  try {
+    for (const item of files) {
+      const file = item.file as File;
+      const key = `selfdrive-renter-kyc/${user.sub}/${newId("doc")}.${extensionForMime(file.type, "bin")}`;
+      await bucket.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+      keys[item.field] = key;
+      uploaded.push(key);
+    }
+    const previous = (await db.execute({ sql: "SELECT national_id_key, rent_receipt_key, landlord_letter_key, residence_bill_key FROM selfdrive_renter_kyc WHERE user_id = ?", args: [user.sub] })).rows[0] as Row | undefined;
+    await db.execute({
+      sql: `INSERT INTO selfdrive_renter_kyc (user_id, nin, residential_address, national_id_key, residence_method, rent_receipt_key, landlord_letter_key, residence_bill_key, tenancy_start, tenancy_end, status, review_notes, reviewed_by, reviewed_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NULL, NULL, NULL, datetime('now'))
+            ON CONFLICT(user_id) DO UPDATE SET nin = excluded.nin, residential_address = excluded.residential_address, national_id_key = excluded.national_id_key, residence_method = excluded.residence_method, rent_receipt_key = excluded.rent_receipt_key, landlord_letter_key = excluded.landlord_letter_key, residence_bill_key = excluded.residence_bill_key, tenancy_start = excluded.tenancy_start, tenancy_end = excluded.tenancy_end, status = 'pending', review_notes = NULL, reviewed_by = NULL, reviewed_at = NULL, updated_at = datetime('now')`,
+      args: [user.sub, nin, residentialAddress, keys.national_id, method, keys.rent_receipt ?? null, keys.landlord_letter ?? null, keys.residence_bill ?? null, tenancyStart, tenancyEnd],
+    });
+    for (const key of [previous?.national_id_key, previous?.rent_receipt_key, previous?.landlord_letter_key, previous?.residence_bill_key]) if (key) await bucket.delete(String(key)).catch(() => undefined);
+  } catch (err) {
+    await Promise.all(uploaded.map((key) => bucket.delete(key).catch(() => undefined)));
+    console.error("Self-drive renter verification upload failed:", err);
+    return c.json({ error: "upload_failed", message: "We couldn't save your verification documents. Please retry." }, 502);
+  }
+  return c.json({ ok: true, status: "pending" }, 201);
 });
 
 function publicRental(r: Row) {
@@ -211,8 +280,9 @@ selfDriveRoutes.get("/car/rentals/listings", async (c) => {
   const hasPeriods = await hasColumn("rental_listings", "hourly_enabled");
   const hasEnvironment = await hasColumn("rental_listings", "environment");
   const hasProfiles = await hasColumn("vehicles", "model_catalog_id") && await hasColumn("vehicles", "service_class") && await hasColumn("vehicles", "condition_grade") && await hasColumn("vehicles", "seat_capacity") && await hasColumn("vehicles", "features_json");
+  const hasServiceDate = await hasColumn("vehicles", "last_service_date");
   const rows = (await db.execute({
-    sql: `SELECT v.id, v.plate, v.make, v.model, v.colour, v.year, cat.name AS category_name, cat.seats, l.daily_price, l.deposit_amount, l.notes, u.name AS owner_name${hasPeriods ? ", l.hourly_enabled, l.half_day_enabled, l.full_day_enabled" : ""}${hasProfiles ? ", v.model_catalog_id, v.service_class, v.condition_grade, v.seat_capacity, v.features_json" : ""}
+    sql: `SELECT v.id, v.plate, v.make, v.model, v.colour, v.year, cat.name AS category_name, cat.seats, l.daily_price, l.deposit_amount, l.notes, u.name AS owner_name${hasPeriods ? ", l.hourly_enabled, l.half_day_enabled, l.full_day_enabled" : ""}${hasProfiles ? ", v.model_catalog_id, v.service_class, v.condition_grade, v.seat_capacity, v.features_json" : ""}${hasServiceDate ? ", v.last_service_date" : ""}
           FROM rental_listings l JOIN vehicles v ON v.id = l.vehicle_id AND v.status = 'approved' JOIN vehicle_categories cat ON cat.id = v.category_id
           JOIN users u ON u.id = v.owner_id
           WHERE l.active = 1 ${hasEnvironment ? "AND l.environment = ?" : ""} AND v.owner_id != ? ${q.data.categoryId ? "AND v.category_id = ?" : ""}
@@ -231,6 +301,7 @@ selfDriveRoutes.get("/car/rentals/listings", async (c) => {
       id: v.id, name: [v.colour, v.make, v.model, v.year].filter(Boolean).join(" ") || String(v.category_name), category: v.category_name, seats: hasProfiles ? Number(v.seat_capacity) || v.seats : v.seats,
       ownerName: String(v.owner_name ?? "Vehicle owner"), dailyPrice: Number(v.daily_price), hourlyPrice: rentalHourlyPrice(Number(v.daily_price)), halfDayPrice: Math.round(Number(v.daily_price) * 0.6), deposit: Number(v.deposit_amount), rent: Number(v.daily_price) * days, notes: v.notes,
       ...(hasProfiles ? (() => { const model = CAR_MODEL_CATALOG.find((m) => m.id === v.model_catalog_id); let features: string[] = []; try { features = JSON.parse(String(v.features_json ?? "[]")); } catch { /* ignore malformed owner data */ } return { serviceClass: v.service_class, condition: v.condition_grade, modelCatalogId: v.model_catalog_id, fuelLitresPerKm: model?.fuelLitresPerKm ?? null, luggageLitres: model?.luggageLitres ?? null, luggageNote: model?.luggageNote ?? null, standardDailyPrice: model?.standardDailyUgx ?? null, features }; })() : {}),
+      ...(hasServiceDate ? { lastServiceDate: v.last_service_date } : {}),
       photos: photoMap[String(v.id)] ?? [],
       hourlyEnabled: !hasPeriods || Number(v.hourly_enabled) === 1, halfDayEnabled: !hasPeriods || Number(v.half_day_enabled) === 1, fullDayEnabled: !hasPeriods || Number(v.full_day_enabled) === 1,
     })),
@@ -246,7 +317,7 @@ const requestSchema = z.object({
   periodType: z.enum(["hourly", "half_day", "full_day"]).default("full_day"),
 });
 
-selfDriveRoutes.post("/car/rentals", async (c) => {
+selfDriveRoutes.post("/car/rentals", requireRole("customer"), async (c) => {
   const user = c.get("user");
   const parsed = requestSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
@@ -261,6 +332,13 @@ selfDriveRoutes.post("/car/rentals", async (c) => {
   if ((period === "hourly" && (durationHours < 1 || durationHours > 24.1)) || (period === "half_day" && Math.abs(durationHours - 6) > 0.1) || (period === "full_day" && Math.abs(durationHours - 24) > 0.1)) return c.json({ error: "invalid_period", message: "Hourly bookings are 1–24 hours; half-day is 6 hours and full-day is 24 hours." }, 400);
   const days = rentalDays(start, end);
   if (days > selfDrive.maxDays) return c.json({ error: "too_long", message: `You can rent for up to ${selfDrive.maxDays} days.` }, 400);
+  const environment = await getPlatformEnvironment();
+  const isSandboxDemo = environment === "sandbox" && d.vehicleId.startsWith("demo-rent-");
+  if (!isSandboxDemo) {
+    if (!(await hasTable("selfdrive_renter_kyc"))) return c.json({ error: "verification_unavailable", message: "Renter verification is being set up. Please try again later." }, 503);
+    const renterProfile = (await db.execute({ sql: "SELECT status FROM selfdrive_renter_kyc WHERE user_id = ?", args: [user.sub] })).rows[0] as Row | undefined;
+    if (renterProfile?.status !== "approved") return c.json({ error: "verification_required", message: renterProfile?.status === "pending" ? "Your renter identity and residence documents are under review. You can book after approval." : renterProfile?.status === "rejected" ? "Update your renter identity and residence documents before booking." : "Complete your renter identity and residence profile before booking." }, 409);
+  }
   // The licence must cover the whole rental.
   if (new Date(`${d.licenceExpiry}T23:59:59Z`).getTime() < end.getTime()) return c.json({ error: "licence_expires", message: "Your licence expires before the rental ends." }, 400);
 
@@ -278,10 +356,8 @@ selfDriveRoutes.post("/car/rentals", async (c) => {
   const rent = rentalPrice(Number(listing.daily_price), start, end, period);
   const hourlyPrice = rentalHourlyPrice(Number(listing.daily_price));
   const deposit = Number(listing.deposit_amount);
-  const environment = await getPlatformEnvironment();
   const id = newId("rnt");
   // Reserve the dates first (atomic against an overlapping request), then take the money.
-  const isSandboxDemo = (await getPlatformEnvironment()) === "sandbox" && String(d.vehicleId).startsWith("demo-rent-");
   const rentalHasPeriods = await hasColumn("rentals", "period_type");
   const rentalStart = isSandboxDemo ? new Date() : start;
   const rentalEnd = isSandboxDemo ? new Date(rentalStart.getTime() + end.getTime() - start.getTime()) : end;

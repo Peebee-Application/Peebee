@@ -2052,6 +2052,11 @@ export type AdminCarVehicle = {
   plate: string;
   make: string | null;
   model: string | null;
+  model_catalog_id?: string | null;
+  service_class?: "convenient" | "comfort";
+  condition_grade?: "excellent" | "good" | "fair";
+  seat_capacity?: number | null;
+  last_service_date?: string | null;
   status: "pending" | "approved" | "rejected" | "suspended";
   driver_id: string | null;
   driver_name: string | null;
@@ -2132,6 +2137,29 @@ export type CarWallet = {
 
 export type RentalStatus = "requested" | "approved" | "active" | "disputed" | "completed" | "declined" | "cancelled";
 
+export type SelfDriveRenterKycStatus = "incomplete" | "pending" | "approved" | "rejected";
+export type SelfDriveResidenceMethod = "rent_and_landlord_letter" | "bill";
+export type SelfDriveRenterKycProfile = {
+  status: SelfDriveRenterKycStatus;
+  isSimulated?: boolean;
+  ninMasked: string | null;
+  residenceMethod: SelfDriveResidenceMethod | null;
+  residentialAddress: string | null;
+  hasNationalId: boolean;
+  hasRentReceipt: boolean;
+  hasLandlordLetter: boolean;
+  hasResidenceBill: boolean;
+  tenancyStart: string | null;
+  tenancyEnd: string | null;
+  reviewNotes: string | null;
+};
+export type AdminSelfDriveRenterKyc = {
+  user_id: string; name: string; phone: string | null; nin: string; residentialAddress: string; residenceMethod: SelfDriveResidenceMethod;
+  tenancyStart: string | null; tenancyEnd: string | null; status: Exclude<SelfDriveRenterKycStatus, "incomplete">;
+  reviewNotes: string | null; updated_at: string; hasNationalId: boolean; hasRentReceipt: boolean;
+  hasLandlordLetter: boolean; hasResidenceBill: boolean;
+};
+
 export type RentalVehicle = {
   id: string;
   name: string;
@@ -2155,6 +2183,7 @@ export type RentalVehicle = {
   standardDailyPrice?: number | null;
   features?: string[];
   photos?: string[];
+  lastServiceDate?: string | null;
 };
 
 export type Rental = {
@@ -2197,6 +2226,7 @@ export type OwnerRentalVehicle = {
   service_class?: "convenient" | "comfort";
   condition_grade?: "excellent" | "good" | "fair";
   seat_capacity?: number | null;
+  last_service_date?: string | null;
 };
 
 export type AdminRental = {
@@ -2271,7 +2301,7 @@ export type CarMe = {
   documents: { national_id: boolean; licence: boolean };
   ownerStatus: CarPartnerStatus;
   driverStatus: CarPartnerStatus;
-  vehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; status: string; category_name: string; driver_id: string | null; driver_name: string | null; photos: string[] }>;
+  vehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; status: string; category_name: string; driver_id: string | null; driver_name: string | null; photos: string[]; service_class?: "convenient" | "comfort"; condition_grade?: "excellent" | "good" | "fair"; seat_capacity?: number | null; last_service_date?: string | null }>;
   assignedVehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; category_name: string }>;
   online: boolean;
   activeVehicleId: string | null;

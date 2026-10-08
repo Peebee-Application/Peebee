@@ -427,6 +427,7 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
   if (role === "customer" && method === "GET") {
     if (path === "/v1/car/rentals/listings") return jsonResponse({ days: 1, vehicles: PRACTICE_RENTAL_CARS });
     if (path === "/v1/car/rentals/mine") return jsonResponse({ rentals: canUseStorage() ? JSON.parse(window.localStorage.getItem(PRACTICE_RENTALS_KEY) ?? "[]") : [] });
+    if (path === "/v1/car/rentals/renter-profile") return jsonResponse({ status: "approved", isSimulated: true, ninMasked: "••••••••••0000", residentialAddress: "Practice address · Entebbe", residenceMethod: "bill", hasNationalId: true, hasRentReceipt: false, hasLandlordLetter: false, hasResidenceBill: true, tenancyStart: null, tenancyEnd: null, reviewNotes: null });
     if (path === "/v1/car/config") return jsonResponse({ onDemandEnabled: true, matchingMode: "first_to_claim", scheduled: null, carpool: null, selfDrive: null, vehiclePhotos: false, kyc: null, deals: null, categories: [
       { id: PRACTICE_CAR_CATEGORY_ID, kind: "passenger", name: "Comfort sedan", seats: 4, cargo_type: null, size_label: null, reference_image_key: null, rate_per_km: 2_000, minimum_fare: 8_000 },
       { id: "practice-car-family", kind: "passenger", name: "Family SUV", seats: 6, cargo_type: null, size_label: null, reference_image_key: null, rate_per_km: 3_000, minimum_fare: 12_000 },
@@ -459,6 +460,7 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
     if (canUseStorage()) window.localStorage.setItem(PRACTICE_RENTALS_KEY, JSON.stringify([rental, ...saved]));
     return jsonResponse({ id, days: 1, rent, deposit: car.deposit, periodType: period, status: "active" }, 201);
   }
+  if (role === "customer" && method === "POST" && path === "/v1/car/rentals/renter-profile") return jsonResponse({ ok: true, status: "approved" }, 201);
   const demoRentalReturn = path.match(/^\/v1\/car\/rentals\/(practice-rental-\d+)\/demo-return$/);
   if (role === "customer" && method === "POST" && demoRentalReturn) {
     const stored = canUseStorage() ? JSON.parse(window.localStorage.getItem(PRACTICE_RENTALS_KEY) ?? "[]") as Array<Record<string, unknown>> : [];
