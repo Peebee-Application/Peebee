@@ -75,9 +75,9 @@
   --restaurant-cover-mid-shade: .68;
   --restaurant-cover-end-shade: .82;
   --restaurant-cover-base-blur: 2.2px;
-  --restaurant-cover-scroll-max-shade: .4;
+  --restaurant-cover-scroll-max-shade: .55;
   --restaurant-cover-scroll-tint: 255 255 255;
-  --restaurant-cover-scroll-max-blur: 4;
+  --restaurant-cover-scroll-max-blur: 1.6;
 }
 
 /* Dark mode — sharp charcoal as the page background, gold stays the constant
@@ -111,9 +111,9 @@
     --restaurant-cover-mid-shade: .86;
     --restaurant-cover-end-shade: .95;
     --restaurant-cover-base-blur: 1.8px;
-    --restaurant-cover-scroll-max-shade: .38;
+    --restaurant-cover-scroll-max-shade: .5;
     --restaurant-cover-scroll-tint: 0 0 0;
-    --restaurant-cover-scroll-max-blur: 3.8;
+    --restaurant-cover-scroll-max-blur: 1.6;
   }
 }
 
@@ -144,9 +144,9 @@
   --restaurant-cover-mid-shade: .86;
   --restaurant-cover-end-shade: .95;
   --restaurant-cover-base-blur: 1.8px;
-  --restaurant-cover-scroll-max-shade: .38;
+  --restaurant-cover-scroll-max-shade: .5;
   --restaurant-cover-scroll-tint: 0 0 0;
-  --restaurant-cover-scroll-max-blur: 3.8;
+  --restaurant-cover-scroll-max-blur: 1.6;
 }
 
 html {
@@ -423,8 +423,8 @@ select {
 .restaurant-cover-image { transform:translate3d(0,var(--restaurant-cover-parallax-y,0px),0) scale(1.18); transform-origin:center; filter:brightness(var(--restaurant-cover-image-brightness, 1)); will-change:transform; }
 .restaurant-cover-base-fade { background:linear-gradient(to bottom, transparent 0%, transparent var(--restaurant-cover-fade-start), rgb(var(--restaurant-cover-base-tint) / var(--restaurant-cover-title-shade)) calc(var(--restaurant-cover-fade-start) + 50px), rgb(var(--restaurant-cover-base-tint) / var(--restaurant-cover-mid-shade)) 68%, rgb(var(--restaurant-cover-base-tint) / var(--restaurant-cover-end-shade)) 100%); }
 .restaurant-cover-base-blur { -webkit-backdrop-filter:blur(var(--restaurant-cover-base-blur,1px)); backdrop-filter:blur(var(--restaurant-cover-base-blur,1px)); -webkit-mask-image:linear-gradient(to bottom, transparent 0%, transparent var(--restaurant-cover-fade-start), rgba(0,0,0,.3) calc(var(--restaurant-cover-fade-start) + 50px), #000 70%, #000 100%); mask-image:linear-gradient(to bottom, transparent 0%, transparent var(--restaurant-cover-fade-start), rgba(0,0,0,.3) calc(var(--restaurant-cover-fade-start) + 50px), #000 70%, #000 100%); }
-.restaurant-cover-scroll-tint { background:linear-gradient(to bottom, transparent 0%, transparent var(--restaurant-cover-scroll-start,var(--restaurant-cover-fade-start)), rgb(var(--restaurant-cover-scroll-tint) / .5) calc(var(--restaurant-cover-scroll-start,var(--restaurant-cover-fade-start)) + 50px), rgb(var(--restaurant-cover-scroll-tint) / .94) 100%); opacity:var(--restaurant-cover-scroll-shade,0); }
-.restaurant-cover-scroll-blur { -webkit-backdrop-filter:blur(var(--restaurant-cover-scroll-blur,0px)); backdrop-filter:blur(var(--restaurant-cover-scroll-blur,0px)); -webkit-mask-image:linear-gradient(to bottom, transparent 0%, transparent var(--restaurant-cover-scroll-start,var(--restaurant-cover-fade-start)), rgba(0,0,0,.18) calc(var(--restaurant-cover-scroll-start,var(--restaurant-cover-fade-start)) + 50px), #000 70%, #000 100%); mask-image:linear-gradient(to bottom, transparent 0%, transparent var(--restaurant-cover-scroll-start,var(--restaurant-cover-fade-start)), rgba(0,0,0,.18) calc(var(--restaurant-cover-scroll-start,var(--restaurant-cover-fade-start)) + 50px), #000 70%, #000 100%); }
+.restaurant-cover-scroll-tint { background:rgb(var(--restaurant-cover-scroll-tint)); opacity:var(--restaurant-cover-scroll-shade,0); }
+.restaurant-cover-scroll-blur { -webkit-backdrop-filter:blur(var(--restaurant-cover-scroll-blur,0px)); backdrop-filter:blur(var(--restaurant-cover-scroll-blur,0px)); }
 .restaurant-profile-intro h1,.restaurant-profile-content section > div > h2,.restaurant-profile-content section > h2 { text-shadow:0 1px 3px rgb(var(--color-cream) / .82),0 2px 10px rgb(var(--color-cream) / .36); }
 .restaurant-profile-intro p { text-shadow:0 1px 4px rgb(var(--color-cream) / .66); }
 .restaurant-logo-trigger { transition:transform 140ms var(--ease-out-expo), box-shadow 180ms ease; }
