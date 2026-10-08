@@ -6,7 +6,7 @@ import { foodBusinessLabel, roundFare } from "@peebee/shared";
 import { demoFoodPhotoPath, demoRestaurantPhotoPath } from "@peebee/shared/demo-food";
 import { ArrowUpRight, ChevronLeft, ChevronDown, ChevronRight, Star, MessageCircle, Minus, Plus, ShoppingBag, ShoppingCart, Store, UtensilsCrossed, X } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PlaceFlow } from "../../../components/PlaceFlow";
@@ -246,7 +246,6 @@ function MenuOrderList({
           </div>
           <button type="button" className="menu-item-order-list__checkout" onClick={onViewCart} disabled={cart.length === 0}>
             <span>{t("restaurant_checkout")}</span>
-            <span>{formatUgx(itemsTotal)}</span>
           </button>
         </div>
       </aside>
@@ -679,6 +678,8 @@ export default function RestaurantPage() {
   const {user}=useAuth();
   const cartKey=`peebee-food-cart:${user?.id??"guest"}:${id}`;
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const checkoutRequested = searchParams.get("checkout") === "1";
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [menu, setMenu] = useState<RestaurantMenu | null>(null);
@@ -687,16 +688,38 @@ export default function RestaurantPage() {
   const [cart, setCart] = useState<CartLine[]>([]);
   useEffect(()=>{try{const rows=JSON.parse(sessionStorage.getItem(cartKey)??"[]");setCart(Array.isArray(rows)?rows.filter((line:CartLine)=>typeof line.key==="string"&&typeof line.menuItemId==="string"&&typeof line.name==="string"&&Number.isInteger(line.quantity)&&line.quantity>0&&line.quantity<=50&&Number.isFinite(line.unitPrice)&&line.unitPrice>=0&&Array.isArray(line.choiceIds)&&line.choiceIds.every(id=>typeof id==="string")):[]);}catch{setCart([]);}},[cartKey]);
   function updateCart(next:CartLine[]){setCart(next);try{sessionStorage.setItem(cartKey,JSON.stringify(next));}catch{}}
-  const [step, setStep] = useState<"menu" | "checkout">("menu");
+  const [step, setStep] = useState<"menu" | "checkout">(checkoutRequested ? "checkout" : "menu");
 
   const [delivery, setDelivery] = useState<Place | null>(null);
-  const [choosing, setChoosing] = useState(false);
+  const [choosing, setChoosing] = useState(checkoutRequested);
   const [busy, setBusy] = useState(false);
   const [deliverySettings, setDeliverySettings] = useState<{
     deliveryRatePerKm: number;
     minimumDeliveryFee: number;
     shoppingDeliveryFee: number;
   } | null>(null);
+
+  useEffect(() => {
+    if (checkoutRequested) {
+      setStep("checkout");
+      setChoosing(true);
+    } else {
+      setStep("menu");
+      setChoosing(false);
+    }
+  }, [checkoutRequested]);
+
+  function openCheckout() {
+    setStep("checkout");
+    setChoosing(true);
+    router.push(`/restaurants/${id}?checkout=1`, { scroll: false });
+  }
+
+  function backToMenu() {
+    setStep("menu");
+    setChoosing(false);
+    router.replace(`/restaurants/${id}`, { scroll: false });
+  }
 
   useEffect(() => {
     let disposed=false;setRestaurant(null);setMenu(null);setInsights({});setError(null);
@@ -806,19 +829,19 @@ export default function RestaurantPage() {
         isDemo={restaurant.is_demo}
         isOpen={!!restaurant.is_open}
         onRemoveLine={removeLine}
-        onViewCart={() => {
-          setStep("checkout");
-          router.push(`/restaurants/${id}`, { scroll: false });
-        }}
+        onViewCart={openCheckout}
         onAdd={(targetItem, line) => addToCart(targetItem, line)}
       />
     );
   }
-  if (step === "checkout") {
+  if (checkoutRequested || step === "checkout") {
     return (
       <div className="space-y-6 px-4 pb-28">
-        <div className="flex items-center gap-3"><button aria-label="Back to menu" onClick={() => setStep("menu")} className="flex h-11 w-11 items-center justify-center rounded-full glass-panel"><ChevronLeft size={22}/></button><h1 className="text-2xl font-bold text-ink">Your cart</h1></div>
-        <ul className="space-y-3">{cart.map(line => <li key={line.key} className="food-menu-card flex items-center gap-3"><MenuItemThumb itemId={line.menuItemId}/><div className="min-w-0 flex-1"><h2 className="font-bold">{line.name}</h2><p className="mt-1 text-sm text-ink-500">{formatUgx(line.unitPrice)}</p><div className="mt-3 flex items-center gap-3"><button aria-label={`Decrease ${line.name} quantity`} className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))]" onClick={() => updateCart(cart.flatMap(row => row.key !== line.key ? [row] : row.quantity > 1 ? [{...row, quantity: row.quantity - 1}] : []))}><Minus size={16}/></button><span>{line.quantity}</span><button aria-label={`Increase ${line.name} quantity`} className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))]" onClick={() => updateCart(cart.map(row => row.key === line.key ? {...row, quantity: Math.min(50,row.quantity + 1)} : row))}><Plus size={16}/></button><button className="ml-auto text-xs text-ink-500 underline" onClick={() => removeLine(line.key)}>Remove</button></div></div></li>)}</ul>
+        <div className="flex items-center gap-3"><button aria-label="Back to menu" onClick={backToMenu} className="flex h-11 w-11 items-center justify-center rounded-full glass-panel"><ChevronLeft size={22}/></button><h1 className="text-2xl font-bold text-ink">Delivery and payment</h1></div>
+        <div className="food-menu-card flex items-center justify-between gap-3 px-4 py-3">
+          <span className="font-semibold">{cartCount} item{cartCount === 1 ? "" : "s"} in your order</span>
+          <span className="font-bold">{formatUgx(itemsTotal)}</span>
+        </div>
         {!delivery && !choosing && <button onClick={() => setChoosing(true)} className="food-menu-card w-full text-left font-semibold">Choose delivery location →</button>}
 
         {delivery && (
@@ -828,7 +851,7 @@ export default function RestaurantPage() {
           <PlaceFlow
             concept="food"
             initial={{ destination: delivery }}
-            onClose={() => (delivery ? setChoosing(false) : setStep("menu"))}
+            onClose={() => (delivery ? setChoosing(false) : backToMenu())}
             onDone={(r) => {
               setDelivery(r.destination);
               setChoosing(false);
@@ -857,7 +880,7 @@ export default function RestaurantPage() {
 
         <div className="flex gap-2">
           <button
-            onClick={() => setStep("menu")}
+            onClick={backToMenu}
             className="min-h-12 flex-1 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink"
           >
             {t("restaurant_back_to_menu")}
@@ -894,7 +917,7 @@ export default function RestaurantPage() {
       {cart.length > 0 && (
         <div className="fixed inset-x-0 bottom-20 z-40 px-4 pb-3">
           <button
-            onClick={() => setStep("checkout")}
+            onClick={openCheckout}
             className="mx-auto flex min-h-12 w-full max-w-lg items-center justify-between rounded-full bg-gold px-5 text-sm font-bold text-ink-gold shadow-[0_4px_16px_rgba(201,162,39,0.4)]"
           >
             <span className="flex items-center gap-2">
