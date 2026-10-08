@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireAuth } from "../auth/middleware.js";
-import { db } from "../db/client.js";
+import { db, executeBatch } from "../db/client.js";
 import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
 import { hasTable } from "../lib/schema.js";
@@ -22,6 +22,46 @@ carpoolRoutes.use("/car/carpool/*", async (c, next) => {
 });
 
 const fromDb = (ts: string) => new Date(`${ts.replace(" ", "T")}Z`);
+
+const DEMO_ROUTES = [
+  { from: ["Entebbe City", 0.0612, 32.4637], to: ["Kampala", 0.3136, 32.5811], price: 15_000, driver: 1 },
+  { from: ["Kampala", 0.3136, 32.5811], to: ["Entebbe City", 0.0612, 32.4637], price: 15_000, driver: 2 },
+  { from: ["Kampala", 0.3136, 32.5811], to: ["Mukono", 0.3533, 32.7553], price: 10_000, driver: 4 },
+  { from: ["Kampala", 0.3136, 32.5811], to: ["Jinja", 0.4244, 33.2042], price: 25_000, driver: 3 },
+] as const;
+
+/** Refresh shared, bookable sandbox trips without ever creating live listings. */
+async function ensureDemoTrips(date: string | undefined, cutoffMinutes: number): Promise<void> {
+  const ready = (await db.execute({ sql: "SELECT 1 FROM vehicles WHERE id = 'demo-rideshare-car-1' LIMIT 1", args: [] })).rows.length > 0;
+  if (!ready) return; // Migration 0088 can land after the code.
+  const today = new Date().toISOString().slice(0, 10);
+  const days = date ? [date] : [today, new Date(Date.now() + 86_400_000).toISOString().slice(0, 10), new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10)];
+  const existing = new Set((await db.execute({
+    sql: "SELECT id FROM carpool_trips WHERE id LIKE 'demo-rideshare-%' AND depart_at >= ? AND depart_at < ?",
+    args: [`${days[0]} 00:00:00`, `${new Date(Date.parse(`${days[days.length - 1]}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)} 00:00:00`],
+  })).rows.map((row) => String(row.id)));
+  const statements = [];
+  for (const day of days) {
+    const dayTime = Date.parse(`${day}T00:00:00Z`);
+    if (!Number.isFinite(dayTime) || dayTime < Date.now() - 86_400_000 || dayTime > Date.now() + 14 * 86_400_000) continue;
+    for (const route of DEMO_ROUTES) for (const hour of [6, 9, 13, 16]) {
+      const departure = new Date(dayTime + hour * 3_600_000);
+      if (departure.getTime() <= Date.now() + cutoffMinutes * 60_000) continue;
+      const n = route.driver;
+      const id = `demo-rideshare-${day}-${n}-${hour}`;
+      if (existing.has(id)) continue;
+      statements.push({
+        sql: `INSERT OR IGNORE INTO carpool_trips
+          (id, driver_id, vehicle_id, category_id, origin_label, origin_lat, origin_lng, dest_label, dest_lat, dest_lng, distance_km, depart_at, seats_total, seat_price, environment)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 3, ?, 'sandbox')`,
+        args: [id, `demo-rideshare-driver-${n}`, `demo-rideshare-car-${n}`, n === 3 ? "peebee-car-large" : "peebee-car-normal",
+          route.from[0], route.from[1], route.from[2], route.to[0], route.to[1], route.to[2],
+          haversineKm(route.from[1], route.from[2], route.to[1], route.to[2]), toDbTime(departure), route.price],
+      });
+    }
+  }
+  if (statements.length) await executeBatch(statements);
+}
 
 /**
  * Gives back seats held by bookings that were cancelled, or never paid in
@@ -114,6 +154,7 @@ carpoolRoutes.post("/car/carpool/trips", async (c) => {
 
   const distanceKm = haversineKm(d.originLat, d.originLng, d.destLat, d.destLng);
   const environment = await getPlatformEnvironment();
+
   const ids: string[] = [];
   for (let week = 0; week <= repeat; week += 1) {
     const id = newId("cpt");
@@ -182,6 +223,8 @@ carpoolRoutes.get("/car/carpool/trips", async (c) => {
   const { carpool } = await getCarSettings();
   await releaseStaleSeats();
   const environment = await getPlatformEnvironment();
+  if (q.data.date && (!/^\d{4}-\d{2}-\d{2}$/.test(q.data.date) || !Number.isFinite(Date.parse(`${q.data.date}T00:00:00Z`)))) return c.json({ error: "invalid_date" }, 400);
+  if (environment === "sandbox") await ensureDemoTrips(q.data.date, carpool.cutoffMinutes);
 
   // A day (UTC) when asked, otherwise everything upcoming.
   const from = q.data.date ? `${q.data.date} 00:00:00` : toDbTime(new Date(Date.now() + carpool.cutoffMinutes * 60000));
@@ -224,6 +267,7 @@ carpoolRoutes.post("/car/carpool/trips/:id/seats", async (c) => {
 
   const trip = (await db.execute({ sql: "SELECT * FROM carpool_trips WHERE id = ?", args: [id] })).rows[0] as Row | undefined;
   if (!trip) return c.json({ error: "not_found" }, 404);
+  if (trip.environment !== await getPlatformEnvironment()) return c.json({ error: "not_available" }, 404);
   if (trip.driver_id === user.sub) return c.json({ error: "own_trip", message: "You can't book a seat on your own trip." }, 409);
 
   // Race-safe: only one request can take the last seats, and only before the cut-off.
