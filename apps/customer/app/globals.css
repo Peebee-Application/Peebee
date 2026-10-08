@@ -812,6 +812,97 @@ select {
 }
 .menu-item-order-list__checkout:disabled { cursor: not-allowed; opacity: .48; box-shadow: none; }
 
+.restaurant-cart-switch-layer {
+  position: fixed;
+  z-index: 110;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px 16px calc(env(safe-area-inset-bottom) + 16px);
+  background: rgb(0 0 0 / .56);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.restaurant-cart-switch-dialog {
+  width: min(100%, 420px);
+  border: 1px solid var(--border-faint);
+  border-radius: 26px;
+  padding: 22px;
+  background: rgb(var(--surface-card));
+  color: rgb(var(--color-ink));
+  box-shadow: 0 24px 70px rgb(0 0 0 / .3);
+  animation: restaurant-cart-switch-enter 220ms cubic-bezier(.2,.8,.2,1) both;
+}
+.restaurant-cart-switch-dialog__icon {
+  display: inline-flex;
+  width: 46px;
+  height: 46px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgb(var(--color-gold) / .16);
+  color: rgb(var(--color-ink));
+}
+.restaurant-cart-switch-dialog__title {
+  margin-top: 15px;
+  color: rgb(var(--color-ink));
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.restaurant-cart-switch-dialog__copy {
+  margin-top: 8px;
+  color: rgb(var(--color-ink-500));
+  font-size: 14px;
+  line-height: 1.5;
+}
+.restaurant-cart-switch-dialog__actions { display: grid; gap: 9px; margin-top: 19px; }
+.restaurant-cart-switch-dialog__keep,
+.restaurant-cart-switch-dialog__discard {
+  display: flex;
+  width: 100%;
+  min-height: 49px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  transition: transform 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+.restaurant-cart-switch-dialog__keep {
+  background: rgb(var(--color-gold));
+  color: rgb(var(--color-ink-gold));
+  box-shadow: 0 4px 14px rgb(201 162 39 / .26);
+}
+.restaurant-cart-switch-dialog__discard {
+  border: 1px solid var(--border-faint);
+  background: rgb(var(--surface-muted));
+  color: rgb(var(--color-ink));
+}
+.restaurant-cart-switch-dialog__keep:hover,
+.restaurant-cart-switch-dialog__discard:hover { transform: translateY(-1px); }
+.restaurant-cart-switch-dialog__keep:active,
+.restaurant-cart-switch-dialog__discard:active { transform: scale(.98); }
+.restaurant-cart-switch-dialog__cancel {
+  min-height: 40px;
+  color: rgb(var(--color-ink-500));
+  font-size: 13px;
+  font-weight: 700;
+}
+.restaurant-cart-switch-dialog__keep:focus-visible,
+.restaurant-cart-switch-dialog__discard:focus-visible,
+.restaurant-cart-switch-dialog__cancel:focus-visible { outline: 2px solid rgb(var(--color-gold)); outline-offset: 3px; }
+@keyframes restaurant-cart-switch-enter {
+  from { opacity: .6; transform: translateY(12px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (min-width: 640px) {
+  .restaurant-cart-switch-layer { align-items: center; }
+}
+
 /* Card Stack Deck */
 .menu-item-detail-page {
   position: relative;
@@ -1189,6 +1280,7 @@ select {
   .menu-item-detail-page__content,
   .menu-item-detail-page__ambient,
   .menu-item-detail-card__content { transition: none; animation: none; }
+  .restaurant-cart-switch-dialog { animation: none; }
 }
 @media (max-height: 700px) {
   .menu-item-deck__stage { --menu-square-size: min(68vw, 250px, 32dvh); }

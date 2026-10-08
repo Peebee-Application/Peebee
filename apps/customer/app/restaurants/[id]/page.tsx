@@ -165,6 +165,40 @@ type CartLine = {
   choiceIds: string[];
 };
 
+type CartAddLine = { unitPrice: number; choiceIds: string[]; choiceNames: string[]; quantity: number };
+
+function isCartLine(value: unknown): value is CartLine {
+  if (!value || typeof value !== "object") return false;
+  const line = value as Partial<CartLine>;
+  return typeof line.key === "string"
+    && typeof line.menuItemId === "string"
+    && typeof line.name === "string"
+    && Number.isInteger(line.quantity)
+    && Number(line.quantity) > 0
+    && Number(line.quantity) <= 50
+    && Number.isFinite(line.unitPrice)
+    && Number(line.unitPrice) >= 0
+    && Array.isArray(line.choiceIds)
+    && line.choiceIds.every((choiceId) => typeof choiceId === "string");
+}
+
+function otherRestaurantCartKeys(storagePrefix: string, currentCartKey: string): string[] {
+  try {
+    const keys = Array.from({ length: sessionStorage.length }, (_, index) => sessionStorage.key(index))
+      .filter((key): key is string => !!key && key.startsWith(storagePrefix) && key !== currentCartKey);
+    return keys.filter((key) => {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(key) ?? "null");
+        return Array.isArray(saved) && saved.some(isCartLine);
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    return [];
+  }
+}
+
 function MenuOrderList({
   cart,
   itemsTotal,
@@ -323,7 +357,7 @@ function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId
   isOpen?: boolean;
   isDemo?: boolean;
   restaurantId: string;
-  onAdd: (item: MenuItem, line: { unitPrice: number; choiceIds: string[]; choiceNames: string[]; quantity: number }) => void;
+  onAdd: (item: MenuItem, line: CartAddLine) => boolean;
 }) {
   const t = useTranslate();
   const [configuration, setConfiguration] = useState<{ itemId: string; selected: Record<string, string[]>; quantity: number }>({
@@ -378,9 +412,10 @@ function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId
       return;
     }
     if (missingRequired.length > 0) return;
-    onAdd(item, { unitPrice, choiceIds, choiceNames: choices.map((choice) => choice.name), quantity });
-    setAddedItemId(item.id);
-    setTimeout(() => setAddedItemId((current) => current === item.id ? null : current), 1400);
+    if (onAdd(item, { unitPrice, choiceIds, choiceNames: choices.map((choice) => choice.name), quantity })) {
+      setAddedItemId(item.id);
+      setTimeout(() => setAddedItemId((current) => current === item.id ? null : current), 1400);
+    }
   }
 
   return (
@@ -645,7 +680,7 @@ function ItemDetailPage({
   isOpen?: boolean;
   onRemoveLine: (key: string) => void;
   onViewCart: () => void;
-  onAdd: (item: MenuItem, line: { unitPrice: number; choiceIds: string[]; choiceNames: string[]; quantity: number }) => void;
+  onAdd: (item: MenuItem, line: CartAddLine) => boolean;
 }) {
   const t = useTranslate();
   const [activeItemId, setActiveItemId] = useState(item.id);
@@ -700,11 +735,84 @@ function ItemDetailPage({
   );
 }
 
+function RestaurantCartSwitchDialog({ cartCount, onKeep, onDiscard, onCancel }: {
+  cartCount: number;
+  onKeep: () => void;
+  onDiscard: () => void;
+  onCancel: () => void;
+}) {
+  const t = useTranslate();
+  const [portalReady, setPortalReady] = useState(false);
+  const keepButtonRef = useRef<HTMLButtonElement>(null);
+  const cancelActionRef = useRef(onCancel);
+  useEffect(() => { cancelActionRef.current = onCancel; }, [onCancel]);
+
+  useEffect(() => setPortalReady(true), []);
+  useEffect(() => {
+    if (!portalReady) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.body.style.overflow = "hidden";
+    keepButtonRef.current?.focus();
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") cancelActionRef.current();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, [portalReady]);
+
+  if (!portalReady || typeof document === "undefined") return null;
+  const plural = cartCount !== 1;
+  return createPortal(
+    <div className="restaurant-cart-switch-layer" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
+      <section className="restaurant-cart-switch-dialog" role="alertdialog" aria-modal="true" aria-labelledby="restaurant-cart-switch-title" aria-describedby="restaurant-cart-switch-copy" onKeyDown={(event) => {
+        if (event.key !== "Tab") return;
+        const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)");
+        const first = buttons[0];
+        const last = buttons[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }}>
+        <span className="restaurant-cart-switch-dialog__icon" aria-hidden="true"><ShoppingCart size={22} /></span>
+        <h2 id="restaurant-cart-switch-title" className="restaurant-cart-switch-dialog__title">
+          {t(plural ? "restaurant_switch_cart_title_plural" : "restaurant_switch_cart_title")}
+        </h2>
+        <p id="restaurant-cart-switch-copy" className="restaurant-cart-switch-dialog__copy">
+          {t(plural ? "restaurant_switch_cart_copy_plural" : "restaurant_switch_cart_copy")}
+        </p>
+        <div className="restaurant-cart-switch-dialog__actions">
+          <button ref={keepButtonRef} type="button" className="restaurant-cart-switch-dialog__keep" onClick={onKeep}>
+            {t(plural ? "restaurant_switch_cart_keep_plural" : "restaurant_switch_cart_keep")}
+          </button>
+          <button type="button" className="restaurant-cart-switch-dialog__discard" onClick={onDiscard}>
+            <Trash2 size={16} aria-hidden="true" />
+            {t(plural ? "restaurant_switch_cart_discard_plural" : "restaurant_switch_cart_discard")}
+          </button>
+          <button type="button" className="restaurant-cart-switch-dialog__cancel" onClick={onCancel}>
+            {t("restaurant_switch_cart_cancel")}
+          </button>
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
 export default function RestaurantPage() {
   const t = useTranslate();
   const { id, itemId } = useParams<{ id: string; itemId?:string }>();
   const {user}=useAuth();
-  const cartKey=`peebee-food-cart:${user?.id??"guest"}:${id}`;
+  const cartStoragePrefix=`peebee-food-cart:${user?.id??"guest"}:`;
+  const cartKey=`${cartStoragePrefix}${id}`;
   const router = useRouter();
   const searchParams = useSearchParams();
   const checkoutRequested = searchParams.get("checkout") === "1";
@@ -716,7 +824,8 @@ export default function RestaurantPage() {
   const [restaurantTrust,setRestaurantTrust]=useState<FoodRestaurantTrust|null>(null);
   const [restaurantTrustStatus,setRestaurantTrustStatus]=useState<"loading"|"ready"|"unavailable">("loading");
   const [cart, setCart] = useState<CartLine[]>([]);
-  useEffect(()=>{try{const rows=JSON.parse(sessionStorage.getItem(cartKey)??"[]");setCart(Array.isArray(rows)?rows.filter((line:CartLine)=>typeof line.key==="string"&&typeof line.menuItemId==="string"&&typeof line.name==="string"&&Number.isInteger(line.quantity)&&line.quantity>0&&line.quantity<=50&&Number.isFinite(line.unitPrice)&&line.unitPrice>=0&&Array.isArray(line.choiceIds)&&line.choiceIds.every(id=>typeof id==="string")):[]);}catch{setCart([]);}},[cartKey]);
+  const [pendingRestaurantCartSwitch, setPendingRestaurantCartSwitch] = useState<{ item: MenuItem; line: CartAddLine; otherCartKeys: string[] } | null>(null);
+  useEffect(()=>{try{const rows=JSON.parse(sessionStorage.getItem(cartKey)??"[]");setCart(Array.isArray(rows)?rows.filter(isCartLine):[]);}catch{setCart([]);}setPendingRestaurantCartSwitch(null);},[cartKey]);
   function updateCart(next:CartLine[]){setCart(next);try{sessionStorage.setItem(cartKey,JSON.stringify(next));}catch{}}
   const [step, setStep] = useState<"menu" | "checkout">(checkoutRequested ? "checkout" : "menu");
 
@@ -789,6 +898,33 @@ export default function RestaurantPage() {
     const existing=cart.find(l=>l.key===key);
     const next=existing?cart.map(l=>l.key===key?{...l,name:item.name,choiceNames:line.choiceNames,photoKey:item.photo_key,photoRevision:item.updated_at,quantity:Math.min(50,l.quantity+line.quantity)}:l):[...cart,{key,menuItemId:item.id,name:item.name,choiceNames:line.choiceNames,photoKey:item.photo_key,photoRevision:item.updated_at,unitPrice:line.unitPrice,quantity:line.quantity,choiceIds:line.choiceIds}];
     updateCart(next);
+  }
+
+  function requestAddToCart(item: MenuItem, line: CartAddLine): boolean {
+    if (cart.length === 0) {
+      const otherCartKeys = otherRestaurantCartKeys(cartStoragePrefix, cartKey);
+      if (otherCartKeys.length > 0) {
+        setPendingRestaurantCartSwitch({ item, line, otherCartKeys });
+        return false;
+      }
+    }
+    addToCart(item, line);
+    return true;
+  }
+
+  function keepOtherCartsAndAdd() {
+    if (!pendingRestaurantCartSwitch) return;
+    addToCart(pendingRestaurantCartSwitch.item, pendingRestaurantCartSwitch.line);
+    setPendingRestaurantCartSwitch(null);
+  }
+
+  function discardOtherCartsAndAdd() {
+    if (!pendingRestaurantCartSwitch) return;
+    try {
+      pendingRestaurantCartSwitch.otherCartKeys.forEach((key) => sessionStorage.removeItem(key));
+    } catch {}
+    addToCart(pendingRestaurantCartSwitch.item, pendingRestaurantCartSwitch.line);
+    setPendingRestaurantCartSwitch(null);
   }
 
   function removeLine(key: string) {
@@ -870,21 +1006,31 @@ export default function RestaurantPage() {
     const category = menu.categories.find((row) => row.items.some((rowItem) => rowItem.id === item.id));
     const categoryItems = category?.items ?? (menu.uncategorizedItems.some((r) => r.id === item.id) ? menu.uncategorizedItems : [item]);
     return (
-      <ItemDetailPage
-        item={item}
-        items={categoryItems}
-        categoryName={category?.name ?? t("restaurant_menu_items")}
-        cart={cart}
-        itemsTotal={itemsTotal}
-        cartCount={cartCount}
-        restaurantId={id}
-        onBack={() => router.push(`/restaurants/${id}`)}
-        isDemo={restaurant.is_demo}
-        isOpen={!!restaurant.is_open}
-        onRemoveLine={removeLine}
-        onViewCart={openCheckout}
-        onAdd={(targetItem, line) => addToCart(targetItem, line)}
-      />
+      <>
+        <ItemDetailPage
+          item={item}
+          items={categoryItems}
+          categoryName={category?.name ?? t("restaurant_menu_items")}
+          cart={cart}
+          itemsTotal={itemsTotal}
+          cartCount={cartCount}
+          restaurantId={id}
+          onBack={() => router.push(`/restaurants/${id}`)}
+          isDemo={restaurant.is_demo}
+          isOpen={!!restaurant.is_open}
+          onRemoveLine={removeLine}
+          onViewCart={openCheckout}
+          onAdd={requestAddToCart}
+        />
+        {pendingRestaurantCartSwitch && (
+          <RestaurantCartSwitchDialog
+            cartCount={pendingRestaurantCartSwitch.otherCartKeys.length}
+            onKeep={keepOtherCartsAndAdd}
+            onDiscard={discardOtherCartsAndAdd}
+            onCancel={() => setPendingRestaurantCartSwitch(null)}
+          />
+        )}
+      </>
     );
   }
   if (checkoutRequested || step === "checkout") {
