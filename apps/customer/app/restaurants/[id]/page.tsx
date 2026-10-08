@@ -714,6 +714,7 @@ export default function RestaurantPage() {
   const [error, setError] = useState<string | null>(null);
   const [insights,setInsights]=useState<Record<string,FoodItemInsight>>({});
   const [restaurantTrust,setRestaurantTrust]=useState<FoodRestaurantTrust|null>(null);
+  const [restaurantTrustStatus,setRestaurantTrustStatus]=useState<"loading"|"ready"|"unavailable">("loading");
   const [cart, setCart] = useState<CartLine[]>([]);
   useEffect(()=>{try{const rows=JSON.parse(sessionStorage.getItem(cartKey)??"[]");setCart(Array.isArray(rows)?rows.filter((line:CartLine)=>typeof line.key==="string"&&typeof line.menuItemId==="string"&&typeof line.name==="string"&&Number.isInteger(line.quantity)&&line.quantity>0&&line.quantity<=50&&Number.isFinite(line.unitPrice)&&line.unitPrice>=0&&Array.isArray(line.choiceIds)&&line.choiceIds.every(id=>typeof id==="string")):[]);}catch{setCart([]);}},[cartKey]);
   function updateCart(next:CartLine[]){setCart(next);try{sessionStorage.setItem(cartKey,JSON.stringify(next));}catch{}}
@@ -753,14 +754,14 @@ export default function RestaurantPage() {
   }
 
   useEffect(() => {
-    let disposed=false;setRestaurant(null);setMenu(null);setInsights({});setRestaurantTrust(null);setError(null);
+    let disposed=false;setRestaurant(null);setMenu(null);setInsights({});setRestaurantTrust(null);setRestaurantTrustStatus("loading");setError(null);
     api.foodMenuInsights(id).then(result=>{if(!disposed)setInsights(result.items);}).catch(()=>{});
     Promise.all([api.getRestaurant(id), api.getRestaurantMenu(id)])
       .then(([r, m]) => {
         if(disposed)return;
         setRestaurant(r.restaurant);
         setMenu(m);
-        if(!r.restaurant.is_demo)api.foodRestaurantTrust(id).then(result=>{if(!disposed)setRestaurantTrust(result);}).catch(()=>{});
+        api.foodRestaurantTrust(id).then(result=>{if(!disposed){setRestaurantTrust(result);setRestaurantTrustStatus("ready");}}).catch(()=>{if(!disposed)setRestaurantTrustStatus("unavailable");});
       })
       .catch((err) => setError(errorMessage(err)));
     api
@@ -858,6 +859,9 @@ export default function RestaurantPage() {
 
   const allItems=[...menu.categories.flatMap(category=>category.items),...menu.uncategorizedItems];
   const featuredItems=allItems.filter(item=>item.is_featured);
+  const restaurantRating=restaurantTrustStatus==="loading"?"…":restaurantTrustStatus==="unavailable"?"—":restaurantTrust?.averageMenuRating==null?"New":`${restaurantTrust.averageMenuRating.toFixed(1)}/5`;
+  const restaurantRatingDetail=restaurantTrustStatus==="loading"?"Loading":restaurantTrustStatus==="unavailable"?"Unavailable":restaurantTrust?.menuReviewCount?`${restaurantTrust.menuReviewCount.toLocaleString()} dish ratings`:"No dish ratings yet";
+  const completedOrderCount=restaurantTrustStatus==="ready"&&restaurantTrust?restaurantTrust.completedOrderCount.toLocaleString():restaurantTrustStatus==="loading"?"…":"—";
   if (itemId) {
     const item = allItems.find((row) => row.id === itemId);
     if (!item) {
@@ -979,6 +983,19 @@ export default function RestaurantPage() {
               <p className="mt-2 truncate text-sm text-ink-500">{foodBusinessLabel(restaurant.business_type)}{restaurant.cuisine ? ` · ${restaurant.cuisine}` : ""} · {restaurant.is_open ? "Open now" : "Closed"}</p>
             </div>
             {!restaurant.is_demo&&<Link href={`/restaurants/${id}/chat`} aria-label={`${t('restaurant_chat')} ${restaurant.name}`} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full glass-panel text-white transition-transform active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold"><MessageCircle size={20}/></Link>}
+          </div>
+          {restaurant.description?.trim()&&<p className="restaurant-profile-intro__bio mt-2 text-sm leading-snug text-ink-500">{restaurant.description}</p>}
+          <div className="restaurant-profile-intro__stats">
+            <div className="restaurant-profile-stat" aria-label={`Restaurant food rating: ${restaurantRating}, ${restaurantRatingDetail}`}>
+              <Star size={14} className="shrink-0 text-gold" aria-hidden="true"/>
+              <span className="restaurant-profile-stat__value">{restaurantRating}</span>
+              <span className="restaurant-profile-stat__detail">{restaurantRatingDetail}</span>
+            </div>
+            <div className="restaurant-profile-stat" aria-label={`${completedOrderCount} completed orders`}>
+              <ShoppingBag size={14} className="shrink-0 text-ink-500" aria-hidden="true"/>
+              <span className="restaurant-profile-stat__value">{completedOrderCount}</span>
+              <span className="restaurant-profile-stat__detail">completed orders</span>
+            </div>
           </div>
         </div>
         {error && <p className="mb-6 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}

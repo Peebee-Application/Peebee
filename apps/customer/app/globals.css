@@ -81,7 +81,8 @@
   --restaurant-profile-intro-shift: 9svh;
   --restaurant-profile-intro-padding: 12px 16px;
   --restaurant-profile-intro-border: 1px solid rgb(var(--color-gold) / .2);
-  --restaurant-profile-intro-background: rgb(var(--surface-card) / .95);
+  --restaurant-profile-intro-background: rgb(var(--surface-card) / .86);
+  --restaurant-profile-intro-backdrop-filter: blur(8px);
   --restaurant-profile-intro-radius: 16px;
   --restaurant-profile-title-size: calc(1.875rem - 3px);
 }
@@ -124,6 +125,7 @@
     --restaurant-profile-intro-padding: 0px;
     --restaurant-profile-intro-border: none;
     --restaurant-profile-intro-background: transparent;
+    --restaurant-profile-intro-backdrop-filter: none;
     --restaurant-profile-intro-radius: 0px;
     --restaurant-profile-title-size: 1.875rem;
   }
@@ -163,6 +165,7 @@
   --restaurant-profile-intro-padding: 0px;
   --restaurant-profile-intro-border: none;
   --restaurant-profile-intro-background: transparent;
+  --restaurant-profile-intro-backdrop-filter: none;
   --restaurant-profile-intro-radius: 0px;
   --restaurant-profile-title-size: 1.875rem;
 }
@@ -436,8 +439,13 @@ select {
 .food-menu-card { border:1px solid var(--border-faint); border-radius:20px; background:rgb(var(--surface-card) / .8); padding:14px; }
 .restaurant-cover-pin { isolation:isolate; }
 .restaurant-profile-content { padding-top:34svh; }
-.restaurant-profile-intro { margin-top:var(--restaurant-profile-intro-shift,0px); margin-bottom:20px; padding:var(--restaurant-profile-intro-padding,0px); border:var(--restaurant-profile-intro-border,none); border-radius:var(--restaurant-profile-intro-radius,0px); background:var(--restaurant-profile-intro-background,transparent); }
+.restaurant-profile-intro { margin-top:var(--restaurant-profile-intro-shift,0px); margin-bottom:20px; padding:var(--restaurant-profile-intro-padding,0px); border:var(--restaurant-profile-intro-border,none); border-radius:var(--restaurant-profile-intro-radius,0px); background:var(--restaurant-profile-intro-background,transparent); backdrop-filter:var(--restaurant-profile-intro-backdrop-filter,none); -webkit-backdrop-filter:var(--restaurant-profile-intro-backdrop-filter,none); }
 .restaurant-profile-intro h1 { font-size:var(--restaurant-profile-title-size,1.875rem); }
+.restaurant-profile-intro__bio { display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+.restaurant-profile-intro__stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:12px; }
+.restaurant-profile-stat { display:flex; min-width:0; min-height:36px; align-items:center; gap:6px; overflow:hidden; padding:7px 9px; border:1px solid var(--border-faint); border-radius:999px; background:rgb(var(--surface-muted) / .62); font-size:11px; line-height:1.2; }
+.restaurant-profile-stat__value { flex:none; font-weight:700; }
+.restaurant-profile-stat__detail { min-width:0; overflow:hidden; color:rgb(var(--color-ink-500)); text-overflow:ellipsis; white-space:nowrap; }
 .restaurant-profile-content .food-dish-rail { overscroll-behavior-inline:contain; }
 .restaurant-cover-image { transform:translate3d(0,var(--restaurant-cover-parallax-y,0px),0) scale(1.18); transform-origin:center; filter:brightness(var(--restaurant-cover-image-brightness, 1)); will-change:transform; }
 .restaurant-cover-base-fade { background:linear-gradient(to bottom, transparent 0%, transparent var(--restaurant-cover-fade-start), rgb(var(--restaurant-cover-base-tint) / var(--restaurant-cover-title-shade)) calc(var(--restaurant-cover-fade-start) + 50px), rgb(var(--restaurant-cover-base-tint) / var(--restaurant-cover-mid-shade)) 68%, rgb(var(--restaurant-cover-base-tint) / var(--restaurant-cover-end-shade)) 100%); }

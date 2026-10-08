@@ -94,9 +94,22 @@ const seeds = [
   ] },
 ] satisfies Array<{ slug: string; name: string; cuisine: string; businessType: FoodBusinessType; address: string; open: boolean; cover: string; dishes: Dish[] }>;
 
+const restaurantDescriptions: Record<string, string> = {
+  lakeview: "East African favourites, grilled fresh and served with the bright flavours of the lakeside.",
+  "brick-oven": "Hand-tossed pizza, fresh ingredients and comforting Italian-inspired favourites.",
+  "bun-yard": "Freshly grilled burgers, generous toppings and satisfying street-food sides.",
+  "green-table": "Colourful, feel-good meals built around fresh greens, grains and seasonal produce.",
+  "sharon-cooks": "Homestyle Ugandan cooking with local ingredients and the warmth of a family kitchen.",
+  "hearth-and-home": "Comforting East African meals, prepared fresh with homestyle care.",
+  "kampala-rolex-stop": "Freshly wrapped rolex, quick street bites and chilled local drinks.",
+  "chapati-corner": "Char-grilled bites, fresh chapati and simple street-food favourites.",
+  "golden-crumb": "Small-batch breads and pastries, baked fresh for everyday treats and sharing.",
+  "sweet-oven": "Cakes and baked treats for everyday moments and special celebrations.",
+};
+
 export const DEMO_FOOD_RESTAURANTS: Restaurant[] = seeds.map((seed) => ({
   id: `demo-food-${seed.slug}`, owner_id: "demo-food-owner", name: seed.name,
-  description: "Fictional food business for sandbox testing.", cuisine: seed.cuisine,
+  description: restaurantDescriptions[seed.slug] ?? null, cuisine: seed.cuisine,
   business_type: seed.businessType,
   phone: null, address: seed.address, lat: 0.0645, lng: 32.4594,
   logo_key: null, cover_key: null, status: "active", is_open: seed.open ? 1 : 0,
