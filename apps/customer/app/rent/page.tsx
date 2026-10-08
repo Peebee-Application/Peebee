@@ -63,7 +63,6 @@ export default function RentPage() {
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
-    if (route?.pickup?.lat == null || route.pickup.lng == null || route.destination.lat == null || route.destination.lng == null) { setError("Set a pickup and destination so we can estimate fuel for the round trip."); return; }
     setBusy("search");
     setError("");
     setNotice("");
@@ -200,8 +199,6 @@ export default function RentPage() {
       )}
 
       <form onSubmit={search} className="home-card space-y-3">
-        <button type="button" onClick={() => setRoutePicker(true)} className="min-h-11 w-full rounded-xl border border-[var(--border-faint)] px-3 text-left text-sm font-semibold text-ink">{route ? `${route.pickup?.label ?? "Pickup"} → ${route.destination.label} · Change route` : "Set your route to estimate fuel"}</button>
-        <label className="block space-y-1 text-xs font-semibold text-ink-500">Fuel price per litre (UGX)<input type="number" min={1} value={fuelPrice} onChange={(e) => setFuelPrice(Math.max(1, Number(e.target.value) || 1))} className={field} /></label>
         <div className="space-y-1">
           <label className="text-xs font-semibold text-ink-500">Pickup</label>
           <input required type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className={field} />
@@ -232,7 +229,15 @@ export default function RentPage() {
           <p className="text-xs font-semibold text-ink-500">{v.serviceClass === "comfort" ? "Comfort" : "Convenient"} · {v.condition ?? "Condition not specified"}{v.features?.length ? ` · ${v.features.join(", ")}` : ""}</p>
           {v.lastServiceDate && <p className="text-xs text-ink-500">Last serviced {new Date(`${v.lastServiceDate}T00:00:00`).toLocaleDateString("en-UG", { dateStyle: "medium" })}</p>}
           {v.standardDailyPrice != null && <p className="text-xs text-ink-500">Model reference rate {ugx(v.standardDailyPrice)}/day · owner listing {ugx(v.dailyPrice)}/day</p>}
-          {roundTripKm != null && v.fuelLitresPerKm != null && <p className="rounded-xl bg-[rgb(var(--surface-muted))] px-3 py-2 text-xs text-ink-500">Estimated round trip {roundTripKm.toFixed(1)} km · about {(roundTripKm * v.fuelLitresPerKm).toFixed(1)} L fuel · {ugx(Math.ceil(roundTripKm * v.fuelLitresPerKm * fuelPrice))} at your entered fuel price. Assumes the same road route back; actual use varies by traffic, vehicle condition and driving style.</p>}
+          <div className="space-y-3 rounded-xl border border-[var(--border-faint)] p-3">
+            <h3 className="text-sm font-bold text-ink">Fuel estimate for this car</h3>
+            <button type="button" onClick={() => setRoutePicker(true)} className="min-h-11 w-full rounded-xl border border-[var(--border-faint)] px-3 text-left text-sm font-semibold text-ink">{route ? `${route.pickup?.label ?? "Pickup"} → ${route.destination.label} · Change route` : "Set your route to estimate fuel"}</button>
+            <label className="block space-y-1 text-xs font-semibold text-ink-500">Fuel price per litre (UGX)<input type="number" min={1} value={fuelPrice} onChange={(e) => setFuelPrice(Math.max(1, Number(e.target.value) || 1))} className={field} /></label>
+            {v.fuelLitresPerKm != null && v.fuelLitresPerKm > 0 ? <>
+              <p className="text-xs text-ink-500">This car uses about {(v.fuelLitresPerKm * 100).toFixed(1)} L per 100 km.</p>
+              {roundTripKm != null ? <p className="text-xs text-ink-500">Estimated round trip {roundTripKm.toFixed(1)} km · about {(roundTripKm * v.fuelLitresPerKm).toFixed(1)} L fuel · <strong className="text-ink">{ugx(Math.ceil(roundTripKm * v.fuelLitresPerKm * fuelPrice))}</strong> at your entered fuel price. Assumes the same road route back; actual use varies by traffic, vehicle condition and driving style.</p> : <p className="text-xs text-ink-500">{route ? "Route distance is unavailable. Choose or retry your route to calculate this car’s fuel cost." : "Choose your route to calculate this car’s fuel cost."}</p>}
+            </> : <p className="text-xs text-ink-500">Fuel consumption is unavailable for this car, so we cannot estimate its fuel cost.</p>}
+          </div>
           <div className="grid grid-cols-3 gap-2 text-xs text-ink-500"><span className={v.hourlyEnabled === false ? "opacity-40" : ""}>Hourly<br/><strong className="text-ink">{ugx(v.hourlyPrice ?? Math.round(v.dailyPrice * 1.2 / 24))}/hr</strong></span><span className={v.halfDayEnabled === false ? "opacity-40" : ""}>6 hours<br/><strong className="text-ink">{ugx(v.halfDayPrice ?? Math.round(v.dailyPrice * 0.6))}</strong></span><span className={v.fullDayEnabled === false ? "opacity-40" : ""}>24 hours<br/><strong className="text-ink">{ugx(v.dailyPrice)}</strong></span></div>
           <p className="text-sm text-ink">Selected {periodType.replace("_", " ")} = <strong>{ugx(rentalQuote(v, periodType, hourCount))}</strong></p>
           <p className="text-xs text-ink-500">Plus a refundable deposit of {ugx(v.deposit)}. Both are taken from your wallet and held; the deposit comes back when the car is returned undamaged.</p>
