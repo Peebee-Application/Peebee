@@ -377,6 +377,42 @@ select {
 .food-categories strong { display:block; margin-top:8px; font-size:10px; line-height:1.4; }
 .food-categories .active span { background:rgb(var(--color-gold) / .2); border-color:rgb(var(--color-gold)); }
 .food-menu-card { border:1px solid var(--border-faint); border-radius:20px; background:rgb(var(--surface-card) / .8); padding:14px; }
+.restaurant-cover-pin { isolation:isolate; }
+.restaurant-profile-content { padding-top:34svh; }
+.restaurant-profile-intro { margin-bottom:20px; }
+.restaurant-logo-trigger { transition:transform 140ms var(--ease-out-expo), box-shadow 180ms ease; }
+.restaurant-logo-trigger:active,.restaurant-logo-trigger.is-expanded { transform:scale(.9); }
+.restaurant-logo-trigger:focus-visible { outline:3px solid rgb(var(--color-gold)); outline-offset:3px; }
+.restaurant-trust-card {
+  width:min(calc(100vw - 2rem), 24rem);
+  padding:14px;
+  border:1px solid var(--border-faint);
+  border-radius:24px;
+  background:rgb(var(--surface-card) / .98);
+  color:rgb(var(--color-ink));
+  box-shadow:var(--shadow-float-capsule);
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transform:translateY(-6px) scale(.94);
+  transform-origin:top right;
+  transition:opacity 190ms ease,transform 230ms var(--ease-out-expo),visibility 230ms;
+}
+.restaurant-trust-card.is-open { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); }
+.restaurant-trust-card__heading { min-height:58px; padding-right:3.75rem; }
+.restaurant-trust-card__approval { display:inline-flex; align-items:center; gap:5px; color:rgb(var(--color-green)); font-size:11px; font-weight:700; line-height:1.2; }
+.restaurant-trust-card__approval.is-demo { color:rgb(var(--color-ink-500)); }
+.restaurant-trust-card__metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:12px; }
+.restaurant-trust-card__metric { display:flex; min-height:90px; flex-direction:column; align-items:flex-start; justify-content:center; border-radius:16px; background:rgb(var(--surface-muted)); padding:10px; }
+.restaurant-trust-card__metric-icon { display:flex; color:rgb(var(--color-gold)); }
+.restaurant-trust-card__metric-value { margin-top:5px; font-size:16px; font-weight:750; line-height:1.2; font-variant-numeric:tabular-nums; }
+.restaurant-trust-card__metric-label { margin-top:3px; color:rgb(var(--color-ink-500)); font-size:10px; line-height:1.25; }
+.restaurant-trust-card__footer { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; color:rgb(var(--color-ink-500)); font-size:11px; }
+.restaurant-trust-card__status { flex-shrink:0; border-radius:999px; background:rgb(var(--surface-muted)); padding:5px 8px; color:rgb(var(--color-ink-500)); font-weight:700; }
+.restaurant-trust-card__status.is-open { background:rgb(var(--color-green) / .12); color:rgb(var(--color-green)); }
+.restaurant-cover-pin + .restaurant-profile-content .food-dish-rail { margin-bottom:0; }
+@media (max-height:700px) { .restaurant-profile-content { padding-top:27svh; } }
+@media (prefers-reduced-motion:reduce) { .restaurant-logo-trigger,.restaurant-trust-card { transition:none; } }
 .food-type-option { position:relative; border:1px solid var(--border-faint); border-radius:18px; padding:14px; cursor:pointer; background:rgb(var(--surface-card)); }
 .food-type-option.selected { border-color:rgb(var(--color-gold)); background:rgb(var(--color-gold) / .12); }
 .food-type-option input { margin-bottom:10px; accent-color:rgb(var(--color-gold)); }
