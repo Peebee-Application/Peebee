@@ -13,6 +13,7 @@ import { placeFields } from "../../lib/places";
 import { RouteSummary } from "./RouteSummary";
 import { RideTimeEstimate } from "./RideTimeEstimate";
 import { WhoIsRiding } from "../WhoIsRiding";
+import { saveSelfDriveRoute } from "../../lib/selfdrive-route";
 
 /** Great-circle distance in km — mirrors apps/api/src/lib/geo.ts, used only
  * for the live fare preview here; the backend recomputes it authoritatively. */
@@ -205,6 +206,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
                 aria-selected={mode === m}
                 onClick={() => {
                   if (m === "carpool" || m === "rent") {
+                    if (m === "rent") saveSelfDriveRoute(route);
                     onClose();
                     router.push(m === "carpool" ? "/carpool" : "/rent");
                     return;
