@@ -989,6 +989,26 @@ select {
   margin: -25px 0 0;
   padding: 0 0 2px;
 }
+.menu-item-deck__availability-note {
+  position: absolute;
+  z-index: 3;
+  right: 4px;
+  bottom: calc(100% + 9px);
+  max-width: calc(100% - 8px);
+  border: 1px solid var(--border-faint);
+  border-radius: 999px;
+  padding: 9px 14px;
+  background: rgb(var(--surface-card));
+  color: rgb(var(--color-ink));
+  box-shadow: 0 8px 22px rgb(0 0 0 / .2);
+  font-size: 12px;
+  font-weight: 750;
+  animation: menu-item-availability-note-in 180ms ease-out both;
+}
+@keyframes menu-item-availability-note-in {
+  from { opacity: 0; transform: translateY(6px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 .menu-item-deck__add-btn {
   display: flex;
   width: 100%;
@@ -1018,8 +1038,17 @@ select {
   opacity: .55;
   cursor: not-allowed;
 }
+.menu-item-deck__add-btn[data-unavailable="true"] {
+  border-color: var(--border-faint);
+  background: rgb(var(--surface-muted));
+  color: rgb(var(--color-ink-500));
+  box-shadow: 0 3px 10px rgb(0 0 0 / .16);
+  opacity: 1;
+  cursor: not-allowed;
+}
 @media (prefers-reduced-motion: reduce) {
   .menu-item-deck__card,
+  .menu-item-deck__availability-note,
   .menu-item-cart-layer__backdrop,
   .menu-item-cart-drawer,
   .menu-item-detail-page__content,

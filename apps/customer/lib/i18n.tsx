@@ -238,6 +238,8 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   restaurants_title: { en: "Restaurants", lg: "Amaduuka g'Emmere" },
   restaurants_none_yet: { en: "No restaurants available yet — check back soon.", lg: "Tewali duuka lya mmere kaakano — komawo mangu." },
   restaurant_closed: { en: "Closed", lg: "Zigaddwa" },
+  restaurant_restaurant_closed: { en: "Restaurant closed", lg: "Dduuka lya mmere ligaddwa" },
+  restaurant_item_unavailable: { en: "This item is unavailable", lg: "Emmere eno tekyaaliwo" },
 
   // Restaurant detail / checkout
   restaurant_order_now: { en: "Order Now", lg: "Laga Kaakano" },

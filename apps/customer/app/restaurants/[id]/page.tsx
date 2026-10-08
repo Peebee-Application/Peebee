@@ -327,9 +327,22 @@ function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId
     quantity: 1,
   });
   const [addedItemId, setAddedItemId] = useState<string | null>(null);
+  const [availabilityMessage, setAvailabilityMessage] = useState<string | null>(null);
   const selected = configuration.itemId === item.id ? configuration.selected : {};
   const quantity = configuration.itemId === item.id ? configuration.quantity : 1;
   const addedAnim = addedItemId === item.id;
+  const itemAvailable = item.available === 1;
+  const unavailableMessage = !isOpen
+    ? t("restaurant_restaurant_closed")
+    : !itemAvailable
+      ? t("restaurant_item_unavailable")
+      : null;
+
+  useEffect(() => {
+    if (!availabilityMessage) return;
+    const timeout = window.setTimeout(() => setAvailabilityMessage(null), 1800);
+    return () => window.clearTimeout(timeout);
+  }, [availabilityMessage]);
 
   function updateConfiguration(update: (current: { selected: Record<string, string[]>; quantity: number }) => { selected: Record<string, string[]>; quantity: number }) {
     setConfiguration((previous) => {
@@ -355,7 +368,11 @@ function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId
   const configuredTotal = unitPrice * quantity;
 
   function handleAdd() {
-    if (missingRequired.length > 0 || !isOpen) return;
+    if (unavailableMessage) {
+      setAvailabilityMessage(unavailableMessage);
+      return;
+    }
+    if (missingRequired.length > 0) return;
     onAdd(item, { unitPrice, choiceIds, choiceNames: choices.map((choice) => choice.name), quantity });
     setAddedItemId(item.id);
     setTimeout(() => setAddedItemId((current) => current === item.id ? null : current), 1400);
@@ -422,17 +439,23 @@ function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId
         </div>
       </section>
       <div className="menu-item-deck__footer">
+        {availabilityMessage && (
+          <p className="menu-item-deck__availability-note" role="status" aria-live="polite">
+            {availabilityMessage}
+          </p>
+        )}
         <button
           type="button"
-          disabled={missingRequired.length > 0 || !isOpen}
+          disabled={missingRequired.length > 0 && !unavailableMessage}
           onClick={handleAdd}
           className="menu-item-deck__add-btn"
           data-added={addedAnim ? "true" : undefined}
-          aria-label={!isOpen ? "Business closed" : missingRequired.length > 0 ? `${t("restaurant_choose")} ${missingRequired[0].name}` : `${t("restaurant_add_to_list")} ${item.name}, ${formatUgx(configuredTotal)}`}
+          data-unavailable={unavailableMessage ? "true" : undefined}
+          aria-label={unavailableMessage ? `${unavailableMessage}, ${formatUgx(configuredTotal)}` : missingRequired.length > 0 ? `${t("restaurant_choose")} ${missingRequired[0].name}` : `${t("restaurant_add_to_list")} ${item.name}, ${formatUgx(configuredTotal)}`}
         >
           <span className="menu-item-deck__add-icon" aria-hidden="true"><Plus size={22} strokeWidth={2.5} /></span>
           <span id="menu-item-current-price" className="menu-item-deck__add-price" aria-live="polite">{formatUgx(configuredTotal)}</span>
-          <span className="sr-only">{!isOpen ? "Business closed" : missingRequired.length > 0 ? `${t("restaurant_choose")} ${missingRequired[0].name}` : t("restaurant_add_to_list")}</span>
+          <span className="sr-only">{unavailableMessage ?? (missingRequired.length > 0 ? `${t("restaurant_choose")} ${missingRequired[0].name}` : t("restaurant_add_to_list"))}</span>
         </button>
       </div>
     </>
