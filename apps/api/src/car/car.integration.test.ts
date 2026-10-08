@@ -387,6 +387,10 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
     const at = (d: number) => new Date(rentalClock + d * day).toISOString();
     const balance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance AS b FROM users WHERE id = ?", args: [id] })).rows[0].b);
     await client.execute("UPDATE users SET wallet_balance = 0 WHERE id IN ('owner', 'cust', 'p2')");
+    await client.execute({
+      sql: "INSERT INTO selfdrive_renter_kyc (user_id, nin, residential_address, national_id_key, residence_method, status) VALUES ('cust', 'CF901234567890', 'Kampala', 'test-national-id', 'bill', 'approved')",
+      args: [],
+    });
 
     await settings({ ...SELFDRIVE, platformPercent: null });
     assert.equal((await call("GET", "/car/rentals/my-vehicles", "owner")).status, 403, "off until Peebee's percentage is decided");

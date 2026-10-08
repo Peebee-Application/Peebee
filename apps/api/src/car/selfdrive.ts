@@ -329,7 +329,7 @@ selfDriveRoutes.post("/car/rentals", requireRole("customer"), async (c) => {
   if (start.getTime() < Date.now() - 5 * 60000) return c.json({ error: "invalid_dates", message: "The pickup time has passed." }, 400);
   const period = d.periodType;
   const durationHours = (end.getTime() - start.getTime()) / 3_600_000;
-  if ((period === "hourly" && (durationHours < 1 || durationHours > 24.1)) || (period === "half_day" && Math.abs(durationHours - 6) > 0.1) || (period === "full_day" && Math.abs(durationHours - 24) > 0.1)) return c.json({ error: "invalid_period", message: "Hourly bookings are 1–24 hours; half-day is 6 hours and full-day is 24 hours." }, 400);
+  if ((period === "hourly" && (durationHours < 1 || durationHours > 24.1)) || (period === "half_day" && Math.abs(durationHours - 6) > 0.1) || (period === "full_day" && (durationHours < 24 || Math.abs(durationHours / 24 - Math.round(durationHours / 24)) > 0.1 / 24))) return c.json({ error: "invalid_period", message: "Hourly bookings are 1–24 hours; half-day is 6 hours and full-day rentals use whole 24-hour blocks." }, 400);
   const days = rentalDays(start, end);
   if (days > selfDrive.maxDays) return c.json({ error: "too_long", message: `You can rent for up to ${selfDrive.maxDays} days.` }, 400);
   const environment = await getPlatformEnvironment();
