@@ -453,8 +453,8 @@ function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId
           data-unavailable={unavailableMessage ? "true" : undefined}
           aria-label={unavailableMessage ? `${unavailableMessage}, ${formatUgx(configuredTotal)}` : missingRequired.length > 0 ? `${t("restaurant_choose")} ${missingRequired[0].name}` : `${t("restaurant_add_to_list")} ${item.name}, ${formatUgx(configuredTotal)}`}
         >
-          <span className="menu-item-deck__add-icon" aria-hidden="true"><Plus size={22} strokeWidth={2.5} /></span>
           <span id="menu-item-current-price" className="menu-item-deck__add-price" aria-live="polite">{formatUgx(configuredTotal)}</span>
+          <span className="menu-item-deck__add-icon" aria-hidden="true"><Plus size={22} strokeWidth={2.5} /></span>
           <span className="sr-only">{unavailableMessage ?? (missingRequired.length > 0 ? `${t("restaurant_choose")} ${missingRequired[0].name}` : t("restaurant_add_to_list"))}</span>
         </button>
       </div>

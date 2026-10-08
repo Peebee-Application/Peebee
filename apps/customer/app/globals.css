@@ -1027,7 +1027,7 @@ select {
   box-shadow: 0 4px 14px rgba(201, 162, 39, 0.38);
   transition: transform 160ms ease, opacity 160ms ease;
 }
-.menu-item-deck__add-icon { display: inline-flex; width: 42px; height: 40px; flex: 0 0 auto; align-items: center; justify-content: center; border-right: 1px solid rgb(var(--color-ink-gold) / .2); }
+.menu-item-deck__add-icon { display: inline-flex; width: 42px; height: 40px; flex: 0 0 auto; align-items: center; justify-content: center; border-left: 1px solid rgb(var(--color-ink-gold) / .2); }
 .menu-item-deck__add-price { flex: 1 1 auto; padding-inline: 9px; text-align: center; font-size: 17px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .menu-item-deck__add-btn[data-added="true"] { animation: menu-item-added 420ms ease; }
 @keyframes menu-item-added { 50% { transform: scale(1.035); } }
