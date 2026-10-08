@@ -451,7 +451,7 @@ select {
 .restaurant-trust-card__status { flex-shrink:0; border-radius:999px; background:rgb(var(--surface-muted)); padding:5px 8px; color:rgb(var(--color-ink-500)); font-weight:700; }
 .restaurant-trust-card__status.is-open { background:rgb(var(--color-green) / .12); color:rgb(var(--color-green)); }
 .restaurant-cover-pin + .restaurant-profile-content .food-dish-rail { margin-bottom:0; }
-@media (max-height:700px) { :root { --restaurant-cover-fade-start:calc(27svh - 50px); } .restaurant-profile-content { padding-top:27svh; } }
+@media (max-height:700px) { :root,:root[data-theme="dark"],:root:not([data-theme="light"]) { --restaurant-cover-fade-start:calc(27svh - 50px); } .restaurant-profile-content { padding-top:27svh; } }
 @media (prefers-reduced-motion:reduce) { .restaurant-logo-trigger,.restaurant-trust-card,.restaurant-cover-image,.restaurant-cover-scroll-tint,.restaurant-cover-scroll-blur { transition:none; } }
 .food-type-option { position:relative; border:1px solid var(--border-faint); border-radius:18px; padding:14px; cursor:pointer; background:rgb(var(--surface-card)); }
 .food-type-option.selected { border-color:rgb(var(--color-gold)); background:rgb(var(--color-gold) / .12); }
