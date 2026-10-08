@@ -981,10 +981,6 @@ export default function RestaurantPage() {
             {!restaurant.is_demo&&<Link href={`/restaurants/${id}/chat`} aria-label={`${t('restaurant_chat')} ${restaurant.name}`} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full glass-panel text-white transition-transform active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold"><MessageCircle size={20}/></Link>}
           </div>
         </div>
-        {restaurant.is_demo && <p className="mb-6 rounded-2xl border border-gold/20 bg-[rgb(var(--surface-card))]/95 px-4 py-3 text-sm text-ink">{restaurant.demo_checkout_enabled
-        ? "Sandbox demo restaurant · payments are simulated. Riders in Sandbox can pick up and deliver your order."
-        : "Demo restaurant · explore the menu, options, and cart. No order or payment is placed."}</p>}
-
         {error && <p className="mb-6 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
         {featuredItems.length>0&&<section className="mb-6 space-y-4"><div className="flex items-center justify-between"><h2 className="text-2xl font-bold text-ink">Featured</h2><span className="text-xs text-ink-500">Selected by the kitchen</span></div><DishRail label="Featured dishes">{featuredItems.map(item=><FoodItemCard key={item.id} featured item={item} insight={insights[item.id]} onOpen={()=>router.push(`/restaurants/${id}/items/${item.id}`)}/>)}</DishRail></section>}
