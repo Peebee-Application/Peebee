@@ -518,7 +518,7 @@ export default function RestaurantChatPage() {
               className="flex h-9 w-9 shrink-0 items-center justify-center text-green"
               aria-label="Call"
             >
-              <Phone className="h-4.5 w-4.5" strokeWidth={2} aria-hidden />
+              <Phone className="h-4.5 w-4.5" fill="currentColor" strokeWidth={2} aria-hidden />
             </button>
           )}
         </header>

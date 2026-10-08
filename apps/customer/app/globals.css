@@ -336,6 +336,7 @@ select {
 .peebee-chat-bg {
   position: relative;
   isolation: isolate;
+  background-color: rgb(var(--surface-muted));
 }
 
 .peebee-chat-bg::before {
