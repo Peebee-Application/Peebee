@@ -15,14 +15,12 @@ export function FoodCover({id,name,description,coverKey,loadCover,previewUrl,men
     let frame = 0;
     const update = () => {
       frame = 0;
-      const progress = Math.min(1, Math.max(0, window.scrollY / Math.max(1, window.innerHeight * 0.85)));
+      const progress = Math.min(1, Math.max(0, window.scrollY / Math.max(1, window.innerHeight * 0.65)));
       const theme = getComputedStyle(document.documentElement);
       const maxShade = Number.parseFloat(theme.getPropertyValue("--restaurant-cover-scroll-max-shade")) || 0;
       const maxBlur = Number.parseFloat(theme.getPropertyValue("--restaurant-cover-scroll-max-blur")) || 0;
-      const targetBrightness = Number.parseFloat(theme.getPropertyValue("--restaurant-cover-scroll-target-brightness")) || 1;
       figure.style.setProperty("--restaurant-cover-scroll-shade", String(progress * maxShade));
       figure.style.setProperty("--restaurant-cover-scroll-blur", `${progress * maxBlur}px`);
-      figure.style.setProperty("--restaurant-cover-scroll-brightness", String(1 + (targetBrightness - 1) * progress));
     };
     const scheduleUpdate = () => {
       if (!frame) frame = window.requestAnimationFrame(update);
@@ -48,8 +46,9 @@ export function FoodCover({id,name,description,coverKey,loadCover,previewUrl,men
     {source?<img src={source} alt={`${name} cover`} className={`absolute inset-0 h-full w-full object-cover ${parallax?"restaurant-cover-image":""}`}/>:<div className="flex h-full flex-col items-center justify-center gap-5 p-8 text-center text-ink">{placeholder}<p className="text-sm text-ink-500">Fresh food. Made for you.</p></div>}
     {edgeToEdge&&!parallax&&<div aria-hidden className="absolute inset-x-0 bottom-0 h-2/3" style={{background:"linear-gradient(to bottom, transparent, rgb(var(--color-cream) / .8) 60%, rgb(var(--color-cream)) 100%)"}}/>}
     {parallax&&<>
-      <div aria-hidden className="pointer-events-none absolute inset-0" style={{background:"linear-gradient(to bottom, rgb(var(--color-black) / .015) 0%, transparent 27%, rgb(var(--color-black) / var(--restaurant-cover-mid-shade)) 62%, rgb(var(--color-black) / var(--restaurant-cover-end-shade)) 100%)"}}/>
-      <div aria-hidden className="pointer-events-none absolute inset-0" style={{backgroundColor:"rgb(var(--restaurant-cover-scroll-tint))",opacity:"var(--restaurant-cover-scroll-shade, 0)"}}/>
+      <div aria-hidden className="restaurant-cover-base-fade pointer-events-none absolute inset-0"/>
+      <div aria-hidden className="restaurant-cover-scroll-tint pointer-events-none absolute inset-0"/>
+      <div aria-hidden className="restaurant-cover-scroll-blur pointer-events-none absolute inset-0"/>
     </>}
     {overlay}
     {showCaption&&<figcaption className={`absolute inset-x-0 bottom-0 space-y-3 p-6 ${edgeToEdge?"text-ink":source?"bg-gradient-to-t from-black/85 via-black/60 to-transparent pt-20 text-white":"bg-[rgb(var(--surface-card))]/90 text-ink"}`}>

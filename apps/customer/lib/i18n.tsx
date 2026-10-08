@@ -269,6 +269,7 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   restaurant_your_cart: { en: "Your cart", lg: "Ekikapu kyo" },
   restaurant_checkout: { en: "Checkout", lg: "Wewaayo" },
   restaurant_remove: { en: "Remove", lg: "Ggyawo" },
+  restaurant_subtotal: { en: "Subtotal", lg: "Omugatte" },
   restaurant_delivery_details: { en: "Delivery details", lg: "Ebikwata ku kutuusa" },
   restaurant_payment: { en: "Payment", lg: "Okusasula" },
   restaurant_cash: { en: "Cash", lg: "Ssente z'omu ngalo" },

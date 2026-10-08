@@ -4,7 +4,7 @@ import { FoodCover } from "@peebee/shared/food-cover";
 import type { FoodItemInsight, FoodRestaurantTrust, MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, Restaurant, RestaurantMenu } from "@peebee/shared";
 import { foodBusinessLabel, roundFare } from "@peebee/shared";
 import { demoFoodPhotoPath, demoRestaurantPhotoPath } from "@peebee/shared/demo-food";
-import { ArrowUpRight, ChevronLeft, ChevronDown, ChevronRight, Star, MessageCircle, Minus, Plus, ShoppingBag, ShoppingCart, Store, UtensilsCrossed, X } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronDown, ChevronRight, Star, MessageCircle, Minus, Plus, ShoppingBag, ShoppingCart, Store, Trash2, UtensilsCrossed, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -58,10 +58,10 @@ function useMenuItemPhoto(itemId: string, hasPhoto = true, revision?:string) {
   return demoPhoto ?? (hasPhoto ? url : null);
 }
 
-function MenuItemThumb({ itemId, size = "row" }: { itemId: string; size?: "row" | "modal" }) {
-  const url = useMenuItemPhoto(itemId);
+function MenuItemThumb({ itemId, photoKey, revision, size = "row" }: { itemId: string; photoKey?: string | null; revision?: string; size?: "row" | "modal" }) {
+  const url = useMenuItemPhoto(itemId, photoKey === undefined ? true : !!photoKey, revision);
 
-  const dims = size === "row" ? "h-16 w-16" : "h-64 w-full";
+  const dims = size === "row" ? "h-14 w-14 rounded-xl" : "h-64 w-full rounded-3xl";
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -157,6 +157,9 @@ type CartLine = {
   key: string;
   menuItemId: string;
   name: string;
+  choiceNames?: string[];
+  photoKey?: string | null;
+  photoRevision?: string;
   unitPrice: number;
   quantity: number;
   choiceIds: string[];
@@ -225,12 +228,14 @@ function MenuOrderList({
             <ul className="menu-item-order-list__lines">
               {cart.map((line) => (
                 <li className="menu-item-order-list__line" key={line.key}>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">{line.quantity}× {line.name}</span>
-                    <span className="block text-xs text-ink-500">{formatUgx(line.unitPrice * line.quantity)}</span>
+                  <MenuItemThumb itemId={line.menuItemId} photoKey={line.photoKey} revision={line.photoRevision} />
+                  <span className="menu-item-order-list__copy">
+                    <span className="menu-item-order-list__name" title={line.name}>{line.name}</span>
+                    <span className="menu-item-order-list__meta">{line.quantity} × {formatUgx(line.unitPrice)} {t("order_each")}{line.choiceNames?.length ? ` · ${line.choiceNames.join(", ")}` : ""}</span>
+                    <span className="menu-item-order-list__subtotal">{t("restaurant_subtotal")} · {formatUgx(line.unitPrice * line.quantity)}</span>
                   </span>
-                  <button type="button" className="menu-item-order-list__remove" onClick={() => onRemoveLine(line.key)}>
-                    {t("restaurant_remove")}
+                  <button type="button" className="menu-item-order-list__remove" aria-label={`${t("restaurant_remove")} ${line.name}`} onClick={() => onRemoveLine(line.key)}>
+                    <Trash2 size={17} strokeWidth={1.9} aria-hidden="true" />
                   </button>
                 </li>
               ))}
@@ -780,9 +785,8 @@ export default function RestaurantPage() {
 
   function addToCart(item: MenuItem, line: { unitPrice: number; choiceIds: string[]; choiceNames: string[]; quantity: number }) {
     const key = `${item.id}:${[...line.choiceIds].sort().join(",")}`;
-    const name = line.choiceNames.length > 0 ? `${item.name} (${line.choiceNames.join(", ")})` : item.name;
     const existing=cart.find(l=>l.key===key);
-    const next=existing?cart.map(l=>l.key===key?{...l,quantity:Math.min(50,l.quantity+line.quantity)}:l):[...cart,{key,menuItemId:item.id,name,unitPrice:line.unitPrice,quantity:line.quantity,choiceIds:line.choiceIds}];
+    const next=existing?cart.map(l=>l.key===key?{...l,name:item.name,choiceNames:line.choiceNames,photoKey:item.photo_key,photoRevision:item.updated_at,quantity:Math.min(50,l.quantity+line.quantity)}:l):[...cart,{key,menuItemId:item.id,name:item.name,choiceNames:line.choiceNames,photoKey:item.photo_key,photoRevision:item.updated_at,unitPrice:line.unitPrice,quantity:line.quantity,choiceIds:line.choiceIds}];
     updateCart(next);
   }
 
@@ -971,8 +975,8 @@ export default function RestaurantPage() {
         <div id="food-menu" className="restaurant-profile-intro">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="break-words text-3xl font-bold leading-tight tracking-tight text-white drop-shadow-lg">{restaurant.name}</h1>
-              <p className="mt-2 truncate text-sm text-white/80">{foodBusinessLabel(restaurant.business_type)}{restaurant.cuisine ? ` · ${restaurant.cuisine}` : ""} · {restaurant.is_open ? "Open now" : "Closed"}</p>
+              <h1 className="break-words text-3xl font-bold leading-tight tracking-tight text-ink">{restaurant.name}</h1>
+              <p className="mt-2 truncate text-sm text-ink-500">{foodBusinessLabel(restaurant.business_type)}{restaurant.cuisine ? ` · ${restaurant.cuisine}` : ""} · {restaurant.is_open ? "Open now" : "Closed"}</p>
             </div>
             {!restaurant.is_demo&&<Link href={`/restaurants/${id}/chat`} aria-label={`${t('restaurant_chat')} ${restaurant.name}`} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full glass-panel text-white transition-transform active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold"><MessageCircle size={20}/></Link>}
           </div>
@@ -983,10 +987,10 @@ export default function RestaurantPage() {
 
         {error && <p className="mb-6 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-        {featuredItems.length>0&&<section className="mb-6 space-y-4"><div className="flex items-center justify-between"><h2 className="text-2xl font-bold text-white drop-shadow-md">Featured</h2><span className="text-xs text-white/75">Selected by the kitchen</span></div><DishRail label="Featured dishes">{featuredItems.map(item=><FoodItemCard key={item.id} featured item={item} insight={insights[item.id]} onOpen={()=>router.push(`/restaurants/${id}/items/${item.id}`)}/>)}</DishRail></section>}
-        {allItems.length>0&&<section className="mb-6 space-y-4"><h2 className="text-2xl font-bold text-white drop-shadow-md">Main dishes</h2><DishRail label="Main dishes">{allItems.map(item=><FoodItemCard key={item.id} item={item} insight={insights[item.id]} onOpen={()=>router.push(`/restaurants/${id}/items/${item.id}`)}/>)}</DishRail></section>}
+        {featuredItems.length>0&&<section className="mb-6 space-y-4"><div className="flex items-center justify-between"><h2 className="text-2xl font-bold text-ink">Featured</h2><span className="text-xs text-ink-500">Selected by the kitchen</span></div><DishRail label="Featured dishes">{featuredItems.map(item=><FoodItemCard key={item.id} featured item={item} insight={insights[item.id]} onOpen={()=>router.push(`/restaurants/${id}/items/${item.id}`)}/>)}</DishRail></section>}
+        {allItems.length>0&&<section className="mb-6 space-y-4"><h2 className="text-2xl font-bold text-ink">Main dishes</h2><DishRail label="Main dishes">{allItems.map(item=><FoodItemCard key={item.id} item={item} insight={insights[item.id]} onOpen={()=>router.push(`/restaurants/${id}/items/${item.id}`)}/>)}</DishRail></section>}
         {menu.categories.length === 0 && menu.uncategorizedItems.length === 0 && (
-          <p className="py-10 text-center text-sm text-white/75">{t("restaurant_no_menu_yet")}</p>
+          <p className="py-10 text-center text-sm text-ink-500">{t("restaurant_no_menu_yet")}</p>
         )}
 
       {cart.length > 0 && (
