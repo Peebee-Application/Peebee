@@ -1663,8 +1663,8 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
       const params = new URLSearchParams({ startsAt, endsAt });
       return request<{ days: number; vehicles: RentalVehicle[] }>(`/v1/car/rentals/listings?${params}`);
     },
-    async rentalRequest(input: { vehicleId: string; startsAt: string; endsAt: string; licenceNumber: string; licenceExpiry: string }) {
-      return request<{ id: string; days: number; rent: number; deposit: number }>("/v1/car/rentals", { method: "POST", body: JSON.stringify(input) });
+    async rentalRequest(input: { vehicleId: string; startsAt: string; endsAt: string; licenceNumber: string; licenceExpiry: string; periodType?: "hourly" | "half_day" | "full_day" }) {
+      return request<{ id: string; days: number; rent: number; deposit: number; status?: string; periodType?: string }>("/v1/car/rentals", { method: "POST", body: JSON.stringify(input) });
     },
     async myRentals() {
       return request<{ rentals: Rental[] }>("/v1/car/rentals/mine");
@@ -1675,7 +1675,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async ownerRentals() {
       return request<{ vehicles: OwnerRentalVehicle[]; rentals: Rental[] }>("/v1/car/rentals/my-vehicles");
     },
-    async saveRentalListing(vehicleId: string, input: { dailyPrice: number; depositAmount: number; notes?: string; active: boolean }) {
+    async saveRentalListing(vehicleId: string, input: { dailyPrice: number; depositAmount: number; notes?: string; active: boolean; hourlyEnabled?: boolean; halfDayEnabled?: boolean; fullDayEnabled?: boolean }) {
       return request<{ ok: true }>(`/v1/car/rentals/listings/${vehicleId}`, { method: "PUT", body: JSON.stringify(input) });
     },
     async decideRental(id: string, approve: boolean) {
@@ -1686,6 +1686,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async returnRental(id: string, damageClaim?: number) {
       return request<{ ok: true; status: string }>(`/v1/car/rentals/${id}/return`, { method: "POST", body: JSON.stringify({ damageClaim }) });
+    },
+    async finishDemoRental(id: string) {
+      return request<{ ok: true; status: string }>(`/v1/car/rentals/${id}/demo-return`, { method: "POST" });
     },
     async adminCarRentals() {
       return request<{ rentals: AdminRental[] }>("/v1/admin/car/rentals");

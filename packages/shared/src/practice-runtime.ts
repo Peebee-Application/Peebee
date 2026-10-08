@@ -9,6 +9,13 @@ const PRACTICE_PAYMENT_ID = "mpay_practice";
 const PRACTICE_MERCHANT_ID = "merchant-practice";
 const PRACTICE_OUTLET_ID = "outlet-practice";
 const PRACTICE_CAR_CATEGORY_ID = "practice-car-comfort";
+const PRACTICE_RENTALS_KEY = "peebee_practice_selfdrive_rentals_v1";
+const PRACTICE_RENTAL_CARS = [
+  { id: "practice-rent-sedan", name: "Silver Toyota Corolla 2021", category: "Saloon", seats: 4, dailyPrice: 100_000, deposit: 50_000, rent: 100_000, hourlyPrice: 5_000, halfDayPrice: 60_000, notes: "Demo owner · Amina Demo Rentals", ownerName: "Amina Demo Rentals", hourlyEnabled: true, halfDayEnabled: true, fullDayEnabled: true },
+  { id: "practice-rent-noah", name: "Black Toyota Noah 2020", category: "Family MPV", seats: 7, dailyPrice: 150_000, deposit: 75_000, rent: 150_000, hourlyPrice: 7_500, halfDayPrice: 90_000, notes: "Demo owner · Entebbe Family Cars", ownerName: "Entebbe Family Cars", hourlyEnabled: false, halfDayEnabled: true, fullDayEnabled: true },
+  { id: "practice-rent-hiace", name: "White Toyota Hiace 2019", category: "Minibus", seats: 14, dailyPrice: 200_000, deposit: 100_000, rent: 200_000, hourlyPrice: 10_000, halfDayPrice: 120_000, notes: "Demo owner · Lakeview Van Hire", ownerName: "Lakeview Van Hire", hourlyEnabled: false, halfDayEnabled: false, fullDayEnabled: true },
+  { id: "practice-rent-suv", name: "Blue Nissan X-Trail 2022", category: "SUV", seats: 5, dailyPrice: 180_000, deposit: 90_000, rent: 180_000, hourlyPrice: 9_000, halfDayPrice: 108_000, notes: "Demo owner · Entebbe Family Cars", ownerName: "Entebbe Family Cars", hourlyEnabled: true, halfDayEnabled: false, fullDayEnabled: false },
+];
 
 type PracticeItem = { id: string; name: string; quantity: number; unitPrice: number; note: string | null };
 
@@ -414,6 +421,8 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
   };
 
   if (role === "customer" && method === "GET") {
+    if (path === "/v1/car/rentals/listings") return jsonResponse({ days: 1, vehicles: PRACTICE_RENTAL_CARS });
+    if (path === "/v1/car/rentals/mine") return jsonResponse({ rentals: canUseStorage() ? JSON.parse(window.localStorage.getItem(PRACTICE_RENTALS_KEY) ?? "[]") : [] });
     if (path === "/v1/car/config") return jsonResponse({ onDemandEnabled: true, matchingMode: "first_to_claim", scheduled: null, carpool: null, selfDrive: null, vehiclePhotos: false, kyc: null, deals: null, categories: [
       { id: PRACTICE_CAR_CATEGORY_ID, kind: "passenger", name: "Comfort sedan", seats: 4, cargo_type: null, size_label: null, reference_image_key: null, rate_per_km: 2_000, minimum_fare: 8_000 },
       { id: "practice-car-family", kind: "passenger", name: "Family SUV", seats: 6, cargo_type: null, size_label: null, reference_image_key: null, rate_per_km: 3_000, minimum_fare: 12_000 },
@@ -427,6 +436,31 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
     const photo = path.match(/^\/v1\/restaurants\/menu-items\/([^/]+)\/photo$/);
     const image = photo ? demoFoodImage(photo[1]) : undefined;
     if (image) return new Response(image, { headers: { "Content-Type": "image/svg+xml" } });
+  }
+
+  if (role === "customer" && method === "POST" && path === "/v1/car/rentals") {
+    const car = PRACTICE_RENTAL_CARS.find((vehicle) => vehicle.id === body.vehicleId);
+    if (!car) return practiceError("Choose one of the demo cars to continue.");
+    const start = String(body.startsAt ?? nowIso());
+    const end = String(body.endsAt ?? nowIso(3_600_000));
+    const period = body.periodType === "hourly" || body.periodType === "half_day" ? body.periodType : "full_day";
+    if ((period === "hourly" && !car.hourlyEnabled) || (period === "half_day" && !car.halfDayEnabled) || (period === "full_day" && !car.fullDayEnabled)) return practiceError("That demo owner does not offer this rental period.");
+    const hours = Math.max(1, Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / 3_600_000));
+    const rent = period === "hourly" ? car.hourlyPrice * hours : period === "half_day" ? car.halfDayPrice : car.dailyPrice;
+    const id = `practice-rental-${Date.now()}`;
+    const handover = new Date();
+    const elapsed = new Date(end).getTime() - new Date(start).getTime();
+    const rental = { id, vehicle_id: car.id, vehicle: car.name, plate: "PRACTICE", renter_name: "You", owner_name: car.ownerName, starts_at: handover.toISOString(), ends_at: new Date(handover.getTime() + elapsed).toISOString(), days: 1, rent_amount: rent, deposit_amount: car.deposit, status: "active", damage_claim: 0, licence_number: String(body.licenceNumber ?? "DEMO"), licence_expiry: String(body.licenceExpiry ?? ""), owner_amount: null, refund_amount: null, period_type: period, handed_over_at: handover.toISOString(), overtime_amount: 0, hourly_price: car.hourlyPrice };
+    const saved = canUseStorage() ? JSON.parse(window.localStorage.getItem(PRACTICE_RENTALS_KEY) ?? "[]") as unknown[] : [];
+    if (canUseStorage()) window.localStorage.setItem(PRACTICE_RENTALS_KEY, JSON.stringify([rental, ...saved]));
+    return jsonResponse({ id, days: 1, rent, deposit: car.deposit, periodType: period, status: "active" }, 201);
+  }
+  const demoRentalReturn = path.match(/^\/v1\/car\/rentals\/(practice-rental-\d+)\/demo-return$/);
+  if (role === "customer" && method === "POST" && demoRentalReturn) {
+    const stored = canUseStorage() ? JSON.parse(window.localStorage.getItem(PRACTICE_RENTALS_KEY) ?? "[]") as Array<Record<string, unknown>> : [];
+    const rentals = stored.map((rental) => rental.id === demoRentalReturn[1] ? { ...rental, status: "completed", returned_at: nowIso(), refund_amount: Number(rental.deposit_amount), owner_amount: Number(rental.rent_amount) } : rental);
+    if (canUseStorage()) window.localStorage.setItem(PRACTICE_RENTALS_KEY, JSON.stringify(rentals));
+    return jsonResponse({ ok: true, status: "completed" });
   }
 
   if (method === "GET" && path === "/v1/orders/active") {

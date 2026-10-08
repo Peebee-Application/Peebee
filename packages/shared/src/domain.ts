@@ -248,6 +248,8 @@ export type CarSettings = {
     minDeposit: number;
     /** An owner who hasn't answered a request in this many hours loses it, and the money is returned. */
     approveWithinHours: number;
+    /** Return grace period before overtime starts accruing. */
+    overtimeGraceHours: number;
   };
   carpool: {
     enabled: boolean;
@@ -2139,6 +2141,12 @@ export type RentalVehicle = {
   deposit: number;
   rent: number;
   notes: string | null;
+  ownerName?: string;
+  hourlyPrice?: number;
+  halfDayPrice?: number;
+  hourlyEnabled?: boolean;
+  halfDayEnabled?: boolean;
+  fullDayEnabled?: boolean;
 };
 
 export type Rental = {
@@ -2159,6 +2167,10 @@ export type Rental = {
   licence_expiry: string;
   owner_amount: number | null;
   refund_amount: number | null;
+  period_type?: "hourly" | "half_day" | "full_day";
+  handed_over_at?: string | null;
+  overtime_amount?: number;
+  hourly_price?: number;
 };
 
 export type OwnerRentalVehicle = {
@@ -2170,6 +2182,9 @@ export type OwnerRentalVehicle = {
   deposit_amount: number | null;
   active: number | null;
   notes: string | null;
+  hourly_enabled?: number | null;
+  half_day_enabled?: number | null;
+  full_day_enabled?: number | null;
 };
 
 export type AdminRental = {

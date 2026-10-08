@@ -25,7 +25,7 @@ const SCHEDULED = { enabled: true, maxAdvanceHours: 72, minLeadMinutes: 30, open
 
 const CARPOOL = { enabled: true, maxSeatsPerBooking: 3, maxRepeatWeeks: 2, cutoffMinutes: 15, payWithinMinutes: 15, matchRadiusKm: 10 };
 
-const SELFDRIVE = { enabled: true, platformPercent: 10, maxDays: 7, minDeposit: 50000, approveWithinHours: 12 };
+const SELFDRIVE = { enabled: true, platformPercent: 10, maxDays: 7, minDeposit: 50000, approveWithinHours: 12, overtimeGraceHours: 3 };
 
 const DEALS = { enabled: true, shareEnabled: true, rentEnabled: true, minOwnerSharePercent: 40, maxOwnerSharePercent: 80, maxRentPerDay: 0 };
 const KYC = { ownerIdRequired: false, driverIdRequired: false, driverLicenceRequired: false };

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAuth } from "../auth/middleware.js";
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
-import { hasTable } from "../lib/schema.js";
+import { hasColumn, hasTable } from "../lib/schema.js";
 import { getCarSettings, getPlatformEnvironment } from "../lib/settings.js";
 import { notifyUser } from "../lib/webpush.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
@@ -32,11 +32,20 @@ export function rentalDays(start: Date, end: Date): number {
   return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000));
 }
 
+export function rentalHourlyPrice(dailyPrice: number): number { return Math.round(dailyPrice * 1.2 / 24); }
+export function rentalPrice(dailyPrice: number, start: Date, end: Date, period: "hourly" | "half_day" | "full_day"): number {
+  const hours = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 3_600_000));
+  if (period === "hourly") return rentalHourlyPrice(dailyPrice) * hours;
+  if (period === "half_day") return Math.round(dailyPrice * 0.6);
+  return dailyPrice * Math.max(1, Math.ceil(hours / 24));
+}
+
 /** How a finished rental's held money is shared (deposit back minus any damage, Peebee's cut of the rent). Always adds up exactly. */
-export function settleRental(input: { rent: number; deposit: number; platformPercent: number; damage: number }) {
-  const damage = Math.min(Math.max(0, input.damage), input.deposit);
-  const platform = Math.floor((input.rent * input.platformPercent) / 100);
-  return { damage, platform, owner: input.rent - platform + damage, refund: input.deposit - damage };
+export function settleRental(input: { rent: number; deposit: number; platformPercent: number; damage: number; overtime?: number }) {
+  const overtime = Math.min(Math.max(0, input.overtime ?? 0), input.deposit);
+  const damage = Math.min(Math.max(0, input.damage), input.deposit - overtime);
+  const platform = Math.floor(((input.rent + overtime) * input.platformPercent) / 100);
+  return { damage, ...(input.overtime == null ? {} : { overtime }), platform, owner: input.rent + overtime - platform + damage, refund: input.deposit - damage - overtime };
 }
 
 async function envOf(rental: Row): Promise<Env> {
@@ -51,12 +60,17 @@ async function refundAll(rental: Row, actorId: string, note: string) {
 export async function completeRental(rentalId: string, from: string[], damage: number, actorId: string): Promise<boolean> {
   const rental = (await db.execute({ sql: "SELECT * FROM rentals WHERE id = ?", args: [rentalId] })).rows[0] as Row | undefined;
   if (!rental || !from.includes(String(rental.status))) return false;
-  const parts = settleRental({ rent: Number(rental.rent_amount), deposit: Number(rental.deposit_amount), platformPercent: Number(rental.platform_percent), damage });
+  const endedAt = rental.returned_at ? fromDb(String(rental.returned_at)) : new Date();
+  const bookedEnd = fromDb(String(rental.ends_at));
+  const { selfDrive } = await getCarSettings();
+  const overtimeHours = Math.max(0, Math.ceil((endedAt.getTime() - bookedEnd.getTime() - selfDrive.overtimeGraceHours * 3_600_000) / 3_600_000));
+  const overtime = Math.min(Number(rental.deposit_amount), overtimeHours * (Number(rental.hourly_price) || rentalHourlyPrice(Number(rental.daily_price))));
+  const parts = settleRental({ rent: Number(rental.rent_amount), deposit: Number(rental.deposit_amount), platformPercent: Number(rental.platform_percent), damage, overtime });
   const placeholders = from.map(() => "?").join(", ");
   const claimed = await db.execute({
-    sql: `UPDATE rentals SET status = 'completed', damage_final = ?, owner_amount = ?, platform_amount = ?, refund_amount = ?, settled_at = datetime('now'), updated_at = datetime('now')
+    sql: `UPDATE rentals SET status = 'completed', damage_final = ?, owner_amount = ?, platform_amount = ?, refund_amount = ?, ${await hasColumn("rentals", "overtime_amount") ? "overtime_amount = ?, " : ""}settled_at = datetime('now'), updated_at = datetime('now')
           WHERE id = ? AND status IN (${placeholders})`,
-    args: [parts.damage, parts.owner, parts.platform, parts.refund, rentalId, ...from],
+    args: [parts.damage, parts.owner, parts.platform, parts.refund, ...(await hasColumn("rentals", "overtime_amount") ? [parts.overtime ?? 0] : []), rentalId, ...from],
   });
   if (claimed.rowsAffected === 0) return false;
   const environment = await envOf(rental);
@@ -72,6 +86,9 @@ const listingSchema = z.object({
   depositAmount: z.number().int().min(0).max(1_000_000_000),
   notes: z.string().trim().max(300).optional(),
   active: z.boolean().default(true),
+  hourlyEnabled: z.boolean().default(true),
+  halfDayEnabled: z.boolean().default(true),
+  fullDayEnabled: z.boolean().default(true),
 });
 
 selfDriveRoutes.put("/car/rentals/listings/:vehicleId", async (c) => {
@@ -84,25 +101,31 @@ selfDriveRoutes.put("/car/rentals/listings/:vehicleId", async (c) => {
   if (!vehicle) return c.json({ error: "not_found" }, 404);
   if (vehicle.status !== "approved") return c.json({ error: "vehicle_not_approved", message: "Only approved vehicles can be listed." }, 409);
   if (parsed.data.depositAmount < selfDrive.minDeposit) return c.json({ error: "deposit_too_low", message: `The deposit must be at least UGX ${selfDrive.minDeposit.toLocaleString("en-UG")}.` }, 400);
-  await db.execute({
-    sql: `INSERT INTO rental_listings (vehicle_id, daily_price, deposit_amount, notes, active) VALUES (?, ?, ?, ?, ?)
-          ON CONFLICT(vehicle_id) DO UPDATE SET daily_price = excluded.daily_price, deposit_amount = excluded.deposit_amount, notes = excluded.notes, active = excluded.active, updated_at = datetime('now')`,
-    args: [vehicleId, parsed.data.dailyPrice, parsed.data.depositAmount, parsed.data.notes ?? null, parsed.data.active ? 1 : 0],
-  });
+  const hasPeriods = await hasColumn("rental_listings", "hourly_enabled");
+  const hasEnvironment = await hasColumn("rental_listings", "environment");
+  if (hasPeriods) {
+    await db.execute({
+      sql: `INSERT INTO rental_listings (vehicle_id, daily_price, deposit_amount, notes, active, hourly_enabled, half_day_enabled, full_day_enabled${hasEnvironment ? ", environment" : ""}) VALUES (?, ?, ?, ?, ?, ?, ?, ?${hasEnvironment ? ", ?" : ""})
+            ON CONFLICT(vehicle_id) DO UPDATE SET daily_price = excluded.daily_price, deposit_amount = excluded.deposit_amount, notes = excluded.notes, active = excluded.active, hourly_enabled = excluded.hourly_enabled, half_day_enabled = excluded.half_day_enabled, full_day_enabled = excluded.full_day_enabled${hasEnvironment ? ", environment = excluded.environment" : ""}, updated_at = datetime('now')`,
+      args: [vehicleId, parsed.data.dailyPrice, parsed.data.depositAmount, parsed.data.notes ?? null, parsed.data.active ? 1 : 0, parsed.data.hourlyEnabled ? 1 : 0, parsed.data.halfDayEnabled ? 1 : 0, parsed.data.fullDayEnabled ? 1 : 0, ...(hasEnvironment ? [await getPlatformEnvironment()] : [])],
+    });
+  } else {
+    await db.execute({ sql: `INSERT INTO rental_listings (vehicle_id, daily_price, deposit_amount, notes, active) VALUES (?, ?, ?, ?, ?) ON CONFLICT(vehicle_id) DO UPDATE SET daily_price = excluded.daily_price, deposit_amount = excluded.deposit_amount, notes = excluded.notes, active = excluded.active, updated_at = datetime('now')`, args: [vehicleId, parsed.data.dailyPrice, parsed.data.depositAmount, parsed.data.notes ?? null, parsed.data.active ? 1 : 0] });
+  }
   return c.json({ ok: true });
 });
 
 selfDriveRoutes.get("/car/rentals/my-vehicles", async (c) => {
   const user = c.get("user");
   const vehicles = await db.execute({
-    sql: `SELECT v.id, v.plate, v.make, v.model, v.status, l.daily_price, l.deposit_amount, l.active, l.notes
-          FROM vehicles v LEFT JOIN rental_listings l ON l.vehicle_id = v.id WHERE v.owner_id = ? AND v.status = 'approved' ORDER BY v.created_at DESC`,
-    args: [user.sub],
+    sql: `SELECT v.id, v.plate, v.make, v.model, v.status, l.daily_price, l.deposit_amount, l.active, l.notes${await hasColumn("rental_listings", "hourly_enabled") ? ", l.hourly_enabled, l.half_day_enabled, l.full_day_enabled" : ""}
+          FROM vehicles v LEFT JOIN rental_listings l ON l.vehicle_id = v.id${await hasColumn("rental_listings", "environment") ? " AND l.environment = ?" : ""} WHERE v.owner_id = ? AND v.status = 'approved' ORDER BY v.created_at DESC`,
+    args: [...(await hasColumn("rental_listings", "environment") ? [await getPlatformEnvironment()] : []), user.sub],
   });
   const rentals = await db.execute({
     sql: `SELECT r.*, v.plate, u.name AS renter_name FROM rentals r JOIN vehicles v ON v.id = r.vehicle_id JOIN users u ON u.id = r.renter_id
-          WHERE r.owner_id = ? ORDER BY r.created_at DESC LIMIT 100`,
-    args: [user.sub],
+          WHERE r.owner_id = ? AND r.environment = ? ORDER BY r.created_at DESC LIMIT 100`,
+    args: [user.sub, await getPlatformEnvironment()],
   });
   return c.json({ vehicles: vehicles.rows, rentals: rentals.rows.map(publicRental) });
 });
@@ -111,8 +134,8 @@ function publicRental(r: Row) {
   return {
     id: r.id, vehicle_id: r.vehicle_id, plate: r.plate ?? null, renter_name: r.renter_name ?? null, owner_name: r.owner_name ?? null,
     starts_at: fromDb(String(r.starts_at)).toISOString(), ends_at: fromDb(String(r.ends_at)).toISOString(), days: r.days,
-    rent_amount: r.rent_amount, deposit_amount: r.deposit_amount, status: r.status, damage_claim: r.damage_claim,
-    licence_number: r.licence_number, licence_expiry: r.licence_expiry, owner_amount: r.owner_amount, refund_amount: r.refund_amount,
+    rent_amount: r.rent_amount, deposit_amount: r.deposit_amount, status: r.status, damage_claim: r.damage_claim, period_type: r.period_type, handed_over_at: r.handed_over_at ? fromDb(String(r.handed_over_at)).toISOString() : null, overtime_amount: r.overtime_amount,
+    licence_number: r.licence_number, licence_expiry: r.licence_expiry, owner_amount: r.owner_amount, refund_amount: r.refund_amount, hourly_price: r.hourly_price,
   };
 }
 
@@ -139,7 +162,11 @@ selfDriveRoutes.post("/car/rentals/:id/decision", async (c) => {
 selfDriveRoutes.post("/car/rentals/:id/handover", async (c) => {
   const id = c.req.param("id") as string;
   const user = c.get("user");
-  const flipped = await db.execute({ sql: "UPDATE rentals SET status = 'active', handed_over_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND owner_id = ? AND status = 'approved'", args: [id, user.sub] });
+  const rental = (await db.execute({ sql: "SELECT starts_at, ends_at FROM rentals WHERE id = ? AND owner_id = ? AND status = 'approved'", args: [id, user.sub] })).rows[0] as Row | undefined;
+  if (!rental) return c.json({ error: "invalid_status", message: "Only an approved rental can be handed over." }, 409);
+  const duration = fromDb(String(rental.ends_at)).getTime() - fromDb(String(rental.starts_at)).getTime();
+  const handedOver = new Date();
+  const flipped = await db.execute({ sql: "UPDATE rentals SET status = 'active', starts_at = ?, ends_at = ?, handed_over_at = ?, updated_at = datetime('now') WHERE id = ? AND owner_id = ? AND status = 'approved'", args: [toDb(handedOver), toDb(new Date(handedOver.getTime() + duration)), toDb(handedOver), id, user.sub] });
   if (flipped.rowsAffected === 0) return c.json({ error: "invalid_status", message: "Only an approved rental can be handed over." }, 409);
   return c.json({ ok: true });
 });
@@ -165,7 +192,8 @@ selfDriveRoutes.post("/car/rentals/:id/return", async (c) => {
   await db.execute({ sql: "UPDATE rentals SET returned_at = datetime('now') WHERE id = ? AND status = 'active'", args: [id] });
   const done = await completeRental(id, ["active"], 0, user.sub);
   if (!done) return c.json({ error: "invalid_status", message: "Only a rental in progress can be returned." }, 409);
-  return c.json({ ok: true, status: "completed" });
+  const settled = (await db.execute({ sql: `SELECT ${await hasColumn("rentals", "overtime_amount") ? "overtime_amount" : "0 AS overtime_amount"} FROM rentals WHERE id = ?`, args: [id] })).rows[0] as Row | undefined;
+  return c.json({ ok: true, status: "completed", overtime: Number(settled?.overtime_amount ?? 0) });
 });
 
 // ---- Renter: browse, request, follow, cancel ----------------------------------------------
@@ -178,19 +206,23 @@ selfDriveRoutes.get("/car/rentals/listings", async (c) => {
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return c.json({ error: "invalid_dates", message: "Choose a valid pickup and return time." }, 400);
   const days = rentalDays(start, end);
   const user = c.get("user");
+  const hasPeriods = await hasColumn("rental_listings", "hourly_enabled");
+  const hasEnvironment = await hasColumn("rental_listings", "environment");
   const rows = (await db.execute({
-    sql: `SELECT v.id, v.plate, v.make, v.model, v.colour, v.year, cat.name AS category_name, cat.seats, l.daily_price, l.deposit_amount, l.notes
+    sql: `SELECT v.id, v.plate, v.make, v.model, v.colour, v.year, cat.name AS category_name, cat.seats, l.daily_price, l.deposit_amount, l.notes, u.name AS owner_name${hasPeriods ? ", l.hourly_enabled, l.half_day_enabled, l.full_day_enabled" : ""}
           FROM rental_listings l JOIN vehicles v ON v.id = l.vehicle_id AND v.status = 'approved' JOIN vehicle_categories cat ON cat.id = v.category_id
-          WHERE l.active = 1 AND v.owner_id != ? ${q.data.categoryId ? "AND v.category_id = ?" : ""}
+          JOIN users u ON u.id = v.owner_id
+          WHERE l.active = 1 ${hasEnvironment ? "AND l.environment = ?" : ""} AND v.owner_id != ? ${q.data.categoryId ? "AND v.category_id = ?" : ""}
             AND NOT EXISTS (SELECT 1 FROM rentals r WHERE r.vehicle_id = v.id AND r.status IN ${ACTIVE} AND r.starts_at < ? AND r.ends_at > ?)
           ORDER BY l.daily_price ASC LIMIT 100`,
-    args: [user.sub, ...(q.data.categoryId ? [q.data.categoryId] : []), toDb(end), toDb(start)],
+    args: [...(hasEnvironment ? [await getPlatformEnvironment()] : []), user.sub, ...(q.data.categoryId ? [q.data.categoryId] : []), toDb(end), toDb(start)],
   })).rows as Row[];
   return c.json({
     days,
     vehicles: rows.map((v) => ({
       id: v.id, name: [v.colour, v.make, v.model, v.year].filter(Boolean).join(" ") || String(v.category_name), category: v.category_name, seats: v.seats,
-      dailyPrice: Number(v.daily_price), deposit: Number(v.deposit_amount), rent: Number(v.daily_price) * days, notes: v.notes,
+      ownerName: String(v.owner_name ?? "Vehicle owner"), dailyPrice: Number(v.daily_price), hourlyPrice: rentalHourlyPrice(Number(v.daily_price)), halfDayPrice: Math.round(Number(v.daily_price) * 0.6), deposit: Number(v.deposit_amount), rent: Number(v.daily_price) * days, notes: v.notes,
+      hourlyEnabled: !hasPeriods || Number(v.hourly_enabled) === 1, halfDayEnabled: !hasPeriods || Number(v.half_day_enabled) === 1, fullDayEnabled: !hasPeriods || Number(v.full_day_enabled) === 1,
     })),
   });
 });
@@ -201,6 +233,7 @@ const requestSchema = z.object({
   endsAt: z.string().max(40),
   licenceNumber: z.string().trim().min(4).max(30),
   licenceExpiry: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  periodType: z.enum(["hourly", "half_day", "full_day"]).default("full_day"),
 });
 
 selfDriveRoutes.post("/car/rentals", async (c) => {
@@ -213,28 +246,40 @@ selfDriveRoutes.post("/car/rentals", async (c) => {
   const end = new Date(d.endsAt);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return c.json({ error: "invalid_dates", message: "Choose a valid pickup and return time." }, 400);
   if (start.getTime() < Date.now() - 5 * 60000) return c.json({ error: "invalid_dates", message: "The pickup time has passed." }, 400);
+  const period = d.periodType;
+  const durationHours = (end.getTime() - start.getTime()) / 3_600_000;
+  if ((period === "hourly" && (durationHours < 1 || durationHours > 24.1)) || (period === "half_day" && Math.abs(durationHours - 6) > 0.1) || (period === "full_day" && Math.abs(durationHours - 24) > 0.1)) return c.json({ error: "invalid_period", message: "Hourly bookings are 1–24 hours; half-day is 6 hours and full-day is 24 hours." }, 400);
   const days = rentalDays(start, end);
   if (days > selfDrive.maxDays) return c.json({ error: "too_long", message: `You can rent for up to ${selfDrive.maxDays} days.` }, 400);
   // The licence must cover the whole rental.
   if (new Date(`${d.licenceExpiry}T23:59:59Z`).getTime() < end.getTime()) return c.json({ error: "licence_expires", message: "Your licence expires before the rental ends." }, 400);
 
   const listing = (await db.execute({
-    sql: `SELECT l.daily_price, l.deposit_amount, v.owner_id FROM rental_listings l JOIN vehicles v ON v.id = l.vehicle_id AND v.status = 'approved' WHERE l.vehicle_id = ? AND l.active = 1`,
-    args: [d.vehicleId],
+    sql: `SELECT l.daily_price, l.deposit_amount, v.owner_id${await hasColumn("rental_listings", "hourly_enabled") ? ", l.hourly_enabled, l.half_day_enabled, l.full_day_enabled" : ""} FROM rental_listings l JOIN vehicles v ON v.id = l.vehicle_id AND v.status = 'approved' WHERE l.vehicle_id = ? AND l.active = 1${await hasColumn("rental_listings", "environment") ? " AND l.environment = ?" : ""}`,
+    args: [d.vehicleId, ...(await hasColumn("rental_listings", "environment") ? [await getPlatformEnvironment()] : [])],
   })).rows[0] as Row | undefined;
   if (!listing) return c.json({ error: "not_available", message: "That vehicle isn't available for hire." }, 404);
   if (listing.owner_id === user.sub) return c.json({ error: "own_vehicle", message: "You can't rent your own vehicle." }, 409);
+  if (await hasColumn("rental_listings", "hourly_enabled")) {
+    const enabled = period === "hourly" ? listing.hourly_enabled : period === "half_day" ? listing.half_day_enabled : listing.full_day_enabled;
+    if (Number(enabled) !== 1) return c.json({ error: "period_unavailable", message: "This owner does not offer that rental period." }, 409);
+  }
 
-  const rent = Number(listing.daily_price) * days;
+  const rent = rentalPrice(Number(listing.daily_price), start, end, period);
+  const hourlyPrice = rentalHourlyPrice(Number(listing.daily_price));
   const deposit = Number(listing.deposit_amount);
   const environment = await getPlatformEnvironment();
   const id = newId("rnt");
   // Reserve the dates first (atomic against an overlapping request), then take the money.
+  const isSandboxDemo = (await getPlatformEnvironment()) === "sandbox" && String(d.vehicleId).startsWith("demo-rent-");
+  const rentalHasPeriods = await hasColumn("rentals", "period_type");
+  const rentalStart = isSandboxDemo ? new Date() : start;
+  const rentalEnd = isSandboxDemo ? new Date(rentalStart.getTime() + end.getTime() - start.getTime()) : end;
   const reserved = await db.execute({
-    sql: `INSERT INTO rentals (id, vehicle_id, owner_id, renter_id, starts_at, ends_at, days, daily_price, rent_amount, deposit_amount, platform_percent, licence_number, licence_expiry, environment)
-          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    sql: `INSERT INTO rentals (id, vehicle_id, owner_id, renter_id, starts_at, ends_at, days, daily_price, rent_amount, deposit_amount, platform_percent, licence_number, licence_expiry, environment${rentalHasPeriods ? ", period_type, hourly_price" : ""}${isSandboxDemo ? ", status, handed_over_at" : ""})
+          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${rentalHasPeriods ? ", ?, ?" : ""}${isSandboxDemo ? ", 'active', datetime('now')" : ""}
           WHERE NOT EXISTS (SELECT 1 FROM rentals r WHERE r.vehicle_id = ? AND r.status IN ${ACTIVE} AND r.starts_at < ? AND r.ends_at > ?)`,
-    args: [id, d.vehicleId, String(listing.owner_id), user.sub, toDb(start), toDb(end), days, Number(listing.daily_price), rent, deposit, selfDrive.platformPercent!, d.licenceNumber, d.licenceExpiry, environment,
+    args: [id, d.vehicleId, String(listing.owner_id), user.sub, toDb(rentalStart), toDb(rentalEnd), days, Number(listing.daily_price), rent, deposit, selfDrive.platformPercent!, d.licenceNumber, d.licenceExpiry, environment, ...(rentalHasPeriods ? [period, hourlyPrice] : []),
       d.vehicleId, toDb(end), toDb(start)],
   });
   if (reserved.rowsAffected === 0) return c.json({ error: "not_available", message: "That vehicle was just booked for these dates." }, 409);
@@ -243,16 +288,16 @@ selfDriveRoutes.post("/car/rentals", async (c) => {
     await db.execute({ sql: "DELETE FROM rentals WHERE id = ?", args: [id] });
     return c.json({ error: "insufficient_wallet", message: `You need UGX ${(rent + deposit).toLocaleString("en-UG")} in your wallet (rent plus a refundable deposit). Top up and try again.` }, 402);
   }
-  notifyUser(String(listing.owner_id), { title: "New car rental request", body: `${days} day${days === 1 ? "" : "s"} · UGX ${rent.toLocaleString("en-UG")}. Approve or decline it.`, url: "/rentals", tag: `rental-${id}` }).catch(() => {});
-  return c.json({ id, days, rent, deposit }, 201);
+  if (!isSandboxDemo) notifyUser(String(listing.owner_id), { title: "New car rental request", body: `${period.replace("_", " ")} · UGX ${rent.toLocaleString("en-UG")}. Approve or decline it.`, url: "/rentals", tag: `rental-${id}` }).catch(() => {});
+  return c.json({ id, days, rent, deposit, periodType: period, status: isSandboxDemo ? "active" : "requested" }, 201);
 });
 
 selfDriveRoutes.get("/car/rentals/mine", async (c) => {
   const user = c.get("user");
   const rows = await db.execute({
     sql: `SELECT r.*, v.plate, v.make, v.model, u.name AS owner_name FROM rentals r JOIN vehicles v ON v.id = r.vehicle_id JOIN users u ON u.id = r.owner_id
-          WHERE r.renter_id = ? ORDER BY r.created_at DESC LIMIT 50`,
-    args: [user.sub],
+          WHERE r.renter_id = ? AND r.environment = ? ORDER BY r.created_at DESC LIMIT 50`,
+    args: [user.sub, await getPlatformEnvironment()],
   });
   return c.json({ rentals: rows.rows.map((r) => ({ ...publicRental(r as Row), vehicle: [(r as Row).make, (r as Row).model].filter(Boolean).join(" ") || (r as Row).plate })) });
 });
@@ -266,6 +311,20 @@ selfDriveRoutes.post("/car/rentals/:id/cancel", async (c) => {
   if (flipped.rowsAffected === 0) return c.json({ error: "invalid_status", message: "This rental can't be cancelled now." }, 409);
   await refundAll(rental, user.sub, "Self-drive rental cancelled — returned");
   return c.json({ ok: true });
+});
+
+// Sandbox fleet owners are simulated; let the renter complete the demo journey.
+selfDriveRoutes.post("/car/rentals/:id/demo-return", async (c) => {
+  const id = c.req.param("id") as string;
+  const user = c.get("user");
+  if ((await getPlatformEnvironment()) !== "sandbox") return c.json({ error: "not_found" }, 404);
+  const rental = (await db.execute({ sql: "SELECT r.* FROM rentals r JOIN vehicles v ON v.id = r.vehicle_id WHERE r.id = ? AND r.renter_id = ? AND v.id LIKE 'demo-rent-%'", args: [id, user.sub] })).rows[0] as Row | undefined;
+  if (!rental) return c.json({ error: "not_found" }, 404);
+  const returned = await db.execute({ sql: "UPDATE rentals SET returned_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status = 'active'", args: [id] });
+  if (returned.rowsAffected === 0) return c.json({ error: "invalid_status", message: "This demo rental is not in progress." }, 409);
+  const done = await completeRental(id, ["active"], 0, user.sub);
+  if (!done) return c.json({ error: "invalid_status", message: "This demo rental has already ended." }, 409);
+  return c.json({ ok: true, status: "completed" });
 });
 
 /** Requests the owner never answered lose their hold and the renter's money is returned. */
