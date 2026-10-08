@@ -71,7 +71,7 @@ export default function ChatThreadPage() {
     // No bottom nav to leave room for — this screen is a full takeover.
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden bg-cream pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col overflow-hidden">
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5">
+        <header className="peebee-chat-chrome flex shrink-0 items-center gap-3 border-b border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5">
           <button
             type="button"
             onClick={() => router.push("/chat")}
