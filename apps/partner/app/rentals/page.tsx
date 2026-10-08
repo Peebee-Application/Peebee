@@ -67,14 +67,13 @@ export default function RentalsPage() {
             </div>
             <div className="space-y-2 rounded-xl border border-[var(--border-faint)] p-3">
               <p className="text-xs font-semibold text-ink-500">Rental options (derived from your daily price)</p>
-              <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={d.hourly} onChange={(e) => set({ hourly: e.target.checked })} />Hourly · {ugx(Math.round((Number(d.price) || 0) * 1.2 / 24)}/hour</label>
+              <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={d.hourly} onChange={(e) => set({ hourly: e.target.checked })} />Hourly · {ugx(Math.round((Number(d.price) || 0) * 1.2 / 24))}/hour</label>
               <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={d.halfDay} onChange={(e) => set({ halfDay: e.target.checked })} />Half-day · 6 hours · {ugx(Math.round((Number(d.price) || 0) * 0.6))}</label>
               <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={d.fullDay} onChange={(e) => set({ fullDay: e.target.checked })} />Full day · 24 hours · {ugx(Number(d.price) || 0)}</label>
             </div>
             <div className="flex gap-2">
               <button
                 type="button"
-                disabled={!d.price}
                 disabled={!d.price || (!d.hourly && !d.halfDay && !d.fullDay)}
                 onClick={() => act(() => api.saveRentalListing(v.id, { dailyPrice: Number(d.price), depositAmount: Number(d.deposit) || 0, active: true, hourlyEnabled: d.hourly, halfDayEnabled: d.halfDay, fullDayEnabled: d.fullDay }))}
                 className="min-h-11 flex-1 rounded-full bg-gold px-3 text-sm font-bold text-ink-gold disabled:opacity-50"

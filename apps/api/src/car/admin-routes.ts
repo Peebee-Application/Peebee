@@ -251,6 +251,7 @@ carAdminRoutes.get("/admin/car/renters/kyc", requirePermission("car.view"), asyn
                  (k.national_id_key IS NOT NULL) AS has_national_id, (k.rent_receipt_key IS NOT NULL) AS has_rent_receipt,
                  (k.landlord_letter_key IS NOT NULL) AS has_landlord_letter, (k.residence_bill_key IS NOT NULL) AS has_residence_bill
           FROM selfdrive_renter_kyc k JOIN users u ON u.id = k.user_id ORDER BY CASE k.status WHEN 'pending' THEN 0 WHEN 'rejected' THEN 1 ELSE 2 END, k.updated_at DESC LIMIT 200`,
+    args: [],
   });
   return c.json({ applicants: (rows.rows as Row[]).map((r) => ({ user_id: r.user_id, name: r.name, phone: r.phone, nin: r.nin, residentialAddress: r.residential_address, residenceMethod: r.residence_method, tenancyStart: r.tenancy_start, tenancyEnd: r.tenancy_end, status: r.status, reviewNotes: r.review_notes, updated_at: r.updated_at, hasNationalId: Boolean(r.has_national_id), hasRentReceipt: Boolean(r.has_rent_receipt), hasLandlordLetter: Boolean(r.has_landlord_letter), hasResidenceBill: Boolean(r.has_residence_bill) })) });
 });
@@ -258,9 +259,12 @@ carAdminRoutes.get("/admin/car/renters/kyc", requirePermission("car.view"), asyn
 carAdminRoutes.get("/admin/car/renters/:userId/kyc/:kind", requirePermission("car.view"), async (c) => {
   if (!(await hasTable("selfdrive_renter_kyc"))) return c.json({ error: "not_found" }, 404);
   const columns: Record<string, string> = { national_id: "national_id_key", rent_receipt: "rent_receipt_key", landlord_letter: "landlord_letter_key", residence_bill: "residence_bill_key" };
-  const column = columns[c.req.param("kind")];
+  const kind = c.req.param("kind");
+  const userId = c.req.param("userId");
+  if (!kind || !userId) return c.json({ error: "not_found" }, 404);
+  const column = columns[kind];
   if (!column) return c.json({ error: "not_found" }, 404);
-  const row = (await db.execute({ sql: `SELECT ${column} AS object_key FROM selfdrive_renter_kyc WHERE user_id = ?`, args: [c.req.param("userId")] })).rows[0] as Row | undefined;
+  const row = (await db.execute({ sql: `SELECT ${column} AS object_key FROM selfdrive_renter_kyc WHERE user_id = ?`, args: [userId] })).rows[0] as Row | undefined;
   if (!row?.object_key) return c.json({ error: "not_found" }, 404);
   const object = await getR2Bucket().get(String(row.object_key));
   if (!object) return c.json({ error: "not_found" }, 404);
@@ -270,17 +274,19 @@ carAdminRoutes.get("/admin/car/renters/:userId/kyc/:kind", requirePermission("ca
 
 carAdminRoutes.post("/admin/car/renters/:userId/kyc/review", requirePermission("car.manage"), async (c) => {
   if (!(await hasTable("selfdrive_renter_kyc"))) return c.json({ error: "not_found" }, 404);
+  const userId = c.req.param("userId");
+  if (!userId) return c.json({ error: "not_found" }, 404);
   const parsed = z.object({ status: z.enum(["approved", "rejected"]), notes: z.string().trim().max(500).optional() }).safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
   if (parsed.data.status === "rejected" && !parsed.data.notes) return c.json({ error: "review_notes_required", message: "Explain what the renter should correct." }, 400);
   if (parsed.data.status === "approved") {
-    const complete = (await db.execute({ sql: `SELECT 1 FROM selfdrive_renter_kyc WHERE user_id = ? AND status = 'pending' AND length(nin) = 14 AND length(residential_address) >= 5 AND national_id_key IS NOT NULL AND ((residence_method = 'bill' AND residence_bill_key IS NOT NULL) OR (residence_method = 'rent_and_landlord_letter' AND rent_receipt_key IS NOT NULL AND landlord_letter_key IS NOT NULL AND tenancy_start IS NOT NULL AND tenancy_end IS NOT NULL))`, args: [c.req.param("userId")] })).rows.length > 0;
+    const complete = (await db.execute({ sql: `SELECT 1 FROM selfdrive_renter_kyc WHERE user_id = ? AND status = 'pending' AND length(nin) = 14 AND length(residential_address) >= 5 AND national_id_key IS NOT NULL AND ((residence_method = 'bill' AND residence_bill_key IS NOT NULL) OR (residence_method = 'rent_and_landlord_letter' AND rent_receipt_key IS NOT NULL AND landlord_letter_key IS NOT NULL AND tenancy_start IS NOT NULL AND tenancy_end IS NOT NULL))`, args: [userId] })).rows.length > 0;
     if (!complete) return c.json({ error: "documents_incomplete", message: "All required identity and residence documents must be present before approval." }, 409);
   }
   const admin = c.get("user");
-  const result = await db.execute({ sql: "UPDATE selfdrive_renter_kyc SET status = ?, review_notes = ?, reviewed_by = ?, reviewed_at = datetime('now'), updated_at = datetime('now') WHERE user_id = ? AND status = 'pending'", args: [parsed.data.status, parsed.data.notes ?? null, admin.sub, c.req.param("userId")] });
+  const result = await db.execute({ sql: "UPDATE selfdrive_renter_kyc SET status = ?, review_notes = ?, reviewed_by = ?, reviewed_at = datetime('now'), updated_at = datetime('now') WHERE user_id = ? AND status = 'pending'", args: [parsed.data.status, parsed.data.notes ?? null, admin.sub, userId] });
   if (result.rowsAffected === 0) return c.json({ error: "not_found", message: "No pending renter verification was found." }, 404);
-  await logActivity({ actor: admin, action: "car.renter_kyc.review", entityType: "user", entityId: c.req.param("userId"), summary: `Self-drive renter verification ${parsed.data.status}`, after: parsed.data, ip: clientIp(c) });
+  await logActivity({ actor: admin, action: "car.renter_kyc.review", entityType: "user", entityId: userId, summary: `Self-drive renter verification ${parsed.data.status}`, after: parsed.data, ip: clientIp(c) });
   return c.json({ ok: true });
 });
 
