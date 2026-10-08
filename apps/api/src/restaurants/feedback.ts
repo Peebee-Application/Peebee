@@ -32,6 +32,18 @@ foodFeedbackRoutes.get("/restaurants/:id/menu/insights",requireAuth,async(c)=>{
  for(const row of orderRows.rows){const key=String(row.source_menu_item_id);if(result[key])result[key].orderCount=Number(row.order_count);}
  return c.json({items:result,available:true});
 });
+foodFeedbackRoutes.get("/restaurants/:id/trust",requireAuth,async(c)=>{
+ const id=String(c.req.param("id"));if(!await visible(id))return c.json({error:"not_found"},404);
+ const environment=await getPlatformEnvironment();
+ const menuReviewsAvailable=await enabled();
+ const ordersPromise=db.execute({sql:"SELECT COUNT(*) AS completed_order_count FROM orders WHERE restaurant_id=? AND environment=? AND stage IN ('Handover','Settle')",args:[id,environment]});
+ const reviewsPromise=menuReviewsAvailable
+  ? db.execute({sql:"SELECT AVG(r.rating) AS average_menu_rating,COUNT(*) AS menu_review_count FROM food_item_reviews r JOIN orders o ON o.id=r.order_id JOIN menu_items m ON m.id=r.menu_item_id WHERE m.restaurant_id=? AND o.environment=? AND o.stage IN ('Handover','Settle')",args:[id,environment]})
+  : null;
+ const [orders,reviews]=await Promise.all([ordersPromise,reviewsPromise]);
+ const reviewRow=reviews?.rows[0];
+ return c.json({averageMenuRating:reviewRow?.average_menu_rating==null?null:Number(reviewRow.average_menu_rating),menuReviewCount:Number(reviewRow?.menu_review_count??0),menuReviewsAvailable,completedOrderCount:Number(orders.rows[0]?.completed_order_count??0)});
+});
 foodFeedbackRoutes.get("/restaurants/:id/items/:itemId/reviews",requireAuth,async(c)=>{
  const id=String(c.req.param("id")),itemId=String(c.req.param("itemId"));
  if(!await visible(id)||(await db.execute({sql:"SELECT id FROM menu_items WHERE id=? AND restaurant_id=? AND available=1",args:[itemId,id]})).rows.length===0)return c.json({error:"not_found"},404);

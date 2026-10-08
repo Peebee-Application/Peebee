@@ -1,7 +1,7 @@
 "use client";
 import { FoodCover } from "@peebee/shared/food-cover";
 
-import type { FoodItemInsight, MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, Restaurant, RestaurantMenu } from "@peebee/shared";
+import type { FoodItemInsight, FoodRestaurantTrust, MenuCategory, MenuItem, MenuItemBadge, MenuItemOption, Restaurant, RestaurantMenu } from "@peebee/shared";
 import { foodBusinessLabel, roundFare } from "@peebee/shared";
 import { demoFoodPhotoPath, demoRestaurantPhotoPath } from "@peebee/shared/demo-food";
 import { ArrowUpRight, ChevronLeft, ChevronDown, ChevronRight, Star, MessageCircle, Minus, Plus, ShoppingBag, ShoppingCart, Store, UtensilsCrossed, X } from "lucide-react";
@@ -708,6 +708,7 @@ export default function RestaurantPage() {
   const [menu, setMenu] = useState<RestaurantMenu | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [insights,setInsights]=useState<Record<string,FoodItemInsight>>({});
+  const [restaurantTrust,setRestaurantTrust]=useState<FoodRestaurantTrust|null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
   useEffect(()=>{try{const rows=JSON.parse(sessionStorage.getItem(cartKey)??"[]");setCart(Array.isArray(rows)?rows.filter((line:CartLine)=>typeof line.key==="string"&&typeof line.menuItemId==="string"&&typeof line.name==="string"&&Number.isInteger(line.quantity)&&line.quantity>0&&line.quantity<=50&&Number.isFinite(line.unitPrice)&&line.unitPrice>=0&&Array.isArray(line.choiceIds)&&line.choiceIds.every(id=>typeof id==="string")):[]);}catch{setCart([]);}},[cartKey]);
   function updateCart(next:CartLine[]){setCart(next);try{sessionStorage.setItem(cartKey,JSON.stringify(next));}catch{}}
@@ -747,13 +748,14 @@ export default function RestaurantPage() {
   }
 
   useEffect(() => {
-    let disposed=false;setRestaurant(null);setMenu(null);setInsights({});setError(null);
+    let disposed=false;setRestaurant(null);setMenu(null);setInsights({});setRestaurantTrust(null);setError(null);
     api.foodMenuInsights(id).then(result=>{if(!disposed)setInsights(result.items);}).catch(()=>{});
     Promise.all([api.getRestaurant(id), api.getRestaurantMenu(id)])
       .then(([r, m]) => {
         if(disposed)return;
         setRestaurant(r.restaurant);
         setMenu(m);
+        if(!r.restaurant.is_demo)api.foodRestaurantTrust(id).then(result=>{if(!disposed)setRestaurantTrust(result);}).catch(()=>{});
       })
       .catch((err) => setError(errorMessage(err)));
     api
@@ -961,21 +963,31 @@ export default function RestaurantPage() {
   }
 
   return (
-    <div className="space-y-6 px-4 pb-28">
-      <div className="-mx-4"><FoodCover id={restaurant.id} name={restaurant.name} description={restaurant.cuisine} coverKey={restaurant.cover_key} loadCover={api.restaurantCoverBlob} revision={allItems.find(item=>item.photo_key)?.updated_at} previewUrl={restaurant.is_demo?demoRestaurantPhotoPath(restaurant.id)??undefined:undefined} edgeToEdge placeholder={<Store size={64} className="text-gold"/>} overlay={<div className="absolute inset-x-0 top-4 z-10 flex items-start justify-between px-4"><Link href="/restaurants" aria-label="Back to food businesses" className="flex h-12 w-12 items-center justify-center rounded-full glass-panel"><ChevronLeft size={24}/></Link><BusinessLogo id={id} name={restaurant.name} logoKey={restaurant.logo_key}/></div>}/></div>
-      <div id="food-menu" className="scroll-mt-16"/>
-      <div className="flex items-center justify-between gap-3"><p className="text-sm text-ink-500">{foodBusinessLabel(restaurant.business_type)} · {restaurant.is_open?'Open now':'Closed'}</p>{!restaurant.is_demo&&<Link href={`/restaurants/${id}/chat`} className="flex min-h-11 items-center gap-2 rounded-full glass-panel px-4 text-sm font-bold"><MessageCircle size={16}/>{t('restaurant_chat')}</Link>}</div>
-      {restaurant.is_demo && <p className="rounded-2xl border border-gold/20 bg-gold/10 px-4 py-3 text-sm text-ink">{restaurant.demo_checkout_enabled
+    <div className="relative -mx-4 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+      <div className="restaurant-cover-pin sticky top-16 z-0 -mb-[calc(100svh-4rem)] h-[calc(100svh-4rem)]">
+        <FoodCover id={restaurant.id} name={restaurant.name} description={restaurant.cuisine} coverKey={restaurant.cover_key} loadCover={api.restaurantCoverBlob} revision={allItems.find(item=>item.photo_key)?.updated_at} previewUrl={restaurant.is_demo?demoRestaurantPhotoPath(restaurant.id)??undefined:undefined} parallax showCaption={false} placeholder={<Store size={64} className="text-gold"/>} overlay={<div className="absolute inset-x-0 top-4 z-10 flex items-start justify-between px-4"><Link href="/restaurants" aria-label="Back to food businesses" className="flex h-12 w-12 items-center justify-center rounded-full glass-panel"><ChevronLeft size={24}/></Link><BusinessLogo id={id} name={restaurant.name} logoKey={restaurant.logo_key} businessType={foodBusinessLabel(restaurant.business_type)} isOpen={!!restaurant.is_open} isDemo={!!restaurant.is_demo} createdAt={restaurant.created_at} trust={restaurantTrust}/></div>}/>
+      </div>
+      <div className="restaurant-profile-content relative z-10 px-4">
+        <div id="food-menu" className="restaurant-profile-intro">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="break-words text-3xl font-bold leading-tight tracking-tight text-white drop-shadow-lg">{restaurant.name}</h1>
+              <p className="mt-2 truncate text-sm text-white/80">{foodBusinessLabel(restaurant.business_type)}{restaurant.cuisine ? ` · ${restaurant.cuisine}` : ""} · {restaurant.is_open ? "Open now" : "Closed"}</p>
+            </div>
+            {!restaurant.is_demo&&<Link href={`/restaurants/${id}/chat`} aria-label={`${t('restaurant_chat')} ${restaurant.name}`} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full glass-panel text-white"><MessageCircle size={20}/></Link>}
+          </div>
+        </div>
+        {restaurant.is_demo && <p className="mb-6 rounded-2xl border border-gold/20 bg-[rgb(var(--surface-card))]/95 px-4 py-3 text-sm text-ink">{restaurant.demo_checkout_enabled
         ? "Sandbox demo restaurant · payments are simulated. Riders in Sandbox can pick up and deliver your order."
         : "Demo restaurant · explore the menu, options, and cart. No order or payment is placed."}</p>}
 
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        {error && <p className="mb-6 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-      {featuredItems.length>0&&<section className="space-y-4"><div className="flex items-center justify-between"><h2 className="text-2xl font-bold">Featured</h2><span className="text-xs text-ink-500">Selected by the kitchen</span></div><DishRail label="Featured dishes">{featuredItems.map(item=><FoodItemCard key={item.id} featured item={item} insight={insights[item.id]} onOpen={()=>router.push(`/restaurants/${id}/items/${item.id}`)}/>)}</DishRail></section>}
-      {allItems.length>0&&<section className="space-y-4"><h2 className="text-2xl font-bold">Main dishes</h2><DishRail label="Main dishes">{allItems.map(item=><FoodItemCard key={item.id} item={item} insight={insights[item.id]} onOpen={()=>router.push(`/restaurants/${id}/items/${item.id}`)}/>)}</DishRail></section>}
-      {menu.categories.length === 0 && menu.uncategorizedItems.length === 0 && (
-        <p className="py-10 text-center text-sm text-ink-500">{t("restaurant_no_menu_yet")}</p>
-      )}
+        {featuredItems.length>0&&<section className="mb-6 space-y-4"><div className="flex items-center justify-between"><h2 className="text-2xl font-bold text-white drop-shadow-md">Featured</h2><span className="text-xs text-white/75">Selected by the kitchen</span></div><DishRail label="Featured dishes">{featuredItems.map(item=><FoodItemCard key={item.id} featured item={item} insight={insights[item.id]} onOpen={()=>router.push(`/restaurants/${id}/items/${item.id}`)}/>)}</DishRail></section>}
+        {allItems.length>0&&<section className="mb-6 space-y-4"><h2 className="text-2xl font-bold text-white drop-shadow-md">Main dishes</h2><DishRail label="Main dishes">{allItems.map(item=><FoodItemCard key={item.id} item={item} insight={insights[item.id]} onOpen={()=>router.push(`/restaurants/${id}/items/${item.id}`)}/>)}</DishRail></section>}
+        {menu.categories.length === 0 && menu.uncategorizedItems.length === 0 && (
+          <p className="py-10 text-center text-sm text-white/75">{t("restaurant_no_menu_yet")}</p>
+        )}
 
       {cart.length > 0 && (
         <div className="fixed inset-x-0 bottom-20 z-40 px-4 pb-3">
@@ -1012,6 +1024,7 @@ export default function RestaurantPage() {
           </ul>
         </section>
       )}
+      </div>
     </div>
   );
 }
