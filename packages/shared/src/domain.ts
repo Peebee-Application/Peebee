@@ -95,6 +95,14 @@ export type OrderRow = {
   /** Set only for restaurant food orders — type stays 'shopping' (see
    * apps/api/src/db/migrations/0034_order_restaurant.sql). */
   restaurant_id: string | null;
+  restaurant_name?: string | null;
+  /** Available to the assigned rider for a food order so the correct outlet is unambiguous. */
+  restaurant_outlet_code?: string | null;
+  restaurant_outlet_name?: string | null;
+  /** Shared by orders that the customer chose to combine into one rider trip. */
+  delivery_bundle_id?: string | null;
+  bundle_order_count?: number;
+  delivery_bundle_hold?: number;
   /** A passenger ride rather than a goods parcel — type stays 'parcel' (see
    * apps/api/src/db/migrations/0039_ride_orders.sql). Pickup = where the
    * rider collects the passenger, destination = where they're going. */
@@ -150,6 +158,7 @@ export type AvailableJob = Pick<
   | "updated_at"
   | "restaurant_id"
   | "is_ride"
+  | "bundle_order_count"
 > & {
   /**
    * Deliberately narrower than a full OrderRow. This feed goes to every
@@ -715,6 +724,8 @@ export type ChatThreadDetail = {
 
 export type Rider = {
   user_id: string;
+  /** Stable rider reference for support and order handoff. */
+  rider_code?: string | null;
   verified: number;
   is_online: number;
   area: string | null;
@@ -847,6 +858,7 @@ export type MerchantBalance = {
 
 export type Merchant = {
   id: string;
+  merchant_code?: string | null;
   legal_name: string;
   display_name: string;
   business_kind: "business" | "personal_seller";
@@ -1347,6 +1359,8 @@ export type UserStatus = "active" | "suspended";
 
 export type AuthUser = {
   id: string;
+  /** Stable public account reference. This code is an identifier, never a credential. */
+  accountCode: string | null;
   phone: string | null;
   email: string | null;
   name: string;
@@ -1511,6 +1525,7 @@ export type OrderDetail = {
   payments: Payment[];
   rating: OrderRating | null;
   feeProposals: FeeProposal[];
+  bundleStops?: Array<{ id: string; stage: string; pickup_address: string | null; pickup_lat: number | null; pickup_lng: number | null; restaurant_name: string | null; outlet_name: string | null }>;
 };
 
 /** A rider's mobile-money cash-out of their wallet balance. */

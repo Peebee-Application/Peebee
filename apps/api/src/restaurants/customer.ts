@@ -13,7 +13,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { db } from "../db/client.js";
+import { db, executeBatch } from "../db/client.js";
 import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
 import { getDeliverySettings, getMatchingSettings, getMaxOrderValue, getPlatformEnvironment, isServiceEnabled } from "../lib/settings.js";
@@ -143,6 +143,7 @@ const checkoutSchema = z.object({
   destinationLat: z.number().optional(),
   destinationLng: z.number().optional(),
   paymentRail: z.enum(["escrow", "float"]).default("escrow"),
+  bundleWithOrderId: z.string().min(1).optional(),
 });
 
 customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole("customer"), async (c) => {
@@ -165,6 +166,29 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
   if (!demoRestaurant) restaurant = await reconcileFoodHours(restaurant);
   if (!restaurant.is_open) {
     return c.json({ error: "restaurant_closed", message: `${restaurant.name} is currently closed` }, 409);
+  }
+
+  let bundleWith: Row | undefined;
+  let deliveryBundleId: string | null = null;
+  let bundleExtraFee = 0;
+  if (d.bundleWithOrderId) {
+    if (!await hasColumn("orders", "delivery_bundle_id") || !await hasColumn("orders", "delivery_bundle_hold")) {
+      return c.json({ error: "bundles_unavailable", message: "Combined delivery is being prepared. Place this order separately for now." }, 409);
+    }
+    const prior = await db.execute({
+      sql: `SELECT o.* FROM orders o WHERE o.id=? AND o.customer_id=? AND o.environment=? AND o.type='shopping'
+            AND o.stage='Create' AND o.rider_id IS NULL AND o.delivery_bundle_id IS NULL AND o.delivery_bundle_hold=1 AND o.created_at>datetime('now','-30 minutes')
+            AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.order_id=o.id)`,
+      args: [d.bundleWithOrderId, user.sub, environment],
+    });
+    bundleWith = prior.rows[0] as Row | undefined;
+    if (!bundleWith || bundleWith.pickup_lat == null || bundleWith.pickup_lng == null) {
+      return c.json({ error: "bundle_order_unavailable", message: "That order has already moved forward. Please check it out separately." }, 409);
+    }
+    if (bundleWith.destination_lat == null || bundleWith.destination_lng == null || d.destinationLat == null || d.destinationLng == null ||
+        haversineKm(Number(bundleWith.destination_lat), Number(bundleWith.destination_lng), d.destinationLat, d.destinationLng) > 0.2) {
+      return c.json({ error: "bundle_destination_mismatch", message: "Both orders need the same saved delivery location to share one rider trip." }, 400);
+    }
   }
 
   // Server-computed line by line — a menu item's price (and its options'
@@ -232,9 +256,21 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
   let distanceKm: number | null = null;
   let deliveryFee: number;
   if (restaurantLat != null && restaurantLng != null && d.destinationLat != null && d.destinationLng != null) {
-    distanceKm = haversineKm(restaurantLat, restaurantLng, d.destinationLat, d.destinationLng);
-    deliveryFee = roundFare(distanceKm * deliveryRatePerKm, minimumDeliveryFee);
+    if (bundleWith) {
+      const firstPickupKm = haversineKm(Number(bundleWith.pickup_lat), Number(bundleWith.pickup_lng), restaurantLat, restaurantLng);
+      const finalLegKm = haversineKm(restaurantLat, restaurantLng, d.destinationLat, d.destinationLng);
+      distanceKm = firstPickupKm + finalLegKm;
+      const routeFee = roundFare(distanceKm * deliveryRatePerKm, minimumDeliveryFee);
+      bundleExtraFee = Math.max(0, routeFee - Number(bundleWith.delivery_fee ?? 0));
+      deliveryFee = bundleExtraFee;
+      // Keep the existing unpaid order as the deterministic bundle lead.
+      deliveryBundleId = String(bundleWith.id);
+    } else {
+      distanceKm = haversineKm(restaurantLat, restaurantLng, d.destinationLat, d.destinationLng);
+      deliveryFee = roundFare(distanceKm * deliveryRatePerKm, minimumDeliveryFee);
+    }
   } else {
+    if (bundleWith) return c.json({ error: "bundle_location_required", message: "Both pickup locations and your delivery location need map coordinates to calculate the added route fee." }, 400);
     deliveryFee = roundFare(shoppingDeliveryFee);
   }
   const estimatedTotal = itemsTotal + deliveryFee;
@@ -266,6 +302,7 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
     sql: "INSERT INTO lists (id, customer_id, title, status, environment) VALUES (?, ?, ?, 'active', ?)",
     args: [listId, user.sub, restaurant.name as string, environment],
   });
+
   const tracksMenuItems=await hasColumn("list_items","source_menu_item_id");
   for (const li of lineItems) {
     await db.execute({
@@ -275,14 +312,16 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
   }
 
   const orderId = newId("ord");
+  const supportsBundleHold = await hasColumn("orders", "delivery_bundle_hold");
+  const holdForPickupChoice = supportsBundleHold && restaurantLat != null && restaurantLng != null && d.destinationLat != null && d.destinationLng != null ? 1 : 0;
   await db.execute({
     sql: `INSERT INTO orders (
             id, list_id, customer_id, stage, type, payment_rail, estimated_total, delivery_fee,
             pickup_area, pickup_address, pickup_lat, pickup_lng,
             destination_area, destination_address, destination_lat, destination_lng, distance_km,
-            matching_mode, matching_deadline_at, environment, restaurant_id
+            matching_mode, matching_deadline_at, environment, restaurant_id${supportsBundleHold ? ",delivery_bundle_hold" : ""}
           )
-          VALUES (?, ?, ?, 'Create', 'shopping', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          VALUES (?, ?, ?, 'Create', 'shopping', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${supportsBundleHold ? ",?" : ""})`,
     args: [
       orderId,
       listId,
@@ -303,8 +342,21 @@ customerRestaurantRoutes.post("/restaurants/:id/order", requireAuth, requireRole
       matchingDeadlineAt,
       environment,
       restaurantId,
+      ...(supportsBundleHold ? [holdForPickupChoice] : []),
     ],
   });
+  if (bundleWith && deliveryBundleId) {
+    // Link both seller orders together only while the first is still unpaid
+    // and available. A rider cannot be split across the two pickups.
+    const changes = await executeBatch([
+      { sql: "UPDATE orders SET delivery_bundle_id=?,delivery_bundle_hold=0,updated_at=datetime('now') WHERE id=? AND customer_id=? AND stage='Create' AND rider_id IS NULL AND delivery_bundle_id IS NULL AND delivery_bundle_hold=1 AND created_at>datetime('now','-30 minutes') AND NOT EXISTS(SELECT 1 FROM payments WHERE order_id=?)", args: [deliveryBundleId, bundleWith.id, user.sub, bundleWith.id] },
+      { sql: "UPDATE orders SET delivery_bundle_id=?,delivery_bundle_hold=0 WHERE id=? AND EXISTS(SELECT 1 FROM orders WHERE id=? AND delivery_bundle_id=?)", args: [deliveryBundleId, orderId, bundleWith.id, deliveryBundleId] },
+    ]);
+    if (changes[0] === 0 || changes[1] === 0) {
+      await db.execute({ sql: "UPDATE orders SET stage='Cancelled',updated_at=datetime('now') WHERE id=? AND rider_id IS NULL", args: [orderId] });
+      return c.json({ error: "bundle_order_unavailable", message: "That order has already moved forward. Please check out separately." }, 409);
+    }
+  }
   await db.execute({
     sql: "INSERT INTO order_events (id, order_id, stage, note, actor_id) VALUES (?, ?, 'Create', ?, ?)",
     args: [newId("evt"), orderId, `Food order created from ${restaurant.name}`, user.sub],

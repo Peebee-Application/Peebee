@@ -263,6 +263,7 @@ export default function JobsHomePage() {
                 <span className="min-w-0 flex-1">
                   <span className="block text-base font-semibold leading-snug text-ink">{jobTitle(job)}</span>
                   <span className="mt-0.5 block text-sm text-ink-500">{JOB_CATEGORY_LABELS[jobCategory(job)]}</span>
+                  {(job.bundle_order_count ?? 1) > 1 && <span className="mt-1 inline-flex rounded-full bg-gold/15 px-2.5 py-1 text-xs font-bold text-ink">Combined trip · {job.bundle_order_count} pickups</span>}
                 </span>
                 <span className="max-w-[30%] text-right text-xs leading-5 text-ink-500">
                   {job.distanceKm != null ? `${job.distanceKm} ${t("home_km_away")}` : t("home_distance_unknown")}

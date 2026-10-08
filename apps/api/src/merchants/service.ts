@@ -3,6 +3,8 @@ import { ledgerBalance, postLedgerTransaction } from "../ledger/service.js";
 import { newId } from "../lib/ids.js";
 import { haversineKm } from "../lib/geo.js";
 import { getSetting, type PlatformEnvironment } from "../lib/settings.js";
+import { hasColumn } from "../lib/schema.js";
+import { merchantCodeFor } from "../lib/profile-codes.js";
 import { resolveMerchantPolicy } from "./policy.js";
 
 type Row = Record<string, unknown>;
@@ -134,7 +136,12 @@ export function merchantBusinessStatements(input: {
 
 export async function createMerchantBusiness(input: Parameters<typeof merchantBusinessStatements>[0]) {
   const result = merchantBusinessStatements(input);
-  await executeBatch(result.statements);
+  const statements = [...result.statements];
+  if (await hasColumn("merchants", "merchant_code")) statements.push({
+    sql: "UPDATE merchants SET merchant_code=? WHERE id=? AND (merchant_code IS NULL OR merchant_code='')",
+    args: [merchantCodeFor(result.created.merchantId), result.created.merchantId],
+  });
+  await executeBatch(statements);
   return result.created;
 }
 

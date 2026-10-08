@@ -466,12 +466,19 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
         destinationLat?: number;
         destinationLng?: number;
         paymentRail?: "escrow" | "float";
+        bundleWithOrderId?: string;
       },
     ) {
       return request<{ order: OrderRow }>(`/v1/restaurants/${restaurantId}/order`, {
         method: "POST",
         body: JSON.stringify(input),
       });
+    },
+    async getDeliveryBundleCandidates() {
+      return request<{ orders: Array<{ id: string; restaurant_id: string | null; restaurant_name: string | null; pickup_address: string | null; pickup_lat: number; pickup_lng: number; destination_lat: number; destination_lng: number; delivery_fee: number | null }> }>("/v1/orders/bundle-candidates");
+    },
+    async closeDeliveryBundleWindow(orderId: string) {
+      return request<{ ok: boolean }>(`/v1/orders/${orderId}/bundle-window/close`, { method: "POST" });
     },
     async getOrder(orderId: string) {
       return request<OrderDetail>(`/v1/orders/${orderId}`);
@@ -1044,7 +1051,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async createMerchantPayment(input: {
       orderId: string;
-      outletCode: string;
+      outletCode?: string;
       amount: number;
       riderLat?: number;
       riderLng?: number;
@@ -1796,6 +1803,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async uploadRestaurantLogo(file:Blob){const form=new FormData();form.append("file",file,"logo.png");const response=await f(`${root}/v1/restaurants/me/logo`,{method:"POST",headers:authHeaders(),body:form});if(!response.ok)throw new Error("Could not save your logo. Use a JPG, PNG or WebP image under 4 MB.");return response.json() as Promise<{ok:true;logoKey:string}>;},
     async restaurantLogoBlob(id:string,revision?:string){const response=await f(`${root}/v1/restaurants/${encodeURIComponent(id)}/logo${revision?`?v=${encodeURIComponent(revision)}`:""}`,{headers:authHeaders()});if(!response.ok)throw new Error("Logo unavailable");return response.blob();},
     async foodMenuInsights(id:string){return request<{items:Record<string,import("./food-feedback.js").FoodItemInsight>;available:boolean}>(`/v1/restaurants/${encodeURIComponent(id)}/menu/insights`);},
+    async foodRestaurantTrust(id:string){return request<import("./food-feedback.js").FoodRestaurantTrust>(`/v1/restaurants/${encodeURIComponent(id)}/trust`);},
     async foodItemFeedback(id:string,itemId:string){return request<import("./food-feedback.js").FoodItemFeedback>(`/v1/restaurants/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}/reviews`);},
     async saveFoodItemReview(id:string,itemId:string,input:{orderId:string;rating:number;comment:string;recommended:boolean}){return request<{ok:true}>(`/v1/restaurants/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}/review`,{method:"PUT",body:JSON.stringify(input)});},
     async adminPersonPhoto(kind: "riders" | "customers" | "restaurants" | "merchants", id: string): Promise<Blob> {

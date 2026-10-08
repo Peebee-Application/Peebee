@@ -8,7 +8,8 @@ import { getRiderChargeNumber } from "./momo-number.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
-import { hasTable } from "../lib/schema.js";
+import { ensureRiderCode } from "../lib/profile-codes.js";
+import { hasColumn, hasTable } from "../lib/schema.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { getDeliverySettings, getLugandaAudioSettings, getMonetizationSettings, getPlatformEnvironment, getProSettings, getRiderReserveSettings } from "../lib/settings.js";
@@ -115,6 +116,7 @@ riderRoutes.post("/riders/apply", requireAuth, requireRole("rider"), async (c) =
       d.emergencyContactPhone ?? null,
     ],
   });
+  await ensureRiderCode(user.sub);
 
   const res = await db.execute({ sql: "SELECT * FROM riders WHERE user_id = ?", args: [user.sub] });
   const rider = res.rows[0] as unknown as Rider;
@@ -290,10 +292,13 @@ riderRoutes.get("/riders/me", requireAuth, requireRole("rider"), async (c) => {
 /** Rider's own assigned orders (any stage before Settle). */
 riderRoutes.get("/riders/me/orders", requireAuth, requireRole("rider"), async (c) => {
   const user = c.get("user");
+  const bundleFilter = await hasColumn("orders", "delivery_bundle_id")
+    ? "AND (o.delivery_bundle_id IS NULL OR o.id=o.delivery_bundle_id)"
+    : "";
   const res = await db.execute({
     sql: `SELECT o.*, u.name as customer_name FROM orders o
           LEFT JOIN users u ON u.id = o.customer_id
-          WHERE o.rider_id = ? AND o.environment = ? ORDER BY o.updated_at DESC`,
+          WHERE o.rider_id = ? AND o.environment = ? ${bundleFilter} ORDER BY o.updated_at DESC`,
     args: [user.sub, await getPlatformEnvironment()],
   });
   return c.json({ orders: redactOrders(res.rows as Row[], user) });
@@ -331,16 +336,25 @@ riderRoutes.get("/riders/jobs/available", requireAuth, requireRole("rider"), asy
   const { serviceRangeKm } = await getDeliverySettings();
   const riderLat = rider.stage_lat as number | null;
   const riderLng = rider.stage_lng as number | null;
+  const bundleFilter = await hasColumn("orders", "delivery_bundle_id")
+    ? "AND (o.delivery_bundle_id IS NULL OR o.id=o.delivery_bundle_id)"
+    : "";
+  const bundleHoldFilter = await hasColumn("orders", "delivery_bundle_hold")
+    ? "AND (COALESCE(o.delivery_bundle_hold,0)=0 OR o.created_at<=datetime('now','-30 minutes'))"
+    : "";
+  const bundleCount = await hasColumn("orders", "delivery_bundle_id")
+    ? "CASE WHEN o.delivery_bundle_id IS NULL THEN 1 ELSE (SELECT COUNT(*) FROM orders bundled WHERE bundled.delivery_bundle_id=o.delivery_bundle_id) END AS bundle_order_count"
+    : "1 AS bundle_order_count";
 
   // Peebee Car rides are for car drivers only — never in the boda feed.
   const carFilter = (await hasTable("car_bookings")) ? "AND NOT EXISTS (SELECT 1 FROM car_bookings cb WHERE cb.order_id = o.id)" : "";
   const [res, appliedRes] = await Promise.all([
     db.execute({
-      sql: `SELECT o.*, u.name as customer_name, r.name as restaurant_name FROM orders o
+      sql: `SELECT o.*, u.name as customer_name, r.name as restaurant_name, ${bundleCount} FROM orders o
             LEFT JOIN users u ON u.id = o.customer_id
             LEFT JOIN restaurants r ON r.id = o.restaurant_id
             WHERE o.rider_id IS NULL AND o.stage IN ('Create', 'Match') AND o.environment = ? ${carFilter}
-            AND o.id NOT IN (SELECT order_id FROM order_rider_exclusions WHERE rider_id = ?)
+            AND o.id NOT IN (SELECT order_id FROM order_rider_exclusions WHERE rider_id = ?) ${bundleFilter} ${bundleHoldFilter}
             ORDER BY o.created_at ASC`,
       args: [environment, user.sub],
     }),
