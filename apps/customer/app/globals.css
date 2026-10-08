@@ -727,30 +727,22 @@ select {
   pointer-events: none;
   background-position: center;
   background-size: cover;
-  filter: blur(30px) saturate(.72);
-  opacity: .3;
+  filter: blur(34px) saturate(.8) brightness(.78);
+  opacity: .44;
   transform: scale(1.06);
   animation: menu-backdrop-arrive 420ms ease both;
-  mask-image: linear-gradient(to bottom, #000 0%, #000 43%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 43%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 36%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 36%, transparent 100%);
 }
 .menu-item-detail-page__ambient::after {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgb(90 90 90 / .28), rgb(125 125 125 / .16) 48%, transparent 100%);
+  background: linear-gradient(to bottom, rgb(var(--color-black) / .2), rgb(var(--color-black) / .1) 52%, transparent 100%);
   content: "";
 }
 @keyframes menu-backdrop-arrive {
   from { opacity: .08; transform: scale(1.12); }
-  to { opacity: .3; transform: scale(1.06); }
-}
-:root[data-theme="dark"] .menu-item-detail-page__ambient::after {
-  background: linear-gradient(to bottom, rgb(0 0 0 / .82), rgb(0 0 0 / .66) 48%, transparent 100%);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .menu-item-detail-page__ambient::after {
-    background: linear-gradient(to bottom, rgb(0 0 0 / .82), rgb(0 0 0 / .66) 48%, transparent 100%);
-  }
+  to { opacity: .44; transform: scale(1.06); }
 }
 .menu-item-deck {
   position: relative;
