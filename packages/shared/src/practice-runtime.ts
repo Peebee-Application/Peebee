@@ -209,8 +209,12 @@ function orderFor(state: PracticeState) {
 }
 
 function practiceCar(categoryId: string | null) {
+  if (categoryId === "practice-car-city") return { name: "City compact", make: "Toyota", model: "Vitz", plate: "UFX 248C", owner: "Amina N. · Demo owner", driver: "Daniel Kato" };
   if (categoryId === "practice-car-family") return { name: "Family SUV", make: "Toyota", model: "RAV4", plate: "UFX 316R", owner: "Peter O. · Demo owner", driver: "Sarah Namusoke" };
-  if (categoryId === "practice-car-van") return { name: "Small cargo van", make: "Nissan", model: "Caravan", plate: "UFX 529V", owner: "Peter O. · Demo owner", driver: "Sarah Namusoke" };
+  if (categoryId === "practice-car-executive") return { name: "Executive SUV", make: "Mercedes-Benz", model: "GLC", plate: "UFX 417E", owner: "Amina N. · Demo owner", driver: "Daniel Kato" };
+  if (categoryId === "practice-car-van") return { name: "Passenger van", make: "Toyota", model: "Hiace", plate: "UFX 529V", owner: "Peter O. · Demo owner", driver: "Sarah Namusoke" };
+  if (categoryId === "practice-car-pickup") return { name: "Pickup truck", make: "Toyota", model: "Hilux", plate: "UFX 638P", owner: "Amina N. · Demo owner", driver: "Daniel Kato" };
+  if (categoryId === "practice-car-truck") return { name: "3-ton truck", make: "Isuzu", model: "NPR", plate: "UFX 740T", owner: "Peter O. · Demo owner", driver: "Sarah Namusoke" };
   return { name: "Comfort sedan", make: "Toyota", model: "Corolla", plate: "UFX 248P", owner: "Amina N. · Demo owner", driver: "Daniel Kato" };
 }
 
@@ -415,9 +419,13 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
 
   if (role === "customer" && method === "GET") {
     if (path === "/v1/car/config") return jsonResponse({ onDemandEnabled: true, matchingMode: "first_to_claim", scheduled: null, carpool: null, selfDrive: null, vehiclePhotos: false, kyc: null, deals: null, categories: [
-      { id: PRACTICE_CAR_CATEGORY_ID, kind: "passenger", name: "Comfort sedan", seats: 4, cargo_type: null, size_label: null, reference_image_key: null, rate_per_km: 2_000, minimum_fare: 8_000 },
-      { id: "practice-car-family", kind: "passenger", name: "Family SUV", seats: 6, cargo_type: null, size_label: null, reference_image_key: null, rate_per_km: 3_000, minimum_fare: 12_000 },
-      { id: "practice-car-van", kind: "cargo", name: "Small cargo van", seats: null, cargo_type: "General goods", size_label: "Small", reference_image_key: null, rate_per_km: 3_500, minimum_fare: 15_000 },
+      { id: "practice-car-city", kind: "passenger", name: "City compact", seats: 4, cargo_type: null, size_label: "Easy city trips", reference_image_key: null, rate_per_km: 1_500, minimum_fare: 6_000 },
+      { id: PRACTICE_CAR_CATEGORY_ID, kind: "passenger", name: "Comfort sedan", seats: 4, cargo_type: null, size_label: "Everyday comfort", reference_image_key: null, rate_per_km: 2_000, minimum_fare: 8_000 },
+      { id: "practice-car-family", kind: "passenger", name: "Family SUV", seats: 6, cargo_type: null, size_label: "Extra room", reference_image_key: null, rate_per_km: 2_800, minimum_fare: 12_000 },
+      { id: "practice-car-executive", kind: "passenger", name: "Executive SUV", seats: 4, cargo_type: null, size_label: "Premium ride", reference_image_key: null, rate_per_km: 3_500, minimum_fare: 15_000 },
+      { id: "practice-car-van", kind: "passenger", name: "Passenger van", seats: 8, cargo_type: null, size_label: "Group travel", reference_image_key: null, rate_per_km: 3_000, minimum_fare: 18_000 },
+      { id: "practice-car-pickup", kind: "cargo", name: "Pickup truck", seats: null, cargo_type: "Light cargo", size_label: "Small loads", reference_image_key: null, rate_per_km: 2_500, minimum_fare: 10_000 },
+      { id: "practice-car-truck", kind: "cargo", name: "3-ton truck", seats: null, cargo_type: "Heavy cargo", size_label: "Moving and freight", reference_image_key: null, rate_per_km: 4_500, minimum_fare: 25_000 },
     ] });
     if (path === "/v1/restaurants") return jsonResponse({ restaurants: DEMO_FOOD_RESTAURANTS });
     const detail = path.match(/^\/v1\/restaurants\/(demo-food-[^/]+)$/);
@@ -450,8 +458,16 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
   }
   if (role === "customer" && method === "POST" && path === "/v1/car/bookings") {
     const categoryId = typeof body.categoryId === "string" ? body.categoryId : PRACTICE_CAR_CATEGORY_ID;
-    const rate = categoryId === "practice-car-family" ? 3_000 : categoryId === "practice-car-van" ? 3_500 : 2_000;
-    const minimum = categoryId === "practice-car-family" ? 12_000 : categoryId === "practice-car-van" ? 15_000 : 8_000;
+    const rates: Record<string, [number, number]> = {
+      "practice-car-city": [1_500, 6_000],
+      "practice-car-comfort": [2_000, 8_000],
+      "practice-car-family": [2_800, 12_000],
+      "practice-car-executive": [3_500, 15_000],
+      "practice-car-van": [3_000, 18_000],
+      "practice-car-pickup": [2_500, 10_000],
+      "practice-car-truck": [4_500, 25_000],
+    };
+    const [rate, minimum] = rates[categoryId] ?? rates[PRACTICE_CAR_CATEGORY_ID];
     const lat1 = Number(body.pickupLat), lng1 = Number(body.pickupLng), lat2 = Number(body.destinationLat), lng2 = Number(body.destinationLng);
     const validCoords = [lat1, lng1, lat2, lng2].every(Number.isFinite);
     const distanceKm = validCoords ? 6371 * 2 * Math.asin(Math.sqrt(Math.sin(((lat2 - lat1) * Math.PI) / 360) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(((lng2 - lng1) * Math.PI) / 360) ** 2)) : 0;

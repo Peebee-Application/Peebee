@@ -35,9 +35,15 @@ carRoutes.use("/car/*", async (c, next) => {
 
 carRoutes.get("/car/config", async (c) => {
   const settings = await getCarSettings();
+  const demoTypesColumn = await hasColumn("vehicle_categories", "demo_only");
+  const environment = await getPlatformEnvironment();
   const categories = await db.execute(
-    `SELECT id, kind, name, seats, cargo_type, size_label, reference_image_key, rate_per_km, minimum_fare
-     FROM vehicle_categories WHERE active = 1 ORDER BY sort ASC, name ASC`,
+    demoTypesColumn
+      ? `SELECT id, kind, name, seats, cargo_type, size_label, reference_image_key, rate_per_km, minimum_fare
+         FROM vehicle_categories WHERE active = 1 AND (demo_only = 0 OR ? = 'sandbox') ORDER BY sort ASC, name ASC`
+      : `SELECT id, kind, name, seats, cargo_type, size_label, reference_image_key, rate_per_km, minimum_fare
+         FROM vehicle_categories WHERE active = 1 ORDER BY sort ASC, name ASC`,
+    demoTypesColumn ? [environment] : [],
   );
   const scheduled = (await scheduledAvailable(settings.scheduled))
     ? { maxAdvanceHours: settings.scheduled.maxAdvanceHours, minLeadMinutes: settings.scheduled.minLeadMinutes }
@@ -387,6 +393,10 @@ const tripSchema = z.object({
 const bookingSchema = tripSchema.extend({ scheduledFor: z.string().max(40).optional(), passenger: passengerSchema.optional() });
 
 async function activeCategory(id: string): Promise<Row | undefined> {
+  if (await hasColumn("vehicle_categories", "demo_only")) {
+    const environment = await getPlatformEnvironment();
+    return (await db.execute({ sql: "SELECT * FROM vehicle_categories WHERE id = ? AND active = 1 AND (demo_only = 0 OR ? = 'sandbox')", args: [id, environment] })).rows[0] as Row | undefined;
+  }
   return (await db.execute({ sql: "SELECT * FROM vehicle_categories WHERE id = ? AND active = 1", args: [id] })).rows[0] as Row | undefined;
 }
 

@@ -278,7 +278,7 @@ function Categories({ categories, act }: { categories: AdminCarCategory[]; act: 
           <li key={c.id} className="home-card flex items-center gap-3">
             <button type="button" className="min-w-0 flex-1 text-left" onClick={() => edit(c)}>
               <span className="block text-sm font-semibold text-ink">
-                {c.name} {c.active === 0 && <span className="font-normal text-ink-500">(hidden)</span>}
+                {c.name} {c.demo_only === 1 && <span className="font-normal text-gold">(sandbox demo)</span>} {c.active === 0 && <span className="font-normal text-ink-500">(hidden)</span>}
               </span>
               <span className="block text-xs text-ink-500">
                 {c.kind === "passenger" ? `${c.seats ?? "?"} seats` : c.cargo_type ?? "cargo"} · UGX {c.rate_per_km.toLocaleString("en-UG")}/km · min UGX {c.minimum_fare.toLocaleString("en-UG")}

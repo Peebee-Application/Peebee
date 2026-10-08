@@ -46,6 +46,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [pricing, setPricing] = useState<{ ratePerKm: number; minimum: number } | null>(null);
   // Peebee Car: only offered when an admin has switched it on and added a car type.
   const [cars, setCars] = useState<CarCategory[]>([]);
+  const [carBookingAvailable, setCarBookingAvailable] = useState(false);
   const [schedule, setSchedule] = useState<{ maxAdvanceHours: number | null; minLeadMinutes: number } | null>(null);
   const [when, setWhen] = useState<"now" | "later">("now");
   const [nowOk, setNowOk] = useState(true);
@@ -77,7 +78,8 @@ export function RideModal({ onClose }: { onClose: () => void }) {
     api
       .getCarConfig()
       .then((cfg) => {
-        setCars(cfg.onDemandEnabled || cfg.scheduled ? cfg.categories : []);
+        setCars(cfg.categories);
+        setCarBookingAvailable(cfg.onDemandEnabled || !!cfg.scheduled);
         setCarpoolOn(!!cfg.carpool);
         setRentOn(!!cfg.selfDrive);
         setSchedule(cfg.scheduled);
@@ -266,11 +268,17 @@ export function RideModal({ onClose }: { onClose: () => void }) {
                 </button>
               );
             })}
+            {!carBookingAvailable && <p className="rounded-xl bg-[rgb(var(--surface-muted))] p-3 text-xs text-ink-500">These car types are available to explore, but rides are not open for booking right now.</p>}
           </div>
-        ) : mode === "car" && carService === "peebee" ? (
+        ) : mode === "car" && carService === "peebee" && cars.length === 0 ? (
           <div className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] p-4 text-sm">
             <p className="font-bold text-ink">Peebee Car isn&apos;t available yet</p>
             <p className="mt-1 text-ink-500">Peebee Car rides aren&apos;t enabled or no car types are active right now. Please choose Boda or try again later.</p>
+          </div>
+        ) : mode === "car" && carService === "peebee" && !carBookingAvailable ? (
+          <div className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] p-4 text-sm">
+            <p className="font-bold text-ink">Peebee Car bookings are paused</p>
+            <p className="mt-1 text-ink-500">These car types are available to explore, but rides are not open for booking right now.</p>
           </div>
         ) : liveEstimate != null ? (
           <div className="flex items-center gap-2 rounded-xl border border-gold bg-gold/10 p-3">
@@ -294,7 +302,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
 
         <button
           onClick={submit}
-          disabled={busy || (mode === "car" && (carService !== "peebee" || !cars.length || !carId || (when === "later" && !pickupAt)))}
+          disabled={busy || (mode === "car" && (carService !== "peebee" || !carBookingAvailable || !cars.length || !carId || (when === "later" && !pickupAt)))}
           className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
         >
           {busy ? "Please wait…" : "Next: payment"}
