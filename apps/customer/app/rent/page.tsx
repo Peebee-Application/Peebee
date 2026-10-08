@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import type { PlaceResult } from "../../components/PlaceFlow";
 import { useRoadRoute } from "../../lib/useRoadRoute";
-import { VehiclePhoto } from "../../components/VehiclePhoto";
+import { RentalVehicleGallery } from "../../components/RentalVehicleGallery";
 import { RentalCarDetails } from "../../components/RentalCarDetails";
 import { loadSelfDriveRoute } from "../../lib/selfdrive-route";
 
@@ -31,6 +31,8 @@ export default function RentPage() {
   const [now, setNow] = useState(Date.now());
   const [route, setRoute] = useState<PlaceResult | null>(null);
   const [fuelPrice, setFuelPrice] = useState(6900);
+  const [fuelUseOverrides, setFuelUseOverrides] = useState<Record<string, number | null>>({});
+  const [tripDistanceOverrides, setTripDistanceOverrides] = useState<Record<string, number | null>>({});
   const [renterProfile, setRenterProfile] = useState<SelfDriveRenterKycProfile | null>(null);
   const [kycOpen, setKycOpen] = useState(false);
   const [pendingVehicle, setPendingVehicle] = useState<RentalVehicle | null>(null);
@@ -223,15 +225,41 @@ export default function RentPage() {
 
       {vehicles && vehicles.length === 0 && <p className="text-sm text-ink-500">No cars are free for those dates.</p>}
       {vehicles?.map((v) => (
-        <section key={v.id} className="home-card space-y-2">
-          {v.photos?.length ? <div className="grid grid-cols-2 gap-2">{v.photos.slice(0, 4).map((photoId) => <VehiclePhoto key={photoId} vehicleId={v.id} photoId={photoId} />)}</div> : null}
-          <p className="text-sm font-bold text-ink">{v.name}</p>
-          <p className="text-xs text-ink-500">{v.category}{v.seats ? ` · ${v.seats} seats` : ""} · {v.serviceClass === "comfort" ? "Comfort" : "Convenient"}</p>
-          <RentalCarDetails vehicle={v} roundTripKm={roundTripKm} routeLabel={route ? `${route.pickup?.label ?? "Pickup"} → ${route.destination.label}` : null} fuelPrice={fuelPrice} onFuelPriceChange={setFuelPrice} />
-          <div className="grid grid-cols-3 gap-2 text-xs text-ink-500"><span className={v.hourlyEnabled === false ? "opacity-40" : ""}>Hourly<br/><strong className="text-ink">{ugx(v.hourlyPrice ?? Math.round(v.dailyPrice * 1.2 / 24))}/hr</strong></span><span className={v.halfDayEnabled === false ? "opacity-40" : ""}>6 hours<br/><strong className="text-ink">{ugx(v.halfDayPrice ?? Math.round(v.dailyPrice * 0.6))}</strong></span><span className={v.fullDayEnabled === false ? "opacity-40" : ""}>24 hours<br/><strong className="text-ink">{ugx(v.dailyPrice)}</strong></span></div>
-          <p className="text-sm text-ink">Selected {periodType.replace("_", " ")} = <strong>{ugx(rentalQuote(v, periodType, hourCount))}</strong></p>
-          <p className="text-xs text-ink-500">Plus a refundable deposit of {ugx(v.deposit)}. Both are taken from your wallet and held; the deposit comes back when the car is returned undamaged.</p>
-          <button disabled={busy === v.id || (periodType === "hourly" && v.hourlyEnabled === false) || (periodType === "half_day" && v.halfDayEnabled === false) || (periodType === "full_day" && v.fullDayEnabled === false)} onClick={() => request(v)} className="min-h-11 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-60">{busy === v.id ? "Please wait…" : `Request · ${ugx(rentalQuote(v, periodType, hourCount) + v.deposit)} held`}</button>
+        <section key={v.id} className="overflow-hidden rounded-[28px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] shadow-[var(--shadow-card)]">
+          <RentalVehicleGallery vehicleId={v.id} photoIds={v.photos ?? []} name={v.name} />
+          <div className="space-y-4 p-4">
+            <div className="space-y-1">
+              <p className="text-base font-bold text-ink">{v.name}</p>
+              <p className="text-sm text-ink-500">{v.category}{v.seats ? ` · ${v.seats} seats` : ""} · {v.serviceClass === "comfort" ? "Comfort" : "Convenient"}</p>
+            </div>
+            <div className="grid grid-cols-3 gap-1 rounded-2xl bg-[rgb(var(--surface-muted))] p-1 text-center">
+              <div className={`rounded-xl px-1.5 py-2.5 ${periodType === "hourly" ? "bg-gold/20 text-ink" : "text-ink-500"} ${v.hourlyEnabled === false ? "opacity-40" : ""}`}><p className="text-[11px]">Hourly</p><p className="mt-0.5 text-xs font-bold">{ugx(v.hourlyPrice ?? Math.round(v.dailyPrice * 1.2 / 24))}/hr</p></div>
+              <div className={`rounded-xl px-1.5 py-2.5 ${periodType === "half_day" ? "bg-gold/20 text-ink" : "text-ink-500"} ${v.halfDayEnabled === false ? "opacity-40" : ""}`}><p className="text-[11px]">6 hours</p><p className="mt-0.5 text-xs font-bold">{ugx(v.halfDayPrice ?? Math.round(v.dailyPrice * 0.6))}</p></div>
+              <div className={`rounded-xl px-1.5 py-2.5 ${periodType === "full_day" ? "bg-gold/20 text-ink" : "text-ink-500"} ${v.fullDayEnabled === false ? "opacity-40" : ""}`}><p className="text-[11px]">24 hours</p><p className="mt-0.5 text-xs font-bold">{ugx(v.dailyPrice)}</p></div>
+            </div>
+            <div className="flex items-end justify-between gap-3">
+              <div><p className="text-[11px] text-ink-500">{periodType === "hourly" ? `${hourCount} hour${hourCount === 1 ? "" : "s"}` : periodType === "half_day" ? "6-hour rental" : "24-hour rental"}</p><p className="text-xl font-bold text-ink">{ugx(rentalQuote(v, periodType, hourCount))}</p></div>
+              <p className="pb-1 text-right text-xs text-ink-500">Refundable deposit<br/><span className="font-semibold text-ink">{ugx(v.deposit)}</span></p>
+            </div>
+            <details className="group rounded-2xl border border-[var(--border-faint)] px-3">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-ink marker:hidden [&::-webkit-details-marker]:hidden"><span>Fuel estimate & vehicle details</span><span className="text-xs text-ink-500 group-open:rotate-180">⌄</span></summary>
+              <div className="pb-3">
+                <RentalCarDetails
+                  vehicle={v}
+                  roundTripKm={roundTripKm}
+                  routeLabel={route ? `${route.pickup?.label ?? "Pickup"} → ${route.destination.label}` : null}
+                  fuelPrice={fuelPrice}
+                  onFuelPriceChange={setFuelPrice}
+                  fuelUsePer100Km={Object.hasOwn(fuelUseOverrides, v.id) ? fuelUseOverrides[v.id] : v.fuelLitresPerKm != null ? v.fuelLitresPerKm * 100 : null}
+                  onFuelUseChange={(value) => setFuelUseOverrides((current) => ({ ...current, [v.id]: value }))}
+                  tripDistanceKm={Object.hasOwn(tripDistanceOverrides, v.id) ? tripDistanceOverrides[v.id] : roundTripKm}
+                  onTripDistanceChange={(value) => setTripDistanceOverrides((current) => ({ ...current, [v.id]: value }))}
+                />
+              </div>
+            </details>
+            <p className="text-xs text-ink-500">Rent and deposit are held at request. The deposit is refunded when the car is returned undamaged.</p>
+            <button disabled={busy === v.id || (periodType === "hourly" && v.hourlyEnabled === false) || (periodType === "half_day" && v.halfDayEnabled === false) || (periodType === "full_day" && v.fullDayEnabled === false)} onClick={() => request(v)} className="min-h-12 w-full rounded-full bg-gold px-4 font-bold text-ink-gold disabled:opacity-60">{busy === v.id ? "Please wait…" : `Request · ${ugx(rentalQuote(v, periodType, hourCount) + v.deposit)} held`}</button>
+          </div>
         </section>
       ))}
 
