@@ -53,6 +53,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [rentOn, setRentOn] = useState(false);
   const [pickupAt, setPickupAt] = useState("");
   const [mode, setMode] = useState<"boda" | "car">("boda");
+  const [carService, setCarService] = useState<"peebee" | null>(null);
   const [carId, setCarId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showEstimates, setShowEstimates] = useState(false);
@@ -195,31 +196,33 @@ export function RideModal({ onClose }: { onClose: () => void }) {
           />
         )}
 
-        {(cars.length > 0 || carpoolOn || rentOn) && (
+        {mode === "boda" ? (
           <div role="tablist" className="flex gap-2">
-            {(["boda", ...(cars.length > 0 ? ["car"] : []), ...(carpoolOn ? ["carpool"] : []), ...(rentOn ? ["rent"] : [])] as ("boda" | "car" | "carpool" | "rent")[]).map((m) => (
+            {(["boda", "car"] as const).map((m) => (
               <button
                 key={m}
                 type="button"
                 role="tab"
                 aria-selected={mode === m}
-                onClick={() => {
-                  if (m === "carpool" || m === "rent") {
-                    onClose();
-                    router.push(m === "carpool" ? "/carpool" : "/rent");
-                    return;
-                  }
-                  setMode(m);
-                }}
+                onClick={() => { setMode(m); setCarService(m === "car" ? "peebee" : null); }}
                 className={`min-h-10 flex-1 rounded-full px-3 text-sm font-bold ${mode === m ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}
               >
-                {m === "carpool" ? "Carpool" : m === "rent" ? "Rent" : t(m === "boda" ? "car_tab_boda" : "car_tab_car")}
+                {t(m === "boda" ? "car_tab_boda" : "car_tab_car")}
               </button>
             ))}
           </div>
+        ) : (
+          <div className="space-y-2">
+            <button type="button" onClick={() => { setMode("boda"); setCarService(null); }} className="text-sm font-bold text-gold">← Back to Boda or Car</button>
+            <div role="tablist" aria-label="Car ride options" className="flex gap-2">
+              <button type="button" role="tab" aria-selected={carService === "peebee"} onClick={() => setCarService("peebee")} className={`min-h-10 flex-1 rounded-full px-2 text-xs font-bold ${carService === "peebee" ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>Peebee Car</button>
+              {carpoolOn && <button type="button" onClick={() => { onClose(); router.push("/carpool"); }} className="min-h-10 flex-1 rounded-full bg-gold/15 px-2 text-xs font-bold text-ink">Rideshare</button>}
+              {rentOn && <button type="button" onClick={() => { onClose(); router.push("/rent"); }} className="min-h-10 flex-1 rounded-full bg-gold/15 px-2 text-xs font-bold text-ink">Self-drive</button>}
+            </div>
+          </div>
         )}
 
-        {mode === "car" && cars.length > 0 ? (
+        {mode === "car" && carService === "peebee" && cars.length > 0 ? (
           <div className="space-y-2">
             {schedule && (
               <div className="space-y-2">
@@ -264,6 +267,11 @@ export function RideModal({ onClose }: { onClose: () => void }) {
               );
             })}
           </div>
+        ) : mode === "car" && carService === "peebee" ? (
+          <div className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] p-4 text-sm">
+            <p className="font-bold text-ink">Peebee Car isn&apos;t available yet</p>
+            <p className="mt-1 text-ink-500">No active car types are available for this ride. Please choose Boda or try again later.</p>
+          </div>
         ) : liveEstimate != null ? (
           <div className="flex items-center gap-2 rounded-xl border border-gold bg-gold/10 p-3">
             <Route className="h-4 w-4 shrink-0 text-gold" strokeWidth={2.25} aria-hidden />
@@ -286,7 +294,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
 
         <button
           onClick={submit}
-          disabled={busy || (mode === "car" && (!carId || (when === "later" && !pickupAt)))}
+          disabled={busy || (mode === "car" && (carService !== "peebee" || !cars.length || !carId || (when === "later" && !pickupAt)))}
           className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
         >
           {busy ? "Please wait…" : "Next: payment"}
