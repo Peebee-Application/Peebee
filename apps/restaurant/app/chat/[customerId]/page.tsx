@@ -482,7 +482,7 @@ export default function RestaurantChatThreadPage() {
     // No bottom nav to leave room for — this screen is a full takeover.
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden bg-cream pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col overflow-hidden">
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5">
+        <header className="peebee-chat-chrome flex shrink-0 items-center gap-3 border-b border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5">
           <Link href="/chat" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-500" aria-label="Back">
             <ArrowLeft className="h-5 w-5" strokeWidth={2} aria-hidden />
           </Link>
@@ -516,7 +516,7 @@ export default function RestaurantChatThreadPage() {
           </div>
         </PhotoProvider>
 
-        <div className="shrink-0 border-t border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5">
+        <div className="peebee-chat-chrome shrink-0 border-t border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2.5">
           <div className="space-y-1.5">
             {error && <p className="px-1 text-xs text-red-600">{error}</p>}
             {replyTo && (

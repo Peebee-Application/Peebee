@@ -499,7 +499,7 @@ export default function RestaurantChatPage() {
     // it. `fixed` can't be scrolled away by an ancestor no matter what.
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden bg-cream pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col overflow-hidden">
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border-faint)] glass-panel px-3 py-2.5">
+        <header className="peebee-chat-chrome flex shrink-0 items-center gap-3 border-b border-[var(--border-faint)] glass-panel px-3 py-2.5">
           <Link
             href={`/restaurants/${id}`}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-500"
@@ -556,7 +556,7 @@ export default function RestaurantChatPage() {
           </div>
         )}
 
-        <div className="shrink-0 border-t border-[var(--border-faint)] glass-panel px-3 py-2.5">
+        <div className="peebee-chat-chrome shrink-0 border-t border-[var(--border-faint)] glass-panel px-3 py-2.5">
           <div className="space-y-1.5">
             {error && <p className="px-1 text-xs text-red-600">{error}</p>}
             {replyTo && (
