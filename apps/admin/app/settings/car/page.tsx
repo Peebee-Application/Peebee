@@ -36,6 +36,7 @@ export default function CarSettingsPage() {
   const [sdDays, setSdDays] = useState("30");
   const [sdDeposit, setSdDeposit] = useState("0");
   const [sdApprove, setSdApprove] = useState("12");
+  const [sdGrace, setSdGrace] = useState("3");
   const [dealsOn, setDealsOn] = useState(false);
   const [dealShare, setDealShare] = useState(true);
   const [dealRent, setDealRent] = useState(true);
@@ -80,6 +81,7 @@ export default function CarSettingsPage() {
     setSdDays(String(c.selfDrive.maxDays));
     setSdDeposit(String(c.selfDrive.minDeposit));
     setSdApprove(String(c.selfDrive.approveWithinHours));
+    setSdGrace(String(c.selfDrive.overtimeGraceHours));
     setDealsOn(c.deals.enabled);
     setDealShare(c.deals.shareEnabled);
     setDealRent(c.deals.rentEnabled);
@@ -145,6 +147,7 @@ export default function CarSettingsPage() {
             maxDays: Math.max(1, Number(sdDays) || 30),
             minDeposit: Math.max(0, Number(sdDeposit) || 0),
             approveWithinHours: Math.max(1, Number(sdApprove) || 12),
+            overtimeGraceHours: Math.max(1, Number(sdGrace) || 3),
           },
           deals: {
             enabled: dealsOn,
@@ -279,6 +282,7 @@ export default function CarSettingsPage() {
               ["Longest rental (days)", sdDays, setSdDays],
               ["Lowest deposit (UGX)", sdDeposit, setSdDeposit],
               ["Owner must answer within (hours)", sdApprove, setSdApprove],
+              ["Late-return grace period (hours)", sdGrace, setSdGrace],
             ].map(([label, value, set]) => (
               <div key={label as string} className="space-y-1">
                 <label className="text-xs font-semibold text-ink-500">{label as string}</label>
@@ -287,7 +291,7 @@ export default function CarSettingsPage() {
             ))}
           </div>
           <p className="text-xs text-ink-500">
-            Stays off until Peebee&apos;s share is set. The renter&apos;s rent and deposit are held from their wallet; the deposit comes back unless the owner claims damage, which you rule on under Car fleet → Rentals. Late-return fees and inspection photos are not enabled yet. Have the hire terms and insurance position reviewed before using this with real money. Needs migration 0069.
+            Stays off until Peebee&apos;s share is set. Rent and deposit are held from the renter&apos;s wallet. After the configured grace period, started extra hours are charged at the listing&apos;s hourly rate from the held deposit. Damage claims are reviewed under Car fleet → Rentals. Needs migrations 0069 and 0083.
           </p>
         </section>
 

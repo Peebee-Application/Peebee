@@ -248,6 +248,8 @@ export type CarSettings = {
     minDeposit: number;
     /** An owner who hasn't answered a request in this many hours loses it, and the money is returned. */
     approveWithinHours: number;
+    /** Return grace period before overtime starts accruing. */
+    overtimeGraceHours: number;
   };
   carpool: {
     enabled: boolean;
@@ -2050,6 +2052,11 @@ export type AdminCarVehicle = {
   plate: string;
   make: string | null;
   model: string | null;
+  model_catalog_id?: string | null;
+  service_class?: "convenient" | "comfort";
+  condition_grade?: "excellent" | "good" | "fair";
+  seat_capacity?: number | null;
+  last_service_date?: string | null;
   status: "pending" | "approved" | "rejected" | "suspended";
   driver_id: string | null;
   driver_name: string | null;
@@ -2130,6 +2137,29 @@ export type CarWallet = {
 
 export type RentalStatus = "requested" | "approved" | "active" | "disputed" | "completed" | "declined" | "cancelled";
 
+export type SelfDriveRenterKycStatus = "incomplete" | "pending" | "approved" | "rejected";
+export type SelfDriveResidenceMethod = "rent_and_landlord_letter" | "bill";
+export type SelfDriveRenterKycProfile = {
+  status: SelfDriveRenterKycStatus;
+  isSimulated?: boolean;
+  ninMasked: string | null;
+  residenceMethod: SelfDriveResidenceMethod | null;
+  residentialAddress: string | null;
+  hasNationalId: boolean;
+  hasRentReceipt: boolean;
+  hasLandlordLetter: boolean;
+  hasResidenceBill: boolean;
+  tenancyStart: string | null;
+  tenancyEnd: string | null;
+  reviewNotes: string | null;
+};
+export type AdminSelfDriveRenterKyc = {
+  user_id: string; name: string; phone: string | null; nin: string; residentialAddress: string; residenceMethod: SelfDriveResidenceMethod;
+  tenancyStart: string | null; tenancyEnd: string | null; status: Exclude<SelfDriveRenterKycStatus, "incomplete">;
+  reviewNotes: string | null; updated_at: string; hasNationalId: boolean; hasRentReceipt: boolean;
+  hasLandlordLetter: boolean; hasResidenceBill: boolean;
+};
+
 export type RentalVehicle = {
   id: string;
   name: string;
@@ -2139,6 +2169,21 @@ export type RentalVehicle = {
   deposit: number;
   rent: number;
   notes: string | null;
+  ownerName?: string;
+  hourlyPrice?: number;
+  halfDayPrice?: number;
+  hourlyEnabled?: boolean;
+  halfDayEnabled?: boolean;
+  fullDayEnabled?: boolean;
+  serviceClass?: "convenient" | "comfort";
+  condition?: "excellent" | "good" | "fair";
+  fuelLitresPerKm?: number | null;
+  luggageLitres?: number | null;
+  luggageNote?: string | null;
+  standardDailyPrice?: number | null;
+  features?: string[];
+  photos?: string[];
+  lastServiceDate?: string | null;
 };
 
 export type Rental = {
@@ -2159,6 +2204,10 @@ export type Rental = {
   licence_expiry: string;
   owner_amount: number | null;
   refund_amount: number | null;
+  period_type?: "hourly" | "half_day" | "full_day";
+  handed_over_at?: string | null;
+  overtime_amount?: number;
+  hourly_price?: number;
 };
 
 export type OwnerRentalVehicle = {
@@ -2170,6 +2219,14 @@ export type OwnerRentalVehicle = {
   deposit_amount: number | null;
   active: number | null;
   notes: string | null;
+  hourly_enabled?: number | null;
+  half_day_enabled?: number | null;
+  full_day_enabled?: number | null;
+  standard_daily_price?: number | null;
+  service_class?: "convenient" | "comfort";
+  condition_grade?: "excellent" | "good" | "fair";
+  seat_capacity?: number | null;
+  last_service_date?: string | null;
 };
 
 export type AdminRental = {
@@ -2244,7 +2301,7 @@ export type CarMe = {
   documents: { national_id: boolean; licence: boolean };
   ownerStatus: CarPartnerStatus;
   driverStatus: CarPartnerStatus;
-  vehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; status: string; category_name: string; driver_id: string | null; driver_name: string | null; photos: string[] }>;
+  vehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; status: string; category_name: string; driver_id: string | null; driver_name: string | null; photos: string[]; service_class?: "convenient" | "comfort"; condition_grade?: "excellent" | "good" | "fair"; seat_capacity?: number | null; last_service_date?: string | null }>;
   assignedVehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; category_name: string }>;
   online: boolean;
   activeVehicleId: string | null;

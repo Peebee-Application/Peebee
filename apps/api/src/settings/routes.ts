@@ -300,6 +300,7 @@ const updateSchema = z.object({
         maxDays: z.number().int().min(1).max(365),
         minDeposit: z.number().int().min(0).max(100_000_000),
         approveWithinHours: z.number().int().min(1).max(24 * 14),
+        overtimeGraceHours: z.number().int().min(1).max(24).default(3),
       }),
       vehiclePhotos: z.object({ max: z.number().int().min(6).max(20), minRequired: z.number().int().min(0).max(20) }),
       kyc: z.object({ ownerIdRequired: z.boolean(), driverIdRequired: z.boolean(), driverLicenceRequired: z.boolean() }),

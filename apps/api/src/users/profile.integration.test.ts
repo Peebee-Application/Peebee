@@ -50,7 +50,7 @@ assert.equal((await call({name:'   '})).status,400);
 assert.equal((await call({name:'x'.repeat(81)})).status,400);
 const response=await call({name:'  John Okello  ',id:'other',role:'admin',phone:'+256700000000'});
 assert.equal(response.status,200);assert.deepEqual(await response.json(),{name:'John Okello'});
-const rows=(await client.execute("SELECT id,name,role,phone FROM users ORDER BY id")).rows;
+const rows=(await client.execute("SELECT id,name,role,phone FROM users WHERE id IN ('buyer', 'other') ORDER BY id")).rows;
 assert.equal(rows[0].name,'John Okello');assert.equal(rows[0].role,'customer');assert.equal(rows[0].phone,null);assert.equal(rows[1].name,'Sarah');
 } finally {setD1Binding(undefined);client.close();resetSchemaCache();}
 });

@@ -2,18 +2,19 @@
 
 import { Select } from "@peebee/shared/select";
 
-import type { AdminCarBooking, AdminCarCategory, AdminCarPartner, AdminCarVehicle, AdminRental } from "@peebee/shared";
+import type { AdminCarBooking, AdminCarCategory, AdminCarPartner, AdminCarVehicle, AdminRental, AdminSelfDriveRenterKyc } from "@peebee/shared";
 import { useCallback, useEffect, useState } from "react";
 import { SettingsPageShell } from "../../../../components/SettingsPageShell";
 import { api, errorMessage } from "../../../../lib/api";
 
-type Tab = "categories" | "people" | "vehicles" | "rides" | "rentals";
+type Tab = "categories" | "people" | "vehicles" | "rides" | "rentals" | "renter-kyc";
 const TABS: [Tab, string][] = [
   ["categories", "Car types"],
   ["people", "Owners & drivers"],
   ["vehicles", "Vehicles"],
   ["rides", "Rides"],
   ["rentals", "Rentals"],
+  ["renter-kyc", "Renter verification"],
 ];
 const digits = (v: string) => v.replace(/[^\d]/g, "");
 const ugx = (n: number | null) => (n == null ? "—" : `UGX ${n.toLocaleString("en-UG")}`);
@@ -27,17 +28,20 @@ export default function CarFleetPage() {
   const [vehicles, setVehicles] = useState<AdminCarVehicle[]>([]);
   const [bookings, setBookings] = useState<AdminCarBooking[]>([]);
   const [rentals, setRentals] = useState<AdminRental[]>([]);
+  const [renterKyc, setRenterKyc] = useState<AdminSelfDriveRenterKyc[]>([]);
+  const [kycNotes, setKycNotes] = useState<Record<string, string>>({});
   const [rulings, setRulings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [c, p, v, b] = await Promise.all([api.adminCarCategories(), api.adminCarPartners(), api.adminCarVehicles(), api.adminCarBookings()]);
+      const [c, p, v, b, kyc] = await Promise.all([api.adminCarCategories(), api.adminCarPartners(), api.adminCarVehicles(), api.adminCarBookings(), api.adminSelfDriveRenterKyc()]);
       setCategories(c.categories);
       setPartners(p.partners);
       setVehicles(v.vehicles);
       setBookings(b.bookings);
+      setRenterKyc(kyc.applicants);
       api.adminCarRentals().then((r) => setRentals(r.rentals)).catch(() => setRentals([]));
       setError(null);
     } catch (err) {
@@ -126,6 +130,7 @@ export default function CarFleetPage() {
                   {v.plate} <span className="font-normal text-ink-500">· {v.category_name} · {v.status}</span>
                 </p>
                 <p className="text-xs text-ink-500">{[v.make, v.model].filter(Boolean).join(" ")} · owner {v.owner_name}</p>
+                {(v.seat_capacity || v.condition_grade || v.last_service_date) && <p className="text-xs text-ink-500">{v.service_class === "comfort" ? "Comfort" : "Convenient"}{v.condition_grade ? ` · ${v.condition_grade} condition` : ""}{v.seat_capacity ? ` · ${v.seat_capacity} seats` : ""}{v.last_service_date ? ` · last serviced ${v.last_service_date}` : ""}</p>}
                 {(v.photos?.length ?? 0) > 0 ? (
                   <div className="grid grid-cols-3 gap-2">
                     {v.photos!.map((photoId) => <VehiclePhoto key={photoId} vehicleId={v.id} photoId={photoId} />)}
@@ -213,6 +218,27 @@ export default function CarFleetPage() {
                   </button>
                 </div>
               )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {tab === "renter-kyc" && (
+        <ul className="space-y-2">
+          {renterKyc.length === 0 && <li className="text-sm text-ink-500">No renter identity submissions yet.</li>}
+          {renterKyc.map((p) => (
+            <li key={p.user_id} className="home-card space-y-2">
+              <p className="text-sm font-semibold text-ink">{p.name} <span className="font-normal text-ink-500">· {p.phone ?? "no phone"} · {p.status}</span></p>
+              <p className="text-xs text-ink-500">NIN {p.nin} · residence: {p.residenceMethod === "rent_and_landlord_letter" ? `rent receipt + landlord letter (${p.tenancyStart} to ${p.tenancyEnd})` : "bill in renter's name"}</p>
+              <p className="text-xs text-ink-500">Current address: {p.residentialAddress}</p>
+              <div className="flex flex-wrap gap-3 text-xs text-ink-500">
+                <span>National ID: {p.hasNationalId ? <KycDocLink userId={p.user_id} kind="national_id" /> : "missing"}</span>
+                {p.residenceMethod === "rent_and_landlord_letter" ? <><span>Rent receipt: {p.hasRentReceipt ? <KycDocLink userId={p.user_id} kind="rent_receipt" /> : "missing"}</span><span>Landlord letter: {p.hasLandlordLetter ? <KycDocLink userId={p.user_id} kind="landlord_letter" /> : "missing"}</span></> : <span>Residence bill: {p.hasResidenceBill ? <KycDocLink userId={p.user_id} kind="residence_bill" /> : "missing"}</span>}
+              </div>
+              {p.status === "pending" && <>
+                <input value={kycNotes[p.user_id] ?? ""} onChange={(e) => setKycNotes((v) => ({ ...v, [p.user_id]: e.target.value }))} placeholder="If rejecting, explain what must be corrected" className={field} />
+                <div className="flex gap-2"><button type="button" onClick={() => act(() => api.adminReviewSelfDriveRenter(p.user_id, "approved"))} className={`${smallBtn} bg-gold text-ink-gold`}>Approve</button><button type="button" disabled={!kycNotes[p.user_id]?.trim()} onClick={() => act(() => api.adminReviewSelfDriveRenter(p.user_id, "rejected", kycNotes[p.user_id]))} className={`${smallBtn} bg-gold/15 text-ink disabled:opacity-50`}>Reject</button></div>
+              </>}
+              {p.status === "rejected" && p.reviewNotes && <p className="text-xs text-ink-500">Previous review: {p.reviewNotes}</p>}
             </li>
           ))}
         </ul>
@@ -364,6 +390,21 @@ function DocLink({ userId, kind }: { userId: string; kind: "national_id" | "lice
     } finally {
       setBusy(false);
     }
+  }
+  return <button type="button" onClick={open} disabled={busy} className="font-bold underline">{busy ? "Opening…" : "view"}</button>;
+}
+
+function KycDocLink({ userId, kind }: { userId: string; kind: "national_id" | "rent_receipt" | "landlord_letter" | "residence_bill" }) {
+  const [busy, setBusy] = useState(false);
+  async function open() {
+    setBusy(true);
+    try {
+      const blob = await api.adminSelfDriveRenterDocument(userId, kind);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch { /* the document may have been removed */ }
+    finally { setBusy(false); }
   }
   return <button type="button" onClick={open} disabled={busy} className="font-bold underline">{busy ? "Opening…" : "view"}</button>;
 }
