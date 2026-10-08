@@ -2000,6 +2000,7 @@ export type CarPartnerStatus = "none" | "pending" | "approved" | "rejected" | "s
 
 export type AdminCarCategory = {
   id: string;
+  demo_only?: number;
   kind: "passenger" | "cargo";
   name: string;
   seats: number | null;

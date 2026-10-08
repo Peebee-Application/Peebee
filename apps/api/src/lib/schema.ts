@@ -13,7 +13,7 @@ import { db } from "../db/client.js";
 const answers = new Map<string, { exists: boolean; at: number }>();
 const NO_TTL_MS = 30_000;
 
-export async function hasColumn(table: "menu_items" | "list_items" | "users" | "riders" | "restaurants" | "merchants" | "merchant_outlets" | "order_applications" | "orders" | "car_bookings" | "ai_api_keys" | "car_partners" | "vehicle_assignments", column: string): Promise<boolean> {
+export async function hasColumn(table: "menu_items" | "list_items" | "users" | "riders" | "restaurants" | "merchants" | "merchant_outlets" | "order_applications" | "orders" | "car_bookings" | "ai_api_keys" | "car_partners" | "vehicle_assignments" | "vehicle_categories", column: string): Promise<boolean> {
   const key = `${table}.${column}`;
   const known = answers.get(key);
   if (known && (known.exists || Date.now() - known.at < NO_TTL_MS)) return known.exists;

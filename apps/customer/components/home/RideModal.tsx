@@ -46,6 +46,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [pricing, setPricing] = useState<{ ratePerKm: number; minimum: number } | null>(null);
   // Peebee Car: only offered when an admin has switched it on and added a car type.
   const [cars, setCars] = useState<CarCategory[]>([]);
+  const [carBookingAvailable, setCarBookingAvailable] = useState(false);
   const [schedule, setSchedule] = useState<{ maxAdvanceHours: number | null; minLeadMinutes: number } | null>(null);
   const [when, setWhen] = useState<"now" | "later">("now");
   const [nowOk, setNowOk] = useState(true);
@@ -53,6 +54,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [rentOn, setRentOn] = useState(false);
   const [pickupAt, setPickupAt] = useState("");
   const [mode, setMode] = useState<"boda" | "car">("boda");
+  const [carService, setCarService] = useState<"peebee" | null>(null);
   const [carId, setCarId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showEstimates, setShowEstimates] = useState(false);
@@ -76,7 +78,8 @@ export function RideModal({ onClose }: { onClose: () => void }) {
     api
       .getCarConfig()
       .then((cfg) => {
-        setCars(cfg.onDemandEnabled || cfg.scheduled ? cfg.categories : []);
+        setCars(cfg.categories);
+        setCarBookingAvailable(cfg.onDemandEnabled || !!cfg.scheduled);
         setCarpoolOn(!!cfg.carpool);
         setRentOn(!!cfg.selfDrive);
         setSchedule(cfg.scheduled);
@@ -195,31 +198,33 @@ export function RideModal({ onClose }: { onClose: () => void }) {
           />
         )}
 
-        {(cars.length > 0 || carpoolOn || rentOn) && (
+        {mode === "boda" ? (
           <div role="tablist" className="flex gap-2">
-            {(["boda", ...(cars.length > 0 ? ["car"] : []), ...(carpoolOn ? ["carpool"] : []), ...(rentOn ? ["rent"] : [])] as ("boda" | "car" | "carpool" | "rent")[]).map((m) => (
+            {(["boda", "car"] as const).map((m) => (
               <button
                 key={m}
                 type="button"
                 role="tab"
                 aria-selected={mode === m}
-                onClick={() => {
-                  if (m === "carpool" || m === "rent") {
-                    onClose();
-                    router.push(m === "carpool" ? "/carpool" : "/rent");
-                    return;
-                  }
-                  setMode(m);
-                }}
+                onClick={() => { setMode(m); setCarService(m === "car" ? "peebee" : null); }}
                 className={`min-h-10 flex-1 rounded-full px-3 text-sm font-bold ${mode === m ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}
               >
-                {m === "carpool" ? "Carpool" : m === "rent" ? "Rent" : t(m === "boda" ? "car_tab_boda" : "car_tab_car")}
+                {t(m === "boda" ? "car_tab_boda" : "car_tab_car")}
               </button>
             ))}
           </div>
+        ) : (
+          <div className="space-y-2">
+            <button type="button" onClick={() => { setMode("boda"); setCarService(null); }} className="text-sm font-bold text-gold">← Back to Boda or Car</button>
+            <div role="tablist" aria-label="Car ride options" className="flex gap-2">
+              <button type="button" role="tab" aria-selected={carService === "peebee"} onClick={() => setCarService("peebee")} className={`min-h-10 flex-1 rounded-full px-2 text-xs font-bold ${carService === "peebee" ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>Peebee Car</button>
+              {carpoolOn && <button type="button" onClick={() => { onClose(); router.push("/carpool"); }} className="min-h-10 flex-1 rounded-full bg-gold/15 px-2 text-xs font-bold text-ink">Rideshare</button>}
+              {rentOn && <button type="button" onClick={() => { onClose(); router.push("/rent"); }} className="min-h-10 flex-1 rounded-full bg-gold/15 px-2 text-xs font-bold text-ink">Self-drive</button>}
+            </div>
+          </div>
         )}
 
-        {mode === "car" && cars.length > 0 ? (
+        {mode === "car" && carService === "peebee" && cars.length > 0 ? (
           <div className="space-y-2">
             {schedule && (
               <div className="space-y-2">
@@ -263,6 +268,17 @@ export function RideModal({ onClose }: { onClose: () => void }) {
                 </button>
               );
             })}
+            {!carBookingAvailable && <p className="rounded-xl bg-[rgb(var(--surface-muted))] p-3 text-xs text-ink-500">These car types are available to explore, but rides are not open for booking right now.</p>}
+          </div>
+        ) : mode === "car" && carService === "peebee" && cars.length === 0 ? (
+          <div className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] p-4 text-sm">
+            <p className="font-bold text-ink">Peebee Car isn&apos;t available yet</p>
+            <p className="mt-1 text-ink-500">Peebee Car rides aren&apos;t enabled or no car types are active right now. Please choose Boda or try again later.</p>
+          </div>
+        ) : mode === "car" && carService === "peebee" && !carBookingAvailable ? (
+          <div className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] p-4 text-sm">
+            <p className="font-bold text-ink">Peebee Car bookings are paused</p>
+            <p className="mt-1 text-ink-500">These car types are available to explore, but rides are not open for booking right now.</p>
           </div>
         ) : liveEstimate != null ? (
           <div className="flex items-center gap-2 rounded-xl border border-gold bg-gold/10 p-3">
@@ -286,7 +302,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
 
         <button
           onClick={submit}
-          disabled={busy || (mode === "car" && (!carId || (when === "later" && !pickupAt)))}
+          disabled={busy || (mode === "car" && (carService !== "peebee" || !carBookingAvailable || !cars.length || !carId || (when === "later" && !pickupAt)))}
           className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
         >
           {busy ? "Please wait…" : "Next: payment"}
