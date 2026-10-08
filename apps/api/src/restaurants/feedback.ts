@@ -6,6 +6,7 @@ import {hasColumn,hasTable} from "../lib/schema.js";
 import {getPlatformEnvironment} from "../lib/settings.js";
 import {newId} from "../lib/ids.js";
 import type {FoodItemInsight,FoodItemReview} from "@peebee/shared";
+import {demoFoodRestaurant} from "@peebee/shared/demo-food";
 
 export const foodFeedbackRoutes=new Hono();
 async function enabled(){return await hasTable("food_item_reviews")&&await hasColumn("list_items","source_menu_item_id");}
@@ -33,9 +34,11 @@ foodFeedbackRoutes.get("/restaurants/:id/menu/insights",requireAuth,async(c)=>{
  return c.json({items:result,available:true});
 });
 foodFeedbackRoutes.get("/restaurants/:id/trust",requireAuth,async(c)=>{
- const id=String(c.req.param("id"));if(!await visible(id))return c.json({error:"not_found"},404);
+ const id=String(c.req.param("id"));
  const environment=await getPlatformEnvironment();
- const menuReviewsAvailable=await enabled();
+ const isSandboxDemo=environment==="sandbox"&&!!demoFoodRestaurant(id);
+ if(!isSandboxDemo&&!await visible(id))return c.json({error:"not_found"},404);
+ const menuReviewsAvailable=!isSandboxDemo&&await enabled();
  const ordersPromise=db.execute({sql:"SELECT COUNT(*) AS completed_order_count FROM orders WHERE restaurant_id=? AND environment=? AND stage IN ('Handover','Settle')",args:[id,environment]});
  const reviewsPromise=menuReviewsAvailable
   ? db.execute({sql:"SELECT AVG(r.rating) AS average_menu_rating,COUNT(*) AS menu_review_count FROM food_item_reviews r JOIN orders o ON o.id=r.order_id JOIN menu_items m ON m.id=r.menu_item_id WHERE m.restaurant_id=? AND o.environment=? AND o.stage IN ('Handover','Settle')",args:[id,environment]})
