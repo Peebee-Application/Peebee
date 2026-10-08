@@ -54,6 +54,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [rentOn, setRentOn] = useState(false);
   const [pickupAt, setPickupAt] = useState("");
   const [mode, setMode] = useState<"boda" | "car">("boda");
+  const [carMenuOpen, setCarMenuOpen] = useState(false);
   const [carId, setCarId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showEstimates, setShowEstimates] = useState(false);
@@ -196,32 +197,23 @@ export function RideModal({ onClose }: { onClose: () => void }) {
           />
         )}
 
-        {(cars.length > 0 || carpoolOn || rentOn) && (
-          <div role="tablist" className="flex gap-2">
-            {(["boda", ...(cars.length > 0 ? ["car"] : []), ...(carpoolOn ? ["carpool"] : []), ...(rentOn ? ["rent"] : [])] as ("boda" | "car" | "carpool" | "rent")[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                role="tab"
-                aria-selected={mode === m}
-                onClick={() => {
-                  if (m === "carpool" || m === "rent") {
-                    if (m === "rent") saveSelfDriveRoute(route);
-                    onClose();
-                    router.push(m === "carpool" ? "/carpool" : "/rent");
-                    return;
-                  }
-                  setMode(m);
-                }}
-                className={`min-h-10 flex-1 rounded-full px-3 text-sm font-bold ${mode === m ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}
-              >
-                {m === "carpool" ? "Carpool" : m === "rent" ? "Rent" : t(m === "boda" ? "car_tab_boda" : "car_tab_car")}
-              </button>
-            ))}
+        {(cars.length > 0 || carpoolOn || rentOn) && (!carMenuOpen ? (
+          <div role="group" aria-label="Choose a ride" className="flex gap-2">
+            <button type="button" aria-pressed={mode === "boda"} onClick={() => setMode("boda")} className={`min-h-10 flex-1 rounded-full px-3 text-sm font-bold ${mode === "boda" ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>{t("car_tab_boda")}</button>
+            <button type="button" onClick={() => { setMode("car"); setCarMenuOpen(true); }} className="min-h-10 flex-1 rounded-full bg-gold/15 px-3 text-sm font-bold text-ink">{t("car_tab_car")}</button>
           </div>
-        )}
+        ) : (
+          <div className="space-y-2">
+            <button type="button" onClick={() => { setMode("boda"); setCarMenuOpen(false); }} className="min-h-9 text-sm font-bold text-gold">← Choose Boda or Car</button>
+            <div role="group" aria-label="Choose a car service" className="flex gap-2">
+              {cars.length > 0 && <button type="button" aria-pressed={mode === "car"} onClick={() => setMode("car")} className="min-h-10 flex-1 rounded-full bg-gold px-3 text-sm font-bold text-ink-gold">Car</button>}
+              {carpoolOn && <button type="button" onClick={() => { onClose(); router.push("/carpool"); }} className="min-h-10 flex-1 rounded-full bg-gold/15 px-3 text-sm font-bold text-ink">Rideshare</button>}
+              {rentOn && <button type="button" onClick={() => { saveSelfDriveRoute(route); onClose(); router.push("/rent"); }} className="min-h-10 flex-1 rounded-full bg-gold/15 px-3 text-sm font-bold text-ink">Selfdrive</button>}
+            </div>
+          </div>
+        ))}
 
-        {mode === "car" && cars.length > 0 ? (
+        {carMenuOpen && mode === "car" && cars.length > 0 ? (
           <div className="space-y-2">
             {schedule && (
               <div className="space-y-2">
@@ -266,7 +258,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
               );
             })}
           </div>
-        ) : liveEstimate != null ? (
+        ) : !carMenuOpen && liveEstimate != null ? (
           <div className="flex items-center gap-2 rounded-xl border border-gold bg-gold/10 p-3">
             <Route className="h-4 w-4 shrink-0 text-gold" strokeWidth={2.25} aria-hidden />
             <p className="text-sm text-ink">
@@ -274,7 +266,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
               {distanceKm!.toFixed(1)} km
             </p>
           </div>
-        ) : (
+        ) : !carMenuOpen ? (
           <input
             value={estimatedTotal}
             onChange={(e) => setEstimatedTotal(e.target.value.replace(/[^\d]/g, ""))}
@@ -282,17 +274,17 @@ export function RideModal({ onClose }: { onClose: () => void }) {
             placeholder={t("ride_estimated_fare_input")}
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
           />
-        )}
+        ) : null}
 
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-        <button
+        {(!carMenuOpen || cars.length > 0) && <button
           onClick={submit}
           disabled={busy || (mode === "car" && (!carId || (when === "later" && !pickupAt)))}
           className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
         >
           {busy ? "Please wait…" : "Next: payment"}
-        </button>
+        </button>}
       </div>
     </Modal>
   );

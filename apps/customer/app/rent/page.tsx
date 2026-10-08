@@ -158,7 +158,7 @@ export default function RentPage() {
         <button type="button" onClick={() => router.back()} aria-label="Back" className="-ml-1.5 flex h-8 w-8 items-center justify-center rounded-full text-ink-500">
           <ChevronLeft className="h-5 w-5" strokeWidth={1.75} />
         </button>
-        <h1 className="text-xl font-bold text-ink">Rent a car</h1>
+        <h1 className="text-xl font-bold text-ink">Selfdrive</h1>
       </div>
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {notice && <p className="text-sm font-medium text-green">{notice}</p>}
