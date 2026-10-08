@@ -971,8 +971,8 @@ export default function RestaurantPage() {
         <div id="food-menu" className="restaurant-profile-intro">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="break-words text-3xl font-bold leading-tight tracking-tight text-white drop-shadow-lg">{restaurant.name}</h1>
-              <p className="mt-2 truncate text-sm text-white/80">{foodBusinessLabel(restaurant.business_type)}{restaurant.cuisine ? ` · ${restaurant.cuisine}` : ""} · {restaurant.is_open ? "Open now" : "Closed"}</p>
+              <h1 className="break-words text-3xl font-bold leading-tight tracking-tight text-ink">{restaurant.name}</h1>
+              <p className="mt-2 truncate text-sm text-ink-500">{foodBusinessLabel(restaurant.business_type)}{restaurant.cuisine ? ` · ${restaurant.cuisine}` : ""} · {restaurant.is_open ? "Open now" : "Closed"}</p>
             </div>
             {!restaurant.is_demo&&<Link href={`/restaurants/${id}/chat`} aria-label={`${t('restaurant_chat')} ${restaurant.name}`} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full glass-panel text-white transition-transform active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold"><MessageCircle size={20}/></Link>}
           </div>
@@ -983,10 +983,10 @@ export default function RestaurantPage() {
 
         {error && <p className="mb-6 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-        {featuredItems.length>0&&<section className="mb-6 space-y-4"><div className="flex items-center justify-between"><h2 className="text-2xl font-bold text-white drop-shadow-md">Featured</h2><span className="text-xs text-white/75">Selected by the kitchen</span></div><DishRail label="Featured dishes">{featuredItems.map(item=><FoodItemCard key={item.id} featured item={item} insight={insights[item.id]} onOpen={()=>router.push(`/restaurants/${id}/items/${item.id}`)}/>)}</DishRail></section>}
-        {allItems.length>0&&<section className="mb-6 space-y-4"><h2 className="text-2xl font-bold text-white drop-shadow-md">Main dishes</h2><DishRail label="Main dishes">{allItems.map(item=><FoodItemCard key={item.id} item={item} insight={insights[item.id]} onOpen={()=>router.push(`/restaurants/${id}/items/${item.id}`)}/>)}</DishRail></section>}
+        {featuredItems.length>0&&<section className="mb-6 space-y-4"><div className="flex items-center justify-between"><h2 className="text-2xl font-bold text-ink">Featured</h2><span className="text-xs text-ink-500">Selected by the kitchen</span></div><DishRail label="Featured dishes">{featuredItems.map(item=><FoodItemCard key={item.id} featured item={item} insight={insights[item.id]} onOpen={()=>router.push(`/restaurants/${id}/items/${item.id}`)}/>)}</DishRail></section>}
+        {allItems.length>0&&<section className="mb-6 space-y-4"><h2 className="text-2xl font-bold text-ink">Main dishes</h2><DishRail label="Main dishes">{allItems.map(item=><FoodItemCard key={item.id} item={item} insight={insights[item.id]} onOpen={()=>router.push(`/restaurants/${id}/items/${item.id}`)}/>)}</DishRail></section>}
         {menu.categories.length === 0 && menu.uncategorizedItems.length === 0 && (
-          <p className="py-10 text-center text-sm text-white/75">{t("restaurant_no_menu_yet")}</p>
+          <p className="py-10 text-center text-sm text-ink-500">{t("restaurant_no_menu_yet")}</p>
         )}
 
       {cart.length > 0 && (
