@@ -270,7 +270,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
         ) : mode === "car" && carService === "peebee" ? (
           <div className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] p-4 text-sm">
             <p className="font-bold text-ink">Peebee Car isn&apos;t available yet</p>
-            <p className="mt-1 text-ink-500">No active car types are available for this ride. Please choose Boda or try again later.</p>
+            <p className="mt-1 text-ink-500">Peebee Car rides aren&apos;t enabled or no car types are active right now. Please choose Boda or try again later.</p>
           </div>
         ) : liveEstimate != null ? (
           <div className="flex items-center gap-2 rounded-xl border border-gold bg-gold/10 p-3">
