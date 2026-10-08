@@ -3,7 +3,7 @@ import { roundFare } from "./fare.js";
 import { DEMO_FOOD_RESTAURANTS, demoFoodImage, demoFoodMenu, demoFoodRestaurant } from "./demo-food.js";
 import { CAR_MODEL_CATALOG } from "./car-model-catalog.js";
 
-const PRACTICE_STATE_VERSION = 3;
+const PRACTICE_STATE_VERSION = 4;
 const PRACTICE_ORDER_ID = "practice-order";
 const PRACTICE_LIST_ID = "practice-list";
 const PRACTICE_PAYMENT_ID = "mpay_practice";
@@ -20,6 +20,32 @@ const PRACTICE_CAR_RIDERS = [
   { id: "practice-car-driver-07", name: "Isaac Mugisha", make: "Nissan", model: "Serena", size: "large", tier: "convenient", plate: "PRACTICE 07" },
   { id: "practice-car-driver-08", name: "Ruth Atim", make: "Toyota", model: "Noah", size: "large", tier: "comfort", plate: "PRACTICE 08" },
 ] as const;
+const PRACTICE_RIDESHARE_TRIPS = [
+  { route: "entebbe-kampala", from: ["Entebbe City", 0.0612, 32.4637] as const, to: ["Kampala", 0.3136, 32.5811] as const, driver: PRACTICE_CAR_RIDERS[0], price: 15_000 },
+  { route: "kampala-entebbe", from: ["Kampala", 0.3136, 32.5811] as const, to: ["Entebbe City", 0.0612, 32.4637] as const, driver: PRACTICE_CAR_RIDERS[1], price: 15_000 },
+  { route: "kampala-mukono", from: ["Kampala", 0.3136, 32.5811] as const, to: ["Mukono", 0.3533, 32.7553] as const, driver: PRACTICE_CAR_RIDERS[3], price: 10_000 },
+  { route: "kampala-jinja", from: ["Kampala", 0.3136, 32.5811] as const, to: ["Jinja", 0.4244, 33.2042] as const, driver: PRACTICE_CAR_RIDERS[2], price: 25_000 },
+];
+function practiceRideshareTrip(id: string) {
+  const match = /^practice-rideshare-(\d{4}-\d{2}-\d{2})-(.+)-(6|9|13|16)$/.exec(id);
+  if (!match) return null;
+  const route = PRACTICE_RIDESHARE_TRIPS.find((item) => item.route === match[2]);
+  const departure = new Date(`${match[1]}T${match[3].padStart(2, "0")}:00:00Z`);
+  return route && Number.isFinite(departure.getTime()) && departure.getTime() > Date.now() + 30 * 60_000 ? { ...route, id, departure } : null;
+}
+function practiceRideshareTrips(query: URLSearchParams) {
+  const fromLat = Number(query.get("fromLat")), fromLng = Number(query.get("fromLng"));
+  const toLat = Number(query.get("toLat")), toLng = Number(query.get("toLng"));
+  if (![fromLat, fromLng, toLat, toLng].every(Number.isFinite)) return [];
+  const day = query.get("date");
+  const today = new Date().toISOString().slice(0, 10);
+  const days = day ? [day] : [today, new Date(Date.now() + 86_400_000).toISOString().slice(0, 10), new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10)];
+  return days.flatMap((date) => PRACTICE_RIDESHARE_TRIPS.flatMap((route) => [6, 9, 13, 16].flatMap((hour) => {
+    const trip = practiceRideshareTrip(`practice-rideshare-${date}-${route.route}-${hour}`);
+    if (!trip || Math.abs(fromLat - route.from[1]) > .18 || Math.abs(fromLng - route.from[2]) > .18 || Math.abs(toLat - route.to[1]) > .18 || Math.abs(toLng - route.to[2]) > .18) return [];
+    return [{ id: trip.id, driverName: route.driver.name, vehicle: `${route.driver.make} ${route.driver.model} (Demo)`, originLabel: route.from[0], destLabel: route.to[0], departAt: trip.departure.toISOString(), seatsLeft: 3, seatPrice: route.price }];
+  })));
+}
 const PRACTICE_RENTALS_KEY = "peebee_practice_selfdrive_rentals_v1";
 const PRACTICE_RENTAL_CARS = [
   ...CAR_MODEL_CATALOG.map((model, i) => {
@@ -53,6 +79,11 @@ type PracticeState = {
   deliveryFee: number;
   destinationArea: string;
   destinationAddress: string;
+  pickupAddress: string | null;
+  pickupLat: number | null;
+  pickupLng: number | null;
+  destinationLat: number | null;
+  destinationLng: number | null;
   merchantPaymentStatus: "none" | "awaiting_confirmation" | "available";
   merchantBalance: number;
   settlementStatus: "none" | "successful";
@@ -97,6 +128,11 @@ function initialState(role: PracticeRole): PracticeState {
     deliveryFee: 5_000,
     destinationArea: "Entebbe City",
     destinationAddress: "Kitoro Road",
+    pickupAddress: null,
+    pickupLat: null,
+    pickupLng: null,
+    destinationLat: null,
+    destinationLng: null,
     merchantPaymentStatus: isSeller ? "awaiting_confirmation" : "none",
     merchantBalance: 0,
     settlementStatus: "none",
@@ -213,13 +249,13 @@ function orderFor(state: PracticeState) {
     final_total: state.stage === "Create" ? null : state.total,
     delivery_fee: state.deliveryFee,
     pickup_area: state.orderType === "parcel" ? "Kampala Central" : null,
-    pickup_address: state.orderType === "parcel" ? "Peebee Practice Pickup" : null,
-    pickup_lat: state.orderType === "parcel" ? 0.3136 : null,
-    pickup_lng: state.orderType === "parcel" ? 32.5811 : null,
+    pickup_address: state.pickupAddress ?? (state.orderType === "parcel" ? "Peebee Practice Pickup" : null),
+    pickup_lat: state.pickupLat ?? (state.orderType === "parcel" ? 0.3136 : null),
+    pickup_lng: state.pickupLng ?? (state.orderType === "parcel" ? 32.5811 : null),
     destination_area: state.destinationArea,
     destination_address: state.destinationAddress,
-    destination_lat: 0.0612,
-    destination_lng: 32.4637,
+    destination_lat: state.destinationLat ?? 0.0612,
+    destination_lng: state.destinationLng ?? 32.4637,
     distance_km: 3.4,
     matched_out_of_range: 0,
     voice_note_key: null,
@@ -443,10 +479,11 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
     if (path === "/v1/car/rentals/listings") return jsonResponse({ days: 1, vehicles: PRACTICE_RENTAL_CARS });
     if (path === "/v1/car/rentals/mine") return jsonResponse({ rentals: canUseStorage() ? JSON.parse(window.localStorage.getItem(PRACTICE_RENTALS_KEY) ?? "[]") : [] });
     if (path === "/v1/car/rentals/renter-profile") return jsonResponse({ status: "approved", isSimulated: true, ninMasked: "••••••••••0000", residentialAddress: "Practice address · Entebbe", residenceMethod: "bill", hasNationalId: true, hasRentReceipt: false, hasLandlordLetter: false, hasResidenceBill: true, tenancyStart: null, tenancyEnd: null, reviewNotes: null });
-    if (path === "/v1/car/config") return jsonResponse({ onDemandEnabled: true, matchingMode: "first_to_claim", scheduled: null, carpool: null, selfDrive: null, serviceTiers: { ratePerKm: 2_000, minimumFare: 8_000, comfortPremiumPercent: 30, xlPremiumPercent: 50, xlMinSeats: 6 }, vehiclePhotos: false, kyc: null, deals: null, categories: [
+    if (path === "/v1/car/config") return jsonResponse({ onDemandEnabled: true, matchingMode: "first_to_claim", scheduled: null, carpool: { maxSeatsPerBooking: 3, maxRepeatWeeks: 0 }, selfDrive: null, serviceTiers: { ratePerKm: 2_000, minimumFare: 8_000, comfortPremiumPercent: 30, xlPremiumPercent: 50, xlMinSeats: 6 }, vehiclePhotos: false, kyc: null, deals: null, categories: [
       { id: PRACTICE_CAR_CATEGORY_ID, kind: "passenger", name: "Normal · Saloon", seats: 4, cargo_type: null, size_label: null, reference_image_key: null, rate_per_km: 2_000, minimum_fare: 8_000 },
       { id: "practice-car-large", kind: "passenger", name: "Large · Minivan", seats: 7, cargo_type: null, size_label: null, reference_image_key: null, rate_per_km: 3_000, minimum_fare: 12_000 },
     ] });
+    if (path === "/v1/car/carpool/trips") return jsonResponse({ trips: practiceRideshareTrips(query), maxSeatsPerBooking: 3 });
     if (path === "/v1/car/service-options") {
       const lat1 = Number(query.get("pickupLat")), lng1 = Number(query.get("pickupLng")), lat2 = Number(query.get("destinationLat")), lng2 = Number(query.get("destinationLng"));
       const valid = [lat1, lng1, lat2, lng2].every(Number.isFinite);
@@ -522,6 +559,17 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
     const eligible = PRACTICE_CAR_RIDERS.filter((rider) => rider.size === vehicleSize && rider.tier === serviceTier);
     const demoRider = eligible[Math.floor(Math.random() * eligible.length)] ?? PRACTICE_CAR_RIDERS[0];
     save({ hasOrder: true, riderClaimed: true, stage: "Match", orderType: "parcel", isRide: true, carCategoryId: vehicleSize === "large" ? "practice-car-large" : PRACTICE_CAR_CATEGORY_ID, carVehicleSize: vehicleSize, carServiceTier: serviceTier, demoCarRiderId: demoRider.id, paymentRail: "escrow", total: fare, deliveryFee: fare, destinationArea: String(body.destinationArea ?? "Entebbe City"), destinationAddress: String(body.destinationAddress ?? "Kitoro Road"), autoAdvanceAt: null });
+    return jsonResponse({ order: orderFor(state) }, 201);
+  }
+  const rideshareBooking = path.match(/^\/v1\/car\/carpool\/trips\/(practice-rideshare-[^/]+)\/seats$/);
+  if (role === "customer" && method === "POST" && rideshareBooking) {
+    const trip = practiceRideshareTrip(rideshareBooking[1]);
+    const seats = Number(body.seats);
+    if (!trip || !Number.isInteger(seats) || seats < 1 || seats > 3) return practiceError("Choose an available demo trip and one to three seats.");
+    save({ hasOrder: true, riderClaimed: true, stage: "Match", orderType: "parcel", isRide: true, carCategoryId: PRACTICE_CAR_CATEGORY_ID,
+      carVehicleSize: trip.driver.size === "large" ? "large" : "normal", carServiceTier: "convenient", demoCarRiderId: trip.driver.id,
+      paymentRail: "escrow", total: trip.price * seats, deliveryFee: trip.price * seats, pickupAddress: trip.from[0], pickupLat: trip.from[1], pickupLng: trip.from[2],
+      destinationArea: trip.to[0], destinationAddress: trip.to[0], destinationLat: trip.to[1], destinationLng: trip.to[2], autoAdvanceAt: null });
     return jsonResponse({ order: orderFor(state) }, 201);
   }
   if (method === "GET" && path === `/v1/orders/${PRACTICE_ORDER_ID}`) return jsonResponse(orderDetail(state));
