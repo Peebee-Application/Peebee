@@ -1,5 +1,5 @@
 const STATIC_CACHE = "peebee-static-v9";
-const RUNTIME_CACHE = "peebee-runtime-v8";
+const RUNTIME_CACHE = "peebee-runtime-v9";
 const OFFLINE_URL = "/offline.html";
 const STATIC_ASSETS = ["/brand/peebee-logo-light.svg?v=logo-6", "/brand/peebee-logo-dark.svg?v=logo-6", "/sounds/notification.mp3", "/manifest.json", "/icons/icon-192.png?v=logo-6", "/icons/icon-512.png?v=logo-6", OFFLINE_URL];
 
@@ -92,6 +92,13 @@ self.addEventListener("fetch", (event) => {
 
   if (isImmutableApiMedia(url)) {
     event.respondWith(cacheFirst(request, RUNTIME_CACHE));
+    return;
+  }
+
+  // Ride services and nearby availability can change while the app is open.
+  // Never return a cached car config that can revive retired car-type choices.
+  if (/^\/v1\/car\/(config|service-options)$/.test(url.pathname)) {
+    event.respondWith(fetch(request, { cache: "no-store" }));
     return;
   }
 
