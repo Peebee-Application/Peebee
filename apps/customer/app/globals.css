@@ -71,11 +71,11 @@
   --restaurant-cover-fade-start: calc(34svh - 50px);
   --restaurant-cover-base-tint: 255 255 255;
   --restaurant-cover-image-brightness: 1;
-  --restaurant-cover-title-shade: .42;
-  --restaurant-cover-mid-shade: .68;
-  --restaurant-cover-end-shade: .82;
+  --restaurant-cover-title-shade: .54;
+  --restaurant-cover-mid-shade: .76;
+  --restaurant-cover-end-shade: .88;
   --restaurant-cover-base-blur: 2.2px;
-  --restaurant-cover-scroll-max-shade: .55;
+  --restaurant-cover-scroll-max-shade: .68;
   --restaurant-cover-scroll-tint: 255 255 255;
   --restaurant-cover-scroll-max-blur: 1.6;
 }
