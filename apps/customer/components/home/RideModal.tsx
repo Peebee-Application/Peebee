@@ -3,6 +3,7 @@
 import { DEFAULT_RIDE_TRACKING_SETTINGS, roundFare, type CarCategory } from "@peebee/shared";
 import type { RidePassenger, SavedPassenger } from "@peebee/shared";
 import { ChevronRight, Route, User, Users } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Modal } from "../Modal";
@@ -48,8 +49,9 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   // Peebee Car: only offered when an admin has switched it on and added a car type.
   const [cars, setCars] = useState<CarCategory[]>([]);
   const [tierPricing, setTierPricing] = useState<{ ratePerKm: number; minimumFare: number; comfortPremiumPercent: number; xlPremiumPercent: number; xlMinSeats: number } | null>(null);
-  const [tier, setTier] = useState<"convenient" | "comfort" | "xl">("convenient");
-  const [tierOptions, setTierOptions] = useState<Array<{ tier: "convenient" | "comfort" | "xl"; fare: number; nearby: number }>>([]);
+  const [tier, setTier] = useState<"convenient" | "comfort">("convenient");
+  const [vehicleSize, setVehicleSize] = useState<"normal" | "large">("normal");
+  const [tierOptions, setTierOptions] = useState<Array<{ size: "normal" | "large"; tier: "convenient" | "comfort"; fare: number; nearby: number }>>([]);
   const [schedule, setSchedule] = useState<{ maxAdvanceHours: number | null; minLeadMinutes: number } | null>(null);
   const [when, setWhen] = useState<"now" | "later">("now");
   const [nowOk, setNowOk] = useState(true);
@@ -94,17 +96,21 @@ export function RideModal({ onClose }: { onClose: () => void }) {
 
   const p = route?.pickup;
   const d = route?.destination;
+  const pickupLat = p?.lat;
+  const pickupLng = p?.lng;
+  const destinationLat = d?.lat;
+  const destinationLng = d?.lng;
   const distanceKm = p?.lat != null && p.lng != null && d?.lat != null && d.lng != null ? haversineKm(p.lat, p.lng, d.lat, d.lng) : null;
   const liveEstimate = distanceKm != null && pricing != null ? roundFare(distanceKm * pricing.ratePerKm, pricing.minimum) : null;
 
   useEffect(() => {
-    if (!tierPricing || !p || !d || p.lat == null || p.lng == null || d.lat == null || d.lng == null) return;
+    if (!tierPricing || pickupLat == null || pickupLng == null || destinationLat == null || destinationLng == null) return;
     let active = true;
-    api.getCarServiceOptions({ pickupLat: p.lat, pickupLng: p.lng, destinationLat: d.lat, destinationLng: d.lng })
+    api.getCarServiceOptions({ pickupLat, pickupLng, destinationLat, destinationLng })
       .then((result) => { if (active) setTierOptions(result.options); })
       .catch(() => { if (active) setTierOptions([]); });
     return () => { active = false; };
-  }, [tierPricing, p?.lat, p?.lng, d?.lat, d?.lng]);
+  }, [tierPricing, pickupLat, pickupLng, destinationLat, destinationLng]);
 
   if (choosing || !route) {
     return (
@@ -133,7 +139,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
       if (mode === "car" && (tierPricing || carId)) {
         if (pf.lat == null || pf.lng == null || df.lat == null || df.lng == null) throw new Error("Please pin both places on the map.");
         const { order } = await api.bookCar({
-          ...(tierPricing ? { serviceTier: tier } : { categoryId: carId! }),
+          ...(tierPricing ? { serviceTier: tier, vehicleSize } : { categoryId: carId! }),
           pickupArea: pf.area,
           pickupAddress: pf.address,
           pickupLat: pf.lat,
@@ -250,20 +256,42 @@ export function RideModal({ onClose }: { onClose: () => void }) {
               </div>
             )}
             {tierPricing ? <>
-              <p className="text-xs font-semibold text-ink-500">Choose your Peebee Car service</p>
-              {tierOptions.map((option) => (
-                <button key={option.tier} type="button" onClick={() => setTier(option.tier)} aria-pressed={tier === option.tier}
-                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left ${tier === option.tier ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"}`}>
-                  <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-ink">{option.tier === "xl" ? `XL · ${tierPricing.xlMinSeats}+ seats` : option.tier === "comfort" ? "Comfort" : "Convenient"}</span>
-                    <span className="block text-xs text-ink-500">{option.nearby > 0 ? `${option.nearby} nearby` : "No cars nearby"}{option.tier === "comfort" ? ` · ${tierPricing.comfortPremiumPercent}% above Convenient` : option.tier === "xl" ? ` · ${tierPricing.xlPremiumPercent}% above Convenient` : " · standard distance fare"}</span></span>
-                  <span className="text-sm font-bold text-ink">UGX {option.fare.toLocaleString("en-UG")}</span>
-                </button>
-              ))}
+              <p className="text-xs font-semibold text-ink-500">Choose your Peebee car</p>
+              <div role="group" aria-label="Choose car size" className="grid grid-cols-2 gap-2">
+                {(["normal", "large"] as const).map((size) => {
+                  const selected = vehicleSize === size;
+                  const image = size === "normal" ? "/images/ride-types/normal-saloon.png" : "/images/ride-types/large-minivan.png";
+                  return <button key={size} type="button" aria-pressed={selected} onClick={() => setVehicleSize(size)}
+                    className={`overflow-hidden rounded-2xl border text-left transition-all active:scale-[.98] ${selected ? "border-gold bg-gold/10 shadow-[0_3px_12px_rgba(201,162,39,.14)]" : "border-[var(--border-faint)] bg-[rgb(var(--surface-card))]"}`}>
+                    <span className="block h-[94px] bg-gradient-to-b from-[rgb(var(--surface-muted))] to-[rgb(var(--surface-card))] px-2 pt-1">
+                      <Image src={image} alt="" aria-hidden="true" width={768} height={768} sizes="(max-width: 640px) 50vw, 240px" className="h-full w-full object-contain" />
+                    </span>
+                    <span className="block px-3 pb-3 pt-1"><span className="block text-sm font-bold text-ink">{size === "normal" ? "Normal" : "Large"}</span>
+                      <span className="mt-0.5 block text-[11px] text-ink-500">{size === "normal" ? "Saloon · 3–4 seats" : "Minivan · 5–7 seats"}</span></span>
+                  </button>;
+                })}
+              </div>
+              <div className="space-y-2 rounded-2xl border border-[var(--border-faint)] p-3">
+                <div className="flex items-center justify-between"><span className="text-sm font-bold text-ink">Ride comfort</span><span className="text-[11px] text-ink-500">Choose a fare</span></div>
+                <div role="group" aria-label="Choose ride comfort" className="grid grid-cols-2 gap-2 rounded-full bg-[rgb(var(--surface-muted))] p-1">
+                  {(["convenient", "comfort"] as const).map((service) => <button key={service} type="button" aria-pressed={tier === service} onClick={() => setTier(service)}
+                    className={`min-h-10 rounded-full px-3 text-sm font-bold transition-colors ${tier === service ? "bg-gold text-ink-gold shadow-sm" : "text-ink-500"}`}>
+                    {service === "convenient" ? "Convenient" : "Comfort"}
+                  </button>)}
+                </div>
+                {(() => {
+                  const selectedOption = tierOptions.find((option) => option.size === vehicleSize && option.tier === tier);
+                  return selectedOption ? <div className="flex items-center justify-between gap-2 pt-1">
+                    <span className="text-xs text-ink-500">{selectedOption.nearby > 0 ? `${selectedOption.nearby} available` : "No cars nearby"}{tier === "comfort" ? ` · ${tierPricing.comfortPremiumPercent}% comfort premium` : " · standard fare"}{vehicleSize === "large" ? ` · ${tierPricing.xlPremiumPercent}% large-car premium` : ""}</span>
+                    <span className="shrink-0 text-sm font-bold text-ink">UGX {selectedOption.fare.toLocaleString("en-UG")}</span>
+                  </div> : <p className="text-xs text-ink-500">Checking availability and fare…</p>;
+                })()}
+              </div>
               {tierOptions.length === 0 && <p className="text-sm text-ink-500">Checking nearby cars and prices…</p>}
-              {when === "now" && tierOptions.find((o) => o.tier === tier)?.nearby === 0 && (() => {
-                const alternate = tierOptions.filter((o) => o.tier !== tier && o.nearby > 0).sort((a, b) => a.fare - b.fare)[0];
-                return alternate ? <div className="rounded-xl bg-gold/10 p-3 text-sm text-ink">No {tier === "xl" ? "XL" : tier} car is nearby. {alternate.tier === "xl" ? "XL" : alternate.tier} is available for UGX {alternate.fare.toLocaleString("en-UG")}.
-                  <button type="button" onClick={() => setTier(alternate.tier)} className="mt-2 block font-bold text-gold">Choose {alternate.tier === "xl" ? "XL" : alternate.tier}</button></div>
+              {when === "now" && tierOptions.find((o) => o.size === vehicleSize && o.tier === tier)?.nearby === 0 && (() => {
+                const alternate = tierOptions.filter((o) => o.size === vehicleSize && o.tier !== tier && o.nearby > 0).sort((a, b) => a.fare - b.fare)[0];
+                return alternate ? <div className="rounded-xl bg-gold/10 p-3 text-sm text-ink">No {tier} {vehicleSize} car is nearby. {alternate.tier} is available for UGX {alternate.fare.toLocaleString("en-UG")}.
+                  <button type="button" onClick={() => setTier(alternate.tier)} className="mt-2 block font-bold text-gold">Choose {alternate.tier}</button></div>
                   : <p className="rounded-xl bg-gold/10 p-3 text-sm text-ink">No Peebee Car driver is nearby right now. Try again shortly.</p>;
               })()}
             </> : <><p className="text-xs font-semibold text-ink-500">{t("car_choose_type")}</p>{cars.map((c) => {
@@ -309,7 +337,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
 
         {(!carMenuOpen || cars.length > 0) && <button
           onClick={submit}
-          disabled={busy || (mode === "car" && (tierPricing ? tierOptions.length === 0 || (when === "now" && !tierOptions.find((o) => o.tier === tier)?.nearby) : !carId) || (when === "later" && !pickupAt))}
+          disabled={busy || (mode === "car" && (tierPricing ? tierOptions.length === 0 || (when === "now" && !tierOptions.find((o) => o.size === vehicleSize && o.tier === tier)?.nearby) : !carId) || (when === "later" && !pickupAt))}
           className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
         >
           {busy ? "Please wait…" : "Next: payment"}

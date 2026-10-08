@@ -1593,7 +1593,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async getCarServiceOptions(route: { pickupLat: number; pickupLng: number; destinationLat: number; destinationLng: number }) {
       const params = new URLSearchParams(Object.entries(route).map(([key, value]) => [key, String(value)]));
-      return request<{ distanceKm: number; options: Array<{ tier: "convenient" | "comfort" | "xl"; fare: number; nearby: number }> }>(`/v1/car/service-options?${params}`);
+      return request<{ distanceKm: number; options: Array<{ size: "normal" | "large"; tier: "convenient" | "comfort"; fare: number; nearby: number }> }>(`/v1/car/service-options?${params}`);
     },
     async bookCar(input: CarBookingInput & { scheduledFor?: string }) {
       return request<{ order: OrderRow }>("/v1/car/bookings", { method: "POST", body: JSON.stringify(input) });

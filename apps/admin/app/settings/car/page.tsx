@@ -216,9 +216,9 @@ export default function CarSettingsPage() {
 
         <section className="home-card space-y-3">
           <p className="text-sm font-bold text-ink">Peebee Car ride prices</p>
-          <p className="text-xs text-ink-500">Vehicle make and body type do not change the Convenient fare. Comfort and XL use this base fare plus their premium.</p>
+          <p className="text-xs text-ink-500">Vehicle make does not change the Convenient fare. Comfort and Large use this base fare plus their premium.</p>
           <div className="grid grid-cols-2 gap-3">
-            {[["Convenient UGX per km", ratePerKm, setRatePerKm], ["Minimum fare UGX", minimumFare, setMinimumFare], ["Comfort premium %", comfortPremium, setComfortPremium], ["XL premium %", xlPremium, setXlPremium], ["XL minimum seats", xlMinSeats, setXlMinSeats]].map(([label, value, setter]) => <label key={label as string} className="space-y-1 text-xs font-semibold text-ink-500">{label as string}<input required inputMode="numeric" value={value as string} onChange={(e) => (setter as (v: string) => void)(digits(e.target.value))} className={input} /></label>)}
+            {[["Convenient UGX per km", ratePerKm, setRatePerKm], ["Minimum fare UGX", minimumFare, setMinimumFare], ["Comfort premium %", comfortPremium, setComfortPremium], ["Large car premium %", xlPremium, setXlPremium], ["XL minimum seats", xlMinSeats, setXlMinSeats]].map(([label, value, setter]) => <label key={label as string} className="space-y-1 text-xs font-semibold text-ink-500">{label as string}<input required inputMode="numeric" value={value as string} onChange={(e) => (setter as (v: string) => void)(digits(e.target.value))} className={input} /></label>)}
           </div>
         </section>
 

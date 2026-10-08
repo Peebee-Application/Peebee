@@ -4,22 +4,28 @@ import { haversineKm } from "../lib/geo.js";
 import { getCarServicePricing, getPlatformEnvironment } from "../lib/settings.js";
 
 export type CarServiceTier = "convenient" | "comfort" | "xl";
+export type CarVehicleSize = "normal" | "large";
 export type TierVehicle = { service_class: unknown; accepts_convenient: unknown; seat_capacity: unknown; lat: unknown; lng: unknown };
 
-export function acceptsTier(vehicle: TierVehicle, tier: CarServiceTier, xlMinSeats: number): boolean {
-  if (tier === "xl") return Number(vehicle.seat_capacity) >= xlMinSeats;
+export function acceptsTier(vehicle: TierVehicle, tier: CarServiceTier, xlMinSeats: number, size?: CarVehicleSize): boolean {
+  const seats = Number(vehicle.seat_capacity);
+  if (size === "large" && seats < 5) return false;
+  if (size === "normal" && seats >= 5) return false;
+  // Legacy XL bookings are retained as large, convenient rides.
+  if (tier === "xl") return seats >= xlMinSeats;
   if (tier === "comfort") return vehicle.service_class === "comfort";
   return vehicle.service_class !== "comfort" || Number(vehicle.accepts_convenient) === 1;
 }
 
-export function tierFare(distanceKm: number, tier: CarServiceTier, pricing: Awaited<ReturnType<typeof getCarServicePricing>>): number {
+export function tierFare(distanceKm: number, tier: CarServiceTier, pricing: Awaited<ReturnType<typeof getCarServicePricing>>, size?: CarVehicleSize): number {
   const base = roundFare(distanceKm * pricing.ratePerKm, pricing.minimumFare);
-  const premium = tier === "comfort" ? pricing.comfortPremiumPercent : tier === "xl" ? pricing.xlPremiumPercent : 0;
-  return roundFare(base * (1 + premium / 100), 0);
+  const comfortPremium = tier === "comfort" ? pricing.comfortPremiumPercent : 0;
+  const sizePremium = size === "large" || tier === "xl" ? pricing.xlPremiumPercent : 0;
+  return roundFare(base * (1 + comfortPremium / 100) * (1 + sizePremium / 100), 0);
 }
 
 /** Online, free drivers with a pickup location in the customer's radius. */
-export async function nearbyTierCounts(lat: number, lng: number, radiusKm: number, xlMinSeats: number): Promise<Record<CarServiceTier, number>> {
+export async function nearbyTierCounts(lat: number, lng: number, radiusKm: number, xlMinSeats: number): Promise<Record<CarVehicleSize, Record<Exclude<CarServiceTier, "xl">, number>>> {
   const environment = await getPlatformEnvironment();
   const result = await db.execute({
     sql: `SELECT s.lat, s.lng, v.service_class, v.accepts_convenient, v.seat_capacity
@@ -32,11 +38,15 @@ export async function nearbyTierCounts(lat: number, lng: number, radiusKm: numbe
             AND s.driver_id NOT IN (SELECT rider_id FROM orders WHERE rider_id IS NOT NULL AND environment = ? AND stage NOT IN ('Settle', 'Cancelled'))`,
     args: [environment],
   });
-  const counts: Record<CarServiceTier, number> = { convenient: 0, comfort: 0, xl: 0 };
+  const counts: Record<CarVehicleSize, Record<Exclude<CarServiceTier, "xl">, number>> = {
+    normal: { convenient: 0, comfort: 0 }, large: { convenient: 0, comfort: 0 },
+  };
   for (const row of result.rows) {
     const vehicle = row as unknown as TierVehicle;
     if (haversineKm(lat, lng, Number(vehicle.lat), Number(vehicle.lng)) > radiusKm) continue;
-    for (const tier of ["convenient", "comfort", "xl"] as const) if (acceptsTier(vehicle, tier, xlMinSeats)) counts[tier]++;
+    for (const size of ["normal", "large"] as const) for (const tier of ["convenient", "comfort"] as const) {
+      if (acceptsTier(vehicle, tier, xlMinSeats, size)) counts[size][tier]++;
+    }
   }
   return counts;
 }
