@@ -220,7 +220,7 @@ export default function JobDetailPage() {
       }
       const result = await api.createMerchantPayment({
         orderId,
-        outletCode: outletCode.trim(),
+        ...(order.restaurant_id ? {} : { outletCode: outletCode.trim() }),
         amount,
         riderLat: location?.coords.latitude,
         riderLng: location?.coords.longitude,
@@ -286,6 +286,20 @@ export default function JobDetailPage() {
           </p>
         )}
       </header>
+
+      {(detail.bundleStops?.length ?? 0) > 1 && (
+        <section className="rounded-2xl border border-gold/25 bg-gold/10 p-4" aria-label="Combined delivery pickups">
+          <h2 className="font-bold text-ink">One delivery · {detail.bundleStops!.length} pickups</h2>
+          <ol className="mt-3 space-y-2">
+            {detail.bundleStops!.map((stop, index) => (
+              <li key={stop.id} className="flex items-center justify-between gap-3 text-sm">
+                <span><span className="font-bold">{index + 1}. {stop.restaurant_name ?? stop.outlet_name ?? "Shopping pickup"}</span>{stop.pickup_address && <span className="block text-xs text-ink-500">{stop.pickup_address}</span>}</span>
+                {stop.id === order.id ? <span className="text-xs font-semibold text-gold">This order</span> : <Link className="shrink-0 font-bold text-gold underline" href={`/jobs/${stop.id}`}>Open stop</Link>}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       {order.voice_note_key && <VoiceNotePlayer orderId={orderId} />}
 
@@ -579,12 +593,20 @@ export default function JobDetailPage() {
             )}
             {showMerchantPayment && !merchantPayment && (
               <div className="space-y-2 rounded-xl border border-[var(--border-faint)] p-3">
-                <input value={outletCode} onChange={(e) => setOutletCode(e.target.value)} placeholder="Merchant outlet code" autoCapitalize="characters" className="min-h-11 w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 text-sm" />
+                {order.restaurant_id ? (
+                  <div className="rounded-xl border border-gold/30 bg-gold/5 px-3 py-2.5">
+                    <p className="text-xs text-ink-500">Pay this restaurant</p>
+                    <p className="mt-0.5 font-semibold text-ink">{order.restaurant_outlet_name ?? order.restaurant_name}</p>
+                    <p className="mt-1 font-mono text-sm font-bold text-gold">{order.restaurant_outlet_code ?? "Outlet code unavailable"}</p>
+                  </div>
+                ) : (
+                  <input value={outletCode} onChange={(e) => setOutletCode(e.target.value)} placeholder="Merchant outlet code" autoCapitalize="characters" className="min-h-11 w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 text-sm" />
+                )}
                 <input value={merchantAmount} onChange={(e) => setMerchantAmount(e.target.value.replace(/[^\d]/g, ""))} placeholder="Exact receipt amount (UGX)" inputMode="numeric" className="min-h-11 w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 text-sm" />
                 <input value={receiptReference} onChange={(e) => setReceiptReference(e.target.value)} placeholder="Receipt number (recommended)" className="min-h-11 w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 text-sm" />
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setShowMerchantPayment(false)} className="min-h-11 flex-1 rounded-full border border-[var(--border-faint)] px-3 text-sm font-bold text-ink">Cancel</button>
-                  <button type="button" disabled={busy || !outletCode.trim() || !merchantAmount} onClick={requestMerchantPayment} className="min-h-11 flex-[2] rounded-full bg-gold px-3 text-sm font-bold text-ink-gold disabled:opacity-60">{busy ? "Checking location…" : "Request confirmation"}</button>
+                  <button type="button" disabled={busy || (!order.restaurant_id && !outletCode.trim()) || !merchantAmount || (!!order.restaurant_id && !order.restaurant_outlet_code)} onClick={requestMerchantPayment} className="min-h-11 flex-[2] rounded-full bg-gold px-3 text-sm font-bold text-ink-gold disabled:opacity-60">{busy ? "Checking location…" : "Request confirmation"}</button>
                 </div>
               </div>
             )}

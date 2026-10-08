@@ -29,7 +29,7 @@ export default function DashboardPage() {
   if (!merchant) return null;
   const pending = payments.filter((payment) => payment.status === "awaiting_confirmation");
   return <div className="space-y-5 px-4 py-5">
-    <header><p className="text-sm text-ink-500">Welcome back</p><h1 className="text-2xl font-black text-ink">{merchant.display_name}</h1></header>
+    <header><p className="text-sm text-ink-500">Welcome back</p><h1 className="text-2xl font-black text-ink">{merchant.display_name}</h1>{merchant.merchant_code && <p className="mt-1 font-mono text-xs text-ink-500">Business code · {merchant.merchant_code}</p>}</header>
     {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
     {merchant.status !== "active" && <section className="home-card flex gap-3 border-l-4 border-l-gold"><AlertCircle className="h-5 w-5 shrink-0 text-gold"/><div><p className="font-bold">Application {merchant.status.replaceAll("_", " ")}</p><p className="text-xs text-ink-500">Complete business verification while Peebee reviews your account. {merchant.environment === "sandbox" ? "Simulated payment acceptance" : "Live payment acceptance"} begins after approval.</p><Link href="/account" className="mt-2 inline-block text-xs font-bold text-gold">Complete verification →</Link></div></section>}
     {merchant.environment === "sandbox" && <section className="rounded-xl border border-sky-300 bg-sky-50 p-3 text-xs text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100"><strong>Safe test mode.</strong> Payments and withdrawals behave like live transactions, including pending and failed states, but no real money moves.</section>}

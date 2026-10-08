@@ -1,6 +1,7 @@
 import type { Restaurant } from "@peebee/shared";
 import { demoFoodRestaurant } from "@peebee/shared/demo-food";
 import { db, executeBatch } from "../db/client.js";
+import { ensureAccountCode, ensureMerchantCode } from "../lib/profile-codes.js";
 
 const DISABLED_OWNER_HASH = "sandbox-demo-food-account-disabled";
 
@@ -32,6 +33,8 @@ export async function ensureSandboxDemoRestaurant(restaurant: Restaurant): Promi
       args: [restaurant.id, restaurant.name, restaurant.description, restaurant.cuisine, restaurant.address,
         restaurant.lat, restaurant.lng, restaurant.is_open, merchantId, outletId, restaurant.owner_id, DISABLED_OWNER_HASH, outletId, merchantId] },
   ]);
+  await ensureAccountCode(restaurant.owner_id);
+  await ensureMerchantCode(merchantId);
   const result = await db.execute({ sql: `SELECT r.owner_id, r.environment, r.status, r.merchant_id, r.outlet_id
       FROM restaurants r JOIN merchants m ON m.id = r.merchant_id JOIN merchant_outlets o ON o.id = r.outlet_id
       WHERE r.id = ? AND m.environment = 'sandbox' AND m.status = 'active' AND o.status = 'active'

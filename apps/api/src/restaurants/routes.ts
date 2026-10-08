@@ -15,9 +15,11 @@ import { z } from "zod";
 import { logActivity } from "../admin/activity.js";
 import { isAdminRole, requirePermission } from "../admin/permissions.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { db } from "../db/client.js";
-import { hasColumn } from "../lib/schema.js";
+import { db, executeBatch } from "../db/client.js";
+import { hasColumn, hasTable } from "../lib/schema.js";
 import { newId } from "../lib/ids.js";
+import { merchantBusinessStatements } from "../merchants/service.js";
+import { merchantCodeFor } from "../lib/profile-codes.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { getPlatformEnvironment } from "../lib/settings.js";
 import { reconcileFoodHours } from "./hours.js";
@@ -67,9 +69,24 @@ restaurantRoutes.post("/restaurants/apply", requireAuth, requireRole("customer")
   const environment = await getPlatformEnvironment();
   const hasType = await hasColumn("restaurants", "business_type");
   if (!hasType && d.businessType && d.businessType !== "restaurant") return c.json({error:"food_categories_unavailable", message:"Food categories are being enabled. Please try again shortly."}, 503);
-  await db.execute({
-    sql: `INSERT INTO restaurants (id, owner_id, name, description, cuisine, phone, address, lat, lng, open_time, close_time, environment${hasType ? ", business_type" : ""})
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${hasType ? ", ?" : ""})`,
+  const canLinkMerchant = await hasTable("merchants") && await hasTable("merchant_outlets")
+    && await hasColumn("restaurants", "merchant_id") && await hasColumn("restaurants", "outlet_id");
+  const business = canLinkMerchant ? merchantBusinessStatements({
+    ownerId: user.sub,
+    legalName: d.name,
+    displayName: d.name,
+    businessKind: "business",
+    categoryId: "mcat_restaurant",
+    outletName: d.name,
+    phone: d.phone,
+    address: d.address,
+    lat: d.lat,
+    lng: d.lng,
+    environment,
+  }) : null;
+  const restaurantInsert = {
+    sql: `INSERT INTO restaurants (id, owner_id, name, description, cuisine, phone, address, lat, lng, open_time, close_time, environment${hasType ? ", business_type" : ""}${canLinkMerchant ? ", merchant_id, outlet_id" : ""})
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${hasType ? ", ?" : ""}${canLinkMerchant ? ", ?, ?" : ""})`,
     args: [
       id,
       user.sub,
@@ -84,10 +101,29 @@ restaurantRoutes.post("/restaurants/apply", requireAuth, requireRole("customer")
       d.closeTime ?? null,
       environment,
       ...(hasType ? [d.businessType ?? "restaurant"] : []),
+      ...(business ? [business.created.merchantId, business.created.outletId] : []),
     ],
-  });
+  };
+  if (business) await executeBatch([
+    ...business.statements,
+    ...(await hasColumn("merchants", "merchant_code") ? [{
+      sql: "UPDATE merchants SET merchant_code=? WHERE id=? AND (merchant_code IS NULL OR merchant_code='')",
+      args: [merchantCodeFor(business.created.merchantId), business.created.merchantId],
+    }] : []),
+    restaurantInsert,
+  ]);
+  else await db.execute(restaurantInsert);
 
-  const res = await db.execute({ sql: "SELECT * FROM restaurants WHERE id = ?", args: [id] });
+  const res = business
+    ? await db.execute({
+        sql: `SELECT restaurant.*, outlet.code AS outlet_code, merchant.merchant_code
+              FROM restaurants restaurant
+              LEFT JOIN merchant_outlets outlet ON outlet.id=restaurant.outlet_id
+              LEFT JOIN merchants merchant ON merchant.id=restaurant.merchant_id
+              WHERE restaurant.id=?`,
+        args: [id],
+      })
+    : await db.execute({ sql: "SELECT * FROM restaurants WHERE id = ?", args: [id] });
   return c.json({ restaurant: res.rows[0] }, 201);
 });
 
@@ -96,7 +132,18 @@ restaurantRoutes.post("/restaurants/apply", requireAuth, requireRole("customer")
  * apart from "restaurant with no fields set". */
 restaurantRoutes.get("/restaurants/me", requireAuth, requireRole("customer"), async (c) => {
   const user = c.get("user");
-  const res = await db.execute({ sql: "SELECT * FROM restaurants WHERE owner_id = ?", args: [user.sub] });
+  const linked = await hasTable("merchants") && await hasTable("merchant_outlets")
+    && await hasColumn("restaurants", "outlet_id") && await hasColumn("merchants", "merchant_code");
+  const res = await db.execute({
+    sql: linked
+      ? `SELECT restaurant.*, outlet.code AS outlet_code, merchant.merchant_code
+         FROM restaurants restaurant
+         LEFT JOIN merchant_outlets outlet ON outlet.id=restaurant.outlet_id
+         LEFT JOIN merchants merchant ON merchant.id=restaurant.merchant_id
+         WHERE restaurant.owner_id=?`
+      : "SELECT * FROM restaurants WHERE owner_id = ?",
+    args: [user.sub],
+  });
   const restaurant = res.rows[0] as Row | undefined;
   if (!restaurant) return c.json({ error: "not_found" }, 404);
   return c.json({ restaurant: await reconcileFoodHours(restaurant) });

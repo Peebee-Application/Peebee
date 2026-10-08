@@ -13,6 +13,7 @@ type UserRow = {
   admin_role: string | null;
   force_password_change: number | null;
   profile_photo_key: string | null;
+  account_code?: string | null;
 };
 
 /** Shapes a raw `users` row into the public `AuthUser` DTO. */
@@ -20,6 +21,7 @@ export function toAuthUser(row: Record<string, unknown>) {
   const r = row as unknown as UserRow;
   return {
     id: r.id,
+    accountCode: r.account_code ?? null,
     phone: r.phone,
     email: r.email ?? null,
     name: r.name,

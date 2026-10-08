@@ -16,6 +16,7 @@ import { activate, activationPreview, enroll, enrollmentSchema, invite, Onboardi
 import { onboardingSettings, saveOnboardingSettings, settingsSchema } from './messaging.js';
 import { isAwaitingActivation } from './state.js';
 import { salesAccess } from './access.js';
+import { ensureAccountCode } from '../lib/profile-codes.js';
 
 export const onboardingRoutes=new Hono();
 onboardingRoutes.onError((error,c)=>{
@@ -169,6 +170,7 @@ onboardingRoutes.post('/admin/onboarding/agents',async c=>{
     {sql:'INSERT INTO sales_agents (user_id,created_by) VALUES (?,?)',args:[id,u.sub]},
     {sql:"INSERT INTO onboarding_accounts (id,user_id,agent_id,account_type,request_id,consent_at) VALUES (?,?,?,'agent',?,datetime('now'))",args:[accountId,id,u.sub,crypto.randomUUID()]},
   ]);
+  await ensureAccountCode(id);
   await logActivity({actor:u,action:'sales.agent.create',entityType:'user',entityId:id,summary:`Invited sales agent ${d.name}`,ip:clientIp(c)});
   return c.json({id,delivery:await invite(accountId)},201);
 });

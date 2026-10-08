@@ -11,6 +11,7 @@ import { toAuthUser } from '../auth/serialize.js';
 import { ActivationDeliveryRejected, onboardingSettings, sendActivation } from './messaging.js';
 import { ResendDeliveryError } from '../verify/email-keys.js';
 import { hasColumn, hasTable } from '../lib/schema.js';
+import { accountCodeFor, merchantCodeFor, riderCodeFor } from '../lib/profile-codes.js';
 
 export const normalizePhone = (value:string)=>{
   let s=value.replace(/[\s().-]/g,'');
@@ -65,13 +66,28 @@ export async function enroll(input:z.infer<typeof enrollmentSchema>,agentId:stri
     {sql:'INSERT INTO users (id,name,email,phone,password_hash,role) VALUES (?,?,?,?,?,?)',args:[userId,input.name,input.email??null,input.phone??null,passwordHash,role]},
     {sql:'INSERT INTO onboarding_accounts (id,user_id,agent_id,account_type,request_id,consent_at,preferred_channel) VALUES (?,?,?,?,?,datetime(\'now\'),?)',args:[id,userId,agentId,input.accountType,input.requestId,input.preferredChannel]},
   ];
-  if(input.accountType==='rider') statements.push({
+  if(await hasColumn('users','account_code')) statements.push({sql:'UPDATE users SET account_code=? WHERE id=? AND (account_code IS NULL OR account_code=\'\')',args:[accountCodeFor(userId),userId]});
+  const canLinkFoodBusiness = input.accountType==='restaurant' && await hasTable('merchants') && await hasTable('merchant_outlets')
+    && await hasColumn('restaurants','merchant_id') && await hasColumn('restaurants','outlet_id');
+  const restaurantBusiness = canLinkFoodBusiness ? merchantBusinessStatements({
+    ownerId:userId,legalName:p.businessName!,displayName:p.businessName!,businessKind:'business',
+    categoryId:'mcat_restaurant',outletName:p.businessName!,phone:input.phone,address:p.address,
+    lat:p.lat,lng:p.lng,environment:await getPlatformEnvironment(),
+  }) : null;
+  if(restaurantBusiness) {
+    statements.push(...restaurantBusiness.statements);
+    if(await hasColumn('merchants','merchant_code')) statements.push({sql:'UPDATE merchants SET merchant_code=? WHERE id=? AND (merchant_code IS NULL OR merchant_code=\'\')',args:[merchantCodeFor(restaurantBusiness.created.merchantId),restaurantBusiness.created.merchantId]});
+  }
+  if(input.accountType==='rider') {
+    statements.push({
     sql:`INSERT INTO riders (user_id,first_name,last_name,area,vehicle_info,momo_msisdn,alt_phone,stage_address,home_address,stage_lat,stage_lng,stage_name,stage_chairman_name,stage_chairman_contact,emergency_contact_name,emergency_contact_phone,national_id_key,profile_photo_key)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,args:[userId,p.firstName??null,p.lastName??null,p.area??null,p.vehicleInfo??null,p.momoMsisdn??null,p.altPhone??null,p.stageAddress??null,p.homeAddress??null,p.lat??null,p.lng??null,p.stageName??null,p.stageChairmanName??null,p.stageChairmanContact??null,p.emergencyContactName??null,p.emergencyContactPhone??null,documents.riderId??null,documents.photo??null]});
+    if(await hasColumn('riders','rider_code')) statements.push({sql:'UPDATE riders SET rider_code=? WHERE user_id=? AND (rider_code IS NULL OR rider_code=\'\')',args:[riderCodeFor(userId),userId]});
+  }
   if(input.accountType==='restaurant') {
     const hasType=await hasColumn('restaurants','business_type');
     if(!hasType&&p.businessType&&p.businessType!=='restaurant') throw new OnboardingError('food_categories_unavailable',503,'Food categories are being enabled. Please try again shortly.');
-    statements.push({sql:`INSERT INTO restaurants (id,owner_id,name,description,cuisine,phone,address,lat,lng,open_time,close_time,environment${hasType?',business_type':''}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?${hasType?',?':''})`,args:[newId('rst'),userId,p.businessName!,p.description??null,p.cuisine??null,input.phone??null,p.address??null,p.lat??null,p.lng??null,p.openTime??null,p.closeTime??null,await getPlatformEnvironment(),...(hasType?[p.businessType??'restaurant']:[])]});
+    statements.push({sql:`INSERT INTO restaurants (id,owner_id,name,description,cuisine,phone,address,lat,lng,open_time,close_time,environment${hasType?',business_type':''}${restaurantBusiness?',merchant_id,outlet_id':''}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?${hasType?',?':''}${restaurantBusiness?',?,?':''})`,args:[newId('rst'),userId,p.businessName!,p.description??null,p.cuisine??null,input.phone??null,p.address??null,p.lat??null,p.lng??null,p.openTime??null,p.closeTime??null,await getPlatformEnvironment(),...(hasType?[p.businessType??'restaurant']:[]),...(restaurantBusiness?[restaurantBusiness.created.merchantId,restaurantBusiness.created.outletId]:[])]});
   }
   if(input.accountType==='rider'&&[p.firstName,p.lastName,p.vehicleInfo,p.stageAddress,p.homeAddress,p.stageName,p.stageChairmanName,p.stageChairmanContact,p.emergencyContactName,p.emergencyContactPhone,documents.riderId,documents.photo].every(Boolean)&&p.lat!=null&&p.lng!=null) {
     statements.push({sql:"UPDATE riders SET profile_completed_at=datetime('now') WHERE user_id=?",args:[userId]});
@@ -79,6 +95,7 @@ export async function enroll(input:z.infer<typeof enrollmentSchema>,agentId:stri
   if(input.accountType==='merchant') {
     const business=merchantBusinessStatements({ownerId:userId,legalName:p.legalName!,displayName:p.businessName!,businessKind:'business',categoryId:p.categoryId!,outletName:p.outletName!,phone:input.phone,address:p.address,lat:p.lat,lng:p.lng,environment:await getPlatformEnvironment()});
     statements.push(...business.statements);
+    if(await hasColumn('merchants','merchant_code')) statements.push({sql:'UPDATE merchants SET merchant_code=? WHERE id=? AND (merchant_code IS NULL OR merchant_code=\'\')',args:[merchantCodeFor(business.created.merchantId),business.created.merchantId]});
     if(documents.ownerId||documents.businessDocument) statements.push({sql:'UPDATE merchant_kyc_cases SET owner_id_key=?, business_document_key=? WHERE merchant_id=?',args:[documents.ownerId??null,documents.businessDocument??null,business.created.merchantId]});
   }
   try{await executeBatch(statements);}catch(error){

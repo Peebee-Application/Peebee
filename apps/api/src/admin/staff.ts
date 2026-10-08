@@ -9,6 +9,7 @@ import { db } from "../db/client.js";
 import { randomToken } from "../lib/random.js";
 import { sendStaffInviteEmail } from "../verify/email.js";
 import { appBaseUrl } from "../verify/service.js";
+import { ensureAccountCode } from "../lib/profile-codes.js";
 import { ADMIN_ROLE_LABELS, type AdminRole } from "./permissions.js";
 
 type Row = Record<string, unknown>;
@@ -67,6 +68,7 @@ export async function inviteStaff(input: {
           VALUES (?, ?, ?, ?, ?, 'admin', ?, 1, ?, datetime('now'), datetime('now'))`,
     args: [id, input.name, input.email, input.phone ?? null, passwordHash, input.adminRole, input.invitedBy],
   });
+  await ensureAccountCode(id);
 
   try {
     await sendStaffInviteEmail(

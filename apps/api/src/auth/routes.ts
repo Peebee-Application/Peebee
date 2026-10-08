@@ -16,6 +16,7 @@ import {
   tooManyRequests,
 } from "../lib/ratelimit.js";
 import { hashCode, timingSafeEqual } from "../verify/otp.js";
+import { ensureAccountCode, ensureRiderCode } from "../lib/profile-codes.js";
 import { appBaseUrl, createAndSendOtp, maskTarget } from "../verify/service.js";
 import { toAuthUser } from "./serialize.js";
 import { signToken, TOKEN_TTL_SECONDS } from "./jwt.js";
@@ -116,12 +117,14 @@ authRoutes.post("/register", async (c) => {
           VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
     args: [id, phone ?? null, email ?? null, name, passwordHash, role],
   });
+  await ensureAccountCode(id);
 
   if (role === "rider") {
     await db.execute({
       sql: "INSERT INTO riders (user_id, verified, is_online) VALUES (?, 0, 0)",
       args: [id],
     });
+    await ensureRiderCode(id);
   }
 
   const devCode = await sendInitialOtp(id, phone, email);
@@ -305,8 +308,10 @@ authRoutes.post("/google", async (c) => {
             VALUES (?, ?, ?, ?, ?, datetime('now'))`,
       args: [id, email, name?.trim() || email.split("@")[0], passwordHash, role],
     });
+    await ensureAccountCode(id);
     if (role === "rider") {
       await db.execute({ sql: "INSERT INTO riders (user_id, verified, is_online) VALUES (?, 0, 0)", args: [id] });
+      await ensureRiderCode(id);
     }
     const userRow = await db.execute({ sql: "SELECT * FROM users WHERE id = ?", args: [id] });
     row = userRow.rows[0] as unknown as typeof row;

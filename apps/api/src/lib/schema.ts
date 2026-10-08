@@ -13,7 +13,7 @@ import { db } from "../db/client.js";
 const answers = new Map<string, { exists: boolean; at: number }>();
 const NO_TTL_MS = 30_000;
 
-export async function hasColumn(table: "menu_items" | "list_items" | "restaurants" | "order_applications" | "orders" | "car_bookings" | "ai_api_keys" | "car_partners" | "vehicle_assignments", column: string): Promise<boolean> {
+export async function hasColumn(table: "menu_items" | "list_items" | "users" | "riders" | "restaurants" | "merchants" | "merchant_outlets" | "order_applications" | "orders" | "car_bookings" | "ai_api_keys" | "car_partners" | "vehicle_assignments", column: string): Promise<boolean> {
   const key = `${table}.${column}`;
   const known = answers.get(key);
   if (known && (known.exists || Date.now() - known.at < NO_TTL_MS)) return known.exists;
@@ -29,7 +29,7 @@ export async function hasColumn(table: "menu_items" | "list_items" | "restaurant
 }
 
 /** Same idea for a whole table: code that reads a table added by a hand-applied migration. */
-export async function hasTable(table: "food_item_reviews" | "car_bookings" | "vehicle_categories" | "car_withdrawals" | "scheduled_checks" | "carpool_trips" | "rentals" | "saved_passengers" | "vehicle_photos" | "ai_api_keys" | "ai_key_limits" | "car_partner_documents" | "driver_requests" | "email_api_keys" | "email_api_usage" | "onboarding_accounts" | "sales_agents" | "sales_agent_requests"): Promise<boolean> {
+export async function hasTable(table: "food_item_reviews" | "merchants" | "merchant_outlets" | "car_bookings" | "vehicle_categories" | "car_withdrawals" | "scheduled_checks" | "carpool_trips" | "rentals" | "saved_passengers" | "vehicle_photos" | "ai_api_keys" | "ai_key_limits" | "car_partner_documents" | "driver_requests" | "email_api_keys" | "email_api_usage" | "onboarding_accounts" | "sales_agents" | "sales_agent_requests"): Promise<boolean> {
   const key = `table.${table}`;
   const known = answers.get(key);
   if (known && (known.exists || Date.now() - known.at < NO_TTL_MS)) return known.exists;

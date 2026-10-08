@@ -265,6 +265,7 @@ export default function AccountPage() {
         <span>
           <span className="block text-[15px] font-bold text-ink">{user?.name ?? "—"}</span>
           <span className="block text-sm text-ink-500">{user?.phone}</span>
+          {rider?.rider_code && <span className="mt-1 block font-mono text-xs text-ink-500">Rider code · {rider.rider_code}</span>}
         </span>
         {rider && (
           <span
