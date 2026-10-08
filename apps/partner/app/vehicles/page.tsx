@@ -20,6 +20,7 @@ export default function VehiclesPage() {
   const { me, mode, refreshMe, user } = useAuth();
   const [categories, setCategories] = useState<CarCategory[]>([]);
   const [limits, setLimits] = useState({ max: 8, minRequired: 0 });
+  const [tiersEnabled, setTiersEnabled] = useState(false);
   const [dealLimits, setDealLimits] = useState<NonNullable<Awaited<ReturnType<typeof api.getCarConfig>>["deals"]> | null>(null);
   const [dealVehicles, setDealVehicles] = useState<OwnerDeals["vehicles"]>([]);
   const [categoryId, setCategoryId] = useState("");
@@ -32,6 +33,7 @@ export default function VehiclesPage() {
   const [colour, setColour] = useState("");
   const [lastServiceDate, setLastServiceDate] = useState("");
   const [serviceClass, setServiceClass] = useState<"convenient" | "comfort">("convenient");
+  const [acceptsConvenient, setAcceptsConvenient] = useState(false);
   const [conditionGrade, setConditionGrade] = useState<"excellent" | "good" | "fair">("good");
   const [seatCapacity, setSeatCapacity] = useState("");
   const [features, setFeatures] = useState<string[]>([]);
@@ -45,6 +47,7 @@ export default function VehiclesPage() {
   useEffect(() => {
     api.getCarConfig().then((c) => {
       setCategories(c.categories);
+      setTiersEnabled(Boolean(c.serviceTiers));
       if (c.vehiclePhotos) setLimits(c.vehiclePhotos);
       setDealLimits(c.deals ?? null);
     }).catch(() => undefined);
@@ -96,7 +99,7 @@ export default function VehiclesPage() {
     setBusy(true);
     setError("");
     try {
-      const { id } = await api.carAddVehicle({ categoryId, plate, make: (make === "Other" ? customMake : make) || undefined, model: model || undefined, modelCatalogId: modelCatalogId || undefined, year: Number(year) || undefined, colour: colour || undefined, lastServiceDate, serviceClass, conditionGrade, seatCapacity: Number(seatCapacity) || undefined, features });
+      const { id } = await api.carAddVehicle({ categoryId, plate, make: (make === "Other" ? customMake : make) || undefined, model: model || undefined, modelCatalogId: modelCatalogId || undefined, year: Number(year) || undefined, colour: colour || undefined, lastServiceDate, serviceClass, acceptsConvenient, conditionGrade, seatCapacity: Number(seatCapacity) || undefined, features });
       const sent = await uploadAll(id, picked);
       if (sent < picked.length) setError(`The vehicle was submitted, but only ${sent} of ${picked.length} photos uploaded. You can add the rest from its card below.`);
       picked.forEach((p) => URL.revokeObjectURL(p.preview));
@@ -106,7 +109,7 @@ export default function VehiclesPage() {
       setModel("");
       setCustomMake("");
       setYear(""); setColour(""); setLastServiceDate("");
-      setModelCatalogId(""); setServiceClass("convenient"); setConditionGrade("good"); setSeatCapacity(""); setFeatures([]);
+      setModelCatalogId(""); setServiceClass("convenient"); setAcceptsConvenient(false); setConditionGrade("good"); setSeatCapacity(""); setFeatures([]);
       await refreshMe();
     } catch (err) {
       setError(errorMessage(err));
@@ -162,6 +165,11 @@ export default function VehiclesPage() {
           <p className="font-bold text-ink">{v.plate} <span className="font-normal text-ink-500">· {v.category_name}</span></p>
           <p className="text-xs text-ink-500">{[v.make, v.model].filter(Boolean).join(" ")}</p>
           <p className="text-xs text-ink-500">{v.service_class === "comfort" ? "Comfort" : "Convenient"}{v.condition_grade ? ` · ${v.condition_grade} condition` : ""}{v.seat_capacity ? ` · ${v.seat_capacity} seats` : ""}{v.last_service_date ? ` · last serviced ${v.last_service_date}` : ""}</p>
+          {tiersEnabled && <div className="flex flex-wrap gap-2 text-xs">
+            <button type="button" disabled={busy} onClick={() => act(() => api.carUpdateRideService(v.id, "convenient", false))} className={`rounded-full px-3 py-2 ${v.service_class !== "comfort" ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>Convenient first</button>
+            <button type="button" disabled={busy} onClick={() => act(() => api.carUpdateRideService(v.id, "comfort", false))} className={`rounded-full px-3 py-2 ${v.service_class === "comfort" && !v.accepts_convenient ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>Comfort only</button>
+            <button type="button" disabled={busy} onClick={() => act(() => api.carUpdateRideService(v.id, "comfort", true))} className={`rounded-full px-3 py-2 ${v.service_class === "comfort" && !!v.accepts_convenient ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>Comfort first · also Convenient</button>
+          </div>}
           <p className="text-xs text-ink-500">
             {v.status === "approved" ? (v.driver_name ? `Driver: ${v.driver_name}` : "Approved — waiting for Peebee to assign a driver") : `Status: ${v.status}`}
           </p>
@@ -259,6 +267,7 @@ export default function VehiclesPage() {
           <Select value={serviceClass} onValueChange={(v) => setServiceClass(v as typeof serviceClass)} className={field} aria-label="Vehicle class"><option value="convenient">Convenient · ordinary</option><option value="comfort">Comfort · newer or extra features</option></Select>
           <Select value={conditionGrade} onValueChange={(v) => setConditionGrade(v as typeof conditionGrade)} className={field} aria-label="Vehicle condition"><option value="excellent">Excellent condition</option><option value="good">Good condition</option><option value="fair">Fair condition</option></Select>
         </div>
+        {serviceClass === "comfort" && <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={acceptsConvenient} onChange={(e) => setAcceptsConvenient(e.target.checked)} />Also accept Convenient fares when no Comfort ride is available</label>}
         <Select required value={seatCapacity} onValueChange={setSeatCapacity} className={field} aria-label="Total seat capacity"><option value="">Choose total seats…</option>{Array.from({ length: 50 }, (_, i) => i + 1).map((n) => <option key={n} value={String(n)}>{n} seats</option>)}</Select>
         <label className="block space-y-1 text-xs font-semibold text-ink-500">Most recent service date<input required type="date" max={new Date().toISOString().slice(0, 10)} value={lastServiceDate} onChange={(e) => setLastServiceDate(e.target.value)} className={field} /></label>
         <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-ink-500">{["Air conditioning", "Bluetooth", "USB charging", "Child seat", "Automatic", "4WD"].map((feature) => <label key={feature} className="flex items-center gap-1.5"><input type="checkbox" checked={features.includes(feature)} onChange={(e) => setFeatures((prev) => e.target.checked ? [...prev, feature] : prev.filter((x) => x !== feature))} />{feature}</label>)}</div>

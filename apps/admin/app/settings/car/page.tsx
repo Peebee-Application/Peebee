@@ -18,6 +18,11 @@ export default function CarSettingsPage() {
   const [driver, setDriver] = useState("30");
   const [platform, setPlatform] = useState("10");
   const [maxKm, setMaxKm] = useState("10");
+  const [ratePerKm, setRatePerKm] = useState("2000");
+  const [minimumFare, setMinimumFare] = useState("8000");
+  const [comfortPremium, setComfortPremium] = useState("30");
+  const [xlPremium, setXlPremium] = useState("50");
+  const [xlMinSeats, setXlMinSeats] = useState("6");
   const [schedEnabled, setSchedEnabled] = useState(false);
   const [schedMax, setSchedMax] = useState("");
   const [schedLead, setSchedLead] = useState("30");
@@ -55,7 +60,7 @@ export default function CarSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  function load(c: { enabled: boolean; onDemandEnabled: boolean; matchingMode: typeof mode; shares: { owner: number; driver: number; platform: number }; maxPickupKm: number; withdrawalsEnabled: boolean; withdrawalMinAmount: number; scheduled: CarSettings["scheduled"]; carpool: CarSettings["carpool"]; selfDrive: CarSettings["selfDrive"]; vehiclePhotos: CarSettings["vehiclePhotos"]; kyc: CarSettings["kyc"]; deals: CarSettings["deals"] }) {
+  function load(c: CarSettings) {
     setEnabled(c.enabled);
     setOnDemand(c.onDemandEnabled);
     setMode(c.matchingMode);
@@ -63,6 +68,11 @@ export default function CarSettingsPage() {
     setDriver(String(c.shares.driver));
     setPlatform(String(c.shares.platform));
     setMaxKm(String(c.maxPickupKm));
+    setRatePerKm(String(c.servicePricing?.ratePerKm ?? 2000));
+    setMinimumFare(String(c.servicePricing?.minimumFare ?? 8000));
+    setComfortPremium(String(c.servicePricing?.comfortPremiumPercent ?? 30));
+    setXlPremium(String(c.servicePricing?.xlPremiumPercent ?? 50));
+    setXlMinSeats(String(c.servicePricing?.xlMinSeats ?? 6));
     setSchedEnabled(c.scheduled.enabled);
     setSchedMax(c.scheduled.maxAdvanceHours ? String(c.scheduled.maxAdvanceHours) : "");
     setSchedLead(String(c.scheduled.minLeadMinutes));
@@ -124,6 +134,7 @@ export default function CarSettingsPage() {
           matchingMode: mode,
           shares: { owner: Number(owner), driver: Number(driver), platform: Number(platform) },
           maxPickupKm: Math.min(200, Math.max(1, Number(maxKm) || 10)),
+          servicePricing: { ratePerKm: Number(ratePerKm), minimumFare: Number(minimumFare), comfortPremiumPercent: Number(comfortPremium), xlPremiumPercent: Number(xlPremium), xlMinSeats: Number(xlMinSeats) },
           scheduled: {
             enabled: schedEnabled,
             maxAdvanceHours: Number(schedMax) > 0 ? Number(schedMax) : null,
@@ -200,6 +211,14 @@ export default function CarSettingsPage() {
           <div className="space-y-1">
             <label className="text-xs font-semibold text-ink-500" htmlFor="car-km">Furthest a driver can be from the pickup (km)</label>
             <input id="car-km" inputMode="numeric" value={maxKm} onChange={(e) => setMaxKm(digits(e.target.value))} className={input} />
+          </div>
+        </section>
+
+        <section className="home-card space-y-3">
+          <p className="text-sm font-bold text-ink">Peebee Car ride prices</p>
+          <p className="text-xs text-ink-500">Vehicle make and body type do not change the Convenient fare. Comfort and XL use this base fare plus their premium.</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[["Convenient UGX per km", ratePerKm, setRatePerKm], ["Minimum fare UGX", minimumFare, setMinimumFare], ["Comfort premium %", comfortPremium, setComfortPremium], ["XL premium %", xlPremium, setXlPremium], ["XL minimum seats", xlMinSeats, setXlMinSeats]].map(([label, value, setter]) => <label key={label as string} className="space-y-1 text-xs font-semibold text-ink-500">{label as string}<input required inputMode="numeric" value={value as string} onChange={(e) => (setter as (v: string) => void)(digits(e.target.value))} className={input} /></label>)}
           </div>
         </section>
 

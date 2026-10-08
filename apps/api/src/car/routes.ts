@@ -18,6 +18,7 @@ import { endAssignment, quoteFare } from "./service.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
 import { openForDriversSql, scheduledAvailable, toDbTime, validateScheduledFor } from "./scheduled.js";
+import { acceptsTier, nearbyTierCounts, tierFare, type CarServiceTier } from "./tiers.js";
 
 type Row = Record<string, unknown>;
 
@@ -47,7 +48,20 @@ carRoutes.get("/car/config", async (c) => {
     ? { maxSeatsPerBooking: settings.carpool.maxSeatsPerBooking, maxRepeatWeeks: settings.carpool.maxRepeatWeeks }
     : null;
   const selfDrive = settings.selfDrive.enabled && settings.selfDrive.platformPercent != null && (await hasTable("rentals")) ? { maxDays: settings.selfDrive.maxDays } : null;
-  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, scheduled, carpool, selfDrive, vehiclePhotos: settings.vehiclePhotos, kyc: settings.kyc, deals: settings.deals.enabled && (await hasTable("driver_requests")) && (await hasColumn("vehicle_assignments", "fee_type")) ? { shareEnabled: settings.deals.shareEnabled, rentEnabled: settings.deals.rentEnabled, minOwnerSharePercent: settings.deals.minOwnerSharePercent, maxOwnerSharePercent: settings.deals.maxOwnerSharePercent, maxRentPerDay: settings.deals.maxRentPerDay } : null, categories: categories.rows });
+  const serviceTiers = await hasColumn("car_bookings", "service_tier") && await hasColumn("vehicles", "accepts_convenient") ? settings.servicePricing : null;
+  return c.json({ onDemandEnabled: settings.onDemandEnabled, matchingMode: settings.matchingMode, scheduled, carpool, selfDrive, serviceTiers, vehiclePhotos: settings.vehiclePhotos, kyc: settings.kyc, deals: settings.deals.enabled && (await hasTable("driver_requests")) && (await hasColumn("vehicle_assignments", "fee_type")) ? { shareEnabled: settings.deals.shareEnabled, rentEnabled: settings.deals.rentEnabled, minOwnerSharePercent: settings.deals.minOwnerSharePercent, maxOwnerSharePercent: settings.deals.maxOwnerSharePercent, maxRentPerDay: settings.deals.maxRentPerDay } : null, categories: categories.rows });
+});
+
+carRoutes.get("/car/service-options", async (c) => {
+  if (!(await hasColumn("car_bookings", "service_tier")) || !(await hasColumn("vehicles", "accepts_convenient"))) return c.json({ error: "tiers_unavailable" }, 503);
+  const parsed = z.object({ pickupLat: z.coerce.number().min(-90).max(90), pickupLng: z.coerce.number().min(-180).max(180), destinationLat: z.coerce.number().min(-90).max(90), destinationLng: z.coerce.number().min(-180).max(180) }).safeParse(c.req.query());
+  if (!parsed.success) return c.json({ error: "invalid_location" }, 400);
+  const settings = await getCarSettings();
+  const pricing = settings.servicePricing!;
+  const t = parsed.data;
+  const distanceKm = haversineKm(t.pickupLat, t.pickupLng, t.destinationLat, t.destinationLng);
+  const counts = await nearbyTierCounts(t.pickupLat, t.pickupLng, settings.maxPickupKm, pricing.xlMinSeats);
+  return c.json({ distanceKm: Math.round(distanceKm * 10) / 10, options: (["convenient", "comfort", "xl"] as const).map((tier) => ({ tier, fare: tierFare(distanceKm, tier, pricing), nearby: counts[tier] })) });
 });
 
 // ---- Who am I: owner / driver status, vehicles, current car -----------------
@@ -125,6 +139,7 @@ const vehicleSchema = z.object({
   colour: z.string().trim().max(40).optional(),
   modelCatalogId: z.string().max(80).optional(),
   serviceClass: z.enum(["convenient", "comfort"]).default("convenient"),
+  acceptsConvenient: z.boolean().default(false),
   conditionGrade: z.enum(["excellent", "good", "fair"]).default("good"),
   seatCapacity: z.number().int().min(1).max(50).optional(),
   lastServiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -157,9 +172,11 @@ carRoutes.post("/car/vehicles", async (c) => {
     const make = model?.make ?? parsed.data.make ?? null;
     const modelName = model ? `${model.model}${model.variant ? ` ${model.variant}` : ""}` : parsed.data.model ?? null;
     if (profileReady) {
+      const allowsConvenient = parsed.data.serviceClass === "comfort" && parsed.data.acceptsConvenient;
+      const hasPreference = await hasColumn("vehicles", "accepts_convenient");
       await db.execute({
-        sql: "INSERT INTO vehicles (id, owner_id, category_id, plate, make, model, year, colour, model_catalog_id, service_class, condition_grade, seat_capacity, features_json, last_service_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        args: [id, user.sub, parsed.data.categoryId, parsed.data.plate, make, modelName, parsed.data.year ?? null, parsed.data.colour ?? null, model?.id ?? null, parsed.data.serviceClass, parsed.data.conditionGrade, parsed.data.seatCapacity ?? model?.seats ?? null, JSON.stringify(parsed.data.features), parsed.data.lastServiceDate ?? null],
+        sql: `INSERT INTO vehicles (id, owner_id, category_id, plate, make, model, year, colour, model_catalog_id, service_class, condition_grade, seat_capacity, features_json, last_service_date${hasPreference ? ", accepts_convenient" : ""}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${hasPreference ? ", ?" : ""})`,
+        args: [id, user.sub, parsed.data.categoryId, parsed.data.plate, make, modelName, parsed.data.year ?? null, parsed.data.colour ?? null, model?.id ?? null, parsed.data.serviceClass, parsed.data.conditionGrade, parsed.data.seatCapacity ?? model?.seats ?? null, JSON.stringify(parsed.data.features), parsed.data.lastServiceDate ?? null, ...(hasPreference ? [allowsConvenient ? 1 : 0] : [])],
       });
     } else {
       await db.execute({ sql: "INSERT INTO vehicles (id, owner_id, category_id, plate, make, model, year, colour) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", args: [id, user.sub, parsed.data.categoryId, parsed.data.plate, make, modelName, parsed.data.year ?? null, parsed.data.colour ?? null] });
@@ -168,6 +185,15 @@ carRoutes.post("/car/vehicles", async (c) => {
     return c.json({ error: "plate_taken", message: "A vehicle with that number plate is already registered." }, 409);
   }
   return c.json({ id }, 201);
+});
+
+carRoutes.patch("/car/vehicles/:id/ride-service", async (c) => {
+  if (!(await hasColumn("vehicles", "accepts_convenient"))) return c.json({ error: "tiers_unavailable" }, 503);
+  const parsed = z.object({ serviceClass: z.enum(["convenient", "comfort"]), acceptsConvenient: z.boolean() }).safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body" }, 400);
+  const owner = c.get("user");
+  const updated = await db.execute({ sql: "UPDATE vehicles SET service_class = ?, accepts_convenient = ? WHERE id = ? AND owner_id = ?", args: [parsed.data.serviceClass, parsed.data.serviceClass === "comfort" && parsed.data.acceptsConvenient ? 1 : 0, c.req.param("id"), owner.sub] });
+  return updated.rowsAffected ? c.json({ ok: true }) : c.json({ error: "not_found" }, 404);
 });
 
 /** The owner's view of rides being taken in their vehicles, current first. */
@@ -243,18 +269,20 @@ carRoutes.post("/car/driver/location", async (c) => {
 });
 
 /** The driver's own state: online with an approved, assigned vehicle. */
-async function onlineDriver(userId: string): Promise<{ vehicleId: string; categoryId: string; lat: number | null; lng: number | null } | null> {
+async function onlineDriver(userId: string): Promise<{ vehicleId: string; categoryId: string; categoryKind: unknown; serviceClass: unknown; acceptsConvenient: unknown; seatCapacity: unknown; lat: number | null; lng: number | null } | null> {
+  const preference = await hasColumn("vehicles", "accepts_convenient");
   const res = await db.execute({
-    sql: `SELECT s.vehicle_id, s.lat, s.lng, v.category_id FROM car_driver_state s
+    sql: `SELECT s.vehicle_id, s.lat, s.lng, v.category_id, cat.kind AS category_kind, v.service_class, v.seat_capacity, ${preference ? "v.accepts_convenient" : "0 AS accepts_convenient"} FROM car_driver_state s
           JOIN car_partners p ON p.user_id = s.driver_id AND p.driver_status = 'approved'
           JOIN vehicles v ON v.id = s.vehicle_id AND v.status = 'approved'
+          JOIN vehicle_categories cat ON cat.id = v.category_id
           JOIN vehicle_assignments a ON a.vehicle_id = v.id AND a.driver_id = s.driver_id AND a.status = 'active'
           WHERE s.driver_id = ? AND s.online = 1`,
     args: [userId],
   });
   const row = res.rows[0] as Row | undefined;
   if (!row) return null;
-  return { vehicleId: String(row.vehicle_id), categoryId: String(row.category_id), lat: row.lat as number | null, lng: row.lng as number | null };
+  return { vehicleId: String(row.vehicle_id), categoryId: String(row.category_id), categoryKind: row.category_kind, serviceClass: row.service_class, acceptsConvenient: row.accepts_convenient, seatCapacity: row.seat_capacity, lat: row.lat as number | null, lng: row.lng as number | null };
 }
 
 /** Open car rides for the driver's vehicle category, nearest first. */
@@ -267,10 +295,11 @@ carRoutes.get("/car/driver/jobs", async (c) => {
   const environment = await getPlatformEnvironment();
   const openSql = await openForDriversSql(carSettings.scheduled.openMinutes);
   const scheduledSelect = (await hasColumn("car_bookings", "scheduled_for")) ? "b.scheduled_for" : "NULL";
+  const tiersReady = await hasColumn("car_bookings", "service_tier");
   const res = await db.execute({
-    sql: `SELECT o.*, b.category_id, ${scheduledSelect} AS scheduled_for, cu.name AS customer_name FROM car_bookings b
+    sql: `SELECT o.*, b.category_id, ${tiersReady ? "b.service_tier" : "NULL AS service_tier"}, ${scheduledSelect} AS scheduled_for, cu.name AS customer_name FROM car_bookings b
           JOIN orders o ON o.id = b.order_id JOIN users cu ON cu.id = o.customer_id
-          WHERE b.category_id = ? AND b.status = 'requested' AND o.rider_id IS NULL AND o.stage IN ('Create', 'Match')
+          WHERE ${tiersReady ? "(b.category_id = ? OR b.service_tier IS NOT NULL)" : "b.category_id = ?"} AND b.status = 'requested' AND o.rider_id IS NULL AND o.stage IN ('Create', 'Match')
           AND o.environment = ? ${openSql}
           AND o.id NOT IN (SELECT order_id FROM order_rider_exclusions WHERE rider_id = ?)`,
     args: [driver.categoryId, environment, user.sub],
@@ -281,6 +310,7 @@ carRoutes.get("/car/driver/jobs", async (c) => {
   const bidCtx = await loadBiddingContext();
   const modes = [...new Set([...bidCtx.enabledModes, "customer_selects" as const])];
   const jobs = (res.rows as Row[])
+    .filter((o) => !o.service_tier || (driver.categoryKind === "passenger" && driver.lat != null && driver.lng != null && acceptsTier({ service_class: driver.serviceClass, accepts_convenient: driver.acceptsConvenient, seat_capacity: driver.seatCapacity, lat: driver.lat, lng: driver.lng }, o.service_tier as CarServiceTier, carSettings.servicePricing!.xlMinSeats)))
     .map((o) => {
       const point = orderMatchPoint(o);
       const km = point && driver.lat != null && driver.lng != null ? haversineKm(point.lat, point.lng, driver.lat, driver.lng) : null;
@@ -295,6 +325,7 @@ carRoutes.get("/car/driver/jobs", async (c) => {
           destinationAddress: o.destination_address,
           distanceKm: o.distance_km,
           fare: o.estimated_total,
+          serviceTier: o.service_tier ?? null,
           pickupDistanceKm: km != null ? Math.round(km * 10) / 10 : null,
           matchingMode: o.matching_mode,
           scheduledFor: o.scheduled_for ? new Date(`${String(o.scheduled_for).replace(" ", "T")}Z`).toISOString() : null,
@@ -305,7 +336,7 @@ carRoutes.get("/car/driver/jobs", async (c) => {
       };
     })
     .filter((e) => e.visible)
-    .sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity));
+    .sort((a, b) => (driver.serviceClass === "comfort" ? Number(b.job.serviceTier === "comfort") - Number(a.job.serviceTier === "comfort") : 0) || (a.km ?? Infinity) - (b.km ?? Infinity));
   return c.json({ jobs: jobs.map((e) => e.job) });
 });
 
@@ -343,7 +374,13 @@ carRoutes.post("/car/orders/:id/apply", async (c) => {
   const driver = await onlineDriver(user.sub);
   if (!driver) return c.json({ error: "not_online", message: "Go online with your assigned vehicle first." }, 409);
 
-  const order = (await db.execute({ sql: "SELECT o.* FROM orders o JOIN car_bookings b ON b.order_id = o.id WHERE o.id = ? AND b.category_id = ?", args: [id, driver.categoryId] })).rows[0] as Row | undefined;
+  const tierColumn = await hasColumn("car_bookings", "service_tier");
+  const booking = (await db.execute({ sql: `SELECT o.*, b.category_id${tierColumn ? ", b.service_tier" : ""} FROM orders o JOIN car_bookings b ON b.order_id = o.id WHERE o.id = ?`, args: [id] })).rows[0] as Row | undefined;
+  const settings = await getCarSettings();
+  const eligible = booking && (booking.service_tier
+    ? driver.categoryKind === "passenger" && driver.lat != null && driver.lng != null && acceptsTier({ service_class: driver.serviceClass, accepts_convenient: driver.acceptsConvenient, seat_capacity: driver.seatCapacity, lat: driver.lat, lng: driver.lng }, booking.service_tier as CarServiceTier, settings.servicePricing!.xlMinSeats)
+    : booking.category_id === driver.categoryId);
+  const order = eligible ? booking : undefined;
   if (!order) return c.json({ error: "not_found" }, 404);
   if (order.rider_id || !["Create", "Match"].includes(String(order.stage))) return c.json({ error: "already_claimed", message: "This ride has already been taken." }, 409);
   if (order.matching_mode !== "customer_selects") return c.json({ error: "wrong_mode", message: "This ride is assigned automatically." }, 409);
@@ -389,8 +426,9 @@ carRoutes.post("/car/orders/:id/apply", async (c) => {
 
 // ---- Customer: quote and book --------------------------------------------------
 
-const tripSchema = z.object({
-  categoryId: z.string().min(1),
+const tripFields = z.object({
+  categoryId: z.string().min(1).optional(),
+  serviceTier: z.enum(["convenient", "comfort", "xl"]).optional(),
   pickupArea: z.string().max(120).optional(),
   pickupAddress: z.string().max(240).optional(),
   pickupLat: z.number().min(-90).max(90),
@@ -400,9 +438,11 @@ const tripSchema = z.object({
   destinationLat: z.number().min(-90).max(90),
   destinationLng: z.number().min(-180).max(180),
 });
+const oneService = (t: { categoryId?: string; serviceTier?: CarServiceTier }) => Boolean(t.categoryId) !== Boolean(t.serviceTier);
+const tripSchema = tripFields.refine(oneService, { message: "Choose one car service." });
 
 /** Booking-only: who rides, when it isn't the booker. */
-const bookingSchema = tripSchema.extend({ scheduledFor: z.string().max(40).optional(), passenger: passengerSchema.optional() });
+const bookingSchema = tripFields.extend({ scheduledFor: z.string().max(40).optional(), passenger: passengerSchema.optional() }).refine(oneService, { message: "Choose one car service." });
 
 async function activeCategory(id: string): Promise<Row | undefined> {
   return (await db.execute({ sql: "SELECT * FROM vehicle_categories WHERE id = ? AND active = 1", args: [id] })).rows[0] as Row | undefined;
@@ -411,9 +451,14 @@ async function activeCategory(id: string): Promise<Row | undefined> {
 carRoutes.post("/car/quote", async (c) => {
   const parsed = tripSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
-  const category = await activeCategory(parsed.data.categoryId);
-  if (!category) return c.json({ error: "invalid_category" }, 400);
   const distanceKm = haversineKm(parsed.data.pickupLat, parsed.data.pickupLng, parsed.data.destinationLat, parsed.data.destinationLng);
+  if (parsed.data.serviceTier) {
+    if (!(await hasColumn("car_bookings", "service_tier")) || !(await hasColumn("vehicles", "accepts_convenient"))) return c.json({ error: "tiers_unavailable" }, 503);
+    const pricing = (await getCarSettings()).servicePricing!;
+    return c.json({ fare: tierFare(distanceKm, parsed.data.serviceTier, pricing), distanceKm: Math.round(distanceKm * 10) / 10 });
+  }
+  const category = await activeCategory(parsed.data.categoryId!);
+  if (!category) return c.json({ error: "invalid_category" }, 400);
   return c.json({ fare: quoteFare(category, distanceKm), distanceKm: Math.round(distanceKm * 10) / 10 });
 });
 
@@ -425,7 +470,11 @@ carRoutes.post("/car/bookings", async (c) => {
   const settings = await getCarSettings();
   const parsed = bookingSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
-  const category = await activeCategory(parsed.data.categoryId);
+  const isTier = Boolean(parsed.data.serviceTier);
+  if (isTier && (!(await hasColumn("car_bookings", "service_tier")) || !(await hasColumn("vehicles", "accepts_convenient")))) return c.json({ error: "tiers_unavailable" }, 503);
+  const category = isTier
+    ? (await db.execute("SELECT * FROM vehicle_categories WHERE active = 1 AND kind = 'passenger' ORDER BY sort ASC LIMIT 1")).rows[0] as Row | undefined
+    : await activeCategory(parsed.data.categoryId!);
   if (!category) return c.json({ error: "invalid_category" }, 400);
 
   // "Later": a pickup time inside the admin's window. "Now": needs book-now switched on.
@@ -441,14 +490,18 @@ carRoutes.post("/car/bookings", async (c) => {
 
   const t = parsed.data;
   const distanceKm = haversineKm(t.pickupLat, t.pickupLng, t.destinationLat, t.destinationLng);
-  const fare = quoteFare(category, distanceKm);
+  const fare = isTier ? tierFare(distanceKm, parsed.data.serviceTier!, settings.servicePricing!) : quoteFare(category, distanceKm);
   if (fare <= 0) return c.json({ error: "no_price", message: "This car type has no price set yet." }, 409);
+  if (isTier && !parsed.data.scheduledFor) {
+    const counts = await nearbyTierCounts(t.pickupLat, t.pickupLng, settings.maxPickupKm, settings.servicePricing!.xlMinSeats);
+    if (counts[parsed.data.serviceTier!] === 0) return c.json({ error: "no_nearby_car", message: "No car in this service is nearby. Choose an available service." }, 409);
+  }
 
   const environment = await getPlatformEnvironment();
   const listId = newId("list");
   await db.execute({
     sql: "INSERT INTO lists (id, customer_id, title, status, environment) VALUES (?, ?, ?, 'draft', ?)",
-    args: [listId, user.sub, `${String(category.name)} ride`, environment],
+    args: [listId, user.sub, `${isTier ? `${parsed.data.serviceTier![0].toUpperCase()}${parsed.data.serviceTier!.slice(1)}` : String(category.name)} ride`, environment],
   });
 
   const response = await createOrderFromInput(
@@ -484,8 +537,8 @@ carRoutes.post("/car/bookings", async (c) => {
 
   const body = (await response.clone().json()) as { order: Row };
   await db.execute({
-    sql: "INSERT INTO car_bookings (id, order_id, customer_id, category_id, environment) VALUES (?, ?, ?, ?, ?)",
-    args: [newId("cbk"), String(body.order.id), user.sub, parsed.data.categoryId, environment],
+    sql: `INSERT INTO car_bookings (id, order_id, customer_id, category_id, environment${isTier ? ", service_tier" : ""}) VALUES (?, ?, ?, ?, ?${isTier ? ", ?" : ""})`,
+    args: [newId("cbk"), String(body.order.id), user.sub, String(category.id), environment, ...(isTier ? [parsed.data.serviceTier!] : [])],
   });
   if (scheduledAt) {
     await db.execute({ sql: "UPDATE car_bookings SET scheduled_for = ? WHERE order_id = ?", args: [scheduledAt, String(body.order.id)] });
