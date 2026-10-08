@@ -635,12 +635,12 @@ function ItemDetailPage({
     <div className="menu-item-detail-page">
       <main className={`menu-item-detail-page__content${cartOpen ? " is-shifted" : ""}`}>
         <div className="menu-item-floating-controls">
+          <button type="button" className="menu-item-back-trigger" aria-label={t("restaurant_back_to_menu")} onClick={onBack}>
+            <ChevronLeft size={24} aria-hidden="true" />
+          </button>
           <button ref={cartTriggerRef} type="button" className="menu-item-cart-trigger" aria-label={`Open cart, ${cartCount} ${cartCount === 1 ? "item" : "items"}`} aria-expanded={cartOpen} onClick={() => setCartOpen(true)}>
             <ShoppingCart size={21} strokeWidth={2} aria-hidden="true" />
             <span className="menu-item-cart-trigger__count" aria-live="polite">{cartCount}</span>
-          </button>
-          <button type="button" className="menu-item-back-trigger" aria-label={t("restaurant_back_to_menu")} onClick={onBack}>
-            <ChevronLeft size={24} aria-hidden="true" />
           </button>
         </div>
         <div
