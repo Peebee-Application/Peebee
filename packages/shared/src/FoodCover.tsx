@@ -16,16 +16,19 @@ export function FoodCover({id,name,description,coverKey,loadCover,previewUrl,men
     const update = () => {
       frame = 0;
       const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      const progress = Math.min(1, Math.max(0, window.scrollY / maxScroll));
+      const scrollY = Math.max(0, window.scrollY);
+      // The theme wash should react immediately, fill the whole cover by 100px,
+      // and stay there until the page returns through that same first 100px.
+      const coverProgress = Math.min(1, scrollY / 100);
+      // Keep parallax tied to the full page so it continues moving gently.
+      const pageProgress = Math.min(1, scrollY / maxScroll);
       const theme = getComputedStyle(document.documentElement);
       const maxShade = Number.parseFloat(theme.getPropertyValue("--restaurant-cover-scroll-max-shade")) || 0;
       const maxBlur = Number.parseFloat(theme.getPropertyValue("--restaurant-cover-scroll-max-blur")) || 0;
-      const clearStart = Math.max(0, figure.clientHeight * 0.34 - 50);
       const parallaxDistance = Math.min(72, figure.clientHeight * 0.08);
-      figure.style.setProperty("--restaurant-cover-scroll-shade", String(progress * maxShade));
-      figure.style.setProperty("--restaurant-cover-scroll-blur", `${progress * maxBlur}px`);
-      figure.style.setProperty("--restaurant-cover-scroll-start", `${clearStart * (1 - progress)}px`);
-      figure.style.setProperty("--restaurant-cover-parallax-y", `${-progress * parallaxDistance}px`);
+      figure.style.setProperty("--restaurant-cover-scroll-shade", String(coverProgress * maxShade));
+      figure.style.setProperty("--restaurant-cover-scroll-blur", `${coverProgress * maxBlur}px`);
+      figure.style.setProperty("--restaurant-cover-parallax-y", `${-pageProgress * parallaxDistance}px`);
     };
     const scheduleUpdate = () => {
       if (!frame) frame = window.requestAnimationFrame(update);
