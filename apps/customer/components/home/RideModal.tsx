@@ -47,6 +47,9 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [pricing, setPricing] = useState<{ ratePerKm: number; minimum: number } | null>(null);
   // Peebee Car: only offered when an admin has switched it on and added a car type.
   const [cars, setCars] = useState<CarCategory[]>([]);
+  const [tierPricing, setTierPricing] = useState<{ ratePerKm: number; minimumFare: number; comfortPremiumPercent: number; xlPremiumPercent: number; xlMinSeats: number } | null>(null);
+  const [tier, setTier] = useState<"convenient" | "comfort" | "xl">("convenient");
+  const [tierOptions, setTierOptions] = useState<Array<{ tier: "convenient" | "comfort" | "xl"; fare: number; nearby: number }>>([]);
   const [schedule, setSchedule] = useState<{ maxAdvanceHours: number | null; minLeadMinutes: number } | null>(null);
   const [when, setWhen] = useState<"now" | "later">("now");
   const [nowOk, setNowOk] = useState(true);
@@ -79,6 +82,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
       .getCarConfig()
       .then((cfg) => {
         setCars(cfg.onDemandEnabled || cfg.scheduled ? cfg.categories : []);
+        setTierPricing(cfg.serviceTiers ?? null);
         setCarpoolOn(!!cfg.carpool);
         setRentOn(!!cfg.selfDrive);
         setSchedule(cfg.scheduled);
@@ -92,6 +96,15 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const d = route?.destination;
   const distanceKm = p?.lat != null && p.lng != null && d?.lat != null && d.lng != null ? haversineKm(p.lat, p.lng, d.lat, d.lng) : null;
   const liveEstimate = distanceKm != null && pricing != null ? roundFare(distanceKm * pricing.ratePerKm, pricing.minimum) : null;
+
+  useEffect(() => {
+    if (!tierPricing || !p || !d || p.lat == null || p.lng == null || d.lat == null || d.lng == null) return;
+    let active = true;
+    api.getCarServiceOptions({ pickupLat: p.lat, pickupLng: p.lng, destinationLat: d.lat, destinationLng: d.lng })
+      .then((result) => { if (active) setTierOptions(result.options); })
+      .catch(() => { if (active) setTierOptions([]); });
+    return () => { active = false; };
+  }, [tierPricing, p?.lat, p?.lng, d?.lat, d?.lng]);
 
   if (choosing || !route) {
     return (
@@ -117,10 +130,10 @@ export function RideModal({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      if (mode === "car" && carId) {
+      if (mode === "car" && (tierPricing || carId)) {
         if (pf.lat == null || pf.lng == null || df.lat == null || df.lng == null) throw new Error("Please pin both places on the map.");
         const { order } = await api.bookCar({
-          categoryId: carId,
+          ...(tierPricing ? { serviceTier: tier } : { categoryId: carId! }),
           pickupArea: pf.area,
           pickupAddress: pf.address,
           pickupLat: pf.lat,
@@ -236,8 +249,24 @@ export function RideModal({ onClose }: { onClose: () => void }) {
                 )}
               </div>
             )}
-            <p className="text-xs font-semibold text-ink-500">{t("car_choose_type")}</p>
-            {cars.map((c) => {
+            {tierPricing ? <>
+              <p className="text-xs font-semibold text-ink-500">Choose your Peebee Car service</p>
+              {tierOptions.map((option) => (
+                <button key={option.tier} type="button" onClick={() => setTier(option.tier)} aria-pressed={tier === option.tier}
+                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left ${tier === option.tier ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"}`}>
+                  <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-ink">{option.tier === "xl" ? `XL · ${tierPricing.xlMinSeats}+ seats` : option.tier === "comfort" ? "Comfort" : "Convenient"}</span>
+                    <span className="block text-xs text-ink-500">{option.nearby > 0 ? `${option.nearby} nearby` : "No cars nearby"}{option.tier === "comfort" ? ` · ${tierPricing.comfortPremiumPercent}% above Convenient` : option.tier === "xl" ? ` · ${tierPricing.xlPremiumPercent}% above Convenient` : " · standard distance fare"}</span></span>
+                  <span className="text-sm font-bold text-ink">UGX {option.fare.toLocaleString("en-UG")}</span>
+                </button>
+              ))}
+              {tierOptions.length === 0 && <p className="text-sm text-ink-500">Checking nearby cars and prices…</p>}
+              {when === "now" && tierOptions.find((o) => o.tier === tier)?.nearby === 0 && (() => {
+                const alternate = tierOptions.filter((o) => o.tier !== tier && o.nearby > 0).sort((a, b) => a.fare - b.fare)[0];
+                return alternate ? <div className="rounded-xl bg-gold/10 p-3 text-sm text-ink">No {tier === "xl" ? "XL" : tier} car is nearby. {alternate.tier === "xl" ? "XL" : alternate.tier} is available for UGX {alternate.fare.toLocaleString("en-UG")}.
+                  <button type="button" onClick={() => setTier(alternate.tier)} className="mt-2 block font-bold text-gold">Choose {alternate.tier === "xl" ? "XL" : alternate.tier}</button></div>
+                  : <p className="rounded-xl bg-gold/10 p-3 text-sm text-ink">No Peebee Car driver is nearby right now. Try again shortly.</p>;
+              })()}
+            </> : <><p className="text-xs font-semibold text-ink-500">{t("car_choose_type")}</p>{cars.map((c) => {
               const fare = carFare(c);
               const selected = carId === c.id;
               return (
@@ -256,7 +285,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
                   {fare != null && <span className="text-sm font-bold text-ink">UGX {fare.toLocaleString("en-UG")}</span>}
                 </button>
               );
-            })}
+            })}</>}
           </div>
         ) : !carMenuOpen && liveEstimate != null ? (
           <div className="flex items-center gap-2 rounded-xl border border-gold bg-gold/10 p-3">
@@ -280,7 +309,7 @@ export function RideModal({ onClose }: { onClose: () => void }) {
 
         {(!carMenuOpen || cars.length > 0) && <button
           onClick={submit}
-          disabled={busy || (mode === "car" && (!carId || (when === "later" && !pickupAt)))}
+          disabled={busy || (mode === "car" && (tierPricing ? tierOptions.length === 0 || (when === "now" && !tierOptions.find((o) => o.tier === tier)?.nearby) : !carId) || (when === "later" && !pickupAt))}
           className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
         >
           {busy ? "Please wait…" : "Next: payment"}

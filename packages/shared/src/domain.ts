@@ -220,6 +220,7 @@ export type CarSettings = {
   shares: { owner: number; driver: number; platform: number };
   /** A driver further than this from the pickup isn't offered the ride. */
   maxPickupKm: number;
+  servicePricing?: { ratePerKm: number; minimumFare: number; comfortPremiumPercent: number; xlPremiumPercent: number; xlMinSeats: number };
   /** Owners and drivers may cash their ride earnings out to mobile money. */
   withdrawalsEnabled: boolean;
   /** Smallest withdrawal in UGX; 0 = none. */
@@ -2094,6 +2095,7 @@ export type CarCategory = {
 
 export type CarConfig = {
   onDemandEnabled: boolean;
+  serviceTiers?: { ratePerKm: number; minimumFare: number; comfortPremiumPercent: number; xlPremiumPercent: number; xlMinSeats: number } | null;
   /** Photos per vehicle: the most an owner can add, and how many are needed before approval. */
   vehiclePhotos?: { max: number; minRequired: number };
   /** Which identity documents are needed before approval. */
@@ -2111,7 +2113,8 @@ export type CarConfig = {
 };
 
 export type CarBookingInput = {
-  categoryId: string;
+  categoryId?: string;
+  serviceTier?: "convenient" | "comfort" | "xl";
   pickupArea?: string;
   pickupAddress?: string;
   pickupLat: number;
@@ -2301,7 +2304,7 @@ export type CarMe = {
   documents: { national_id: boolean; licence: boolean };
   ownerStatus: CarPartnerStatus;
   driverStatus: CarPartnerStatus;
-  vehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; status: string; category_name: string; driver_id: string | null; driver_name: string | null; photos: string[]; service_class?: "convenient" | "comfort"; condition_grade?: "excellent" | "good" | "fair"; seat_capacity?: number | null; last_service_date?: string | null }>;
+  vehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; status: string; category_name: string; driver_id: string | null; driver_name: string | null; photos: string[]; service_class?: "convenient" | "comfort"; accepts_convenient?: number; condition_grade?: "excellent" | "good" | "fair"; seat_capacity?: number | null; last_service_date?: string | null }>;
   assignedVehicles: Array<{ id: string; plate: string; make: string | null; model: string | null; category_name: string }>;
   online: boolean;
   activeVehicleId: string | null;
@@ -2309,6 +2312,7 @@ export type CarMe = {
 
 export type CarDriverJob = {
   id: string;
+  serviceTier?: "convenient" | "comfort" | "xl" | null;
   customerName: string;
   pickupAddress: string | null;
   destinationAddress: string | null;

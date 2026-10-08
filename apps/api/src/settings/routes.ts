@@ -277,6 +277,13 @@ const updateSchema = z.object({
         platform: z.number().int().min(0).max(100),
       }),
       maxPickupKm: z.number().int().min(1).max(200),
+      servicePricing: z.object({
+        ratePerKm: z.number().int().min(1).max(1_000_000),
+        minimumFare: z.number().int().min(0).max(1_000_000),
+        comfortPremiumPercent: z.number().int().min(0).max(200),
+        xlPremiumPercent: z.number().int().min(0).max(300),
+        xlMinSeats: z.number().int().min(6).max(20),
+      }).optional(),
       scheduled: z.object({
         enabled: z.boolean(),
         maxAdvanceHours: z.number().int().min(1).max(24 * 90).nullable(),

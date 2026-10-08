@@ -5,6 +5,7 @@ import { hasColumn, hasTable } from "../lib/schema.js";
 import { getCarSettings, getPlatformEnvironment, type CarShares } from "../lib/settings.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
 import { newId } from "../lib/ids.js";
+import { acceptsTier, type CarServiceTier } from "./tiers.js";
 
 type Row = Record<string, unknown>;
 
@@ -104,7 +105,8 @@ export async function findCarCandidate(
   orderId: string,
   order: Row,
 ): Promise<{ riderId: string; riderName: string; outOfRange: boolean } | null> {
-  const booking = (await db.execute({ sql: "SELECT category_id FROM car_bookings WHERE order_id = ?", args: [orderId] })).rows[0] as Row | undefined;
+  const tierColumn = await hasColumn("car_bookings", "service_tier");
+  const booking = (await db.execute({ sql: `SELECT category_id${tierColumn ? ", service_tier" : ""} FROM car_bookings WHERE order_id = ?`, args: [orderId] })).rows[0] as Row | undefined;
   if (!booking) return null;
   const carSettings = await getCarSettings();
   const { maxPickupKm } = carSettings;
@@ -113,24 +115,31 @@ export async function findCarCandidate(
     const sched = (await db.execute({ sql: "SELECT scheduled_for FROM car_bookings WHERE order_id = ?", args: [orderId] })).rows[0] as Row | undefined;
     if (sched?.scheduled_for && new Date(`${String(sched.scheduled_for).replace(" ", "T")}Z`).getTime() > Date.now() + carSettings.scheduled.openMinutes * 60000) return null;
   }
+  const tier = booking.service_tier as CarServiceTier | undefined;
+  const preference = tier && await hasColumn("vehicles", "accepts_convenient");
   const eligible = await db.execute({
-    sql: `SELECT u.id, u.name, s.lat, s.lng FROM car_driver_state s
+    sql: `SELECT u.id, u.name, s.lat, s.lng${tier ? ", v.service_class, v.seat_capacity" : ""}${preference ? ", v.accepts_convenient" : ""} FROM car_driver_state s
           JOIN users u ON u.id = s.driver_id
           JOIN car_partners p ON p.user_id = s.driver_id AND p.driver_status = 'approved'
-          JOIN vehicles v ON v.id = s.vehicle_id AND v.status = 'approved' AND v.category_id = ?
+          JOIN vehicles v ON v.id = s.vehicle_id AND v.status = 'approved' ${tier ? "" : "AND v.category_id = ?"}
+          ${tier ? "JOIN vehicle_categories cat ON cat.id = v.category_id AND cat.kind = 'passenger'" : ""}
           JOIN vehicle_assignments a ON a.vehicle_id = v.id AND a.driver_id = s.driver_id AND a.status = 'active'
           WHERE s.online = 1
           AND u.id NOT IN (SELECT rider_id FROM orders WHERE rider_id IS NOT NULL AND stage NOT IN ('Settle', 'Cancelled') AND environment = ?)
           AND u.id NOT IN (SELECT rider_id FROM order_rider_exclusions WHERE order_id = ?)`,
-    args: [String(booking.category_id), String(order.environment), orderId],
+    args: [...(tier ? [] : [String(booking.category_id)]), String(order.environment), orderId],
   });
   const lat = order.pickup_lat as number | null;
   const lng = order.pickup_lng as number | null;
-  let best: { row: Row; km: number | null } | null = null;
+  let best: { row: Row; km: number | null; priority: number } | null = null;
   for (const row of eligible.rows as Row[]) {
+    if (tier && !acceptsTier(row as { service_class: unknown; accepts_convenient: unknown; seat_capacity: unknown; lat: unknown; lng: unknown }, tier, carSettings.servicePricing!.xlMinSeats)) continue;
+    if (tier && (row.lat == null || row.lng == null)) continue;
     const km = lat != null && lng != null && row.lat != null && row.lng != null ? haversineKm(lat, lng, Number(row.lat), Number(row.lng)) : null;
     if (km != null && km > maxPickupKm) continue;
-    if (!best || (km != null && (best.km == null || km < best.km))) best = { row, km };
+    // Keep Comfort cars for Comfort requests when a Convenient car can serve this ride.
+    const priority = tier === "convenient" && row.service_class === "comfort" ? 1 : 0;
+    if (!best || priority < best.priority || (priority === best.priority && km != null && (best.km == null || km < best.km))) best = { row, km, priority };
   }
   return best ? { riderId: String(best.row.id), riderName: String(best.row.name), outOfRange: false } : null;
 }

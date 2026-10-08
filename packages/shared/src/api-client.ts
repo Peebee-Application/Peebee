@@ -1591,6 +1591,10 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async getCarConfig() {
       return request<CarConfig>("/v1/car/config");
     },
+    async getCarServiceOptions(route: { pickupLat: number; pickupLng: number; destinationLat: number; destinationLng: number }) {
+      const params = new URLSearchParams(Object.entries(route).map(([key, value]) => [key, String(value)]));
+      return request<{ distanceKm: number; options: Array<{ tier: "convenient" | "comfort" | "xl"; fare: number; nearby: number }> }>(`/v1/car/service-options?${params}`);
+    },
     async bookCar(input: CarBookingInput & { scheduledFor?: string }) {
       return request<{ order: OrderRow }>("/v1/car/bookings", { method: "POST", body: JSON.stringify(input) });
     },
@@ -1622,8 +1626,11 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async carReleaseVehicle(vehicleId: string) {
       return request<{ ok: true }>(`/v1/car/vehicles/${vehicleId}/release`, { method: "POST" });
     },
-    async carAddVehicle(input: { categoryId: string; plate: string; make?: string; model?: string; year?: number; colour?: string; modelCatalogId?: string; serviceClass?: "convenient" | "comfort"; conditionGrade?: "excellent" | "good" | "fair"; seatCapacity?: number; lastServiceDate: string; features?: string[] }) {
+    async carAddVehicle(input: { categoryId: string; plate: string; make?: string; model?: string; year?: number; colour?: string; modelCatalogId?: string; serviceClass?: "convenient" | "comfort"; acceptsConvenient?: boolean; conditionGrade?: "excellent" | "good" | "fair"; seatCapacity?: number; lastServiceDate: string; features?: string[] }) {
       return request<{ id: string }>("/v1/car/vehicles", { method: "POST", body: JSON.stringify(input) });
+    },
+    async carUpdateRideService(vehicleId: string, serviceClass: "convenient" | "comfort", acceptsConvenient: boolean) {
+      return request<{ ok: true }>(`/v1/car/vehicles/${vehicleId}/ride-service`, { method: "PATCH", body: JSON.stringify({ serviceClass, acceptsConvenient }) });
     },
     async carOwnerRides() {
       return request<CarOwnerRides>("/v1/car/owner/rides");

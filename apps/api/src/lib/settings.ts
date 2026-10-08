@@ -274,6 +274,11 @@ const DEFAULTS = {
   car_share_platform_percent: "10",
   /** A driver further than this from the pickup isn't offered the ride. */
   car_driver_max_pickup_km: "10",
+  car_convenient_rate_per_km: "2000",
+  car_convenient_minimum_fare: "8000",
+  car_comfort_premium_percent: "30",
+  car_xl_premium_percent: "50",
+  car_xl_min_seats: "6",
   /** Owners and drivers can cash their ride earnings out to mobile money. */
   /** Scheduled rides: book now, pick up later. Needs a booking window (hours)
    * to be set before it works; empty = off. */
@@ -353,6 +358,7 @@ export type CarSettings = {
   matchingMode: CarMatchingMode;
   shares: CarShares;
   maxPickupKm: number;
+  servicePricing?: { ratePerKm: number; minimumFare: number; comfortPremiumPercent: number; xlPremiumPercent: number; xlMinSeats: number };
   withdrawalsEnabled: boolean;
   withdrawalMinAmount: number;
   scheduled: CarScheduledSettings;
@@ -402,6 +408,18 @@ export type CarScheduledSettings = {
   noSignalMinutes: number;
   avgSpeedKmh: number;
 };
+
+export async function getCarServicePricing(): Promise<NonNullable<CarSettings["servicePricing"]>> {
+  const [rate, minimum, comfort, xl, seats] = await Promise.all([
+    getSetting("car_convenient_rate_per_km"), getSetting("car_convenient_minimum_fare"),
+    getSetting("car_comfort_premium_percent"), getSetting("car_xl_premium_percent"), getSetting("car_xl_min_seats"),
+  ]);
+  return {
+    ratePerKm: Math.max(1, Number(rate) || 2000), minimumFare: Math.max(0, Number(minimum)),
+    comfortPremiumPercent: Math.max(0, Number(comfort) || 0), xlPremiumPercent: Math.max(0, Number(xl) || 0),
+    xlMinSeats: Math.max(6, Number(seats) || 6),
+  };
+}
 
 export async function getCarSettings(): Promise<CarSettings> {
   const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin, sEnabled, sMax, sLead, sOpen, sWatch, sNoSig, sSpeed, cpEnabled, cpSeats, cpRepeat, cpCutoff, cpPay, cpRadius, sdEnabled, sdPct, sdDays, sdDeposit, sdApprove, sdGrace, vpMax, vpMin, kycOwner, kycDriverId, kycLicence, dEnabled, dShare, dRent, dMin, dMax, dRentMax] = await Promise.all([
@@ -459,6 +477,7 @@ export async function getCarSettings(): Promise<CarSettings> {
     matchingMode: mode === "first_to_claim" ? "first_to_claim" : "customer_selects",
     shares,
     maxPickupKm: Math.min(200, Math.max(1, Number(maxKm) || 10)),
+    servicePricing: await getCarServicePricing(),
     withdrawalsEnabled: wdEnabled === "1",
     withdrawalMinAmount: Math.max(0, Math.floor(Number(wdMin) || 0)),
     scheduled: {
@@ -514,6 +533,13 @@ export async function setCarSettings(next: CarSettings): Promise<void> {
   await setSetting("car_share_driver_percent", String(next.shares.driver));
   await setSetting("car_share_platform_percent", String(next.shares.platform));
   await setSetting("car_driver_max_pickup_km", String(next.maxPickupKm));
+  if (next.servicePricing) {
+    await setSetting("car_convenient_rate_per_km", String(next.servicePricing.ratePerKm));
+    await setSetting("car_convenient_minimum_fare", String(next.servicePricing.minimumFare));
+    await setSetting("car_comfort_premium_percent", String(next.servicePricing.comfortPremiumPercent));
+    await setSetting("car_xl_premium_percent", String(next.servicePricing.xlPremiumPercent));
+    await setSetting("car_xl_min_seats", String(next.servicePricing.xlMinSeats));
+  }
   // Older activity-log entries predate these two fields.
   const sch = next.scheduled;
   if (sch) {

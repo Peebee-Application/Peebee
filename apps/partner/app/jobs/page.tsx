@@ -51,13 +51,14 @@ export default function JobsPage() {
       <h1 className="text-2xl font-black text-ink">Ride requests</h1>
       {!me?.online && <p className="home-card text-sm text-ink-500">You&apos;re offline. <Link href="/" className="font-bold text-gold">Go online</Link> to receive requests.</p>}
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
-      {me?.online && jobs.length === 0 && <p className="text-sm text-ink-500">No requests for your vehicle type right now.</p>}
+      {me?.online && jobs.length === 0 && <p className="text-sm text-ink-500">No eligible car requests nearby right now.</p>}
       {jobs.map((job) => (
         <section key={job.id} className="home-card space-y-2">
           <div className="flex items-start justify-between gap-3">
             <p className="text-sm font-bold text-ink">{job.pickupAddress ?? "Pickup"} → {job.destinationAddress ?? "Destination"}</p>
             <strong className="shrink-0 text-sm">{ugx(job.fare)}</strong>
           </div>
+          {job.serviceTier && <p className="text-xs font-bold text-gold">{job.serviceTier === "xl" ? "XL" : job.serviceTier === "comfort" ? "Comfort" : "Convenient"} ride</p>}
           {job.scheduledFor && <p className="text-xs font-semibold text-ink">Pickup {new Date(job.scheduledFor).toLocaleString("en-UG", { dateStyle: "medium", timeStyle: "short" })}</p>}
           <p className="text-xs text-ink-500">
             {job.distanceKm != null ? `${job.distanceKm.toFixed(1)} km trip` : ""}
