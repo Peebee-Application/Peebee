@@ -469,7 +469,7 @@ merchantRoutes.post("/merchants/:id/disputes", requireAuth, async (c) => {
 
 const riderPaymentSchema = z.object({
   orderId: z.string(),
-  outletCode: z.string().min(4).max(40),
+  outletCode: z.string().min(4).max(40).optional(),
   amount: z.number().int().positive(),
   riderLat: z.number().min(-90).max(90).optional(),
   riderLng: z.number().min(-180).max(180).optional(),
@@ -485,7 +485,15 @@ merchantRoutes.post("/merchant-payments", requireAuth, requireRole("rider"), asy
   if (!idempotencyKey) return c.json({ error: "idempotency_key_required" }, 400);
   const parsed = riderPaymentSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
-  const orderResult = await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [parsed.data.orderId] });
+  const orderResult = await db.execute({
+    sql: `SELECT o.*, restaurant.outlet_id AS restaurant_outlet_id,
+                 outlet.code AS restaurant_outlet_code
+          FROM orders o
+          LEFT JOIN restaurants restaurant ON restaurant.id = o.restaurant_id
+          LEFT JOIN merchant_outlets outlet ON outlet.id = restaurant.outlet_id
+          WHERE o.id = ?`,
+    args: [parsed.data.orderId],
+  });
   const order = orderResult.rows[0] as Row | undefined;
   if (!order) return c.json({ error: "not_found" }, 404);
   if (order.rider_id !== user.sub) return c.json({ error: "forbidden" }, 403);
@@ -495,11 +503,15 @@ merchantRoutes.post("/merchant-payments", requireAuth, requireRole("rider"), asy
   if (!(await merchantPaymentsEnabled(order.environment as "live" | "sandbox"))) {
     return c.json({ error: "merchant_payments_not_ready", message: "Merchant payments are not approved for this environment." }, 409);
   }
+  // A food order is fulfilled by the restaurant whose menu the customer
+  // ordered from. Never accept a rider-selected outlet for that order.
+  const requiredOutletCode = order.restaurant_id ? String(order.restaurant_outlet_code ?? "") : parsed.data.outletCode;
+  if (!requiredOutletCode) return c.json({ error: "merchant_outlet_not_configured", message: order.restaurant_id ? "This restaurant has not connected a merchant outlet yet." : "Enter the merchant outlet code." }, 409);
   const outletResult = await db.execute({
     sql: `SELECT o.*, m.status AS merchant_status, m.trust_tier, m.environment
           FROM merchant_outlets o JOIN merchants m ON m.id = o.merchant_id
           WHERE upper(o.code) = upper(?)`,
-    args: [parsed.data.outletCode],
+    args: [requiredOutletCode],
   });
   const outlet = outletResult.rows[0] as Row | undefined;
   if (!outlet || outlet.status !== "active" || outlet.merchant_status !== "active") {

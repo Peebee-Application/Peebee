@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { db } from "./client.js";
+import { ensureAccountCode, ensureRiderCode } from "../lib/profile-codes.js";
 
 /** Local demo data: one customer, one verified+online rider, one admin. Password for all: "password123". */
 async function run() {
@@ -50,6 +51,12 @@ async function run() {
             'Grace Okello', '+256700000011', 'seed/demo-national-id.jpg', datetime('now'))`,
     args: [riderId],
   });
+  for (const phone of ["+256700000001", "+256700000002", "+256700000003"]) {
+    const user = await db.execute({ sql: "SELECT id FROM users WHERE phone=?", args: [phone] });
+    if (user.rows[0]?.id) await ensureAccountCode(String(user.rows[0].id));
+  }
+  const seededRider = await db.execute({ sql: "SELECT user_id FROM riders WHERE user_id=?", args: [riderId] });
+  if (seededRider.rows[0]?.user_id) await ensureRiderCode(String(seededRider.rows[0].user_id));
 
   console.log("Seeded demo users (password: password123):");
   console.log(`  customer +256700000001`);

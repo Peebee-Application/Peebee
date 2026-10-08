@@ -99,10 +99,12 @@ test('sales onboarding: access, atomic profiles, messaging and one-time activati
         const created=await enroll(data,'agent');await invite(created.id);
         const token=new URL(outbox.at(-1)!.link).hash.slice('#token='.length);assert.equal(new URL(outbox.at(-1)!.link).port,type==='restaurant'?'3003':'3005');
         const session=await activate(token,'BusinessPassword123');
+        assert.match(session.user.accountCode??'',/^PB-/);
         const path=type==='restaurant'?'/restaurants/me':'/merchants/me';
         const response=await app.request(`http://test/v1${path}`,{headers:{Authorization:`Bearer ${session.token}`}});assert.equal(response.status,200);
-        const body=await response.json() as {restaurant?:{name:string;business_type:string};merchants?:Array<{display_name:string}>};assert.equal(type==='restaurant'?body.restaurant?.name:body.merchants?.[0].display_name,`Test ${type}`);
-        if(type==='restaurant')assert.equal(body.restaurant?.business_type,'kitchen');
+        const body=await response.json() as {restaurant?:{name:string;business_type:string;outlet_code:string;merchant_code:string};merchants?:Array<{display_name:string;merchant_code:string}>};assert.equal(type==='restaurant'?body.restaurant?.name:body.merchants?.[0].display_name,`Test ${type}`);
+        if(type==='restaurant'){assert.equal(body.restaurant?.business_type,'kitchen');assert.match(body.restaurant?.outlet_code??'',/^PEEBEE-/);assert.match(body.restaurant?.merchant_code??'',/^MER-/);}
+        else assert.match(body.merchants?.[0]?.merchant_code??'',/^MER-/);
       }
     });
     await t.test('complete rider details and uploads are retained; approval is separate',async()=>{
@@ -111,6 +113,7 @@ test('sales onboarding: access, atomic profiles, messaging and one-time activati
       const session=await activate(new URL(outbox.at(-1)!.link).hash.slice('#token='.length),'RiderPassword123');
       const rider=(await client.execute({sql:'SELECT * FROM riders WHERE user_id=?',args:[session.user.id]})).rows[0];
       assert.equal(isRiderProfileComplete(rider as unknown as Rider),true);assert.equal(rider.verified,0);assert.ok(rider.profile_completed_at);assert.equal(rider.national_id_key,'private/test-id');
+      assert.match(String(rider.rider_code),/^RDR-/);assert.match(session.user.accountCode??'',/^PB-/);
     });
     await t.test('invalid business data leaves no orphan account',async()=>{
       const data=emailOnly('merchant','badcategory',{businessName:'Bad category',legalName:'Business',outletName:'Outlet',categoryId:'does-not-exist',lat:0.3,lng:32.5});

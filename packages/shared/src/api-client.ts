@@ -466,12 +466,19 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
         destinationLat?: number;
         destinationLng?: number;
         paymentRail?: "escrow" | "float";
+        bundleWithOrderId?: string;
       },
     ) {
       return request<{ order: OrderRow }>(`/v1/restaurants/${restaurantId}/order`, {
         method: "POST",
         body: JSON.stringify(input),
       });
+    },
+    async getDeliveryBundleCandidates() {
+      return request<{ orders: Array<{ id: string; restaurant_id: string | null; restaurant_name: string | null; pickup_address: string | null; pickup_lat: number; pickup_lng: number; destination_lat: number; destination_lng: number; delivery_fee: number | null }> }>("/v1/orders/bundle-candidates");
+    },
+    async closeDeliveryBundleWindow(orderId: string) {
+      return request<{ ok: boolean }>(`/v1/orders/${orderId}/bundle-window/close`, { method: "POST" });
     },
     async getOrder(orderId: string) {
       return request<OrderDetail>(`/v1/orders/${orderId}`);
@@ -1044,7 +1051,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     },
     async createMerchantPayment(input: {
       orderId: string;
-      outletCode: string;
+      outletCode?: string;
       amount: number;
       riderLat?: number;
       riderLng?: number;

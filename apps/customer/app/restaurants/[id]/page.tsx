@@ -716,6 +716,8 @@ export default function RestaurantPage() {
   const [delivery, setDelivery] = useState<Place | null>(null);
   const [choosing, setChoosing] = useState(checkoutRequested);
   const [busy, setBusy] = useState(false);
+  const [bundleCandidates, setBundleCandidates] = useState<Array<{id:string;restaurant_name:string|null;pickup_address:string|null;pickup_lat:number;pickup_lng:number;destination_lat:number;destination_lng:number;delivery_fee:number|null}>>([]);
+  const [selectedBundleOrderId, setSelectedBundleOrderId] = useState<string | null>(null);
   const [deliverySettings, setDeliverySettings] = useState<{
     deliveryRatePerKm: number;
     minimumDeliveryFee: number;
@@ -767,6 +769,13 @@ export default function RestaurantPage() {
     return()=>{disposed=true;};
   }, [id]);
 
+  useEffect(() => {
+    if (step !== "checkout") return;
+    let cancelled = false;
+    api.getDeliveryBundleCandidates().then(({orders}) => { if (!cancelled) setBundleCandidates(orders); }).catch(() => { if (!cancelled) setBundleCandidates([]); });
+    return () => { cancelled = true; };
+  }, [step]);
+
   function addToCart(item: MenuItem, line: { unitPrice: number; choiceIds: string[]; choiceNames: string[]; quantity: number }) {
     const key = `${item.id}:${[...line.choiceIds].sort().join(",")}`;
     const name = line.choiceNames.length > 0 ? `${item.name} (${line.choiceNames.join(", ")})` : item.name;
@@ -796,6 +805,16 @@ export default function RestaurantPage() {
     return roundFare(deliverySettings.shoppingDeliveryFee);
   }, [restaurant, delivery, deliverySettings]);
 
+  const selectedBundle = bundleCandidates.find((candidate) => candidate.id === selectedBundleOrderId) ?? null;
+  const bundleExtraDeliveryFee = useMemo(() => {
+    const d = placeFields(delivery);
+    if (!selectedBundle || !restaurant || !deliverySettings || restaurant.lat == null || restaurant.lng == null || d.lat == null || d.lng == null) return null;
+    const sameDestination = haversineKm(selectedBundle.destination_lat, selectedBundle.destination_lng, d.lat, d.lng) <= 0.2;
+    if (!sameDestination) return null;
+    const routeKm = haversineKm(selectedBundle.pickup_lat, selectedBundle.pickup_lng, restaurant.lat, restaurant.lng) + haversineKm(restaurant.lat, restaurant.lng, d.lat, d.lng);
+    return Math.max(0, roundFare(routeKm * deliverySettings.deliveryRatePerKm, deliverySettings.minimumDeliveryFee) - Number(selectedBundle.delivery_fee ?? 0));
+  }, [selectedBundle, restaurant, delivery, deliverySettings]);
+
 
 
   async function checkout() {
@@ -814,9 +833,10 @@ export default function RestaurantPage() {
         destinationLat: d.lat,
         destinationLng: d.lng,
         paymentRail: "escrow",
+        ...(selectedBundleOrderId ? { bundleWithOrderId: selectedBundleOrderId } : {}),
       });
       updateCart([]);
-      router.push(`/orders/${order.id}/pay`);
+      router.push(`/orders/${selectedBundleOrderId ?? order.id}/pay`);
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -870,6 +890,26 @@ export default function RestaurantPage() {
         {delivery && (
           <RouteSummary pickup={null} destination={delivery} destinationLabel={t("place_delivery")} onChange={() => setChoosing(true)} />
         )}
+        {bundleCandidates.length > 0 && delivery && (
+          <section className="food-menu-card space-y-3 px-4 py-4" aria-label="Combine delivery">
+            <div><h2 className="font-bold text-ink">Already have an order?</h2><p className="mt-1 text-sm text-ink-500">Combine one unpaid order with this pickup. One rider collects both, then delivers to the same address.</p></div>
+            {bundleCandidates.map((candidate) => {
+              const d = placeFields(delivery);
+              const sameDestination = d.lat != null && d.lng != null && haversineKm(candidate.destination_lat,candidate.destination_lng,d.lat,d.lng) <= 0.2;
+              const chosen = selectedBundleOrderId === candidate.id;
+              const routeKm = restaurant.lat != null && restaurant.lng != null && d.lat != null && d.lng != null
+                ? haversineKm(candidate.pickup_lat,candidate.pickup_lng,restaurant.lat,restaurant.lng) + haversineKm(restaurant.lat,restaurant.lng,d.lat,d.lng)
+                : null;
+              const addedFee = sameDestination && routeKm != null && deliverySettings
+                ? Math.max(0,roundFare(routeKm*deliverySettings.deliveryRatePerKm,deliverySettings.minimumDeliveryFee)-Number(candidate.delivery_fee??0))
+                : null;
+              return <button type="button" key={candidate.id} disabled={!sameDestination || restaurant.lat == null || restaurant.lng == null} onClick={() => setSelectedBundleOrderId(chosen ? null : candidate.id)} className={`w-full rounded-2xl border p-3 text-left ${chosen ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"} disabled:opacity-50`}>
+                <span className="flex items-center justify-between gap-3"><span className="font-semibold">{chosen ? "✓ " : "＋ "}{candidate.restaurant_name ?? "Your existing pickup"}</span><span className="shrink-0 text-sm font-bold text-gold">{sameDestination ? `${chosen ? "Added · " : "Add · "}+${addedFee != null ? formatUgx(addedFee) : "…"}` : "Choose same address"}</span></span>
+                <span className="mt-1 block text-xs text-ink-500">{candidate.pickup_address ?? "Pickup location saved"}</span>
+              </button>;
+            })}
+          </section>
+        )}
         {choosing && (
           <PlaceFlow
             concept="food"
@@ -891,11 +931,11 @@ export default function RestaurantPage() {
           </div>
           <div className="flex items-center justify-between text-sm text-ink-500">
             <span>{t("restaurant_delivery_fee")}</span>
-            <span>{estimatedDeliveryFee != null ? `~${formatUgx(estimatedDeliveryFee)}` : t("loading")}</span>
+            <span>{selectedBundle ? (bundleExtraDeliveryFee != null ? `+${formatUgx(bundleExtraDeliveryFee)}` : "—") : estimatedDeliveryFee != null ? `~${formatUgx(estimatedDeliveryFee)}` : t("loading")}</span>
           </div>
           <div className="flex items-center justify-between border-t border-[var(--border-faint)] pt-1.5 text-sm font-bold text-ink">
             <span>{t("restaurant_estimated_total")}</span>
-            <span>{estimatedDeliveryFee != null ? formatUgx(itemsTotal + estimatedDeliveryFee) : t("loading")}</span>
+            <span>{(selectedBundle ? bundleExtraDeliveryFee : estimatedDeliveryFee) != null ? formatUgx(itemsTotal + (selectedBundle ? bundleExtraDeliveryFee! : estimatedDeliveryFee!)) : t("loading")}</span>
           </div>
         </div>
 

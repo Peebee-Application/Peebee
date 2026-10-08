@@ -37,6 +37,7 @@ export default function PaymentPage() {
   const [walletError, setWalletError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [canAddPickup, setCanAddPickup] = useState(false);
   const paying = useRef(false);
   const polling = useRef(false);
   const load = useCallback(async () => {
@@ -44,13 +45,30 @@ export default function PaymentPage() {
     polling.current = true;
     try {
       let current = await api.getOrder(id);
-      if (!current.order.rider_id && ["Create", "Match"].includes(current.order.stage)) {
+      let bundleWindowOpen = false;
+      if (!current.order.delivery_bundle_id && current.order.stage === "Create") {
+        try {
+          const candidates = await api.getDeliveryBundleCandidates();
+          bundleWindowOpen = candidates.orders.some((candidate) => candidate.id === id);
+          setCanAddPickup(bundleWindowOpen);
+        } catch {
+          setCanAddPickup(false);
+        }
+      } else setCanAddPickup(false);
+      if (!bundleWindowOpen && !current.order.rider_id && ["Create", "Match"].includes(current.order.stage)) {
         await api.matchOrder(id).catch(() => {});
         current = await api.getOrder(id);
       }
       const pending = current.payments.find((p) => p.type === "collection" && ["pending", "unknown"].includes(p.status));
       if (pending) await api.refreshPayment(pending.id).catch(() => {});
       const nextQuote = await api.getOrderCheckout(id);
+      const nextUnpaidPickup = current.order.stage === "Fund"
+        ? current.bundleStops?.find((stop) => stop.id !== id && stop.stage === "Match")
+        : undefined;
+      if (nextUnpaidPickup) {
+        router.replace(`/orders/${nextUnpaidPickup.id}/pay`);
+        return;
+      }
       setDetail(current);
       setQuote(nextQuote);
       if (!["Create", "Match", "Fund"].includes(current.order.stage)) router.replace(`/orders/${id}`);
@@ -83,6 +101,19 @@ export default function PaymentPage() {
     (method === "mobile_money" && !network) ||
     (method === "wallet" && (!selectedWallet || selectedWallet.balance == null || insufficient));
 
+  async function continueWithOnePickup() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.closeDeliveryBundleWindow(id);
+      await load();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function pay() {
     if (disabled || paying.current || amount == null) return;
     paying.current = true;
@@ -95,7 +126,10 @@ export default function PaymentPage() {
         ...(method === "wallet" ? { useWallet: true, walletId: selectedWallet?.walletId, walletOwnerId: selectedWallet?.ownerId } : {}),
       });
       if (result.redirectUrl) { window.location.href = result.redirectUrl; return; }
-      if (result.funded || result.payment?.status === "successful") router.replace(`/orders/${id}`);
+      if (result.funded || result.payment?.status === "successful") {
+        const nextUnpaidPickup = detail?.bundleStops?.find((stop) => stop.id !== id && stop.stage === "Match");
+        router.replace(nextUnpaidPickup ? `/orders/${nextUnpaidPickup.id}/pay` : `/orders/${id}`);
+      }
       else await load();
     } catch (err) { setError(errorMessage(err)); await load(); }
     finally { paying.current = false; setBusy(false); }
@@ -119,6 +153,7 @@ export default function PaymentPage() {
         ))}
       </fieldset>
       <section className="home-card space-y-4">
+        {canAddPickup && <div className="rounded-2xl border border-gold/30 bg-gold/10 p-4"><h2 className="font-bold text-ink">Add another pickup?</h2><p className="mt-1 text-sm text-ink-500">Your rider has not been assigned yet. Add one food or shopping pickup and we’ll calculate the extra route fee. This choice stays open for 30 minutes.</p><div className="mt-3 flex flex-wrap gap-2"><Link href="/restaurants" className="inline-flex min-h-11 items-center rounded-full bg-gold px-5 text-sm font-bold text-ink-gold">Add another restaurant</Link><button type="button" onClick={continueWithOnePickup} disabled={busy} className="min-h-11 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink">Keep this order only</button></div></div>}
         <fieldset disabled={busy || pending} hidden={method !== "mobile_money"}>
           <MobileNumberPicker purpose="payment" value={phone} onChange={setPhone} prominent autoSave />
           <p className="mt-3 text-sm text-ink-500">Enter your MTN MoMo or Airtel Money number. We detect the network automatically.</p>

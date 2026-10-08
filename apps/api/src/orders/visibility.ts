@@ -22,8 +22,17 @@ export type OrderViewer = { sub: string; role: "customer" | "rider" | "admin" };
  */
 export function redactOrder(order: Row | undefined, viewer: OrderViewer): Row | undefined {
   if (!order) return order;
-  if (viewer.role === "admin" || order.customer_id === viewer.sub) return order;
-  const { pin_code: _pin, share_token: _share, ...rest } = order;
+  if (viewer.role === "admin") return order;
+  if (viewer.role === "rider") {
+    const { pin_code: _pin, share_token: _share, ...rest } = order;
+    return rest;
+  }
+  if (order.customer_id === viewer.sub) {
+    const { restaurant_outlet_code: _outletCode, restaurant_outlet_name: _outletName, ...rest } = order;
+    return rest;
+  }
+  const { pin_code: _pin, share_token: _share, restaurant_outlet_code: _outletCode,
+    restaurant_outlet_name: _outletName, ...rest } = order;
   return rest;
 }
 
@@ -82,6 +91,7 @@ export function toOpenJob(
     // categorize it as "Food" rather than plain "Shopping".
     restaurant_id: order.restaurant_id ?? null,
     restaurant_name: order.restaurant_name ?? null,
+    bundle_order_count: Number(order.bundle_order_count ?? 1),
     // A passenger ride is `type: 'parcel'` with this flag set (see
     // 0039_ride_orders.sql) — surfaced here so the rider app can
     // categorize it as "Ride" rather than plain "Parcel".

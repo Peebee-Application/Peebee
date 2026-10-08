@@ -82,9 +82,14 @@ async function logEvent(orderId: string, stage: string, note: string, actorId: s
 
 async function getOrder(orderId: string): Promise<Row | undefined> {
   const res = await db.execute({
-    sql: `SELECT o.*, c.name as customer_name, r.name as rider_name FROM orders o
+    sql: `SELECT o.*, c.name as customer_name, r.name as rider_name,
+                 food.name AS restaurant_name, food_outlet.code AS restaurant_outlet_code,
+                 food_outlet.name AS restaurant_outlet_name
+          FROM orders o
           LEFT JOIN users c ON c.id = o.customer_id
           LEFT JOIN users r ON r.id = o.rider_id
+          LEFT JOIN restaurants food ON food.id = o.restaurant_id
+          LEFT JOIN merchant_outlets food_outlet ON food_outlet.id = food.outlet_id
           WHERE o.id = ?`,
     args: [orderId],
   });
@@ -422,14 +427,16 @@ export async function createOrderFromInput(
   // currently active — keeps a list+order pair consistent even if an admin
   // flips platform_environment in the gap between the two requests.
   const orderEnvironment = (listRow.environment as string | undefined) === "sandbox" ? "sandbox" : "live";
+  const supportsBundleHold = await hasColumn("orders", "delivery_bundle_hold");
+  const holdForPickupChoice = supportsBundleHold && d.type === "shopping" && d.pickupLat != null && d.pickupLng != null ? 1 : 0;
   await db.execute({
     sql: `INSERT INTO orders (
             id, list_id, customer_id, stage, type, payment_rail, estimated_total, delivery_fee,
             pickup_area, pickup_address, pickup_lat, pickup_lng,
             destination_area, destination_address, destination_lat, destination_lng, distance_km,
-            matching_mode, matching_deadline_at, environment, is_ride
+            matching_mode, matching_deadline_at, environment, is_ride${supportsBundleHold ? ",delivery_bundle_hold" : ""}
           )
-          VALUES (?, ?, ?, 'Create', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          VALUES (?, ?, ?, 'Create', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${supportsBundleHold ? ",?" : ""})`,
     args: [
       orderId,
       d.listId,
@@ -451,6 +458,7 @@ export async function createOrderFromInput(
       matchingDeadlineAt,
       orderEnvironment,
       isRide ? 1 : 0,
+      ...(supportsBundleHold ? [holdForPickupChoice] : []),
     ],
   });
   await db.execute({
@@ -543,11 +551,14 @@ orderRoutes.get("/orders/recent-places", async (c) => {
 
 orderRoutes.get("/orders/active", async (c) => {
   const user = c.get("user");
+  const activeOrderSort = await hasColumn("orders", "delivery_bundle_id")
+    ? "CASE WHEN o.delivery_bundle_id=o.id THEN 0 ELSE 1 END,o.updated_at DESC"
+    : "o.updated_at DESC";
   const res = await db.execute({
     sql: `SELECT o.*, u.name as customer_name FROM orders o
           LEFT JOIN users u ON u.id = o.customer_id
           WHERE o.customer_id = ? AND o.stage NOT IN ('Settle', 'Cancelled') AND o.environment = ?
-          ORDER BY o.updated_at DESC LIMIT 1`,
+          ORDER BY ${activeOrderSort} LIMIT 1`,
     args: [user.sub, await getPlatformEnvironment()],
   });
   const activeOrder = res.rows[0] ?? null;
@@ -563,6 +574,36 @@ orderRoutes.get("/orders/active", async (c) => {
   return c.json({ activeOrder, pendingFeeProposal: proposalRes.rows[0] ?? null });
 });
 
+orderRoutes.get("/orders/bundle-candidates", requireRole("customer"), async (c) => {
+  if (!await hasColumn("orders", "delivery_bundle_id") || !await hasColumn("orders", "delivery_bundle_hold")) return c.json({ orders: [] });
+  const res = await db.execute({
+    sql: `SELECT o.id,o.restaurant_id,o.pickup_lat,o.pickup_lng,o.pickup_address,o.destination_lat,o.destination_lng,
+                 o.delivery_fee,o.delivery_bundle_id,r.name AS restaurant_name
+          FROM orders o LEFT JOIN restaurants r ON r.id=o.restaurant_id
+          WHERE o.customer_id=? AND o.environment=? AND o.type='shopping' AND o.stage='Create'
+            AND o.rider_id IS NULL AND o.delivery_bundle_id IS NULL AND o.delivery_bundle_hold=1 AND o.created_at>datetime('now','-30 minutes')
+            AND o.pickup_lat IS NOT NULL AND o.pickup_lng IS NOT NULL
+            AND o.destination_lat IS NOT NULL AND o.destination_lng IS NOT NULL
+            AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.order_id=o.id)
+          ORDER BY o.created_at DESC LIMIT 5`,
+    args: [c.get("user").sub, await getPlatformEnvironment()],
+  });
+  return c.json({ orders: res.rows });
+});
+
+orderRoutes.post("/orders/:id/bundle-window/close", async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const order = await getOrder(id);
+  if (!order) return c.json({ error: "not_found" }, 404);
+  try { assertCustomer(order, user.sub); }
+  catch (e) { if (e instanceof HttpError) return c.json({ error: e.message }, e.status); throw e; }
+  if (!await hasColumn("orders", "delivery_bundle_hold")) return c.json({ error: "bundles_unavailable" }, 409);
+  if (order.delivery_bundle_hold !== 1 || order.rider_id || order.stage !== "Create") return c.json({ error: "bundle_window_closed", message: "This order is already moving forward." }, 409);
+  await db.execute({ sql: "UPDATE orders SET delivery_bundle_hold=0,updated_at=datetime('now') WHERE id=? AND customer_id=? AND stage='Create' AND rider_id IS NULL", args: [id, user.sub] });
+  return c.json({ ok: true });
+});
+
 orderRoutes.get("/orders/:id", async (c) => {
   const id = c.req.param("id");
   const user = c.get("user");
@@ -572,13 +613,19 @@ orderRoutes.get("/orders/:id", async (c) => {
     return c.json({ error: "forbidden" }, 403);
   }
 
-  const [items, events, substitutions, payments, rating, feeProposals] = await Promise.all([
+  const bundlesAvailable = await hasColumn("orders", "delivery_bundle_id");
+  const [items, events, substitutions, payments, rating, feeProposals, bundleStops] = await Promise.all([
     db.execute({ sql: "SELECT * FROM list_items WHERE list_id = ?", args: [order.list_id as string] }),
     db.execute({ sql: "SELECT * FROM order_events WHERE order_id = ? ORDER BY created_at ASC", args: [id] }),
     db.execute({ sql: "SELECT * FROM substitutions WHERE order_id = ? ORDER BY created_at ASC", args: [id] }),
     db.execute({ sql: "SELECT * FROM payments WHERE order_id = ? ORDER BY created_at ASC", args: [id] }),
     db.execute({ sql: "SELECT rating, comment, recommended FROM order_ratings WHERE order_id = ?", args: [id] }),
     db.execute({ sql: "SELECT * FROM fee_proposals WHERE order_id = ? ORDER BY created_at ASC", args: [id] }),
+    bundlesAvailable && order.delivery_bundle_id
+      ? db.execute({ sql: `SELECT o.id,o.stage,o.pickup_address,o.pickup_lat,o.pickup_lng,r.name AS restaurant_name,mo.name AS outlet_name
+                          FROM orders o LEFT JOIN restaurants r ON r.id=o.restaurant_id LEFT JOIN merchant_outlets mo ON mo.id=r.outlet_id
+                          WHERE o.delivery_bundle_id=? ORDER BY CASE WHEN o.id=? THEN 0 ELSE 1 END,o.created_at,o.id`, args: [String(order.delivery_bundle_id), id] })
+      : Promise.resolve({ rows: [] }),
   ]);
 
   return c.json({
@@ -589,6 +636,7 @@ orderRoutes.get("/orders/:id", async (c) => {
     payments: payments.rows,
     rating: rating.rows[0] ?? null,
     feeProposals: feeProposals.rows,
+    bundleStops: bundleStops.rows,
     timeFees: await getOrderTimeFees(order),
   });
 });
@@ -754,9 +802,35 @@ async function assignRider(
   riderName: string,
   outOfRange: boolean,
 ): Promise<boolean> {
+  if (await isBundleWindowOpen(order)) return false;
   const nextStage = order.payment_rail === "float" ? "Shop" : "Match";
   const assigned = await assignAvailableRider(id, riderId, nextStage, outOfRange, String(order.environment));
   if (!assigned) return false;
+
+  if (await hasColumn("orders", "delivery_bundle_id") && order.delivery_bundle_id) {
+    const bundled = await db.execute({
+      sql: "SELECT id FROM orders WHERE delivery_bundle_id=? AND id!=? AND rider_id IS NULL AND stage IN ('Create','Match') AND environment=?",
+      args: [String(order.delivery_bundle_id), id, String(order.environment)],
+    });
+    const bundleOrderIds = (bundled.rows as Row[]).map((row) => String(row.id));
+    if (bundleOrderIds.length) {
+      await executeBatch(bundleOrderIds.map((bundleOrderId) => ({
+        sql: `UPDATE orders SET rider_id=?,stage=?,matched_out_of_range=?,updated_at=datetime('now') WHERE id=? AND delivery_bundle_id=? AND rider_id IS NULL AND stage IN ('Create','Match') AND environment=? AND EXISTS(SELECT 1 FROM orders anchor WHERE anchor.id=? AND anchor.rider_id=?)`,
+        args: [riderId, nextStage, outOfRange ? 1 : 0, bundleOrderId, String(order.delivery_bundle_id), String(order.environment), id, riderId],
+      })));
+      if (order.funds_model === "merchant_allocations_v1") {
+        await executeBatch(bundleOrderIds.map((bundleOrderId) => ({
+          sql: "INSERT OR IGNORE INTO rider_order_locks (rider_id,order_id,environment) VALUES (?,?,?)",
+          args: [riderId, bundleOrderId, String(order.environment)],
+        })));
+      }
+      for (const bundleOrderId of bundleOrderIds) {
+        await db.execute({ sql: "UPDATE chat_messages SET rider_id=? WHERE order_id=? AND rider_id IS NULL", args: [riderId, bundleOrderId] });
+        await logEvent(bundleOrderId, "Match", `Combined delivery assigned to rider ${riderName}`, riderId);
+        if (order.payment_rail === "float") await logEvent(bundleOrderId, "Fund", "Cash rail — rider fronting funds, no payment needed upfront", riderId);
+      }
+    }
+  }
 
   if (order.funds_model === "merchant_allocations_v1") {
     await db.execute({
@@ -800,6 +874,7 @@ async function findAutoMatchCandidate(
   id: string,
   order: Row,
 ): Promise<{ riderId: string; riderName: string; outOfRange: boolean } | null> {
+  if (await isSecondaryBundleOrder(id, order)) return null;
   // A car ride is only ever offered to drivers of its vehicle category.
   if (await isCarOrder(id)) return findCarCandidate(id, order);
   const { serviceRangeKm } = await getDeliverySettings();
@@ -850,6 +925,19 @@ async function findAutoMatchCandidate(
   return null;
 }
 
+async function isSecondaryBundleOrder(id: string, order: Row): Promise<boolean> {
+  if (!order.delivery_bundle_id || !await hasColumn("orders", "delivery_bundle_id")) return false;
+  return String(order.delivery_bundle_id) !== id;
+}
+
+async function isBundleWindowOpen(order: Row): Promise<boolean> {
+  if (!await hasColumn("orders", "delivery_bundle_hold") || Number(order.delivery_bundle_hold) !== 1) return false;
+  const active = await db.execute({ sql: "SELECT 1 FROM orders WHERE id=? AND created_at>datetime('now','-30 minutes')", args: [String(order.id)] });
+  if (active.rows.length) return true;
+  await db.execute({ sql: "UPDATE orders SET delivery_bundle_hold=0 WHERE id=? AND delivery_bundle_hold=1", args: [String(order.id)] });
+  return false;
+}
+
 orderRoutes.post("/orders/:id/match", async (c) => {
   const id = c.req.param("id");
   const user = c.get("user");
@@ -869,6 +957,7 @@ orderRoutes.post("/orders/:id/match", async (c) => {
   if (!canMatch) {
     return c.json({ error: "invalid_stage", message: `Cannot match from stage ${order.stage}` }, 409);
   }
+  if (await isBundleWindowOpen(order)) return c.json({ error: "bundle_window_open", message: "Choose whether to add another pickup or continue with this order first." }, 409);
 
   const mode = order.matching_mode as MatchingMode;
 
@@ -942,6 +1031,8 @@ orderRoutes.post("/orders/:id/claim", requireRole("rider"), async (c) => {
   const user = c.get("user");
   const order = await getOrder(id);
   if (!order) return c.json({ error: "not_found" }, 404);
+  if (await isSecondaryBundleOrder(id, order)) return c.json({ error: "bundled_stop", message: "Claim the combined delivery from its first pickup." }, 409);
+  if (await isBundleWindowOpen(order)) return c.json({ error: "bundle_window_open", message: "This order is waiting for the customer's pickup choice." }, 409);
   if (order.rider_id) {
     return c.json({ error: "already_claimed", message: "This job is no longer available or you already have an active job" }, 409);
   }
@@ -1043,6 +1134,8 @@ orderRoutes.post("/orders/:id/apply", requireRole("rider"), async (c) => {
   if (!parsedApply.success) return c.json({ error: "invalid_body", issues: parsedApply.error.issues }, 400);
   const order = await getOrder(id);
   if (!order) return c.json({ error: "not_found" }, 404);
+  if (await isSecondaryBundleOrder(id, order)) return c.json({ error: "bundled_stop", message: "Apply to the combined delivery from its first pickup." }, 409);
+  if (await isBundleWindowOpen(order)) return c.json({ error: "bundle_window_open", message: "This order is waiting for the customer's pickup choice." }, 409);
   if (order.rider_id) {
     return c.json({ error: "already_claimed", message: "This job has already been taken" }, 409);
   }
