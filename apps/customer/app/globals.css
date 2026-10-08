@@ -355,7 +355,7 @@ select {
    mode inverts it to light strokes instead — same trick as .peebee-map-tint. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .peebee-chat-chrome {
-    background-color: rgb(var(--color-black-700));
+    background-color: rgb(var(--color-black));
   }
 
   :root:not([data-theme="light"]) .peebee-chat-bg::before {
@@ -365,7 +365,7 @@ select {
 }
 
 :root[data-theme="dark"] .peebee-chat-chrome {
-  background-color: rgb(var(--color-black-700));
+  background-color: rgb(var(--color-black));
 }
 
 :root[data-theme="dark"] .peebee-chat-bg::before {
