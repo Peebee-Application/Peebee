@@ -81,7 +81,7 @@ function groupForPath(pathname: string): MenuGroup {
 
 const ACTIVE_ORDER_POLL_MS = 10000;
 
-export function BottomNav() {
+export function BottomNav({ overlay = false }: { overlay?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
@@ -127,11 +127,11 @@ export function BottomNav() {
   // the active order's own tracking page, and Home (which has the Active
   // order card — the chip just sat on top of it while scrolling).
   const isOnActiveOrderPage = activeOrder ? pathname === `/orders/${activeOrder.id}` : false;
-  const showActiveDeliveryBadge = !!activeOrder && !isOnActiveOrderPage && pathname !== "/";
+  const showActiveDeliveryBadge = !overlay && !!activeOrder && !isOnActiveOrderPage && pathname !== "/";
 
   return (
     <>
-      <nav aria-label="Primary navigation" className="customer-nav fixed inset-x-0 bottom-3 z-40 px-3 pointer-events-none pb-[env(safe-area-inset-bottom)]">
+      <nav aria-label="Primary navigation" className={`customer-nav fixed inset-x-0 bottom-3 z-40 px-3 pointer-events-none pb-[env(safe-area-inset-bottom)] ${overlay ? "customer-nav-overlay" : ""}`}>
         <div className="mx-auto flex max-w-lg flex-col items-center gap-2">
           {/* Active Delivery Floating Capsule Chip */}
           {showActiveDeliveryBadge && (
