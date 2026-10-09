@@ -385,6 +385,16 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
     // A trip with passengers can't just be cancelled; an empty one can.
     assert.equal((await call("POST", `/car/carpool/trips/${tripId}/status`, "drv", { status: "cancelled" })).status, 200);
     assert.equal((await call("POST", `/car/carpool/trips/${tripId}/status`, "drv", { status: "departed" })).status, 409);
+
+    await setPlatformEnvironment("sandbox");
+    const nearby = await json(await call("GET", "/car/carpool/trips?nearLat=0.3136&nearLng=32.5811&nearLabel=Kampala", "cust"));
+    const localDemo = (nearby.trips as Array<{ id: string; originLabel: string; driverName: string }>).find((row) => row.id.startsWith("demo-rideshare-near-"));
+    assert.ok(localDemo, "sandbox search creates nearby trips without requiring a destination");
+    assert.match(localDemo.originLabel, /Kampala/);
+    assert.doesNotMatch(localDemo.driverName, /demo/i, "demo mode is identified in the app header, not repeated on each driver card");
+    const demoBooked = await call("POST", `/car/carpool/trips/${localDemo.id}/seats`, "cust", { seats: 1 });
+    assert.equal(demoBooked.status, 201, "sandbox demo trips remain bookable");
+    assert.match(String((await json(demoBooked)).order.rider_id), /^demo-rideshare-driver-/);
   });
 
   await t.test("self-drive: list, request (money held), approve, hand over, return; damage goes to an admin", async () => {

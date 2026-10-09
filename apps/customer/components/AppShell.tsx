@@ -7,7 +7,7 @@ import { BottomNav } from "./BottomNav";
 import { BrandHeader } from "./BrandHeader";
 import { FoodBusinessTheme } from "./FoodBusinessTheme";
 import { OfflineBanner } from "./OfflineBanner";
-import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./PracticeMode";
+import { PracticeModeGuard, PracticeModePrompt } from "./PracticeMode";
 import { isNavigationOverlayOpen, subscribeToNavigationOverlay } from "../lib/location-flow-state";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -32,7 +32,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {!isAuthPage && <PracticeModePrompt role="customer" />}
       {!isAuthPage && <OfflineBanner />}
       {showHeader && <BrandHeader />}
-      {!isAuthPage && <PracticeModeBanner role="customer" />}
       <main
         className={`mx-auto max-w-lg ${showHeader ? "min-h-[calc(100dvh-4rem)]" : "min-h-dvh"} ${showNav ? "customer-nav-content-clearance" : ""}`}
       >

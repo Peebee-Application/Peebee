@@ -1109,7 +1109,7 @@ export default function RestaurantPage() {
             disabled={busy || !delivery || cart.length === 0 || !restaurant.is_open || (restaurant.is_demo && !restaurant.demo_checkout_enabled)}
             className="min-h-12 flex-[2] rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
           >
-            {restaurant.is_demo && !restaurant.demo_checkout_enabled ? "Demo preview · no payment" : busy ? "Please wait…" : "Next: payment"}
+            {restaurant.is_demo && !restaurant.demo_checkout_enabled ? "Ordering unavailable" : busy ? "Please wait…" : "Next: payment"}
           </button>
         </div>
       </div>

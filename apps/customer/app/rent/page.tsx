@@ -133,7 +133,7 @@ export default function RentPage() {
     try {
       const end = rentalEnd();
       const created = await api.rentalRequest({ vehicleId: v.id, startsAt: new Date(startsAt).toISOString(), endsAt: end.toISOString(), licenceNumber: licence, licenceExpiry: expiry, periodType });
-      setNotice(created.status === "active" ? "Rental confirmed. The demo owner has handed over the car and the rental clock is running." : "Payment held. Your rental request is with the vehicle owner for approval.");
+      setNotice(created.status === "active" ? "Rental confirmed. The owner has handed over the car and the rental clock is running." : "Payment held. Your rental request is with the vehicle owner for approval.");
       setVehicles((current) => current?.filter((vehicle) => vehicle.id !== v.id) ?? current);
       setSelectedVehicle(null);
       setBookingStep(null);
@@ -194,7 +194,7 @@ export default function RentPage() {
 
   async function finishDemo(id: string) {
     setError("");
-    try { await api.finishDemoRental(id); setNotice("Demo car returned. Rental settlement and deposit return are complete."); loadMine(); }
+    try { await api.finishDemoRental(id); setNotice("Car returned. Rental settlement and deposit return are complete."); loadMine(); }
     catch (err) { setError(errorMessage(err)); }
   }
 
@@ -208,7 +208,7 @@ export default function RentPage() {
       </div>
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {notice && <p className="text-sm font-medium text-green">{notice}</p>}
-      {renterProfile?.isSimulated && <p className="rounded-lg bg-gold/10 px-3 py-2 text-xs text-ink-500">Sandbox/Practice: renter verification is simulated. Do not upload real identity documents here.</p>}
+      {renterProfile?.isSimulated && <p className="rounded-lg bg-gold/10 px-3 py-2 text-xs text-ink-500">Verification is simulated in this mode. Do not upload real identity documents here.</p>}
 
       {bookingStep && selectedVehicle ? (
         <>
@@ -312,7 +312,7 @@ export default function RentPage() {
           <p className="text-sm font-bold text-ink">{r.vehicle ?? r.plate} <span className="font-normal text-ink-500">· {r.status}</span></p>
           <p className="text-xs text-ink-500">{when(r.starts_at)} → {when(r.ends_at)} · owner {r.owner_name} · {r.period_type?.replace("_", " ") ?? "full day"}</p>
           {r.handed_over_at && r.status === "active" && <p className="text-xs font-semibold text-ink">Timer: {Math.max(0, Math.floor((now - new Date(r.handed_over_at).getTime()) / 3_600_000))} hours elapsed since handover at {when(r.handed_over_at)}. Due {when(r.ends_at)}; the configured grace period applies{r.hourly_price ? `, then ${ugx(r.hourly_price)} per started hour.` : "."}</p>}
-          {r.status === "active" && (r.vehicle_id.startsWith("demo-rent-") || r.vehicle_id.startsWith("practice-rent-")) && <button type="button" onClick={() => finishDemo(r.id)} className="min-h-10 w-full rounded-full bg-gold px-3 text-sm font-bold text-ink-gold">Return demo car and settle rental</button>}
+          {r.status === "active" && (r.vehicle_id.startsWith("demo-rent-") || r.vehicle_id.startsWith("practice-rent-")) && <button type="button" onClick={() => finishDemo(r.id)} className="min-h-10 w-full rounded-full bg-gold px-3 text-sm font-bold text-ink-gold">Return car and settle rental</button>}
           <p className="text-xs text-ink-500">Rent {ugx(r.rent_amount)} · deposit {ugx(r.deposit_amount)}</p>
           {r.status === "completed" && r.refund_amount != null && <p className="text-xs font-semibold text-ink">Deposit returned: {ugx(r.refund_amount)}</p>}
           {r.status === "completed" && Number(r.overtime_amount ?? 0) > 0 && <p className="text-xs text-ink-500">Overtime fee settled: {ugx(Number(r.overtime_amount))}</p>}
