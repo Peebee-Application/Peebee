@@ -1300,6 +1300,30 @@ select {
 .customer-profile-reveal.is-expanded { grid-template-rows: 1fr; opacity: 1; }
 .customer-nav .soft-capsule { background: linear-gradient(135deg, rgb(var(--color-black-700)), rgb(var(--color-black-900))); border: 1px solid rgb(255 255 255 / .14); box-shadow: 0 12px 32px rgb(0 0 0 / .3); backdrop-filter: none; }
 :root[data-theme="dark"] .customer-nav .soft-capsule { background: #000; }
+.customer-nav-home,
+.customer-nav-menu {
+  color: rgb(255 255 255 / .72);
+  border: 1px solid rgb(255 255 255 / .12);
+  box-shadow: 0 12px 32px rgb(0 0 0 / .3);
+  background: linear-gradient(145deg, #171717, #080808);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.customer-nav-home { position: relative; background: #080808; }
+.customer-nav-home.is-active { color: rgb(var(--color-gold)); }
+.customer-nav-menu { color: white; }
+.customer-nav-item { color: rgb(255 255 255 / .64); }
+.customer-nav-item:hover { color: white; background: rgb(255 255 255 / .08); }
+.customer-nav-item.is-active { color: rgb(var(--color-ink-gold)); background: rgb(var(--color-gold)); font-weight: 700; }
+.customer-nav-item:disabled { cursor: default; opacity: .38; }
+.customer-nav-home:focus-visible,
+.customer-nav-item:focus-visible { outline: 2px solid rgb(var(--color-gold)); outline-offset: 2px; }
+.customer-nav-home-indicator,
+.customer-nav-item-indicator { position: absolute; bottom: 4px; left: 50%; width: 16px; height: 3px; border-radius: 999px; transform: translateX(-50%); background: rgb(var(--color-gold)); }
+.customer-nav-item-indicator { width: 4px; height: 4px; bottom: 3px; background: rgb(var(--color-ink-gold)); }
+.customer-nav-items { animation: customer-nav-change 180ms ease-out both; }
+@keyframes customer-nav-change { from { opacity: .65; transform: translateX(5px); } to { opacity: 1; transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .customer-nav-items { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .customer-profile-reveal, .customer-header svg { transition: none; } }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .customer-header, :root:not([data-theme="light"]) .customer-nav .soft-capsule { background: #000; }

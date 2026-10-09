@@ -3,10 +3,12 @@ import { FOOD_BUSINESS_TYPES, foodBusinessLabel, type FoodBusinessType, type Res
 import { demoRestaurantPhotoPath } from '@peebee/shared/demo-food';
 import { ChefHat, CookingPot, Croissant, Search, SlidersHorizontal, UtensilsCrossed, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { api, errorMessage } from '../../lib/api';
 
 export default function FoodPage() {
+  const searchParams = useSearchParams();
   const [restaurants,setRestaurants]=useState<Restaurant[] | null>(null);
   const [error,setError]=useState<string|null>(null);
   const [paused,setPaused]=useState(false);
@@ -15,6 +17,7 @@ export default function FoodPage() {
   const [openOnly,setOpenOnly]=useState(false);
   const results=useRef<HTMLHeadingElement>(null);
   useEffect(()=>{api.listRestaurants().then(res=>{setRestaurants(res.restaurants);setPaused(!!res.paused);}).catch(err=>setError(errorMessage(err)));},[]);
+  useEffect(()=>{const requested=searchParams.get('category');if(FOOD_BUSINESS_TYPES.some(type=>type.value===requested))setCategory(requested as FoodBusinessType);},[searchParams]);
   const filtered=restaurants?.filter(r=>(!category||(r.business_type??'restaurant')===category)&&(!openOnly||!!r.is_open)&&`${r.name} ${r.cuisine??''} ${r.description??''}`.toLowerCase().includes(query.toLowerCase()))??[];
   return <div className="space-y-5 px-4 pb-8 pt-4">
     <div><p className="text-xs font-semibold text-gold">Made nearby. Delivered to you.</p><h1 className="mt-1 text-2xl font-bold">Peebee Food</h1></div>
