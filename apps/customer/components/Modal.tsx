@@ -1,8 +1,10 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import { isLocationFlowOpen, registerServiceSheet, subscribeToLocationFlow } from "../lib/location-flow-state";
+import { BottomNav } from "./BottomNav";
 import { HomeMapHero } from "./home/HomeMapHero";
 import type { SelectedRouteLocations } from "./maps/SelectedRoadRoute";
 
@@ -22,6 +24,7 @@ export function Modal({
   mapRoute?: SelectedRouteLocations;
 }) {
   const [mounted, setMounted] = useState(false);
+  const locationFlowOpen = useSyncExternalStore(subscribeToLocationFlow, isLocationFlowOpen, () => false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   const mapBandRef = useRef<HTMLDivElement>(null);
@@ -74,6 +77,7 @@ export function Modal({
 
   useEffect(() => {
     setMounted(true);
+    const unregisterServiceSheet = withMap ? registerServiceSheet() : null;
     document.body.style.overflow = "hidden";
 
     // Android draws its status bar as opaque OS chrome, colored from this
@@ -86,10 +90,11 @@ export function Modal({
     meta?.setAttribute("content", "#0a0a0a");
 
     return () => {
+      unregisterServiceSheet?.();
       document.body.style.overflow = "";
       if (meta && previousThemeColor !== null) meta.setAttribute("content", previousThemeColor);
     };
-  }, []);
+  }, [withMap]);
 
   if (!mounted) return null;
 
@@ -131,6 +136,7 @@ export function Modal({
             <div className="flex-1 overflow-y-auto px-5 py-4 pb-[calc(6rem+env(safe-area-inset-bottom))]">{children}</div>
           </div>
         </div>
+        {!locationFlowOpen && <BottomNav overlay />}
       </div>,
       document.body,
     );

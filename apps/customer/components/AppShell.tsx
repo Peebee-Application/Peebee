@@ -8,11 +8,11 @@ import { BrandHeader } from "./BrandHeader";
 import { FoodBusinessTheme } from "./FoodBusinessTheme";
 import { OfflineBanner } from "./OfflineBanner";
 import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./PracticeMode";
-import { isLocationFlowOpen, subscribeToLocationFlow } from "../lib/location-flow-state";
+import { isNavigationOverlayOpen, subscribeToNavigationOverlay } from "../lib/location-flow-state";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const locationFlowOpen = useSyncExternalStore(subscribeToLocationFlow, isLocationFlowOpen, () => false);
+  const navigationOverlayOpen = useSyncExternalStore(subscribeToNavigationOverlay, isNavigationOverlayOpen, () => false);
   const foodBusinessId=/^\/restaurants\/([^/]+)(?:\/items\/[^/]+)?$/.exec(pathname)?.[1];
   const isFoodDetail=/^\/restaurants\/[^/]+\/items\/[^/]+$/.test(pathname);
   const isAuthPage = pathname === "/login" || pathname === "/activate" || pathname === "/forgot-password" || pathname.startsWith("/verify") || pathname.startsWith("/trip/");
@@ -23,7 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // the conversation gets the full viewport with nothing floating over it.
   const isChatThread = pathname.startsWith("/chat/") || /^\/restaurants\/[^/]+\/chat$/.test(pathname);
   const showHeader = !isAuthPage && !isChatThread && !isFoodDetail;
-  const showNav = !isAuthPage && !isChatThread && !isFoodDetail && !locationFlowOpen;
+  const showNav = !isAuthPage && !isChatThread && !isFoodDetail && !navigationOverlayOpen;
 
   return (
     <AuthGate>
