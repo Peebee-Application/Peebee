@@ -30,8 +30,20 @@ const DEMO_ROUTES = [
   { from: ["Kampala", 0.3136, 32.5811], to: ["Jinja", 0.4244, 33.2042], price: 25_000, driver: 3 },
 ] as const;
 
+const DEMO_NEARBY_DESTINATIONS = [
+  { label: "City centre", lat: 0.05, lng: 0.02, price: 6_000, driver: 1 },
+  { label: "Market district", lat: -0.04, lng: 0.06, price: 7_000, driver: 2 },
+  { label: "Transit hub", lat: 0.07, lng: -0.03, price: 8_000, driver: 3 },
+  { label: "Neighbouring town", lat: -0.06, lng: -0.06, price: 9_000, driver: 4 },
+] as const;
+
+const demoCoordinatePart = (value: number) => {
+  const scaled = Math.round(value * 100);
+  return `${scaled < 0 ? "n" : "p"}${String(Math.abs(scaled)).padStart(4, "0")}`;
+};
+
 /** Refresh shared, bookable sandbox trips without ever creating live listings. */
-async function ensureDemoTrips(date: string | undefined, cutoffMinutes: number): Promise<void> {
+async function ensureDemoTrips(date: string | undefined, cutoffMinutes: number, near?: { lat: number; lng: number }): Promise<void> {
   const ready = (await db.execute({ sql: "SELECT 1 FROM vehicles WHERE id = 'demo-rideshare-car-1' LIMIT 1", args: [] })).rows.length > 0;
   if (!ready) return; // Migration 0088 can land after the code.
   const today = new Date().toISOString().slice(0, 10);
@@ -58,6 +70,26 @@ async function ensureDemoTrips(date: string | undefined, cutoffMinutes: number):
           route.from[0], route.from[1], route.from[2], route.to[0], route.to[1], route.to[2],
           haversineKm(route.from[1], route.from[2], route.to[1], route.to[2]), toDbTime(departure), route.price],
       });
+    }
+    if (near) {
+      const originLat = Math.round(near.lat * 100) / 100;
+      const originLng = Math.round(near.lng * 100) / 100;
+      const locationKey = `${demoCoordinatePart(near.lat)}-${demoCoordinatePart(near.lng)}`;
+      for (const [index, route] of DEMO_NEARBY_DESTINATIONS.entries()) for (const hour of [6, 9, 13, 16]) {
+        const departure = new Date(dayTime + hour * 3_600_000);
+        if (departure.getTime() <= Date.now() + cutoffMinutes * 60_000) continue;
+        const id = `demo-rideshare-near-${day}-${locationKey}-${index}-${hour}`;
+        if (existing.has(id)) continue;
+        const destLat = originLat + route.lat;
+        const destLng = originLng + route.lng;
+        statements.push({
+          sql: `INSERT OR IGNORE INTO carpool_trips
+            (id, driver_id, vehicle_id, category_id, origin_label, origin_lat, origin_lng, dest_label, dest_lat, dest_lng, distance_km, depart_at, seats_total, seat_price, environment)
+            VALUES (?, ?, ?, ?, 'Nearby area', ?, ?, ?, ?, ?, ?, ?, 3, ?, 'sandbox')`,
+          args: [id, `demo-rideshare-driver-${route.driver}`, `demo-rideshare-car-${route.driver}`, route.driver === 3 ? "peebee-car-large" : "peebee-car-normal",
+            originLat, originLng, route.label, destLat, destLng, haversineKm(originLat, originLng, destLat, destLng), toDbTime(departure), route.price],
+        });
+      }
     }
   }
   if (statements.length) await executeBatch(statements);
@@ -213,18 +245,27 @@ carpoolRoutes.post("/car/carpool/trips/:id/status", async (c) => {
 
 carpoolRoutes.get("/car/carpool/trips", async (c) => {
   const q = z.object({
-    fromLat: z.coerce.number().min(-90).max(90),
-    fromLng: z.coerce.number().min(-180).max(180),
-    toLat: z.coerce.number().min(-90).max(90),
-    toLng: z.coerce.number().min(-180).max(180),
+    nearLat: z.coerce.number().min(-90).max(90).optional(),
+    nearLng: z.coerce.number().min(-180).max(180).optional(),
+    nearLabel: z.string().trim().max(120).optional(),
+    fromLat: z.coerce.number().min(-90).max(90).optional(),
+    fromLng: z.coerce.number().min(-180).max(180).optional(),
+    toLat: z.coerce.number().min(-90).max(90).optional(),
+    toLng: z.coerce.number().min(-180).max(180).optional(),
     date: z.string().max(10).optional(),
-  }).safeParse(c.req.query());
+  }).refine((data) => (data.nearLat === undefined) === (data.nearLng === undefined), { path: ["nearLat"] })
+    .refine((data) => (data.fromLat === undefined) === (data.fromLng === undefined), { path: ["fromLat"] })
+    .refine((data) => (data.toLat === undefined) === (data.toLng === undefined), { path: ["toLat"] })
+    .refine((data) => data.nearLat !== undefined || (data.fromLat !== undefined && data.toLat !== undefined), { path: ["nearLat"] })
+    .refine((data) => data.nearLat !== undefined || (data.fromLat !== undefined && data.fromLng !== undefined && data.toLat !== undefined && data.toLng !== undefined), { path: ["fromLat"] })
+    .safeParse(c.req.query());
   if (!q.success) return c.json({ error: "invalid_query" }, 400);
   const { carpool } = await getCarSettings();
   await releaseStaleSeats();
   const environment = await getPlatformEnvironment();
   if (q.data.date && (!/^\d{4}-\d{2}-\d{2}$/.test(q.data.date) || !Number.isFinite(Date.parse(`${q.data.date}T00:00:00Z`)))) return c.json({ error: "invalid_date" }, 400);
-  if (environment === "sandbox") await ensureDemoTrips(q.data.date, carpool.cutoffMinutes);
+  const nearbySearch = q.data.nearLat !== undefined && q.data.nearLng !== undefined;
+  if (environment === "sandbox") await ensureDemoTrips(q.data.date, carpool.cutoffMinutes, nearbySearch ? { lat: q.data.nearLat!, lng: q.data.nearLng! } : undefined);
 
   // A day (UTC) when asked, otherwise everything upcoming.
   const from = q.data.date ? `${q.data.date} 00:00:00` : toDbTime(new Date(Date.now() + carpool.cutoffMinutes * 60000));
@@ -238,16 +279,19 @@ carpoolRoutes.get("/car/carpool/trips", async (c) => {
     args: [environment, `+${carpool.cutoffMinutes} minutes`, from, to],
   })).rows as Row[];
   const trips = rows
-    .filter(
-      (t) =>
-        haversineKm(q.data.fromLat, q.data.fromLng, Number(t.origin_lat), Number(t.origin_lng)) <= carpool.matchRadiusKm &&
-        haversineKm(q.data.toLat, q.data.toLng, Number(t.dest_lat), Number(t.dest_lng)) <= carpool.matchRadiusKm,
-    )
+    .filter((t) => {
+      const nearOrigin = nearbySearch
+        ? haversineKm(q.data.nearLat!, q.data.nearLng!, Number(t.origin_lat), Number(t.origin_lng)) <= carpool.matchRadiusKm
+        : haversineKm(q.data.fromLat!, q.data.fromLng!, Number(t.origin_lat), Number(t.origin_lng)) <= carpool.matchRadiusKm;
+      const nearDestination = q.data.toLat === undefined || q.data.toLng === undefined ||
+        haversineKm(q.data.toLat, q.data.toLng, Number(t.dest_lat), Number(t.dest_lng)) <= carpool.matchRadiusKm;
+      return nearOrigin && nearDestination;
+    })
     .map((t) => ({
       id: t.id,
-      driverName: t.driver_name,
+      driverName: String(t.driver_name).replace(/\s*\(Demo\)$/i, ""),
       vehicle: [t.colour, t.make, t.model].filter(Boolean).join(" ") || t.category_name,
-      originLabel: t.origin_label,
+      originLabel: String(t.id).startsWith("demo-rideshare-near-") && q.data.nearLabel ? `Near ${q.data.nearLabel.replace(/[\u0000-\u001f]/g, " ").slice(0, 100)}` : t.origin_label,
       destLabel: t.dest_label,
       departAt: fromDb(String(t.depart_at)).toISOString(),
       seatsLeft: Number(t.seats_total) - Number(t.seats_taken),

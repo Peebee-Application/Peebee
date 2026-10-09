@@ -8,16 +8,9 @@ import {
   startPracticeMode,
   type PracticeRole,
 } from "@peebee/shared";
-import { FlaskConical, RotateCcw, Sparkles, X } from "lucide-react";
+import { FlaskConical, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
-
-const HINTS: Record<PracticeRole, string> = {
-  customer: "Try the demo car types, book a sample ride, and follow its assigned driver through pickup and arrival.",
-  rider: "Claim the sample job and complete it using the same controls as a live delivery.",
-  restaurant: "Use the real restaurant dashboard to confirm the sample rider payment and explore settlement.",
-  merchant: "Use the real merchant dashboard to confirm the sample payment and test settlement.",
-};
 
 const ROLE_LABELS: Record<PracticeRole, string> = {
   customer: "customer", rider: "rider", restaurant: "restaurant", merchant: "merchant",
@@ -25,7 +18,13 @@ const ROLE_LABELS: Record<PracticeRole, string> = {
 
 export function PracticeModeCard({ role }: { role: PracticeRole }) {
   const [available, setAvailable] = useState<boolean | null>(null);
+  const [active, setActive] = useState(false);
   useEffect(() => { api.getSettings().then(({ settings }) => setAvailable(settings.practiceModeEnabled)).catch(() => setAvailable(false)); }, []);
+  useEffect(() => setActive(isPracticeMode()), []);
+  if (active) {
+    async function exit() { const completed = isPracticeJourneyComplete(role); exitPracticeMode(role); if (completed) await api.completePractice(role).catch(() => undefined); window.location.replace("/account"); }
+    return <button type="button" onClick={exit} className="min-h-11 w-full rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink">Exit practice</button>;
+  }
   if (available == null) return null;
   function start() { window.location.assign(startPracticeMode(role)); }
   return (
@@ -44,15 +43,6 @@ export function PracticeModeGuard({ role, pathname }: { role: PracticeRole; path
     api.getSettings().then(({ settings }) => { if (!settings.practiceModeEnabled) { exitPracticeMode(role); window.location.replace("/account"); } }).catch(() => undefined);
   }, [pathname, role]);
   return null;
-}
-
-export function PracticeModeBanner({ role }: { role: PracticeRole }) {
-  const [active, setActive] = useState(false);
-  useEffect(() => setActive(isPracticeMode()), []);
-  if (!active) return null;
-  function restart() { window.location.replace(startPracticeMode(role)); }
-  async function exit() { const completed = isPracticeJourneyComplete(role); exitPracticeMode(role); if (completed) await api.completePractice(role).catch(() => undefined); window.location.replace("/account"); }
-  return <aside className="sticky top-14 z-20 border-b border-sky-300 bg-sky-50 px-3 py-2 text-sky-950 shadow-sm dark:border-sky-800 dark:bg-sky-950 dark:text-sky-100"><div className="mx-auto flex max-w-lg items-center gap-2"><FlaskConical className="h-4 w-4 shrink-0" aria-hidden/><p className="min-w-0 flex-1 text-[11px] leading-4"><strong>Practice · no real money.</strong> {HINTS[role]}</p><button type="button" onClick={restart} aria-label="Restart practice" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sky-300 dark:border-sky-700"><RotateCcw className="h-3.5 w-3.5" aria-hidden/></button><button type="button" onClick={exit} aria-label="Exit practice" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sky-300 dark:border-sky-700"><X className="h-3.5 w-3.5" aria-hidden/></button></div></aside>;
 }
 
 export function PracticeModePrompt({ role }: { role: PracticeRole }) {

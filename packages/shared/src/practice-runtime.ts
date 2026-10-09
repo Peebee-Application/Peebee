@@ -26,7 +26,28 @@ const PRACTICE_RIDESHARE_TRIPS = [
   { route: "kampala-mukono", from: ["Kampala", 0.3136, 32.5811] as const, to: ["Mukono", 0.3533, 32.7553] as const, driver: PRACTICE_CAR_RIDERS[3], price: 10_000 },
   { route: "kampala-jinja", from: ["Kampala", 0.3136, 32.5811] as const, to: ["Jinja", 0.4244, 33.2042] as const, driver: PRACTICE_CAR_RIDERS[2], price: 25_000 },
 ];
-function practiceRideshareTrip(id: string) {
+const PRACTICE_RIDESHARE_HOURS = [6, 9, 13, 16] as const;
+const coordinatePart = (value: number) => `${value < 0 ? "n" : "p"}${String(Math.abs(value)).padStart(4, "0")}`;
+const decodeCoordinatePart = (value: string) => (value[0] === "n" ? -1 : 1) * Number(value.slice(1)) / 100;
+
+function practiceRideshareTrip(id: string, nearLabel = "Nearby area") {
+  const nearMatch = /^practice-rideshare-near-(\d{4}-\d{2}-\d{2})-([pn]\d{4})-([pn]\d{4})-(\d+)-(6|9|13|16)$/.exec(id);
+  if (nearMatch) {
+    const index = Number(nearMatch[4]);
+    const destination = [
+      { label: "City centre", lat: 0.06, lng: 0.04, price: 6_000 },
+      { label: "Market district", lat: -0.04, lng: 0.08, price: 7_000 },
+      { label: "Transit hub", lat: 0.08, lng: -0.05, price: 8_000 },
+      { label: "Neighbouring town", lat: -0.08, lng: -0.07, price: 9_000 },
+    ][index];
+    const lat = decodeCoordinatePart(nearMatch[2]);
+    const lng = decodeCoordinatePart(nearMatch[3]);
+    const departure = new Date(`${nearMatch[1]}T${nearMatch[5].padStart(2, "0")}:00:00Z`);
+    if (!destination || !Number.isFinite(departure.getTime()) || departure.getTime() <= Date.now() + 30 * 60_000) return null;
+    return { id, route: `nearby-${index}`, from: [`Near ${nearLabel}`, lat, lng] as const,
+      to: [destination.label, lat + destination.lat, lng + destination.lng] as const,
+      driver: PRACTICE_CAR_RIDERS[index], price: destination.price, departure };
+  }
   const match = /^practice-rideshare-(\d{4}-\d{2}-\d{2})-(.+)-(6|9|13|16)$/.exec(id);
   if (!match) return null;
   const route = PRACTICE_RIDESHARE_TRIPS.find((item) => item.route === match[2]);
@@ -34,16 +55,33 @@ function practiceRideshareTrip(id: string) {
   return route && Number.isFinite(departure.getTime()) && departure.getTime() > Date.now() + 30 * 60_000 ? { ...route, id, departure } : null;
 }
 function practiceRideshareTrips(query: URLSearchParams) {
+  const nearLatValue = query.get("nearLat"), nearLngValue = query.get("nearLng");
+  const nearLat = Number(nearLatValue), nearLng = Number(nearLngValue);
+  if (nearLatValue !== null && nearLngValue !== null && [nearLat, nearLng].every(Number.isFinite)) {
+    const latitude = Math.round(nearLat * 100);
+    const longitude = Math.round(nearLng * 100);
+    const locationKey = `${coordinatePart(latitude)}-${coordinatePart(longitude)}`;
+    const label = (query.get("nearLabel") ?? "Nearby area").replace(/[\u0000-\u001f]/g, " ").slice(0, 100).trim() || "Nearby area";
+    const date = query.get("date");
+    const today = new Date().toISOString().slice(0, 10);
+    const days = date ? [date] : [today, new Date(Date.now() + 86_400_000).toISOString().slice(0, 10), new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10)];
+    return days.flatMap((day) => PRACTICE_RIDESHARE_HOURS.flatMap((hour) => PRACTICE_CAR_RIDERS.flatMap((_, index) => {
+      const id = `practice-rideshare-near-${day}-${locationKey}-${index}-${hour}`;
+      const trip = practiceRideshareTrip(id, label);
+      if (!trip) return [];
+      return [{ id, driverName: trip.driver.name, vehicle: `${trip.driver.make} ${trip.driver.model}`, originLabel: trip.from[0], destLabel: trip.to[0], departAt: trip.departure.toISOString(), seatsLeft: 3, seatPrice: trip.price }];
+    })));
+  }
   const fromLat = Number(query.get("fromLat")), fromLng = Number(query.get("fromLng"));
   const toLat = Number(query.get("toLat")), toLng = Number(query.get("toLng"));
   if (![fromLat, fromLng, toLat, toLng].every(Number.isFinite)) return [];
   const day = query.get("date");
   const today = new Date().toISOString().slice(0, 10);
   const days = day ? [day] : [today, new Date(Date.now() + 86_400_000).toISOString().slice(0, 10), new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10)];
-  return days.flatMap((date) => PRACTICE_RIDESHARE_TRIPS.flatMap((route) => [6, 9, 13, 16].flatMap((hour) => {
+  return days.flatMap((date) => PRACTICE_RIDESHARE_TRIPS.flatMap((route) => PRACTICE_RIDESHARE_HOURS.flatMap((hour) => {
     const trip = practiceRideshareTrip(`practice-rideshare-${date}-${route.route}-${hour}`);
     if (!trip || Math.abs(fromLat - route.from[1]) > .18 || Math.abs(fromLng - route.from[2]) > .18 || Math.abs(toLat - route.to[1]) > .18 || Math.abs(toLng - route.to[2]) > .18) return [];
-    return [{ id: trip.id, driverName: route.driver.name, vehicle: `${route.driver.make} ${route.driver.model} (Demo)`, originLabel: route.from[0], destLabel: route.to[0], departAt: trip.departure.toISOString(), seatsLeft: 3, seatPrice: route.price }];
+    return [{ id: trip.id, driverName: route.driver.name, vehicle: `${route.driver.make} ${route.driver.model}`, originLabel: route.from[0], destLabel: route.to[0], departAt: trip.departure.toISOString(), seatsLeft: 3, seatPrice: route.price }];
   })));
 }
 const PRACTICE_RENTALS_KEY = "peebee_practice_selfdrive_rentals_v1";

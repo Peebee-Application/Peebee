@@ -85,10 +85,7 @@ export function BusinessLogo({
       >
         <div className="restaurant-trust-card__heading">
           <div className="min-w-0 pr-2">
-            <span className={`restaurant-trust-card__approval ${isDemo ? "is-demo" : ""}`}>
-              {isDemo ? <Store size={14} aria-hidden /> : <BadgeCheck size={15} aria-hidden />}
-              {isDemo ? "Sample profile" : "Peebee approved"}
-            </span>
+            {!isDemo && <span className="restaurant-trust-card__approval"><BadgeCheck size={15} aria-hidden />Peebee approved</span>}
             <h2 className="mt-2 truncate text-lg font-bold leading-tight">{name}</h2>
             <p className="mt-1 truncate text-sm text-ink-500">{businessType}</p>
           </div>
@@ -101,7 +98,7 @@ export function BusinessLogo({
               {!trust || !trust.menuReviewsAvailable ? "—" : trust.averageMenuRating == null ? "New" : `${trust.averageMenuRating.toFixed(1)} / 5`}
             </span>
             <span className="restaurant-trust-card__metric-label">
-              {!trust ? isDemo ? "Demo data" : "Loading review details" : !trust.menuReviewsAvailable ? "Dish reviews unavailable" : trust.menuReviewCount ? `${trust.menuReviewCount.toLocaleString()} verified dish reviews` : "No dish reviews yet"}
+              {!trust ? isDemo ? "Reviews" : "Loading review details" : !trust.menuReviewsAvailable ? "Dish reviews unavailable" : trust.menuReviewCount ? `${trust.menuReviewCount.toLocaleString()} verified dish reviews` : "No dish reviews yet"}
             </span>
           </div>
           <div className="restaurant-trust-card__metric">
@@ -109,7 +106,7 @@ export function BusinessLogo({
             <span className="restaurant-trust-card__metric-value">
               {trust ? trust.completedOrderCount.toLocaleString() : "—"}
             </span>
-            <span className="restaurant-trust-card__metric-label">{trust ? "Completed orders" : isDemo ? "Sample orders" : "Loading order details"}</span>
+            <span className="restaurant-trust-card__metric-label">{trust || isDemo ? "Completed orders" : "Loading order details"}</span>
           </div>
         </div>
 

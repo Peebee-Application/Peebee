@@ -1653,8 +1653,10 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized }
     async carRematch(orderId: string) {
       return request<{ ok: true }>(`/v1/car/bookings/${orderId}/rematch`, { method: "POST" });
     },
-    async carpoolSearch(q: { fromLat: number; fromLng: number; toLat: number; toLng: number; date?: string }) {
-      const params = new URLSearchParams({ fromLat: String(q.fromLat), fromLng: String(q.fromLng), toLat: String(q.toLat), toLng: String(q.toLng), ...(q.date ? { date: q.date } : {}) });
+    async carpoolSearch(q: { nearLat: number; nearLng: number; nearLabel?: string; date?: string } | { fromLat: number; fromLng: number; toLat: number; toLng: number; date?: string }) {
+      const params = new URLSearchParams("nearLat" in q
+        ? { nearLat: String(q.nearLat), nearLng: String(q.nearLng), ...(q.nearLabel ? { nearLabel: q.nearLabel } : {}), ...(q.date ? { date: q.date } : {}) }
+        : { fromLat: String(q.fromLat), fromLng: String(q.fromLng), toLat: String(q.toLat), toLng: String(q.toLng), ...(q.date ? { date: q.date } : {}) });
       return request<{ trips: CarpoolTrip[]; maxSeatsPerBooking: number }>(`/v1/car/carpool/trips?${params}`);
     },
     async carpoolBook(tripId: string, seats: number) {

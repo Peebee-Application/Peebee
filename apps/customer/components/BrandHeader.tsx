@@ -3,6 +3,7 @@ import {ChevronDown,ChevronRight,Moon,Sun,User} from "lucide-react";
 import Link from "next/link";
 import {usePathname} from "next/navigation";
 import {useEffect,useRef,useState} from "react";
+import {isPracticeMode,type PlatformEnvironment} from "@peebee/shared";
 import {useAuth} from "../lib/auth-context";
 import {api} from "../lib/api";
 import {useResolvedTheme,useThemeMode} from "../lib/theme";
@@ -21,11 +22,21 @@ export function BrandHeader() {
   const [expanded,setExpanded]=useState(false);
   const toggleRef=useRef<HTMLButtonElement>(null);
   const [photo,setPhoto]=useState<string|null>(null);
+  const [environment,setEnvironment]=useState<PlatformEnvironment|null>(null);
+  const [practiceActive,setPracticeActive]=useState(false);
+  const modeLabel=practiceActive?"*practice":environment==="sandbox"?"*demo":null;
   useEffect(()=>setExpanded(false),[pathname]);
+  useEffect(()=>{
+    const syncPractice=()=>setPracticeActive(isPracticeMode());
+    syncPractice();
+    window.addEventListener("storage",syncPractice);
+    api.getSettings().then(({settings})=>setEnvironment(settings.platformEnvironment)).catch(()=>{});
+    return()=>window.removeEventListener("storage",syncPractice);
+  },[]);
   useEffect(()=>{setPhoto(null);if(!user?.id||!user.hasProfilePhoto)return;let disposed=false,url:string|undefined;api.userPhotoBlob(user.id).then(blob=>{if(disposed)return;url=URL.createObjectURL(blob);setPhoto(url);}).catch(()=>{});return()=>{disposed=true;if(url)URL.revokeObjectURL(url);};},[user]);
   return <header className="customer-header sticky top-0 z-40" onKeyDown={event=>{if(event.key==="Escape"){setExpanded(false);toggleRef.current?.focus();}}}>
     <div className="mx-auto flex h-16 max-w-lg items-center justify-between gap-3 px-4">
-      <Link href="/" aria-label="Go to home" className="shrink-0"><BrandLogo variant={activeTheme === "dark" ? "light" : "dark"}/></Link>
+      <Link href="/" aria-label={`Go to home${modeLabel ? `, ${practiceActive ? "practice" : "demo"} mode` : ""}`} className="flex shrink-0 items-start gap-1"><BrandLogo variant={activeTheme === "dark" ? "light" : "dark"}/>{modeLabel&&<sup aria-hidden="true" className="pt-1 text-[10px] font-bold leading-none text-gold">{modeLabel}</sup>}</Link>
       <button ref={toggleRef} type="button" aria-label={expanded?"Close profile menu":"Open profile menu"} aria-expanded={expanded} aria-controls="header-profile" onClick={()=>setExpanded(value=>!value)} className="customer-header-toggle flex h-11 w-11 items-center justify-center rounded-full"><ChevronDown size={24} className={`transition-transform duration-300 ${expanded?"rotate-180":""}`} aria-hidden/></button>
     </div>
     <div id="header-profile" className={`customer-profile-reveal mx-auto grid max-w-lg ${expanded?"is-expanded":""}`} inert={!expanded} aria-hidden={!expanded}>

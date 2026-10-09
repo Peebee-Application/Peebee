@@ -29,7 +29,7 @@ function BusinessCard({ business }: { business: Restaurant }) {
     <Link href={`/restaurants/${business.id}`} className="food-menu-card !overflow-hidden !p-0">
       <Image src={image} alt={`${business.name} cover`} className="aspect-[4/3] w-full object-cover" width={320} height={240} loading="lazy" />
       <div className="p-3">
-        <p className="text-[10px] font-semibold text-gold">{foodBusinessLabel(business.business_type)}{business.is_demo ? " · Demo" : ""}</p>
+        <p className="text-[10px] font-semibold text-gold">{foodBusinessLabel(business.business_type)}</p>
         <h3 className="mt-1 font-bold leading-snug">{business.name}</h3>
         <p className="mt-1 truncate text-xs text-ink-500">{business.cuisine ?? business.description ?? "Explore the menu"}</p>
         <p className="mt-3 text-xs font-semibold">{business.is_open ? "Open now" : "Closed"}<span className="float-right text-gold">Menu →</span></p>

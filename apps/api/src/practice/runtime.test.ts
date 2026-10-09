@@ -86,6 +86,28 @@ test("practice car picker defaults to normal convenient and assigns random all-d
   }
 });
 
+test("rideshare practice lists nearby trips and books them without live network access", async () => {
+  installStorage();
+  const practiceFetch = createPracticeFetch("customer", (async () => { throw new Error("live fetch must not be called"); }) as typeof fetch);
+  startPracticeMode("customer");
+
+  const response = await practiceFetch("https://api.test/v1/car/carpool/trips?nearLat=0.32&nearLng=32.58&nearLabel=Kitaasa");
+  const result = await response.json() as { trips: Array<{ id: string; originLabel: string; driverName: string; seatPrice: number }> };
+  assert.ok(result.trips.length > 0);
+  assert.match(result.trips[0].originLabel, /Kitaasa/);
+  assert.doesNotMatch(result.trips[0].driverName, /demo/i, "the global header indicates practice mode");
+  assert.ok(result.trips.every((trip) => trip.seatPrice > 0));
+
+  const booking = await practiceFetch(`https://api.test/v1/car/carpool/trips/${result.trips[0].id}/seats`, {
+    method: "POST",
+    body: JSON.stringify({ seats: 1 }),
+  });
+  assert.equal(booking.status, 201);
+  const body = await booking.json() as { order: { rider_id: string | null; estimated_total: number } };
+  assert.match(body.order.rider_id ?? "", /^practice-car-driver-/);
+  assert.equal(body.order.estimated_total, result.trips[0].seatPrice);
+});
+
 test("practice parcel fare and stored total use the same rounded amount", async () => {
   installStorage();
   const practiceFetch = createPracticeFetch("customer", (async () => { throw new Error("live fetch must not be called"); }) as typeof fetch);
