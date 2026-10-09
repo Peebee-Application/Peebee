@@ -155,7 +155,7 @@ export default function RentPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 pb-24 pt-4">
+    <div className="space-y-4 px-4 pt-4">
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => router.back()} aria-label="Back" className="-ml-1.5 flex h-8 w-8 items-center justify-center rounded-full text-ink-500">
           <ChevronLeft className="h-5 w-5" strokeWidth={1.75} />

@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
@@ -85,6 +85,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
+  const navRef = useRef<HTMLElement>(null);
   const [activeOrder, setActiveOrder] = useState<OrderRow | null>(null);
   const [trackerDrawerOpen, setTrackerDrawerOpen] = useState(false);
   const [menuGroup, setMenuGroup] = useState<MenuGroup>(() => groupForPath(pathname));
@@ -129,9 +130,33 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
   const isOnActiveOrderPage = activeOrder ? pathname === `/orders/${activeOrder.id}` : false;
   const showActiveDeliveryBadge = !overlay && !!activeOrder && !isOnActiveOrderPage && pathname !== "/";
 
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    // Keep the content clearance tied to the rendered footer, including its
+    // optional active-order chip and the device's safe-area inset.
+    const updateClearance = () => {
+      const gap = Math.ceil(window.innerHeight - nav.getBoundingClientRect().top + 35);
+      document.documentElement.style.setProperty("--customer-nav-content-gap", `${gap}px`);
+    };
+
+    updateClearance();
+    const observer = new ResizeObserver(updateClearance);
+    observer.observe(nav);
+    window.addEventListener("resize", updateClearance);
+    window.visualViewport?.addEventListener("resize", updateClearance);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateClearance);
+      window.visualViewport?.removeEventListener("resize", updateClearance);
+      document.documentElement.style.removeProperty("--customer-nav-content-gap");
+    };
+  }, [showActiveDeliveryBadge]);
+
   return (
     <>
-      <nav aria-label="Primary navigation" className={`customer-nav fixed inset-x-0 bottom-3 z-40 px-3 pointer-events-none pb-[env(safe-area-inset-bottom)] ${overlay ? "customer-nav-overlay" : ""}`}>
+      <nav ref={navRef} aria-label="Primary navigation" className={`customer-nav fixed inset-x-0 bottom-3 z-40 px-3 pointer-events-none pb-[env(safe-area-inset-bottom)] ${overlay ? "customer-nav-overlay" : ""}`}>
         <div className="mx-auto flex max-w-lg flex-col items-center gap-2">
           {/* Active Delivery Floating Capsule Chip */}
           {showActiveDeliveryBadge && (

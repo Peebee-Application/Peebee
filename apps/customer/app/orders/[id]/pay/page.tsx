@@ -136,7 +136,7 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-5 px-4 pb-28 pt-5">
+    <div className="mx-auto max-w-lg space-y-5 px-4 pt-5">
       <div className="space-y-1">
         <Link href={`/orders/${id}`} className="text-sm font-semibold text-ink-500">Back to order</Link>
         <h1 className="text-2xl font-bold text-ink">Payment</h1>

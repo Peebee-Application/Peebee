@@ -1035,7 +1035,7 @@ export default function RestaurantPage() {
   }
   if (checkoutRequested || step === "checkout") {
     return (
-      <div className="space-y-6 px-4 pb-28">
+      <div className="space-y-6 px-4">
         <div className="flex items-center gap-3"><button aria-label="Back to menu" onClick={backToMenu} className="flex h-11 w-11 items-center justify-center rounded-full glass-panel"><ChevronLeft size={22}/></button><h1 className="text-2xl font-bold text-ink">Delivery and payment</h1></div>
         <div className="food-menu-card flex items-center justify-between gap-3 px-4 py-3">
           <span className="font-semibold">{cartCount} item{cartCount === 1 ? "" : "s"} in your order</span>
@@ -1117,7 +1117,7 @@ export default function RestaurantPage() {
   }
 
   return (
-    <div className="relative pb-[calc(7rem+env(safe-area-inset-bottom))]">
+    <div className="relative">
       <div className="restaurant-cover-pin sticky top-16 z-0 -mb-[calc(100svh-4rem)] h-[calc(100svh-4rem)]">
         <FoodCover id={restaurant.id} name={restaurant.name} description={restaurant.cuisine} coverKey={restaurant.cover_key} loadCover={api.restaurantCoverBlob} revision={allItems.find(item=>item.photo_key)?.updated_at} previewUrl={restaurant.is_demo?demoRestaurantPhotoPath(restaurant.id)??undefined:undefined} parallax showCaption={false} placeholder={<Store size={64} className="text-gold"/>} overlay={<div className="absolute inset-x-0 top-4 z-10 flex items-start justify-between px-4"><Link href="/restaurants" aria-label="Back to food businesses" className="flex h-12 w-12 items-center justify-center rounded-full glass-panel"><ChevronLeft size={24}/></Link><BusinessLogo id={id} name={restaurant.name} logoKey={restaurant.logo_key} businessType={foodBusinessLabel(restaurant.business_type)} isOpen={!!restaurant.is_open} isDemo={!!restaurant.is_demo} createdAt={restaurant.created_at} trust={restaurantTrust}/></div>}/>
       </div>
