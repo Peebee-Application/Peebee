@@ -1,8 +1,8 @@
-import { ArrowRight, Bike, CarFront, Clock3, ListChecks, Package, Pill, ShoppingBasket, Store, Truck, UsersRound, WashingMachine, Wrench } from "lucide-react";
+import { ArrowRight, Archive, Bike, BookOpen, Briefcase, Car, CarFront, Clock3, ListChecks, Package, Pill, ShoppingBasket, Store, Truck, UsersRound, WashingMachine, Wrench } from "lucide-react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 
-type LandingGroup = "ride" | "shopping" | "deliver";
+type LandingGroup = "ride" | "shopping" | "deliver" | "service";
 type LandingItem = { title: string; description: string; icon: LucideIcon; href?: string };
 
 const landingContent: Record<LandingGroup, { eyebrow: string; title: string; description: string; items: LandingItem[] }> = {
@@ -12,31 +12,42 @@ const landingContent: Record<LandingGroup, { eyebrow: string; title: string; des
     description: "Choose a ride that fits your trip. Compare the options before you book.",
     items: [
       { title: "Boda", description: "A quick ride through town.", icon: Bike, href: "/ride/boda" },
-      { title: "Car", description: "A comfortable ride for your journey.", icon: CarFront, href: "/ride/car" },
+      { title: "Car", description: "A comfortable ride for your journey.", icon: Car, href: "/ride/car" },
       { title: "Rideshare", description: "Share a trip and travel together.", icon: UsersRound, href: "/carpool" },
       { title: "Selfdrive", description: "Choose a car and drive yourself.", icon: CarFront, href: "/rent" },
     ],
   },
   shopping: {
     eyebrow: "Your errands, made easier",
-    title: "Shopping",
+    title: "Buy",
     description: "Build a list for your next shop, then let a Peebee rider take care of the trip.",
     items: [
-      { title: "Shoplist", description: "Create and send a shopping list.", icon: ListChecks, href: "/shoplist" },
-      { title: "Markets", description: "Browse nearby markets.", icon: Store },
+      { title: "List", description: "Create and send a shopping list.", icon: ListChecks, href: "/shoplist" },
+      { title: "Groceries", description: "Browse nearby markets and groceries.", icon: Store },
       { title: "Stores", description: "Shop from local stores.", icon: ShoppingBasket },
-      { title: "Pharmacy", description: "Get everyday health essentials.", icon: Pill },
+      { title: "Pharma", description: "Get everyday health essentials.", icon: Pill },
     ],
   },
   deliver: {
     eyebrow: "Send something across town",
-    title: "Deliver with Peebee",
-    description: "Choose the service you need. More ways to send and move things are coming soon.",
+    title: "Send with Peebee",
+    description: "Choose how to send a parcel, move goods, or arrange storage.",
     items: [
-      { title: "Parcel", description: "Send a package to someone.", icon: Package, href: "/deliver/parcel" },
-      { title: "Laundry", description: "Arrange laundry pickup and delivery.", icon: WashingMachine },
-      { title: "Fix", description: "Find help for repairs.", icon: Wrench },
+      { title: "Parcels", description: "Send a package to someone.", icon: Package, href: "/deliver/parcel" },
+      { title: "Goods", description: "Arrange pickup and delivery for your goods.", icon: ShoppingBasket },
       { title: "Move", description: "Move larger items across town.", icon: Truck },
+      { title: "Storage", description: "Arrange space for items you need to store.", icon: Archive },
+    ],
+  },
+  service: {
+    eyebrow: "Help for everyday tasks",
+    title: "Service",
+    description: "Find practical help for home, work, learning, and more.",
+    items: [
+      { title: "Laundry", description: "Arrange laundry pickup and care.", icon: WashingMachine },
+      { title: "Fix", description: "Find help for repairs and maintenance.", icon: Wrench },
+      { title: "Hire", description: "Find a skilled person for the job.", icon: Briefcase },
+      { title: "Learn", description: "Discover lessons and learning support.", icon: BookOpen },
     ],
   },
 };
