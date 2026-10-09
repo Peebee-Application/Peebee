@@ -26,7 +26,7 @@ const landingContent: Record<LandingGroup, { eyebrow: string; title: string; des
       { title: "Groceries", description: "Browse nearby markets and groceries.", icon: Store },
       { title: "Stores", description: "Shop from local stores.", icon: ShoppingBasket },
       { title: "Pharma", description: "Get everyday health essentials.", icon: Pill },
-      { title: "Services", description: "Find practical help for everyday tasks.", icon: Briefcase, href: "/service" },
+      { title: "Jobs", description: "Find practical help for everyday tasks.", icon: Briefcase, href: "/service" },
     ],
   },
   deliver: {
@@ -42,7 +42,7 @@ const landingContent: Record<LandingGroup, { eyebrow: string; title: string; des
   },
   service: {
     eyebrow: "Help for everyday tasks",
-    title: "Service",
+    title: "Jobs",
     description: "Find practical help for home, work, learning, and more.",
     items: [
       { title: "Laundry", description: "Arrange laundry pickup and care.", icon: WashingMachine },
