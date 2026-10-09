@@ -1,6 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { isLocationFlowOpen, registerServiceSheet, subscribeToLocationFlow } from "../lib/location-flow-state";
@@ -14,6 +15,7 @@ export function Modal({
   children,
   withMap = false,
   mapRoute,
+  heroImage,
 }: {
   title: string;
   onClose: () => void;
@@ -22,6 +24,8 @@ export function Modal({
    * sheet over its lower edge. Everything else stays a plain dimmed sheet. */
   withMap?: boolean;
   mapRoute?: SelectedRouteLocations;
+  /** Optional artwork above an order sheet; location-selection sheets keep the live map. */
+  heroImage?: string;
 }) {
   const [mounted, setMounted] = useState(false);
   const locationFlowOpen = useSyncExternalStore(subscribeToLocationFlow, isLocationFlowOpen, () => false);
@@ -33,7 +37,7 @@ export function Modal({
   closeRef.current = onClose;
 
   useEffect(() => {
-    if (!mounted || !withMap || !mapBandRef.current || !mapSheetRef.current) return;
+    if (!mounted || !withMap || heroImage || !mapBandRef.current || !mapSheetRef.current) return;
     const measure = () => {
       const band = mapBandRef.current?.getBoundingClientRect();
       const sheet = mapSheetRef.current?.getBoundingClientRect();
@@ -44,7 +48,7 @@ export function Modal({
     observer.observe(mapSheetRef.current);
     measure();
     return () => observer.disconnect();
-  }, [mounted, withMap]);
+  }, [mounted, withMap, heroImage]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -119,10 +123,24 @@ export function Modal({
   if (withMap) {
     return createPortal(
       <div className="fixed inset-0 z-[70] bg-cream">
-        <div ref={mapBandRef} className="absolute inset-x-0 bottom-[34dvh] top-0 mx-auto max-w-lg">
-          <HomeMapHero className="isolate h-full w-full overflow-hidden" {...mapRoute} bottomInset={mapBottomInset} />
+        <div ref={mapBandRef} className="absolute inset-x-0 bottom-[34dvh] top-0 mx-auto max-w-lg overflow-hidden">
+          {heroImage ? (
+            <>
+              <Image
+                src={heroImage}
+                alt=""
+                fill
+                priority
+                sizes="(max-width: 32rem) 100vw, 32rem"
+                className="object-cover object-center"
+              />
+              <div className="absolute inset-x-0 bottom-0 h-[42%] bg-gradient-to-b from-transparent via-cream/80 to-cream" aria-hidden />
+            </>
+          ) : (
+            <HomeMapHero className="isolate h-full w-full overflow-hidden" {...mapRoute} bottomInset={mapBottomInset} />
+          )}
         </div>
-        <div ref={mapSheetRef} className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[68dvh] min-h-[36dvh] w-full max-w-lg flex-col">
+        <div ref={mapSheetRef} className={`absolute inset-x-0 bottom-0 mx-auto flex ${heroImage ? "max-h-[82dvh]" : "max-h-[68dvh]"} min-h-[36dvh] w-full max-w-lg flex-col`}>
           <div
             className="soft-drawer relative z-10 flex min-h-0 flex-1 flex-col"
             role="dialog"
@@ -133,7 +151,7 @@ export function Modal({
           >
             <span className="mx-auto mt-2.5 block h-1.5 w-10 shrink-0 rounded-full bg-[rgb(var(--color-ink-500)/0.25)]" aria-hidden />
             {header}
-            <div className="flex-1 overflow-y-auto px-5 py-4 pb-[calc(8rem+env(safe-area-inset-bottom))]">{children}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 pb-[calc(8rem+env(safe-area-inset-bottom))]">{children}</div>
           </div>
         </div>
         {!locationFlowOpen && <BottomNav overlay />}
