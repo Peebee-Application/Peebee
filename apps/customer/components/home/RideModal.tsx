@@ -32,7 +32,7 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
  * you are and take you to a destination. A ride is stored as a normal
  * parcel order (pickup + destination, distance-priced) with `isRide: true`
  * — see apps/api/src/db/migrations/0039_ride_orders.sql. */
-export function RideModal({ onClose, initialMode = "boda" }: { onClose: () => void; initialMode?: "boda" | "car" }) {
+export function RideModal({ onClose, initialMode = "boda", serviceLocked = false }: { onClose: () => void; initialMode?: "boda" | "car"; serviceLocked?: boolean }) {
   const t = useTranslate();
   const router = useRouter();
   // The first thing a rider books is where: pickup and destination come
@@ -212,7 +212,7 @@ export function RideModal({ onClose, initialMode = "boda" }: { onClose: () => vo
           />
         )}
 
-        {(tierPricing || carpoolOn || rentOn) && (!carMenuOpen ? (
+        {!serviceLocked && (tierPricing || carpoolOn || rentOn) && (!carMenuOpen ? (
           <div role="group" aria-label="Choose a ride" className="flex gap-2">
             <button type="button" aria-pressed={mode === "boda"} onClick={() => setMode("boda")} className={`min-h-10 flex-1 rounded-full px-3 text-sm font-bold ${mode === "boda" ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>{t("car_tab_boda")}</button>
             <button type="button" onClick={() => { setMode("car"); setCarMenuOpen(true); }} className="min-h-10 flex-1 rounded-full bg-gold/15 px-3 text-sm font-bold text-ink">{t("car_tab_car")}</button>
