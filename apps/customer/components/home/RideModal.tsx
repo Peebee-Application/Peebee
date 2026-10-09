@@ -32,7 +32,7 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
  * you are and take you to a destination. A ride is stored as a normal
  * parcel order (pickup + destination, distance-priced) with `isRide: true`
  * — see apps/api/src/db/migrations/0039_ride_orders.sql. */
-export function RideModal({ onClose }: { onClose: () => void }) {
+export function RideModal({ onClose, initialMode = "boda" }: { onClose: () => void; initialMode?: "boda" | "car" }) {
   const t = useTranslate();
   const router = useRouter();
   // The first thing a rider books is where: pickup and destination come
@@ -57,8 +57,8 @@ export function RideModal({ onClose }: { onClose: () => void }) {
   const [carpoolOn, setCarpoolOn] = useState(false);
   const [rentOn, setRentOn] = useState(false);
   const [pickupAt, setPickupAt] = useState("");
-  const [mode, setMode] = useState<"boda" | "car">("boda");
-  const [carMenuOpen, setCarMenuOpen] = useState(false);
+  const [mode, setMode] = useState<"boda" | "car">(initialMode);
+  const [carMenuOpen, setCarMenuOpen] = useState(initialMode === "car");
   const [busy, setBusy] = useState(false);
   const [showEstimates, setShowEstimates] = useState(false);
   const [error, setError] = useState<string | null>(null);

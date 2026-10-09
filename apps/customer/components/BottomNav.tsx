@@ -3,52 +3,110 @@
 import { observeNotificationSnapshot } from "@peebee/shared";
 
 import type { OrderRow } from "@peebee/shared";
-import { ChevronRight, Home, MessageCircle, ShoppingBag, ShoppingCart, User, UtensilsCrossed } from "lucide-react";
+import {
+  Bike,
+  CarFront,
+  ChefHat,
+  ChevronRight,
+  CookingPot,
+  Croissant,
+  Home,
+  ListChecks,
+  Package,
+  Pill,
+  ShoppingBag,
+  ShoppingBasket,
+  Store,
+  UtensilsCrossed,
+  WashingMachine,
+  Wrench,
+  Truck,
+  UsersRound,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
-import { useTranslate, type TranslationKey } from "../lib/i18n";
+import { useTranslate } from "../lib/i18n";
 import { orderTitle, stageLabel } from "../lib/order-display";
 import { useLivePolling } from "../lib/use-live-polling";
 import { BottomDrawer } from "./BottomDrawer";
 
-const tabs: { href: string; labelKey: TranslationKey; icon: LucideIcon }[] = [
-  { href: "/", labelKey: "nav_home", icon: Home },
-  { href: "/restaurants", labelKey: "nav_food", icon: UtensilsCrossed },
-  { href: "/orders", labelKey: "nav_orders", icon: ShoppingCart },
-  { href: "/chat", labelKey: "nav_chat", icon: MessageCircle },
-  { href: "/account", labelKey: "nav_account", icon: User },
+type MenuGroup = "original" | "ride" | "shopping" | "food" | "deliver";
+type MenuItem = { id: string; label: string; icon: LucideIcon; href?: string; group?: Exclude<MenuGroup, "original">; disabled?: boolean };
+
+const originalMenu: MenuItem[] = [
+  { id: "ride", label: "Ride", icon: CarFront, group: "ride" },
+  { id: "shopping", label: "Shopping", icon: ShoppingBag, group: "shopping" },
+  { id: "food", label: "Food", icon: UtensilsCrossed, group: "food" },
+  { id: "deliver", label: "Deliver", icon: Package, group: "deliver" },
 ];
 
-const UNREAD_POLL_MS = 15000;
+const submenuItems: Record<Exclude<MenuGroup, "original">, MenuItem[]> = {
+  ride: [
+    { id: "boda", label: "Boda", icon: Bike, href: "/ride/boda" },
+    { id: "car", label: "Car", icon: CarFront, href: "/ride/car" },
+    { id: "rideshare", label: "Rideshare", icon: UsersRound, href: "/carpool" },
+    { id: "selfdrive", label: "Selfdrive", icon: CarFront, href: "/rent" },
+  ],
+  shopping: [
+    { id: "shoplist", label: "Shoplist", icon: ListChecks, href: "/shoplist" },
+    { id: "markets", label: "Markets", icon: Store, disabled: true },
+    { id: "stores", label: "Stores", icon: ShoppingBasket, disabled: true },
+    { id: "pharmacy", label: "Pharmacy", icon: Pill, disabled: true },
+  ],
+  food: [
+    { id: "restaurant", label: "Restaurants", icon: UtensilsCrossed, href: "/restaurants?category=restaurant" },
+    { id: "kitchen", label: "Kitchens", icon: CookingPot, href: "/restaurants?category=kitchen" },
+    { id: "street_food", label: "Streetfood", icon: ChefHat, href: "/restaurants?category=street_food" },
+    { id: "bakery", label: "Bakeries", icon: Croissant, href: "/restaurants?category=bakery" },
+  ],
+  deliver: [
+    { id: "parcel", label: "Parcel", icon: Package, href: "/deliver/parcel" },
+    { id: "laundry", label: "Laundry", icon: WashingMachine, disabled: true },
+    { id: "fix", label: "Fix", icon: Wrench, disabled: true },
+    { id: "move", label: "Move", icon: Truck, disabled: true },
+  ],
+};
+
+function groupForPath(pathname: string): MenuGroup {
+  if (pathname.startsWith("/restaurants")) return "food";
+  if (pathname === "/rent" || pathname === "/carpool" || pathname.startsWith("/ride/")) return "ride";
+  if (pathname === "/shoplist" || pathname.startsWith("/orders")) return "shopping";
+  if (pathname === "/deliver/parcel") return "deliver";
+  return "original";
+}
+
 const ACTIVE_ORDER_POLL_MS = 10000;
 
 export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
-  const [hasUnread, setHasUnread] = useState(false);
   const [activeOrder, setActiveOrder] = useState<OrderRow | null>(null);
   const [trackerDrawerOpen, setTrackerDrawerOpen] = useState(false);
+  const [menuGroup, setMenuGroup] = useState<MenuGroup>(() => groupForPath(pathname));
+  const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const t = useTranslate();
 
-  useLivePolling(
-    () => {
-      if (!user) return;
-      api
-        .getChatThreads()
-        .then((res) => {
-          observeNotificationSnapshot("chat-inbox", res.threads.filter((t) => t.unread).map((t) => t.counterpartId + ":" + t.lastMessageAt));
-          setHasUnread(res.threads.some((t) => t.unread));
-        })
-        .catch(() => {});
-    },
-    UNREAD_POLL_MS,
-    [user],
-  );
+  useEffect(() => {
+    const group = groupForPath(pathname);
+    setMenuGroup(group);
+    const category = pathname.startsWith("/restaurants")
+      ? new URLSearchParams(window.location.search).get("category")
+      : null;
+    if (category && submenuItems.food.some((item) => item.id === category)) setSelectedItem(category);
+    else if (pathname.startsWith("/restaurants")) setSelectedItem("restaurant");
+    else if (pathname === "/ride/boda") setSelectedItem("boda");
+    else if (pathname === "/ride/car") setSelectedItem("car");
+    else if (pathname === "/carpool") setSelectedItem("rideshare");
+    else if (pathname === "/rent") setSelectedItem("selfdrive");
+    else if (pathname === "/shoplist" || pathname.startsWith("/orders")) setSelectedItem("shoplist");
+    else if (pathname === "/deliver/parcel") setSelectedItem("parcel");
+    else setSelectedItem(null);
+  }, [pathname]);
 
   useLivePolling(
     () => {
@@ -74,8 +132,8 @@ export function BottomNav() {
 
   return (
     <>
-      <nav className="customer-nav fixed inset-x-0 bottom-3 z-40 px-3 pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto flex max-w-md flex-col items-center gap-2">
+      <nav aria-label="Primary navigation" className="customer-nav fixed inset-x-0 bottom-3 z-40 px-3 pointer-events-none pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto flex max-w-lg flex-col items-center gap-2">
           {/* Active Delivery Floating Capsule Chip */}
           {showActiveDeliveryBadge && (
             <button
@@ -97,46 +155,48 @@ export function BottomNav() {
             </button>
           )}
 
-          {/* Elevated Floating Capsule Dock */}
-          <div className="pointer-events-auto w-full soft-capsule p-1.5 transition-all">
-            <ul className="flex items-center justify-around">
-              {tabs.map((tab) => {
-                const active =
-                  tab.href === "/"
-                    ? pathname === "/"
-                    : pathname.startsWith(tab.href);
-                const Icon = tab.icon;
-                return (
-                  <li key={tab.href} className="flex-1">
-                    <Link
-                      href={tab.href}
-                      className={`relative flex h-12 flex-col items-center justify-center gap-0.5 rounded-full transition-all duration-200 ${
-                        active
-                          ? "text-gold font-bold scale-105"
-                          : "text-white/60 hover:text-white font-medium"
-                      }`}
-                    >
-                      <span className="relative">
-                        <Icon className="h-5 w-5" strokeWidth={active ? 2.3 : 1.75} aria-hidden />
-                        {tab.href === "/chat" && hasUnread && (
-                          <span
-                            className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-gold animate-glow-gold"
-                            aria-hidden
-                          />
-                        )}
-                      </span>
-                      <span className="text-[10px] leading-none">{t(tab.labelKey)}</span>
-                      {active && (
-                        <span
-                          className="absolute -bottom-0.5 h-1 w-1 rounded-full bg-gold"
-                          aria-hidden
-                        />
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+          {/* Home stays separate; the wider menu changes between the four service groups. */}
+          <div className="pointer-events-auto flex w-full items-center gap-2.5">
+            <button
+              type="button"
+              aria-label="Home and reset menu"
+              aria-current={pathname === "/" ? "page" : undefined}
+              onClick={() => {
+                setMenuGroup("original");
+                setSelectedItem(null);
+                router.push("/");
+              }}
+              className={`customer-nav-home flex h-[60px] w-[66px] shrink-0 flex-col items-center justify-center gap-1 rounded-[22px] transition-all duration-200 active:scale-95 ${pathname === "/" ? "is-active" : ""}`}
+            >
+              <Home className="h-5 w-5" strokeWidth={pathname === "/" ? 2.3 : 1.8} aria-hidden />
+              <span className="text-[10px] font-semibold leading-none">{t("nav_home")}</span>
+              {pathname === "/" && <span className="customer-nav-home-indicator" aria-hidden />}
+            </button>
+
+            <div className="customer-nav-menu pointer-events-auto min-w-0 flex-1 rounded-[22px] p-1.5">
+              <ul key={menuGroup} className="customer-nav-items grid grid-cols-4 items-center gap-1" aria-label={menuGroup === "original" ? "Main menu" : `${menuGroup} menu`}>
+                {(menuGroup === "original" ? originalMenu : submenuItems[menuGroup]).map((item) => {
+                  const Icon = item.icon;
+                  const active = item.id === selectedItem;
+                  const classes = `customer-nav-item relative flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-0.5 transition-all duration-200 ${active ? "is-active" : ""} ${item.disabled ? "is-disabled" : ""}`;
+                  const contents = <>
+                    <Icon className="h-[19px] w-[19px] shrink-0" strokeWidth={active ? 2.2 : 1.8} aria-hidden />
+                    <span className="w-full truncate text-center text-[10px] font-medium leading-none">{item.label}</span>
+                    {active && <span className="customer-nav-item-indicator" aria-hidden />}
+                  </>;
+
+                  return <li key={item.id} className="min-w-0">
+                    {item.group ? (
+                      <button type="button" aria-label={`${item.label} submenu`} aria-expanded={menuGroup === item.group} onClick={() => { setMenuGroup(item.group!); setSelectedItem(null); }} className={classes}>{contents}</button>
+                    ) : item.disabled ? (
+                      <button type="button" disabled title="Coming soon" className={classes}>{contents}</button>
+                    ) : (
+                      <Link href={item.href!} onClick={() => setSelectedItem(item.id)} aria-current={active ? "page" : undefined} className={classes}>{contents}</Link>
+                    )}
+                  </li>;
+                })}
+              </ul>
+            </div>
           </div>
         </div>
       </nav>
