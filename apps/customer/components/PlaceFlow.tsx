@@ -7,6 +7,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../lib/api";
 import { useTranslate, type TranslationKey } from "../lib/i18n";
+import { registerLocationFlow } from "../lib/location-flow-state";
+import { BottomNav } from "./BottomNav";
 import {
   cachedPosition,
   currentLocationPlace,
@@ -228,6 +230,7 @@ export function PlaceFlow({
     setMounted(true);
     setViewportH(window.innerHeight);
     document.body.style.overflow = "hidden";
+    const unregisterLocationFlow = registerLocationFlow();
     // A ride/parcel starts from wherever the phone last put the customer.
     if (route && !initial?.pickup) setPickup((p) => p ?? currentLocationPlace());
     setSearches(readRecentSearches());
@@ -242,6 +245,7 @@ export function PlaceFlow({
     }
     return () => {
       document.body.style.overflow = "";
+      unregisterLocationFlow();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -454,7 +458,7 @@ export function PlaceFlow({
       )}
 
       {view === "landing" && (
-        <div className="soft-drawer absolute inset-x-0 bottom-0 z-20 mx-auto max-w-lg space-y-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="soft-drawer absolute inset-x-0 bottom-0 z-20 mx-auto max-w-lg space-y-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-3">
           <span className="mx-auto block h-1.5 w-10 rounded-full bg-[rgb(var(--color-ink-500)/0.25)]" aria-hidden />
           <div className="px-4">
             <button
@@ -471,7 +475,7 @@ export function PlaceFlow({
       )}
 
       {view === "map" && (
-        <div className="absolute inset-x-0 bottom-0 z-20 mx-auto max-w-lg px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="absolute inset-x-0 bottom-0 z-20 mx-auto max-w-lg px-3 pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
           <div className="space-y-2.5 rounded-3xl glass-panel p-3 shadow-[var(--shadow-float-capsule)]">
             {fieldRows(false)}
             {confirmButton}
@@ -496,7 +500,7 @@ export function PlaceFlow({
             {fieldRows(true)}
           </div>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-3">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-3 pb-24">
             {query.trim().length >= 3 ? (
               <div className="px-4">
                 {searching && (
@@ -552,10 +556,12 @@ export function PlaceFlow({
           </div>
 
           {confirmButton && (
-            <div className="shrink-0 border-t border-[var(--border-faint)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">{confirmButton}</div>
+            <div className="shrink-0 border-t border-[var(--border-faint)] px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-3">{confirmButton}</div>
           )}
         </div>
       )}
+
+      <BottomNav overlay />
 
       {who === "prompt" && (
         <div className="absolute inset-0 z-[40] flex items-end justify-center bg-black/40" role="alertdialog" aria-modal="true" aria-label={t("who_prompt_title")}>
