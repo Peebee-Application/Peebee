@@ -137,7 +137,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
     // Keep the content clearance tied to the rendered footer, including its
     // optional active-order chip and the device's safe-area inset.
     const updateClearance = () => {
-      const gap = Math.ceil(window.innerHeight - nav.getBoundingClientRect().top + 35);
+      const gap = Math.ceil(window.innerHeight - nav.getBoundingClientRect().top + 15);
       document.documentElement.style.setProperty("--customer-nav-content-gap", `${gap}px`);
     };
 
