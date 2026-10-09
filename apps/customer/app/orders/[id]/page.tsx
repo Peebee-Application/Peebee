@@ -267,7 +267,7 @@ export default function OrderDetailPage() {
   const canDelete = !order.rider_id && ["Create", "Match"].includes(order.stage);
 
   return (
-    <div className="space-y-6 px-4 pb-24 pt-4">
+    <div className="space-y-6 px-4 pt-4">
       <header className="space-y-1">
         <div className="flex items-start justify-between gap-3">
           <h1 className="text-xl font-bold text-ink">{orderTitle(order)}</h1>

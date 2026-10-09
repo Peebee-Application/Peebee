@@ -458,7 +458,7 @@ export function PlaceFlow({
       )}
 
       {view === "landing" && (
-        <div className="soft-drawer absolute inset-x-0 bottom-0 z-20 mx-auto max-w-lg space-y-4 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-3">
+        <div className="soft-drawer customer-nav-content-clearance absolute inset-x-0 bottom-0 z-20 mx-auto max-w-lg space-y-4 pt-3">
           <span className="mx-auto block h-1.5 w-10 rounded-full bg-[rgb(var(--color-ink-500)/0.25)]" aria-hidden />
           <div className="px-4">
             <button
@@ -475,7 +475,7 @@ export function PlaceFlow({
       )}
 
       {view === "map" && (
-        <div className="absolute inset-x-0 bottom-0 z-20 mx-auto max-w-lg px-3 pb-[calc(8rem+env(safe-area-inset-bottom))]">
+        <div className="customer-nav-content-clearance absolute inset-x-0 bottom-0 z-20 mx-auto max-w-lg px-3">
           <div className="space-y-2.5 rounded-3xl glass-panel p-3 shadow-[var(--shadow-float-capsule)]">
             {fieldRows(false)}
             {confirmButton}
@@ -500,7 +500,7 @@ export function PlaceFlow({
             {fieldRows(true)}
           </div>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-3 pb-32">
+          <div className={`min-h-0 flex-1 space-y-4 overflow-y-auto py-3 ${confirmButton ? "pb-3" : "customer-nav-content-clearance"}`}>
             {query.trim().length >= 3 ? (
               <div className="px-4">
                 {searching && (
@@ -556,7 +556,7 @@ export function PlaceFlow({
           </div>
 
           {confirmButton && (
-            <div className="shrink-0 border-t border-[var(--border-faint)] px-4 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-3">{confirmButton}</div>
+            <div className="customer-nav-content-clearance shrink-0 border-t border-[var(--border-faint)] px-4 pt-3">{confirmButton}</div>
           )}
         </div>
       )}

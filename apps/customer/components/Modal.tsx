@@ -140,7 +140,7 @@ export function Modal({
             <HomeMapHero className="isolate h-full w-full overflow-hidden" {...mapRoute} bottomInset={mapBottomInset} />
           )}
         </div>
-        <div ref={mapSheetRef} className={`absolute inset-x-0 bottom-0 mx-auto flex ${heroImage ? "max-h-[82dvh]" : "max-h-[68dvh]"} min-h-[36dvh] w-full max-w-lg flex-col`}>
+        <div ref={mapSheetRef} className={`absolute inset-x-0 bottom-0 mx-auto flex ${heroImage ? "max-h-[82dvh]" : "max-h-[68dvh]"} min-h-0 w-full max-w-lg flex-col`}>
           <div
             className="soft-drawer relative z-10 flex min-h-0 flex-1 flex-col"
             role="dialog"
@@ -151,7 +151,7 @@ export function Modal({
           >
             <span className="mx-auto mt-2.5 block h-1.5 w-10 shrink-0 rounded-full bg-[rgb(var(--color-ink-500)/0.25)]" aria-hidden />
             {header}
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 pb-[calc(8rem+env(safe-area-inset-bottom))]">{children}</div>
+            <div className="customer-nav-content-clearance min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
           </div>
         </div>
         {!locationFlowOpen && <BottomNav overlay />}
