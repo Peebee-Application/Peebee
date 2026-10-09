@@ -1343,3 +1343,91 @@ select {
 .edge-carousel-dialog { --carousel-gutter: 1.25rem; }
 /* A rail inside a padded card also cancels that card's border and padding. */
 .edge-carousel-card { --carousel-gutter: calc(1rem + var(--pad-card) + 1px); }
+
+/* In dark mode, the customer chrome switches to the gold-and-black brand palette. */
+:root[data-theme="dark"] .customer-header {
+  background: rgb(var(--color-gold));
+  color: #111;
+  border-bottom-color: rgb(0 0 0 / .14);
+}
+:root[data-theme="dark"] .customer-header-toggle {
+  color: #111;
+  border: 1px solid rgb(0 0 0 / .18);
+}
+:root[data-theme="dark"] .customer-header-toggle:hover { background: rgb(0 0 0 / .08); }
+:root[data-theme="dark"] .customer-profile-card {
+  color: #111;
+  background: rgb(0 0 0 / .06);
+  border-color: rgb(0 0 0 / .14);
+}
+:root[data-theme="dark"] .customer-profile-avatar { color: #111; background: rgb(0 0 0 / .08); }
+:root[data-theme="dark"] .customer-profile-muted { color: rgb(0 0 0 / .62); }
+:root[data-theme="dark"] .customer-profile-chevron { color: #111; }
+:root[data-theme="dark"] .customer-profile-appearance { border: 1px solid rgb(0 0 0 / .14); }
+:root[data-theme="dark"] .customer-profile-segmented {
+  background: rgb(0 0 0 / .06);
+  border: 1px solid rgb(0 0 0 / .12);
+}
+:root[data-theme="dark"] .customer-profile-theme-option { color: rgb(0 0 0 / .7); }
+:root[data-theme="dark"] .customer-profile-theme-option:hover,
+:root[data-theme="dark"] .customer-profile-theme-option.is-selected {
+  color: #111;
+  background: rgb(0 0 0 / .1);
+}
+:root[data-theme="dark"] .customer-nav .soft-capsule {
+  color: #111;
+  background: rgb(var(--color-gold));
+  border-color: rgb(0 0 0 / .15);
+}
+:root[data-theme="dark"] .customer-nav .soft-capsule * { color: #111; }
+:root[data-theme="dark"] .customer-nav-home,
+:root[data-theme="dark"] .customer-nav-menu {
+  color: #111;
+  background: rgb(var(--color-gold));
+  border-color: rgb(0 0 0 / .15);
+  box-shadow: 0 12px 28px rgb(0 0 0 / .22);
+}
+:root[data-theme="dark"] .customer-nav-home.is-active { color: #111; }
+:root[data-theme="dark"] .customer-nav-item { color: #111; }
+:root[data-theme="dark"] .customer-nav-item:hover,
+:root[data-theme="dark"] .customer-nav-item.is-active {
+  color: #111;
+  background: rgb(0 0 0 / .1);
+}
+:root[data-theme="dark"] .customer-nav-home:focus-visible,
+:root[data-theme="dark"] .customer-nav-item:focus-visible { outline-color: #111; }
+:root[data-theme="dark"] .customer-nav-home-indicator,
+:root[data-theme="dark"] .customer-nav-item-indicator { background: #111; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .customer-header {
+    background: rgb(var(--color-gold));
+    color: #111;
+    border-bottom-color: rgb(0 0 0 / .14);
+  }
+  :root:not([data-theme="light"]) .customer-header-toggle { color: #111; border-color: rgb(0 0 0 / .18); }
+  :root:not([data-theme="light"]) .customer-header-toggle:hover { background: rgb(0 0 0 / .08); }
+  :root:not([data-theme="light"]) .customer-profile-card { color: #111; background: rgb(0 0 0 / .06); border-color: rgb(0 0 0 / .14); }
+  :root:not([data-theme="light"]) .customer-profile-avatar { color: #111; background: rgb(0 0 0 / .08); }
+  :root:not([data-theme="light"]) .customer-profile-muted { color: rgb(0 0 0 / .62); }
+  :root:not([data-theme="light"]) .customer-profile-chevron { color: #111; }
+  :root:not([data-theme="light"]) .customer-profile-appearance { border: 1px solid rgb(0 0 0 / .14); }
+  :root:not([data-theme="light"]) .customer-profile-segmented { background: rgb(0 0 0 / .06); border: 1px solid rgb(0 0 0 / .12); }
+  :root:not([data-theme="light"]) .customer-profile-theme-option { color: rgb(0 0 0 / .7); }
+  :root:not([data-theme="light"]) .customer-profile-theme-option:hover,
+  :root:not([data-theme="light"]) .customer-profile-theme-option.is-selected { color: #111; background: rgb(0 0 0 / .1); }
+  :root:not([data-theme="light"]) .customer-nav .soft-capsule { color: #111; background: rgb(var(--color-gold)); border-color: rgb(0 0 0 / .15); }
+  :root:not([data-theme="light"]) .customer-nav .soft-capsule * { color: #111; }
+  :root:not([data-theme="light"]) .customer-nav-home,
+  :root:not([data-theme="light"]) .customer-nav-menu { color: #111; background: rgb(var(--color-gold)); border-color: rgb(0 0 0 / .15); box-shadow: 0 12px 28px rgb(0 0 0 / .22); }
+  :root:not([data-theme="light"]) .customer-nav-home.is-active,
+  :root:not([data-theme="light"]) .customer-nav-item,
+  :root:not([data-theme="light"]) .customer-nav-item:hover,
+  :root:not([data-theme="light"]) .customer-nav-item.is-active { color: #111; }
+  :root:not([data-theme="light"]) .customer-nav-item:hover,
+  :root:not([data-theme="light"]) .customer-nav-item.is-active { background: rgb(0 0 0 / .1); }
+  :root:not([data-theme="light"]) .customer-nav-home:focus-visible,
+  :root:not([data-theme="light"]) .customer-nav-item:focus-visible { outline-color: #111; }
+  :root:not([data-theme="light"]) .customer-nav-home-indicator,
+  :root:not([data-theme="light"]) .customer-nav-item-indicator { background: #111; }
+}
