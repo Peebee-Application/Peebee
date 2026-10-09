@@ -154,7 +154,7 @@
 .scene-choice-selected { border-color: rgb(var(--color-gold)); background: rgb(var(--color-gold) / .1); }
 .scene-swatches { display: flex; align-items: center; margin-bottom: 10px; padding-left: 3px; }
 .scene-swatches > span { width: 30px; height: 30px; border-radius: 50%; margin-left: -3px; border: .5px solid rgb(255 255 255 / .3); box-shadow: 0 2px 4px rgb(0 0 0 / .1); }
-:where(button, a, input, select, textarea):focus-visible { outline: 2px solid rgb(var(--color-gold)); outline-offset: 3px; }
+:where(button, a):focus-visible { outline: 2px solid rgb(var(--color-gold)); outline-offset: 3px; }
 
 /* The account journey shares the chosen scene while its gold artwork stays warm. */
 .food-business-theme[data-colour-scene] .auth-scene { background: transparent; }

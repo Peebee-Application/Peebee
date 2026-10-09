@@ -133,7 +133,7 @@ export function Modal({
           >
             <span className="mx-auto mt-2.5 block h-1.5 w-10 shrink-0 rounded-full bg-[rgb(var(--color-ink-500)/0.25)]" aria-hidden />
             {header}
-            <div className="flex-1 overflow-y-auto px-5 py-4 pb-[calc(6rem+env(safe-area-inset-bottom))]">{children}</div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 pb-[calc(8rem+env(safe-area-inset-bottom))]">{children}</div>
           </div>
         </div>
         {!locationFlowOpen && <BottomNav overlay />}
