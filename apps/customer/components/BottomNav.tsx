@@ -173,22 +173,22 @@ export function BottomNav() {
             </button>
 
             <div className="customer-nav-menu pointer-events-auto col-span-4 h-[60px] min-w-0 rounded-[22px] p-0">
-              <ul key={menuGroup} className="customer-nav-items grid h-full w-full grid-cols-4 items-stretch gap-1" aria-label={menuGroup === "original" ? "Main menu" : `${menuGroup} menu`}>
+              <ul key={menuGroup} className="customer-nav-items flex h-full w-full items-stretch gap-1" aria-label={menuGroup === "original" ? "Main menu" : `${menuGroup} menu`}>
                 {(menuGroup === "original" ? originalMenu : submenuItems[menuGroup]).map((item) => {
                   const Icon = item.icon;
                   const active = item.id === selectedItem;
-                  const classes = `customer-nav-item relative flex h-full w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-0.5 transition-all duration-200 ${active ? "is-active" : ""} ${item.disabled ? "is-disabled" : ""}`;
+                  const classes = `customer-nav-item relative flex h-full w-full min-w-0 items-center justify-center rounded-2xl px-1 transition-all duration-200 ${active ? "is-active is-expanded" : ""} ${item.disabled ? "is-disabled" : ""}`;
                   const contents = <>
                     <Icon className="h-[19px] w-[19px] shrink-0" strokeWidth={active ? 2.2 : 1.8} aria-hidden />
-                    <span className="w-full truncate text-center text-[10px] font-medium leading-none">{item.label}</span>
+                    <span className="customer-nav-label">{item.label}</span>
                     {active && <span className="customer-nav-item-indicator" aria-hidden />}
                   </>;
 
-                  return <li key={item.id} className="h-full w-full min-w-0">
+                  return <li key={item.id} className={`customer-nav-cell h-full min-w-0 ${active ? "is-expanded" : ""}`}>
                     {item.group ? (
                       <button type="button" aria-label={`${item.label} home and submenu`} aria-expanded={menuGroup === item.group} onClick={() => { setMenuGroup(item.group!); setSelectedItem(null); router.push({ ride: "/ride", shopping: "/shopping", food: "/food", deliver: "/deliver" }[item.group!]); }} className={classes}>{contents}</button>
                     ) : item.disabled ? (
-                      <button type="button" disabled title="Coming soon" className={classes}>{contents}</button>
+                      <button type="button" aria-disabled="true" aria-expanded={active} aria-label={`${item.label}, coming soon`} title="Coming soon" onClick={() => setSelectedItem(item.id)} className={classes}>{contents}</button>
                     ) : (
                       <Link href={item.href!} onClick={() => setSelectedItem(item.id)} aria-current={active ? "page" : undefined} className={classes}>{contents}</Link>
                     )}

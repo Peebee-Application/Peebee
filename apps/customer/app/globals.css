@@ -1431,3 +1431,35 @@ select {
   :root:not([data-theme="light"]) .customer-nav-home-indicator,
   :root:not([data-theme="light"]) .customer-nav-item-indicator { background: #111; }
 }
+
+/* The changing menu keeps four equal icon slots; the selected slot grows to reveal its label. */
+.customer-nav-cell {
+  flex: 1 1 0;
+  transition: flex-grow 260ms var(--ease-out-expo);
+}
+.customer-nav-cell.is-expanded { flex-grow: 1.8; }
+.customer-nav-item { gap: 0; }
+.customer-nav-item.is-expanded { gap: 0.4rem; }
+.customer-nav-label {
+  display: block;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 1;
+  transform: translateX(-3px);
+  transition: max-width 260ms var(--ease-out-expo), opacity 180ms ease, transform 260ms var(--ease-out-expo);
+}
+.customer-nav-item.is-expanded .customer-nav-label {
+  max-width: 6.5rem;
+  opacity: 1;
+  transform: translateX(0);
+}
+.customer-nav-item.is-expanded .customer-nav-item-indicator { display: none; }
+.customer-nav-item.is-disabled { opacity: 0.48; }
+@media (prefers-reduced-motion: reduce) {
+  .customer-nav-cell,
+  .customer-nav-label,
+  .customer-nav-item { transition: none; }
+}
