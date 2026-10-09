@@ -6,8 +6,6 @@ import type { OrderRow } from "@peebee/shared";
 import {
   Archive,
   Bike,
-  BookOpen,
-  Briefcase,
   Car,
   CarFront,
   ChefHat,
@@ -24,8 +22,6 @@ import {
   Sparkles,
   Store,
   UtensilsCrossed,
-  WashingMachine,
-  Wrench,
   Truck,
   UsersRound,
 } from "lucide-react";
@@ -40,7 +36,7 @@ import { orderTitle, stageLabel } from "../lib/order-display";
 import { useLivePolling } from "../lib/use-live-polling";
 import { BottomDrawer } from "./BottomDrawer";
 
-type MenuGroup = "original" | "ride" | "shopping" | "food" | "deliver" | "service";
+type MenuGroup = "original" | "ride" | "shopping" | "food" | "deliver";
 type MenuItem = { id: string; label: string; icon: LucideIcon; href?: string; group?: Exclude<MenuGroup, "original">; disabled?: boolean };
 
 const originalMenu: MenuItem[] = [
@@ -48,7 +44,6 @@ const originalMenu: MenuItem[] = [
   { id: "shopping", label: "Buy", icon: ShoppingBag, group: "shopping" },
   { id: "food", label: "Eat", icon: UtensilsCrossed, group: "food" },
   { id: "deliver", label: "Send", icon: Package, group: "deliver" },
-  { id: "service", label: "Service", icon: Sparkles, group: "service" },
 ];
 
 const submenuItems: Record<Exclude<MenuGroup, "original">, MenuItem[]> = {
@@ -63,6 +58,7 @@ const submenuItems: Record<Exclude<MenuGroup, "original">, MenuItem[]> = {
     { id: "markets", label: "Groceries", icon: Store, disabled: true },
     { id: "stores", label: "Stores", icon: ShoppingBasket, disabled: true },
     { id: "pharmacy", label: "Pharma", icon: Pill, disabled: true },
+    { id: "services", label: "Services", icon: Sparkles, href: "/service" },
   ],
   food: [
     { id: "restaurant", label: "Restaurants", icon: UtensilsCrossed, href: "/restaurants" },
@@ -76,20 +72,13 @@ const submenuItems: Record<Exclude<MenuGroup, "original">, MenuItem[]> = {
     { id: "fix", label: "Move", icon: Truck, disabled: true },
     { id: "move", label: "Storage", icon: Archive, disabled: true },
   ],
-  service: [
-    { id: "service-laundry", label: "Laundry", icon: WashingMachine, disabled: true },
-    { id: "service-fix", label: "Fix", icon: Wrench, disabled: true },
-    { id: "service-hire", label: "Hire", icon: Briefcase, disabled: true },
-    { id: "service-learn", label: "Learn", icon: BookOpen, disabled: true },
-  ],
 };
 
 function groupForPath(pathname: string): MenuGroup {
   if (["/food", "/restaurants", "/kitchens", "/streetfood", "/bakeries"].some((path) => pathname === path || pathname.startsWith(`${path}/`))) return "food";
   if (pathname === "/ride" || pathname === "/rent" || pathname === "/carpool" || pathname.startsWith("/ride/")) return "ride";
-  if (pathname === "/shopping" || pathname === "/shoplist" || pathname.startsWith("/orders")) return "shopping";
+  if (pathname === "/shopping" || pathname === "/shoplist" || pathname.startsWith("/orders") || pathname === "/service" || pathname.startsWith("/service/")) return "shopping";
   if (pathname === "/deliver" || pathname.startsWith("/deliver/")) return "deliver";
-  if (pathname === "/service" || pathname.startsWith("/service/")) return "service";
   return "original";
 }
 
@@ -118,6 +107,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
     else if (pathname === "/carpool") setSelectedItem("rideshare");
     else if (pathname === "/rent") setSelectedItem("selfdrive");
     else if (pathname === "/shoplist" || pathname.startsWith("/orders")) setSelectedItem("shoplist");
+    else if (pathname === "/service" || pathname.startsWith("/service/")) setSelectedItem("services");
     else if (pathname === "/deliver/parcel") setSelectedItem("parcel");
     else setSelectedItem(null);
   }, [pathname]);
@@ -225,9 +215,9 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
 
                   return <li key={item.id} className={`customer-nav-cell h-full min-w-0 ${item.group ? "is-primary" : ""} ${active ? "is-expanded" : ""}`}>
                     {item.group ? (
-                      <button type="button" aria-label={`${item.label} home and submenu`} aria-expanded={menuGroup === item.group} onClick={() => { setMenuGroup(item.group!); setSelectedItem(null); router.push({ ride: "/ride", shopping: "/shopping", food: "/food", deliver: "/deliver", service: "/service" }[item.group!]); }} className={classes}>{contents}</button>
+                      <button type="button" aria-label={`${item.label} home and submenu`} aria-expanded={menuGroup === item.group} onClick={() => { setMenuGroup(item.group!); setSelectedItem(null); router.push({ ride: "/ride", shopping: "/shopping", food: "/food", deliver: "/deliver" }[item.group!]); }} className={classes}>{contents}</button>
                     ) : item.disabled ? (
-                      <button type="button" disabled aria-label={`${item.label}, coming soon`} title="Coming soon" className={classes}>{contents}</button>
+                      <button type="button" aria-disabled="true" aria-label={`${item.label}, coming soon`} title="Coming soon" onClick={() => setSelectedItem(item.id)} className={classes}>{contents}</button>
                     ) : (
                       <Link href={item.href!} onClick={() => setSelectedItem(item.id)} aria-current={active ? "page" : undefined} className={classes}>{contents}</Link>
                     )}
