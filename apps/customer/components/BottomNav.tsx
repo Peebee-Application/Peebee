@@ -58,10 +58,10 @@ const submenuItems: Record<Exclude<MenuGroup, "original">, MenuItem[]> = {
     { id: "pharmacy", label: "Pharmacy", icon: Pill, disabled: true },
   ],
   food: [
-    { id: "restaurant", label: "Restaurants", icon: UtensilsCrossed, href: "/restaurants?category=restaurant" },
-    { id: "kitchen", label: "Kitchens", icon: CookingPot, href: "/restaurants?category=kitchen" },
-    { id: "street_food", label: "Streetfood", icon: ChefHat, href: "/restaurants?category=street_food" },
-    { id: "bakery", label: "Bakeries", icon: Croissant, href: "/restaurants?category=bakery" },
+    { id: "restaurant", label: "Restaurants", icon: UtensilsCrossed, href: "/restaurants" },
+    { id: "kitchen", label: "Kitchens", icon: CookingPot, href: "/kitchens" },
+    { id: "street_food", label: "Streetfood", icon: ChefHat, href: "/streetfood" },
+    { id: "bakery", label: "Bakeries", icon: Croissant, href: "/bakeries" },
   ],
   deliver: [
     { id: "parcel", label: "Parcel", icon: Package, href: "/deliver/parcel" },
@@ -72,10 +72,10 @@ const submenuItems: Record<Exclude<MenuGroup, "original">, MenuItem[]> = {
 };
 
 function groupForPath(pathname: string): MenuGroup {
-  if (pathname.startsWith("/restaurants")) return "food";
-  if (pathname === "/rent" || pathname === "/carpool" || pathname.startsWith("/ride/")) return "ride";
-  if (pathname === "/shoplist" || pathname.startsWith("/orders")) return "shopping";
-  if (pathname === "/deliver/parcel") return "deliver";
+  if (["/food", "/restaurants", "/kitchens", "/streetfood", "/bakeries"].some((path) => pathname === path || pathname.startsWith(`${path}/`))) return "food";
+  if (pathname === "/ride" || pathname === "/rent" || pathname === "/carpool" || pathname.startsWith("/ride/")) return "ride";
+  if (pathname === "/shopping" || pathname === "/shoplist" || pathname.startsWith("/orders")) return "shopping";
+  if (pathname === "/deliver" || pathname.startsWith("/deliver/")) return "deliver";
   return "original";
 }
 
@@ -94,11 +94,10 @@ export function BottomNav() {
   useEffect(() => {
     const group = groupForPath(pathname);
     setMenuGroup(group);
-    const category = pathname.startsWith("/restaurants")
-      ? new URLSearchParams(window.location.search).get("category")
-      : null;
-    if (category && submenuItems.food.some((item) => item.id === category)) setSelectedItem(category);
-    else if (pathname.startsWith("/restaurants")) setSelectedItem("restaurant");
+    if (pathname === "/restaurants" || pathname.startsWith("/restaurants/")) setSelectedItem("restaurant");
+    else if (pathname === "/kitchens" || pathname.startsWith("/kitchens/")) setSelectedItem("kitchen");
+    else if (pathname === "/streetfood" || pathname.startsWith("/streetfood/")) setSelectedItem("street_food");
+    else if (pathname === "/bakeries" || pathname.startsWith("/bakeries/")) setSelectedItem("bakery");
     else if (pathname === "/ride/boda") setSelectedItem("boda");
     else if (pathname === "/ride/car") setSelectedItem("car");
     else if (pathname === "/carpool") setSelectedItem("rideshare");
@@ -187,7 +186,7 @@ export function BottomNav() {
 
                   return <li key={item.id} className="h-full w-full min-w-0">
                     {item.group ? (
-                      <button type="button" aria-label={`${item.label} submenu`} aria-expanded={menuGroup === item.group} onClick={() => { setMenuGroup(item.group!); setSelectedItem(null); }} className={classes}>{contents}</button>
+                      <button type="button" aria-label={`${item.label} home and submenu`} aria-expanded={menuGroup === item.group} onClick={() => { setMenuGroup(item.group!); setSelectedItem(null); router.push({ ride: "/ride", shopping: "/shopping", food: "/food", deliver: "/deliver" }[item.group!]); }} className={classes}>{contents}</button>
                     ) : item.disabled ? (
                       <button type="button" disabled title="Coming soon" className={classes}>{contents}</button>
                     ) : (

@@ -25,7 +25,7 @@ export function ServiceTiles({
   const t = useTranslate();
   const tiles: Tile[] = [
     { key: "ride", labelKey: "service_ride", icon: Bike, onClick: onRide },
-    { key: "food", labelKey: "service_food", icon: UtensilsCrossed, href: "/restaurants" },
+    { key: "food", labelKey: "service_food", icon: UtensilsCrossed, href: "/food" },
     { key: "shopping", labelKey: "service_shopping", icon: StickyNote, onClick: onShopping },
     { key: "parcel", labelKey: "service_parcel", icon: Package, onClick: onParcel },
   ];
