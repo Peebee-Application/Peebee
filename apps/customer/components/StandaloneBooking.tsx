@@ -7,7 +7,7 @@ import { ShoppingListModal } from "./home/ShoppingListModal";
 
 export function StandaloneRideBooking({ mode }: { mode: "boda" | "car" }) {
   const router = useRouter();
-  return <RideModal initialMode={mode} onClose={() => router.push("/")} />;
+  return <RideModal initialMode={mode} serviceLocked onClose={() => router.push("/")} />;
 }
 
 export function StandaloneShoplist() {
