@@ -179,7 +179,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
                   const active = item.id === selectedItem;
                   const classes = `customer-nav-item relative flex h-full w-full min-w-0 items-center justify-center rounded-2xl px-1 transition-all duration-200 ${item.group ? "is-primary" : ""} ${active ? "is-active is-expanded" : ""} ${item.disabled ? "is-disabled" : ""}`;
                   const contents = <>
-                    <Icon className="h-[19px] w-[19px] shrink-0" strokeWidth={active ? 2.2 : 1.8} aria-hidden />
+                    <Icon className="h-[19px] w-[19px] shrink-0" strokeWidth={item.group || active ? 2.2 : 1.8} aria-hidden />
                     <span className="customer-nav-label">{item.label}</span>
                     {active && <span className="customer-nav-item-indicator" aria-hidden />}
                   </>;
