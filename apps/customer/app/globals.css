@@ -1437,9 +1437,13 @@ select {
   flex: 1 1 0;
   transition: flex-grow 260ms var(--ease-out-expo);
 }
-.customer-nav-cell.is-expanded { flex-grow: 1.8; }
+.customer-nav-cell.is-expanded:not(.is-primary) { flex-grow: 1.8; }
 .customer-nav-item { gap: 0; }
-.customer-nav-item.is-expanded { gap: 0.4rem; }
+.customer-nav-item.is-expanded:not(.is-primary) { gap: 0.4rem; }
+.customer-nav-item.is-primary {
+  flex-direction: column;
+  gap: 0.25rem;
+}
 .customer-nav-label {
   display: block;
   max-width: 0;
@@ -1451,8 +1455,13 @@ select {
   transform: translateX(-3px);
   transition: max-width 260ms var(--ease-out-expo), opacity 180ms ease, transform 260ms var(--ease-out-expo);
 }
-.customer-nav-item.is-expanded .customer-nav-label {
+.customer-nav-item.is-expanded:not(.is-primary) .customer-nav-label {
   max-width: 6.5rem;
+  opacity: 1;
+  transform: translateX(0);
+}
+.customer-nav-item.is-primary .customer-nav-label {
+  max-width: 100%;
   opacity: 1;
   transform: translateX(0);
 }
