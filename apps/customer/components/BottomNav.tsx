@@ -131,7 +131,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
 
   return (
     <>
-      <nav aria-label="Primary navigation" className={`customer-nav fixed inset-x-0 bottom-3 ${overlay ? "z-40 customer-nav-overlay" : "z-[90]"} px-3 pointer-events-none pb-[env(safe-area-inset-bottom)]`}>
+      <nav aria-label="Primary navigation" className={`customer-nav fixed inset-x-0 bottom-3 z-40 px-3 pointer-events-none pb-[env(safe-area-inset-bottom)] ${overlay ? "customer-nav-overlay" : ""}`}>
         <div className="mx-auto flex max-w-lg flex-col items-center gap-2">
           {/* Active Delivery Floating Capsule Chip */}
           {showActiveDeliveryBadge && (
