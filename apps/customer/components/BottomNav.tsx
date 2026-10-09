@@ -177,14 +177,14 @@ export function BottomNav() {
                 {(menuGroup === "original" ? originalMenu : submenuItems[menuGroup]).map((item) => {
                   const Icon = item.icon;
                   const active = item.id === selectedItem;
-                  const classes = `customer-nav-item relative flex h-full w-full min-w-0 items-center justify-center rounded-2xl px-1 transition-all duration-200 ${active ? "is-active is-expanded" : ""} ${item.disabled ? "is-disabled" : ""}`;
+                  const classes = `customer-nav-item relative flex h-full w-full min-w-0 items-center justify-center rounded-2xl px-1 transition-all duration-200 ${item.group ? "is-primary" : ""} ${active ? "is-active is-expanded" : ""} ${item.disabled ? "is-disabled" : ""}`;
                   const contents = <>
                     <Icon className="h-[19px] w-[19px] shrink-0" strokeWidth={active ? 2.2 : 1.8} aria-hidden />
                     <span className="customer-nav-label">{item.label}</span>
                     {active && <span className="customer-nav-item-indicator" aria-hidden />}
                   </>;
 
-                  return <li key={item.id} className={`customer-nav-cell h-full min-w-0 ${active ? "is-expanded" : ""}`}>
+                  return <li key={item.id} className={`customer-nav-cell h-full min-w-0 ${item.group ? "is-primary" : ""} ${active ? "is-expanded" : ""}`}>
                     {item.group ? (
                       <button type="button" aria-label={`${item.label} home and submenu`} aria-expanded={menuGroup === item.group} onClick={() => { setMenuGroup(item.group!); setSelectedItem(null); router.push({ ride: "/ride", shopping: "/shopping", food: "/food", deliver: "/deliver" }[item.group!]); }} className={classes}>{contents}</button>
                     ) : item.disabled ? (
