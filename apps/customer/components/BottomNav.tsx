@@ -173,19 +173,19 @@ export function BottomNav() {
               {pathname === "/" && <span className="customer-nav-home-indicator" aria-hidden />}
             </button>
 
-            <div className="customer-nav-menu pointer-events-auto col-span-4 min-w-0 rounded-[22px] px-0 py-1.5">
-              <ul key={menuGroup} className="customer-nav-items grid grid-cols-4 items-center gap-1" aria-label={menuGroup === "original" ? "Main menu" : `${menuGroup} menu`}>
+            <div className="customer-nav-menu pointer-events-auto col-span-4 h-[60px] min-w-0 rounded-[22px] p-0">
+              <ul key={menuGroup} className="customer-nav-items grid h-full w-full grid-cols-4 items-stretch gap-1" aria-label={menuGroup === "original" ? "Main menu" : `${menuGroup} menu`}>
                 {(menuGroup === "original" ? originalMenu : submenuItems[menuGroup]).map((item) => {
                   const Icon = item.icon;
                   const active = item.id === selectedItem;
-                  const classes = `customer-nav-item relative flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-0.5 transition-all duration-200 ${active ? "is-active" : ""} ${item.disabled ? "is-disabled" : ""}`;
+                  const classes = `customer-nav-item relative flex h-full w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-0.5 transition-all duration-200 ${active ? "is-active" : ""} ${item.disabled ? "is-disabled" : ""}`;
                   const contents = <>
                     <Icon className="h-[19px] w-[19px] shrink-0" strokeWidth={active ? 2.2 : 1.8} aria-hidden />
                     <span className="w-full truncate text-center text-[10px] font-medium leading-none">{item.label}</span>
                     {active && <span className="customer-nav-item-indicator" aria-hidden />}
                   </>;
 
-                  return <li key={item.id} className="min-w-0">
+                  return <li key={item.id} className="h-full w-full min-w-0">
                     {item.group ? (
                       <button type="button" aria-label={`${item.label} submenu`} aria-expanded={menuGroup === item.group} onClick={() => { setMenuGroup(item.group!); setSelectedItem(null); }} className={classes}>{contents}</button>
                     ) : item.disabled ? (
