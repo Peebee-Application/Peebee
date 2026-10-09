@@ -58,7 +58,7 @@ const submenuItems: Record<Exclude<MenuGroup, "original">, MenuItem[]> = {
     { id: "markets", label: "Groceries", icon: Store, disabled: true },
     { id: "stores", label: "Stores", icon: ShoppingBasket, disabled: true },
     { id: "pharmacy", label: "Pharma", icon: Pill, disabled: true },
-    { id: "services", label: "Services", icon: Sparkles, href: "/service" },
+    { id: "services", label: "Jobs", icon: Sparkles, href: "/service" },
   ],
   food: [
     { id: "restaurant", label: "Restaurants", icon: UtensilsCrossed, href: "/restaurants" },
