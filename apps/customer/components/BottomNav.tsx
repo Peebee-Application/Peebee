@@ -156,7 +156,7 @@ export function BottomNav() {
           )}
 
           {/* Home stays separate; the wider menu changes between the four service groups. */}
-          <div className="pointer-events-auto flex w-full items-center gap-2.5">
+          <div className="pointer-events-auto grid w-full grid-cols-[repeat(5,minmax(0,1fr))] gap-1">
             <button
               type="button"
               aria-label="Home and reset menu"
@@ -166,14 +166,14 @@ export function BottomNav() {
                 setSelectedItem(null);
                 router.push("/");
               }}
-              className={`customer-nav-home flex h-[60px] w-[66px] shrink-0 flex-col items-center justify-center gap-1 rounded-[22px] transition-all duration-200 active:scale-95 ${pathname === "/" ? "is-active" : ""}`}
+              className={`customer-nav-home flex h-[60px] w-full flex-col items-center justify-center gap-1 rounded-[22px] transition-all duration-200 active:scale-95 ${pathname === "/" ? "is-active" : ""}`}
             >
               <Home className="h-5 w-5" strokeWidth={pathname === "/" ? 2.3 : 1.8} aria-hidden />
               <span className="text-[10px] font-semibold leading-none">{t("nav_home")}</span>
               {pathname === "/" && <span className="customer-nav-home-indicator" aria-hidden />}
             </button>
 
-            <div className="customer-nav-menu pointer-events-auto min-w-0 flex-1 rounded-[22px] p-1.5">
+            <div className="customer-nav-menu pointer-events-auto col-span-4 min-w-0 rounded-[22px] px-0 py-1.5">
               <ul key={menuGroup} className="customer-nav-items grid grid-cols-4 items-center gap-1" aria-label={menuGroup === "original" ? "Main menu" : `${menuGroup} menu`}>
                 {(menuGroup === "original" ? originalMenu : submenuItems[menuGroup]).map((item) => {
                   const Icon = item.icon;
