@@ -35,7 +35,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {!isAuthPage && <PracticeModeBanner role="customer" />}
       <main
         className={`mx-auto max-w-lg ${showHeader ? "min-h-[calc(100dvh-4rem)]" : "min-h-dvh"} ${
-          showNav ? "pb-[calc(5rem+env(safe-area-inset-bottom))]" : ""
+          showNav ? "pb-[calc(7rem+env(safe-area-inset-bottom))]" : ""
         }`}
       >
         {foodBusinessId ? <FoodBusinessTheme key={foodBusinessId} id={foodBusinessId}>{children}</FoodBusinessTheme> : children}

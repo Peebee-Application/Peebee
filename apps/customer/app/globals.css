@@ -232,6 +232,17 @@ select {
   background-color: transparent;
 }
 
+/* Focus stays on the field surface, never as a second square around the text
+   control. The compound route picker already highlights its rounded wrapper;
+   ordinary fields keep their quiet border while focused. */
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="submit"], [type="button"], [type="color"]):focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  box-shadow: none;
+  border-color: var(--border-faint);
+}
+
 /* Leaflet map picker, themed to match the app's cream/navy/gold palette in
    both modes. OSM's raster tiles can't be recolored feature-by-feature (no
    vector style to target them with), so:
