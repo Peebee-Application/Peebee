@@ -147,6 +147,47 @@ test("gas: voucher lifecycle charges the wallet, refunds the unused part and pay
   assert.equal((await call(`/admin/withdrawals/${wd.json.withdrawal.id}/complete`, { token: admin, body: {} })).status, 409);
 });
 
+test("gas: sandbox sales pay out as simulated withdrawals that never reach the admin's payout queue", async () => {
+  const { client, call, mkUser, loginManager, loginAttendant } = await setup();
+  const manager = await loginManager();
+  await call("/manager/payout-accounts", { token: manager, body: { type: "momo", accountRef: "+256782334455", accountName: "Lugogo Payout", networkOrBank: "MTN", isPrimary: true } });
+  const details = { phone: "+256782334455" };
+  const sell = async (rider: string, token: string, amount: number) => {
+    const gen = await call("/rider/generate-code", { token, body: { vehiclePlate: "UFE 889P", amountUgx: amount, productId: "prod_petrol" } });
+    assert.equal(gen.status, 200, `${rider} gets a voucher`);
+    const sold = await call("/dispense", { token: await loginAttendant(), body: { code: gen.json.code.code, productId: "prod_petrol", totalUgx: amount } });
+    assert.equal(sold.status, 200);
+  };
+
+  // A live sale, then the platform goes into sandbox and sells some test fuel.
+  await sell("rider_live", await mkUser("rider_live", "rider", 50000), 20000);
+  await setSetting("platform_environment", "sandbox");
+  const sandboxRider = await mkUser("rider_sbx", "rider", 0);
+  await client.execute("UPDATE riders SET wallet_balance_sandbox = 50000 WHERE user_id = 'rider_sbx'");
+  await sell("rider_sbx", sandboxRider, 15000);
+
+  const sandboxSales = await call("/manager/sales-summary?period=today", { token: manager });
+  assert.equal(sandboxSales.json.summary.availableBalanceUgx, 15000, "sandbox shows only sandbox sales");
+  const wd = await call("/manager/withdrawals", { token: manager, body: { amountUgx: 15000, destinationType: "momo", destinationDetails: details } });
+  assert.equal(wd.status, 200);
+  assert.equal(wd.json.withdrawal.status, "completed", "a sandbox payout is simulated at once");
+  assert.equal(wd.json.withdrawal.environment, "sandbox");
+
+  const admin = await mkUser("admin_s", "admin");
+  const queue = await call("/admin/withdrawals?status=pending", { token: admin });
+  assert.equal(queue.json.withdrawals.length, 0, "nothing for an admin to pay with real money");
+  const sandboxList = await call("/admin/withdrawals?status=completed&environment=sandbox", { token: admin });
+  assert.equal(sandboxList.json.withdrawals.length, 1);
+
+  // Back to live: the station's real balance is untouched by the sandbox payout.
+  await setSetting("platform_environment", "live");
+  const live = await call("/manager/sales-summary?period=today", { token: manager });
+  assert.equal(live.json.summary.availableBalanceUgx, 20000);
+  assert.equal((await call("/manager/withdrawals", { token: manager })).json.withdrawals.length, 0, "the live list shows no sandbox payouts");
+  const liveWd = await call("/manager/withdrawals", { token: manager, body: { amountUgx: 20000, destinationType: "momo", destinationDetails: details } });
+  assert.equal(liveWd.json.withdrawal.status, "pending", "a live request waits for an admin to pay it");
+});
+
 test("gas: nothing sensitive works without a real signed-in session", async () => {
   const { call, mkUser, loginManager } = await setup();
   const rider = await mkUser("rider_b", "rider", 50000);

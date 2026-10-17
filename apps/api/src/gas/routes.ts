@@ -1283,15 +1283,19 @@ gasRoutes.delete("/manager/attendants/:id", requireManager, async (c) => {
 
 const WITHDRAWAL_HELD = "('pending', 'processing', 'completed')";
 
+/** Migration 0108 tags each withdrawal live or sandbox. */
+const withdrawalEnvReady = () => hasColumn("fuel_station_withdrawals", "environment");
+
 /** What the station is owed: pumped sales minus withdrawals that are paid out or waiting to be. */
 async function availableBalance(outletId: string, environment: string): Promise<{ revenue: number; withdrawn: number; available: number }> {
   const rev = (await db.execute({
     sql: "SELECT COALESCE(SUM(total_ugx), 0) AS v FROM fuel_dispenses WHERE outlet_id = ? AND environment = ? AND status = 'completed'",
     args: [outletId, environment],
   })).rows[0] as Row;
+  const byEnv = await withdrawalEnvReady();
   const wd = (await db.execute({
-    sql: `SELECT COALESCE(SUM(amount_ugx + fee_ugx), 0) AS v FROM fuel_station_withdrawals WHERE outlet_id = ? AND status IN ${WITHDRAWAL_HELD}`,
-    args: [outletId],
+    sql: `SELECT COALESCE(SUM(amount_ugx + fee_ugx), 0) AS v FROM fuel_station_withdrawals WHERE outlet_id = ? AND status IN ${WITHDRAWAL_HELD}${byEnv ? " AND environment = ?" : ""}`,
+    args: byEnv ? [outletId, environment] : [outletId],
   })).rows[0] as Row;
   const revenue = Number(rev.v);
   const withdrawn = Number(wd.v);
@@ -1414,7 +1418,11 @@ gasRoutes.post("/manager/payout-accounts", requireManager, async (c) => {
 
 gasRoutes.get("/manager/withdrawals", requireManager, async (c) => {
   const actor = c.get("gasActor");
-  const res = await db.execute({ sql: "SELECT * FROM fuel_station_withdrawals WHERE outlet_id = ? ORDER BY created_at DESC LIMIT 50", args: [actor.outletId] });
+  const byEnv = await withdrawalEnvReady();
+  const res = await db.execute({
+    sql: `SELECT * FROM fuel_station_withdrawals WHERE outlet_id = ?${byEnv ? " AND environment = ?" : ""} ORDER BY created_at DESC LIMIT 50`,
+    args: byEnv ? [actor.outletId, await getPlatformEnvironment()] : [actor.outletId],
+  });
   const withdrawals = (res.rows as Row[]).map((r) => {
     let details: unknown = r.destination_details;
     if (typeof details === "string") {
@@ -1456,14 +1464,25 @@ gasRoutes.post("/manager/withdrawals", requireManager, async (c) => {
   }
 
   const environment = await getPlatformEnvironment();
+  const byEnv = await withdrawalEnvReady();
+  // Sandbox sales are test money: never queue them for a real payout.
+  if (environment === "sandbox" && !byEnv) {
+    return c.json({ error: "withdrawals_unavailable", message: "Sandbox withdrawals need database migration 0108." }, 503);
+  }
+  const sandbox = environment === "sandbox";
   const id = `fwd_${crypto.randomUUID()}`;
   const reference = `WD-GAS-${Date.now().toString(36).toUpperCase()}-${1000 + randomInt(9000)}`;
+  const status = sandbox ? "completed" : "pending";
   const insert = await db.execute({
-    sql: `INSERT INTO fuel_station_withdrawals (id, outlet_id, manager_id, amount_ugx, fee_ugx, destination_type, destination_details, status, reference, created_at)
-          SELECT ?, ?, ?, ?, 0, ?, ?, 'pending', ?, datetime('now')
+    sql: `INSERT INTO fuel_station_withdrawals (id, outlet_id, manager_id, amount_ugx, fee_ugx, destination_type, destination_details, status, reference, created_at${byEnv ? ", environment" : ""}${sandbox ? ", processed_at, provider_ref" : ""})
+          SELECT ?, ?, ?, ?, 0, ?, ?, ?, ?, datetime('now')${byEnv ? ", ?" : ""}${sandbox ? ", datetime('now'), 'sandbox-simulated'" : ""}
           WHERE (SELECT COALESCE(SUM(total_ugx), 0) FROM fuel_dispenses WHERE outlet_id = ? AND environment = ? AND status = 'completed')
-              - (SELECT COALESCE(SUM(amount_ugx + fee_ugx), 0) FROM fuel_station_withdrawals WHERE outlet_id = ? AND status IN ${WITHDRAWAL_HELD}) >= ?`,
-    args: [id, actor.outletId, actor.id, amountUgx, destinationType, JSON.stringify(destinationDetails), reference, actor.outletId, environment, actor.outletId, amountUgx],
+              - (SELECT COALESCE(SUM(amount_ugx + fee_ugx), 0) FROM fuel_station_withdrawals WHERE outlet_id = ? AND status IN ${WITHDRAWAL_HELD}${byEnv ? " AND environment = ?" : ""}) >= ?`,
+    args: [
+      id, actor.outletId, actor.id, amountUgx, destinationType, JSON.stringify(destinationDetails), status, reference,
+      ...(byEnv ? [environment] : []),
+      actor.outletId, environment, actor.outletId, ...(byEnv ? [environment] : []), amountUgx,
+    ],
   });
   if ((insert.rowsAffected ?? 0) !== 1) {
     const { available } = await availableBalance(actor.outletId, environment);
@@ -1471,7 +1490,11 @@ gasRoutes.post("/manager/withdrawals", requireManager, async (c) => {
   }
   return c.json({
     ok: true,
-    withdrawal: { id, outlet_id: actor.outletId, manager_id: actor.id, amount_ugx: amountUgx, fee_ugx: 0, destination_type: destinationType, destination_details: destinationDetails, status: "pending", reference, created_at: nowIso() },
+    withdrawal: {
+      id, outlet_id: actor.outletId, manager_id: actor.id, amount_ugx: amountUgx, fee_ugx: 0, destination_type: destinationType, destination_details: destinationDetails,
+      status, reference, created_at: nowIso(), environment,
+      ...(sandbox ? { note: "Sandbox: simulated payout, no real money moves." } : {}),
+    },
   });
 });
 
@@ -1483,10 +1506,13 @@ gasRoutes.use("/admin/*", requireAuth, requireRole("admin"));
 
 gasRoutes.get("/admin/withdrawals", requirePermission("merchant_finance.manage"), async (c) => {
   const status = c.req.query("status") ?? "pending";
+  // Only live withdrawals are real money to pay out; sandbox ones are listed only when asked for.
+  const environment = c.req.query("environment") === "sandbox" ? "sandbox" : "live";
+  const byEnv = await withdrawalEnvReady();
   const res = await db.execute({
     sql: `SELECT w.*, o.name AS outlet_name FROM fuel_station_withdrawals w JOIN fuel_station_outlets o ON o.id = w.outlet_id
-          WHERE w.status = ? ORDER BY w.created_at ASC LIMIT 100`,
-    args: [status],
+          WHERE w.status = ?${byEnv ? " AND w.environment = ?" : ""} ORDER BY w.created_at ASC LIMIT 100`,
+    args: byEnv ? [status, environment] : [status],
   });
   return c.json({ ok: true, withdrawals: res.rows });
 });
