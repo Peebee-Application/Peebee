@@ -1,13 +1,13 @@
 "use client";
 
 import type { FeeInvoice, LearnEnrollment } from "@peebee/shared";
-import { ArrowLeft, BookOpen, Receipt } from "lucide-react";
+import { Award, BookOpen, Radio, Receipt } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { LearnThumb } from "@peebee/shared/learn-thumb";
 import { api, errorMessage } from "../../../lib/api";
+import { Empty, ErrorNote, LearnScreen, Pill, Progress, ScreenHeader, SectionTitle, Skeleton, card, cardLink, displayFont, primaryBtn } from "../ui";
 
-const card = "rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))]";
 const ugx = (n: number) => (n > 0 ? `UGX ${n.toLocaleString("en-UG")}` : "Free");
 
 const STATUS_LABEL: Record<FeeInvoice["status"], string> = { unpaid: "Unpaid", partial: "Part paid", paid: "Paid", cancelled: "Cancelled" };
@@ -39,14 +39,15 @@ function InvoiceRow({ invoice, onPaid }: { invoice: FeeInvoice; onPaid: () => vo
     <li className={`${card} space-y-3 p-4`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-ink">{invoice.title}</p>
+          <p className={`${displayFont} truncate text-[15px] font-semibold text-ink`}>{invoice.title}</p>
           <p className="truncate text-xs text-ink-500">
             {invoice.schoolName}
             {invoice.dueDate ? ` · due ${invoice.dueDate}` : ""}
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-gold/15 px-2.5 py-0.5 text-[11px] font-semibold text-gold">{STATUS_LABEL[invoice.status]}</span>
+        <Pill tone={invoice.status === "paid" ? "green" : invoice.status === "cancelled" ? "muted" : "gold"}>{STATUS_LABEL[invoice.status]}</Pill>
       </div>
+      <Progress percent={invoice.amountUgx > 0 ? Math.round((invoice.paidUgx / invoice.amountUgx) * 100) : 0} label={`${invoice.title} paid`} />
       <p className="text-xs text-ink-500">
         {ugx(invoice.paidUgx)} paid of {ugx(invoice.amountUgx)}
       </p>
@@ -56,6 +57,7 @@ function InvoiceRow({ invoice, onPaid }: { invoice: FeeInvoice; onPaid: () => vo
             Amount to pay now (UGX)
           </label>
           <div className="flex gap-2">
+            <div className="field-box min-w-0 flex-1 rounded-2xl border border-[var(--border-faint)]">
             <input
               id={`pay-${invoice.id}`}
               type="number"
@@ -64,9 +66,10 @@ function InvoiceRow({ invoice, onPaid }: { invoice: FeeInvoice; onPaid: () => vo
               max={invoice.balanceUgx}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-xl border border-[var(--border-faint)] text-sm text-ink outline-none focus:border-gold"
+              className="h-11 w-full text-sm text-ink outline-none"
             />
-            <button type="button" onClick={pay} disabled={busy} className="shrink-0 rounded-xl bg-gold px-4 py-2 text-sm font-semibold text-ink-gold disabled:opacity-50">
+            </div>
+            <button type="button" onClick={pay} disabled={busy} className={`${primaryBtn} shrink-0 !px-4 !py-2`}>
               {busy ? "Paying…" : "Pay from wallet"}
             </button>
           </div>
@@ -108,57 +111,75 @@ export default function MyLearningPage() {
     void load();
   }, [load]);
 
+  const active = enrollments?.filter((e) => e.progressPercent < 100) ?? [];
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-4 pb-10">
-      <div className="space-y-1">
-        <Link href="/learn" className="inline-flex items-center gap-1 text-xs font-semibold text-gold">
-          <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Learn
+    <LearnScreen>
+      <ScreenHeader
+        back={{ href: "/learn", label: "Learn" }}
+        label="Peebee Learn"
+        title="My class"
+        subtitle="Your courses, fees and certificates in one place."
+      />
+
+      <div className="grid grid-cols-2 gap-2.5">
+        <Link href="/learn/live" className={`${cardLink} relative flex flex-col gap-2 overflow-hidden p-3.5`}>
+          <span className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-[radial-gradient(circle,rgb(var(--color-gold)/0.5),transparent_70%)]" aria-hidden />
+          <span className="relative flex h-9 w-9 items-center justify-center rounded-[12px] bg-gold/15 text-gold">
+            <Radio className="h-[18px] w-[18px]" aria-hidden />
+          </span>
+          <span className="relative">
+            <span className={`${displayFont} block text-[15px] font-bold text-ink`}>Join live class</span>
+            <span className="block text-[11px] text-ink-500">Enter your class code</span>
+          </span>
         </Link>
-        <h1 className="text-xl font-bold text-ink">My learning</h1>
-        <Link href="/learn/live" className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-gold px-3.5 py-2 text-xs font-semibold text-ink-gold">
-          Join a live class
-        </Link>
-        <Link href="/learn/certificates" className="mt-2 ml-2 inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-faint)] px-3.5 py-2 text-xs font-semibold text-ink">
-          🎓 Certificates and badges
+        <Link href="/learn/certificates" className={`${cardLink} relative flex flex-col gap-2 overflow-hidden p-3.5`}>
+          <span className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-[radial-gradient(circle,rgb(var(--color-green)/0.45),transparent_70%)]" aria-hidden />
+          <span className="relative flex h-9 w-9 items-center justify-center rounded-[12px] bg-green/15 text-green">
+            <Award className="h-[18px] w-[18px]" aria-hidden />
+          </span>
+          <span className="relative">
+            <span className={`${displayFont} block text-[15px] font-bold text-ink`}>Certificates</span>
+            <span className="block text-[11px] text-ink-500">And your badges</span>
+          </span>
         </Link>
       </div>
 
-      {error && (
-        <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 px-3.5 py-3 text-sm text-ink">
-          {error}
-        </p>
-      )}
+      {error && <ErrorNote>{error}</ErrorNote>}
 
       <section aria-labelledby="courses-h" className="space-y-3">
-        <h2 id="courses-h" className="flex items-center gap-2 text-sm font-semibold text-ink">
-          <BookOpen className="h-4 w-4 text-gold" aria-hidden /> My courses
-        </h2>
+        <SectionTitle id="courses-h" icon={BookOpen} action={enrollments && enrollments.length > 0 ? <Pill tone="muted">{active.length} in progress</Pill> : undefined}>
+          My courses
+        </SectionTitle>
         {enrollments === null ? (
-          <div className="h-24 animate-pulse rounded-2xl bg-[rgb(var(--surface-muted))]" />
+          <Skeleton className="h-28" />
         ) : enrollments.length === 0 ? (
-          <div className={`${card} p-5 text-sm text-ink-500`}>
-            You haven&apos;t joined a course yet.{" "}
-            <Link href="/learn" className="font-semibold text-gold underline">
-              Browse courses
-            </Link>
-          </div>
+          <Empty
+            icon={BookOpen}
+            action={
+              <Link href="/learn" className={primaryBtn}>
+                Browse courses
+              </Link>
+            }
+          >
+            You haven&apos;t joined a course yet.
+          </Empty>
         ) : (
           <ul className="space-y-3">
             {enrollments.map((e) => (
               <li key={e.id}>
-                <Link href={`/learn/course/${e.courseId}`} className={`${card} block space-y-2 p-3 transition hover:border-gold/50`}>
+                <Link href={`/learn/course/${e.courseId}`} className={`${cardLink} block space-y-3 p-3`}>
                   <div className="flex gap-3">
-                    <LearnThumb src={api.learnArtUrl("course", e.courseId)} className="w-24 shrink-0 self-start rounded-xl" />
+                    <LearnThumb src={api.learnArtUrl("course", e.courseId)} ratio="15 / 9" className="w-28 shrink-0 self-start rounded-[14px]" />
                     <div className="min-w-0 flex-1 pt-0.5">
-                      <p className="text-sm font-semibold text-ink">{e.title}</p>
-                      <p className="text-xs text-ink-500">{e.schoolName}</p>
+                      <p className={`${displayFont} text-[15px] font-semibold leading-tight text-ink`}>{e.title}</p>
+                      <p className="mt-0.5 truncate text-xs text-ink-500">{e.schoolName}</p>
+                      <div className="mt-2">{e.progressPercent >= 100 ? <Pill tone="green">Finished</Pill> : <Pill>{e.progressPercent}%</Pill>}</div>
                     </div>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-[rgb(var(--surface-muted))]" role="progressbar" aria-valuenow={e.progressPercent} aria-valuemin={0} aria-valuemax={100} aria-label={`${e.title} progress`}>
-                    <div className="h-full rounded-full bg-gold" style={{ width: `${e.progressPercent}%` }} />
-                  </div>
+                  <Progress percent={e.progressPercent} label={`${e.title} progress`} />
                   <p className="text-xs text-ink-500">
-                    {e.completedLessons} of {e.lessonCount} lessons · {e.progressPercent}%
+                    {e.completedLessons} of {e.lessonCount} lessons
                   </p>
                 </Link>
               </li>
@@ -168,13 +189,13 @@ export default function MyLearningPage() {
       </section>
 
       <section aria-labelledby="fees-h" className="space-y-3">
-        <h2 id="fees-h" className="flex items-center gap-2 text-sm font-semibold text-ink">
-          <Receipt className="h-4 w-4 text-gold" aria-hidden /> School fees
-        </h2>
+        <SectionTitle id="fees-h" icon={Receipt}>
+          School fees
+        </SectionTitle>
         {invoices === null ? (
-          <div className="h-24 animate-pulse rounded-2xl bg-[rgb(var(--surface-muted))]" />
+          <Skeleton className="h-24" />
         ) : invoices.length === 0 ? (
-          <div className={`${card} p-5 text-sm text-ink-500`}>No fees to pay. When a school sends you an invoice, it appears here and you pay it from your Peebee wallet.</div>
+          <Empty icon={Receipt}>No fees to pay. When a school sends you an invoice, it appears here and you pay it from your Peebee wallet.</Empty>
         ) : (
           <ul className="space-y-3">
             {invoices.map((inv) => (
@@ -183,6 +204,6 @@ export default function MyLearningPage() {
           </ul>
         )}
       </section>
-    </div>
+    </LearnScreen>
   );
 }

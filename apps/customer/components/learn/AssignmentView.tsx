@@ -37,7 +37,7 @@ export function AssignmentView({ lesson, onChanged }: { lesson: LearnerLessonDet
   return (
     <div className="space-y-5">
       <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold leading-tight text-ink">{lesson.title}</h1>
+        <h1 className="font-[family-name:var(--font-lh-display)] text-2xl font-bold tracking-[-0.01em] leading-tight text-ink">{lesson.title}</h1>
         <p className="text-xs text-ink-500">
           {a.maxPoints} points · pass at {a.passPercent}%{a.dueAt ? ` · due ${when(a.dueAt)}` : ""}
         </p>
@@ -66,7 +66,7 @@ export function AssignmentView({ lesson, onChanged }: { lesson: LearnerLessonDet
           <label htmlFor="work-link" className="block text-xs font-semibold text-ink-500">Link to your work (optional)</label>
           <input id="work-link" type="url" inputMode="url" value={link} onChange={(e) => setLink(e.target.value)} className="w-full rounded-2xl px-4 py-3 text-base" placeholder="https://…" />
           {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-          <button type="button" onClick={submit} disabled={busy} className="w-full rounded-2xl bg-gold px-4 py-4 text-base font-bold text-ink-gold disabled:opacity-50">
+          <button type="button" onClick={submit} disabled={busy} className="w-full rounded-2xl bg-gold px-4 py-4 text-base font-bold text-ink-gold shadow-[0_10px_24px_-12px_rgb(var(--color-gold)/0.9)] transition active:scale-[0.98] disabled:opacity-50">
             {busy ? "Sending…" : sub ? "Hand in again" : "Hand in"}
           </button>
         </div>

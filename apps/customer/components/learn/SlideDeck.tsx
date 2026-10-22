@@ -61,7 +61,7 @@ export function SlideDeck({ slides, onFinished }: { slides: StudioSlide[]; onFin
           // eslint-disable-next-line @next/next/no-img-element
           <img src={slide.imageUrl} alt="" className="mx-auto max-h-56 w-auto rounded-2xl object-contain" />
         )}
-        <h2 className="text-2xl font-bold text-ink">{slide.title}</h2>
+        <h2 className="font-[family-name:var(--font-lh-display)] text-2xl font-bold tracking-[-0.01em] text-ink">{slide.title}</h2>
         {slide.body && <p className="whitespace-pre-line text-base leading-relaxed text-ink">{slide.body}</p>}
       </div>
       <div className="flex items-center justify-between gap-3">

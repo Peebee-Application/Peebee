@@ -223,7 +223,7 @@ export function QuizRunner({ lesson, onPassed, onContinue }: { lesson: LearnerLe
           {isExam ? "🎓" : "✍️"}
         </div>
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold text-ink">{info.title || lesson.title}</h2>
+          <h2 className="font-[family-name:var(--font-lh-display)] text-2xl font-bold tracking-[-0.01em] text-ink">{info.title || lesson.title}</h2>
           {lesson.summary && <p className="text-sm text-ink-500">{lesson.summary}</p>}
         </div>
         <dl className="mx-auto grid max-w-sm grid-cols-2 gap-3 text-left">
@@ -242,7 +242,7 @@ export function QuizRunner({ lesson, onPassed, onContinue }: { lesson: LearnerLe
         {lesson.bestScorePercent !== null && <p className="text-sm text-ink-500">Your best so far: {lesson.bestScorePercent}%</p>}
         {isExam && info.timeLimitMinutes > 0 && <p className="text-xs text-ink-500">The clock starts when you press Start and doesn&apos;t stop. Your answers are sent when time runs out.</p>}
         {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-        <button type="button" onClick={start} disabled={busy || attemptsLeft === 0} className="w-full rounded-2xl bg-gold px-4 py-4 text-base font-bold text-ink-gold disabled:opacity-50">
+        <button type="button" onClick={start} disabled={busy || attemptsLeft === 0} className="w-full rounded-2xl bg-gold px-4 py-4 text-base font-bold text-ink-gold shadow-[0_10px_24px_-12px_rgb(var(--color-gold)/0.9)] transition active:scale-[0.98] disabled:opacity-50">
           {busy ? "Starting…" : attemptsLeft === 0 ? "No attempts left" : used > 0 ? "Try again" : `Start ${isExam ? "exam" : "quiz"}`}
         </button>
       </div>
@@ -254,7 +254,7 @@ export function QuizRunner({ lesson, onPassed, onContinue }: { lesson: LearnerLe
       <div className="space-y-6">
         <div className="space-y-3 text-center">
           <Ring percent={result.scorePercent} passed={result.passed} />
-          <h2 className="text-2xl font-bold text-ink">{result.passed ? "You passed!" : "Not quite yet"}</h2>
+          <h2 className="font-[family-name:var(--font-lh-display)] text-2xl font-bold tracking-[-0.01em] text-ink">{result.passed ? "You passed!" : "Not quite yet"}</h2>
           <p className="text-sm text-ink-500">
             {result.earned} of {result.total} points · pass mark {result.passMark}%
             {result.attemptsAllowed > 0 && ` · ${Math.max(0, result.attemptsAllowed - result.attemptsUsed)} attempt${result.attemptsAllowed - result.attemptsUsed === 1 ? "" : "s"} left`}
@@ -281,12 +281,12 @@ export function QuizRunner({ lesson, onPassed, onContinue }: { lesson: LearnerLe
         </ol>
         <div className="space-y-2.5">
           {result.passed && onContinue && (
-            <button type="button" onClick={onContinue} className="w-full rounded-2xl bg-gold px-4 py-4 text-base font-bold text-ink-gold">
+            <button type="button" onClick={onContinue} className="w-full rounded-2xl bg-gold px-4 py-4 text-base font-bold text-ink-gold shadow-[0_10px_24px_-12px_rgb(var(--color-gold)/0.9)] transition active:scale-[0.98]">
               Continue
             </button>
           )}
           {!result.passed && (attemptsLeft === null || attemptsLeft > 0) && (
-            <button type="button" onClick={start} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gold px-4 py-4 text-base font-bold text-ink-gold disabled:opacity-50">
+            <button type="button" onClick={start} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gold px-4 py-4 text-base font-bold text-ink-gold shadow-[0_10px_24px_-12px_rgb(var(--color-gold)/0.9)] transition active:scale-[0.98] disabled:opacity-50">
               <RotateCcw className="h-4 w-4" aria-hidden /> Try again
             </button>
           )}
@@ -314,10 +314,10 @@ export function QuizRunner({ lesson, onPassed, onContinue }: { lesson: LearnerLe
           )}
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-[rgb(var(--surface-muted))]" role="progressbar" aria-valuenow={index + 1} aria-valuemin={1} aria-valuemax={attempt.questions.length}>
-          <div className="h-full rounded-full bg-gold transition-all" style={{ width: `${((index + 1) / attempt.questions.length) * 100}%` }} />
+          <div className="h-full rounded-full bg-[linear-gradient(90deg,rgb(var(--color-gold)/0.7),rgb(var(--color-gold)))] transition-all" style={{ width: `${((index + 1) / attempt.questions.length) * 100}%` }} />
         </div>
       </div>
-      <h2 className="text-xl font-bold leading-snug text-ink">{q.question}</h2>
+      <h2 className="font-[family-name:var(--font-lh-display)] text-xl font-bold tracking-[-0.01em] leading-snug text-ink">{q.question}</h2>
       <Question q={q} value={answers[q.id]} onChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))} />
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       <div className="flex gap-3">
@@ -333,12 +333,12 @@ export function QuizRunner({ lesson, onPassed, onContinue }: { lesson: LearnerLe
               if (skipped > 0 && !window.confirm(`${skipped} question${skipped === 1 ? " is" : "s are"} unanswered. Submit anyway?`)) return;
               void submit();
             }}
-            className="flex-1 rounded-2xl bg-gold px-4 py-3.5 text-base font-bold text-ink-gold disabled:opacity-50"
+            className="flex-1 rounded-2xl bg-gold px-4 py-3.5 text-base font-bold text-ink-gold shadow-[0_10px_24px_-12px_rgb(var(--color-gold)/0.9)] transition active:scale-[0.98] disabled:opacity-50"
           >
             {busy ? "Marking…" : "Submit"}
           </button>
         ) : (
-          <button type="button" onClick={() => setIndex((i) => i + 1)} className="flex-1 rounded-2xl bg-gold px-4 py-3.5 text-base font-bold text-ink-gold">
+          <button type="button" onClick={() => setIndex((i) => i + 1)} className="flex-1 rounded-2xl bg-gold px-4 py-3.5 text-base font-bold text-ink-gold shadow-[0_10px_24px_-12px_rgb(var(--color-gold)/0.9)] transition active:scale-[0.98]">
             Next
           </button>
         )}
