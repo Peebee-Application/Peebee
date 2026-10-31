@@ -203,7 +203,7 @@ import type {
 
 export type PracticeWorldCounts = { customers: number; riders: number; merchants: number; stores: number; products: number; restaurants: number; menuItems: number; orders: number };
 /** `coverage` is how many demo rows each module has, by module key; a module at 0 has nothing to practise with. */
-export type PracticeWorldStatus = { seeded: boolean; counts: PracticeWorldCounts; coverage?: Record<string, number>; platformEnvironment?: "live" | "sandbox" };
+export type PracticeWorldStatus = { seeded: boolean; counts: PracticeWorldCounts; coverage?: Record<string, number>; platformEnvironment?: "live" | "sandbox"; /** The practice world is kept in its own database, apart from live data. */ separateDatabase?: boolean };
 
 export type CreateApiClientOptions = {
   baseUrl: string;

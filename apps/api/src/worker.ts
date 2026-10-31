@@ -1,6 +1,6 @@
 import app from "./app.js";
 import { setAiBinding, type AiBinding } from "./ai/binding.js";
-import { setD1Binding, type D1Database } from "./db/client.js";
+import { setD1Binding, setPracticeD1Binding, type D1Database } from "./db/client.js";
 import { renewSubscriptions } from "./riders/subscription.js";
 import { renewProSubscriptions } from "./riders/pro-subscription.js";
 import { sweepProviderOperations } from "./payments/reconciliation.js";
@@ -32,13 +32,14 @@ import { topUpDemoOrders } from "./practice/demo-customers.js";
  * conflicts with @types/node's DOM-lib globals) just for one field. */
 type CfExecutionContext = { waitUntil(promise: Promise<unknown>): void; passThroughOnException(): void };
 
-type WorkerEnv = Record<string, unknown> & { DB?: D1Database; RIDER_DOCS?: R2Bucket; AI?: AiBinding };
+type WorkerEnv = Record<string, unknown> & { DB?: D1Database; DB_PRACTICE?: D1Database; RIDER_DOCS?: R2Bucket; AI?: AiBinding };
 
 function bindEnv(env: WorkerEnv): void {
   for (const [key, value] of Object.entries(env)) {
     if (typeof value === "string") process.env[key] = value;
   }
   setD1Binding(env.DB);
+  setPracticeD1Binding(env.DB_PRACTICE);
   setR2Binding(env.RIDER_DOCS);
   setAiBinding(env.AI);
 }

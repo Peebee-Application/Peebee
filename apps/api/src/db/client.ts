@@ -1,4 +1,5 @@
 import { createClient, type Client, type InArgs } from "@libsql/client/web";
+import { inPractice } from "./practice-context.js";
 
 /**
  * Primary DB is Cloudflare D1 (native Worker binding — no HTTP hop, no
@@ -32,10 +33,28 @@ export type D1Database = {
 export type DbStatement = { sql: string; args?: unknown[] };
 
 let d1Binding: D1Database | null = null;
+let practiceBinding: D1Database | null = null;
 
 /** Called once per request from worker.ts before any route handler runs. */
 export function setD1Binding(binding: D1Database | undefined): void {
   d1Binding = binding ?? null;
+}
+
+/**
+ * The separate database that holds the shared practice world. While it is bound, everything a practice session reads
+ * or writes (`inPractice()`) goes there and never touches live data. When it is not bound the practice world lives in
+ * the main database under `prac_` ids, as it did before.
+ */
+export function setPracticeD1Binding(binding: D1Database | undefined): void {
+  practiceBinding = binding ?? null;
+}
+
+/** Is the practice world kept in its own database? */
+export const hasPracticeDatabase = (): boolean => practiceBinding !== null;
+
+/** The binding this request's queries go to. */
+function activeBinding(): D1Database | null {
+  return practiceBinding && inPractice() ? practiceBinding : d1Binding;
 }
 
 function wrapD1(binding: D1Database): Client {
@@ -74,7 +93,8 @@ function buildTursoClient(): Client {
 let cachedTurso: Client | null = null;
 
 function client(): Client {
-  if (d1Binding) return wrapD1(d1Binding);
+  const binding = activeBinding();
+  if (binding) return wrapD1(binding);
   if (!cachedTurso) cachedTurso = buildTursoClient();
   return cachedTurso;
 }
@@ -87,6 +107,18 @@ export const db: Client = new Proxy({} as Client, {
 });
 
 /**
+ * Always the main database, even inside a practice session. For what belongs to the platform and not to the practice
+ * world: the admin switches and settings, so practice follows the real fares, modules and notices.
+ */
+export const mainDb: Client = new Proxy({} as Client, {
+  get(_target, prop, receiver) {
+    const target = d1Binding ? wrapD1(d1Binding) : client();
+    const value = Reflect.get(target, prop, receiver);
+    return typeof value === "function" ? value.bind(target) : value;
+  },
+});
+
+/**
  * Execute a set of writes atomically. D1 guarantees that `batch` either
  * commits every prepared statement or rolls the whole batch back; libSQL's
  * write batch provides the same property for local development. Financial
@@ -95,11 +127,12 @@ export const db: Client = new Proxy({} as Client, {
  */
 export async function executeBatch(statements: DbStatement[]): Promise<number[]> {
   if (statements.length === 0) return [];
-  if (d1Binding) {
+  const binding = activeBinding();
+  if (binding) {
     const prepared = statements.map((statement) =>
-      d1Binding!.prepare(statement.sql).bind(...(statement.args ?? [])),
+      binding.prepare(statement.sql).bind(...(statement.args ?? [])),
     );
-    const results = await d1Binding.batch(prepared);
+    const results = await binding.batch(prepared);
     return results.map((result) => result.meta.changes);
   }
   const results = await client().batch(
