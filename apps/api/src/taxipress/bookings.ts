@@ -356,7 +356,7 @@ export async function bookSeats(c: Context, input: BookInput) {
         destinationAddress: to.name, destinationLat: to.lat, destinationLng: to.lng,
         paymentRail: payment === "cash" ? "float" : "escrow",
       },
-      { fare: amount, matchingMode: "first_to_claim" },
+      { fare: amount, matchingMode: "first_to_claim", allowConcurrent: true },
     );
     if (response.status >= 400) {
       await release();
