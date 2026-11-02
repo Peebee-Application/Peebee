@@ -109,6 +109,9 @@ const DEFAULTS = {
    * of a rider who said yes. On restores the old behaviour, where the nearest online rider is assigned
    * automatically. Sandbox orders (the demo world) always auto-assign, whatever this says. */
   auto_assign_without_acceptance: "0",
+  /** Minutes a rider stays attached to an order its customer has not paid for before the rider is released and the
+   * order goes back to the pool (see orders/unpaid-release.ts). 0 turns it off. */
+  unpaid_match_release_minutes: "15",
   /** How long an order in "nearest_window" mode waits to collect applicants
    * before the app auto-assigns whichever is nearest. */
   nearest_window_seconds: "90",
@@ -1334,18 +1337,21 @@ export async function getMatchingSettings(): Promise<{
   nearestWindowSeconds: number;
   maxAssignmentMinutes: number;
   autoAssignWithoutAcceptance: boolean;
+  unpaidMatchReleaseMinutes: number;
 }> {
-  const [modesRaw, windowRaw, maxRaw, autoRaw] = await Promise.all([
+  const [modesRaw, windowRaw, maxRaw, autoRaw, unpaidRaw] = await Promise.all([
     getSetting("matching_modes_enabled"),
     getSetting("nearest_window_seconds"),
     getSetting("max_assignment_minutes"),
     getSetting("auto_assign_without_acceptance"),
+    getSetting("unpaid_match_release_minutes"),
   ]);
   return {
     enabledModes: parseEnabledModes(modesRaw),
     nearestWindowSeconds: Number(windowRaw) || Number(DEFAULTS.nearest_window_seconds),
     maxAssignmentMinutes: Number(maxRaw) || Number(DEFAULTS.max_assignment_minutes),
     autoAssignWithoutAcceptance: autoRaw === "1",
+    unpaidMatchReleaseMinutes: Math.min(1440, Math.max(0, Math.floor(Number(unpaidRaw)) || 0)),
   };
 }
 
