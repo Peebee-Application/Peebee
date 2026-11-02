@@ -43,7 +43,7 @@ export async function publicRateLimit(
   return null;
 }
 
-export type MerchantPermission = "manage_catalog" | "manage_store_settings" | "manage_digital" | "refund_revoke" | "manage_billing";
+export type MerchantPermission = "manage_catalog" | "manage_store_settings" | "manage_digital" | "refund_revoke" | "manage_billing" | "view_financial_reports";
 
 const RULES: Array<{ methods: string[]; pattern: RegExp; permission: MerchantPermission }> = [
   { methods: ["POST"], pattern: /^\/merchants\/me\/store\/tier$/, permission: "manage_billing" },
@@ -59,6 +59,7 @@ const RULES: Array<{ methods: string[]; pattern: RegExp; permission: MerchantPer
 export function requiredPermission(method: string, path: string): MerchantPermission | null {
   const clean = path.replace(/^\/v1/, "").replace(/\/+$/, "");
   if (!clean.startsWith("/merchants/me/")) return null;
+  if (/^\/merchants\/me\/(financial-report|financial-entries)(\/|$)/.test(clean)) return "view_financial_reports";
   // Sensitive reads and all descendants share their resource's policy, so
   // adding an upload/licence/course subroute cannot silently skip the gate.
   if (/^\/merchants\/me\/digital-products\/[^/]+\/license-pool$/.test(clean)) return "manage_digital";
