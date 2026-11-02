@@ -86,6 +86,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/money-flow", label: "Money flow", icon: Banknote, hint: "Commission, gateway fees, tax, who gets what", keywords: "commission transaction fee tax vat maintenance aggregator flutterwave yo pesapal split", visible: can("payments.manage") },
       { href: "/settings/monetization", label: "Monetization", icon: Banknote, hint: "Commissions, fees, Pro", visible: can("payments.manage"), keywords: "commission subscription pro" },
       { href: "/settings/merchant-payments", label: "Merchant payments", icon: Store, hint: "Custody gate", visible: can("merchant_finance.manage") },
+      { href: "/refund-reconciliation", label: "Refund reconciliation", icon: ClipboardList, hint: "Historical digital refunds and payment evidence", visible: can("merchant_finance.manage") },
       { href: "/settings/customer-wallet", label: "Customer wallet", icon: Wallet, hint: "Balance caps", visible: can("payments.manage") },
       { href: "/settings/rider-wallet", label: "Rider wallet", icon: Wallet, hint: "Minimum reserve", visible: can("payments.manage") },
       { href: "/settings/stage-savings", label: "Stage savings", icon: PiggyBank, hint: "Cycles and loans", visible: can("payments.manage") },
