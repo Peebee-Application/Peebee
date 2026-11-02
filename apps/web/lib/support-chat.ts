@@ -7,22 +7,27 @@
 export type Sender = "user" | "ai" | "agent" | "system";
 export type ChatMessage = { id: string; from: Sender; text: string; at: number; agentName?: string };
 export type HandoffEvent =
-  | { type: "queued" }
+  | { type: "queued"; /** The team is away and the message is saved for them. */ away?: boolean; hours?: string | null; /** In hours, but nobody is watching right now. */ nobodyWatching?: boolean }
+  | { type: "declined"; message: string }
   | { type: "joined"; agentName: string }
   | { type: "message"; message: ChatMessage }
   | { type: "ended" };
+
+/** What the chat can offer right now: a person ("talk"), a message left for the team while they are away ("message"), or only the assistant ("none"). */
+export type Capabilities = { humanEnabled: boolean; offer: "talk" | "message" | "none"; hours: string | null };
+type ServerAvailability = { state: string; offer: "talk" | "message" | "none"; hours: string | null; agentsOnline: number | null };
 
 export interface SupportChatAdapter {
   /** Ask the AI assistant. Resolves with its reply. */
   askAI(text: string, history: ChatMessage[]): Promise<ChatMessage>;
   /** Ask for a person. Calls `on` as the handoff progresses; returns a function that cancels it. */
-  requestAgent(history: ChatMessage[], on: (e: HandoffEvent) => void): () => void;
+  requestAgent(history: ChatMessage[], on: (e: HandoffEvent) => void, contact?: string): () => void;
   /** Send a message to the person once they have joined. */
   sendToAgent(text: string): Promise<void>;
   /** Leave the person and go back to the AI. */
   endAgent(): void;
   /** What this chat can do right now (admin can switch "Talk to a person" off). */
-  capabilities(): Promise<{ humanEnabled: boolean }>;
+  capabilities(): Promise<Capabilities>;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -53,7 +58,7 @@ export const mockAdapter: SupportChatAdapter = {
     /* demo: the mock agent does not reply further */
   },
   endAgent() {},
-  async capabilities() { return { humanEnabled: true }; },
+  async capabilities() { return { humanEnabled: true, offer: "talk" as const, hours: null }; },
 };
 
 // ------------------------------------------------------------------------------------------------ live
@@ -96,21 +101,29 @@ function createLiveAdapter(): SupportChatAdapter {
         return msg("ai", limited ? "You are sending messages very fast. Please wait a moment and try again." : "Sorry, I could not reach Peebee just now. Check your connection and try again, or tap \"Talk to a person\".");
       }
     },
-    requestAgent(_history, on) {
+    requestAgent(_history, on, contact) {
       let stopped = false;
       let timer: ReturnType<typeof setTimeout> | undefined;
       let joined = false;
+      let shown = "";
+      const queued = (left: boolean, a: ServerAvailability | null | undefined) => {
+        const flags = `${left}|${a?.hours ?? ""}|${a?.agentsOnline === 0}`;
+        if (flags === shown) return;
+        shown = flags;
+        on({ type: "queued", away: left, hours: a?.hours ?? null, nobodyWatching: !left && a?.agentsOnline === 0 });
+      };
       (async () => {
         try {
           const s = await open();
-          const first = await call<{ status: string }>(`/${s.id}/handoff`, { method: "POST", secret: s.secret });
+          const first = await call<{ status: string; leftOffline?: boolean; availability?: ServerAvailability | null }>(`/${s.id}/handoff`, { method: "POST", secret: s.secret, body: contact?.trim() ? { contact: contact.trim() } : {} });
           if (stopped) return;
-          if (first.status === "waiting") on({ type: "queued" });
+          if (first.status === "waiting") queued(Boolean(first.leftOffline), first.availability);
           const tick = async () => {
             if (stopped) return;
             try {
-              const poll = await call<{ status: string; agentName: string | null; messages: ServerMessage[] }>(`/${s.id}?after=${lastId}`, { secret: s.secret });
+              const poll = await call<{ status: string; agentName: string | null; leftOffline?: boolean; availability?: ServerAvailability | null; messages: ServerMessage[] }>(`/${s.id}?after=${lastId}`, { secret: s.secret });
               if (stopped) return;
+              if (poll.status === "waiting") queued(Boolean(poll.leftOffline), poll.availability);
               for (const m of poll.messages) lastId = Math.max(lastId, m.id);
               if (poll.status === "human" && !joined) { joined = true; on({ type: "joined", agentName: poll.agentName ?? "Support agent" }); }
               for (const m of poll.messages) if (m.from === "agent") on({ type: "message", message: toChat(m) });
@@ -120,8 +133,11 @@ function createLiveAdapter(): SupportChatAdapter {
             timer = setTimeout(tick, typeof document !== "undefined" && document.hidden ? POLL_HIDDEN_MS : POLL_MS);
           };
           void tick();
-        } catch {
-          if (!stopped) on({ type: "ended" });
+        } catch (e) {
+          if (stopped) return;
+          const err = e as { status?: number; message?: string };
+          if (err.status === 403) on({ type: "declined", message: err.message ?? "A person is not available right now." });
+          else on({ type: "ended" });
         }
       })();
       return () => { stopped = true; if (timer) clearTimeout(timer); };
@@ -136,8 +152,9 @@ function createLiveAdapter(): SupportChatAdapter {
       session?.then((s) => call(`/${s.id}/end`, { method: "POST", secret: s.secret })).catch(() => undefined);
     },
     async capabilities() {
-      const c = await call<{ humanEnabled: boolean }>("/config?app=website").catch(() => ({ humanEnabled: true }));
-      return { humanEnabled: c.humanEnabled };
+      const c = await call<{ humanEnabled: boolean; availability?: ServerAvailability | null }>("/config?app=website").catch(() => null);
+      if (!c) return { humanEnabled: true, offer: "talk" as const, hours: null };
+      return { humanEnabled: c.humanEnabled, offer: c.availability?.offer ?? (c.humanEnabled ? "talk" as const : "none" as const), hours: c.availability?.hours ?? null };
     },
   };
 }
@@ -150,10 +167,10 @@ function createSupportChat(): SupportChatAdapter {
   let current: SupportChatAdapter | null = null;
   return {
     async askAI(text, history) { current = await pick(); return current.askAI(text, history); },
-    requestAgent(history, on) {
+    requestAgent(history, on, contact) {
       let cancel: (() => void) | null = null;
       let stopped = false;
-      pick().then((a) => { current = a; if (!stopped) cancel = a.requestAgent(history, on); });
+      pick().then((a) => { current = a; if (!stopped) cancel = a.requestAgent(history, on, contact); });
       return () => { stopped = true; cancel?.(); };
     },
     async sendToAgent(text) { return (current ?? (await pick())).sendToAgent(text); },

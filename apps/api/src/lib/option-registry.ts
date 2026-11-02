@@ -443,6 +443,27 @@ export const OPTION_SETTINGS: SettingDef[] = [
   { key: "support_chat_alerts_enabled", module: "support", kind: "bool", label: "Alert staff when someone asks for a person", description: "Sends a push notification to every staff member who can answer chats, and shows a badge and plays a sound in the admin app.", default: true },
   { key: "support_chat_alert_repeat_minutes", module: "support", kind: "int", label: "Remind staff of an unanswered chat every", description: "While a chat is still waiting, staff are reminded this often. 0 alerts only once.", default: 5, min: 0, max: 240, unit: "minutes" },
   { key: "support_chat_alert_max_reminders", module: "support", kind: "int", label: "Most reminders per chat", description: "Stops reminding after this many, so an abandoned chat does not ping forever.", default: 4, min: 0, max: 50 },
+  { key: "support_chat_hours_enabled", module: "support", kind: "bool", label: "Staff hours for talking to a person", description: "On: outside the hours below, visitors are told the team is away. Off: a person is offered at any time (and only the staff-online check below can say otherwise).", default: false },
+  { key: "support_chat_open_hour", module: "support", kind: "int", label: "Team starts at", description: "Hour of the day, 24-hour clock, in the time zone below.", default: 8, min: 0, max: 23, unit: "o'clock" },
+  { key: "support_chat_close_hour", module: "support", kind: "int", label: "Team finishes at", description: "Hour of the day, 24-hour clock (24 is midnight).", default: 20, min: 1, max: 24, unit: "o'clock" },
+  {
+    key: "support_chat_open_days", module: "support", kind: "multi", label: "Days the team is on", description: "Days outside these count as away.",
+    default: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], min: 1,
+    options: [opt("mon", "Monday", true), opt("tue", "Tuesday", true), opt("wed", "Wednesday", true), opt("thu", "Thursday", true), opt("fri", "Friday", true), opt("sat", "Saturday", true), opt("sun", "Sunday", true)],
+  },
+  { key: "support_chat_utc_offset_hours", module: "support", kind: "int", label: "Time zone (hours from UTC)", description: "3 is East Africa Time (Uganda). Uganda has no daylight saving, so this does not change.", default: 3, min: -12, max: 14, unit: "hours" },
+  {
+    key: "support_chat_online_needs_staff", module: "support", kind: "bool", label: "Treat \"nobody has the admin app open\" as away", description: "Off (recommended): within the hours a person is always offered, and if nobody is watching right now the visitor is told it may take a few minutes (staff are still alerted by push). On: when nobody has the admin app open the visitor is treated as if the team is away.", default: false,
+  },
+  {
+    key: "support_chat_offline_mode", module: "support", kind: "enum", label: "When the team is away", description: "What a visitor sees when nobody can answer.",
+    default: "leave_message",
+    options: [
+      opt("leave_message", "Let them leave a message", true, { recommended: true, hint: "The message waits for the team, which replies in the chat (and by push to signed-in people). Visitors can add a phone or email." }),
+      opt("ai_only", "Only the AI assistant", true, { hint: "No person is offered while the team is away; the assistant keeps helping." }),
+    ],
+  },
+  { key: "support_chat_offline_keep_hours", module: "support", kind: "int", label: "Keep messages left while away for", description: "A message left while the team was away waits this long for a reply before it is closed.", default: 72, min: 1, max: 720, unit: "hours" },
   { key: "support_chat_ai_context_messages", module: "support", kind: "int", label: "Messages the AI reads", description: "How many of the latest messages the assistant sees when it answers.", default: 12, min: 2, max: 40 },
   { key: "support_chat_max_messages", module: "support", kind: "int", label: "Messages per chat", description: "A visitor cannot send more than this in one chat.", default: 200, min: 10, max: 2000 },
   { key: "support_chat_idle_close_minutes", module: "support", kind: "int", label: "Close idle person chats after", description: "Queued or person-handled chats with no message for this long are closed.", default: 120, min: 5, max: 1440, unit: "minutes" },

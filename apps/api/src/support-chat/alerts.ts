@@ -3,6 +3,7 @@ import { db } from "../db/client.js";
 import { getOptions } from "../lib/option-settings.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
 import { notifyUser, type PushPayload } from "../lib/webpush.js";
+import { getAvailability } from "./availability.js";
 
 /**
  * Telling people about support chats: staff when someone is waiting (and again if nobody has answered), and the visitor
@@ -24,13 +25,23 @@ export async function supportStaffIds(): Promise<string[]> {
   return (res.rows as Row[]).filter((r) => hasPermission(r.admin_role as AdminRole, "chat.view_support")).map((r) => String(r.id));
 }
 
-/** Chats left with a person or in the queue and gone quiet are closed, so the queue never fills with abandoned chats. */
+/**
+ * Chats left with a person or in the queue and gone quiet are closed, so the queue never fills with abandoned chats.
+ * A message left while the team was away waits much longer (it is a message, not a person standing by).
+ */
 export async function closeIdleChats(): Promise<void> {
-  const minutes = Number((await getOptions(["support_chat_idle_close_minutes"])).support_chat_idle_close_minutes);
+  const o = await getOptions(["support_chat_idle_close_minutes", "support_chat_offline_keep_hours"]);
+  const offline = await hasColumn("support_chats", "left_offline");
   await db.execute({
-    sql: "UPDATE support_chats SET status = 'closed', closed_at = datetime('now') WHERE status IN ('waiting', 'human') AND updated_at < datetime('now', ?)",
-    args: [`-${minutes} minutes`],
+    sql: `UPDATE support_chats SET status = 'closed', closed_at = datetime('now') WHERE status IN ('waiting', 'human') ${offline ? "AND left_offline = 0 " : ""}AND updated_at < datetime('now', ?)`,
+    args: [`-${Number(o.support_chat_idle_close_minutes)} minutes`],
   });
+  if (offline) {
+    await db.execute({
+      sql: "UPDATE support_chats SET status = 'closed', closed_at = datetime('now') WHERE status IN ('waiting', 'human') AND left_offline = 1 AND updated_at < datetime('now', ?)",
+      args: [`-${Number(o.support_chat_offline_keep_hours)} hours`],
+    });
+  }
 }
 
 /** Push to every staff device that can answer chats. Returns how many people it was sent to. */
@@ -38,15 +49,17 @@ export async function alertStaffAboutChat(chatId: string, kind: "new" | "reminde
   const o = await getOptions(["support_chat_alerts_enabled"]);
   if (o.support_chat_alerts_enabled !== true) return 0;
   const identity = await hasColumn("support_chats", "app");
+  const offlineCol = await hasColumn("support_chats", "left_offline");
   const chat = (await db.execute({
-    sql: `SELECT id, status${identity ? ", app, user_name" : ""}, (SELECT body FROM support_messages m WHERE m.chat_id = support_chats.id AND m.sender = 'user' ORDER BY m.id DESC LIMIT 1) AS last_text FROM support_chats WHERE id = ?`,
+    sql: `SELECT id, status${identity ? ", app, user_name" : ""}${offlineCol ? ", left_offline" : ""}, (SELECT body FROM support_messages m WHERE m.chat_id = support_chats.id AND m.sender = 'user' ORDER BY m.id DESC LIMIT 1) AS last_text FROM support_chats WHERE id = ?`,
     args: [chatId],
   })).rows[0] as Row | undefined;
   if (!chat || chat.status !== "waiting") return 0;
   const who = chat.user_name ? String(chat.user_name) : "A visitor";
   const where = supportAppLabel((chat.app as string | null | undefined) ?? null);
+  const left = Number(chat.left_offline) === 1;
   const payload: PushPayload = {
-    title: kind === "new" ? "Someone is asking for support" : "A support chat is still waiting",
+    title: left ? (kind === "new" ? "A message was left for support" : "A left message is still waiting") : kind === "new" ? "Someone is asking for support" : "A support chat is still waiting",
     body: chat.last_text ? `${who} · ${where}: ${preview(chat.last_text)}` : `${who} · ${where} is waiting for a person`,
     url: "/support-chat",
     tag: `support-chat-${chatId}`,
@@ -73,7 +86,16 @@ export async function sweepSupportChats(send: Send = notifyUser): Promise<{ clos
     args: [Number(o.support_chat_alert_max_reminders), `-${every} minutes`],
   });
   let reminded = 0;
-  for (const r of due.rows as Row[]) if ((await alertStaffAboutChat(String(r.id), "reminder", send)) > 0) reminded += 1;
+  // A message left while the team was away is not nagged about overnight: reminders start once someone can answer.
+  const teamOn = (await getAvailability()).state === "online";
+  const offlineCol = await hasColumn("support_chats", "left_offline");
+  for (const r of due.rows as Row[]) {
+    if (offlineCol && !teamOn) {
+      const left = (await db.execute({ sql: "SELECT left_offline FROM support_chats WHERE id = ?", args: [String(r.id)] })).rows[0] as Row | undefined;
+      if (Number(left?.left_offline) === 1) continue;
+    }
+    if ((await alertStaffAboutChat(String(r.id), "reminder", send)) > 0) reminded += 1;
+  }
   return { closed: true, reminded };
 }
 
@@ -89,19 +111,4 @@ export async function notifyVisitorOfReply(chatId: string, text: string, send: S
   return true;
 }
 
-/** Records that a staff member has the admin app open, so visitors can be told whether anyone is there. At most one write per 30 seconds each. */
-export async function touchAgentPresence(userId: string, name: string): Promise<void> {
-  if (!(await hasTable("support_agent_presence"))) return;
-  await db.execute({
-    sql: `INSERT INTO support_agent_presence (user_id, name, last_seen_at) VALUES (?, ?, datetime('now'))
-          ON CONFLICT(user_id) DO UPDATE SET name = excluded.name, last_seen_at = datetime('now') WHERE last_seen_at < datetime('now', '-30 seconds')`,
-    args: [userId, name],
-  });
-}
-
-/** Staff who had the admin app open in the last 90 seconds. Null when it cannot be told (migration 0154 not applied). */
-export async function agentsOnline(): Promise<number | null> {
-  if (!(await hasTable("support_agent_presence"))) return null;
-  const res = await db.execute("SELECT COUNT(*) AS n FROM support_agent_presence WHERE last_seen_at > datetime('now', '-90 seconds')");
-  return Number((res.rows[0] as Row).n) || 0;
-}
+export { agentsOnline, touchAgentPresence } from "./presence.js";
