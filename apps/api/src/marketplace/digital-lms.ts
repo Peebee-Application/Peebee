@@ -16,6 +16,7 @@ import { getPlatformEnvironment } from "../lib/settings.js";
 import { normalizePhone } from "../lib/validation.js";
 import { migrationPending, publicRateLimit } from "../lib/guards.js";
 import { getOptions } from "../lib/option-settings.js";
+import { eliteOnly } from "./plans.js";
 import { enrollmentSchema, parseCourse, parseDigitalProduct } from "./digital-input.js";
 import type {
   StoreDigitalProduct,
@@ -25,6 +26,10 @@ import type {
 } from "@peebee/shared";
 
 export const digitalLmsRoutes = new Hono();
+// Creation/management tools require Elite; servicing existing purchases must remain possible after expiry.
+digitalLmsRoutes.use("/merchants/me/digital-products", requireAuth, eliteOnly);
+digitalLmsRoutes.use("/merchants/me/digital-products/*", requireAuth, eliteOnly);
+digitalLmsRoutes.use("/merchants/me/lms/*", requireAuth, eliteOnly);
 // Purchase, delivery, refunds and file upload live in digital-delivery.ts.
 digitalLmsRoutes.route("/", digitalDeliveryRoutes);
 
@@ -157,21 +162,22 @@ export const DEMO_LMS_COURSES: StoreLmsCourse[] = [
   },
 ];
 
-export async function getMerchantStore(userId: string): Promise<Row | null> {
+export async function getMerchantStore(userId: string, selectedMerchantId?: string): Promise<Row | null> {
   if (!(await hasTable("stores"))) return null;
   let merchantId = userId;
   if (await hasTable("merchant_members")) {
     const memRes = await db.execute({
-      sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-      args: [userId],
+      sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+      args: [userId, selectedMerchantId ?? null, selectedMerchantId ?? null],
     });
+    if (!memRes.rows[0]?.merchant_id) return null;
     if (memRes.rows[0]?.merchant_id) {
       merchantId = String(memRes.rows[0].merchant_id);
     }
   }
   const res = await db.execute({
-    sql: "SELECT * FROM stores WHERE merchant_id = ? OR merchant_id = ? LIMIT 1",
-    args: [merchantId, userId],
+    sql: "SELECT * FROM stores WHERE merchant_id = ? LIMIT 1",
+    args: [merchantId],
   });
   return (res.rows[0] as Row) || null;
 }
@@ -182,13 +188,13 @@ export async function getMerchantStore(userId: string): Promise<Row | null> {
 
 digitalLmsRoutes.get("/merchants/me/digital-products", requireAuth, async (c) => {
   const user = c.get("user");
-  const store = await getMerchantStore(user.sub);
+  const store = await getMerchantStore(user.sub, c.req.header("X-Merchant-Id"));
   if (!store) {
     return c.json({ error: "no_store", message: "You don't have a registered store." }, 404);
   }
 
   if (!(await hasTable("store_digital_products"))) {
-    return c.json({ products: DEMO_DIGITAL_PRODUCTS });
+    return c.json({ error: "migration_pending", message: "Digital products are being set up. Try again shortly." }, 503);
   }
 
   const res = await db.execute({
@@ -219,7 +225,7 @@ digitalLmsRoutes.get("/merchants/me/digital-products", requireAuth, async (c) =>
     mime_type: r.mime_type ? String(r.mime_type) : null,
     max_downloads: Number(r.max_downloads ?? 5),
     expiry_days: Number(r.expiry_days ?? 30),
-    license_keys_pool: poolFor.get(String(r.id))?.keys ?? (r.license_keys_pool ? JSON.parse(String(r.license_keys_pool)) : null),
+    license_keys_pool: null, // Secret keys are only returned by the permission-protected pool endpoint.
     license_keys_available: poolFor.get(String(r.id))?.available ?? 0,
     license_keys_issued: poolFor.get(String(r.id))?.issued ?? 0,
     delivery_instructions: r.delivery_instructions ? String(r.delivery_instructions) : null,
@@ -232,7 +238,7 @@ digitalLmsRoutes.get("/merchants/me/digital-products", requireAuth, async (c) =>
     updated_at: String(r.updated_at),
   }));
 
-  const resultList = products.length > 0 ? products : DEMO_DIGITAL_PRODUCTS;
+  const resultList = products;
   return c.json({
     products: resultList,
     digitalProducts: resultList,
@@ -241,7 +247,7 @@ digitalLmsRoutes.get("/merchants/me/digital-products", requireAuth, async (c) =>
 
 digitalLmsRoutes.post("/merchants/me/digital-products", requireAuth, async (c) => {
   const user = c.get("user");
-  const store = await getMerchantStore(user.sub);
+  const store = await getMerchantStore(user.sub, c.req.header("X-Merchant-Id"));
   if (!store) {
     return c.json({ error: "no_store", message: "You don't have a registered store." }, 404);
   }
@@ -346,7 +352,7 @@ digitalLmsRoutes.post("/merchants/me/digital-products", requireAuth, async (c) =
 
 digitalLmsRoutes.delete("/merchants/me/digital-products/:id", requireAuth, async (c) => {
   const user = c.get("user");
-  const store = await getMerchantStore(user.sub);
+  const store = await getMerchantStore(user.sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
 
   const id = String(c.req.param("id") || "");
@@ -366,7 +372,7 @@ digitalLmsRoutes.delete("/merchants/me/digital-products/:id", requireAuth, async
 
 digitalLmsRoutes.get("/merchants/me/digital-fulfillments", requireAuth, async (c) => {
   const user = c.get("user");
-  const store = await getMerchantStore(user.sub);
+  const store = await getMerchantStore(user.sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
 
   if (!(await hasTable("store_digital_fulfillments"))) return c.json({ fulfillments: [] });
@@ -410,7 +416,7 @@ digitalLmsRoutes.get("/merchants/me/digital-fulfillments", requireAuth, async (c
 
 digitalLmsRoutes.post("/merchants/me/digital-fulfillments/:id/revoke", requireAuth, async (c) => {
   const user = c.get("user");
-  const store = await getMerchantStore(user.sub);
+  const store = await getMerchantStore(user.sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
 
   const id = String(c.req.param("id") || "");
@@ -463,7 +469,7 @@ async function linkLearnCourses(userId: string, store: Row, onlyUnlinked: boolea
 
 digitalLmsRoutes.get("/merchants/me/lms/courses", requireAuth, async (c) => {
   const user = c.get("user");
-  const store = await getMerchantStore(user.sub);
+  const store = await getMerchantStore(user.sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
   if (!(await hasTable("edu_courses"))) return c.json({ courses: [] });
 
@@ -582,7 +588,7 @@ digitalLmsRoutes.get("/merchants/me/lms/courses", requireAuth, async (c) => {
 
 digitalLmsRoutes.post("/merchants/me/lms/courses", requireAuth, async (c) => {
   const user = c.get("user");
-  const store = await getMerchantStore(user.sub);
+  const store = await getMerchantStore(user.sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
 
   const settings = await getMarketplaceSettings();
@@ -777,7 +783,7 @@ digitalLmsRoutes.post("/merchants/me/lms/courses", requireAuth, async (c) => {
 
 digitalLmsRoutes.post("/merchants/me/lms/sync-from-learn", requireAuth, async (c) => {
   const user = c.get("user");
-  const store = await getMerchantStore(user.sub);
+  const store = await getMerchantStore(user.sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
   const pending = await migrationPending(c, "0133_merchant_tier3_digital_products_lms.sql", "edu_courses", "edu_schools");
   if (pending) return pending;
@@ -788,7 +794,7 @@ digitalLmsRoutes.post("/merchants/me/lms/sync-from-learn", requireAuth, async (c
 /** Put a store's course in (or take it out of) the Peebee Learn catalogue. A sale from the store works either way. */
 async function setListing(c: any, listed: boolean) {
   const user = c.get("user");
-  const store = await getMerchantStore(user.sub);
+  const store = await getMerchantStore(user.sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
   if (!(await hasColumn("edu_courses", "catalog_listed"))) {
     return c.json({ error: "migration_pending", message: "Catalogue listing is being set up (0139_lms_hardening.sql is not applied yet)." }, 503);
@@ -806,7 +812,7 @@ digitalLmsRoutes.post("/merchants/me/lms/courses/:id/unlist-from-learn", require
 
 digitalLmsRoutes.get("/merchants/me/lms/enrollments", requireAuth, async (c) => {
   const user = c.get("user");
-  const store = await getMerchantStore(user.sub);
+  const store = await getMerchantStore(user.sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
   if (!(await hasTable("store_lms_enrollments"))) return c.json({ enrollments: [] });
 
@@ -873,7 +879,7 @@ digitalLmsRoutes.get("/merchants/me/lms/enrollments", requireAuth, async (c) => 
 
 digitalLmsRoutes.post("/merchants/me/lms/enrollments", requireAuth, async (c) => {
   const user = c.get("user");
-  const store = await getMerchantStore(user.sub);
+  const store = await getMerchantStore(user.sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
 
   const parsedEnrol = enrollmentSchema.safeParse(await c.req.json().catch(() => ({})));
@@ -944,7 +950,7 @@ const CERT_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 /** Issue a certificate by hand (admin option "manual_issue"), once the student has finished every lesson. */
 digitalLmsRoutes.post("/merchants/me/lms/enrollments/:id/certificate", requireAuth, async (c) => {
   const user = c.get("user");
-  const store = await getMerchantStore(user.sub);
+  const store = await getMerchantStore(user.sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
   const { lms_certificates: mode } = await getOptions(["lms_certificates"]);
   if (mode !== "manual_issue") return c.json({ error: "not_manual", message: mode === "off" ? "Certificates are switched off on this platform." : "Certificates are issued automatically when a student finishes." }, 409);

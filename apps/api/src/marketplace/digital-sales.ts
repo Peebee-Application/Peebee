@@ -1,8 +1,9 @@
-import { db } from "../db/client.js";
+import { db, executeBatch, requireChangedRow, type DbStatement } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { getOptions } from "../lib/option-settings.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
-import { getPlatformEnvironment } from "../lib/settings.js";
+import { getMarketplaceSettings, getPlatformEnvironment } from "../lib/settings.js";
+import { storePlan } from "./plans.js";
 import { sendSms } from "../lib/sms-gateway.js";
 import { postLedgerTransaction } from "../ledger/service.js";
 import { enrollStudent } from "./lms-enroll.js";
@@ -143,6 +144,9 @@ export async function purchaseDigitalProduct(input: {
   const found = await db.execute({ sql: "SELECT * FROM store_digital_products WHERE id = ? AND store_id = ? AND status = 'published'", args: [input.productId, String(input.store.id)] });
   const product = found.rows[0] as Row | undefined;
   if (!product) return fail(404, "product_not_found", "That product isn't for sale.");
+  const marketplace = await getMarketplaceSettings();
+  if (!marketplace.eliteDigitalProductsEnabled) return fail(403, "digital_disabled", "Digital sales are paused by the platform.");
+  if (!(await storePlan(input.store, marketplace)).isElite) return fail(403, "plan_required", "The store needs an active Merchant Elite plan to accept new digital purchases.");
 
   const price = Number(product.price_ugx) || 0;
   const kind = String(product.kind);
@@ -294,65 +298,67 @@ export async function purchaseDigitalProduct(input: {
  * key is voided rather than reissued, and doing it twice does nothing.
  */
 export async function refundFulfillment(input: { fulfillmentId: string; storeId: string; actorId: string }): Promise<{ ok: true } | { ok: false; error: string; message: string }> {
-  const asLearn = async (row: Row, environment: "live" | "sandbox", price: number, commission: number) => {
-    // A Learn-path sale has no ledger entry: the school owner's wallet was credited directly, so it is debited back.
-    const owner = (await db.execute({ sql: "SELECT s.owner_id FROM store_digital_products p JOIN edu_courses c ON c.id = p.linked_course_id JOIN edu_schools s ON s.id = c.school_id WHERE p.id = ?", args: [String(row.digital_product_id)] })).rows[0] as Row | undefined;
-    if (!owner) return true;
-    const back = await debitWallet(String(owner.owner_id), price - commission, { type: "adjustment", environment, note: "Refund of a course sale", actorId: input.actorId });
-    return back !== null;
-  };
   const row = (await db.execute({ sql: "SELECT * FROM store_digital_fulfillments WHERE id = ? AND store_id = ?", args: [input.fulfillmentId, input.storeId] })).rows[0] as Row | undefined;
   if (!row) return { ok: false, error: "not_found", message: "That purchase doesn't exist." };
-  if (row.refunded_at) return { ok: true };
-  const environment = await getPlatformEnvironment();
   const price = Number(row.price_paid_ugx) || 0;
+  const refundWalletEntryId = `wl_digital_refund_${input.fulfillmentId}`;
+  if (row.refunded_at) {
+    if (price === 0 || (await db.execute({sql: "SELECT 1 FROM wallet_ledger WHERE id = ? AND user_id = ? AND type = 'refund' AND amount = ?", args: [refundWalletEntryId, String(row.buyer_user_id), price]})).rows.length) return {ok: true};
+    return {ok: false, error: "refund_review_required", message: "This historical refund is marked complete but its buyer credit cannot be verified. Ask support to reconcile it; do not refund again manually."};
+  }
   const commission = Number(row.commission_ugx) || 0;
   const payout = price - commission;
-  const merchantId = String((await db.execute({ sql: "SELECT merchant_id FROM stores WHERE id = ?", args: [input.storeId] })).rows[0]?.merchant_id);
-  const claim = await db.execute({ sql: "UPDATE store_digital_fulfillments SET refunded_at = datetime('now') WHERE id = ? AND refunded_at IS NULL", args: [input.fulfillmentId] });
-  if (!claim.rowsAffected) return { ok: true };
-
-  const viaLedger = price > 0 && (await db.execute({ sql: "SELECT 1 FROM ledger_transactions WHERE environment = ? AND idempotency_key = ?", args: [environment, `digital-sale:${input.fulfillmentId}`] })).rows.length > 0;
-  if (price > 0 && row.buyer_user_id && !viaLedger) {
-    if (!(await asLearn(row, environment, price, commission))) {
-      await db.execute({ sql: "UPDATE store_digital_fulfillments SET refunded_at = NULL WHERE id = ?", args: [input.fulfillmentId] });
-      return { ok: false, error: "insufficient_school_balance", message: "The school's wallet doesn't cover this refund yet." };
-    }
-    await creditWallet(String(row.buyer_user_id), price, { type: "refund", environment, note: "Refund: course purchase", actorId: input.actorId });
-  } else if (price > 0 && row.buyer_user_id) {
-    // The merchant's money comes back out of their balance; if they have already withdrawn it, the refund is refused.
-    const spend = await db.execute({
-      sql: "UPDATE merchant_balances SET available = available - ?, updated_at = datetime('now') WHERE merchant_id = ? AND environment = ? AND available >= ?",
-      args: [payout, merchantId, environment, payout],
-    });
-    if (payout > 0 && !spend.rowsAffected) {
-      await db.execute({ sql: "UPDATE store_digital_fulfillments SET refunded_at = NULL WHERE id = ?", args: [input.fulfillmentId] });
-      return { ok: false, error: "insufficient_merchant_balance", message: "Your available balance doesn't cover this refund yet." };
-    }
-    await postLedgerTransaction({
-      kind: "digital_refund",
-      idempotencyKey: `digital-refund:${input.fulfillmentId}`,
-      environment,
-      referenceType: "digital_fulfillment",
-      referenceId: input.fulfillmentId,
-      description: "Digital sale refunded",
-      actorId: input.actorId,
-      postings: [
-        { ownerType: "customer", ownerId: String(row.buyer_user_id), purpose: "wallet_payable", environment, amount: price },
-        ...(payout > 0 ? [{ ownerType: "merchant" as const, ownerId: merchantId, purpose: "payable_available", environment, amount: -payout }] : []),
-        ...(commission > 0 ? [{ ownerType: "platform" as const, ownerId: "peebee", purpose: "digital_sales_commission", environment, amount: -commission }] : []),
-      ],
-    });
-    await creditWallet(String(row.buyer_user_id), price, { type: "refund", environment, note: "Refund: digital purchase", actorId: input.actorId });
+  if (!Number.isSafeInteger(price) || !Number.isSafeInteger(commission) || price < 0 || commission < 0 || payout < 0) throw new Error("Invalid refund amounts");
+  const sale = (await db.execute({sql: "SELECT environment FROM ledger_transactions WHERE idempotency_key = ?", args: [`digital-sale:${input.fulfillmentId}`]})).rows[0];
+  const enrollment = row.edu_enrollment_id && await hasTable("edu_enrollments")
+    ? (await db.execute({sql: "SELECT environment FROM edu_enrollments WHERE id = ?", args: [String(row.edu_enrollment_id)]})).rows[0] : null;
+  // Never choose a refund's money world from today's platform switch.
+  const originalEnvironment = sale?.environment ?? enrollment?.environment;
+  if (price > 0 && originalEnvironment !== "live" && originalEnvironment !== "sandbox") return {ok: false, error: "refund_review_required", message: "The original payment environment could not be verified. Ask support to reconcile this purchase."};
+  const environment: "live" | "sandbox" = originalEnvironment === "sandbox" ? "sandbox" : "live";
+  if (price > 0 && !row.buyer_user_id) return {ok: false, error: "refund_review_required", message: "This purchase has no verified buyer wallet. Ask support to reconcile it."};
+  const merchantId = String((await db.execute({sql: "SELECT merchant_id FROM stores WHERE id = ?", args: [input.storeId]})).rows[0]?.merchant_id);
+  const school = !sale && price > 0 ? (await db.execute({sql: "SELECT s.owner_id FROM store_digital_products p JOIN edu_courses c ON c.id = p.linked_course_id JOIN edu_schools s ON s.id = c.school_id WHERE p.id = ?", args: [String(row.digital_product_id)]})).rows[0] : null;
+  if (!sale && price > 0 && !school) return {ok: false, error: "refund_review_required", message: "The original payout owner could not be verified. Ask support to reconcile it."};
+  const column = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
+  const {digital_refund_revokes_access: revoke} = await getOptions(["digital_refund_revokes_access"]);
+  const writes: DbStatement[] = [
+    {sql: "UPDATE store_digital_fulfillments SET refunded_at = datetime('now') WHERE id = ? AND store_id = ? AND refunded_at IS NULL", args: [input.fulfillmentId, input.storeId]},
+    requireChangedRow,
+  ];
+  if (payout > 0) {
+    writes.push(sale
+      ? {sql: "UPDATE merchant_balances SET available = available - ?, updated_at = datetime('now') WHERE merchant_id = ? AND environment = ? AND available >= ?", args: [payout, merchantId, environment, payout]}
+      : {sql: `UPDATE users SET ${column} = ${column} - ?, updated_at = datetime('now') WHERE id = ? AND ${column} >= ?`, args: [payout, String(school!.owner_id), payout]}, requireChangedRow);
+    if (!sale) writes.push({sql: `INSERT INTO wallet_ledger (id, user_id, type, amount, balance_after, note, actor_id, environment) SELECT ?, id, 'adjustment', ?, ${column}, 'Refund of a course sale', ?, ? FROM users WHERE id = ?`, args: [newId("wl"), -payout, input.actorId, environment, String(school!.owner_id)]});
   }
-
-  const { digital_refund_revokes_access: revoke } = await getOptions(["digital_refund_revokes_access"]);
+  if (price > 0) writes.push(
+    {sql: `UPDATE users SET ${column} = ${column} + ?, updated_at = datetime('now') WHERE id = ?`, args: [price, String(row.buyer_user_id)]}, requireChangedRow,
+    {sql: `INSERT INTO wallet_ledger (id, user_id, type, amount, balance_after, note, actor_id, environment) SELECT ?, id, 'refund', ?, ${column}, 'Refund: digital purchase', ?, ? FROM users WHERE id = ?`, args: [refundWalletEntryId, price, input.actorId, environment, String(row.buyer_user_id)]}, requireChangedRow,
+  );
   if (revoke) {
-    await db.execute({ sql: "UPDATE store_digital_fulfillments SET status = 'revoked' WHERE id = ?", args: [input.fulfillmentId] });
-    await db.execute({ sql: "UPDATE store_license_keys SET status = 'void' WHERE fulfillment_id = ?", args: [input.fulfillmentId] });
-    if (row.edu_enrollment_id) await db.execute({ sql: "UPDATE edu_enrollments SET status = 'revoked' WHERE id = ?", args: [String(row.edu_enrollment_id)] }).catch(() => {});
+    writes.push({sql: "UPDATE store_digital_fulfillments SET status = 'revoked' WHERE id = ?", args: [input.fulfillmentId]});
+    if (await hasTable("store_license_keys")) writes.push({sql: "UPDATE store_license_keys SET status = 'void' WHERE fulfillment_id = ?", args: [input.fulfillmentId]});
+    if (row.edu_enrollment_id && await hasTable("edu_enrollments")) writes.push({sql: "UPDATE edu_enrollments SET status = 'revoked' WHERE id = ?", args: [String(row.edu_enrollment_id)]});
   }
-  return { ok: true };
+  try {
+    if (price > 0) await postLedgerTransaction({
+      kind: "digital_refund", idempotencyKey: `digital-refund:${input.fulfillmentId}`, environment,
+      referenceType: "digital_fulfillment", referenceId: input.fulfillmentId, description: "Digital sale refunded", actorId: input.actorId,
+      postings: [
+        {ownerType: "customer", ownerId: String(row.buyer_user_id), purpose: "wallet_payable", environment, amount: price},
+        ...(payout > 0 ? [{ownerType: (sale ? "merchant" : "customer") as "merchant" | "customer", ownerId: sale ? merchantId : String(school!.owner_id), purpose: sale ? "payable_available" : "wallet_payable", environment, amount: -payout}] : []),
+        ...(commission > 0 ? [{ownerType: "platform" as const, ownerId: "peebee", purpose: "digital_sales_commission", environment, amount: -commission}] : []),
+      ], additionalStatements: writes,
+    });
+    else await executeBatch(writes);
+  } catch (error) {
+    const refunded = (await db.execute({sql: "SELECT refunded_at FROM store_digital_fulfillments WHERE id = ?", args: [input.fulfillmentId]})).rows[0]?.refunded_at;
+    if (refunded) return refundFulfillment(input); // Verify the winning refund's buyer-credit proof too.
+    if (/JSON path|bad path|malformed JSON/i.test(String(error))) return {ok: false, error: "refund_balance_changed", message: "The payout balance no longer covers this refund. Refresh and try again."};
+    throw error;
+  }
+  return {ok: true};
 }
 
 /** Licence products with no key left to sell, so the store can say "sold out" instead of taking a payment that will fail. */

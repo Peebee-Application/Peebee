@@ -62,6 +62,7 @@ export function requiredPermission(method: string, path: string): MerchantPermis
   // Sensitive reads and all descendants share their resource's policy, so
   // adding an upload/licence/course subroute cannot silently skip the gate.
   if (/^\/merchants\/me\/digital-products\/[^/]+\/license-pool$/.test(clean)) return "manage_digital";
+  if (/^\/merchants\/me\/(digital-products|digital-fulfillments|lms)(\/|$)/.test(clean) && ["GET", "HEAD"].includes(method)) return "manage_digital";
   if (["GET", "HEAD", "OPTIONS"].includes(method)) return null;
   if (/^\/merchants\/me\/digital-fulfillments\/[^/]+\/(refund|revoke)$/.test(clean)) return "refund_revoke";
   if (/^\/merchants\/me\/(digital-products|digital-fulfillments|lms)(\/|$)/.test(clean)) return "manage_digital";
@@ -74,11 +75,11 @@ export function requiredPermission(method: string, path: string): MerchantPermis
 }
 
 /** The team roles the caller holds, best first (owner > manager > finance > cashier). */
-async function memberRoles(userId: string): Promise<string[]> {
+async function memberRoles(userId: string, merchantId?: string): Promise<string[]> {
   if (!(await hasTable("merchant_members"))) return [];
   const res = await db.execute({
-    sql: "SELECT role FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END",
-    args: [userId],
+    sql: "SELECT role FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END",
+    args: [userId, merchantId ?? null, merchantId ?? null],
   });
   return res.rows.map((r) => String(r.role));
 }
@@ -102,7 +103,7 @@ export async function merchantRoleGuard(c: Context, next: Next) {
     return next();
   }
 
-  const roles = await memberRoles(userId);
+  const roles = await memberRoles(userId, c.req.header("X-Merchant-Id"));
   if (roles.length === 0) return next();
   const key = `member_roles_${permission}`;
   const allowed = (await getOptions([key]))[key] as string[];

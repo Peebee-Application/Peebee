@@ -46,16 +46,16 @@ export default function DashboardPage() {
       </div>
       <div className="grid grid-cols-3 gap-2 pt-1 text-[11px]">
         <div className="rounded-xl bg-surface-muted p-2">
-          <p className="font-bold text-ink-500">1. Code (Free)</p>
+          <p className="font-bold text-ink-500">1. Merchant (Free)</p>
           <p className="text-[10px] text-ink-400">QR &amp; outlet pay</p>
         </div>
         <div className="rounded-xl bg-surface-muted p-2">
-          <p className="font-bold text-ink">2. Pro Store</p>
+          <p className="font-bold text-ink">2. Merchant Pro</p>
           <p className="text-[10px] text-ink-500">Catalog &amp; Live</p>
         </div>
         <div className="rounded-xl border border-gold/40 bg-gold/15 p-2">
-          <p className="font-black text-ink">3. Elite OS</p>
-          <p className="text-[10px] text-ink-600">Shopify Pro suite</p>
+          <p className="font-black text-ink">3. Merchant Elite</p>
+          <p className="text-[10px] text-ink-600">POS, stock, digital & courses</p>
         </div>
       </div>
     </Link>

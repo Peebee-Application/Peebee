@@ -59,6 +59,7 @@ test("equivalent phone challenges share the attempt limit, including concurrent 
 test("digital subroutes enforce merchant permissions without blocking owners or allowed roles", async () => {
   const client = await freshDatabase();
   const seller = await addMerchantStore(client, "file-owner");
+  assert.equal((await seller.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   const token = await addUser(client, "file-cashier");
   await client.execute({ sql: "INSERT INTO merchant_members (merchant_id,user_id,role,status) VALUES (?,'file-cashier','cashier','active')", args: [seller.merchantId] });
   await client.execute({ sql: "INSERT INTO store_digital_products (id,store_id,title) VALUES ('file-product',?,'File product')", args: [seller.storeId] });
@@ -70,7 +71,7 @@ test("digital subroutes enforce merchant permissions without blocking owners or 
       assert.equal((await call(path, method)).status, 403, `${method} ${path}`);
     }
     assert.equal(uploads, 0);
-    assert.equal((await call("digital-products", "GET")).status, 200);
+    assert.equal((await call("digital-products", "GET")).status, 403);
     const owner = await app.request('/v1/merchants/me/digital-products/file-product/file', {method:'PUT',headers:{Authorization:`Bearer ${seller.token}`,'Content-Type':'text/plain','Content-Length':'4','x-file-name':'guide.txt'},body:'test'});
     assert.equal(owner.status,201,await owner.text());
     assert.equal(uploads,1);
@@ -109,6 +110,7 @@ test("download proxy requires explicit host trust and checks every redirect dest
 test("untrusted external download refuses before counting, including direct file-link access", async () => {
   const client = await freshDatabase();
   const seller = await addMerchantStore(client, "proxy-owner");
+  assert.equal((await seller.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   const {sha256Hex} = await import('../marketplace/digital-sales.js');
   await client.execute({ sql: "INSERT INTO store_digital_products (id,store_id,title,file_url) VALUES ('proxy-product',?,'File','https://127.0.0.1/private')", args: [seller.storeId] });
   await client.execute({ sql: "INSERT INTO store_digital_fulfillments (id,store_id,digital_product_id,customer_phone,access_token) VALUES ('proxy-sale',?,'proxy-product','+256700123456',?)", args: [seller.storeId,await sha256Hex('proxy-token')] });

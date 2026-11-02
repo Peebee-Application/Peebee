@@ -108,3 +108,10 @@ export async function executeBatch(statements: DbStatement[]): Promise<number[]>
   );
   return results.map((result) => result.rowsAffected);
 }
+
+/** Put immediately after a conditional write in an atomic batch. A missing row aborts the entire batch.
+ * SQLite evaluates CASE lazily: the invalid JSON path is evaluated only when the write lost a race.
+ */
+export const requireChangedRow: DbStatement = {
+  sql: "SELECT CASE WHEN changes() = 1 THEN 1 ELSE json_extract('{}', 'abort_atomic_write') END",
+};

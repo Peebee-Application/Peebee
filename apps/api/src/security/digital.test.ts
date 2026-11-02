@@ -21,6 +21,7 @@ async function setup() {
   const client = await freshDatabase();
   const admin = await addAdmin(client);
   const seller = await addMerchantStore(client, "u_dig_seller");
+  assert.equal((await seller.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   const make = async (body: object) => json(await seller.call("/merchants/me/digital-products", "POST", body));
   return { client, admin, seller, make };
 }
@@ -227,6 +228,7 @@ test("private files: upload checks, signed short-lived links, and the merchant's
     assert.ok(String(row.file_key).startsWith(`digital/${seller.storeId}/${product.id}/`));
 
     const other = await addMerchantStore(client, "u_other_up");
+  assert.equal((await other.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
     assert.equal((await app.request(`/v1/merchants/me/digital-products/${product.id}/file`, { method: "PUT", headers: { Authorization: `Bearer ${other.token}`, "content-length": "3" }, body: new Uint8Array([1, 2, 3]) as unknown as BodyInit })).status, 404, "not another store's product");
 
     const buyer = await shopper(client, "u_file", 5000);

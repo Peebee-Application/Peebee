@@ -98,6 +98,7 @@ test("admin option settings: validated, availability-aware, access-controlled an
 test("merchant team roles follow the admin policy", async () => {
   const client = await freshDatabase();
   const owner = await addMerchantStore(client, "u_role_owner");
+  assert.equal((await owner.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   const cashierToken = await addUser(client, "u_role_cashier");
   await client.execute({ sql: "INSERT INTO merchant_members (merchant_id, user_id, role, status) VALUES (?, 'u_role_cashier', 'cashier', 'active')", args: [owner.merchantId] });
   const cashier = authed(cashierToken);
@@ -192,6 +193,7 @@ test("the demo catalogue is not shown on a live platform, and writes to missing 
   assert.equal((await anonymous("/marketplace/stores/store_demo_fresh_mart")).status, 200);
 
   const seller = await addMerchantStore(client, "u_mig_seller");
+  assert.equal((await seller.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   await client.execute("DROP TABLE store_digital_fulfillments");
   await client.execute("DROP TABLE store_digital_products");
   const { resetSchemaCache } = await import("../lib/schema.js");
@@ -205,6 +207,7 @@ test("digital product input is validated and uses the admin defaults", async () 
   const client = await freshDatabase();
   const admin = authed(await adminToken(client));
   const seller = await addMerchantStore(client, "u_dig_valid");
+  assert.equal((await seller.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   const post = (body: object) => seller.call("/merchants/me/digital-products", "POST", body);
   assert.equal((await post({ title: "x" })).status, 400, "title too short");
   assert.equal((await post({ title: "Guide", price_ugx: -5 })).status, 400);

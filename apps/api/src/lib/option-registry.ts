@@ -206,6 +206,7 @@ export const OPTION_SETTINGS: SettingDef[] = [
       opt("mobile_money", "Mobile money prompt", false, { hint: "Needs the payment-in-progress flow for plans; not built yet." }),
     ],
   },
+  { key: "merchant_pos_manual_prices", module: "plans", kind: "bool", label: "Allow manual POS prices", description: "Permit POS operators to override catalog unit prices. Stock ownership and availability checks always apply.", default: false },
   { key: "merchant_plan_free_max_products", module: "plans", kind: "int", label: "Products on the Merchant plan", description: "Upper limit for a store with no active Pro or Elite plan.", default: 20, min: 0, max: 5000 },
   { key: "merchant_plan_free_max_collections", module: "plans", kind: "int", label: "Collections on the Merchant plan", description: "Upper limit for a store with no active Pro or Elite plan.", default: 1, min: 0, max: 1000 },
   { key: "merchant_plan_free_max_discounts", module: "plans", kind: "int", label: "Offers on the Merchant plan", description: "Upper limit for a store with no active Pro or Elite plan.", default: 1, min: 0, max: 1000 },

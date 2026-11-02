@@ -78,12 +78,12 @@ export async function planLimits(p: StorePlan, settings?: MarketplaceSettings): 
 }
 
 /** The signed-in merchant's store, if they have one (the first merchant they belong to). */
-export async function storeOfUser(userId: string): Promise<Row | null> {
+export async function storeOfUser(userId: string, merchantId?: string): Promise<Row | null> {
   const res = await db.execute({
     sql: `SELECT s.* FROM merchant_members mm JOIN stores s ON s.merchant_id = mm.merchant_id
-          WHERE mm.user_id = ? AND mm.status = 'active'
+          WHERE mm.user_id = ? AND mm.status = 'active' AND (? IS NULL OR mm.merchant_id = ?)
           ORDER BY CASE mm.role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1`,
-    args: [userId],
+    args: [userId, merchantId ?? null, merchantId ?? null],
   });
   return (res.rows[0] as Row | undefined) ?? null;
 }
@@ -91,7 +91,7 @@ export async function storeOfUser(userId: string): Promise<Row | null> {
 /** For the Elite-only endpoints: a store without an active Elite plan is told what it needs, not given a vague error. */
 export async function eliteOnly(c: Context, next: Next): Promise<Response | void> {
   const user = c.get("user") as { sub: string } | undefined;
-  const store = user ? await storeOfUser(user.sub) : null;
+  const store = user ? await storeOfUser(user.sub, c.req.header("X-Merchant-Id")) : null;
   if (!store) return next(); // the route itself answers "no store"
   const p = await storePlan(store);
   if (!p.isElite) {

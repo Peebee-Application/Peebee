@@ -9,6 +9,7 @@ const json = async (res: Response) => (await res.json()) as any;
 test("checkout prices every item from the catalogue, never from the request", async () => {
   const client = await freshDatabase();
   const seller = await addMerchantStore(client, "u_seller_price");
+  assert.equal((await seller.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   await client.execute({ sql: "INSERT INTO store_products (id, store_id, title, price, inventory_quantity) VALUES ('p_real', ?, 'Real Kettle', 50000, 3)", args: [seller.storeId] });
   await client.execute({ sql: "INSERT INTO store_products (id, store_id, title, price, status) VALUES ('p_draft', ?, 'Draft Item', 1000, 'draft')", args: [seller.storeId] });
   const shopper = await addUser(client, "u_shopper_price");
@@ -29,6 +30,7 @@ test("checkout prices every item from the catalogue, never from the request", as
   assert.equal((await post("/marketplace/checkout", { items: [item({ productId: "p_missing" })] })).status, 400, "unknown product");
   assert.equal((await post("/marketplace/checkout", { items: [item({ productId: "p_draft" })] })).status, 400, "draft product");
   const other = await addMerchantStore(client, "u_seller_other");
+  assert.equal((await other.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   assert.equal((await post("/marketplace/checkout", { items: [item({ storeId: other.storeId })] })).status, 400, "another store's catalogue");
   const tooMany = await post("/marketplace/checkout", { items: [item({ quantity: 4 })] });
   assert.equal(tooMany.status, 409, "more than the stock on hand");
@@ -39,7 +41,9 @@ test("checkout prices every item from the catalogue, never from the request", as
 test("public store reads are allow-lists and only serve live stores", async () => {
   const client = await freshDatabase();
   const live = await addMerchantStore(client, "u_pub_live");
+  assert.equal((await live.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   const gone = await addMerchantStore(client, "u_pub_gone", { status: "suspended" });
+  assert.equal((await gone.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   await client.execute({ sql: "INSERT INTO store_products (id, store_id, title, price, cost_price) VALUES ('p_pub', ?, 'Shown', 9000, 4000)", args: [live.storeId] });
   await client.execute({ sql: "INSERT INTO store_products (id, store_id, title, price) VALUES ('p_gone', ?, 'Hidden', 9000)", args: [gone.storeId] });
   await client.execute({ sql: "INSERT INTO store_discounts (id, store_id, code, title, kind, value, status, is_automatic) VALUES ('d_secret', ?, 'VIPONLY', 'Secret', 'percent', 50, 'active', 0), ('d_auto', ?, 'AUTO5', 'Auto', 'percent', 5, 'active', 1)", args: [live.storeId, live.storeId] });
@@ -74,6 +78,7 @@ test("public store reads are allow-lists and only serve live stores", async () =
 test("B2B inquiries are priced from the catalogue", async () => {
   const client = await freshDatabase();
   const seller = await addMerchantStore(client, "u_b2b_seller");
+  assert.equal((await seller.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   await client.execute({ sql: "INSERT INTO store_products (id, store_id, title, price) VALUES ('p_b2b', ?, 'Bulk Rice', 20000)", args: [seller.storeId] });
   await client.execute("UPDATE settings SET value = '1' WHERE key = 'marketplace_elite_b2b_enabled'");
   const res = await anonymous(`/marketplace/stores/${seller.slug}/b2b-inquiry`, "POST", {
@@ -93,6 +98,7 @@ test("digital download tokens: viewing is free, the file request is counted atom
   const client = await freshDatabase();
   await (await addAdmin(client)).setOptions({ digital_proxy_trusted_hosts: ["files.example"] });
   const seller = await addMerchantStore(client, "u_dl_seller");
+  assert.equal((await seller.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   await client.execute({ sql: "INSERT INTO store_digital_products (id, store_id, title, price_ugx, file_url) VALUES ('dig_dl', ?, 'Guide', 5000, 'https://files.example/a.pdf')", args: [seller.storeId] });
   const make = async (id: string, max: number, expires: string | null, status = "active") =>
     client.execute({ sql: "INSERT INTO store_digital_fulfillments (id, store_id, digital_product_id, customer_phone, access_token, max_downloads, expires_at, status) VALUES (?, ?, 'dig_dl', '+256700000009', ?, ?, ?, ?)", args: [id, seller.storeId, await sha256Hex(`tok_${id}`), max, expires, status] });
@@ -135,7 +141,9 @@ test("digital download tokens: viewing is free, the file request is counted atom
 test("a merchant cannot overwrite another store's course or product, or enrol onto it", async () => {
   const client = await freshDatabase();
   const a = await addMerchantStore(client, "u_tenant_a");
+  assert.equal((await a.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   const b = await addMerchantStore(client, "u_tenant_b");
+  assert.equal((await b.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   const made = await a.call("/merchants/me/digital-products", "POST", { title: "A's Guide", priceUgx: 1000 });
   const prodId = (await json(made)).product.id;
   const stolen = await b.call("/merchants/me/digital-products", "POST", { id: prodId, title: "B hijack", priceUgx: 1 });
