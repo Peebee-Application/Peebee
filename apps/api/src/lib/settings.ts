@@ -335,6 +335,9 @@ const DEFAULTS = {
    * the customer picks) or "first_to_claim" (the nearest eligible driver is
    * assigned automatically). */
   car_matching_mode: "customer_selects",
+  /** Whether a customer's own choice in their account ("Auto accept" or "Approve") decides how their car ride finds a
+   * driver. On by default; off means every car ride follows car_matching_mode above. See car/matching-choice.ts. */
+  car_follow_customer_matching: "1",
   /** Default split of a settled car ride's pool (must total 100). A
    * category can override it. */
   car_share_owner_percent: "60",
@@ -795,6 +798,8 @@ export type CarSettings = {
   enabled: boolean;
   onDemandEnabled: boolean;
   matchingMode: CarMatchingMode;
+  /** A customer's own matching choice decides their car ride (see car/matching-choice.ts). Defaults on. */
+  followCustomerChoice?: boolean;
   shares: CarShares;
   maxPickupKm: number;
   /** Phone number shown with Ambulance requests. */
@@ -872,6 +877,7 @@ export async function getCarServicePricing(): Promise<NonNullable<CarSettings["s
 }
 
 export async function getCarSettings(): Promise<CarSettings> {
+  const followCustomerChoiceRaw = await getSetting("car_follow_customer_matching");
   const [enabled, onDemand, mode, owner, driver, platform, maxKm, wdEnabled, wdMin, sEnabled, sMax, sLead, sOpen, sWatch, sNoSig, sSpeed, cpEnabled, cpSeats, cpRepeat, cpCutoff, cpPay, cpRadius, sdEnabled, sdPct, sdDays, sdDeposit, sdApprove, sdGrace, sdInspections, vpMax, vpMin, kycOwner, kycDriverId, kycLicence, dEnabled, dShare, dRent, dMin, dMax, dRentMax, emergencyNumber, sandboxDemo, sandboxDemoStep] = await Promise.all([
     getSetting("car_enabled"),
     getSetting("car_ondemand_enabled"),
@@ -929,6 +935,7 @@ export async function getCarSettings(): Promise<CarSettings> {
     enabled: enabled === "1",
     onDemandEnabled: onDemand === "1",
     matchingMode: mode === "first_to_claim" ? "first_to_claim" : "customer_selects",
+    followCustomerChoice: followCustomerChoiceRaw !== "0",
     shares,
     maxPickupKm: Math.min(200, Math.max(1, Number(maxKm) || 10)),
     emergencyNumber: /^[0-9+*#]{2,15}$/.test(String(emergencyNumber ?? "").trim()) ? String(emergencyNumber).trim() : "999",
@@ -987,6 +994,7 @@ export async function setCarSettings(next: CarSettings): Promise<void> {
   await setSetting("car_enabled", next.enabled ? "1" : "0");
   await setSetting("car_ondemand_enabled", next.onDemandEnabled ? "1" : "0");
   await setSetting("car_matching_mode", next.matchingMode);
+  if (next.followCustomerChoice != null) await setSetting("car_follow_customer_matching", next.followCustomerChoice ? "1" : "0");
   await setSetting("car_share_owner_percent", String(next.shares.owner));
   await setSetting("car_share_driver_percent", String(next.shares.driver));
   await setSetting("car_share_platform_percent", String(next.shares.platform));

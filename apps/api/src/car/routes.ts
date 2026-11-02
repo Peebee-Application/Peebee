@@ -9,6 +9,7 @@ import { db } from "../db/client.js";
 import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
+import { resolveCarMatchingMode } from "./matching-choice.js";
 import { getCarSettings, getMatchingSettings, getPlatformEnvironment, isServiceEnabled } from "../lib/settings.js";
 import { servicePaused } from "../lib/service-gate.js";
 import { isModuleLive } from "../lib/modules.js";
@@ -604,6 +605,14 @@ carRoutes.post("/car/bookings", async (c) => {
     args: [listId, user.sub, listTitle, environment],
   });
 
+  const rideMatchingMode = resolveCarMatchingMode({
+    ambulance: category.service_group === "ambulance",
+    adminMode: settings.matchingMode,
+    followCustomerChoice: settings.followCustomerChoice !== false,
+    customerMode: ((await db.execute({ sql: "SELECT default_matching_mode FROM users WHERE id = ?", args: [user.sub] })).rows[0] as Row | undefined)?.default_matching_mode as string | null | undefined,
+    enabledModes: (await getMatchingSettings()).enabledModes,
+  });
+
   const response = await createOrderFromInput(
     c,
     {
@@ -625,11 +634,11 @@ carRoutes.post("/car/bookings", async (c) => {
     },
     {
       fare,
-      // An ambulance goes to the nearest free one at once: nobody waits to pick a driver in an emergency.
-      matchingMode: category.service_group === "ambulance" ? "first_to_claim" : settings.matchingMode,
+      // An ambulance goes to the nearest free one at once; otherwise the customer's own choice in their account decides.
+      matchingMode: rideMatchingMode,
       // The customer's pick window starts when the ride opens to drivers, not at booking.
       matchingDeadlineAt:
-        scheduledAt && settings.matchingMode === "customer_selects"
+        scheduledAt && rideMatchingMode === "customer_selects"
           ? new Date(new Date(`${scheduledAt.replace(" ", "T")}Z`).getTime() - settings.scheduled.openMinutes * 60000 + (await getMatchingSettings()).maxAssignmentMinutes * 60000).toISOString()
           : undefined,
     },
