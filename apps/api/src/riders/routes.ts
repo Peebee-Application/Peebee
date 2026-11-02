@@ -790,6 +790,7 @@ riderRoutes.get("/riders/me/wallet/withdrawals/:id/refresh", requireAuth, requir
       provider: withdrawal.provider as string,
       provider_ref: withdrawal.provider_ref as string | null,
       created_at: withdrawal.created_at as string,
+      type: "disbursement",
     });
     if (status === "successful") {
       await db.execute({
@@ -813,7 +814,7 @@ riderRoutes.get("/riders/me/wallet/withdrawals/:id/refresh", requireAuth, requir
     const updated = await db.execute({ sql: "SELECT * FROM wallet_withdrawals WHERE id = ?", args: [id] });
     return c.json({ withdrawal: updated.rows[0] });
   } catch (err) {
-    console.error("Withdrawal status check failed:", err);
+    console.error("Withdrawal status check failed:", err instanceof Error ? err.message : err, err);
     return c.json(
       { error: "status_check_failed", message: "Couldn't check the payout status just now. Please try again." },
       502,
