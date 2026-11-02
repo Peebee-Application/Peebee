@@ -3,8 +3,8 @@
 import { resetNotificationSnapshots } from "@peebee/shared";
 
 import type { AuthUser, Merchant } from "@peebee/shared";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api, TOKEN_KEY, USER_KEY } from "./api";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { api, errorMessage, TOKEN_KEY, USER_KEY } from "./api";
 
 type AuthState = {
   user: AuthUser | null;
@@ -12,6 +12,7 @@ type AuthState = {
   merchants: Merchant[];
   merchant: Merchant | null;
   merchantsReady: boolean;
+  merchantLoadError: string | null;
   selectMerchant: (id: string) => void;
   refreshMerchants: () => Promise<void>;
   login: (identifier: string, password: string) => Promise<void>;
@@ -28,6 +29,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [merchantsReady, setMerchantsReady] = useState(false);
+  const [merchantLoadError, setMerchantLoadError] = useState<string | null>(null);
+  const refreshEpoch = useRef(0);
 
   useEffect(() => {
     try {
@@ -40,6 +43,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshMerchants = useCallback(async () => {
+    const request = ++refreshEpoch.current;
+    setMerchantsReady(false);
+    setMerchantLoadError(null);
     if (!user) {
       setMerchants([]);
       setMerchantsReady(true);
@@ -47,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       const result = await api.myMerchants();
+      if (request !== refreshEpoch.current) return;
       setMerchants(result.merchants);
       if (!result.merchants.some((item) => item.id === selectedId)) {
         const nextId = result.merchants[0]?.id ?? null;
@@ -54,19 +61,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (nextId) localStorage.setItem("peebee_merchant_selected", nextId);
         else localStorage.removeItem("peebee_merchant_selected");
       }
+    } catch (cause) {
+      if (request === refreshEpoch.current) setMerchantLoadError(errorMessage(cause));
+      throw cause;
     } finally {
-      setMerchantsReady(true);
+      if (request === refreshEpoch.current) setMerchantsReady(true);
     }
   }, [selectedId, user]);
 
   useEffect(() => {
-    setMerchantsReady(false);
-    void refreshMerchants();
-  }, [refreshMerchants, user?.id]);
+    // The anonymous first render must not mark account loading complete before session restoration.
+    if (!ready) return;
+    void refreshMerchants().catch(() => undefined);
+  }, [ready, refreshMerchants, user?.id]);
 
   const persist = useCallback((token: string, nextUser: AuthUser) => {
     resetNotificationSnapshots();
     if (nextUser.role !== "customer") throw new Error("Use a customer account for Peebee Merchant.");
+    ++refreshEpoch.current;
+    setMerchants([]);
+    setMerchantsReady(false);
+    setMerchantLoadError(null);
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
     setUser(nextUser);
@@ -83,11 +98,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [persist]);
 
   const selectMerchant = useCallback((id: string) => {
+    if (id === selectedId) return;
+    ++refreshEpoch.current;
+    setMerchantsReady(false);
     localStorage.setItem("peebee_merchant_selected", id);
     setSelectedId(id);
-  }, []);
+  }, [selectedId]);
 
   const logout = useCallback(() => {
+    ++refreshEpoch.current;
+    setMerchantLoadError(null);
     // Cached pages and data belong to the signed-in account; drop them on logout.
     navigator.serviceWorker?.controller?.postMessage("clear-runtime-cache");
     resetNotificationSnapshots();
@@ -100,8 +120,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const merchant = merchants.find((item) => item.id === selectedId) ?? merchants[0] ?? null;
-  const value = useMemo(() => ({ user, ready, merchants, merchant, merchantsReady, selectMerchant, refreshMerchants, login, register, setSession: persist, logout }),
-    [user, ready, merchants, merchant, merchantsReady, selectMerchant, refreshMerchants, login, register, persist, logout]);
+  const value = useMemo(() => ({ user, ready, merchants, merchant, merchantsReady, merchantLoadError, selectMerchant, refreshMerchants, login, register, setSession: persist, logout }),
+    [user, ready, merchants, merchant, merchantsReady, merchantLoadError, selectMerchant, refreshMerchants, login, register, persist, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

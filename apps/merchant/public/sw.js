@@ -1,5 +1,5 @@
-// Offline-first: the whole app (pages, code, styles, images) is served from
-// the browser's cache, and only changed data comes from the server.
+// Cache the app shell and public resources. Account, permission, financial and
+// purchase-token responses always require the network; a cached response is not authorization.
 //  - ASSET_CACHE keeps a stable name on purpose: build output is
 //    content-hashed, so an older cached page can always still find its chunks.
 //  - PAGE_CACHE holds page HTML and Next.js RSC payloads (network first, the stored copy when the server is slow or away).
@@ -9,7 +9,7 @@ const ASSET_CACHE = "peebee-merchant-assets-v1";
 // How long a page waits for the server before showing the stored copy.
 const PAGE_WAIT_MS = 4000;
 const PAGE_CACHE = "peebee-merchant-pages-v2";
-const RUNTIME_CACHE = "peebee-merchant-runtime-v1";
+const RUNTIME_CACHE = "peebee-merchant-runtime-v2";
 const KEEP_CACHES = [ASSET_CACHE, PAGE_CACHE, RUNTIME_CACHE];
 const OFFLINE_URL = "/offline.html";
 const SHELL_URLS = ["/", "/login"];
@@ -162,10 +162,21 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Development chunks do not have immutable content hashes. Never replay an old dev bundle.
+  if (self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1" || self.location.hostname === "[::1]") return;
+
   // A mutation (POST/PUT/DELETE — funding an order, sending a message,
   // claiming a job) always goes straight to the network, exactly as
   // before. Only reads are ever served from a cache.
   if (request.method !== "GET") return;
+
+  // Cache API matching does not partition by bearer token or merchant header.
+  // Never serve another account's old response, stale permissions/balances, or a licence
+  // revealed using a phone proof that is absent from a later request.
+  if (request.headers.has("Authorization") || request.headers.has("X-Phone-Proof") || /^\/v1\/marketplace\/(digital-fulfillments|digital-files)(\/|$)/.test(url.pathname)) {
+    event.respondWith(fetch(request, { cache: "no-store" }));
+    return;
+  }
 
   const sameOrigin = url.origin === self.location.origin;
 
