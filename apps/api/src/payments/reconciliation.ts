@@ -169,7 +169,7 @@ export async function reconcilePayment(paymentId: string, actorId: string): Prom
       },
       {
         sql: `INSERT OR IGNORE INTO order_events (id, order_id, stage, note, actor_id)
-              SELECT ?, ?, stage, CASE WHEN stage = 'Shop' THEN 'Escrow funded — shopping started' ELSE 'Escrow funded — held until a rider is assigned' END, ?
+              SELECT ?, ?, stage, CASE WHEN stage = 'Shop' THEN (CASE WHEN is_ride = 1 THEN 'Escrow funded — ride started' ELSE 'Escrow funded — shopping started' END) ELSE 'Escrow funded — held until a rider is assigned' END, ?
               FROM orders WHERE id = ? AND (stage = 'Shop' OR (stage = 'Match' AND rider_id IS NULL))`,
         args: [`evt_payment_${paymentId}`, String(payment.order_id), actorId, String(payment.order_id)],
       },

@@ -1090,14 +1090,14 @@ export async function assignRider(
 
 /** A paid order just got its rider: start the merchant allocations its payment was waiting on. */
 async function startPrepaidOrder(orderId: string, riderId: string): Promise<void> {
-  const current = (await db.execute({ sql: "SELECT stage, payment_rail FROM orders WHERE id = ?", args: [orderId] })).rows[0] as Row | undefined;
+  const current = (await db.execute({ sql: "SELECT stage, payment_rail, is_ride FROM orders WHERE id = ?", args: [orderId] })).rows[0] as Row | undefined;
   if (current?.stage !== "Shop" || current.payment_rail !== "escrow") return;
   try {
     await activateMerchantAllocationsForFundedOrder(orderId);
   } catch (error) {
     console.error("Could not start merchant allocations for a paid order on assignment", orderId, error);
   }
-  await logEvent(orderId, "Shop", "Already paid — shopping started", riderId);
+  await logEvent(orderId, "Shop", current.is_ride ? "Already paid — ride started" : "Already paid — shopping started", riderId);
 }
 
 /**
@@ -2007,7 +2007,8 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
     }
     await touchOrder(id, { stage: "Shop" });
     await activateMerchantAllocationsForFundedOrder(id);
-    await logEvent(id, "Fund", sharedSpend ? "Paid from a shared wallet — shopping started" : "Paid from wallet — shopping started", user.sub);
+    const started = order.is_ride ? "ride started" : "shopping started";
+    await logEvent(id, "Fund", sharedSpend ? `Paid from a shared wallet — ${started}` : `Paid from wallet — ${started}`, user.sub);
     return c.json({ order: await getOrder(id), payment: { id: paymentId, status: "successful", network: null } });
   }
 
