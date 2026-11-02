@@ -208,7 +208,7 @@ export default function JobsHomePage() {
     return <div className="p-4 text-sm text-ink-500">{t("loading")}</div>;
   }
 
-  const activeOrders = orders.filter((o) => o.stage !== "Settle");
+  const activeOrders = orders.filter((o) => o.stage !== "Settle" && o.stage !== "Cancelled");
 
   return (
     <div className="space-y-6 px-4 pb-8 pt-5">
