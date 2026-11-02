@@ -6,6 +6,7 @@ import { cors } from "hono/cors";
 import { verifyToken } from "./auth/jwt.js";
 import { mobileNumberRoutes } from "./account/mobile-numbers.js";
 import { adminRoutes } from "./admin/routes.js";
+import { refundReviewRoutes } from "./admin/refund-review-routes.js";
 import { callRoutes } from "./calls/routes.js";
 import { carRoutes } from "./car/routes.js";
 import { carpoolRoutes } from "./car/carpool.js";
@@ -369,6 +370,7 @@ app.route("/v1", merchantRoutes);
 // inherited the admin-only check.
 app.route("/v1", voiceRoutes);
 app.route("/v1", adminRoutes);
+app.route("/v1", refundReviewRoutes);
 
 /**
  * Anything a route throws ends up here. It is logged (Cloudflare → Workers → peebee-api → Logs), and a signed-in admin
