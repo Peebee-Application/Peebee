@@ -8,6 +8,7 @@ import {
   Car,
   ChefHat,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   Croissant,
   HardHat,
@@ -36,6 +37,7 @@ import {
   circularOffset,
   entitySubtitle,
   selectScreensaver,
+  thumbLabelOf,
   wrapIndex,
   type ScreensaverEntity,
   type ScreensaverIcon,
@@ -83,6 +85,18 @@ let launch: { closed: boolean; view: "cover" | "module"; moduleIndex: number; en
   moduleIndex: 0,
   entityIndex: 0,
 };
+const launchListeners = new Set<() => void>();
+
+function subscribeLaunch(listener: () => void) {
+  launchListeners.add(listener);
+  return () => { launchListeners.delete(listener); };
+}
+
+/** Opens the full-screen slideshow again from the home card. */
+export function openHomeScreensaver() {
+  launch = { ...launch, closed: false, view: "cover" };
+  for (const listener of launchListeners) listener();
+}
 
 type Slide = ScreensaverModuleDef & { title: string };
 
@@ -98,6 +112,7 @@ function useSlides(): Slide[] {
 export function HomeLaunch({ children }: { children: React.ReactNode }) {
   const slides = useSlides();
   const [closed, setClosed] = useState(launch.closed);
+  useEffect(() => subscribeLaunch(() => setClosed(launch.closed)), []);
   const show = !closed && slides.length > 0;
   return (
     <>
@@ -112,6 +127,23 @@ export function HomeLaunch({ children }: { children: React.ReactNode }) {
         />
       )}
     </>
+  );
+}
+
+/** Compact way back into the slideshow. Hidden when every module is switched off. */
+export function ExplorePeebeeCard() {
+  const slides = useSlides();
+  if (slides.length === 0) return null;
+  const sub = slides.map((slide) => slide.title).join(" · ");
+  return (
+    <button type="button" className="hs-home-explore" onClick={openHomeScreensaver} aria-label={`Explore Peebee, ${sub}`}>
+      <span className="hs-home-explore__media" aria-hidden />
+      <span className="hs-home-explore__copy">
+        <span className="hs-home-explore__title">Explore Peebee</span>
+        <span className="hs-home-explore__sub">{sub}</span>
+      </span>
+      <ChevronRight size={20} strokeWidth={2.2} aria-hidden />
+    </button>
   );
 }
 
@@ -462,7 +494,7 @@ function ThumbView({ entity, d, current = false, ghost = false, onSelect }: { en
           <img src={entity.image} alt="" draggable={false} className="hs-thumb-img" onError={() => setFailed(true)} />
         )}
       </span>
-      <span className="hs-thumb-label">{entity.title}</span>
+      <span className="hs-thumb-label">{thumbLabelOf(entity)}</span>
     </button>
   );
 }
