@@ -491,7 +491,7 @@ function ThumbView({ entity, d, current = false, ghost = false, onSelect }: { en
       <span className="hs-thumb-ring" style={{ background: entity.gradient }}>
         {entity.image && !failed && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={entity.image} alt="" draggable={false} className="hs-thumb-img" onError={() => setFailed(true)} />
+          <img src={entity.image} alt="" draggable={false} className="hs-thumb-img" style={{ objectPosition: entity.imagePosition ?? "50% 40%" }} onError={() => setFailed(true)} />
         )}
       </span>
       <span className="hs-thumb-label">{thumbLabelOf(entity)}</span>

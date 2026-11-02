@@ -4,7 +4,7 @@ import type { HiveShortcutId, HomeClusterId } from "@peebee/shared";
  * Launch screensaver content. Titles for the five slides come from the admin
  * home-menu labels at runtime. Everything else here is isolated placeholder
  * copy (including "15 riders near you") until a real source exists.
- * Photos live in /home-screensaver; Buy, Work and Learn use token gradients.
+ * Photos live in /home-screensaver. Token gradients stay behind every photo as the loading and error fallback.
  */
 
 export type ScreensaverIcon =
@@ -173,6 +173,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
     cluster: "shopping",
     title: "Buy",
     module: "buy",
+    cover: photo("buy-hero"),
+    coverPosition: "50% 38%",
     coverGradient: wash(168),
     entities: [
       {
@@ -184,6 +186,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Start a list",
         href: "/shoplist",
         icon: "list",
+        image: photo("list"),
+        imagePosition: "50% 32%",
         gradient: wash(162),
       },
       {
@@ -196,6 +200,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Shop groceries",
         href: "/groceries",
         icon: "basket",
+        image: photo("groceries"),
+        imagePosition: "50% 28%",
         gradient: wash(176),
       },
       {
@@ -208,6 +214,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Browse stores",
         href: "/stores",
         icon: "store",
+        image: photo("stores"),
+        imagePosition: "50% 22%",
         gradient: wash(194),
       },
       {
@@ -220,6 +228,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Order medicine",
         href: "/pharmacy",
         icon: "pill",
+        image: photo("pharmacy"),
+        imagePosition: "50% 24%",
         gradient: wash(208),
       },
     ],
@@ -229,6 +239,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
     cluster: "hive",
     title: "Work",
     module: "hive",
+    cover: photo("work-hero"),
+    coverPosition: "38% 32%",
     coverGradient: wash(180),
     entities: [
       {
@@ -241,6 +253,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Book a clean",
         href: "/services/clean",
         icon: "sparkles",
+        image: photo("clean"),
+        imagePosition: "50% 28%",
         gradient: wash(164),
       },
       {
@@ -254,6 +268,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Book laundry",
         href: "/services/laundry",
         icon: "washer",
+        image: photo("laundry"),
+        imagePosition: "42% 26%",
         gradient: wash(178),
       },
       {
@@ -266,6 +282,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Book a fix",
         href: "/services/fix",
         icon: "wrench",
+        image: photo("fix"),
+        imagePosition: "58% 22%",
         gradient: wash(196),
       },
       {
@@ -279,6 +297,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Find a worker",
         href: "/services/hire/workers?segment=informal",
         icon: "hardhat",
+        image: photo("workers"),
+        imagePosition: "50% 32%",
         gradient: wash(210),
       },
       {
@@ -291,6 +311,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Hire someone",
         href: "/services/hire",
         icon: "briefcase",
+        image: photo("hire"),
+        imagePosition: "50% 28%",
         gradient: wash(222),
       },
     ],
@@ -300,6 +322,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
     cluster: "learn",
     title: "Learn",
     module: "learn",
+    cover: photo("learn-hero"),
+    coverPosition: "50% 36%",
     coverGradient: wash(192),
     entities: [
       {
@@ -311,6 +335,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Browse courses",
         href: "/learn",
         icon: "book",
+        image: photo("discover"),
+        imagePosition: "50% 30%",
         gradient: wash(170),
       },
       {
@@ -322,6 +348,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "See live classes",
         href: "/learn/live",
         icon: "radio",
+        image: photo("live"),
+        imagePosition: "50% 36%",
         gradient: wash(186),
       },
       {
@@ -333,6 +361,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Watch on TV",
         href: "/learn/tv",
         icon: "tv",
+        image: photo("tv"),
+        imagePosition: "50% 62%",
         gradient: wash(204),
       },
     ],
