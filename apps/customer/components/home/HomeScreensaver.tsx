@@ -100,6 +100,39 @@ export function openHomeScreensaver() {
 
 type Slide = ScreensaverModuleDef & { title: string };
 
+type PageSnap = {
+  id: string;
+  mode: "cover" | "module";
+  src?: string;
+  position?: string;
+  gradient: string;
+  title: string;
+  sub: string;
+  entity: ScreensaverEntity | null;
+};
+
+type Flight = {
+  id: string;
+  dir: 1 | -1;
+  progress: number;
+  dragging: boolean;
+  commitOnEnd: boolean;
+  reduced: boolean;
+  settled?: boolean;
+  outgoing: PageSnap;
+  incoming: PageSnap;
+  apply: () => void;
+};
+
+function layerStyle(role: "out" | "in", flight: Flight): React.CSSProperties {
+  const { dir, progress, reduced } = flight;
+  if (reduced) return { opacity: role === "out" ? 1 - progress : Math.max(progress, 0.001), zIndex: role === "out" ? 2 : 1, transform: "none" };
+  if (role === "out") return { transform: `translate3d(${-dir * progress * 100}%, 0, 0)`, opacity: 1, zIndex: 2 };
+  const slide = dir * (1 - progress) * 25;
+  const scale = 0.92 + 0.08 * progress;
+  return { transform: `translate3d(${slide}%, 0, 0) scale(${scale})`, opacity: progress, zIndex: 1 };
+}
+
 function useSlides(): Slide[] {
   const moduleOn = useModules();
   const menu = useHomeMenu();
@@ -154,6 +187,8 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
   const frameRef = useRef<HTMLDivElement>(null);
   const pausedByUser = useRef(false);
   const timer = useRef(0);
+  const [flight, setFlight] = useState<Flight | null>(null);
+  const flightRef = useRef<Flight | null>(null);
   const actions = useRef({ view, openModule: () => {}, stepModule: (_dir: 1 | -1) => {}, stepEntity: (_dir: 1 | -1) => {} });
 
   const mi = slides.length === 0 ? 0 : Math.min(moduleIndex, slides.length - 1);
@@ -171,17 +206,91 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
     window.clearInterval(timer.current);
   }
 
+  function putFlight(next: Flight | null) {
+    flightRef.current = next;
+    setFlight(next);
+  }
+
+  function pageSnap(s: Slide, ent: ScreensaverEntity, mode: "cover" | "module"): PageSnap {
+    return {
+      id: `${mode}:${s.id}:${ent.id}`,
+      mode,
+      src: mode === "cover" ? s.cover : ent.image,
+      position: mode === "cover" ? s.coverPosition : ent.imagePosition,
+      gradient: mode === "cover" ? s.coverGradient : ent.gradient,
+      title: mode === "cover" ? s.title : ent.title,
+      sub: mode === "cover" ? entitySubtitle(s.entities) : ent.meta,
+      entity: mode === "module" ? ent : null,
+    };
+  }
+
+  function currentSnap(): PageSnap {
+    return pageSnap(slide, entity, view);
+  }
+
+  function playSnap(dir: 1 | -1, incoming: PageSnap, apply: () => void, dragging = false, progress = 0) {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const next: Flight = {
+      id: nextFlightId(dir, incoming.id),
+      dir,
+      progress,
+      dragging,
+      commitOnEnd: !dragging,
+      reduced,
+      outgoing: currentSnap(),
+      incoming,
+      apply,
+    };
+    putFlight(next);
+    if (!dragging) requestAnimationFrame(() => putFlight(flightRef.current && flightRef.current.id === next.id ? { ...flightRef.current, progress: 1 } : flightRef.current));
+  }
+
   function stepModule(dir: 1 | -1) {
-    if (slides.length < 2) return;
+    if (slides.length < 2 || !slide || !entity) return;
     stopAutoplay();
-    setModuleIndex((index) => wrapIndex(Math.min(index, slides.length - 1) + dir, slides.length));
-    setEntityIndex(0);
+    const index = wrapIndex(mi + dir, slides.length);
+    const next = slides[index];
+    const ent = next?.entities[0];
+    if (!next || !ent) return;
+    playSnap(dir, pageSnap(next, ent, view), () => { setModuleIndex(index); setEntityIndex(0); });
   }
 
   function stepEntity(dir: 1 | -1) {
-    if (entities.length < 2) return;
+    if (view !== "module" || entities.length < 2 || !slide || !entity) return;
     stopAutoplay();
-    setEntityIndex((index) => wrapIndex(Math.min(index, entities.length - 1) + dir, entities.length));
+    const index = wrapIndex(ei + dir, entities.length);
+    const ent = entities[index];
+    if (!ent) return;
+    playSnap(dir, pageSnap(slide, ent, "module"), () => setEntityIndex(index));
+  }
+
+  function goModule(index: number) {
+    if (!slide || !entity || index === mi) return;
+    stopAutoplay();
+    const dir: 1 | -1 = circularOffset(index, mi, slides.length) >= 0 ? 1 : -1;
+    const next = slides[index];
+    const ent = next?.entities[0];
+    if (!next || !ent) return;
+    playSnap(dir, pageSnap(next, ent, view), () => { setModuleIndex(index); setEntityIndex(0); });
+  }
+
+  function goEntity(index: number) {
+    if (view !== "module" || !slide || !entity || index === ei) return;
+    stopAutoplay();
+    const dir: 1 | -1 = circularOffset(index, ei, entities.length) >= 0 ? 1 : -1;
+    const ent = entities[index];
+    if (!ent) return;
+    playSnap(dir, pageSnap(slide, ent, "module"), () => setEntityIndex(index));
+  }
+
+  function onFlightEnd(event: React.TransitionEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget) return;
+    if (event.propertyName !== "transform" && event.propertyName !== "opacity") return;
+    const current = flightRef.current;
+    if (!current || current.dragging || current.settled) return;
+    current.settled = true;
+    if (current.commitOnEnd && current.progress >= 1) current.apply();
+    putFlight(null);
   }
 
   function openModule() {
@@ -310,7 +419,6 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
 
   if (!slide || !entity) return null;
 
-  const subtitle = entitySubtitle(entities);
   return (
     <div className={`${jakarta.className} hs-overlay`}>
       <div
@@ -323,18 +431,20 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
         aria-describedby="hs-help"
         tabIndex={-1}
         onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={clearGesture}
       >
-        <div className="hs-visual" aria-hidden="true">
-          <HeroPhoto
-            src={view === "cover" ? slide.cover : entity.image}
-            position={view === "cover" ? slide.coverPosition : entity.imagePosition}
-            gradient={view === "cover" ? slide.coverGradient : entity.gradient}
-          />
+        <div className="hs-stage">
+          {flight ? (
+            <>
+              <PageLayer snap={flight.incoming} className={flight.dragging ? "hs-layer is-flight is-drag" : "hs-layer is-flight"} style={layerStyle("in", flight)} hidden slides={slides} moduleIndex={mi} />
+              <PageLayer snap={flight.outgoing} className={flight.dragging ? "hs-layer is-flight is-drag" : "hs-layer is-flight"} style={layerStyle("out", flight)} onEnd={onFlightEnd} slides={slides} moduleIndex={mi} onPickModule={goModule} onOpen={openModule} />
+            </>
+          ) : (
+            <PageLayer snap={currentSnap()} slides={slides} moduleIndex={mi} onPickModule={goModule} onOpen={openModule} />
+          )}
         </div>
-        <div className="hs-scrim hs-scrim-top" />
-        <div className="hs-scrim hs-scrim-bottom" />
 
         <div className="hs-top">
           {view === "cover" ? (
@@ -354,49 +464,67 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
           Arrow keys move between modules, and up or down through a module. Buttons do the same without gestures.
         </p>
 
-        {view === "cover" ? (
-          <>
-            <div className="hs-cover-stack">
-              <h1 className="hs-cover-title">{slide.title}</h1>
-              <p className="hs-cover-sub">{subtitle}</p>
-              <Dots slides={slides} index={mi} onSelect={(index) => { stopAutoplay(); setModuleIndex(index); setEntityIndex(0); }} />
-            </div>
-            <button type="button" className="hs-glass hs-details" aria-label={`Show ${slide.title} details`} onClick={openModule}>
-              <ChevronUp size={18} strokeWidth={2.2} aria-hidden />
-              Details
-            </button>
-          </>
-        ) : (
+        {view === "module" && (
           <>
             <div className="hs-mod-switch">
               <span className="hs-glass hs-name-pill">{slide.title}</span>
-              <Dots slides={slides} index={mi} onSelect={(index) => { stopAutoplay(); setModuleIndex(index); setEntityIndex(0); }} />
+              <Dots slides={slides} index={mi} onSelect={goModule} />
             </div>
-            <svg className="hs-sheet-shape" viewBox="0 0 390 438" preserveAspectRatio="none" aria-hidden="true">
-              <path className="hs-sheet-fill" d="M0 6C150 4 210 36 390 38V438H0Z" />
-            </svg>
-            <div className="hs-sheet-body">
-              <div className="hs-copy" key={entity.id}>
-                <h1 className="hs-entity-title">{entity.title}</h1>
-                <p className="hs-meta"><span className="hs-meta-dot" aria-hidden />{entity.meta}</p>
-                <p className="hs-desc">{entity.description}</p>
-              </div>
-              <Cta entity={entity} />
-            </div>
-            <Thumbs entities={entities} active={ei} moduleId={slide.id} onSelect={(index) => { stopAutoplay(); setEntityIndex(index); }} />
+            <Thumbs entities={entities} active={ei} moduleId={slide.id} onSelect={goEntity} />
           </>
         )}
       </div>
     </div>
   );
 
-  function clearGesture() { gesture.current = null; }
+  function clearGesture() {
+    const current = flightRef.current;
+    gesture.current = null;
+    if (current?.dragging) putFlight({ ...current, dragging: false, progress: 0, commitOnEnd: false });
+  }
+
+  function trackHorizontal(dx: number) {
+    const kind = view === "module" ? "entity" : "module";
+    const dir: 1 | -1 = dx < 0 ? 1 : -1;
+    const width = frameRef.current?.clientWidth || 1;
+    const progress = Math.min(1, Math.abs(dx) / width);
+    const existing = flightRef.current;
+    if (!existing || existing.dir !== dir || !existing.dragging) {
+      if (kind === "entity") {
+        if (entities.length < 2 || !slide) return;
+        const ent = entities[wrapIndex(ei + dir, entities.length)];
+        if (!ent) return;
+        playSnap(dir, pageSnap(slide, ent, "module"), () => setEntityIndex(wrapIndex(ei + dir, entities.length)), true, progress);
+      } else {
+        if (slides.length < 2) return;
+        const index = wrapIndex(mi + dir, slides.length);
+        const next = slides[index];
+        const ent = next?.entities[0];
+        if (!next || !ent) return;
+        playSnap(dir, pageSnap(next, ent, view), () => { setModuleIndex(index); setEntityIndex(0); }, true, progress);
+      }
+      return;
+    }
+    putFlight({ ...existing, progress, dragging: true });
+  }
 
   function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
     stopAutoplay();
     if ((event.target as HTMLElement).closest("button, a")) return;
-    gesture.current = { x: event.clientX, y: event.clientY };
+    gesture.current = { x: event.clientX, y: event.clientY, axis: null };
     event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function onPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    const start = gesture.current;
+    if (!start || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (!start.axis) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      start.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    }
+    if (start.axis === "x") trackHorizontal(dx);
   }
 
   function onPointerUp(event: React.PointerEvent<HTMLDivElement>) {
@@ -405,14 +533,86 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
     if (!start) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
-    if (Math.abs(dx) < 48 && Math.abs(dy) < 48) return;
-    if (Math.abs(dx) > Math.abs(dy)) stepModule(dx < 0 ? 1 : -1);
-    else if (dy < 0) { if (view === "cover") openModule(); else stepEntity(1); }
+    const horizontal = start.axis === "x" || (start.axis !== "y" && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) >= 48);
+    if (horizontal) {
+      const dir: 1 | -1 = dx < 0 ? 1 : -1;
+      const current = flightRef.current;
+      if (Math.abs(dx) < 48) {
+        if (current?.dragging) putFlight({ ...current, dragging: false, progress: 0, commitOnEnd: false });
+        return;
+      }
+      if (current?.dragging && current.dir === dir) {
+        if (current.progress > 0.98) { current.apply(); putFlight(null); }
+        else putFlight({ ...current, dragging: false, progress: 1, commitOnEnd: true });
+        return;
+      }
+      if (view === "module") stepEntity(dir);
+      else stepModule(dir);
+      return;
+    }
+    if (Math.abs(dy) < 48) return;
+    if (dy < 0) { if (view === "cover") openModule(); else stepEntity(1); }
     else if (view === "module") stepEntity(-1);
   }
 }
 
-const gesture = { current: null as { x: number; y: number } | null };
+const gesture = { current: null as { x: number; y: number; axis: "x" | "y" | null } | null };
+let flightSerial = 0;
+function nextFlightId(dir: number, incomingId: string) {
+  flightSerial += 1;
+  return `${flightSerial}-${dir}-${incomingId}`;
+}
+
+function PageLayer({ snap, className, style, hidden, slides, moduleIndex, onPickModule, onOpen, onEnd }: {
+  snap: PageSnap;
+  className?: string;
+  style?: React.CSSProperties;
+  hidden?: boolean;
+  slides?: Slide[];
+  moduleIndex?: number;
+  onPickModule?: (index: number) => void;
+  onOpen?: () => void;
+  onEnd?: (event: React.TransitionEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <div className={className ?? "hs-layer"} style={style} aria-hidden={hidden || undefined} onTransitionEnd={onEnd}>
+      <div className="hs-visual" aria-hidden="true">
+        <HeroPhoto src={snap.src} position={snap.position} gradient={snap.gradient} />
+      </div>
+      <div className="hs-scrim hs-scrim-top" />
+      <div className="hs-scrim hs-scrim-bottom" />
+      {snap.mode === "cover" ? (
+        <>
+          <div className="hs-cover-stack">
+            <h1 className="hs-cover-title">{snap.title}</h1>
+            <p className="hs-cover-sub">{snap.sub}</p>
+            {slides && onPickModule && <Dots slides={slides} index={moduleIndex ?? 0} onSelect={onPickModule} />}
+          </div>
+          {onOpen && (
+            <button type="button" className="hs-glass hs-details" aria-label={`Show ${snap.title} details`} onClick={onOpen}>
+              <ChevronUp size={18} strokeWidth={2.2} aria-hidden />
+              Details
+            </button>
+          )}
+        </>
+      ) : snap.entity && (
+        <>
+          <svg className="hs-sheet-shape" viewBox="0 0 390 438" preserveAspectRatio="none" aria-hidden="true">
+            <path className="hs-sheet-fill" d="M0 6C150 4 210 36 390 38V438H0Z" />
+          </svg>
+          <div className="hs-sheet-body">
+            <div className="hs-copy">
+              <h1 className="hs-entity-title">{snap.entity.title}</h1>
+              <p className="hs-meta"><span className="hs-meta-dot" aria-hidden />{snap.entity.meta}</p>
+              <p className="hs-desc">{snap.entity.description}</p>
+            </div>
+            <Cta entity={snap.entity} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function Dots({ slides, index, onSelect }: { slides: Slide[]; index: number; onSelect: (index: number) => void }) {
   return (
