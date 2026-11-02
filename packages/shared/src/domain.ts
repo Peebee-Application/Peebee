@@ -770,11 +770,13 @@ export type StoreWinbackCampaign = {
 };
 
 export type StoreEliteAnalytics = {
+  scope?: "all_time_recorded_pos";
+  costsComplete?: boolean;
   grossRevenueUgx: number;
-  estimatedCogsUgx: number;
+  estimatedCogsUgx: number | null;
   platformCommissionUgx: number;
-  netMarginUgx: number;
-  netMarginPercent: number;
+  netMarginUgx: number | null;
+  netMarginPercent: number | null;
   totalProducts: number;
   totalStockUnits: number;
   lowStockCount: number;

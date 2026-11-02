@@ -396,7 +396,7 @@ export default function ServicesPlatformPage() {
           <p className="text-sm text-ink-500 mt-0.5">
             {business
               ? `${CATEGORY_LABELS[business.category] || business.category} · ${business.service_area}`
-              : "Launch your dedicated service site, offer appointments & consultations, with card aggregator isolation."}
+              : "Launch your dedicated service site, offer appointments & consultations, and manage your bookings in one place."}
           </p>
         </div>
 
@@ -457,8 +457,7 @@ export default function ServicesPlatformPage() {
             <h2 className="text-xl font-black text-ink">Launch Your Service Business Site</h2>
             <p className="text-xs text-ink-500 leading-relaxed">
               Enable clients to book appointments, virtual consultations, and field services directly.
-              Runs on a completely independent infrastructure with compliant Mobile Money & on-site settlement,
-              safeguarding credit card payment aggregators from intangible service chargebacks.
+              Choose your services, availability and supported payment methods before publishing.
             </p>
           </div>
 
@@ -472,8 +471,8 @@ export default function ServicesPlatformPage() {
               <p className="text-[11px] text-ink-500">Custom URL (e.g. peebee.online/services/your-brand).</p>
             </div>
             <div className="p-3 rounded-xl bg-cream/70 border border-ink/5 space-y-1">
-              <div className="text-xs font-black text-ink">Aggregator Isolation</div>
-              <p className="text-[11px] text-ink-500">Protects Stripe/Visa accounts via compliant MoMo & Cash rails.</p>
+              <div className="text-xs font-black text-ink">Booking setup</div>
+              <p className="text-[11px] text-ink-500">Set prices, availability and payment instructions for clients.</p>
             </div>
           </div>
 
@@ -843,11 +842,9 @@ export default function ServicesPlatformPage() {
                     <ShieldCheck className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="text-base font-black text-ink">Payment Aggregator Compliance & Isolation Architecture</h3>
+                    <h3 className="text-base font-black text-ink">Payment methods and booking policies</h3>
                     <p className="text-xs text-ink-500 mt-1 leading-relaxed">
-                      International card aggregators (such as Stripe, Visa, and Mastercard) enforce stringent Merchant Category Code (MCC)
-                      rules. Intangible services (consultations, advance bookings, freelance trades) frequently cause chargeback disputes,
-                      which risk holding or closing merchant gateway accounts.
+                      Service bookings use the payment methods enabled for this business. A displayed payment instruction does not confirm collection. Check each booking’s payment status before delivering a service.
                     </p>
                   </div>
                 </div>
@@ -1016,9 +1013,9 @@ export default function ServicesPlatformPage() {
               <div className="p-3 rounded-xl bg-gold/10 border border-gold/20 text-ink-700 space-y-1 text-[11px]">
                 <div className="font-bold flex items-center gap-1.5 text-gold-dark">
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  Payment Aggregator Protection
+                  Booking payment methods
                 </div>
-                <p>Card processors like Stripe are isolated to product orders to prevent chargebacks on intangible services. Your service site will use MTN MoMo, Airtel Money, and On-Site settling.</p>
+                <p>Choose the supported payment methods you accept. Review the booking and cancellation terms before publishing your services.</p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-ink/10">

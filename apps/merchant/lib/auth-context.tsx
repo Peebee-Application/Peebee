@@ -48,7 +48,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await api.myMerchants();
       setMerchants(result.merchants);
-      if (!selectedId && result.merchants[0]) setSelectedId(result.merchants[0].id);
+      if (!result.merchants.some((item) => item.id === selectedId)) {
+        const nextId = result.merchants[0]?.id ?? null;
+        setSelectedId(nextId);
+        if (nextId) localStorage.setItem("peebee_merchant_selected", nextId);
+        else localStorage.removeItem("peebee_merchant_selected");
+      }
     } finally {
       setMerchantsReady(true);
     }

@@ -1,5 +1,6 @@
 "use client";
 
+import { ExistingDigitalPurchases } from "../../components/store/ExistingDigitalPurchases";
 import { SectionContentEditor } from "../../components/SectionContentEditor";
 import { PlanLadder, type PlanInfo } from "../../components/store/PlanLadder";
 import { Select } from "@peebee/shared/select";
@@ -77,11 +78,12 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 
 interface ProStore {
+  permissions?: Record<string, boolean>;
   id: string;
   merchant_id: string;
   name: string;
@@ -175,6 +177,9 @@ export default function MerchantProStorePage() {
   const { merchant } = useAuth();
 
   const [loading, setLoading] = useState(true);
+  const loadRequest = useRef(0);
+  const posRequest = useRef<{payload: string; id: string} | null>(null);
+  const transferRequest = useRef<{payload: string; id: string} | null>(null);
   const [store, setStore] = useState<ProStore | null>(null);
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [settings, setSettings] = useState<MarketplaceSettings | null>(null);
@@ -392,9 +397,6 @@ export default function MerchantProStorePage() {
   const [liveTitle, setLiveTitle] = useState("");
   const [liveStreamUrl, setLiveStreamUrl] = useState("");
   const [pinnedProductId, setPinnedProductId] = useState<string>("");
-  const [chats, setChats] = useState<LiveChat[]>([]);
-  const [newChatMessage, setNewChatMessage] = useState("");
-  const [liveHearts, setLiveHearts] = useState<number[]>([]);
   const [startingLive, setStartingLive] = useState(false);
 
   // Social ads state
@@ -403,8 +405,6 @@ export default function MerchantProStorePage() {
   const [adBudget, setAdBudget] = useState("15000");
   const [adDuration, setAdDuration] = useState("7");
   const [adTargetProduct, setAdTargetProduct] = useState("");
-  const [launchingAd, setLaunchingAd] = useState(false);
-  const [adCampaigns, setAdCampaigns] = useState<AdCampaign[]>([]);
 
   // Storefront mobile preview state (Inspiration UI 3-screens)
   const [showStorefrontPreview, setShowStorefrontPreview] = useState(false);
@@ -417,10 +417,16 @@ export default function MerchantProStorePage() {
 
   async function loadData() {
     if (!merchant) return;
+    const request = ++loadRequest.current;
     setLoading(true);
     setError("");
+    const unavailable: string[] = [];
+    const failed = (feature: string) => { unavailable.push(feature); };
+    const previous = store?.merchant_id === merchant.id;
+
     try {
-      const storeRes = await api.getMerchantProStore().catch(() => ({ store: null, settings: undefined }));
+      const storeRes = await api.getMerchantProStore();
+      if (request !== loadRequest.current) return;
 
       if (storeRes && "settings" in storeRes && storeRes.settings) {
         setSettings(storeRes.settings);
@@ -444,25 +450,26 @@ export default function MerchantProStorePage() {
         if (s.loyalty_cashback_percent != null) setLoyaltyCashback(String(s.loyalty_cashback_percent));
 
         const [prodRes, colRes, discRes, invRes, drfRes, anaRes, posRes, trfRes, crmRes, secRes, smsRes, digRes, fulRes, crsRes, enrRes] = await Promise.all([
-          api.getMerchantProProducts().catch(() => ({ products: [] })),
-          api.getMerchantCollections().catch(() => ({ collections: [] })),
-          api.getMerchantDiscounts().catch(() => ({ discounts: [] })),
-          api.getMerchantOutletInventory().catch(() => ({ outlets: [], inventory: [] })),
-          api.getMerchantDraftOrders().catch(() => ({ draftOrders: [] })),
-          api.getMerchantEliteAnalytics().catch(() => ({ analytics: null })),
-          api.getMerchantPosSales().catch(() => ({ sales: [] })),
-          api.getMerchantStockTransfers().catch(() => ({ transfers: [] })),
-          api.getMerchantCrmCustomers().catch(() => ({
+          api.getMerchantProProducts().catch(() => { failed("Catalog"); return { products: previous ? products : [] }; }),
+          api.getMerchantCollections().catch(() => { failed("Collections"); return { collections: previous ? collections : [] }; }),
+          api.getMerchantDiscounts().catch(() => { failed("Discounts"); return { discounts: previous ? discounts : [] }; }),
+          (s.plan?.isElite ? api.getMerchantOutletInventory() : Promise.resolve({outlets: [], inventory: []})).catch(() => { failed("OutletInventory"); return { outlets: previous ? outlets : [], inventory: previous ? outletInventory : [] }; }),
+          (s.plan?.isElite ? api.getMerchantDraftOrders() : Promise.resolve({draftOrders: []})).catch(() => { failed("DraftOrders"); return { draftOrders: previous ? draftOrders : [] }; }),
+          (s.plan?.isElite ? api.getMerchantEliteAnalytics() : Promise.resolve({analytics: null})).catch(() => { failed("POS report"); return { analytics: previous ? analytics : null }; }),
+          (s.plan?.isElite ? api.getMerchantPosSales() : Promise.resolve({sales: []})).catch(() => { failed("PosSales"); return { sales: previous ? posSales : [] }; }),
+          (s.plan?.isElite ? api.getMerchantStockTransfers() : Promise.resolve({transfers: []})).catch(() => { failed("StockTransfers"); return { transfers: previous ? stockTransfers : [] }; }),
+          (s.plan?.isElite ? api.getMerchantCrmCustomers() : Promise.resolve({customers: [], summary: null})).catch(() => { failed("CrmCustomers"); return {
             customers: [],
             summary: { totalCustomers: 0, vipCount: 0, repeatCount: 0, b2bCount: 0, totalLoyaltyBalanceUgx: 0 },
-          })),
-          api.getMerchantStorefrontSections().catch(() => ({ sections: [] })),
-          api.getMerchantSmsLogs().catch(() => ({ logs: [] })),
-          api.getMerchantDigitalProducts().catch(() => ({ products: [] })),
-          api.getMerchantDigitalFulfillments().catch(() => ({ fulfillments: [] })),
-          api.getMerchantLmsCourses().catch(() => ({ courses: [] })),
-          api.getMerchantLmsEnrollments().catch(() => ({ enrollments: [] })),
+          }; }),
+          api.getMerchantStorefrontSections().catch(() => { failed("StorefrontSections"); return { sections: previous ? storefrontSections : [] }; }),
+          api.getMerchantSmsLogs().catch(() => { failed("SmsLogs"); return { logs: previous ? smsLogs : [] }; }),
+          (s.plan?.isElite && s.permissions?.manage_digital !== false ? api.getMerchantDigitalProducts() : Promise.resolve({products: []})).catch(() => { failed("DigitalProducts"); return { products: previous ? digitalProducts : [] }; }),
+          (s.permissions?.manage_digital !== false ? api.getMerchantDigitalFulfillments() : Promise.resolve({fulfillments: []})).catch(() => { failed("DigitalFulfillments"); return { fulfillments: previous ? digitalFulfillments : [] }; }),
+          (s.plan?.isElite && s.permissions?.manage_digital !== false ? api.getMerchantLmsCourses() : Promise.resolve({courses: []})).catch(() => { failed("Courses"); return { courses: previous ? lmsCourses : [] }; }),
+          (s.plan?.isElite && s.permissions?.manage_digital !== false ? api.getMerchantLmsEnrollments() : Promise.resolve({enrollments: []})).catch(() => { failed("Learners"); return { enrollments: previous ? lmsEnrollments : [] }; }),
         ]);
+        if (request !== loadRequest.current) return;
         setStorefrontSections(secRes.sections || []);
         setSmsLogs(smsRes.logs || []);
         setDigitalProducts(digRes.products || []);
@@ -480,7 +487,7 @@ export default function MerchantProStorePage() {
         setStockTransfers(trfRes.transfers || []);
         setCrmCustomers(crmRes.customers || []);
         if (crmRes.summary) setCrmSummary(crmRes.summary);
-        if (anaRes.analytics) setAnalytics(anaRes.analytics);
+        setAnalytics(anaRes.analytics);
 
         if (invRes.outlets?.[0] && !selectedInvOutlet) {
           setSelectedInvOutlet(invRes.outlets[0].id);
@@ -496,10 +503,11 @@ export default function MerchantProStorePage() {
           setB2bUnitPrice(String(Math.round(loadedProducts[0].price * 0.85)));
         }
       }
+      if (unavailable.length) setError(`Some tools could not load (${unavailable.join(", ")}). Previously loaded records may be out of date. Check access or retry.`);
     } catch (err) {
-      setError(errorMessage(err));
+      if (request === loadRequest.current) setError(errorMessage(err));
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   }
 
@@ -760,50 +768,7 @@ export default function MerchantProStorePage() {
   }
 
   async function refreshEliteData() {
-    const [colRes, discRes, invRes, drfRes, anaRes, posRes, trfRes, crmRes] = await Promise.all([
-      api.getMerchantCollections().catch(() => ({ collections: [] })),
-      api.getMerchantDiscounts().catch(() => ({ discounts: [] })),
-      api.getMerchantOutletInventory().catch(() => ({ outlets: [], inventory: [] })),
-      api.getMerchantDraftOrders().catch(() => ({ draftOrders: [] })),
-      api.getMerchantEliteAnalytics().catch(() => ({ analytics: null })),
-      api.getMerchantPosSales().catch(() => ({ sales: [] })),
-      api.getMerchantStockTransfers().catch(() => ({ transfers: [] })),
-      api.getMerchantCrmCustomers().catch(() => ({
-        customers: [],
-        summary: { totalCustomers: 0, vipCount: 0, repeatCount: 0, b2bCount: 0, totalLoyaltyBalanceUgx: 0 },
-      })),
-    ]);
-    setCollections(colRes.collections || []);
-    setDiscounts(discRes.discounts || []);
-    setOutlets(invRes.outlets || []);
-    setOutletInventory(invRes.inventory || []);
-    setDraftOrders(drfRes.draftOrders || []);
-    setPosSales(posRes.sales || []);
-    setStockTransfers(trfRes.transfers || []);
-    setCrmCustomers(crmRes.customers || []);
-    if (crmRes.summary) setCrmSummary(crmRes.summary);
-    if (anaRes.analytics) setAnalytics(anaRes.analytics);
-  }
-
-  async function handleUpgradeTier(tier: "pro_store" | "pro_live" | "elite") {
-    if (!store) return;
-    setUpgradingTier(true);
-    setError("");
-    try {
-      const res = await api.upgradeMerchantStoreTier({ tier, billingCycle: "monthly" });
-      setStore(res.store);
-      if (tier === "elite") {
-        setActiveTab("elite");
-        setNotice("👑 Upgraded to Merchant Elite (Shopify Plus OS)! Custom themes, Smart Collections, B2B Wholesale & Multi-Outlet Inventory are now unlocked.");
-      } else {
-        setNotice(`✅ Switched to ${tier === "pro_live" ? "Merchant Marketplace (Pro Live)" : "Merchant Marketplace (Pro)"}!`);
-      }
-      await refreshEliteData();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setUpgradingTier(false);
-    }
+    await loadData();
   }
 
   async function handlePlanChanged(updated: any, message: string) {
@@ -945,8 +910,6 @@ export default function MerchantProStorePage() {
         quantity: Number(invQuantity) || 0,
         lowStockThreshold: 5,
       });
-      const prodRes = await api.getMerchantProProducts().catch(() => ({ products: [] }));
-      setProducts(prodRes.products || []);
       await refreshEliteData();
       setNotice(`📦 Branch inventory updated! Total synced product stock: ${res.totalQuantity} units.`);
     } catch (err) {
@@ -966,7 +929,7 @@ export default function MerchantProStorePage() {
     setError("");
     try {
       const qty = Math.max(1, Number(posQty) || 1);
-      const res = await api.createMerchantPosSale({
+      const payload = {
         outlet_id: posOutletId || null,
         customer_phone: posCustomerPhone.trim() || undefined,
         customer_name: posCustomerName.trim() || undefined,
@@ -981,9 +944,11 @@ export default function MerchantProStorePage() {
         discount_amount: Number(posDiscountUgx) || 0,
         redeem_loyalty_ugx: Number(posRedeemLoyaltyUgx) || 0,
         payment_method: posPaymentMethod,
-      });
-      const prodRes = await api.getMerchantProProducts().catch(() => ({ products: [] }));
-      setProducts(prodRes.products || []);
+      };
+      const fingerprint = JSON.stringify(payload);
+      if (posRequest.current?.payload !== fingerprint) posRequest.current = {payload: fingerprint, id: crypto.randomUUID()};
+      const res = await api.createMerchantPosSale({...payload, requestId: posRequest.current.id});
+      posRequest.current = null;
       await refreshEliteData();
       setPosRedeemLoyaltyUgx("0");
       setPosDiscountUgx("0");
@@ -1007,13 +972,17 @@ export default function MerchantProStorePage() {
     setSavingTransfer(true);
     setError("");
     try {
-      const res = await api.createMerchantStockTransfer({
+      const payload = {
         productId: transferProductId,
         fromOutletId: transferFromOutletId,
         toOutletId: transferToOutletId,
         quantity: Math.max(1, Number(transferQty) || 1),
         note: transferNote.trim() || undefined,
-      });
+      };
+      const fingerprint = JSON.stringify(payload);
+      if (transferRequest.current?.payload !== fingerprint) transferRequest.current = {payload: fingerprint, id: crypto.randomUUID()};
+      const res = await api.createMerchantStockTransfer({...payload, requestId: transferRequest.current.id});
+      transferRequest.current = null;
       setTransferNote("");
       await refreshEliteData();
       setNotice(
@@ -1080,8 +1049,6 @@ export default function MerchantProStorePage() {
       });
       setStore(res.store);
       setNotice("🎉 Store created successfully! Let's populate your catalog.");
-      const prodRes = await api.getMerchantProProducts().catch(() => ({ products: [] }));
-      setProducts(prodRes.products || []);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -1095,8 +1062,6 @@ export default function MerchantProStorePage() {
     setNotice("Loading starter pack items…");
     try {
       const res = await api.triggerMerchantProStarterPack();
-      const prodRes = await api.getMerchantProProducts().catch(() => ({ products: [] }));
-      setProducts(prodRes.products || []);
       await refreshEliteData();
       setNotice(`✅ Loaded ${res.addedCount} starter pack items! Your store is now ready for customers.`);
     } catch (err) {
@@ -1144,8 +1109,6 @@ export default function MerchantProStorePage() {
         variants: productVariants.length ? productVariants : undefined,
       });
 
-      const prodRes = await api.getMerchantProProducts().catch(() => ({ products: [] }));
-      setProducts(prodRes.products || []);
       await refreshEliteData();
       setShowAddProduct(false);
       resetProductForm();
@@ -1173,8 +1136,8 @@ export default function MerchantProStorePage() {
   }
 
   async function handleStartLiveSession() {
-    if (!store || !liveTitle.trim()) {
-      setError("Please give your live stream a title.");
+    if (!store || !liveTitle.trim() || !/^https:\/\//i.test(liveStreamUrl.trim())) {
+      setError("Give the stream a title and a hosted HTTPS stream URL.");
       return;
     }
     setStartingLive(true);
@@ -1186,16 +1149,8 @@ export default function MerchantProStorePage() {
       });
       setIsLiveActive(true);
       setShowLiveStudio(true);
-      setNotice("🔴 You are now LIVE! Shoppers are receiving live stream notifications.");
-      setChats([
-        {
-          id: "welcome-1",
-          user_name: "Peebee Live Bot",
-          message: "Broadcast connected! Shoppers can tap the pinned product to checkout instantly.",
-          is_merchant_pinned: true,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      setNotice("Your hosted stream is listed on the store. This does not broadcast your camera, send notifications or record video.");
+
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -1208,59 +1163,14 @@ export default function MerchantProStorePage() {
       await api.endMerchantProLive();
       setIsLiveActive(false);
       setShowLiveStudio(false);
-      setNotice("Live session ended and saved for replay.");
+      setNotice("Live listing ended. No video recording was created by Peebee.");
     } catch (err) {
       setError(errorMessage(err));
     }
-  }
-
-  function handleSendMerchantChat() {
-    if (!newChatMessage.trim()) return;
-    const msg: LiveChat = {
-      id: `chat-${Date.now()}`,
-      user_name: `${store?.name || "Merchant"} (Host)`,
-      message: newChatMessage.trim(),
-      is_merchant_pinned: true,
-      created_at: new Date().toISOString(),
-    };
-    setChats((prev) => [...prev, msg]);
-    setNewChatMessage("");
-  }
-
-  function triggerReaction() {
-    setLiveHearts((prev) => [...prev, Date.now()]);
-    setTimeout(() => {
-      setLiveHearts((prev) => prev.slice(1));
-    }, 1500);
   }
 
   async function handleLaunchAd() {
-    if (!store || !adHeadline.trim()) {
-      setError("Please provide an ad headline.");
-      return;
-    }
-    setLaunchingAd(true);
-    setError("");
-    try {
-      const campaign: AdCampaign = {
-        id: `ad-${Date.now()}`,
-        platform: adPlatform,
-        headline: adHeadline.trim(),
-        daily_budget_ugx: Number(adBudget),
-        duration_days: Number(adDuration),
-        status: "active",
-        impressions: 120,
-        clicks: 8,
-        created_at: new Date().toISOString(),
-      };
-      setAdCampaigns((prev) => [campaign, ...prev]);
-      setNotice(`🚀 ${adPlatform.toUpperCase()} campaign funded and queued for automated launch!`);
-      setAdHeadline("");
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setLaunchingAd(false);
-    }
+    setNotice("Preview only: no money has been charged and no advertisement has been submitted. Connected advertising is not available yet.");
   }
 
   if (loading) {
@@ -1280,6 +1190,7 @@ export default function MerchantProStorePage() {
   const isElite = Boolean(store?.plan?.isElite) || Boolean(store?.elite_tier) || store?.pro_tier === "elite";
 
   // 1. Initial State: No store created yet -> Chap Chap 2-Minute Onboarding Wizard
+  if (!store && error) return <div className="space-y-4 p-5"><h1 className="text-xl font-bold">Store unavailable</h1><p role="alert">{error}</p><button className="min-h-11 rounded-full border border-gold px-4 font-bold" onClick={() => void loadData()}>Retry loading store</button></div>;
   if (!store) {
     return (
       <div className="mx-auto max-w-xl space-y-5 px-4 py-6">
@@ -1296,7 +1207,7 @@ export default function MerchantProStorePage() {
             Power of Shopify. Simplicity of Snake Game.
           </h1>
           <p className="mt-2 text-sm text-neutral-300">
-            Upgrade from basic Merchant Code payments to a full Marketplace Store (Pro) or Shopify Plus Commerce OS (Elite).
+            Upgrade from basic Merchant Code payments to a full Marketplace Store (Pro) or Merchant Elite Commerce OS (Elite).
           </p>
 
           <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-neutral-400">
@@ -1309,7 +1220,7 @@ export default function MerchantProStorePage() {
         {error && (
           <div className="flex items-center gap-2 rounded-2xl bg-red-500/10 p-3.5 text-sm text-red-600 dark:text-red-400">
             <AlertCircle className="h-5 w-5 shrink-0" />
-            <span>{error}</span>
+            <span role="alert">{error}</span><button type="button" className="min-h-11 shrink-0 px-3 underline" onClick={() => void loadData()}>Retry loading</button>
           </div>
         )}
 
@@ -1318,8 +1229,8 @@ export default function MerchantProStorePage() {
           <h2 className="text-lg font-bold text-ink">Step 1 of 2: Store Identity</h2>
 
           <div>
-            <label className="text-xs font-semibold text-ink-500">Store Name</label>
-            <input
+            <label htmlFor="store-field-1" className="text-xs font-semibold text-ink-500">Store Name</label>
+            <input id="store-field-1"
               type="text"
               value={wizardName}
               onChange={(e) => setWizardName(e.target.value)}
@@ -1342,8 +1253,8 @@ export default function MerchantProStorePage() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-ink-500">Short Tagline (Optional)</label>
-            <input
+            <label htmlFor="store-field-2" className="text-xs font-semibold text-ink-500">Short Tagline (Optional)</label>
+            <input id="store-field-2"
               type="text"
               value={wizardDesc}
               onChange={(e) => setWizardDesc(e.target.value)}
@@ -1366,11 +1277,11 @@ export default function MerchantProStorePage() {
 
   // 2. Active Pro & Elite Store Dashboard
   return (
-    <div className="mx-auto max-w-2xl space-y-5 px-4 pb-24 pt-4">
+    <div className="mx-auto max-w-6xl space-y-5 px-4 pb-24 pt-4">
       {/* Top Banner / Store Header */}
       <div className="relative overflow-hidden rounded-[26px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/15 text-gold font-bold text-xl">
               {store.category === "groceries" ? "🥦" : "🛍️"}
             </div>
@@ -1394,10 +1305,10 @@ export default function MerchantProStorePage() {
 
           <button
             onClick={() => setShowLiveStudio(true)}
-            className="flex items-center gap-1.5 rounded-full bg-red-600 px-3.5 py-2 text-xs font-bold text-white shadow-md transition hover:bg-red-700 active:scale-95"
+            className="flex items-center gap-1.5 rounded-full bg-gold px-3.5 py-2 text-xs font-bold text-ink-gold shadow-md transition hover:opacity-90 active:scale-95"
           >
             <Radio className="h-3.5 w-3.5 animate-pulse" />
-            <span>Go Live</span>
+            <span>Live stream setup</span>
           </button>
         </div>
 
@@ -1472,7 +1383,7 @@ export default function MerchantProStorePage() {
 
       {error && (
         <div className="flex items-center justify-between rounded-2xl bg-red-500/10 p-3.5 text-sm font-semibold text-red-600 dark:text-red-400">
-          <span>{error}</span>
+          <span role="alert">{error}</span><button type="button" className="min-h-11 shrink-0 px-3 underline" onClick={() => void loadData()}>Retry loading</button>
           <button onClick={() => setError("")} className="text-red-500">
             <X className="h-4 w-4" />
           </button>
@@ -1542,14 +1453,16 @@ export default function MerchantProStorePage() {
         </button>
       </div>
 
-      {/* TAB: ELITE OS (Shopify & Shopify Plus Advanced Layer) */}
+      {!isElite && <ExistingDigitalPurchases purchases={digitalFulfillments} canRefund={store.permissions?.refund_revoke !== false} onRefund={handleRefundFulfillment} onRevoke={handleRevokeFulfillment} />}
+
+      {/* TAB: ELITE OS (Shopify & Merchant Elite Advanced Layer) */}
       {activeTab === "elite" && (
         <div className="space-y-4">
           {!isElite && (
             <div className="rounded-[24px] border border-gold bg-gradient-to-br from-black-900 via-neutral-900 to-black-900 p-5 text-white shadow-lg space-y-3">
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/20 px-3 py-1 text-xs font-bold text-gold">
-                  <Crown className="h-3.5 w-3.5" /> Tier 3 Upgrade · Shopify Plus Power
+                  <Crown className="h-3.5 w-3.5" /> Tier 3 Upgrade · Merchant Elite Power
                 </span>
                 <span className="font-mono text-sm font-black text-gold">{ugx(elitePrice)}/mo</span>
               </div>
@@ -1563,7 +1476,7 @@ export default function MerchantProStorePage() {
               <button
                 type="button"
                 disabled={upgradingTier}
-                onClick={() => handleUpgradeTier("elite")}
+                onClick={() => document.getElementById("merchant-plans")?.scrollIntoView({behavior: "smooth"})}
                 className="w-full rounded-full bg-gold py-3 text-xs font-black text-ink-gold shadow-md transition active:scale-98"
               >
                 {upgradingTier ? "Activating Elite OS…" : `Upgrade to Merchant Elite (${ugx(elitePrice)}/mo) →`}
@@ -1574,7 +1487,7 @@ export default function MerchantProStorePage() {
           {isElite && (
           <>
           {/* Elite Sub-Navigation Pills */}
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {[
               { id: "overview", label: "P&L Analytics", icon: BarChart3 },
               { id: "pos", label: `POS Register (${posSales.length})`, icon: ShoppingBag },
@@ -1598,8 +1511,9 @@ export default function MerchantProStorePage() {
                 <button
                   key={item.id}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => setEliteSection(item.id as typeof eliteSection)}
-                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold whitespace-nowrap transition ${
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold text-left transition ${
                     active
                       ? "bg-gold text-ink-gold shadow-xs"
                       : "bg-[rgb(var(--surface-card))] border border-[var(--border-faint)] text-ink-500 hover:text-ink"
@@ -1620,33 +1534,33 @@ export default function MerchantProStorePage() {
                   <div>
                     <h3 className="font-bold text-base text-ink flex items-center gap-2">
                       <BarChart3 className="h-4.5 w-4.5 text-gold" />
-                      <span>Executive Profit & Margin OS</span>
+                      <span>Recorded POS sales & cost estimates</span>
                     </h3>
                     <p className="text-xs text-ink-500">
-                      Real-time net margin after Cost of Goods Sold (COGS) and {settings?.eliteCommissionPercent ?? 5}% Elite fee
+                      All-time recorded POS sales. Costs use current product costs; fees are estimates. Online orders, refunds, tax and operating expenses are excluded.
                     </p>
                   </div>
                   <span className="rounded-full bg-gold/15 px-3 py-1 text-xs font-black text-gold">
-                    {analytics?.netMarginPercent ?? 28}% Net Margin
+                    {analytics?.netMarginPercent == null ? (analytics?.costsComplete === false ? "Costs incomplete" : "No recorded POS sales") : `${analytics.netMarginPercent}% estimated margin`}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   <div className="rounded-2xl bg-[rgb(var(--surface-muted))] p-3">
-                    <span className="text-[10px] font-bold uppercase text-ink-500">Gross Merchandise</span>
+                    <span className="text-[10px] font-bold uppercase text-ink-500">Recorded POS sales</span>
                     <p className="mt-1 font-mono text-sm font-black text-ink">{ugx(analytics?.grossRevenueUgx ?? 0)}</p>
                   </div>
                   <div className="rounded-2xl bg-[rgb(var(--surface-muted))] p-3">
                     <span className="text-[10px] font-bold uppercase text-ink-500">Est. COGS</span>
-                    <p className="mt-1 font-mono text-sm font-bold text-ink-500">{ugx(analytics?.estimatedCogsUgx ?? 0)}</p>
+                    <p className="mt-1 font-mono text-sm font-bold text-ink-500">{analytics?.estimatedCogsUgx == null ? "Unavailable" : ugx(analytics.estimatedCogsUgx)}</p>
                   </div>
                   <div className="rounded-2xl bg-[rgb(var(--surface-muted))] p-3">
-                    <span className="text-[10px] font-bold uppercase text-ink-500">Take-Rate Fee</span>
+                    <span className="text-[10px] font-bold uppercase text-ink-500">Estimated platform fee</span>
                     <p className="mt-1 font-mono text-sm font-bold text-ink-500">{ugx(analytics?.platformCommissionUgx ?? 0)}</p>
                   </div>
                   <div className="rounded-2xl bg-gold/15 p-3">
-                    <span className="text-[10px] font-bold uppercase text-gold">Net Profit</span>
-                    <p className="mt-1 font-mono text-sm font-black text-ink">{ugx(analytics?.netMarginUgx ?? 0)}</p>
+                    <span className="text-[10px] font-bold uppercase text-gold">Est. contribution</span>
+                    <p className="mt-1 font-mono text-sm font-black text-ink">{analytics?.netMarginUgx == null ? "Unavailable" : ugx(analytics.netMarginUgx)}</p>
                   </div>
                 </div>
 
@@ -1688,7 +1602,7 @@ export default function MerchantProStorePage() {
                   <div>
                     <h3 className="font-bold text-base text-ink">Omnichannel In-Store POS Register</h3>
                     <p className="text-xs text-ink-500">
-                      Ring walk-in sales via Peebee Code, Mobile Money, or Cash — auto-deducts branch inventory and credits VIP loyalty points
+                      Record a walk-in sale after independently confirming payment. Selecting a tender does not collect money. Stock and loyalty update together.
                     </p>
                   </div>
                   <span className="rounded-full bg-gold/15 px-3 py-1 text-[10px] font-black uppercase text-gold">
@@ -1731,8 +1645,8 @@ export default function MerchantProStorePage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Quantity</label>
-                    <input
+                    <label htmlFor="store-field-3" className="text-xs font-semibold text-ink-500">Quantity</label>
+                    <input id="store-field-3"
                       type="number"
                       min={1}
                       value={posQty}
@@ -1744,8 +1658,8 @@ export default function MerchantProStorePage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Customer Phone (for VIP Loyalty)</label>
-                    <input
+                    <label htmlFor="store-field-4" className="text-xs font-semibold text-ink-500">Customer Phone (for VIP Loyalty)</label>
+                    <input id="store-field-4"
                       type="text"
                       value={posCustomerPhone}
                       onChange={(e) => setPosCustomerPhone(e.target.value)}
@@ -1754,8 +1668,8 @@ export default function MerchantProStorePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Customer Name (Optional)</label>
-                    <input
+                    <label htmlFor="store-field-5" className="text-xs font-semibold text-ink-500">Customer Name (Optional)</label>
+                    <input id="store-field-5"
                       type="text"
                       value={posCustomerName}
                       onChange={(e) => setPosCustomerName(e.target.value)}
@@ -1780,8 +1694,8 @@ export default function MerchantProStorePage() {
                     </Select>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Counter Discount (UGX)</label>
-                    <input
+                    <label htmlFor="store-field-6" className="text-xs font-semibold text-ink-500">Counter Discount (UGX)</label>
+                    <input id="store-field-6"
                       type="number"
                       min={0}
                       value={posDiscountUgx}
@@ -1790,8 +1704,8 @@ export default function MerchantProStorePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Redeem Loyalty Points (UGX)</label>
-                    <input
+                    <label htmlFor="store-field-7" className="text-xs font-semibold text-ink-500">Redeem Loyalty Points (UGX)</label>
+                    <input id="store-field-7"
                       type="number"
                       min={0}
                       value={posRedeemLoyaltyUgx}
@@ -1877,8 +1791,8 @@ export default function MerchantProStorePage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-ink-500">Optional Custom Domain Override (CNAME to {store.slug}.peebee.online)</label>
-                  <input
+                  <label htmlFor="store-field-8" className="text-xs font-semibold text-ink-500">Optional Custom Domain Override (CNAME to {store.slug}.peebee.online)</label>
+                  <input id="store-field-8"
                     type="text"
                     value={customDomain}
                     onChange={(e) => setCustomDomain(e.target.value)}
@@ -1933,8 +1847,8 @@ export default function MerchantProStorePage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Hero Banner Headline</label>
-                    <input
+                    <label htmlFor="store-field-9" className="text-xs font-semibold text-ink-500">Hero Banner Headline</label>
+                    <input id="store-field-9"
                       type="text"
                       value={heroHeadline}
                       onChange={(e) => setHeroHeadline(e.target.value)}
@@ -1943,8 +1857,8 @@ export default function MerchantProStorePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Hero Subtitle</label>
-                    <input
+                    <label htmlFor="store-field-10" className="text-xs font-semibold text-ink-500">Hero Subtitle</label>
+                    <input id="store-field-10"
                       type="text"
                       value={heroSubheadline}
                       onChange={(e) => setHeroSubheadline(e.target.value)}
@@ -1975,8 +1889,8 @@ export default function MerchantProStorePage() {
                   </div>
                   {loyaltyEnabled && (
                     <div>
-                      <label className="text-[11px] font-semibold text-ink-500">Cashback Reward (%)</label>
-                      <input
+                      <label htmlFor="store-field-11" className="text-[11px] font-semibold text-ink-500">Cashback Reward (%)</label>
+                      <input id="store-field-11"
                         type="number"
                         min={1}
                         max={settings?.eliteMaxLoyaltyCashbackPercent ?? 15}
@@ -1991,8 +1905,8 @@ export default function MerchantProStorePage() {
                 {/* Retargeting Pixels */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Meta / Instagram Pixel ID</label>
-                    <input
+                    <label htmlFor="store-field-12" className="text-xs font-semibold text-ink-500">Meta / Instagram Pixel ID</label>
+                    <input id="store-field-12"
                       type="text"
                       value={metaPixelId}
                       onChange={(e) => setMetaPixelId(e.target.value)}
@@ -2001,8 +1915,8 @@ export default function MerchantProStorePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">TikTok Pixel ID</label>
-                    <input
+                    <label htmlFor="store-field-13" className="text-xs font-semibold text-ink-500">TikTok Pixel ID</label>
+                    <input id="store-field-13"
                       type="text"
                       value={tiktokPixelId}
                       onChange={(e) => setTiktokPixelId(e.target.value)}
@@ -2035,8 +1949,8 @@ export default function MerchantProStorePage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Collection Title</label>
-                    <input
+                    <label htmlFor="store-field-14" className="text-xs font-semibold text-ink-500">Collection Title</label>
+                    <input id="store-field-14"
                       type="text"
                       value={colTitle}
                       onChange={(e) => setColTitle(e.target.value)}
@@ -2077,8 +1991,8 @@ export default function MerchantProStorePage() {
                     </div>
                     {colRuleField !== "in_stock" && (
                       <div>
-                        <label className="text-xs font-semibold text-ink-500">Target Value</label>
-                        <input
+                        <label htmlFor="store-field-15" className="text-xs font-semibold text-ink-500">Target Value</label>
+                        <input id="store-field-15"
                           type="text"
                           value={colRuleValue}
                           onChange={(e) => setColRuleValue(e.target.value)}
@@ -2140,8 +2054,8 @@ export default function MerchantProStorePage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Promo Code</label>
-                    <input
+                    <label htmlFor="store-field-16" className="text-xs font-semibold text-ink-500">Promo Code</label>
+                    <input id="store-field-16"
                       type="text"
                       value={discCode}
                       onChange={(e) => setDiscCode(e.target.value.toUpperCase())}
@@ -2150,8 +2064,8 @@ export default function MerchantProStorePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Campaign Title</label>
-                    <input
+                    <label htmlFor="store-field-17" className="text-xs font-semibold text-ink-500">Campaign Title</label>
+                    <input id="store-field-17"
                       type="text"
                       value={discTitle}
                       onChange={(e) => setDiscTitle(e.target.value)}
@@ -2178,10 +2092,10 @@ export default function MerchantProStorePage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">
+                    <label htmlFor="store-field-18" className="text-xs font-semibold text-ink-500">
                       {discKind === "percent" ? "Percent (%)" : "Value (UGX)"}
                     </label>
-                    <input
+                    <input id="store-field-18"
                       type="number"
                       disabled={discKind === "free_delivery"}
                       value={discKind === "free_delivery" ? 0 : discValue}
@@ -2191,8 +2105,8 @@ export default function MerchantProStorePage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Min Spend (UGX)</label>
-                    <input
+                    <label htmlFor="store-field-19" className="text-xs font-semibold text-ink-500">Min Spend (UGX)</label>
+                    <input id="store-field-19"
                       type="number"
                       value={discMinOrder}
                       onChange={(e) => setDiscMinOrder(e.target.value)}
@@ -2217,8 +2131,8 @@ export default function MerchantProStorePage() {
                 </label>
 
                 <div>
-                  <label className="text-xs font-semibold text-ink-500">Ends on (optional)</label>
-                  <input
+                  <label htmlFor="store-field-20" className="text-xs font-semibold text-ink-500">Ends on (optional)</label>
+                  <input id="store-field-20"
                     type="date"
                     value={discExpires}
                     onChange={(e) => setDiscExpires(e.target.value)}
@@ -2330,8 +2244,8 @@ export default function MerchantProStorePage() {
                       </div>
 
                       <div>
-                        <label className="text-xs font-semibold text-ink-500">Branch Qty</label>
-                        <input
+                        <label htmlFor="store-field-21" className="text-xs font-semibold text-ink-500">Branch Qty</label>
+                        <input id="store-field-21"
                           type="number"
                           min={0}
                           value={invQuantity}
@@ -2406,8 +2320,8 @@ export default function MerchantProStorePage() {
                       </Select>
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-ink-500">Transfer Qty</label>
-                      <input
+                      <label htmlFor="store-field-22" className="text-xs font-semibold text-ink-500">Transfer Qty</label>
+                      <input id="store-field-22"
                         type="number"
                         min={1}
                         value={transferQty}
@@ -2481,7 +2395,7 @@ export default function MerchantProStorePage() {
           {eliteSection === "b2b" && (
             <div className="space-y-4">
               <div className="rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm space-y-3">
-                <h3 className="font-bold text-base text-ink">B2B Wholesale & Draft Orders (Shopify Plus)</h3>
+                <h3 className="font-bold text-base text-ink">B2B Wholesale & Draft Orders (Merchant Elite)</h3>
                 <p className="text-xs text-ink-500">
                   Create custom wholesale quotes with negotiated unit pricing, Net-7/14/30 credit terms, and 1-tap
                   WhatsApp payment links
@@ -2489,8 +2403,8 @@ export default function MerchantProStorePage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Buyer Contact Name</label>
-                    <input
+                    <label htmlFor="store-field-23" className="text-xs font-semibold text-ink-500">Buyer Contact Name</label>
+                    <input id="store-field-23"
                       type="text"
                       value={b2bCustomerName}
                       onChange={(e) => setB2bCustomerName(e.target.value)}
@@ -2499,8 +2413,8 @@ export default function MerchantProStorePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Business / Kiosk Name</label>
-                    <input
+                    <label htmlFor="store-field-24" className="text-xs font-semibold text-ink-500">Business / Kiosk Name</label>
+                    <input id="store-field-24"
                       type="text"
                       value={b2bCompany}
                       onChange={(e) => setB2bCompany(e.target.value)}
@@ -2509,8 +2423,8 @@ export default function MerchantProStorePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">WhatsApp / Phone</label>
-                    <input
+                    <label htmlFor="store-field-25" className="text-xs font-semibold text-ink-500">WhatsApp / Phone</label>
+                    <input id="store-field-25"
                       type="text"
                       value={b2bPhone}
                       onChange={(e) => setB2bPhone(e.target.value)}
@@ -2541,8 +2455,8 @@ export default function MerchantProStorePage() {
                     </Select>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Wholesale Unit Price (UGX)</label>
-                    <input
+                    <label htmlFor="store-field-26" className="text-xs font-semibold text-ink-500">Wholesale Unit Price (UGX)</label>
+                    <input id="store-field-26"
                       type="number"
                       value={b2bUnitPrice}
                       onChange={(e) => setB2bUnitPrice(e.target.value)}
@@ -2550,8 +2464,8 @@ export default function MerchantProStorePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Case / Carton Quantity</label>
-                    <input
+                    <label htmlFor="store-field-27" className="text-xs font-semibold text-ink-500">Case / Carton Quantity</label>
+                    <input id="store-field-27"
                       type="number"
                       min={1}
                       value={b2bQty}
@@ -2577,8 +2491,8 @@ export default function MerchantProStorePage() {
                     </Select>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Extra Invoice Discount (UGX)</label>
-                    <input
+                    <label htmlFor="store-field-28" className="text-xs font-semibold text-ink-500">Extra Invoice Discount (UGX)</label>
+                    <input id="store-field-28"
                       type="number"
                       min={0}
                       value={b2bDiscountUgx}
@@ -2704,7 +2618,8 @@ export default function MerchantProStorePage() {
           )}
 
           {/* ELITE SECTION: DYNAMIC DIGITAL PRODUCTS MANAGEMENT */}
-          {eliteSection === "digital" && (
+          {eliteSection === "digital" && store.permissions?.manage_digital === false && <p role="status" className="home-card">Your team role cannot manage digital products. Ask the business owner for access.</p>}
+          {eliteSection === "digital" && store.permissions?.manage_digital !== false && (
             <div className="space-y-5">
               {/* Top Digital Stats Bar */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -2773,8 +2688,8 @@ export default function MerchantProStorePage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Product Title</label>
-                      <input
+                      <label htmlFor="store-field-29" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Product Title</label>
+                      <input id="store-field-29"
                         type="text"
                         required
                         value={digTitle}
@@ -2784,8 +2699,8 @@ export default function MerchantProStorePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Product Kind</label>
-                      <select
+                      <label htmlFor="store-field-30" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Product Kind</label>
+                      <select id="store-field-30"
                         value={digKind}
                         onChange={(e) => setDigKind(e.target.value as any)}
                         className="w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] p-2.5 text-xs text-ink font-semibold"
@@ -2800,8 +2715,8 @@ export default function MerchantProStorePage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Price (UGX)</label>
-                      <input
+                      <label htmlFor="store-field-31" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Price (UGX)</label>
+                      <input id="store-field-31"
                         type="number"
                         required
                         min="0"
@@ -2812,8 +2727,8 @@ export default function MerchantProStorePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Compare-At Price (UGX)</label>
-                      <input
+                      <label htmlFor="store-field-32" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Compare-At Price (UGX)</label>
+                      <input id="store-field-32"
                         type="number"
                         min="0"
                         value={digCompareAt}
@@ -2823,8 +2738,8 @@ export default function MerchantProStorePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Cover Image URL</label>
-                      <input
+                      <label htmlFor="store-field-33" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Cover Image URL</label>
+                      <input id="store-field-33"
                         type="url"
                         value={digCoverUrl}
                         onChange={(e) => setDigCoverUrl(e.target.value)}
@@ -2835,8 +2750,8 @@ export default function MerchantProStorePage() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Product Description</label>
-                    <textarea
+                    <label htmlFor="store-field-34" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Product Description</label>
+                    <textarea id="store-field-34"
                       rows={2}
                       value={digDescription}
                       onChange={(e) => setDigDescription(e.target.value)}
@@ -2847,8 +2762,8 @@ export default function MerchantProStorePage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Download File URL (R2 / CDN / Google Drive)</label>
-                      <input
+                      <label htmlFor="store-field-35" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Download File URL (R2 / CDN / Google Drive)</label>
+                      <input id="store-field-35"
                         type="url"
                         value={digFileUrl}
                         onChange={(e) => setDigFileUrl(e.target.value)}
@@ -2857,8 +2772,8 @@ export default function MerchantProStorePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">File Display Name</label>
-                      <input
+                      <label htmlFor="store-field-36" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">File Display Name</label>
+                      <input id="store-field-36"
                         type="text"
                         value={digFileName}
                         onChange={(e) => setDigFileName(e.target.value)}
@@ -2870,10 +2785,10 @@ export default function MerchantProStorePage() {
 
                   {digKind === "license_key" && (
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-gold mb-1">
+                      <label htmlFor="store-field-37" className="block text-[11px] font-bold uppercase text-gold mb-1">
                         License Keys Pool (One key per line — automatically assigned to buyers)
                       </label>
-                      <textarea
+                      <textarea id="store-field-37"
                         rows={3}
                         value={digLicenseKeys}
                         onChange={(e) => setDigLicenseKeys(e.target.value)}
@@ -2885,8 +2800,8 @@ export default function MerchantProStorePage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Max Downloads Per Buyer (0 = Unlimited)</label>
-                      <input
+                      <label htmlFor="store-field-38" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Max Downloads Per Buyer (0 = Unlimited)</label>
+                      <input id="store-field-38"
                         type="number"
                         min="0"
                         max="100"
@@ -2896,8 +2811,8 @@ export default function MerchantProStorePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Token Expiry (Days, 0 = Never)</label>
-                      <input
+                      <label htmlFor="store-field-39" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Token Expiry (Days, 0 = Never)</label>
+                      <input id="store-field-39"
                         type="number"
                         min="0"
                         max="365"
@@ -2907,8 +2822,8 @@ export default function MerchantProStorePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Delivery Instructions</label>
-                      <input
+                      <label htmlFor="store-field-40" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Delivery Instructions</label>
+                      <input id="store-field-40"
                         type="text"
                         value={digDeliveryInstructions}
                         onChange={(e) => setDigDeliveryInstructions(e.target.value)}
@@ -2981,7 +2896,7 @@ export default function MerchantProStorePage() {
                         )}
                         <button
                           type="button"
-                          onClick={() => handleDeleteDigitalProduct(p.id)}
+                          aria-label={`Delete ${p.title}`} onClick={() => handleDeleteDigitalProduct(p.id)}
                           className="text-red-500 hover:text-red-600 pl-2"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -3068,7 +2983,8 @@ export default function MerchantProStorePage() {
           )}
 
           {/* ELITE SECTION: ROBUST LMS & PEEBEE LEARN DIRECT SYNC */}
-          {eliteSection === "lms" && (
+          {eliteSection === "lms" && store.permissions?.manage_digital === false && <p role="status" className="home-card">Your team role cannot manage courses. Ask the business owner for access.</p>}
+          {eliteSection === "lms" && store.permissions?.manage_digital !== false && (
             <div className="space-y-5">
               {/* Header with Peebee Learn Sync Status */}
               <div className="rounded-[24px] border border-gold/40 bg-gradient-to-br from-black-900 via-neutral-900 to-black-900 p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -3115,19 +3031,19 @@ export default function MerchantProStorePage() {
                 <div className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-xs">
                   <span className="text-[10px] font-bold uppercase text-ink-500">Enrolled Students</span>
                   <div className="mt-1 font-serif text-xl font-black text-emerald-600">
-                    {lmsCourses.reduce((sum, c) => sum + (c.enrolled_students_count || 0), 0) + lmsEnrollments.length}
+                    {lmsEnrollments.length}
                   </div>
                   <span className="text-[10px] text-ink-400">Active learners in portal</span>
                 </div>
                 <div className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-xs">
                   <span className="text-[10px] font-bold uppercase text-ink-500">Avg Completion Rate</span>
-                  <div className="mt-1 font-serif text-xl font-black text-gold">78%</div>
+                  <div className="mt-1 font-serif text-xl font-black text-gold">{lmsEnrollments.length ? `${Math.round(lmsEnrollments.reduce((sum, e) => sum + Number(e.progress_percent || 0), 0) / lmsEnrollments.length)}%` : "No learners yet"}</div>
                   <span className="text-[10px] text-ink-400">Module & lesson mastery</span>
                 </div>
                 <div className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-xs">
                   <span className="text-[10px] font-bold uppercase text-ink-500">Certificates Issued</span>
                   <div className="mt-1 font-serif text-xl font-black text-ink">
-                    {lmsEnrollments.filter((e) => e.certificate_issued).length + 14}
+                    {lmsEnrollments.filter((e) => e.certificate_issued).length}
                   </div>
                   <span className="text-[10px] text-ink-400">Verified credentials</span>
                 </div>
@@ -3154,8 +3070,8 @@ export default function MerchantProStorePage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Course Title</label>
-                      <input
+                      <label htmlFor="store-field-41" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Course Title</label>
+                      <input id="store-field-41"
                         type="text"
                         required
                         value={courseTitle}
@@ -3165,8 +3081,8 @@ export default function MerchantProStorePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Peebee Learn Stream</label>
-                      <select
+                      <label htmlFor="store-field-42" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Peebee Learn Stream</label>
+                      <select id="store-field-42"
                         value={courseStream}
                         onChange={(e) => setCourseStream(e.target.value as any)}
                         className="w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] p-2.5 text-xs text-ink font-semibold"
@@ -3182,8 +3098,8 @@ export default function MerchantProStorePage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Enrollment Price (UGX)</label>
-                      <input
+                      <label htmlFor="store-field-43" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Enrollment Price (UGX)</label>
+                      <input id="store-field-43"
                         type="number"
                         min="0"
                         value={coursePrice}
@@ -3193,8 +3109,8 @@ export default function MerchantProStorePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Cover Artwork URL</label>
-                      <input
+                      <label htmlFor="store-field-44" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Cover Artwork URL</label>
+                      <input id="store-field-44"
                         type="url"
                         value={courseCoverUrl}
                         onChange={(e) => setCourseCoverUrl(e.target.value)}
@@ -3205,8 +3121,8 @@ export default function MerchantProStorePage() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Course Summary & Outcomes</label>
-                    <textarea
+                    <label htmlFor="store-field-45" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Course Summary & Outcomes</label>
+                    <textarea id="store-field-45"
                       rows={2}
                       value={courseSummary}
                       onChange={(e) => setCourseSummary(e.target.value)}
@@ -3411,8 +3327,8 @@ export default function MerchantProStorePage() {
 
                     <form onSubmit={handleEnrollStudent} className="space-y-3">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Select Masterclass</label>
-                        <select
+                        <label htmlFor="store-field-46" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Select Masterclass</label>
+                        <select id="store-field-46"
                           required
                           value={enrollCourseId}
                           onChange={(e) => setEnrollCourseId(e.target.value)}
@@ -3428,8 +3344,8 @@ export default function MerchantProStorePage() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Student Full Name</label>
-                        <input
+                        <label htmlFor="store-field-47" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Student Full Name</label>
+                        <input id="store-field-47"
                           type="text"
                           required
                           value={enrollStudentName}
@@ -3440,8 +3356,8 @@ export default function MerchantProStorePage() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Student Phone (MTN / Airtel)</label>
-                        <input
+                        <label htmlFor="store-field-48" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Student Phone (MTN / Airtel)</label>
+                        <input id="store-field-48"
                           type="tel"
                           required
                           value={enrollStudentPhone}
@@ -3452,8 +3368,8 @@ export default function MerchantProStorePage() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Email Address (Optional)</label>
-                        <input
+                        <label htmlFor="store-field-49" className="block text-[11px] font-bold uppercase text-ink-500 mb-1">Email Address (Optional)</label>
+                        <input id="store-field-49"
                           type="email"
                           value={enrollStudentEmail}
                           onChange={(e) => setEnrollStudentEmail(e.target.value)}
@@ -3596,8 +3512,8 @@ export default function MerchantProStorePage() {
                     <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500">Register New Wholesaler / Supplier</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-ink-500 mb-1">Company / Supplier Name *</label>
-                        <input
+                        <label htmlFor="store-field-50" className="block text-[11px] font-bold text-ink-500 mb-1">Company / Supplier Name *</label>
+                        <input id="store-field-50"
                           type="text"
                           required
                           value={supName}
@@ -3607,8 +3523,8 @@ export default function MerchantProStorePage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-ink-500 mb-1">Contact Person</label>
-                        <input
+                        <label htmlFor="store-field-51" className="block text-[11px] font-bold text-ink-500 mb-1">Contact Person</label>
+                        <input id="store-field-51"
                           type="text"
                           value={supContact}
                           onChange={(e) => setSupContact(e.target.value)}
@@ -3617,8 +3533,8 @@ export default function MerchantProStorePage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-ink-500 mb-1">Phone Number</label>
-                        <input
+                        <label htmlFor="store-field-52" className="block text-[11px] font-bold text-ink-500 mb-1">Phone Number</label>
+                        <input id="store-field-52"
                           type="text"
                           value={supPhone}
                           onChange={(e) => setSupPhone(e.target.value)}
@@ -3627,8 +3543,8 @@ export default function MerchantProStorePage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-ink-500 mb-1">Address / Warehouse</label>
-                        <input
+                        <label htmlFor="store-field-53" className="block text-[11px] font-bold text-ink-500 mb-1">Address / Warehouse</label>
+                        <input id="store-field-53"
                           type="text"
                           value={supAddress}
                           onChange={(e) => setSupAddress(e.target.value)}
@@ -3698,8 +3614,8 @@ export default function MerchantProStorePage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-ink-500 mb-1">Select Supplier</label>
-                        <select
+                        <label htmlFor="store-field-54" className="block text-[11px] font-bold text-ink-500 mb-1">Select Supplier</label>
+                        <select id="store-field-54"
                           value={poSupplierId}
                           onChange={(e) => setPoSupplierId(e.target.value)}
                           className="w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2 text-xs text-ink"
@@ -3714,8 +3630,8 @@ export default function MerchantProStorePage() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-ink-500 mb-1">Destination Receiving Outlet</label>
-                        <select
+                        <label htmlFor="store-field-55" className="block text-[11px] font-bold text-ink-500 mb-1">Destination Receiving Outlet</label>
+                        <select id="store-field-55"
                           value={poOutletId}
                           onChange={(e) => setPoOutletId(e.target.value)}
                           className="w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2 text-xs text-ink"
@@ -3815,8 +3731,8 @@ export default function MerchantProStorePage() {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-ink-500 mb-1">Notes / Terms</label>
-                      <input
+                      <label htmlFor="store-field-56" className="block text-[11px] font-bold text-ink-500 mb-1">Notes / Terms</label>
+                      <input id="store-field-56"
                         type="text"
                         value={poNotes}
                         onChange={(e) => setPoNotes(e.target.value)}
@@ -4002,8 +3918,8 @@ export default function MerchantProStorePage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-ink-500 mb-1">Bundle Title *</label>
-                        <input
+                        <label htmlFor="store-field-57" className="block text-[11px] font-bold text-ink-500 mb-1">Bundle Title *</label>
+                        <input id="store-field-57"
                           type="text"
                           required
                           value={bundleTitle}
@@ -4015,8 +3931,8 @@ export default function MerchantProStorePage() {
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-[11px] font-bold text-ink-500 mb-1">Bundle Price (UGX) *</label>
-                          <input
+                          <label htmlFor="store-field-58" className="block text-[11px] font-bold text-ink-500 mb-1">Bundle Price (UGX) *</label>
+                          <input id="store-field-58"
                             type="number"
                             required
                             min="0"
@@ -4027,8 +3943,8 @@ export default function MerchantProStorePage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold text-ink-500 mb-1">Original Price (UGX)</label>
-                          <input
+                          <label htmlFor="store-field-59" className="block text-[11px] font-bold text-ink-500 mb-1">Original Price (UGX)</label>
+                          <input id="store-field-59"
                             type="number"
                             min="0"
                             value={bundleCompareAt}
@@ -4041,8 +3957,8 @@ export default function MerchantProStorePage() {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-ink-500 mb-1">Description</label>
-                      <input
+                      <label htmlFor="store-field-60" className="block text-[11px] font-bold text-ink-500 mb-1">Description</label>
+                      <input id="store-field-60"
                         type="text"
                         value={bundleDesc}
                         onChange={(e) => setBundleDesc(e.target.value)}
@@ -4253,8 +4169,8 @@ export default function MerchantProStorePage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-ink-500 mb-1">Customer Phone *</label>
-                      <input
+                      <label htmlFor="store-field-61" className="block text-[11px] font-bold text-ink-500 mb-1">Customer Phone *</label>
+                      <input id="store-field-61"
                         type="text"
                         required
                         value={winbackPhone}
@@ -4264,8 +4180,8 @@ export default function MerchantProStorePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-ink-500 mb-1">Customer Name</label>
-                      <input
+                      <label htmlFor="store-field-62" className="block text-[11px] font-bold text-ink-500 mb-1">Customer Name</label>
+                      <input id="store-field-62"
                         type="text"
                         value={winbackName}
                         onChange={(e) => setWinbackName(e.target.value)}
@@ -4274,8 +4190,8 @@ export default function MerchantProStorePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-ink-500 mb-1">Promo Code</label>
-                      <input
+                      <label htmlFor="store-field-63" className="block text-[11px] font-bold text-ink-500 mb-1">Promo Code</label>
+                      <input id="store-field-63"
                         type="text"
                         value={winbackDiscount}
                         onChange={(e) => setWinbackDiscount(e.target.value)}
@@ -4330,7 +4246,7 @@ export default function MerchantProStorePage() {
                       className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow transition active:scale-95 disabled:opacity-50"
                     >
                       <Send className="h-3.5 w-3.5" />
-                      <span>{winbackSubmitting ? "Generating..." : "Launch WhatsApp Offer"}</span>
+                      <span>{winbackSubmitting ? "Generating..." : "Prepare WhatsApp offer"}</span>
                     </button>
                   </div>
                 </form>
@@ -4401,7 +4317,7 @@ export default function MerchantProStorePage() {
                             <p className="text-[10px] text-ink-500 line-clamp-1">{camp.message}</p>
                           </div>
                           <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
-                            {camp.status}
+                            {camp.status === "draft" ? "Prepared · delivery unconfirmed" : camp.status}
                           </span>
                         </div>
                       ))}
@@ -4422,7 +4338,7 @@ export default function MerchantProStorePage() {
                       <SlidersHorizontal className="h-4 w-4" />
                     </span>
                     <h3 className="font-serif text-lg font-black text-ink">Store 2.0 Visual Section Page Builder</h3>
-                    <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-[10px] font-black text-gold">Shopify Plus Level</span>
+                    <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-[10px] font-black text-gold">Merchant Elite Level</span>
                   </div>
                   <p className="mt-1 text-xs text-ink-500">
                     Reorder homepage sections, toggle visibility, and customize section headlines directly without code.
@@ -4608,8 +4524,8 @@ export default function MerchantProStorePage() {
                 <form onSubmit={handleSendDirectSms} className="space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="text-xs font-semibold text-ink-500">Customer Phone Number</label>
-                      <input
+                      <label htmlFor="store-field-64" className="text-xs font-semibold text-ink-500">Customer Phone Number</label>
+                      <input id="store-field-64"
                         type="text"
                         value={smsRecipientPhone}
                         onChange={(e) => setSmsRecipientPhone(e.target.value)}
@@ -4618,8 +4534,8 @@ export default function MerchantProStorePage() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-ink-500">Customer Name (Optional)</label>
-                      <input
+                      <label htmlFor="store-field-65" className="text-xs font-semibold text-ink-500">Customer Name (Optional)</label>
+                      <input id="store-field-65"
                         type="text"
                         value={smsRecipientName}
                         onChange={(e) => setSmsRecipientName(e.target.value)}
@@ -4628,8 +4544,8 @@ export default function MerchantProStorePage() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-ink-500">Alert Type</label>
-                      <select
+                      <label htmlFor="store-field-66" className="text-xs font-semibold text-ink-500">Alert Type</label>
+                      <select id="store-field-66"
                         value={smsMessageType}
                         onChange={(e) => {
                           const val = e.target.value as any;
@@ -4653,8 +4569,8 @@ export default function MerchantProStorePage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">SMS Message Content</label>
-                    <textarea
+                    <label htmlFor="store-field-67" className="text-xs font-semibold text-ink-500">SMS Message Content</label>
+                    <textarea id="store-field-67"
                       rows={2}
                       value={smsBody}
                       onChange={(e) => setSmsBody(e.target.value)}
@@ -4931,8 +4847,8 @@ export default function MerchantProStorePage() {
               {!isLiveActive ? (
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">Stream Title</label>
-                    <input
+                    <label htmlFor="store-field-68" className="text-xs font-semibold text-ink-500">Stream Title</label>
+                    <input id="store-field-68"
                       type="text"
                       value={liveTitle}
                       onChange={(e) => setLiveTitle(e.target.value)}
@@ -4942,14 +4858,14 @@ export default function MerchantProStorePage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-ink-500">
-                      Replay / Restream Video URL (Optional)
+                    <label htmlFor="store-field-69" className="text-xs font-semibold text-ink-500">
+                      Hosted stream URL (HTTPS, required)
                     </label>
-                    <input
+                    <input id="store-field-69"
                       type="text"
                       value={liveStreamUrl}
                       onChange={(e) => setLiveStreamUrl(e.target.value)}
-                      placeholder="https://commondatastorage.googleapis.com/... or Leave blank for Camera"
+                      placeholder="https://your-video-host.example/stream.m3u8"
                       className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-3 text-sm text-ink placeholder:text-ink-500/50 focus:border-gold focus:outline-none"
                     />
                   </div>
@@ -4973,10 +4889,10 @@ export default function MerchantProStorePage() {
 
                   <button
                     onClick={handleStartLiveSession}
-                    disabled={startingLive || !liveTitle.trim()}
+                    disabled={startingLive || !liveTitle.trim() || !/^https:\/\//i.test(liveStreamUrl.trim())}
                     className="flex w-full items-center justify-center gap-2 rounded-full bg-red-600 py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-red-700 active:scale-98 disabled:opacity-50"
                   >
-                    {startingLive ? "Connecting Broadcast…" : "🔴 Start Live Stream Now"}
+                    {startingLive ? "Listing stream…" : "List hosted stream"}
                   </button>
                 </div>
               ) : (
@@ -4994,9 +4910,9 @@ export default function MerchantProStorePage() {
                     ) : (
                       <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-b from-neutral-800 to-black text-white p-6 text-center">
                         <Camera className="h-12 w-12 text-gold animate-bounce mb-3" />
-                        <h4 className="font-bold text-lg">Camera Live Feed</h4>
+                        <h4 className="font-bold text-lg">No hosted stream connected</h4>
                         <p className="text-xs text-neutral-400 mt-1">
-                          You are broadcasting to shoppers across Kampala.
+                          Add a hosted HTTPS stream URL to display video here.
                         </p>
                       </div>
                     )}
@@ -5006,7 +4922,7 @@ export default function MerchantProStorePage() {
                         <Radio className="h-3 w-3" /> LIVE
                       </span>
                       <span className="flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-md">
-                        <Users className="h-3 w-3 text-gold" /> 148 watching
+                        <Users className="h-3 w-3 text-gold" /> Viewer count unavailable
                       </span>
                     </div>
 
@@ -5041,37 +4957,8 @@ export default function MerchantProStorePage() {
                       </div>
                     )}
 
-                    <div className="absolute bottom-4 inset-x-3 flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={newChatMessage}
-                        onChange={(e) => setNewChatMessage(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSendMerchantChat()}
-                        placeholder="Say something to viewers…"
-                        className="flex-1 rounded-full bg-black/60 px-3.5 py-2 text-xs text-white placeholder:text-neutral-400 backdrop-blur-md border border-white/20 focus:outline-none"
-                      />
-                      <button
-                        onClick={handleSendMerchantChat}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-gold text-ink"
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={triggerReaction}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white"
-                      >
-                        <Heart className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    <p className="absolute bottom-4 inset-x-3 rounded-xl bg-[rgb(var(--surface-card))] p-3 text-xs text-ink">In-app chat and reactions are not connected. Use your stream provider to interact with viewers.</p>
 
-                    {liveHearts.map((id) => (
-                      <div
-                        key={id}
-                        className="absolute bottom-16 right-6 text-red-500 animate-bounce text-2xl transition duration-1000"
-                      >
-                        ❤️
-                      </div>
-                    ))}
                   </div>
                 </div>
               )}
@@ -5089,9 +4976,9 @@ export default function MerchantProStorePage() {
                 <Megaphone className="h-4 w-4" />
               </span>
               <div>
-                <h3 className="font-bold text-base text-ink">1-Click Social Ads Launcher</h3>
+                <h3 className="font-bold text-base text-ink">Social campaign planner · preview</h3>
                 <p className="text-xs text-ink-500">
-                  Target shoppers on WhatsApp, Instagram & TikTok with direct Click-to-Chat & Buy.
+              Plan an offer for WhatsApp, Instagram or TikTok. This preview does not fund or publish advertisements.
                 </p>
               </div>
             </div>
@@ -5139,8 +5026,8 @@ export default function MerchantProStorePage() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-ink-500">Ad Headline / Offer</label>
-                <input
+                <label htmlFor="store-field-70" className="text-xs font-semibold text-ink-500">Ad Headline / Offer</label>
+                <input id="store-field-70"
                   type="text"
                   value={adHeadline}
                   onChange={(e) => setAdHeadline(e.target.value)}
@@ -5151,8 +5038,8 @@ export default function MerchantProStorePage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-ink-500">Daily Budget (UGX)</label>
-                  <input
+                  <label htmlFor="store-field-71" className="text-xs font-semibold text-ink-500">Daily Budget (UGX)</label>
+                  <input id="store-field-71"
                     type="number"
                     value={adBudget}
                     onChange={(e) => setAdBudget(e.target.value)}
@@ -5194,48 +5081,28 @@ export default function MerchantProStorePage() {
 
               <div className="rounded-2xl bg-[rgb(var(--surface-muted))] p-3 text-xs space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-ink-500">Total Campaign Spend:</span>
+                  <span className="text-ink-500">Planned budget:</span>
                   <span className="font-bold font-mono text-ink">
                     {ugx(Number(adBudget) * Number(adDuration))}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-ink-500">Estimated Reach:</span>
-                  <span className="font-bold text-gold">14,000 - 35,000 Local Shoppers</span>
+                  <span className="text-ink-500">Advertising availability:</span>
+                  <span className="font-bold text-gold">Not connected</span>
                 </div>
               </div>
 
               <button
                 onClick={handleLaunchAd}
-                disabled={launchingAd || !adHeadline.trim()}
+                disabled={!adHeadline.trim()}
                 className="flex w-full items-center justify-center gap-2 rounded-full bg-gold py-3.5 text-sm font-bold text-ink-gold shadow-md transition active:scale-98 disabled:opacity-50"
               >
-                {launchingAd ? "Submitting Campaign…" : "Fund & Launch Ad Campaign →"}
+                Preview campaign · no charge
               </button>
             </div>
           </div>
 
-          {adCampaigns.length > 0 && (
-            <div className="rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm space-y-3">
-              <h4 className="font-bold text-sm text-ink">Active Social Campaigns</h4>
-              {adCampaigns.map((c) => (
-                <div
-                  key={c.id}
-                  className="flex items-center justify-between border-t border-[var(--border-faint)] pt-3 text-xs"
-                >
-                  <div>
-                    <span className="font-bold text-ink uppercase">{c.platform}</span> · {c.headline}
-                    <p className="text-[10px] text-ink-500">
-                      {c.duration_days} days · {ugx(c.daily_budget_ugx)}/day
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-green-500/15 px-2.5 py-1 text-[10px] font-bold text-green-600">
-                    RUNNING
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+
         </div>
       )}
 
@@ -5245,8 +5112,8 @@ export default function MerchantProStorePage() {
           <h3 className="font-bold text-base text-ink">Store Profile & Delivery Rules</h3>
 
           <div>
-            <label className="text-xs font-semibold text-ink-500">Store Name</label>
-            <input
+            <label htmlFor="store-field-72" className="text-xs font-semibold text-ink-500">Store Name</label>
+            <input id="store-field-72"
               type="text"
               value={store.name}
               disabled
@@ -5255,8 +5122,8 @@ export default function MerchantProStorePage() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-ink-500">Minimum Order (UGX)</label>
-            <input
+            <label htmlFor="store-field-73" className="text-xs font-semibold text-ink-500">Minimum Order (UGX)</label>
+            <input id="store-field-73"
               type="number"
               value={store.min_order_amount ?? 5000}
               disabled
@@ -5295,8 +5162,8 @@ export default function MerchantProStorePage() {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-ink-500">Product Title</label>
-                <input
+                <label htmlFor="store-field-74" className="text-xs font-semibold text-ink-500">Product Title</label>
+                <input id="store-field-74"
                   type="text"
                   value={productTitle}
                   onChange={(e) => setProductTitle(e.target.value)}
@@ -5306,8 +5173,8 @@ export default function MerchantProStorePage() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-ink-500">Short Description</label>
-                <textarea
+                <label htmlFor="store-field-75" className="text-xs font-semibold text-ink-500">Short Description</label>
+                <textarea id="store-field-75"
                   value={productDesc}
                   onChange={(e) => setProductDesc(e.target.value)}
                   placeholder="e.g. Ripe, creamy Hass avocados sourced directly from Mbale orchards."
@@ -5318,8 +5185,8 @@ export default function MerchantProStorePage() {
 
               <div className="grid grid-cols-3 gap-2.5">
                 <div>
-                  <label className="text-xs font-semibold text-ink-500">Selling Price (UGX)</label>
-                  <input
+                  <label htmlFor="store-field-76" className="text-xs font-semibold text-ink-500">Selling Price (UGX)</label>
+                  <input id="store-field-76"
                     type="number"
                     value={productPrice}
                     onChange={(e) => setProductPrice(e.target.value)}
@@ -5329,8 +5196,8 @@ export default function MerchantProStorePage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-ink-500">Compare Price</label>
-                  <input
+                  <label htmlFor="store-field-77" className="text-xs font-semibold text-ink-500">Compare Price</label>
+                  <input id="store-field-77"
                     type="number"
                     value={productComparePrice}
                     onChange={(e) => setProductComparePrice(e.target.value)}
@@ -5340,8 +5207,8 @@ export default function MerchantProStorePage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-ink-500">Cost Price (COGS)</label>
-                  <input
+                  <label htmlFor="store-field-78" className="text-xs font-semibold text-ink-500">Cost Price (COGS)</label>
+                  <input id="store-field-78"
                     type="number"
                     value={productCostPrice}
                     onChange={(e) => setProductCostPrice(e.target.value)}
@@ -5353,8 +5220,8 @@ export default function MerchantProStorePage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-ink-500">Initial Stock</label>
-                  <input
+                  <label htmlFor="store-field-79" className="text-xs font-semibold text-ink-500">Initial Stock</label>
+                  <input id="store-field-79"
                     type="number"
                     value={productStock}
                     onChange={(e) => setProductStock(e.target.value)}
@@ -5363,8 +5230,8 @@ export default function MerchantProStorePage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-ink-500">Category Name</label>
-                  <input
+                  <label htmlFor="store-field-80" className="text-xs font-semibold text-ink-500">Category Name</label>
+                  <input id="store-field-80"
                     type="text"
                     value={productCategory}
                     onChange={(e) => setProductCategory(e.target.value)}
@@ -5375,8 +5242,8 @@ export default function MerchantProStorePage() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-ink-500">Product Image URL</label>
-                <input
+                <label htmlFor="store-field-81" className="text-xs font-semibold text-ink-500">Product Image URL</label>
+                <input id="store-field-81"
                   type="text"
                   value={productImage}
                   onChange={(e) => setProductImage(e.target.value)}
@@ -5433,8 +5300,8 @@ export default function MerchantProStorePage() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-ink-500">Badge (Optional)</label>
-                <input
+                <label htmlFor="store-field-82" className="text-xs font-semibold text-ink-500">Badge (Optional)</label>
+                <input id="store-field-82"
                   type="text"
                   value={productBadge}
                   onChange={(e) => setProductBadge(e.target.value)}

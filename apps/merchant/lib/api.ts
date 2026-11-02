@@ -9,7 +9,12 @@ export function getStoredToken() {
 
 export const api = createApiClient({
   baseUrl: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:10000",
-  fetchImpl: createPracticeFetch("merchant"),
+  fetchImpl: (input, init) => {
+    const headers = new Headers(init?.headers);
+    const selected = typeof window === "undefined" ? null : localStorage.getItem("peebee_merchant_selected");
+    if (selected) headers.set("X-Merchant-Id", selected);
+    return createPracticeFetch("merchant")(input, { ...init, headers });
+  },
   getToken: getStoredToken,
   onUnauthorized() {
     if (typeof window === "undefined") return;

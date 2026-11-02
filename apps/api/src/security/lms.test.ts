@@ -11,6 +11,7 @@ async function setup() {
   const client = await freshDatabase();
   const admin = await addAdmin(client);
   const seller = await addMerchantStore(client, "u_lms_seller");
+  assert.equal((await seller.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
   const course = async (body: object = {}) =>
     json(await seller.call("/merchants/me/lms/courses", "POST", {
       title: "Poultry Masterclass", price_ugx: 40000,
@@ -135,6 +136,7 @@ test("progress, completion and certificates come from what learners really did",
 test("Learn listing follows the admin option, and syncing never takes another store's course", async () => {
   const { client, admin, seller, course } = await setup();
   const other = await addMerchantStore(client, "u_lms_other");
+  assert.equal((await other.call("/merchants/me/store/tier", "POST", {tier: "elite"})).status, 200);
 
   const auto = await course({ title: "Listed Course" });
   assert.ok((await catalogIds()).includes(auto.course.id), "two-way sync: it is in the Learn catalogue");

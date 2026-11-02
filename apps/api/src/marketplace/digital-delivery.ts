@@ -265,7 +265,7 @@ function looksExecutable(head: Uint8Array): boolean {
 
 /** Upload (or replace) the private file for a product. The body is the file itself, streamed to storage. */
 digitalDeliveryRoutes.put("/merchants/me/digital-products/:id/file", requireAuth, async (c) => {
-  const store = await getMerchantStore(c.get("user").sub);
+  const store = await getMerchantStore(c.get("user").sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
   const pending = await migrationPending(c, "0138_digital_fulfillment.sql", "store_digital_products");
   if (pending) return pending;
@@ -312,7 +312,7 @@ digitalDeliveryRoutes.put("/merchants/me/digital-products/:id/file", requireAuth
 });
 
 digitalDeliveryRoutes.get("/merchants/me/digital-products/:id/license-pool", requireAuth, async (c) => {
-  const store = await getMerchantStore(c.get("user").sub);
+  const store = await getMerchantStore(c.get("user").sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
   const owned = (await db.execute({ sql: "SELECT id FROM store_digital_products WHERE id = ? AND store_id = ?", args: [c.req.param("id")!, String(store.id)] })).rows[0];
   if (!owned) return c.json({ error: "not_found" }, 404);
@@ -325,7 +325,7 @@ digitalDeliveryRoutes.get("/merchants/me/digital-products/:id/license-pool", req
 
 /** Refund a sale from the merchant's balance and (admin option) end the buyer's access. */
 digitalDeliveryRoutes.post("/merchants/me/digital-fulfillments/:id/refund", requireAuth, async (c) => {
-  const store = await getMerchantStore(c.get("user").sub);
+  const store = await getMerchantStore(c.get("user").sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
   const result = await refundFulfillment({ fulfillmentId: c.req.param("id")!, storeId: String(store.id), actorId: c.get("user").sub });
   if (!result.ok) return c.json({ error: result.error, message: result.message }, result.error === "not_found" ? 404 : 409);
@@ -334,7 +334,7 @@ digitalDeliveryRoutes.post("/merchants/me/digital-fulfillments/:id/refund", requ
 
 /** A backordered licence: the merchant types the key in by hand. */
 digitalDeliveryRoutes.post("/merchants/me/digital-fulfillments/:id/license", requireAuth, async (c) => {
-  const store = await getMerchantStore(c.get("user").sub);
+  const store = await getMerchantStore(c.get("user").sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
   const body = (await c.req.json().catch(() => ({}))) as { license_key?: unknown };
   const key = typeof body.license_key === "string" ? body.license_key.trim() : "";
@@ -349,7 +349,7 @@ digitalDeliveryRoutes.post("/merchants/me/digital-fulfillments/:id/license", req
 
 /** Send the buyer a new link by SMS (the old one stops working). */
 digitalDeliveryRoutes.post("/merchants/me/digital-fulfillments/:id/resend", requireAuth, async (c) => {
-  const store = await getMerchantStore(c.get("user").sub);
+  const store = await getMerchantStore(c.get("user").sub, c.req.header("X-Merchant-Id"));
   if (!store) return c.json({ error: "no_store" }, 404);
   const row = (await db.execute({
     sql: "SELECT f.id, f.customer_phone, p.title FROM store_digital_fulfillments f JOIN store_digital_products p ON p.id = f.digital_product_id WHERE f.id = ? AND f.store_id = ? AND f.status = 'active'",

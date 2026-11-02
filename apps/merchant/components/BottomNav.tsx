@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Building2, CreditCard, LayoutGrid, Store, UserRound, WalletCards } from "lucide-react";
+import { MoreHorizontal, Briefcase, Building2, CreditCard, LayoutGrid, Store, UserRound, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
@@ -33,12 +33,12 @@ export function BottomNav() {
     >
       <div className="mx-auto flex max-w-lg items-center justify-center">
         <ul className="customer-nav-capsule pointer-events-auto flex w-full items-stretch justify-around rounded-[24px] p-1.5 gap-1">
-          {visibleTabs.map((tab) => {
+          {visibleTabs.map((tab, index) => {
             const active = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
             const Icon = tab.icon;
 
             return (
-              <li key={tab.href} className="flex-1">
+              <li key={tab.href} className={`min-w-0 flex-1 ${index >= 4 ? "hidden sm:block" : ""}`}>
                 <Link
                   href={tab.href}
                   aria-current={active ? "page" : undefined}
@@ -58,6 +58,16 @@ export function BottomNav() {
               </li>
             );
           })}
+          <li className="min-w-0 flex-1 sm:hidden">
+            <details className="relative">
+              <summary className="customer-nav-item flex h-[58px] cursor-pointer list-none flex-col items-center justify-center gap-1 rounded-[18px] text-[11px] font-bold" aria-label="More merchant pages">
+                <MoreHorizontal className="h-5 w-5" aria-hidden /><span>More</span>
+              </summary>
+              <ul className="absolute bottom-full right-0 mb-3 min-w-44 space-y-1 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-2 shadow-xl">
+                {visibleTabs.slice(4).map(tab => <li key={tab.href}><Link href={tab.href} aria-current={pathname.startsWith(tab.href) ? "page" : undefined} className="block min-h-11 rounded-xl px-4 py-3 text-sm font-bold text-ink" onClick={event => event.currentTarget.closest("details")?.removeAttribute("open")}>{tab.label}</Link></li>)}
+              </ul>
+            </details>
+          </li>
         </ul>
       </div>
     </nav>

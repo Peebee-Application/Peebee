@@ -23,7 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { merchant } = useAuth();
   const activeTheme = useResolvedTheme();
   const isDarkMode = activeTheme === "dark";
-  const bare = pathname === "/login" || pathname === "/apply" || pathname === "/activate";
+  const bare = pathname === "/forgot-password" || pathname === "/login" || pathname === "/apply" || pathname === "/activate";
 
   return (
     <AuthGate>
@@ -31,7 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {!bare && <PracticeModePrompt role="merchant" />}
       {!bare && (
         <header className="customer-header sticky top-0 z-30 transition-colors">
-          <div className="mx-auto flex h-16 max-w-xl items-center justify-between gap-3 px-4">
+          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
             <Link
               href="/"
               aria-label="Go to merchant home"
@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
       {!bare && <PracticeModeBanner role="merchant" />}
       {!bare && <ServiceBanner />}
-      <main className={`mx-auto min-h-dvh max-w-xl ${bare ? "" : "pb-[calc(88px+env(safe-area-inset-bottom))]"}`}>
+      <main className={`mx-auto min-h-dvh max-w-6xl ${bare ? "" : "pb-[calc(88px+env(safe-area-inset-bottom))]"}`}>
         <ModuleRouteGate rules={MODULE_ROUTES} pathname={pathname} modules={moduleOn}>{children}</ModuleRouteGate>
       </main>
       {!bare && <BottomNav />}

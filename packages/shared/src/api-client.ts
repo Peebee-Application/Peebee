@@ -2528,6 +2528,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       return request<{ sales: StorePosSale[] }>("/v1/merchants/me/pos-sales");
     },
     async createMerchantPosSale(input: {
+      requestId?: string;
       outlet_id?: string | null;
       customer_phone?: string;
       customer_name?: string;
@@ -2553,6 +2554,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       return request<{ transfers: StoreStockTransfer[] }>("/v1/merchants/me/stock-transfers");
     },
     async createMerchantStockTransfer(input: {
+      requestId?: string;
       productId: string;
       fromOutletId: string;
       toOutletId: string;

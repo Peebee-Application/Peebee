@@ -2,7 +2,7 @@ import { primeDemoAccounts, ridersForThisWorld } from "../practice/people.js";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { db, executeBatch, type DbStatement } from "../db/client.js";
+import { db, executeBatch, requireChangedRow, type DbStatement } from "../db/client.js";
 import { postLedgerTransaction } from "../ledger/service.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
 import { newId } from "../lib/ids.js";
@@ -992,8 +992,8 @@ marketplaceRoutes.get("/merchants/me/store", requireAuth, async (c) => {
   const user = c.get("user");
   // Find merchant linked to this user
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id, role FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id, role FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const member = memberRes.rows[0] as Row | undefined;
   if (!member) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1029,6 +1029,8 @@ marketplaceRoutes.get("/merchants/me/store", requireAuth, async (c) => {
   const isProFree = settings.proPricingMode === "free";
   const planInfo = await storePlan(store, settings);
   const warnDays = Number((await getOptions(["merchant_plan_warn_days"])).merchant_plan_warn_days);
+  const roleOptions = await getOptions(["member_roles_manage_digital", "member_roles_manage_catalog", "member_roles_manage_billing", "member_roles_manage_store_settings", "member_roles_refund_revoke"]);
+  const permissions = Object.fromEntries(Object.entries(roleOptions).map(([key, roles]) => [key.replace("member_roles_", ""), (roles as string[]).includes(String(member.role))]));
 
   return c.json({
     store: {
@@ -1037,6 +1039,7 @@ marketplaceRoutes.get("/merchants/me/store", requireAuth, async (c) => {
       elite_tier: planInfo.isElite ? 1 : 0,
       is_pro_free: isProFree,
       productCount,
+      permissions,
       plan: { ...planInfo, warn: planInfo.daysLeft !== null && planInfo.daysLeft <= warnDays },
     },
     settings,
@@ -1059,8 +1062,8 @@ const createStoreSchema = z.object({
 marketplaceRoutes.post("/merchants/me/store", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id, role FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id, role FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const member = memberRes.rows[0] as Row | undefined;
   if (!member) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1084,8 +1087,8 @@ marketplaceRoutes.post("/merchants/me/store", requireAuth, async (c) => {
 marketplaceRoutes.put("/merchants/me/store", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1229,8 +1232,8 @@ marketplaceRoutes.put("/merchants/me/store", requireAuth, async (c) => {
 marketplaceRoutes.post("/merchants/me/store/domain/verify", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1267,8 +1270,8 @@ const PLAN_LABEL: Record<string, string> = { pro_store: "Merchant Pro (Store)", 
 marketplaceRoutes.post("/merchants/me/store/tier", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id, role FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id, role FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const member = memberRes.rows[0] as Row | undefined;
   if (!member) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1362,8 +1365,8 @@ marketplaceRoutes.post("/merchants/me/store/tier", requireAuth, async (c) => {
 marketplaceRoutes.get("/merchants/me/products", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1429,8 +1432,8 @@ const productSchema = z.object({
 marketplaceRoutes.post("/merchants/me/products", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1512,8 +1515,8 @@ marketplaceRoutes.post("/merchants/me/products", requireAuth, async (c) => {
 marketplaceRoutes.post("/merchants/me/products/starter-pack", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1654,8 +1657,8 @@ marketplaceRoutes.post("/merchants/me/products/starter-pack", requireAuth, async
 marketplaceRoutes.post("/merchants/me/store/live/start", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1663,10 +1666,15 @@ marketplaceRoutes.post("/merchants/me/store/live/start", requireAuth, async (c) 
   const store = await getMerchantStore(merchantId);
   if (!store) return c.json({ error: "no_store" }, 404);
 
+  const liveSettings = await getMarketplaceSettings();
+  if (!liveSettings.liveEnabled) return c.json({ error: "live_disabled", message: "Live selling is disabled by the platform." }, 403);
+  const livePlan = await storePlan(store, liveSettings);
+  if (livePlan.plan !== "pro_live" && !livePlan.isElite) return c.json({ error: "plan_required", requiredPlan: "pro_live", message: "Live selling requires Merchant Pro or Elite." }, 403);
   const body = await c.req.json().catch(() => ({}));
   const sessionId = newId("live");
   const title = body.title || `${store.name} Live Showcase! ✨`;
-  const streamUrl = body.streamUrl || "https://app.peebee.online/demo-video/earbuds.mp4";
+  const streamUrl = typeof body.streamUrl === "string" ? body.streamUrl.trim() : "";
+  if (!streamUrl || !/^https:\/\//i.test(streamUrl)) return c.json({ error: "stream_required", message: "Connect an HTTPS stream URL before starting live selling." }, 400);
   const isRestream = body.isRestream ? 1 : 0;
 
   await db.execute({
@@ -1693,8 +1701,8 @@ marketplaceRoutes.post("/merchants/me/store/live/start", requireAuth, async (c) 
 marketplaceRoutes.post("/merchants/me/store/live/end", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1725,8 +1733,8 @@ marketplaceRoutes.post("/merchants/me/store/live/end", requireAuth, async (c) =>
 marketplaceRoutes.get("/merchants/me/collections", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1777,8 +1785,8 @@ const collectionSchema = z.object({
 marketplaceRoutes.post("/merchants/me/collections", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1829,8 +1837,8 @@ marketplaceRoutes.post("/merchants/me/collections", requireAuth, async (c) => {
 marketplaceRoutes.delete("/merchants/me/collections/:id", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1848,8 +1856,8 @@ marketplaceRoutes.delete("/merchants/me/collections/:id", requireAuth, async (c)
 marketplaceRoutes.get("/merchants/me/discounts", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1881,8 +1889,8 @@ const discountSchema = z.object({
 marketplaceRoutes.post("/merchants/me/discounts", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1938,8 +1946,8 @@ marketplaceRoutes.post("/merchants/me/discounts", requireAuth, async (c) => {
 marketplaceRoutes.delete("/merchants/me/discounts/:id", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1957,8 +1965,8 @@ marketplaceRoutes.delete("/merchants/me/discounts/:id", requireAuth, async (c) =
 marketplaceRoutes.get("/merchants/me/outlet-inventory", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -1997,8 +2005,8 @@ const outletInventorySchema = z.object({
 marketplaceRoutes.put("/merchants/me/outlet-inventory", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2012,13 +2020,16 @@ marketplaceRoutes.put("/merchants/me/outlet-inventory", requireAuth, async (c) =
   const parsed = outletInventorySchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
 
-  await db.execute({
+  if (!(await ownsStockResources(String(store.id), merchantId, parsed.data.productId, [parsed.data.outletId]))) {
+    return c.json({ error: "not_found", message: "Product or outlet not found in this business." }, 404);
+  }
+  await executeBatch([{
     sql: `INSERT INTO store_outlet_inventory (id, store_id, product_id, outlet_id, quantity, low_stock_threshold, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
           ON CONFLICT(product_id, outlet_id) DO UPDATE SET
             quantity = excluded.quantity,
             low_stock_threshold = excluded.low_stock_threshold,
-            updated_at = datetime('now')`,
+            updated_at = datetime('now') WHERE store_outlet_inventory.store_id = excluded.store_id`,
     args: [
       newId("inv"),
       String(store.id),
@@ -2027,28 +2038,32 @@ marketplaceRoutes.put("/merchants/me/outlet-inventory", requireAuth, async (c) =
       parsed.data.quantity,
       parsed.data.lowStockThreshold,
     ],
-  });
-
-  // Sync product total inventory_quantity across all outlets for this product
-  const sumRes = await db.execute({
-    sql: "SELECT COALESCE(SUM(quantity), 0) AS total FROM store_outlet_inventory WHERE store_id = ? AND product_id = ?",
-    args: [String(store.id), parsed.data.productId],
-  });
-  const totalQty = Number((sumRes.rows[0] as Row)?.total ?? parsed.data.quantity);
-  await db.execute({
-    sql: "UPDATE store_products SET inventory_quantity = ?, updated_at = datetime('now') WHERE id = ? AND store_id = ?",
-    args: [totalQty, parsed.data.productId, String(store.id)],
-  });
+  }, {
+    sql: "UPDATE store_products SET inventory_quantity = (SELECT COALESCE(SUM(quantity), 0) FROM store_outlet_inventory WHERE store_id = ? AND product_id = ?), updated_at = datetime('now') WHERE id = ? AND store_id = ?",
+    args: [String(store.id), parsed.data.productId, parsed.data.productId, String(store.id)],
+  }]);
+  const sumRes = await db.execute({sql: "SELECT inventory_quantity AS total FROM store_products WHERE id = ? AND store_id = ?", args: [parsed.data.productId, String(store.id)]});
+  const totalQty = Number(sumRes.rows[0]?.total ?? 0);
 
   return c.json({ ok: true, totalQuantity: totalQty });
 });
+
+async function ownsStockResources(storeId: string, merchantId: string, productId: string, outletIds: string[]): Promise<boolean> {
+  const product = await db.execute({ sql: "SELECT 1 FROM store_products WHERE id = ? AND store_id = ?", args: [productId, storeId] });
+  if (!product.rows.length) return false;
+  for (const outletId of outletIds) {
+    const outlet = await db.execute({ sql: "SELECT 1 FROM merchant_outlets WHERE id = ? AND merchant_id = ? AND status = 'active'", args: [outletId, merchantId] });
+    if (!outlet.rows.length) return false;
+  }
+  return true;
+}
 
 // 7d. B2B Wholesale & Draft Orders / 1-Tap Payment Links
 marketplaceRoutes.get("/merchants/me/draft-orders", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2094,8 +2109,8 @@ const draftOrderSchema = z.object({
 marketplaceRoutes.post("/merchants/me/draft-orders", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2147,8 +2162,8 @@ marketplaceRoutes.post("/merchants/me/draft-orders", requireAuth, async (c) => {
 marketplaceRoutes.get("/merchants/me/elite-analytics", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2168,33 +2183,31 @@ marketplaceRoutes.get("/merchants/me/elite-analytics", requireAuth, async (c) =>
   const totalStockUnits = products.reduce((sum, p) => sum + Number(p.inventory_quantity || 0), 0);
   const lowStockCount = products.filter((p) => Number(p.inventory_quantity || 0) <= 5).length;
 
-  // Compute realized & catalog-projected revenue and COGS
-  let grossRevenueUgx = 0;
-  if (await hasColumn("orders", "store_id")) {
-    const ordRes = await db.execute({
-      sql: "SELECT COALESCE(SUM(estimated_total - delivery_fee), 0) AS rev FROM orders WHERE store_id = ? AND stage != 'Cancelled'",
-      args: [String(store.id)],
-    });
-    grossRevenueUgx = Number((ordRes.rows[0] as Row)?.rev || 0);
+  // A deliberately scoped report: recorded POS sales only. Current catalog costs are estimates,
+  // never invented historical COGS. Missing costs make contribution unavailable, not an assumed profit.
+  const posRows = await hasTable("store_pos_sales")
+    ? (await db.execute({sql: "SELECT total_amount, items_json FROM store_pos_sales WHERE store_id = ?", args: [String(store.id)]})).rows : [];
+  const costRows = await db.execute({sql: "SELECT id, cost_price FROM store_products WHERE store_id = ?", args: [String(store.id)]});
+  const costs = new Map(costRows.rows.map(p => [String(p.id), p.cost_price == null ? null : Number(p.cost_price)]));
+  let costSum = 0;
+  let completeCosts = true;
+  for (const sale of posRows) {
+    try {
+      const items = JSON.parse(String(sale.items_json));
+      if (!Array.isArray(items) || !items.length) { completeCosts = false; continue; }
+      for (const item of items) {
+        const cost = costs.get(String(item.productId));
+        const quantity = Number(item.quantity);
+        if (cost == null || !Number.isFinite(cost) || !Number.isFinite(quantity) || quantity <= 0) completeCosts = false;
+        else costSum += cost * quantity;
+      }
+    } catch { completeCosts = false; }
   }
-  if (grossRevenueUgx === 0 && products.length > 0) {
-    // Provide inventory retail valuation baseline when store is newly launched
-    grossRevenueUgx = products.reduce((sum, p) => sum + Number(p.price || 0) * Math.min(10, Number(p.inventory_quantity || 1)), 0);
-  }
-
-  const avgMarginRatio =
-    products.length > 0
-      ? products.reduce((sum, p) => {
-          const price = Number(p.price || 1);
-          const cost = p.cost_price != null ? Number(p.cost_price) : Math.round(price * 0.65);
-          return sum + Math.max(0, (price - cost) / price);
-        }, 0) / products.length
-      : 0.35;
-
-  const estimatedCogsUgx = Math.round(grossRevenueUgx * (1 - avgMarginRatio));
-  const platformCommissionUgx = Math.round((grossRevenueUgx * commissionRate) / 100);
-  const netMarginUgx = Math.max(0, grossRevenueUgx - estimatedCogsUgx - platformCommissionUgx);
-  const netMarginPercent = grossRevenueUgx > 0 ? Math.round((netMarginUgx / grossRevenueUgx) * 1000) / 10 : 0;
+  const grossRevenueUgx = posRows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
+  const estimatedCogsUgx = completeCosts ? Math.round(costSum) : null;
+  const platformCommissionUgx = Math.round(grossRevenueUgx * commissionRate / 100);
+  const netMarginUgx = estimatedCogsUgx == null ? null : grossRevenueUgx - estimatedCogsUgx - platformCommissionUgx;
+  const netMarginPercent = netMarginUgx == null || grossRevenueUgx === 0 ? null : Math.round(netMarginUgx / grossRevenueUgx * 1000) / 10;
 
   let activeCollectionsCount = 0;
   if (await hasTable("store_collections")) {
@@ -2258,7 +2271,9 @@ marketplaceRoutes.get("/merchants/me/elite-analytics", requireAuth, async (c) =>
 
   return c.json({
     analytics: {
-      grossRevenueUgx: grossRevenueUgx + posRevenueUgx,
+      grossRevenueUgx,
+      scope: "all_time_recorded_pos",
+      costsComplete: completeCosts,
       estimatedCogsUgx,
       platformCommissionUgx,
       netMarginUgx,
@@ -2285,8 +2300,8 @@ marketplaceRoutes.get("/merchants/me/elite-analytics", requireAuth, async (c) =>
 marketplaceRoutes.get("/merchants/me/pos-sales", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2317,6 +2332,7 @@ marketplaceRoutes.get("/merchants/me/pos-sales", requireAuth, async (c) => {
 });
 
 const posSaleSchema = z.object({
+  requestId: z.string().uuid().optional(),
   outlet_id: z.string().nullable().optional(),
   customer_phone: z.string().max(30).optional(),
   customer_name: z.string().max(120).optional(),
@@ -2338,8 +2354,8 @@ const posSaleSchema = z.object({
 marketplaceRoutes.post("/merchants/me/pos-sales", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2357,7 +2373,39 @@ marketplaceRoutes.post("/merchants/me/pos-sales", requireAuth, async (c) => {
 
   const parsed = posSaleSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  const saleId = parsed.data.requestId ? `pos_${String(store.id)}_${parsed.data.requestId}` : newId("pos");
+  const replay = async () => {
+    const row = (await db.execute({sql: "SELECT * FROM store_pos_sales WHERE id = ? AND store_id = ?", args: [saleId, String(store.id)]})).rows[0];
+    if (!row) return null;
+    if (String(row.items_json) !== JSON.stringify(parsed.data!.items) || String(row.payment_method) !== parsed.data!.payment_method || Number(row.discount_amount) !== parsed.data!.discount_amount || String(row.outlet_id ?? "") !== String(parsed.data!.outlet_id ?? "")) return c.json({error: "request_id_reused", message: "This request ID already belongs to a different sale."}, 409);
+    const loyalty = row.customer_phone && await hasTable("store_customer_loyalty") ? (await db.execute({sql: "SELECT points_balance_ugx FROM store_customer_loyalty WHERE store_id = ? AND customer_phone = ?", args: [String(store.id), String(row.customer_phone)]})).rows[0] : null;
+    return c.json({ok: true, saleId, receiptCode: String(row.receipt_code), total: Number(row.total_amount), loyaltyRedeemedUgx: Number(row.loyalty_redeemed_ugx), loyaltyEarnedUgx: Number(row.loyalty_earned_ugx), loyaltyBalanceAfterUgx: Number(loyalty?.points_balance_ugx ?? 0)});
+  };
+  if (parsed.data.requestId) { const previous = await replay(); if (previous) return previous; }
 
+  const allowManualPrices = Boolean(await getOption("merchant_pos_manual_prices"));
+  if (!allowManualPrices) {
+    for (const item of parsed.data.items) {
+      const product = (await db.execute({sql: "SELECT price FROM store_products WHERE id = ? AND store_id = ?", args: [item.productId, String(store.id)]})).rows[0];
+      if (!product) return c.json({error: "not_found", message: "Product not found in this business."}, 404);
+      if (Number(product.price) !== item.unitPrice) return c.json({error: "price_changed", message: "Use the current catalog price. Manual POS prices are disabled by the platform."}, 409);
+    }
+  }
+  const quantities = new Map<string, number>();
+  for (const item of parsed.data.items) quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + item.quantity);
+  const hasOutletInv = await hasTable("store_outlet_inventory");
+  const writes: DbStatement[] = [];
+  for (const [productId, quantity] of quantities) {
+    if (!(await ownsStockResources(String(store.id), merchantId, productId, parsed.data.outlet_id ? [parsed.data.outlet_id] : []))) return c.json({error: "not_found", message: "Product or outlet not found in this business."}, 404);
+    if (!parsed.data.outlet_id && hasOutletInv && (await db.execute({sql: "SELECT 1 FROM store_outlet_inventory WHERE store_id = ? AND product_id = ? LIMIT 1", args: [String(store.id), productId]})).rows.length) {
+      return c.json({error: "outlet_required", message: "Select the branch supplying this product so branch and total stock stay consistent."}, 409);
+    }
+    writes.push({sql: "UPDATE store_products SET inventory_quantity = inventory_quantity - ?, updated_at = datetime('now') WHERE id = ? AND store_id = ? AND inventory_quantity >= ?", args: [quantity, productId, String(store.id), quantity]}, requireChangedRow);
+    if (parsed.data.outlet_id) {
+      if (!hasOutletInv) return c.json({error: "migration_pending", message: "Outlet stock is being set up."}, 503);
+      writes.push({sql: "UPDATE store_outlet_inventory SET quantity = quantity - ?, updated_at = datetime('now') WHERE store_id = ? AND product_id = ? AND outlet_id = ? AND quantity >= ?", args: [quantity, String(store.id), productId, parsed.data.outlet_id, quantity]}, requireChangedRow);
+    }
+  }
   const subtotal = parsed.data.items.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0);
   const discount = Math.min(subtotal, parsed.data.discount_amount);
   const afterDiscount = Math.max(0, subtotal - discount);
@@ -2401,7 +2449,7 @@ marketplaceRoutes.post("/merchants/me/pos-sales", requireAuth, async (c) => {
             ? "repeat"
             : "standard";
 
-    await db.execute({
+    writes.push({
       sql: `INSERT INTO store_customer_loyalty (
               id, store_id, customer_phone, customer_name, points_balance_ugx,
               total_earned_ugx, total_redeemed_ugx, orders_count, total_spent_ugx,
@@ -2415,7 +2463,7 @@ marketplaceRoutes.post("/merchants/me/pos-sales", requireAuth, async (c) => {
               orders_count = ?,
               total_spent_ugx = ?,
               tier = ?,
-              last_order_at = datetime('now')`,
+              last_order_at = datetime('now') WHERE store_customer_loyalty.points_balance_ugx = ? AND store_customer_loyalty.orders_count = ?`,
       args: [
         newId("crm"),
         String(store.id),
@@ -2433,15 +2481,16 @@ marketplaceRoutes.post("/merchants/me/pos-sales", requireAuth, async (c) => {
         nextOrdersCount,
         nextTotalSpent,
         nextTier,
+        currentPoints,
+        Number(existing?.orders_count || 0),
       ],
-    });
+    }, requireChangedRow);
   }
 
   const totalAmount = Math.max(0, afterDiscount - loyaltyRedeemedUgx);
-  const saleId = newId("pos");
   const receiptCode = `POS-${saleId.slice(-6).toUpperCase()}`;
 
-  await db.execute({
+  writes.push({
     sql: `INSERT INTO store_pos_sales (
             id, store_id, outlet_id, cashier_user_id, customer_phone, customer_name,
             items_json, subtotal_amount, discount_amount, loyalty_redeemed_ugx,
@@ -2465,23 +2514,11 @@ marketplaceRoutes.post("/merchants/me/pos-sales", requireAuth, async (c) => {
     ],
   });
 
-  // Deduct stock from outlet inventory (if outlet_id selected) and master product inventory
-  const hasOutletInv = await hasTable("store_outlet_inventory");
-  for (const item of parsed.data.items) {
-    if (parsed.data.outlet_id && hasOutletInv) {
-      await db.execute({
-        sql: `UPDATE store_outlet_inventory
-              SET quantity = MAX(0, quantity - ?), updated_at = datetime('now')
-              WHERE store_id = ? AND product_id = ? AND outlet_id = ?`,
-        args: [item.quantity, String(store.id), item.productId, parsed.data.outlet_id],
-      });
-    }
-    await db.execute({
-      sql: `UPDATE store_products
-            SET inventory_quantity = MAX(0, inventory_quantity - ?), updated_at = datetime('now')
-            WHERE id = ? AND store_id = ?`,
-      args: [item.quantity, item.productId, String(store.id)],
-    });
+  try { await executeBatch(writes); }
+  catch (error) {
+    if (parsed.data.requestId) { const previous = await replay(); if (previous) return previous; }
+    if (/JSON path|bad path|malformed JSON/i.test(String(error))) return c.json({error: "stock_or_loyalty_changed", message: "Insufficient stock or loyalty balance changed. Refresh and try again."}, 409);
+    throw error;
   }
 
   return c.json(
@@ -2504,8 +2541,8 @@ marketplaceRoutes.post("/merchants/me/pos-sales", requireAuth, async (c) => {
 marketplaceRoutes.get("/merchants/me/stock-transfers", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2528,6 +2565,7 @@ marketplaceRoutes.get("/merchants/me/stock-transfers", requireAuth, async (c) =>
 });
 
 const stockTransferSchema = z.object({
+  requestId: z.string().uuid().optional(),
   productId: z.string().min(1),
   fromOutletId: z.string().min(1),
   toOutletId: z.string().min(1),
@@ -2538,8 +2576,8 @@ const stockTransferSchema = z.object({
 marketplaceRoutes.post("/merchants/me/stock-transfers", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2557,6 +2595,15 @@ marketplaceRoutes.post("/merchants/me/stock-transfers", requireAuth, async (c) =
 
   const parsed = stockTransferSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  const transferId = parsed.data.requestId ? `trf_${String(store.id)}_${parsed.data.requestId}` : newId("trf");
+  const replay = async () => {
+    const row = (await db.execute({sql: "SELECT * FROM store_stock_transfers WHERE id = ? AND store_id = ?", args: [transferId, String(store.id)]})).rows[0];
+    if (!row) return null;
+    if (String(row.product_id) !== parsed.data!.productId || String(row.from_outlet_id) !== parsed.data!.fromOutletId || String(row.to_outlet_id) !== parsed.data!.toOutletId || Number(row.quantity) !== parsed.data!.quantity) return c.json({error: "request_id_reused", message: "This request ID already belongs to a different transfer."}, 409);
+    const stock = await db.execute({sql: "SELECT outlet_id, quantity FROM store_outlet_inventory WHERE store_id = ? AND product_id = ?", args: [String(store.id), parsed.data!.productId]});
+    return c.json({ok: true, transferId, fromQuantityAfter: Number(stock.rows.find(r => r.outlet_id === parsed.data!.fromOutletId)?.quantity ?? 0), toQuantityAfter: Number(stock.rows.find(r => r.outlet_id === parsed.data!.toOutletId)?.quantity ?? 0)});
+  };
+  if (parsed.data.requestId) { const previous = await replay(); if (previous) return previous; }
   if (parsed.data.fromOutletId === parsed.data.toOutletId) {
     return c.json({ error: "same_outlet", message: "Source and destination outlets must be different." }, 400);
   }
@@ -2573,53 +2620,29 @@ marketplaceRoutes.post("/merchants/me/stock-transfers", requireAuth, async (c) =
     }, 409);
   }
 
-  const fromQuantityAfter = fromQty - parsed.data.quantity;
-  await db.execute({
-    sql: "UPDATE store_outlet_inventory SET quantity = ?, updated_at = datetime('now') WHERE store_id = ? AND product_id = ? AND outlet_id = ?",
-    args: [fromQuantityAfter, String(store.id), parsed.data.productId, parsed.data.fromOutletId],
-  });
-
-  await db.execute({
-    sql: `INSERT INTO store_outlet_inventory (id, store_id, product_id, outlet_id, quantity, low_stock_threshold, updated_at)
-          VALUES (?, ?, ?, ?, ?, 5, datetime('now'))
-          ON CONFLICT(product_id, outlet_id) DO UPDATE SET
-            quantity = store_outlet_inventory.quantity + excluded.quantity,
-            updated_at = datetime('now')`,
-    args: [newId("inv"), String(store.id), parsed.data.productId, parsed.data.toOutletId, parsed.data.quantity],
-  });
-
-  const toRes = await db.execute({
-    sql: "SELECT quantity FROM store_outlet_inventory WHERE store_id = ? AND product_id = ? AND outlet_id = ? LIMIT 1",
-    args: [String(store.id), parsed.data.productId, parsed.data.toOutletId],
-  });
-  const toQuantityAfter = Number((toRes.rows[0] as Row | undefined)?.quantity ?? parsed.data.quantity);
-
-  const transferId = newId("trf");
-  await db.execute({
-    sql: `INSERT INTO store_stock_transfers (
-            id, store_id, product_id, from_outlet_id, to_outlet_id, quantity, note, status, created_by
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', ?)`,
-    args: [
-      transferId,
-      String(store.id),
-      parsed.data.productId,
-      parsed.data.fromOutletId,
-      parsed.data.toOutletId,
-      parsed.data.quantity,
-      parsed.data.note?.trim() || null,
-      user.sub,
-    ],
-  });
-
-  return c.json(
-    {
-      ok: true,
-      transferId,
-      fromQuantityAfter,
-      toQuantityAfter,
-    },
-    201,
-  );
+  if (!(await ownsStockResources(String(store.id), merchantId, parsed.data.productId, [parsed.data.fromOutletId, parsed.data.toOutletId]))) {
+    return c.json({ error: "not_found", message: "Product or outlet not found in this business." }, 404);
+  }
+  try {
+    await executeBatch([
+      {sql: "UPDATE store_outlet_inventory SET quantity = quantity - ?, updated_at = datetime('now') WHERE store_id = ? AND product_id = ? AND outlet_id = ? AND quantity >= ?", args: [parsed.data.quantity, String(store.id), parsed.data.productId, parsed.data.fromOutletId, parsed.data.quantity]},
+      requireChangedRow,
+      {sql: `INSERT INTO store_outlet_inventory (id, store_id, product_id, outlet_id, quantity, low_stock_threshold, updated_at)
+        VALUES (?, ?, ?, ?, ?, 5, datetime('now')) ON CONFLICT(product_id, outlet_id) DO UPDATE SET
+        quantity = store_outlet_inventory.quantity + excluded.quantity, updated_at = datetime('now')
+        WHERE store_outlet_inventory.store_id = excluded.store_id`, args: [newId("inv"), String(store.id), parsed.data.productId, parsed.data.toOutletId, parsed.data.quantity]},
+      requireChangedRow,
+      {sql: "INSERT INTO store_stock_transfers (id, store_id, product_id, from_outlet_id, to_outlet_id, quantity, note, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', ?)", args: [transferId, String(store.id), parsed.data.productId, parsed.data.fromOutletId, parsed.data.toOutletId, parsed.data.quantity, parsed.data.note?.trim() || null, user.sub]},
+    ]);
+  } catch (error) {
+    if (parsed.data.requestId) { const previous = await replay(); if (previous) return previous; }
+    if (/JSON path|bad path|malformed JSON/i.test(String(error))) return c.json({error: "stock_changed", message: "Stock changed. Refresh availability and try again."}, 409);
+    throw error;
+  }
+  const quantities = await db.execute({sql: "SELECT outlet_id, quantity FROM store_outlet_inventory WHERE store_id = ? AND product_id = ?", args: [String(store.id), parsed.data.productId]});
+  return c.json({ok: true, transferId,
+    fromQuantityAfter: Number(quantities.rows.find(r => r.outlet_id === parsed.data.fromOutletId)?.quantity ?? 0),
+    toQuantityAfter: Number(quantities.rows.find(r => r.outlet_id === parsed.data.toOutletId)?.quantity ?? 0)}, 201);
 });
 
 // ---------------------------------------------------------------------------
@@ -2629,8 +2652,8 @@ marketplaceRoutes.get("/merchants/me/crm-customers", requireAuth, async (c) => {
   await settleLoyalty().catch(() => {});
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2672,8 +2695,8 @@ marketplaceRoutes.get("/merchants/me/crm-customers", requireAuth, async (c) => {
 marketplaceRoutes.get("/merchants/me/suppliers", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2694,8 +2717,8 @@ marketplaceRoutes.get("/merchants/me/suppliers", requireAuth, async (c) => {
 marketplaceRoutes.post("/merchants/me/suppliers", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2730,8 +2753,8 @@ marketplaceRoutes.post("/merchants/me/suppliers", requireAuth, async (c) => {
 marketplaceRoutes.get("/merchants/me/purchase-orders", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2771,8 +2794,8 @@ marketplaceRoutes.get("/merchants/me/purchase-orders", requireAuth, async (c) =>
 marketplaceRoutes.post("/merchants/me/purchase-orders", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2825,8 +2848,8 @@ marketplaceRoutes.post("/merchants/me/purchase-orders", requireAuth, async (c) =
 marketplaceRoutes.post("/merchants/me/purchase-orders/:id/receive", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2900,8 +2923,8 @@ marketplaceRoutes.post("/merchants/me/purchase-orders/:id/receive", requireAuth,
 marketplaceRoutes.get("/merchants/me/bundles", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2935,8 +2958,8 @@ marketplaceRoutes.get("/merchants/me/bundles", requireAuth, async (c) => {
 marketplaceRoutes.post("/merchants/me/bundles", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -2986,8 +3009,8 @@ marketplaceRoutes.post("/merchants/me/bundles", requireAuth, async (c) => {
 marketplaceRoutes.delete("/merchants/me/bundles/:id", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -3009,8 +3032,8 @@ marketplaceRoutes.delete("/merchants/me/bundles/:id", requireAuth, async (c) => 
 marketplaceRoutes.get("/merchants/me/winback-campaigns", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -3043,8 +3066,8 @@ marketplaceRoutes.get("/merchants/me/winback-campaigns", requireAuth, async (c) 
 marketplaceRoutes.post("/merchants/me/winback-campaigns", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -3072,19 +3095,19 @@ marketplaceRoutes.post("/merchants/me/winback-campaigns", requireAuth, async (c)
 
   await db.execute({
     sql: `INSERT INTO store_winback_campaigns (id, store_id, customer_phone, customer_name, discount_code, channel, message, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 'sent')`,
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'draft')`,
     args: [
       id,
       String(store.id),
       phone,
       body.customer_name ? String(body.customer_name).trim() : null,
       body.discount_code ? String(body.discount_code).trim() : null,
-      body.channel === "sms" ? "sms" : body.channel === "push" ? "push" : "whatsapp",
+      "whatsapp",
       message,
     ],
   });
 
-  return c.json({ ok: true, campaignId: id, whatsappUrl });
+  return c.json({ ok: true, campaignId: id, whatsappUrl, status: "draft" });
 });
 
 export const DEFAULT_STOREFRONT_SECTIONS = [
@@ -3101,8 +3124,8 @@ export const DEFAULT_STOREFRONT_SECTIONS = [
 marketplaceRoutes.get("/merchants/me/storefront-sections", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -3126,8 +3149,8 @@ marketplaceRoutes.get("/merchants/me/storefront-sections", requireAuth, async (c
 marketplaceRoutes.put("/merchants/me/storefront-sections", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -3158,8 +3181,8 @@ marketplaceRoutes.put("/merchants/me/storefront-sections", requireAuth, async (c
 marketplaceRoutes.get("/merchants/me/sms-logs", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
@@ -3180,8 +3203,8 @@ marketplaceRoutes.get("/merchants/me/sms-logs", requireAuth, async (c) => {
 marketplaceRoutes.post("/merchants/me/send-sms", requireAuth, async (c) => {
   const user = c.get("user");
   const memberRes = await db.execute({
-    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
-    args: [user.sub],
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
   });
   const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
   if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
