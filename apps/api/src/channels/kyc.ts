@@ -223,7 +223,7 @@ export async function refreshWithdrawal(userId: string, id: string) {
   const w = (await db.execute({ sql: "SELECT * FROM creator_withdrawals WHERE id = ? AND user_id = ?", args: [id, userId] })).rows[0] as Row | undefined;
   if (!w) throw new ChannelsError("not_found", "Withdrawal not found.", 404);
   if (w.status !== "pending") return { id, status: String(w.status) };
-  const status = await checkPaymentStatus({ provider: String(w.provider), provider_ref: (w.provider_ref as string) ?? null, created_at: String(w.created_at) });
+  const status = await checkPaymentStatus({ provider: String(w.provider), provider_ref: (w.provider_ref as string) ?? null, created_at: String(w.created_at), type: "disbursement" });
   if (status === "successful") {
     await db.execute({ sql: "UPDATE creator_withdrawals SET status = 'successful', updated_at = datetime('now') WHERE id = ? AND status = 'pending'", args: [id] });
     return { id, status: "successful" };
