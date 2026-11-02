@@ -156,7 +156,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "bakeries",
         title: "Bakeries",
-        thumbLabel: "Bakery",
+        thumbLabel: "Baked",
         meta: "Ovens on near you",
         description: "Bread, cakes and pastries from bakeries around you, still warm.",
         cta: "Order from a bakery",
@@ -271,7 +271,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "workers",
         title: "Workers",
-        thumbLabel: "Worker",
+        thumbLabel: "Work",
         module: "hive.hire.search",
         shortcut: "workers",
         meta: "People ready for odd jobs",
@@ -305,7 +305,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "discover",
         title: "Discover",
-        thumbLabel: "Class",
+        thumbLabel: "Courses",
         meta: "Courses open now",
         description: "Classes and courses to learn at your own pace.",
         cta: "Browse courses",

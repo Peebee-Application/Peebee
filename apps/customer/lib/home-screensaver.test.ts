@@ -46,9 +46,12 @@ test("thumbnail pills use a short word and fall back to the full title", () => {
   const labels = SCREENSAVER_MODULES.flatMap((mod) => mod.entities.map((entity) => ({ title: entity.title, label: thumbLabelOf(entity) })));
   assert.equal(labels.find((item) => item.title === "Street food")?.label, "Street");
   assert.equal(labels.find((item) => item.title === "Restaurants")?.label, "Dine");
+  assert.equal(labels.find((item) => item.title === "Bakeries")?.label, "Baked");
+  assert.equal(labels.find((item) => item.title === "Workers")?.label, "Work");
+  assert.equal(labels.find((item) => item.title === "Discover")?.label, "Courses");
   for (const item of labels) {
     assert.equal(item.label.includes(" "), false, item.label);
-    assert.ok(item.label.length <= 6, item.label);
+    assert.ok(item.label.length <= 7, item.label);
   }
 });
 
