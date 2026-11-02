@@ -762,7 +762,7 @@ carRoutes.get("/car/wallet/withdrawals/:id/refresh", async (c) => {
   if (!row) return c.json({ error: "not_found" }, 404);
   if (row.status !== "pending") return c.json({ withdrawal: row });
   try {
-    const status = await checkPaymentStatus({ provider: String(row.provider), provider_ref: row.provider_ref as string | null, created_at: String(row.created_at) });
+    const status = await checkPaymentStatus({ provider: String(row.provider), provider_ref: row.provider_ref as string | null, created_at: String(row.created_at), type: "disbursement" });
     if (status === "successful" || status === "failed") {
       // Only the request that flips pending -> final may refund, so a double poll can't pay twice.
       const flipped = await db.execute({ sql: "UPDATE car_withdrawals SET status = ?, updated_at = datetime('now') WHERE id = ? AND status = 'pending'", args: [status, id] });
