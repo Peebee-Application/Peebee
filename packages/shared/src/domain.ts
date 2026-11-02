@@ -300,6 +300,8 @@ export type JobExpiryUnit = "minutes" | "hours";
  * customer picks. Needs "customer selects" to be an enabled matching mode. */
 /** Peebee Car work modes + the default owner/driver/platform split of a settled ride (totals 100). */
 export type CarSettings = {
+  /** A customer's own matching choice (Auto accept / Approve) decides their car ride. Defaults on. */
+  followCustomerChoice?: boolean;
   enabled: boolean;
   onDemandEnabled: boolean;
   matchingMode: "customer_selects" | "first_to_claim";

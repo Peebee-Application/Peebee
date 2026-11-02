@@ -301,6 +301,7 @@ const updateSchema = z.object({
       enabled: z.boolean(),
       onDemandEnabled: z.boolean(),
       matchingMode: z.enum(["customer_selects", "first_to_claim"]),
+      followCustomerChoice: z.boolean().optional(),
       shares: z.object({
         owner: z.number().int().min(0).max(100),
         driver: z.number().int().min(0).max(100),

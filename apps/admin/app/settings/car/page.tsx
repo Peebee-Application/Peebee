@@ -21,6 +21,7 @@ export default function CarSettingsPage() {
   const [platform, setPlatform] = useState("10");
   const [maxKm, setMaxKm] = useState("10");
   const [emergencyNumber, setEmergencyNumber] = useState("999");
+  const [followCustomer, setFollowCustomer] = useState(true);
   const [sandboxDemo, setSandboxDemo] = useState(true);
   const [sandboxStep, setSandboxStep] = useState("12");
   const [ratePerKm, setRatePerKm] = useState("2000");
@@ -74,6 +75,7 @@ export default function CarSettingsPage() {
     setPlatform(String(c.shares.platform));
     setMaxKm(String(c.maxPickupKm));
     setEmergencyNumber(c.emergencyNumber ?? "999");
+    setFollowCustomer(c.followCustomerChoice ?? true);
     setSandboxDemo(c.sandboxDemo ?? true);
     setSandboxStep(String(c.sandboxDemoStepSeconds ?? 12));
     setRatePerKm(String(c.servicePricing?.ratePerKm ?? 2000));
@@ -140,6 +142,7 @@ export default function CarSettingsPage() {
           enabled,
           onDemandEnabled: onDemand,
           matchingMode: mode,
+          followCustomerChoice: followCustomer,
           shares: { owner: Number(owner), driver: Number(driver), platform: Number(platform) },
           maxPickupKm: Math.min(200, Math.max(1, Number(maxKm) || 10)),
           emergencyNumber: /^[0-9+*#]{2,15}$/.test(emergencyNumber.trim()) ? emergencyNumber.trim() : "999",
@@ -212,12 +215,22 @@ export default function CarSettingsPage() {
             Customers can book a car now
           </label>
           <div className="space-y-1 border-t border-[var(--border-faint)] pt-3">
-            <label className="text-xs font-semibold text-ink-500" htmlFor="car-mode">How a driver is found</label>
+            <label className="text-xs font-semibold text-ink-500" htmlFor="car-mode">How a driver is found (when the customer hasn&apos;t chosen)</label>
             <Select id="car-mode" value={mode} onValueChange={(value) => setMode(value as typeof mode)} className={input}>
-              <option value="customer_selects">Customer chooses from drivers who applied (bidding possible)</option>
-              <option value="first_to_claim">Nearest available driver is assigned automatically</option>
+              <option value="customer_selects">Approve: the customer approves a driver who applied (bidding possible)</option>
+              <option value="first_to_claim">Auto accept: the first driver to claim it gets it</option>
             </Select>
-            <p className="text-xs text-ink-500">Bids only work in &ldquo;customer chooses&rdquo; and when bidding is on under Rider matching.</p>
+            <p className="text-xs text-ink-500">Bids only work in &ldquo;Approve&rdquo; and when bidding is on under Rider matching.</p>
+          </div>
+          <div className="space-y-1">
+            <label className="flex items-center gap-2 text-sm font-bold text-ink">
+              <Switch checked={followCustomer} onChange={(e) => setFollowCustomer(e.target.checked)} />
+              Let customers choose Auto accept or Approve
+            </label>
+            <p className="text-xs text-ink-500">
+              On: a customer who has chosen in their account (Auto accept or Approve) gets that for car rides too. Off: every car ride follows the setting above.
+              Ambulance requests always go to the nearest free ambulance.
+            </p>
           </div>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-ink-500" htmlFor="car-km">Furthest a driver can be from the pickup (km)</label>

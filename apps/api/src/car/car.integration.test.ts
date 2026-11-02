@@ -9,7 +9,7 @@ import { signToken } from "../auth/jwt.js";
 import { setD1Binding, type D1Database } from "../db/client.js";
 import { splitSqlStatements } from "../db/split-sql.js";
 import { setR2Binding, type R2Bucket } from "../storage/r2.js";
-import { setBiddingSettings, setCarSettings, setMatchingModesEnabled, setPlatformEnvironment } from "../lib/settings.js";
+import { getCarSettings, setBiddingSettings, setCarSettings, setMatchingModesEnabled, setPlatformEnvironment } from "../lib/settings.js";
 import { resetSchemaCache } from "../lib/schema.js";
 import { orderRoutes } from "../orders/routes.js";
 import { riderRoutes } from "../riders/routes.js";
@@ -201,6 +201,33 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
     assert.equal(feed.jobs.length, 0, "car rides are not in the boda feed");
     assert.equal((await call("POST", `/orders/${orderId}/apply`, "boda", {})).status, 403);
     assert.equal((await call("POST", `/orders/${orderId}/claim`, "boda")).status, 403);
+  });
+
+  await t.test("a customer's own Auto accept / Approve choice decides their car ride, unless the admin switches that off", async () => {
+    for (const id of ["chooser1", "chooser2", "nochoice"]) {
+      await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role) VALUES (?, ?, ?, 'h', 'customer')", args: [id, id, id] });
+      tokens[id] = await signToken({ sub: id, role: "customer" });
+    }
+    await setMatchingModesEnabled(["first_to_claim", "customer_selects"]);
+    await client.execute("UPDATE users SET default_matching_mode = 'first_to_claim' WHERE id IN ('chooser1', 'chooser2')");
+    const original = await getCarSettings();
+    assert.equal(original.followCustomerChoice, true, "customers choose by default");
+    try {
+      const auto = await call("POST", "/car/bookings", "chooser1", { categoryId, ...trip });
+      assert.equal(auto.status, 201);
+      assert.equal((await json(auto)).order.matching_mode, "first_to_claim", "the customer chose Auto accept");
+
+      const none = await call("POST", "/car/bookings", "nochoice", { categoryId, ...trip });
+      assert.equal((await json(none)).order.matching_mode, "customer_selects", "no choice: the admin's car setting");
+
+      await setCarSettings({ ...original, followCustomerChoice: false });
+      const off = await call("POST", "/car/bookings", "chooser2", { categoryId, ...trip });
+      assert.equal((await json(off)).order.matching_mode, "customer_selects", "admin switched the customer's choice off");
+    } finally {
+      await setCarSettings(original);
+      // These three requests were only to read their matching mode; they must not show up as open jobs in later tests.
+      await client.execute("UPDATE orders SET stage = 'Cancelled' WHERE customer_id IN ('chooser1', 'chooser2', 'nochoice')");
+    }
   });
 
   await t.test("the driver bids, the customer picks, the bid becomes the price and the owner sees the ride", async () => {
