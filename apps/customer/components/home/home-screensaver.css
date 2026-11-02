@@ -15,6 +15,9 @@
   width: min(100%, 32rem);
   height: 100%;
   overflow: hidden;
+  /* Space from the screen edge to the Explore pill and close button. The gold button uses the same inset at the bottom. */
+  --hs-chrome-inset: 54px;
+  --hs-chrome-safe: 12px;
   background: rgb(var(--color-black));
   touch-action: none;
   user-select: none;
@@ -26,6 +29,24 @@
   outline: 2px solid rgb(var(--color-gold));
   outline-offset: 3px;
 }
+
+.hs-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.hs-layer {
+  position: absolute;
+  inset: 0;
+  transform-origin: center center;
+  transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1), opacity 400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hs-layer.is-drag { transition: none; }
+.hs-layer.is-flight { pointer-events: none; }
+.hs-layer.is-flight .hs-sheet-body { animation: none; }
 
 .hs-visual {
   position: absolute;
@@ -88,7 +109,7 @@
   z-index: 6;
   left: 20px;
   right: 22px;
-  top: max(54px, calc(env(safe-area-inset-top, 0px) + 12px));
+  top: max(var(--hs-chrome-inset), calc(env(safe-area-inset-top, 0px) + var(--hs-chrome-safe)));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -259,7 +280,7 @@ html.peebee-practice .hs-top {
   top: 60%;
   display: flex;
   flex-direction: column;
-  padding: 0 20px max(20px, env(safe-area-inset-bottom, 0px));
+  padding: 0 20px max(var(--hs-chrome-inset), calc(env(safe-area-inset-bottom, 0px) + var(--hs-chrome-safe)));
   color: rgb(var(--color-ink));
   animation: hs-rise 420ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -268,7 +289,6 @@ html.peebee-practice .hs-top {
   min-width: 0;
   max-width: calc(100% - 148px);
   padding-left: 4px;
-  animation: hs-fade 280ms ease;
 }
 
 .hs-entity-title {
@@ -343,10 +363,11 @@ html.peebee-practice .hs-top {
   animation: hs-thumb-in 320ms ease;
 }
 
-.hs-thumb[data-d="-1"] { top: 36.73%; }
-.hs-thumb[data-d="0"] { top: 50.95%; width: 124px; height: 124px; z-index: 6; }
+/* 30px of card edge between the 100px active thumb and each 76px neighbour. */
+.hs-thumb[data-d="-1"] { top: calc(50.95% - 118px); }
+.hs-thumb[data-d="0"] { top: 50.95%; width: 100px; height: 100px; z-index: 6; }
 .hs-thumb:not([data-d="0"]) .hs-thumb-ring { opacity: 0.78; }
-.hs-thumb[data-d="1"] { top: 65.17%; }
+.hs-thumb[data-d="1"] { top: calc(50.95% + 118px); }
 
 .hs-thumb.is-ghost {
   pointer-events: none;
@@ -397,6 +418,12 @@ html.peebee-practice .hs-top {
   font-weight: 700;
   line-height: 1.15;
   white-space: nowrap;
+  transition: font-size 360ms cubic-bezier(0.16, 1, 0.3, 1), padding 360ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hs-thumb[data-d="0"] .hs-thumb-label {
+  font-size: 14px;
+  padding: 4px 8px;
 }
 
 .hs-home-explore {
@@ -475,8 +502,11 @@ html.peebee-practice .hs-top {
   .hs-cover-title { font-size: 48px; }
   .hs-entity-title { font-size: 30px; }
   .hs-thumb { width: 68px; height: 68px; }
-  .hs-thumb[data-d="0"] { width: 104px; height: 104px; }
+  .hs-thumb[data-d="-1"] { top: calc(50.95% - 108px); }
+  .hs-thumb[data-d="0"] { width: 88px; height: 88px; }
+  .hs-thumb[data-d="1"] { top: calc(50.95% + 108px); }
   .hs-thumb-label { font-size: 11px; padding: 2px 6px; }
+  .hs-thumb[data-d="0"] .hs-thumb-label { font-size: 13px; padding: 3px 7px; }
   .hs-cta { min-height: 52px; font-size: 16px; }
   .hs-sheet-body { top: 58%; }
 }
@@ -484,7 +514,9 @@ html.peebee-practice .hs-top {
 @media (prefers-reduced-motion: reduce) {
   .hs-visual,
   .hs-thumb,
+  .hs-thumb-label,
   .hs-visual-img,
+  .hs-layer,
   .hs-sheet-body,
   .hs-copy,
   .hs-cta {
@@ -492,4 +524,5 @@ html.peebee-practice .hs-top {
     animation: none !important;
   }
   .hs-thumb.is-ghost { display: none; }
+  .hs-layer { transition: opacity 180ms linear !important; }
 }
