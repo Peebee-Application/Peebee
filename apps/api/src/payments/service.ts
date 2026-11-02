@@ -18,7 +18,7 @@ import {
   type PaymentProviderIdentity,
 } from "../lib/settings.js";
 import { getCredential } from "./credentials.js";
-import { credentialFieldStatus } from "./credentials.js";
+import { credentialFieldStatus, providerUsesTestCredentials } from "./credentials.js";
 import {
   PaymentProviderError,
   type CardAuthorization,
@@ -149,6 +149,7 @@ export async function paymentsIntegrationStatus() {
       supportsDisbursement: ADAPTERS[identity].supportsDisbursement,
       active: active.includes(identity),
       priority: active.indexOf(identity),
+      testMode: (await ADAPTERS[identity].isConfigured()) && (await providerUsesTestCredentials(identity)),
       credentialFields: await credentialFieldStatus(identity),
     })),
   );

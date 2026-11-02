@@ -2,7 +2,7 @@ import { db, executeBatch, type DbStatement } from "../db/client.js";
 import { notifyGuest } from "../guest/notify.js";
 import { postLedgerTransaction } from "../ledger/service.js";
 import { newId } from "../lib/ids.js";
-import { invalidateSettingsCache, type PlatformEnvironment } from "../lib/settings.js";
+import { getPaymentsPendingTimeoutMinutes, invalidateSettingsCache, type PlatformEnvironment } from "../lib/settings.js";
 import { activateMerchantAllocationsForFundedOrder } from "../merchants/service.js";
 import { BUNDLE_CHILD_PROVIDER, finishBundleChildren } from "../orders/bundle-funding.js";
 import { checkPaymentStatus, type DbPaymentStatus } from "./service.js";
@@ -101,6 +101,16 @@ async function finishProviderOperation(operationId: string, status: "successful"
   });
 }
 
+/** A customer payment the provider still reports as pending after the admin-set wait. Only collections time out: a
+ * payout that is slow to confirm is never given up on, because the money may already have left. */
+async function pendingTooLong(payment: Row): Promise<boolean> {
+  if (payment.type !== "collection") return false;
+  const minutes = await getPaymentsPendingTimeoutMinutes();
+  if (minutes <= 0) return false;
+  const createdAt = Date.parse(`${String(payment.created_at).replace(" ", "T")}Z`);
+  return Number.isFinite(createdAt) && Date.now() - createdAt >= minutes * 60_000;
+}
+
 export async function reconcilePayment(paymentId: string, actorId: string): Promise<DbPaymentStatus> {
   const result = await db.execute({ sql: "SELECT * FROM payments WHERE id = ?", args: [paymentId] });
   const payment = result.rows[0] as Row | undefined;
@@ -126,12 +136,17 @@ export async function reconcilePayment(paymentId: string, actorId: string): Prom
     return payment.status as DbPaymentStatus;
   }
 
-  const status = await checkPaymentStatus({
+  let status = await checkPaymentStatus({
     provider: String(payment.provider),
     provider_ref: payment.provider_ref as string | null,
     created_at: String(payment.created_at),
     type: payment.type as "collection" | "disbursement" | "refund" | undefined,
   });
+  if ((status === "pending" || status === "unknown") && (await pendingTooLong(payment))) {
+    // The provider never answered (no prompt reached the phone, or it was ignored): stop waiting so the customer can try again.
+    console.warn("Collection timed out while pending; marking failed", paymentId);
+    status = "failed";
+  }
   if (status === "pending" || status === "unknown") {
     if (op) await markOperationProgress(op, status);
     return status;
@@ -145,7 +160,9 @@ export async function reconcilePayment(paymentId: string, actorId: string): Prom
     // A relay paid before any rider goes back to waiting, so it can be paid again or expire.
     if (payment.type === "collection") {
       await db.execute({
-        sql: "UPDATE orders SET stage = 'Create', updated_at = datetime('now') WHERE id = ? AND stage = 'Fund' AND rider_id IS NULL",
+        // With a rider already attached the order goes back to Match (where it was before the customer tried to pay), not
+        // left at Fund; the unpaid-assignment sweep then frees the rider if the customer never pays.
+        sql: "UPDATE orders SET stage = CASE WHEN rider_id IS NULL THEN 'Create' ELSE 'Match' END, updated_at = datetime('now') WHERE id = ? AND stage = 'Fund'",
         args: [String(payment.order_id)],
       });
     }

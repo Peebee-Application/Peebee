@@ -40,6 +40,7 @@ import {
   getPaymentsDemoMode,
   getFlutterwaveDirectMobileMoney,
   getFlutterwaveDirectCard,
+  getPaymentsPendingTimeoutMinutes,
   getPlatformEnvironment,
   getProSettings,
   getRiderReserveSettings,
@@ -90,7 +91,7 @@ import { getRideTrackingSettings, rideTrackingSchema } from "./ride-tracking.js"
 export const settingsRoutes = new Hono();
 
 async function fullSettings() {
-  const [delivery, matching, activeProviders, demoMode, flwDirectMobileMoney, flwDirectCard, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla, lugandaAudio, pro, services] =
+  const [delivery, matching, activeProviders, demoMode, flwDirectMobileMoney, flwDirectCard, paymentsPendingTimeout, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla, lugandaAudio, pro, services] =
     await Promise.all([
       getDeliverySettings(),
       getMatchingSettings(),
@@ -98,6 +99,7 @@ async function fullSettings() {
       getPaymentsDemoMode(),
       getFlutterwaveDirectMobileMoney(),
       getFlutterwaveDirectCard(),
+      getPaymentsPendingTimeoutMinutes(),
       getWalletSettings(),
       getVoiceNoteMaxSeconds(),
       getMonetizationSettings(),
@@ -169,6 +171,7 @@ async function fullSettings() {
     paymentsDemoMode: demoMode,
     paymentsFlutterwaveDirectMobileMoney: flwDirectMobileMoney,
     paymentsFlutterwaveDirectCard: flwDirectCard,
+    paymentsPendingTimeoutMinutes: paymentsPendingTimeout,
     merchantPaymentsEnabled: (platformEnvironment === "sandbox" ? merchantSandbox : merchantPayments) === "1",
     merchantLiveCustodyApproved: merchantCustody === "1",
     merchantWithdrawalsFrozen: merchantFrozen === "1",
@@ -533,6 +536,7 @@ const updateSchema = z.object({
   paymentsDemoMode: z.boolean().optional(),
   paymentsFlutterwaveDirectMobileMoney: z.boolean().optional(),
   paymentsFlutterwaveDirectCard: z.boolean().optional(),
+  paymentsPendingTimeoutMinutes: z.number().int().min(0).max(1440).optional(),
   practiceModeEnabled: z.boolean().optional(),
   merchantPaymentsEnabled: z.boolean().optional(),
   walletUnverifiedCap: z.number().int().positive().max(100_000_000).optional(),
@@ -600,6 +604,7 @@ const PAYMENTS_FIELDS = [
   "paymentsDemoMode",
   "paymentsFlutterwaveDirectMobileMoney",
   "paymentsFlutterwaveDirectCard",
+  "paymentsPendingTimeoutMinutes",
   "merchantPaymentsEnabled",
   "walletUnverifiedCap",
   "walletVerifiedCap",
@@ -721,6 +726,9 @@ settingsRoutes.put(
     }
     if (parsed.data.paymentsFlutterwaveDirectCard != null) {
       await setFlutterwaveDirect("card", parsed.data.paymentsFlutterwaveDirectCard);
+    }
+    if (parsed.data.paymentsPendingTimeoutMinutes != null) {
+      await setSetting("payments_pending_timeout_minutes", String(parsed.data.paymentsPendingTimeoutMinutes));
     }
     if (parsed.data.practiceModeEnabled != null) {
       await setSetting("user_practice_mode_enabled", parsed.data.practiceModeEnabled ? "1" : "0");

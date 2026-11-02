@@ -1661,7 +1661,7 @@ orderRoutes.post("/orders/:id/applicants/:riderId/select", async (c) => {
 // and this rider is never offered it again.
 // ---------------------------------------------------------------------------
 
-const CANCELLABLE_STAGES = ["Match", "Shop", "Substitute", "Approve", "Deliver", "Arrived"];
+const CANCELLABLE_STAGES = ["Match", "Fund", "Shop", "Substitute", "Approve", "Deliver", "Arrived"];
 
 orderRoutes.post("/orders/:id/cancel", async (c) => {
   const id = c.req.param("id");
@@ -1690,7 +1690,17 @@ orderRoutes.post("/orders/:id/cancel", async (c) => {
     sql: "SELECT id FROM payments WHERE order_id = ? AND type = 'collection' AND status = 'successful' LIMIT 1",
     args: [id],
   });
-  const nextStage = paid.rows.length > 0 ? "Match" : "Create";
+  let nextStage = paid.rows.length > 0 ? "Match" : "Create";
+  if (order.stage === "Fund" && nextStage === "Create") {
+    // Leaving while the customer's payment is still in flight: the order stays at Fund with no rider, so that payment,
+    // when it settles, moves the order to Match (paid) or back to Create (failed) exactly as it does for any order
+    // with no rider. Rewinding to Create here would strand a payment that completes afterwards.
+    const inFlight = await db.execute({
+      sql: "SELECT id FROM payments WHERE order_id = ? AND type = 'collection' AND status IN ('pending', 'unknown') LIMIT 1",
+      args: [id],
+    });
+    if (inFlight.rows.length > 0) nextStage = "Fund";
+  }
 
   if (order.stage === "Arrived") await closeWaiting(order, user.sub);
 

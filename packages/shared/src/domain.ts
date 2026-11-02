@@ -860,6 +860,8 @@ export type DeliverySettings = {
   paymentsFlutterwaveDirectMobileMoney: boolean;
   /** Flutterwave cards: true = Peebee's own card form (needs PCI accreditation; default off), false = Flutterwave's hosted page. */
   paymentsFlutterwaveDirectCard: boolean;
+  /** Minutes a customer payment may stay pending before it is marked failed so they can retry; 0 = wait forever. */
+  paymentsPendingTimeoutMinutes: number;
   /** Dark-launch switch for the merchant allocation flow. Live enablement is
    * additionally gated by an active regulated-custody approval server-side. */
   merchantPaymentsEnabled: boolean;
@@ -2275,6 +2277,8 @@ export type PaymentProviderInfo = {
   active: boolean;
   /** Position in the admin's priority order, or -1 if not active. */
   priority: number;
+  /** True when the saved keys are the provider's test/sandbox ones: no real money moves, and phones get no real prompt. */
+  testMode: boolean;
   /** This provider's real API credential fields (from the provider's own
    * requirements — see apps/api/src/payments/credentials.ts) and whether
    * each is currently set, DB-stored or env-var fallback alike. */
