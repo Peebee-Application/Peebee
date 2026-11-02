@@ -16,6 +16,8 @@ export type ScreensaverIcon =
 export type ScreensaverEntity = {
   id: string;
   title: string;
+  /** One word on the thumbnail pill. The sheet and the button name keep `title`. */
+  thumbLabel?: string;
   /** Hidden when this Services switch is off. Parent modules are already applied by useModules. */
   module?: string;
   /** Hidden when this Hive shortcut is switched off in the home menu. */
@@ -128,6 +130,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "restaurants",
         title: "Restaurants",
+        thumbLabel: "Dine",
         meta: "42 open near you · 25–40 min",
         description: "Meals from Kampala's favourite kitchens, delivered hot to your door.",
         cta: "Order food",
@@ -140,6 +143,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "street-food",
         title: "Street food",
+        thumbLabel: "Street",
         meta: "Stalls open near you",
         description: "Street food from cooks near you, packed up and brought to your door.",
         cta: "Order street food",
@@ -152,6 +156,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "bakeries",
         title: "Bakeries",
+        thumbLabel: "Bakery",
         meta: "Ovens on near you",
         description: "Bread, cakes and pastries from bakeries around you, still warm.",
         cta: "Order from a bakery",
@@ -184,6 +189,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "groceries",
         title: "Groceries",
+        thumbLabel: "Grocer",
         module: "buy.shopping",
         meta: "Markets open near you",
         description: "Fresh food from markets and shops around you, brought to your door.",
@@ -195,6 +201,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "stores",
         title: "Stores",
+        thumbLabel: "Store",
         module: "buy.marketplace",
         meta: "Stores open near you",
         description: "Browse shops and order what you need. A rider delivers it.",
@@ -206,6 +213,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "pharmacy",
         title: "Pharmacy",
+        thumbLabel: "Pharma",
         module: "buy.pharmacy",
         meta: "Pharmacies open near you",
         description: "Medicine and pharmacy items, delivered with care.",
@@ -238,6 +246,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "laundry",
         title: "Laundry",
+        thumbLabel: "Wash",
         module: "hive.work",
         shortcut: "laundry",
         meta: "Pickup available near you",
@@ -262,6 +271,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "workers",
         title: "Workers",
+        thumbLabel: "Worker",
         module: "hive.hire.search",
         shortcut: "workers",
         meta: "People ready for odd jobs",
@@ -295,6 +305,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "discover",
         title: "Discover",
+        thumbLabel: "Class",
         meta: "Courses open now",
         description: "Classes and courses to learn at your own pace.",
         cta: "Browse courses",
@@ -330,6 +341,12 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
 
 export function entitySubtitle(entities: readonly { title: string }[]): string {
   return entities.map((entity) => entity.title).join(" · ");
+}
+
+/** Word on the thumbnail pill. Falls back to the full title when no short label is set. */
+export function thumbLabelOf(entity: { title: string; thumbLabel?: string }): string {
+  const short = entity.thumbLabel?.trim();
+  return short || entity.title;
 }
 
 /** Signed steps around a loop, in (-count/2, count/2]. */

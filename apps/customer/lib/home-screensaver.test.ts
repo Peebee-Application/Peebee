@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { SCREENSAVER_MODULES, circularOffset, entitySubtitle, selectScreensaver, wrapIndex } from "./home-screensaver";
+import { SCREENSAVER_MODULES, circularOffset, entitySubtitle, selectScreensaver, thumbLabelOf, wrapIndex } from "./home-screensaver";
 
 const on = (...off: string[]) => (key: string) => !off.includes(key);
 const shortcuts = (off: string[] = []) =>
@@ -38,6 +38,18 @@ test("one remaining sub-entity still keeps its slide", () => {
   const slides = selectScreensaver(SCREENSAVER_MODULES, on("learn.live", "learn.tv"), shortcuts());
   const learn = slides.find((slide) => slide.id === "learn");
   assert.deepEqual(learn?.entities.map((entity) => entity.id), ["discover"]);
+});
+
+test("thumbnail pills use a short word and fall back to the full title", () => {
+  assert.equal(thumbLabelOf({ title: "Boda" }), "Boda");
+  assert.equal(thumbLabelOf({ title: "Street food", thumbLabel: "  " }), "Street food");
+  const labels = SCREENSAVER_MODULES.flatMap((mod) => mod.entities.map((entity) => ({ title: entity.title, label: thumbLabelOf(entity) })));
+  assert.equal(labels.find((item) => item.title === "Street food")?.label, "Street");
+  assert.equal(labels.find((item) => item.title === "Restaurants")?.label, "Dine");
+  for (const item of labels) {
+    assert.equal(item.label.includes(" "), false, item.label);
+    assert.ok(item.label.length <= 6, item.label);
+  }
 });
 
 test("circular offsets wrap without duplicating the far side of an even list", () => {
