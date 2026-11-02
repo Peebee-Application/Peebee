@@ -124,10 +124,13 @@ pnpm --filter web deploy:preview
 cd apps/api
 wrangler secret put JWT_SECRET   # done
 
-# Optional, only needed to test MoMo escrow funding/payout:
-wrangler secret put MOMO_SUBSCRIPTION_KEY
+# MoMo is normally set in Admin -> Settings -> Payments. These are the fallback names (see infra/ENV.md and
+# docs/MTN_GO_LIVE.md); MOMO_BASE_URL is what moves the API from MTN's sandbox to production:
+wrangler secret put MOMO_COLLECTION_SUBSCRIPTION_KEY
+wrangler secret put MOMO_DISBURSEMENT_SUBSCRIPTION_KEY
 wrangler secret put MOMO_API_USER
 wrangler secret put MOMO_API_KEY
+wrangler secret put MOMO_BASE_URL
 ```
 
 ### Local dev (Turso fallback)

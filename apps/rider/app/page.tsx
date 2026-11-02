@@ -63,6 +63,8 @@ export default function JobsHomePage() {
   const [busy, setBusy] = useState(false);
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Why a claim or an application was refused, shown on that job's own card where the rider just tapped.
+  const [jobErrors, setJobErrors] = useState<Record<string, string>>({});
   const [previewJobItem, setPreviewJobItem] = useState<AvailableJob | null>(null);
   const [subscriptionOk, setSubscriptionOk] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<JobCategory | "all">("all");
@@ -114,14 +116,26 @@ export default function JobsHomePage() {
     }
   }
 
+  function setJobError(id: string, message: string | null) {
+    setJobErrors((prev) => {
+      if (message == null) {
+        if (!(id in prev)) return prev;
+        const { [id]: _cleared, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [id]: message };
+    });
+  }
+
   async function claimJob(id: string) {
     setClaimingId(id);
     setError(null);
+    setJobError(id, null);
     try {
       await api.claimOrder(id);
       router.push(`/jobs/${id}`);
     } catch (err) {
-      setError(errorMessage(err));
+      setJobError(id, errorMessage(err));
       load();
     } finally {
       setClaimingId(null);
@@ -131,11 +145,12 @@ export default function JobsHomePage() {
   async function claimRelay(leg: RelayOpenLeg) {
     setClaimingId(leg.id);
     setError(null);
+    setJobError(leg.id, null);
     try {
       const res = await api.claimRelayLeg(leg.id);
       router.push(`/jobs/${res.orderId ?? leg.order_id}`);
     } catch (err) {
-      setError(errorMessage(err));
+      setJobError(leg.id, errorMessage(err));
       load();
     } finally {
       setClaimingId(null);
@@ -146,6 +161,7 @@ export default function JobsHomePage() {
   async function applyToJob(id: string) {
     setClaimingId(id);
     setError(null);
+    setJobError(id, null);
     try {
       const job = availableJobs.find((j) => j.id === id);
       const typed = Number((bids[id] ?? "").replace(/[^\d]/g, ""));
@@ -154,7 +170,7 @@ export default function JobsHomePage() {
       await api.applyForOrder(id, bid);
       await load();
     } catch (err) {
-      setError(errorMessage(err));
+      setJobError(id, errorMessage(err));
     } finally {
       setClaimingId(null);
     }
@@ -324,6 +340,7 @@ export default function JobsHomePage() {
                 >
                   {claimingId === leg.id ? t("home_claiming") : !online ? t("home_offline_btn") : t("home_claim_job")}
                 </button>
+                {jobErrors[leg.id] && <p role="alert" className="rounded-lg bg-gold/10 px-3 py-2 text-sm text-ink">{jobErrors[leg.id]}</p>}
               </li>
             ))}
           </ul>
@@ -438,6 +455,7 @@ export default function JobsHomePage() {
                   </button>
                 )}
               </div>
+              {jobErrors[job.id] && <p role="alert" className="mt-2 rounded-lg bg-gold/10 px-3 py-2 text-sm text-ink">{jobErrors[job.id]}</p>}
             </li>
           ))}
         </ul>
