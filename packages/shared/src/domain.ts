@@ -850,6 +850,8 @@ export type DeliverySettings = {
   maxAssignmentMinutes: number;
   /** false (default): a live order is only ever given to a rider who accepted it. true: the nearest online rider is assigned automatically. */
   autoAssignWithoutAcceptance: boolean;
+  /** Minutes before a rider is released from an order the customer has not paid for; 0 = never. */
+  unpaidMatchReleaseMinutes: number;
   paymentsActiveProviders: PaymentProviderIdentity[];
   /** Demo/sandbox mode — every payment runs through the mock adapters
    * regardless of saved credentials. See PaymentProviderInfo/IntegrationsStatus. */
