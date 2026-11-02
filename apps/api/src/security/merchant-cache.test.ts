@@ -1,16 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { runInNewContext } from "node:vm";
 
 const path = existsSync(resolve("apps/merchant/public/sw.js")) ? resolve("apps/merchant/public/sw.js") : resolve("../merchant/public/sw.js");
 const source = readFileSync(path, "utf8");
-function worker(options: {offline?: boolean; host?: string; status?: number} = {}) {
+function worker(options: {offline?: boolean; host?: string; status?: number; app?: "admin" | "merchant"} = {}) {
   const handlers = new Map<string, (event: any) => void>();
   const calls = {cache: 0, network: 0, deleted: [] as string[]};
   const cache = {match: async () => { calls.cache++; return new Response("another account's cached secret"); }, put: async () => undefined};
-  runInNewContext(source, {
+  const workerSource = options.app === "admin" ? readFileSync(resolve(dirname(path), "../../admin/public/sw.js"), "utf8") : source;
+  runInNewContext(workerSource, {
     URL, Request, Response, setTimeout,
     self: {location: new URL(`https://${options.host ?? "merchant.peebee.online"}/sw.js`), addEventListener: (name: string, handler: (event: any) => void) => handlers.set(name, handler), clients: {claim: () => undefined, matchAll: async () => []}},
     caches: {open: async () => cache, match: cache.match, keys: async () => ["peebee-merchant-runtime-v1", "peebee-merchant-runtime-v2", "peebee-merchant-assets-v1", "peebee-merchant-pages-v2"], delete: async (key: string) => {calls.deleted.push(key); return true;}},
@@ -31,6 +32,15 @@ test("merchant worker never serves cached authenticated account or balance data"
     assert.equal(await response!.text(), "fresh server response");
   }
   assert.equal(w.calls.cache, 0); assert.equal(w.calls.network, 2);
+});
+
+test("admin financial evidence is network-only even when an old private response is cached", async () => {
+  const online = worker({app: "admin"});
+  const response = await online.request("https://api.peebee.online/v1/admin/refund-reconciliation", {Authorization: "Bearer staff"});
+  assert.equal(await response!.text(), "fresh server response"); assert.equal(online.calls.cache, 0);
+  const offline = worker({app: "admin", offline: true});
+  await assert.rejects(offline.request("https://api.peebee.online/v1/admin/refund-reconciliation")!, /offline/);
+  assert.equal(offline.calls.cache, 0);
 });
 
 test("an expired phone proof cannot be bypassed by a previously cached digital purchase", async () => {
