@@ -13,6 +13,7 @@ import { sweepRentalRequests } from "./car/selfdrive.js";
 import { sweepWork } from "./work/scheduled.js";
 import { sweepTalent } from "./talent/scheduled.js";
 import { sweepChannels } from "./channels/scheduled.js";
+import { sweepSupportChats } from "./support-chat/alerts.js";
 import { expireStaleVouchers } from "./gas/vouchers.js";
 import { applyRounding } from "./costing/config.js";
 import { sweepStaleReservations } from "./offers/service.js";
@@ -119,6 +120,11 @@ export default {
       sweepChannels()
         .then((r) => console.log("Channels sweep:", JSON.stringify(r)))
         .catch((err) => console.error("Channels sweep failed:", err)),
+    );
+    ctx.waitUntil(
+      sweepSupportChats()
+        .then((r) => { if (r.reminded > 0) console.log("Support chat reminders:", r.reminded); })
+        .catch((err) => console.error("Support chat sweep failed:", err)),
     );
     ctx.waitUntil(
       expireStaleVouchers()

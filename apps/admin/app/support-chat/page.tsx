@@ -1,12 +1,14 @@
 "use client";
 
 import { hasPermission } from "@peebee/shared";
-import { Headset, Send, UserRound, Bot } from "lucide-react";
+import { BellRing, Headset, Send, UserRound, Bot } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OptionSettingsPanel } from "../../components/OptionSettingsPanel";
 import { PageHeader } from "../../components/SettingsPageShell";
 import { useAuth } from "../../lib/auth-context";
 import { adminRequest, requestErrorMessage } from "../../lib/admin-request";
+import { enablePush, pushState, type PushState } from "../../lib/push";
+import { useSupportAlerts } from "../../components/SupportAlerts";
 
 type ChatRow = { appLabel: string; person: string | null; id: string; status: "waiting" | "human" | "closed"; agentName: string | null; mine: boolean; page: string | null; waitingSince: string | null; startedAt: string; updatedAt: string; lastText: string | null; lastFrom: string | null; visitorMessages: number };
 type Message = { id: number; from: "user" | "ai" | "agent" | "system"; text: string; at: string; agentName?: string };
@@ -36,8 +38,40 @@ export default function SupportChatPage() {
           </button>
         ))}
       </div>
-      {tab === "inbox" ? <Inbox /> : <ChatSettings canManage={canManage} />}
+      {tab === "inbox" ? <><AlertsCard /><Inbox /></> : <ChatSettings canManage={canManage} />}
     </div>
+  );
+}
+
+/** This device's alerts: with them on, a chat asking for a person reaches this phone or computer even when the admin app is closed. */
+function AlertsCard() {
+  const support = useSupportAlerts();
+  const [state, setState] = useState<PushState | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const first = setTimeout(() => void pushState().then(setState).catch(() => setState("unsupported")), 0);
+    return () => clearTimeout(first);
+  }, []);
+  const text: Record<PushState, string> = {
+    on: "This device will be alerted when someone asks for a person, even when the admin app is closed.",
+    off: "Turn alerts on for this device, so you hear about a waiting chat even when the admin app is closed.",
+    blocked: "Alerts are blocked for this site in your browser. Allow notifications for the admin site in the browser's site settings, then come back.",
+    unsupported: "This browser cannot receive alerts while the app is closed. On a phone, add the admin app to your home screen first. A badge and a sound still work while the app is open.",
+  };
+  return (
+    <section className="home-card flex flex-wrap items-center gap-3" aria-label="Alerts on this device">
+      <BellRing className="h-5 w-5 shrink-0 text-gold" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold text-ink">
+          Alerts on this device: {state === "on" ? "on" : state === "blocked" ? "blocked" : state === "unsupported" ? "not available" : "off"}
+          {support.enabled && support.agentsOnline != null && <span className="ml-2 text-xs font-semibold text-ink-500">{support.agentsOnline} {support.agentsOnline === 1 ? "person" : "people"} online</span>}
+        </p>
+        <p className="text-xs text-ink-500">{state ? text[state] : "Checking…"}</p>
+      </div>
+      {state === "off" && (
+        <button type="button" disabled={busy} onClick={async () => { setBusy(true); setState(await enablePush()); setBusy(false); }} className="min-h-10 rounded-full bg-gold px-5 text-xs font-bold text-ink disabled:opacity-50">Turn on alerts</button>
+      )}
+    </section>
   );
 }
 

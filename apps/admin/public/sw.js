@@ -189,6 +189,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Live support chats and their waiting count are never kept in a cache: they must be current, and they hold what people wrote.
+  if (url.pathname.startsWith("/v1/admin/support-chats")) { event.respondWith(fetch(request, { cache: "no-store" })); return; }
+
   // Everything an admin reads is current: the Services switches especially must never show an older copy on a fresh open.
   if (url.pathname === "/v1/settings" || url.pathname.startsWith("/v1/admin/")) {
     event.respondWith(networkFirst(request, RUNTIME_CACHE));

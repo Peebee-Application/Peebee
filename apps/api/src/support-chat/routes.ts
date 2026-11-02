@@ -13,6 +13,7 @@ import { clientIp, hashKey } from "../lib/ratelimit.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
 import { getRawSetting, setRawSetting } from "../lib/settings.js";
 import { AI_UNAVAILABLE_REPLY, AI_OFF_REPLY, askAssistant, type ChatTurn } from "./ai.js";
+import { agentsOnline, alertStaffAboutChat, closeIdleChats, notifyVisitorOfReply, touchAgentPresence } from "./alerts.js";
 import { SUPPORT_KNOWLEDGE } from "./knowledge.js";
 
 /**
@@ -74,13 +75,10 @@ async function messagesAfter(chatId: string, after: number, limit = 100): Promis
   return (res.rows as Row[]).map(toMessage);
 }
 
-/** Chats left with a person or in the queue and gone quiet are closed, so the queue never fills with abandoned chats. */
-async function closeIdleChats(): Promise<void> {
-  const minutes = Number((await getOptions(["support_chat_idle_close_minutes"])).support_chat_idle_close_minutes);
-  await db.execute({
-    sql: "UPDATE support_chats SET status = 'closed', closed_at = datetime('now') WHERE status IN ('waiting', 'human') AND updated_at < datetime('now', ?)",
-    args: [`-${minutes} minutes`],
-  });
+/** Runs best-effort work (a push) without making the visitor wait; on a Worker it is kept alive after the reply is sent. */
+async function background(c: Context, work: Promise<unknown>): Promise<void> {
+  const safe = work.catch((err) => console.error("Support chat background task failed:", err instanceof Error ? err.message : err));
+  try { c.executionCtx.waitUntil(safe); } catch { await safe; }
 }
 
 async function queuePosition(chat: Row): Promise<number | null> {
@@ -131,7 +129,10 @@ supportChatRoutes.post("/support-chat", async (c) => {
   if (await hasColumn("support_chats", "app")) {
     await db.execute({ sql: "UPDATE support_chats SET app = ?, user_id = ?, user_name = ?, user_role = ? WHERE id = ?", args: [app, person?.id ?? null, person?.name ?? null, person?.role ?? null, id] });
   }
-  if (toQueue) await addMessage(id, "system", "Connecting you to a support agent…");
+  if (toQueue) {
+    await addMessage(id, "system", "Connecting you to a support agent…");
+    await background(c, alertStaffAboutChat(id, "new"));
+  }
   return c.json({ id, secret, status: toQueue ? "waiting" : "ai", aiEnabled: o.support_chat_ai_enabled === true, humanEnabled: o.support_chat_human_enabled === true }, 201);
 });
 
@@ -141,6 +142,10 @@ supportChatRoutes.get("/support-chat/:id", async (c) => {
   if ("error" in own) return own.error;
   const after = Math.max(0, Number(c.req.query("after")) || 0);
   const chat = own.chat;
+  // So a reply is only pushed to someone who is not already looking at the chat (at most one write per 15 seconds).
+  if (await hasColumn("support_chats", "visitor_seen_at")) {
+    await db.execute({ sql: "UPDATE support_chats SET visitor_seen_at = datetime('now') WHERE id = ? AND (visitor_seen_at IS NULL OR visitor_seen_at < datetime('now', '-15 seconds'))", args: [String(chat.id)] });
+  }
   return c.json({
     status: chat.status, agentName: chat.agent_name ?? null, position: await queuePosition(chat),
     messages: await messagesAfter(String(chat.id), after),
@@ -199,6 +204,7 @@ supportChatRoutes.post("/support-chat/:id/handoff", async (c) => {
   if (own.chat.status === "ai" || own.chat.status === "closed") {
     await db.execute({ sql: "UPDATE support_chats SET status = 'waiting', agent_id = NULL, agent_name = NULL, closed_at = NULL, handoff_at = datetime('now'), updated_at = datetime('now') WHERE id = ?", args: [chatId] });
     await addMessage(chatId, "system", "Connecting you to a support agent…");
+    await background(c, alertStaffAboutChat(chatId, "new"));
   }
   const chat = (await db.execute({ sql: "SELECT * FROM support_chats WHERE id = ?", args: [chatId] })).rows[0] as Row;
   return c.json({ status: chat.status, position: await queuePosition(chat) });
@@ -248,6 +254,25 @@ supportChatRoutes.get("/admin/support-chats", ...gate, async (c) => {
   });
 });
 
+/**
+ * What the admin app polls to show a badge, play a sound and tell visitors someone is here: how many chats are waiting, which
+ * is the newest, and how many staff have the admin app open. Calling it also marks this staff member as online.
+ */
+supportChatRoutes.get("/admin/support-chats/summary", ...gate, async (c) => {
+  if (!(await tablesReady())) return c.json({ ready: false, waiting: 0, mine: 0, newestWaitingAt: null, oldestWaitingAt: null, agentsOnline: null });
+  const user = c.get("user");
+  await touchAgentPresence(user.sub, staffName(c));
+  const res = await db.execute({
+    sql: `SELECT SUM(status = 'waiting') AS waiting, SUM(status = 'human' AND agent_id = ?) AS mine,
+                 MAX(CASE WHEN status = 'waiting' THEN handoff_at END) AS newest, MIN(CASE WHEN status = 'waiting' THEN handoff_at END) AS oldest
+            FROM support_chats WHERE status IN ('waiting', 'human')`,
+    args: [user.sub],
+  });
+  const r = res.rows[0] as Row;
+  const o = await getOptions(["support_chat_alerts_enabled"]);
+  return c.json({ ready: true, waiting: Number(r.waiting) || 0, mine: Number(r.mine) || 0, newestWaitingAt: r.newest ?? null, oldestWaitingAt: r.oldest ?? null, agentsOnline: await agentsOnline(), alertsEnabled: o.support_chat_alerts_enabled === true });
+});
+
 supportChatRoutes.get("/admin/support-chats/:id", ...gate, async (c) => {
   const pending = await migrationPending(c, "0150_support_chat.sql", ...TABLES);
   if (pending) return pending;
@@ -283,7 +308,9 @@ supportChatRoutes.post("/admin/support-chats/:id/messages", ...gate, async (c) =
   const chat = (await db.execute({ sql: "SELECT * FROM support_chats WHERE id = ?", args: [idOf(c)] })).rows[0] as Row | undefined;
   if (!chat) return c.json({ error: "not_found" }, 404);
   if (chat.status !== "human" || chat.agent_id !== c.get("user").sub) return c.json({ error: "not_yours", message: "Claim this chat before replying." }, 409);
-  return c.json({ message: await addMessage(String(chat.id), "agent", parsed.data.text, String(chat.agent_name ?? staffName(c))) }, 201);
+  const message = await addMessage(String(chat.id), "agent", parsed.data.text, String(chat.agent_name ?? staffName(c)));
+  await background(c, notifyVisitorOfReply(String(chat.id), parsed.data.text));
+  return c.json({ message }, 201);
 });
 
 supportChatRoutes.post("/admin/support-chats/:id/close", ...gate, async (c) => {
