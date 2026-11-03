@@ -118,7 +118,8 @@ paymentRoutes.post("/payments/yo/callback", async (c) => {
       return c.json({ received: true, matched: true, changed: false });
     }
   }
-  if (payment.status !== "pending") return c.json({ received: true, matched: true, changed: false });
+  // A "failed" payment is re-checked too: it may be a timed-out one whose customer approved late.
+  if (payment.status !== "pending" && payment.status !== "failed") return c.json({ received: true, matched: true, changed: false });
 
   try {
     const before = String(payment.status);
@@ -161,7 +162,8 @@ paymentRoutes.post("/payments/flutterwave/callback", async (c) => {
       return c.json({ received: true, matched: true, changed: false });
     }
   }
-  if (payment.status !== "pending") return c.json({ received: true, matched: true, changed: false });
+  // A "failed" payment is re-checked too: it may be a timed-out one whose customer approved late.
+  if (payment.status !== "pending" && payment.status !== "failed") return c.json({ received: true, matched: true, changed: false });
 
   try {
     const before = String(payment.status);

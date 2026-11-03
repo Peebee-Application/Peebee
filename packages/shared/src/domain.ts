@@ -866,6 +866,8 @@ export type DeliverySettings = {
   paymentsFlutterwaveDirectCard: boolean;
   /** Minutes a customer payment may stay pending before it is marked failed so they can retry; 0 = wait forever. */
   paymentsPendingTimeoutMinutes: number;
+  /** Hours to keep watching a timed-out payment and credit the wallet if it is approved late; 0 = stop at the timeout. */
+  paymentsLateWatchHours: number;
   /** Dark-launch switch for the merchant allocation flow. Live enablement is
    * additionally gated by an active regulated-custody approval server-side. */
   merchantPaymentsEnabled: boolean;
@@ -2010,6 +2012,9 @@ export type IntegrationsStatus = {
 
 export type FailedPayment = {
   id: string;
+  /** For a collection that timed out: "watching" while Peebee still checks for a late approval, "credited" once a late
+   * approval was added to the customer's wallet. Null for an ordinary failure. */
+  late?: "watching" | "credited" | null;
   order_id: string;
   type: "collection" | "disbursement" | "refund";
   amount: number;

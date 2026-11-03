@@ -202,7 +202,12 @@ adminRoutes.get("/admin/integrations", requirePermission("integrations.view"), a
   }
 
   const failed = await db.execute({
-    sql: `SELECT p.id, p.order_id, p.type, p.amount, p.currency, p.msisdn, p.created_at
+    sql: `SELECT p.id, p.order_id, p.type, p.amount, p.currency, p.msisdn, p.created_at,
+                 (SELECT CASE WHEN po.failure_code = 'late_credited' THEN 'credited'
+                              WHEN po.failure_code = 'timed_out' AND po.status NOT IN ('successful', 'failed') THEN 'watching' END
+                    FROM provider_operations po
+                   WHERE po.business_type = 'payment' AND po.business_id = p.id
+                   ORDER BY po.created_at DESC LIMIT 1) AS late
           FROM payments p JOIN orders o ON o.id = p.order_id
           WHERE p.status = 'failed' AND o.environment = ?
           ORDER BY p.created_at DESC LIMIT 10`,

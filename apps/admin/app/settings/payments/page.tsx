@@ -25,6 +25,7 @@ export default function PaymentsSettingsPage() {
   const [directMobileMoney, setDirectMobileMoney] = useState(true);
   const [directCard, setDirectCard] = useState(false);
   const [pendingTimeout, setPendingTimeout] = useState("10");
+  const [lateWatchHours, setLateWatchHours] = useState("24");
   const [platformEnvironment, setPlatformEnvironment] = useState<PlatformEnvironment>("live");
   const [providerInfo, setProviderInfo] = useState<PaymentProviderInfo[]>([]);
   const [busy, setBusy] = useState(false);
@@ -44,6 +45,7 @@ export default function PaymentsSettingsPage() {
         setDirectMobileMoney(settingsRes.settings.paymentsFlutterwaveDirectMobileMoney);
         setDirectCard(settingsRes.settings.paymentsFlutterwaveDirectCard);
         setPendingTimeout(String(settingsRes.settings.paymentsPendingTimeoutMinutes ?? 10));
+        setLateWatchHours(String(settingsRes.settings.paymentsLateWatchHours ?? 24));
         setPlatformEnvironment(settingsRes.settings.platformEnvironment);
         setProviderInfo(integrationsRes.integrations.mobileMoney.providers);
       })
@@ -71,12 +73,14 @@ export default function PaymentsSettingsPage() {
         paymentsFlutterwaveDirectMobileMoney: directMobileMoney,
         paymentsFlutterwaveDirectCard: directCard,
         paymentsPendingTimeoutMinutes: Math.min(1440, Math.max(0, Math.floor(Number(pendingTimeout)) || 0)),
+        paymentsLateWatchHours: Math.min(168, Math.max(0, Math.floor(Number(lateWatchHours)) || 0)),
       });
       setActiveProviders(res.settings.paymentsActiveProviders);
       setPaymentsDemoMode(res.settings.paymentsDemoMode);
       setDirectMobileMoney(res.settings.paymentsFlutterwaveDirectMobileMoney);
       setDirectCard(res.settings.paymentsFlutterwaveDirectCard);
       setPendingTimeout(String(res.settings.paymentsPendingTimeoutMinutes ?? 10));
+      setLateWatchHours(String(res.settings.paymentsLateWatchHours ?? 24));
       await refreshIntegrations();
       setSaved(true);
     } catch (err) {
@@ -297,6 +301,23 @@ export default function PaymentsSettingsPage() {
               onChange={(e) => setPendingTimeout(e.target.value)}
               className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
             />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs font-semibold text-ink-500">Hours to keep watching for a late approval</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={168}
+              value={lateWatchHours}
+              onChange={(e) => setLateWatchHours(e.target.value)}
+              className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+            />
+            <span className="block text-xs text-ink-500">
+              A customer can still approve the prompt after it timed out. For this long Peebee keeps asking the provider,
+              and if the payment did go through, the amount is added to the customer&apos;s Peebee wallet and they are told.
+              0 stops watching the moment a payment times out.
+            </span>
           </label>
         </section>
         <SettingsSaveBar busy={busy} error={error} saved={saved} />

@@ -266,6 +266,8 @@ export default function OverviewPage() {
                 <li key={p.id} className="flex items-center justify-between text-xs text-ink-500">
                   <span>
                     {p.type} · {formatDate(p.created_at)}
+                    {p.late === "credited" && <span className="ml-1.5 font-semibold text-green">· approved late, credited to wallet</span>}
+                    {p.late === "watching" && <span className="ml-1.5 font-semibold text-gold">· timed out, still watching for a late approval</span>}
                   </span>
                   <span className="font-semibold text-ink">{formatUgx(p.amount)}</span>
                 </li>
