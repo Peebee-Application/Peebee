@@ -44,6 +44,7 @@ import {
   type ScreensaverModuleDef,
 } from "../../lib/home-screensaver";
 import { useModules } from "../../lib/modules";
+import { BrandLogo } from "../BrandLogo";
 import "./home-screensaver.css";
 
 // Latin variable file (one woff2 covers every weight). Each face is declared
@@ -121,6 +122,7 @@ type PageSnap = {
 type Flight = {
   id: string;
   dir: 1 | -1;
+  kind: "cluster" | "entity" | "entry";
   progress: number;
   dragging: boolean;
   commitOnEnd: boolean;
@@ -134,6 +136,7 @@ type Flight = {
 function layerStyle(role: "out" | "in", flight: Flight): React.CSSProperties {
   const { dir, progress, reduced } = flight;
   if (reduced) return { opacity: role === "out" ? 1 - progress : Math.max(progress, 0.001), zIndex: role === "out" ? 2 : 1, transform: "none" };
+  if (flight.kind !== "cluster") return { opacity: role === "out" ? 1 - progress : 1, zIndex: role === "out" ? 2 : 1, "--hs-progress": progress, "--hs-dir": dir } as React.CSSProperties;
   if (role === "out") return { transform: `translate3d(${-dir * progress * 100}%, 0, 0)`, opacity: 1, zIndex: 2 };
   const slide = dir * (1 - progress) * 25;
   const scale = 0.92 + 0.08 * progress;
@@ -235,11 +238,13 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
     return pageSnap(slide, entity, view);
   }
 
-  function playSnap(dir: 1 | -1, incoming: PageSnap, apply: () => void, dragging = false, progress = 0) {
+  function playSnap(dir: 1 | -1, incoming: PageSnap, apply: () => void, dragging = false, progress = 0, kind: Flight["kind"] = "cluster") {
+    if (flightRef.current && !flightRef.current.dragging) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const next: Flight = {
       id: nextFlightId(dir, incoming.id),
       dir,
+      kind,
       progress,
       dragging,
       commitOnEnd: !dragging,
@@ -249,7 +254,7 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
       apply,
     };
     putFlight(next);
-    if (!dragging) requestAnimationFrame(() => putFlight(flightRef.current && flightRef.current.id === next.id ? { ...flightRef.current, progress: 1 } : flightRef.current));
+    if (!dragging) requestAnimationFrame(() => requestAnimationFrame(() => putFlight(flightRef.current && flightRef.current.id === next.id ? { ...flightRef.current, progress: 1 } : flightRef.current)));
   }
 
   function stepModule(dir: 1 | -1) {
@@ -268,7 +273,7 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
     const index = wrapIndex(ei + dir, entities.length);
     const ent = entities[index];
     if (!ent) return;
-    playSnap(dir, pageSnap(slide, ent, "module"), () => setEntityIndex(index));
+    playSnap(dir, pageSnap(slide, ent, "module"), () => setEntityIndex(index), false, 0, "entity");
   }
 
   function goModule(index: number) {
@@ -287,7 +292,7 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
     const dir: 1 | -1 = circularOffset(index, ei, entities.length) >= 0 ? 1 : -1;
     const ent = entities[index];
     if (!ent) return;
-    playSnap(dir, pageSnap(slide, ent, "module"), () => setEntityIndex(index));
+    playSnap(dir, pageSnap(slide, ent, "module"), () => setEntityIndex(index), false, 0, "entity");
   }
 
   function onFlightEnd(event: React.TransitionEvent<HTMLDivElement>) {
@@ -302,7 +307,8 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
 
   function openModule() {
     stopAutoplay();
-    setView("module");
+    if (view !== "cover" || !entity) return;
+    playSnap(1, pageSnap(slide, entities[0]!, "module"), () => { setEntityIndex(0); setView("module"); }, false, 0, "entry");
   }
 
   function backToCover() {
@@ -445,8 +451,8 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
         <div className="hs-stage">
           {flight ? (
             <>
-              <PageLayer snap={flight.incoming} className={flight.dragging ? "hs-layer is-flight is-drag" : "hs-layer is-flight"} style={layerStyle("in", flight)} hidden slides={slides} moduleIndex={mi} />
-              <PageLayer snap={flight.outgoing} className={flight.dragging ? "hs-layer is-flight is-drag" : "hs-layer is-flight"} style={layerStyle("out", flight)} onEnd={onFlightEnd} slides={slides} moduleIndex={mi} onPickModule={goModule} onOpen={openModule} />
+              <PageLayer snap={flight.incoming} className={`hs-layer is-flight hs-${flight.kind}-in${flight.dragging ? " is-drag" : ""}`} style={layerStyle("in", flight)} hidden slides={slides} moduleIndex={mi} />
+              <PageLayer snap={flight.outgoing} className={`hs-layer is-flight hs-${flight.kind}-out${flight.dragging ? " is-drag" : ""}`} style={layerStyle("out", flight)} onEnd={onFlightEnd} slides={slides} moduleIndex={mi} onPickModule={goModule} onOpen={openModule} />
             </>
           ) : (
             <PageLayer snap={currentSnap()} slides={slides} moduleIndex={mi} onPickModule={goModule} onOpen={openModule} />
@@ -455,7 +461,7 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
 
         <div className="hs-top">
           {view === "cover" ? (
-            <p className="hs-wordmark">peebee</p>
+            <div className="hs-wordmark"><BrandLogo variant="light" /></div>
           ) : (
             <button type="button" className="hs-explore" aria-label="Back to slideshow" onClick={backToCover}>
               <ChevronDown size={18} strokeWidth={2.2} aria-hidden />
@@ -491,25 +497,17 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
   }
 
   function trackHorizontal(dx: number) {
-    const kind = view === "module" ? "entity" : "module";
     const dir: 1 | -1 = dx < 0 ? 1 : -1;
     const width = frameRef.current?.clientWidth || 1;
     const progress = Math.min(1, Math.abs(dx) / width);
     const existing = flightRef.current;
     if (!existing || existing.dir !== dir || !existing.dragging) {
-      if (kind === "entity") {
-        if (entities.length < 2 || !slide) return;
-        const ent = entities[wrapIndex(ei + dir, entities.length)];
-        if (!ent) return;
-        playSnap(dir, pageSnap(slide, ent, "module"), () => setEntityIndex(wrapIndex(ei + dir, entities.length)), true, progress);
-      } else {
         if (slides.length < 2) return;
         const index = wrapIndex(mi + dir, slides.length);
         const next = slides[index];
         const ent = next?.entities[0];
         if (!next || !ent) return;
         playSnap(dir, pageSnap(next, ent, view), () => { setModuleIndex(index); setEntityIndex(0); }, true, progress);
-      }
       return;
     }
     putFlight({ ...existing, progress, dragging: true });
@@ -553,8 +551,7 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
         else putFlight({ ...current, dragging: false, progress: 1, commitOnEnd: true });
         return;
       }
-      if (view === "module") stepEntity(dir);
-      else stepModule(dir);
+      stepModule(dir);
       return;
     }
     if (Math.abs(dy) < 48) return;
@@ -582,7 +579,7 @@ function PageLayer({ snap, className, style, hidden, slides, moduleIndex, onPick
   onEnd?: (event: React.TransitionEvent<HTMLDivElement>) => void;
 }) {
   return (
-    <div className={className ?? "hs-layer"} style={style} aria-hidden={hidden || undefined} onTransitionEnd={onEnd}>
+    <div key={snap.id} data-mode={snap.mode} className={className ?? "hs-layer"} style={style} inert={hidden || undefined} aria-hidden={hidden || undefined} onTransitionEnd={onEnd}>
       <div className="hs-visual" aria-hidden="true">
         <HeroPhoto src={snap.src} position={snap.position} gradient={snap.gradient} />
       </div>
@@ -598,7 +595,6 @@ function PageLayer({ snap, className, style, hidden, slides, moduleIndex, onPick
           {onOpen && (
             <button type="button" className="hs-glass hs-details" aria-label={`Show ${snap.title} details`} onClick={onOpen}>
               <ChevronUp size={18} strokeWidth={2.2} aria-hidden />
-              Details
             </button>
           )}
         </>
