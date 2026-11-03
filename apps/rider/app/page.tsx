@@ -2,7 +2,7 @@
 
 import { Select } from "@peebee/shared/select";
 
-import { observeNotificationSnapshot } from "@peebee/shared";
+import { ApiError, observeNotificationSnapshot } from "@peebee/shared";
 
 import type { AvailableJob, OrderRow, RelayOpenLeg, Rider } from "@peebee/shared";
 import { isRiderProfileComplete } from "@peebee/shared";
@@ -49,6 +49,11 @@ function CategoryIcon({ category }: { category: JobCategory }) {
       <Icon className="h-6 w-6" strokeWidth={1.75} aria-hidden />
     </span>
   );
+}
+
+/** The API refuses a claim/apply with 409 when the job left the open pool after the list loaded. */
+function jobIsGone(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 409 && ["invalid_stage", "rider_unavailable", "already_claimed"].includes(err.code ?? "");
 }
 
 export default function JobsHomePage() {
@@ -135,7 +140,12 @@ export default function JobsHomePage() {
       await api.claimOrder(id);
       router.push(`/jobs/${id}`);
     } catch (err) {
-      setJobError(id, errorMessage(err));
+      if (jobIsGone(err)) {
+        setAvailableJobs((prev) => prev.filter((j) => j.id !== id));
+        setError("That job was just cancelled or taken by someone else.");
+      } else {
+        setJobError(id, errorMessage(err));
+      }
       load();
     } finally {
       setClaimingId(null);
@@ -170,7 +180,14 @@ export default function JobsHomePage() {
       await api.applyForOrder(id, bid);
       await load();
     } catch (err) {
-      setJobError(id, errorMessage(err));
+      if (jobIsGone(err)) {
+        // Cancelled or taken since this list loaded: drop the dead card instead of leaving it with an error.
+        setAvailableJobs((prev) => prev.filter((j) => j.id !== id));
+        setError("That job was just cancelled or taken by someone else.");
+        load();
+      } else {
+        setJobError(id, errorMessage(err));
+      }
     } finally {
       setClaimingId(null);
     }
