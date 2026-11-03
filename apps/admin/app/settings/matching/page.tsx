@@ -19,6 +19,8 @@ export default function RiderMatchingPage() {
   const [maxAssignmentMinutes, setMaxAssignmentMinutes] = useState("");
   const [autoAssign, setAutoAssign] = useState(false);
   const [unpaidRelease, setUnpaidRelease] = useState("15");
+  const [oneActiveRide, setOneActiveRide] = useState(true);
+  const [closeUnpaid, setCloseUnpaid] = useState("3");
   const [biddingEnabled, setBiddingEnabled] = useState(false);
   const [biddingMin, setBiddingMin] = useState("50");
   const [biddingMax, setBiddingMax] = useState("150");
@@ -41,6 +43,8 @@ export default function RiderMatchingPage() {
         setMaxAssignmentMinutes(String(settings.maxAssignmentMinutes));
         setAutoAssign(settings.autoAssignWithoutAcceptance ?? false);
         setUnpaidRelease(String(settings.unpaidMatchReleaseMinutes ?? 15));
+        setOneActiveRide(settings.oneActiveRideEnabled ?? true);
+        setCloseUnpaid(String(settings.riderCloseUnpaidMinutes ?? 3));
         setBiddingEnabled(settings.bidding.enabled);
         setBiddingMin(String(settings.bidding.minPercent));
         setBiddingMax(String(settings.bidding.maxPercent));
@@ -70,6 +74,8 @@ export default function RiderMatchingPage() {
         maxAssignmentMinutes: Number(maxAssignmentMinutes),
         autoAssignWithoutAcceptance: autoAssign,
         unpaidMatchReleaseMinutes: Math.min(1440, Math.max(0, Number(unpaidRelease) || 0)),
+        oneActiveRideEnabled: oneActiveRide,
+        riderCloseUnpaidMinutes: Math.min(120, Math.max(0, Number(closeUnpaid) || 0)),
         bidding: {
           enabled: biddingEnabled,
           minPercent: Math.min(100, Math.max(1, Number(biddingMin) || 50)),
@@ -84,6 +90,8 @@ export default function RiderMatchingPage() {
       setMaxAssignmentMinutes(String(res.settings.maxAssignmentMinutes));
       setAutoAssign(res.settings.autoAssignWithoutAcceptance ?? false);
       setUnpaidRelease(String(res.settings.unpaidMatchReleaseMinutes ?? 15));
+      setOneActiveRide(res.settings.oneActiveRideEnabled ?? true);
+      setCloseUnpaid(String(res.settings.riderCloseUnpaidMinutes ?? 3));
       setBiddingEnabled(res.settings.bidding.enabled);
       setBiddingMin(String(res.settings.bidding.minPercent));
       setBiddingMax(String(res.settings.bidding.maxPercent));
@@ -223,6 +231,35 @@ export default function RiderMatchingPage() {
               After a rider is matched, the customer has this long to pay. If they don&apos;t, the rider is freed to take other
               jobs and the order goes back to riders. A payment in progress is never interrupted, nothing is charged, and the
               rider isn&apos;t penalised. 0 turns this off. Applies to ordinary orders, not car rides or relayed parcels.
+            </p>
+          </div>
+
+          <div className="space-y-1 border-t border-[var(--border-faint)] pt-3">
+            <label className="flex items-center gap-2 text-sm font-bold text-ink">
+              <input type="checkbox" checked={oneActiveRide} onChange={(e) => setOneActiveRide(e.target.checked)} />
+              One active ride per customer
+            </label>
+            <p className="text-xs text-ink-500">
+              While a ride booked for the customer themself is still active, they can&apos;t request another (the rider is already on
+              the way to them). They must cancel it first. A ride booked for someone else doesn&apos;t count.
+            </p>
+          </div>
+
+          <div className="space-y-1 border-t border-[var(--border-faint)] pt-3">
+            <label className="text-xs font-semibold text-ink-500" htmlFor="close-unpaid">
+              Rider may close an unpaid ride after (min)
+            </label>
+            <input
+              id="close-unpaid"
+              inputMode="numeric"
+              value={closeUnpaid}
+              onChange={(e) => setCloseUnpaid(e.target.value.replace(/[^\d]/g, ""))}
+              placeholder="3"
+              className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+            />
+            <p className="text-xs text-ink-500">
+              A rider waiting for a customer who hasn&apos;t paid can close the ride after this long. The order is cancelled, nothing
+              is charged, and the customer is told. 0 lets the rider close it straight away.
             </p>
           </div>
         </section>

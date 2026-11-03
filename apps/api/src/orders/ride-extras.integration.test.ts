@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { allowManyRides } from "../test-support/no-ride-limit.js";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
@@ -44,6 +45,7 @@ test("name your fare + multi-stop rides", async (t) => {
     for (const sql of splitSqlStatements(readFileSync(join(migrations, file), "utf8"))) await client.execute(sql);
   }
   bindDatabase(client);
+  await allowManyRides();
   for (const [id, role] of [["cust", "customer"], ["r1", "rider"], ["r2", "rider"]]) {
     await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role) VALUES (?, ?, ?, 'h', ?)", args: [id, id, `${id} Rider`, role] });
   }

@@ -236,6 +236,18 @@ export default function JobDetailPage() {
     }
   }
 
+  async function closeUnpaid() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.closeUnpaidOrder(orderId);
+      router.push("/");
+    } catch (err) {
+      setError(errorMessage(err));
+      setBusy(false);
+    }
+  }
+
   async function requestMerchantPayment() {
     const amount = Number(merchantAmount);
     if (!Number.isInteger(amount) || amount <= 0) {
@@ -870,6 +882,15 @@ export default function JobDetailPage() {
           </div>
         )}
       </section>
+
+      {order.is_ride && order.stage === "Match" && order.payment_rail === "escrow" && (
+        <section className="home-card space-y-2">
+          <p className="text-sm text-ink-500">Waiting for the customer to pay? If they haven&apos;t paid, you can close this ride and take another job.</p>
+          <button type="button" disabled={busy} onClick={closeUnpaid} className="w-full rounded-full border border-[var(--border-faint)] py-2 text-sm font-bold text-ink disabled:opacity-60">
+            Customer hasn&apos;t paid — close ride
+          </button>
+        </section>
+      )}
 
       {canCancel && (
         <section className="home-card space-y-2">
