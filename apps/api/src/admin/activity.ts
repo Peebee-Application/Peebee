@@ -86,6 +86,8 @@ const REVERT_HANDLERS: Record<string, (entityId: string, before: Row) => Promise
     if (before.autoAssignWithoutAcceptance != null) await setSetting("auto_assign_without_acceptance", before.autoAssignWithoutAcceptance ? "1" : "0");
     if (before.unpaidMatchReleaseMinutes != null) await setSetting("unpaid_match_release_minutes", String(before.unpaidMatchReleaseMinutes));
     if (before.paymentsPendingTimeoutMinutes != null) await setSetting("payments_pending_timeout_minutes", String(before.paymentsPendingTimeoutMinutes));
+    if (before.oneActiveRideEnabled != null) await setSetting("one_active_ride_enabled", before.oneActiveRideEnabled ? "1" : "0");
+    if (before.riderCloseUnpaidMinutes != null) await setSetting("rider_close_unpaid_minutes", String(before.riderCloseUnpaidMinutes));
   },
   "staff.role_change": async (entityId, before) => {
     await db.execute({

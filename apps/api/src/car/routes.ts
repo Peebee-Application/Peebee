@@ -636,6 +636,7 @@ carRoutes.post("/car/bookings", async (c) => {
       fare,
       // An ambulance goes to the nearest free one at once; otherwise the customer's own choice in their account decides.
       matchingMode: rideMatchingMode,
+      allowConcurrent: Boolean(scheduledAt),
       // The customer's pick window starts when the ride opens to drivers, not at booking.
       matchingDeadlineAt:
         scheduledAt && rideMatchingMode === "customer_selects"

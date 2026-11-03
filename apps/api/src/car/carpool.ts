@@ -347,7 +347,7 @@ carpoolRoutes.post("/car/carpool/trips/:id/seats", async (c) => {
         destinationLng: Number(trip.dest_lng),
         paymentRail: "escrow",
       },
-      { fare: amount, matchingMode: "first_to_claim" },
+      { fare: amount, matchingMode: "first_to_claim", allowConcurrent: true },
     );
     if (response.status >= 400) {
       await release();

@@ -33,6 +33,7 @@ import { redactOrder } from "./visibility.js";
 import { assignAvailableRider, PAID_ESCROW } from "./assignment.js";
 import { computeBidding, loadBiddingContext, validateBid } from "./bidding.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
+import { inPractice } from "../db/practice-context.js";
 import {
   MAX_STOPS_HARD,
   fareBand,
@@ -329,6 +330,23 @@ orderRoutes.get("/lists/:id", async (c) => {
 // Orders — create / read
 // ---------------------------------------------------------------------------
 
+/** A ride the customer booked for themself that has not been completed or cancelled (rides booked for someone else
+ * are left out: that person is somewhere else, so it never stops the booker from riding). Returns its id. */
+export async function activeOwnRide(customerId: string): Promise<string | null> {
+  const forOther = (await hasColumn("orders", "passenger_name")) ? "AND (passenger_name IS NULL OR passenger_name = '')" : "";
+  // Seat tickets (Taxipress, carpool) and rides booked for later are not "a ride coming to pick you up now".
+  const skip: string[] = [];
+  if (await hasTable("taxipress_bookings")) skip.push("NOT EXISTS (SELECT 1 FROM taxipress_bookings tb WHERE tb.order_id = orders.id)");
+  if (await hasTable("carpool_seats")) skip.push("NOT EXISTS (SELECT 1 FROM carpool_seats cs WHERE cs.order_id = orders.id)");
+  if ((await hasTable("car_bookings")) && (await hasColumn("car_bookings", "scheduled_for"))) skip.push("NOT EXISTS (SELECT 1 FROM car_bookings cb WHERE cb.order_id = orders.id AND cb.scheduled_for IS NOT NULL)");
+  const row = (await db.execute({
+    sql: `SELECT id FROM orders WHERE customer_id = ? AND is_ride = 1 AND stage NOT IN ('Settle', 'Cancelled')
+          AND environment = (SELECT environment FROM lists WHERE id = orders.list_id) ${forOther} ${skip.map((s) => `AND ${s}`).join(" ")} ORDER BY created_at DESC LIMIT 1`,
+    args: [customerId],
+  })).rows[0] as Row | undefined;
+  return row ? String(row.id) : null;
+}
+
 const createOrderSchema = z.object({
   listId: z.string(),
   type: z.enum(["shopping", "parcel"]).default("shopping"),
@@ -374,7 +392,7 @@ export async function createOrderFromInput(
   d: z.infer<typeof createOrderSchema>,
   /** Set only by the Peebee Car booking route: the category fare replaces the
    * boda ride rate and the order uses the car matching mode. */
-  car?: { fare: number; matchingMode: MatchingMode; matchingDeadlineAt?: string },
+  car?: { fare: number; matchingMode: MatchingMode; matchingDeadlineAt?: string; /** Seat tickets and rides booked for later may sit beside an on-demand ride. */ allowConcurrent?: boolean },
 ) {
   const user = c.get("user");
 
@@ -384,6 +402,16 @@ export async function createOrderFromInput(
   if (!(await isServiceEnabled(service))) return servicePaused(c, service);
   // A boda ride (not a car booking) also needs the Boda module on.
   if (d.isRide && !car && !(await isModuleLive("ride.boda"))) return servicePaused(c, "ride");
+
+  // One active ride at a time: a ride booked for the customer themself is on its way to pick them up, so a second
+  // request could never find them. They must cancel it first. A ride booked for someone else doesn't count.
+  // The automated practice world books one of every ride for the same demo customer, so it is exempt.
+  if (d.isRide && !car?.allowConcurrent && !inPractice() && (await getMatchingSettings()).oneActiveRideEnabled) {
+    const active = await activeOwnRide(user.sub);
+    if (active) {
+      return c.json({ error: "active_ride", orderId: active, message: "You already have a ride in progress. Cancel it first if you want to request another." }, 409);
+    }
+  }
 
   const list = await db.execute({
     sql: "SELECT * FROM lists WHERE id = ?",
@@ -1719,6 +1747,53 @@ orderRoutes.post("/orders/:id/cancel", async (c) => {
 // a rider's attached, backing out affects someone else's day and goes
 // through support instead of a self-service button.
 // ---------------------------------------------------------------------------
+
+/** A rider who has been matched to a ride its customer never paid for can close it instead of waiting. After the
+ * admin-set wait the order is cancelled (nothing was paid, so nothing is refunded), the rider is freed and the
+ * customer is told. A payment that is pending or successful blocks it. */
+orderRoutes.post("/orders/:id/close-unpaid", async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const order = await getOrder(id);
+  if (!order) return c.json({ error: "not_found" }, 404);
+  try {
+    assertRider(order, user.sub);
+  } catch (e) {
+    if (e instanceof HttpError) return c.json({ error: e.message }, e.status);
+    throw e;
+  }
+  if (order.stage !== "Match" || order.payment_rail !== "escrow") {
+    return c.json({ error: "invalid_stage", message: "This order is already paid or under way." }, 409);
+  }
+  const paid = await db.execute({
+    sql: "SELECT 1 FROM payments WHERE order_id = ? AND type = 'collection' AND status IN ('pending', 'unknown', 'successful') LIMIT 1",
+    args: [id],
+  });
+  if (paid.rows.length > 0) return c.json({ error: "payment_started", message: "The customer has started paying — please wait." }, 409);
+  const { riderCloseUnpaidMinutes: minutes } = await getMatchingSettings();
+  const matchedAt = Date.parse(`${String(order.updated_at).replace(" ", "T")}${String(order.updated_at).includes("Z") ? "" : "Z"}`);
+  if (Number.isFinite(matchedAt) && Date.now() - matchedAt < minutes * 60_000) {
+    const left = Math.ceil((minutes * 60_000 - (Date.now() - matchedAt)) / 60_000);
+    return c.json({ error: "too_early", message: `Please wait ${left} more minute${left === 1 ? "" : "s"} for the customer to pay.` }, 409);
+  }
+  const result = await db.execute({
+    sql: `UPDATE orders SET stage = 'Cancelled', updated_at = datetime('now')
+          WHERE id = ? AND stage = 'Match' AND rider_id = ?
+            AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.order_id = orders.id AND p.type = 'collection' AND p.status IN ('pending', 'unknown', 'successful'))`,
+    args: [id, user.sub],
+  });
+  if (result.rowsAffected === 0) return c.json({ error: "payment_started", message: "The order changed. Refresh and try again." }, 409);
+  await db.execute({ sql: "UPDATE lists SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?", args: [String(order.list_id)] });
+  await db.execute({ sql: "DELETE FROM rider_order_locks WHERE order_id = ?", args: [id] }).catch(() => undefined);
+  await logEvent(id, "Cancelled", "Closed by the rider — the customer did not pay in time", user.sub);
+  notifyUser(String(order.customer_id), {
+    title: "Your ride was closed",
+    body: "Your rider closed the ride because it wasn't paid in time. You can request a new one.",
+    url: "/orders",
+    tag: `ride-closed-${id}`,
+  });
+  return c.json({ order: await getOrder(id) });
+});
 
 const CUSTOMER_CANCELLABLE_STAGES = ["Create", "Match"];
 

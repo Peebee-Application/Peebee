@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { allowManyRides } from "../test-support/no-ride-limit.js";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
@@ -42,6 +43,7 @@ test("switching a service off stops new orders of that kind only", async (t) => 
     for (const sql of splitSqlStatements(readFileSync(join(migrations, file), "utf8"))) await client.execute(sql);
   }
   bindDatabase(client);
+  await allowManyRides();
   await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role) VALUES ('cust', 'cust', 'cust', 'h', 'customer')", args: [] });
   const app = new Hono().route("/v1", orderRoutes).route("/v1", customerRestaurantRoutes).route("/v1", carRoutes);
   const token = await signToken({ sub: "cust", role: "customer" });

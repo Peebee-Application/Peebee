@@ -116,6 +116,11 @@ const DEFAULTS = {
    * failed, so the customer can try again and the order is not held forever (see payments/reconciliation.ts).
    * Only collections (money in) ever time out; payouts never do. 0 turns it off. */
   payments_pending_timeout_minutes: "10",
+  /** One active ride per customer: while a ride booked for the customer themself is still active (not completed or
+   * cancelled) they cannot request another; rides booked for someone else do not count. "1" on, "0" off. */
+  one_active_ride_enabled: "1",
+  /** Minutes a rider must have waited on a ride the customer has not paid for before the rider may close it. 0 = at once. */
+  rider_close_unpaid_minutes: "3",
   /** How long an order in "nearest_window" mode waits to collect applicants
    * before the app auto-assigns whichever is nearest. */
   nearest_window_seconds: "90",
@@ -1342,13 +1347,17 @@ export async function getMatchingSettings(): Promise<{
   maxAssignmentMinutes: number;
   autoAssignWithoutAcceptance: boolean;
   unpaidMatchReleaseMinutes: number;
+  oneActiveRideEnabled: boolean;
+  riderCloseUnpaidMinutes: number;
 }> {
-  const [modesRaw, windowRaw, maxRaw, autoRaw, unpaidRaw] = await Promise.all([
+  const [modesRaw, windowRaw, maxRaw, autoRaw, unpaidRaw, oneRideRaw, closeRaw] = await Promise.all([
     getSetting("matching_modes_enabled"),
     getSetting("nearest_window_seconds"),
     getSetting("max_assignment_minutes"),
     getSetting("auto_assign_without_acceptance"),
     getSetting("unpaid_match_release_minutes"),
+    getSetting("one_active_ride_enabled"),
+    getSetting("rider_close_unpaid_minutes"),
   ]);
   return {
     enabledModes: parseEnabledModes(modesRaw),
@@ -1356,6 +1365,8 @@ export async function getMatchingSettings(): Promise<{
     maxAssignmentMinutes: Number(maxRaw) || Number(DEFAULTS.max_assignment_minutes),
     autoAssignWithoutAcceptance: autoRaw === "1",
     unpaidMatchReleaseMinutes: Math.min(1440, Math.max(0, Math.floor(Number(unpaidRaw)) || 0)),
+    oneActiveRideEnabled: oneRideRaw !== "0",
+    riderCloseUnpaidMinutes: Math.min(120, Math.max(0, Math.floor(Number(closeRaw ?? 3)) || 0)),
   };
 }
 

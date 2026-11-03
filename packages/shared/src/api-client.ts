@@ -963,6 +963,10 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async cancelOrder(orderId: string) {
       return request<{ order: OrderRow }>(`/v1/orders/${orderId}/cancel`, { method: "POST" });
     },
+    /** Rider closes a ride the customer never paid for — the order is cancelled and the rider is freed. */
+    async closeUnpaidOrder(orderId: string) {
+      return request<{ order: OrderRow }>(`/v1/orders/${orderId}/close-unpaid`, { method: "POST" });
+    },
     /** Customer backs out of their own order — only while it's still
      * unmatched (no rider, nothing paid). Stays in their order history as
      * "Cancelled". */

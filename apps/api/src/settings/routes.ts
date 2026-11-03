@@ -532,6 +532,8 @@ const updateSchema = z.object({
   maxAssignmentMinutes: z.number().int().positive().max(120).optional(),
   autoAssignWithoutAcceptance: z.boolean().optional(),
   unpaidMatchReleaseMinutes: z.number().int().min(0).max(1440).optional(),
+  oneActiveRideEnabled: z.boolean().optional(),
+  riderCloseUnpaidMinutes: z.number().int().min(0).max(120).optional(),
   paymentsActiveProviders: z.array(z.enum(["yo", "flutterwave", "mtn", "airtel"])).min(1).max(4).optional(),
   paymentsDemoMode: z.boolean().optional(),
   paymentsFlutterwaveDirectMobileMoney: z.boolean().optional(),
@@ -714,6 +716,12 @@ settingsRoutes.put(
     }
     if (parsed.data.unpaidMatchReleaseMinutes != null) {
       await setSetting("unpaid_match_release_minutes", String(parsed.data.unpaidMatchReleaseMinutes));
+    }
+    if (parsed.data.oneActiveRideEnabled != null) {
+      await setSetting("one_active_ride_enabled", parsed.data.oneActiveRideEnabled ? "1" : "0");
+    }
+    if (parsed.data.riderCloseUnpaidMinutes != null) {
+      await setSetting("rider_close_unpaid_minutes", String(parsed.data.riderCloseUnpaidMinutes));
     }
     if (parsed.data.paymentsActiveProviders != null) {
       await setActiveProviders(parsed.data.paymentsActiveProviders as PaymentProviderIdentity[]);
