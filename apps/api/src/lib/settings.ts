@@ -112,6 +112,10 @@ const DEFAULTS = {
   /** Minutes a rider stays attached to an order its customer has not paid for before the rider is released and the
    * order goes back to the pool (see orders/unpaid-release.ts). 0 turns it off. */
   unpaid_match_release_minutes: "15",
+  /** Minutes a customer's mobile money / card payment may stay "pending" before Peebee stops waiting and marks it
+   * failed, so the customer can try again and the order is not held forever (see payments/reconciliation.ts).
+   * Only collections (money in) ever time out; payouts never do. 0 turns it off. */
+  payments_pending_timeout_minutes: "10",
   /** One active ride per customer: while a ride booked for the customer themself is still active (not completed or
    * cancelled) they cannot request another; rides booked for someone else do not count. "1" on, "0" off. */
   one_active_ride_enabled: "1",
@@ -1462,6 +1466,12 @@ export async function setPaymentsDemoMode(enabled: boolean): Promise<void> {
 /** Whether the shared practice world is on offer, and the background job that keeps it busy runs. Always on while the whole platform is in sandbox. */
 export async function practiceWorldRunning(): Promise<boolean> {
   return (await getSetting("practice_shared_world")) === "1" || (await getPlatformEnvironment()) === "sandbox";
+}
+
+export async function getPaymentsPendingTimeoutMinutes(): Promise<number> {
+  const raw = await getSetting("payments_pending_timeout_minutes");
+  const minutes = Math.floor(Number(raw));
+  return Number.isFinite(minutes) ? Math.min(1440, Math.max(0, minutes)) : Number(DEFAULTS.payments_pending_timeout_minutes);
 }
 
 export async function getFlutterwaveDirectMobileMoney(): Promise<boolean> {
