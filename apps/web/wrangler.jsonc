@@ -17,5 +17,12 @@
   "vars": {
     // See apps/customer/wrangler.jsonc for why this is needed.
     "NEXT_PRIVATE_MINIMAL_MODE": "1"
+  },
+  // Workers Builds runs `npx wrangler preview` on non-main branches. Vars are
+  // not inherited, and the same OpenNext flag has to be set or the preview crashes.
+  "previews": {
+    "vars": {
+      "NEXT_PRIVATE_MINIMAL_MODE": "1"
+    }
   }
 }
