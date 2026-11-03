@@ -116,6 +116,9 @@ const DEFAULTS = {
    * failed, so the customer can try again and the order is not held forever (see payments/reconciliation.ts).
    * Only collections (money in) ever time out; payouts never do. 0 turns it off. */
   payments_pending_timeout_minutes: "10",
+  /** Hours Peebee keeps checking a timed-out collection with the provider. If the customer approved it after all, the
+   * amount is credited to their Peebee wallet (see payments/reconciliation.ts). 0 stops watching at the timeout. */
+  payments_late_watch_hours: "24",
   /** One active ride per customer: while a ride booked for the customer themself is still active (not completed or
    * cancelled) they cannot request another; rides booked for someone else do not count. "1" on, "0" off. */
   one_active_ride_enabled: "1",
@@ -1472,6 +1475,11 @@ export async function getPaymentsPendingTimeoutMinutes(): Promise<number> {
   const raw = await getSetting("payments_pending_timeout_minutes");
   const minutes = Math.floor(Number(raw));
   return Number.isFinite(minutes) ? Math.min(1440, Math.max(0, minutes)) : Number(DEFAULTS.payments_pending_timeout_minutes);
+}
+
+export async function getPaymentsLateWatchHours(): Promise<number> {
+  const hours = Math.floor(Number(await getSetting("payments_late_watch_hours")));
+  return Number.isFinite(hours) ? Math.min(168, Math.max(0, hours)) : Number(DEFAULTS.payments_late_watch_hours);
 }
 
 export async function getFlutterwaveDirectMobileMoney(): Promise<boolean> {
