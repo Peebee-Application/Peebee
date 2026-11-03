@@ -28,7 +28,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useHomeMenu } from "../../lib/home-menu";
@@ -46,9 +46,16 @@ import {
 import { useModules } from "../../lib/modules";
 import "./home-screensaver.css";
 
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+// Latin variable file (one woff2 covers every weight). Each face is declared
+// separately so a weight in between still snaps the way the Google CSS did.
+const jakarta = localFont({
+  src: [
+    { path: "../../lib/fonts/plus-jakarta-sans/plus-jakarta-sans-latin.woff2", weight: "400", style: "normal" },
+    { path: "../../lib/fonts/plus-jakarta-sans/plus-jakarta-sans-latin.woff2", weight: "500", style: "normal" },
+    { path: "../../lib/fonts/plus-jakarta-sans/plus-jakarta-sans-latin.woff2", weight: "600", style: "normal" },
+    { path: "../../lib/fonts/plus-jakarta-sans/plus-jakarta-sans-latin.woff2", weight: "700", style: "normal" },
+    { path: "../../lib/fonts/plus-jakarta-sans/plus-jakarta-sans-latin.woff2", weight: "800", style: "normal" },
+  ],
   display: "swap",
 });
 
