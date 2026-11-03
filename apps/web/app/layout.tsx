@@ -1,12 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Instrument_Serif } from "next/font/google";
+import localFont from "next/font/local";
 import { Shell } from "../components/Shell";
 import { WebModulesProvider } from "../lib/web-modules";
 import "./globals.css";
 import "./desktop.css";
 
-const sans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
-const display = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"], variable: "--font-display", display: "swap" });
+const sans = localFont({
+  src: "../fonts/inter/inter-latin.woff2",
+  weight: "100 900",
+  style: "normal",
+  variable: "--font-sans",
+  display: "swap",
+});
+const display = localFont({
+  src: [
+    { path: "../fonts/instrument-serif/instrument-serif-latin-400.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/instrument-serif/instrument-serif-latin-400-italic.woff2", weight: "400", style: "italic" },
+  ],
+  variable: "--font-display",
+  display: "swap",
+  adjustFontFallback: "Times New Roman",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://peebee.online"),
