@@ -4,7 +4,7 @@ import { invalidateSettingsCache } from "../lib/settings.js";
 import { practiceHarness } from "./world-test-helpers.js";
 
 test("practice runs on each device by default; Admin can switch on the shared world", async () => {
-  const { db, tokens, call, json, post, start } = await practiceHarness();
+  const { mainDb: db, tokens, call, json, post, start } = await practiceHarness();
   const setShared = async (value: string | null) => {
     await db.execute({ sql: "DELETE FROM settings WHERE key = 'practice_shared_world'", args: [] });
     if (value != null) await db.execute({ sql: "INSERT INTO settings (key, value) VALUES ('practice_shared_world', ?)", args: [value] });

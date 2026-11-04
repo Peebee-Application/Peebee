@@ -5,7 +5,7 @@ import { requirePermission } from "../admin/permissions.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { signToken } from "../auth/jwt.js";
 import { signGasToken } from "../gas/auth.js";
-import { db } from "../db/client.js";
+import { db, hasPracticeDatabase } from "../db/client.js";
 import { inPractice, runInPractice } from "../db/practice-context.js";
 import { clientIp, consume } from "../lib/ratelimit.js";
 import { getPlatformEnvironment, getSetting, practiceWorldRunning } from "../lib/settings.js";
@@ -23,7 +23,7 @@ async function modeOn(): Promise<boolean> {
 /** Is the shared practice world on offer to this person right now? The apps fall back to their built-in sample when it is not. */
 practiceRoutes.get("/practice/world", requireAuth, async (c) => {
   const available = (await modeOn()) && (await practiceWorldRunning());
-  return c.json({ available, seeded: available ? await isPracticeSeeded() : false });
+  return c.json({ available, seeded: available ? await runInPractice(isPracticeSeeded) : false });
 });
 
 const sessionSchema = z.object({ role: z.enum(["customer", "rider", "merchant", "restaurant", "pharmacy", "gas", "learner", "educator", "provider", "worker", "partner", "sales", "tv"]) });
@@ -94,7 +94,7 @@ async function tvSession(c: Context, ownerId: string) {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   const secret = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret))), (b) => b.toString(16).padStart(2, "0")).join("");
-  const keyed = await db.execute({ sql: "UPDATE tv_devices SET secret_hash = ?, status = 'paired', pair_code = NULL WHERE id = 'prac_tv_1' AND owner_id = ?", args: [hash, ownerId] });
+  const keyed = await runInPractice(() => db.execute({ sql: "UPDATE tv_devices SET secret_hash = ?, status = 'paired', pair_code = NULL WHERE id = 'prac_tv_1' AND owner_id = ?", args: [hash, ownerId] }));
   if (!keyed.rowsAffected) return c.json({ error: "practice_not_ready", message: "The practice world is missing its demo TV." }, 503);
   return c.json({ token: secret, role: "tv", user: { id: ownerId, name: owner.name, role: "learner", phone: null } });
 }
@@ -102,7 +102,11 @@ async function tvSession(c: Context, ownerId: string) {
 const adminGuard = [requireAuth, requireRole("admin"), requirePermission("settings.manage")] as const;
 
 practiceRoutes.get("/admin/practice", ...adminGuard, async (c) =>
-  c.json({ seeded: await isPracticeSeeded(), counts: await practiceCounts(), coverage: await runInPractice(moduleCoverage), platformEnvironment: await getPlatformEnvironment() }));
+  c.json({
+    ...(await runInPractice(async () => ({ seeded: await isPracticeSeeded(), counts: await practiceCounts(), coverage: await moduleCoverage() }))),
+    platformEnvironment: await getPlatformEnvironment(),
+    separateDatabase: hasPracticeDatabase(),
+  }));
 
 practiceRoutes.post("/admin/practice/seed", ...adminGuard, async (c) => {
   const counts = await runInPractice(async () => {

@@ -1,4 +1,5 @@
 import { db } from "../db/client.js";
+import { inPractice } from "../db/practice-context.js";
 
 /**
  * Whether a column exists in the live database. Migrations here are applied by
@@ -15,7 +16,7 @@ const NO_TTL_MS = 30_000;
 
 export async function hasColumn(table: string, column: string): Promise<boolean> {
   if (!/^[a-z0-9_]+$/i.test(table)) return false;
-  const key = `${table}.${column}`;
+  const key = `${inPractice() ? "practice:" : ""}${table}.${column}`;
   const known = answers.get(key);
   if (known && (known.exists || Date.now() - known.at < NO_TTL_MS)) return known.exists;
   let exists = false;
@@ -31,7 +32,7 @@ export async function hasColumn(table: string, column: string): Promise<boolean>
 
 /** Same idea for a whole table: code that reads a table added by a hand-applied migration. */
 export async function hasTable(table: string): Promise<boolean> {
-  const key = `table.${table}`;
+  const key = `${inPractice() ? "practice:" : ""}table.${table}`;
   const known = answers.get(key);
   if (known && (known.exists || Date.now() - known.at < NO_TTL_MS)) return known.exists;
   let exists = false;

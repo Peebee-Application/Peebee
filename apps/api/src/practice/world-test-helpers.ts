@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { createClient, type Client, type InArgs } from "@libsql/client/node";
 import app from "../app.js";
 import { signToken } from "../auth/jwt.js";
-import { setD1Binding, type D1Database } from "../db/client.js";
+import { setD1Binding, setPracticeD1Binding, type D1Database } from "../db/client.js";
 import { splitSqlStatements } from "../db/split-sql.js";
 import { resetSchemaCache } from "../lib/schema.js";
 import { invalidateSettingsCache } from "../lib/settings.js";
@@ -41,6 +41,9 @@ export async function practiceHarness() {
   resetSchemaCache();
   const db = await freshDatabase();
   setD1Binding(shim(db));
+  // PRACTICE_SEPARATE_DB=1 runs these flows with the practice world in its own database, as in production.
+  const practiceDb = process.env.PRACTICE_SEPARATE_DB === "1" ? await freshDatabase() : null;
+  setPracticeD1Binding(practiceDb ? shim(practiceDb) : undefined);
   await db.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role) VALUES ('real_rider', '0771', 'Real Rider', 'h', 'rider'), ('real_cust', '0772', 'Real Customer', 'h', 'customer'), ('real_admin', '0773', 'Real Admin', 'h', 'admin')", args: [] });
   await db.execute({ sql: "UPDATE users SET admin_role = 'super_admin' WHERE id = 'real_admin'", args: [] });
   await db.execute({ sql: "INSERT INTO riders (user_id, verified, is_online, stage_lat, stage_lng) VALUES ('real_rider', 1, 1, 0.0612, 32.4637)", args: [] });
@@ -56,5 +59,6 @@ export async function practiceHarness() {
   const json = async <T = Record<string, any>>(res: Response) => (await res.json()) as T;
   const post = (token: string, path: string, body: unknown = {}) => call(token, path, { method: "POST", body: JSON.stringify(body) });
   const start = async (role: string, as: "customer" | "rider" = "customer") => json<{ token: string; user: { id: string } }>(await post(tokens[as], "/practice/session", { role }));
-  return { db, tokens, call, json, post, start };
+  // With a separate practice database the tests look at the demo world through it; `mainDb` is the platform's own.
+  return { db: practiceDb ?? db, mainDb: db, tokens, call, json, post, start };
 }

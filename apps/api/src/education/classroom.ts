@@ -1,6 +1,7 @@
 import { Hono, type Context, type Next } from "hono";
 import { z } from "zod";
-import { db } from "../db/client.js";
+import { db, hasPracticeDatabase } from "../db/client.js";
+import { runInPractice } from "../db/practice-context.js";
 import { requireAuth } from "../auth/middleware.js";
 import { newId } from "../lib/ids.js";
 import { randomInt } from "../lib/random.js";
@@ -200,11 +201,18 @@ async function deviceAuth(c: Context, next: Next) {
   const header = c.req.header("Authorization") ?? "";
   const secret = header.startsWith("Device ") ? header.slice(7).trim() : "";
   if (!secret || secret.length < 32) return c.json({ error: "unauthorized", message: "This screen isn't registered." }, 401);
-  const row = await one("SELECT * FROM tv_devices WHERE secret_hash = ?", [await sha256(secret)]);
+  const hash = await sha256(secret);
+  let row = await one("SELECT * FROM tv_devices WHERE secret_hash = ?", [hash]);
+  // The practice TV lives in the practice database (when there is one); its secret is not a signed token, so find it here.
+  const practiceTv = !row && hasPracticeDatabase();
+  if (practiceTv) row = await runInPractice(() => one("SELECT * FROM tv_devices WHERE secret_hash = ?", [hash]));
   if (!row) return c.json({ error: "unauthorized", message: "This screen isn't registered. Restart the app to pair it again." }, 401);
   c.set("device" as never, row as never);
-  await db.execute({ sql: "UPDATE tv_devices SET last_seen_at = datetime('now') WHERE id = ?", args: [row.id as string] });
-  await next();
+  const proceed = async () => {
+    await db.execute({ sql: "UPDATE tv_devices SET last_seen_at = datetime('now') WHERE id = ?", args: [row!.id as string] });
+    await next();
+  };
+  if (practiceTv) await runInPractice(proceed); else await proceed();
 }
 
 const getDevice = (c: Context) => c.get("device" as never) as Device;

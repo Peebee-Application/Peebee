@@ -41,7 +41,7 @@ test("an app starts practice, is signed in as the persona on the shared world, a
 });
 
 test("if the shared world can't be offered, the app falls back to the built-in sample", async () => {
-  const { tokens, db } = await practiceHarness();
+  const { tokens, mainDb: db } = await practiceHarness();
   await db.execute({ sql: "UPDATE settings SET value = '0' WHERE key = 'user_practice_mode_enabled'", args: [] });
   const { invalidateSettingsCache } = await import("../lib/settings.js");
   invalidateSettingsCache();

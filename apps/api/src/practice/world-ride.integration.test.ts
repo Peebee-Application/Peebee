@@ -3,10 +3,10 @@ import test from "node:test";
 import { practiceHarness } from "./world-test-helpers.js";
 
 test("Ride cluster: every ride module has demo data, visible in practice and hidden from live", async (t) => {
-  const { db, tokens, call, json, start } = await practiceHarness();
+  const { db, mainDb, tokens, call, json, start } = await practiceHarness();
   // Switch the modules on for Live too, so "hidden from live" is tested against a live platform that would show them.
   for (const key of ["car_enabled", "car_ondemand_enabled", "taxipress_enabled", "car_carpool_enabled", "car_selfdrive_enabled", "relay_enabled"]) {
-    await db.execute({ sql: "INSERT INTO settings (key, value) VALUES (?, '1') ON CONFLICT(key) DO UPDATE SET value='1'", args: [key] });
+    await mainDb.execute({ sql: "INSERT INTO settings (key, value) VALUES (?, '1') ON CONFLICT(key) DO UPDATE SET value='1'", args: [key] });
   }
   const { invalidateSettingsCache } = await import("../lib/settings.js");
   invalidateSettingsCache();

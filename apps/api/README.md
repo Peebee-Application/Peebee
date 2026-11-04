@@ -74,3 +74,20 @@ credentials (optional). See `infra/CLOUDFLARE.md` for the full picture (includin
 bundling gotchas) and `infra/ENV.md` for the env name matrix.
 
 Do not commit secrets. `render.yaml` / the old Render service are kept for reference only.
+
+## Separate practice database (optional, recommended)
+
+The shared practice world (Admin → Practice) keeps its demo people, orders and money in D1. By default that is the main
+database, told apart by `prac_` ids. To keep it completely apart from live data, give the Worker a second D1 database
+bound as `DB_PRACTICE`:
+
+1. `npx wrangler d1 create peebee-practice` (from `apps/api`) — note the `database_id` it prints.
+2. Add it to `wrangler.jsonc` next to `DB`: `{ "binding": "DB_PRACTICE", "database_name": "peebee-practice", "database_id": "<id>", "migrations_dir": "src/db/migrations" }`.
+3. `npx wrangler d1 migrations apply peebee-practice --remote` — the practice database needs the same schema as the main one,
+   so run this again after every new migration you apply to the main database.
+4. Deploy, then Admin → Practice → "Lay down the practice world".
+
+While `DB_PRACTICE` is bound, every request made with a practice session (and the background job's practice work) reads
+and writes it instead of `DB`. Settings and admin switches are always read from the main database, so practice follows the
+real fares, modules and notices. Without the binding nothing changes. Cloudflare's daily D1 read limit is per account, so
+a second database isolates data but does not add read allowance.

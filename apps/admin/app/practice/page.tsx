@@ -78,6 +78,7 @@ export default function PracticePage() {
               <h2 className="text-base font-bold text-ink">The shared practice world</h2>
               <p className="text-xs text-ink-500">
                 One set of demo people, shops, menus and orders, the same data the platform-wide Sandbox shows. Practising users act as a demo persona inside it, so a demo customer&rsquo;s order reaches practising riders, merchants and restaurants.
+                {world?.separateDatabase ? " It is kept in its own database, apart from live data." : " It currently shares the main database, kept apart by id; ask a developer to attach the separate practice database."}
                 {world?.platformEnvironment === "sandbox" ? " The whole platform is in sandbox right now, so everyone sees it." : " The platform is live, so only people who start practice see it."} Switch the whole platform on <Link href="/settings/platform" className="font-bold text-ink underline">Platform state</Link>.
               </p>
             </div>
