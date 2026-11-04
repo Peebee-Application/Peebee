@@ -287,6 +287,9 @@ app.use("/v1/*", async (_c, next) => {
   await applyRounding().catch(() => undefined);
   await next();
 });
+// Phones check/download updates without a user token; publishing uses its own token.
+// Register before shared /v1 routers with catch-all sign-in middleware.
+app.route("/v1", appUpdatesRoutes);
 app.route("/v1/auth", authRoutes);
 app.route("/v1", onboardingRoutes);
 app.route("/v1/auth", verifyRoutes);
@@ -341,7 +344,6 @@ app.route("/v1", locationRoutes);
 app.route("/v1", passengerRoutes);
 app.route("/v1", aiKeyRoutes);
 app.route("/v1", aiFeatureRoutes);
-app.route("/v1", appUpdatesRoutes);
 app.route("/v1", appUpdatesAdminRoutes);
 app.route("/v1", emailKeyRoutes);
 app.route("/v1", mobileNumberRoutes);
