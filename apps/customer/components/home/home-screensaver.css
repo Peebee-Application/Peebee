@@ -92,12 +92,12 @@
   background: linear-gradient(to bottom, transparent, rgb(0 0 0 / 0.82));
 }
 
-.hs-frame[data-view="module"] .hs-scrim-top {
+.hs-layer[data-mode="module"] .hs-scrim-top {
   height: 130px;
   background: linear-gradient(to bottom, rgb(0 0 0 / 0.38), transparent);
 }
 
-.hs-frame[data-view="module"] .hs-scrim-bottom {
+.hs-layer[data-mode="module"] .hs-scrim-bottom {
   top: 34%;
   bottom: auto;
   height: 180px;
