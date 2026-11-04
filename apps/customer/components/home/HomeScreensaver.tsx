@@ -171,6 +171,15 @@ function layerStyle(role: "out" | "in", flight: Flight): React.CSSProperties {
   return { ...copyStyle, transform: `translate3d(${dir * (1 - progress) * 100}%, 0, 0)`, opacity: 1, zIndex: 1 };
 }
 
+function thumbGroupStyle(role: "in" | "out", flight: Flight): React.CSSProperties {
+  const { progress, dir, reduced, commitOnEnd } = flight;
+  return {
+    opacity: role === "out" ? Math.max(0, 1 - progress * 2.5) : Math.max(0, (progress - 0.5) * 2),
+    transform: reduced ? "none" : `translateX(${role === "out" ? -dir * progress * 24 : dir * (1 - progress) * 32}px)`,
+    transitionDelay: `${(commitOnEnd ? role === "in" : role === "out") ? 380 : 0}ms`,
+  };
+}
+
 function useSlides(): Slide[] {
   const moduleOn = useModules();
   const menu = useHomeMenu();
@@ -477,6 +486,11 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
   const pending = flight && flight.progress > 0 && (flight.dragging || flight.commitOnEnd) ? flight.incoming : null;
   const thumbModule = pending ? slides.find((item) => item.entities.some((ent) => pending.id === `${pending.mode}:${item.id}:${ent.id}`)) ?? slide : slide;
   const thumbIndex = pending?.entity ? Math.max(0, thumbModule.entities.findIndex((ent) => ent.id === pending.entity?.id)) : ei;
+  const clusterFlight = view === "module" && flight?.axis === "cluster" ? flight : null;
+  const incomingModule = clusterFlight ? slides.find((item) => clusterFlight.incoming.id.startsWith(`module:${item.id}:`)) ?? slide : slide;
+  const thumbSets: { module: Slide; active: number; role?: "in" | "out" }[] = clusterFlight
+    ? [{ module: incomingModule, active: 0, role: "in" }, { module: slide, active: ei, role: "out" }]
+    : [{ module: thumbModule, active: thumbIndex }];
   const layers: { snap: PageSnap; role?: "in" | "out" }[] = flight
     ? [{ snap: flight.incoming, role: "in" }, { snap: flight.outgoing, role: "out" }]
     : [{ snap: currentSnap() }];
@@ -502,25 +516,25 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
             <PageLayer key={snap.id} snap={snap} motion={flight?.axis} phase={role}
               className={flight ? (flight.dragging ? "hs-layer is-flight is-drag" : "hs-layer is-flight") : "hs-layer"}
               style={flight && role ? layerStyle(role, flight) : undefined}
-              hidden={role === "out"} slides={slides}
-              moduleIndex={Math.max(0, slides.findIndex((item) => snap.id.startsWith(`${snap.mode}:${item.id}:`)))}
-              onPickModule={goModule} onOpen={openModule} onEnd={role === "out" ? onFlightEnd : undefined} />
+              hidden={role === "out"} onOpen={openModule} onEnd={role === "out" ? onFlightEnd : undefined} />
           ))}
         </div>
 
         <div className="hs-top">
-          {view === "cover" ? (
-            <BrandLogo variant="light" className="hs-wordmark" />
-          ) : (
-            <button type="button" className="hs-explore" aria-label="Back to slideshow" onClick={backToCover}>
-              <ChevronDown size={18} strokeWidth={2.2} aria-hidden />
-              Explore
-            </button>
-          )}
+          <BrandLogo variant="light" className="hs-wordmark" />
           <button type="button" className="hs-glass hs-close" aria-label="Close and go to home" onClick={onClose}>
             <X size={18} strokeWidth={2.2} aria-hidden />
           </button>
         </div>
+
+        {view === "module" && (
+          <button type="button" className="hs-explore hs-back" aria-label="Back to slideshow" onClick={backToCover}>
+            <ChevronDown size={18} strokeWidth={2.2} aria-hidden />Explore
+          </button>
+        )}
+        {view === "cover" && (
+          <div className="hs-cover-nav"><Dots slides={slides} index={slides.indexOf(thumbModule)} onSelect={goModule} /></div>
+        )}
 
         <p id="hs-help" className="hs-sr">
           Arrow keys move between modules, and up or down through a module. Buttons do the same without gestures.
@@ -532,7 +546,13 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
               <span className="hs-glass hs-name-pill">{thumbModule.title}</span>
               <Dots slides={slides} index={slides.indexOf(thumbModule)} onSelect={goModule} />
             </div>
-            <Thumbs entities={thumbModule.entities} active={thumbIndex} moduleId={thumbModule.id} onSelect={goEntity} />
+            {thumbSets.map(({ module: mod, active, role }) => (
+              <div key={mod.id} className={clusterFlight ? `hs-thumb-group is-flight${clusterFlight.dragging ? " is-drag" : ""}` : "hs-thumb-group"}
+                data-phase={role} style={clusterFlight && role ? thumbGroupStyle(role, clusterFlight) : undefined}
+                inert={!!clusterFlight} aria-hidden={role === "out" || undefined}>
+                <Thumbs entities={mod.entities} active={active} moduleId={mod.id} onSelect={goEntity} />
+              </div>
+            ))}
           </>
         )}
       </div>
@@ -639,16 +659,13 @@ function nextFlightId(dir: number, incomingId: string) {
   return `${flightSerial}-${dir}-${incomingId}`;
 }
 
-function PageLayer({ motion, phase, snap, className, style, hidden, slides, moduleIndex, onPickModule, onOpen, onEnd }: {
+function PageLayer({ motion, phase, snap, className, style, hidden, onOpen, onEnd }: {
   motion?: Flight["axis"];
   phase?: "in" | "out";
   snap: PageSnap;
   className?: string;
   style?: React.CSSProperties;
   hidden?: boolean;
-  slides?: Slide[];
-  moduleIndex?: number;
-  onPickModule?: (index: number) => void;
   onOpen?: () => void;
   onEnd?: (event: React.TransitionEvent<HTMLDivElement>) => void;
 }) {
@@ -665,8 +682,7 @@ function PageLayer({ motion, phase, snap, className, style, hidden, slides, modu
         <>
           <div className="hs-cover-stack">
             <h1 className="hs-cover-title">{snap.title}</h1>
-            <p className="hs-cover-sub">{snap.sub}</p>
-            {slides && onPickModule && <Dots slides={slides} index={moduleIndex ?? 0} onSelect={onPickModule} />}
+            <CoverSubtitle text={snap.sub} entering={phase === "in"} />
           </div>
           {onOpen && (
             <button type="button" className="hs-glass hs-details" aria-label={`Show ${snap.title} details`} onClick={onOpen}>
@@ -690,6 +706,24 @@ function PageLayer({ motion, phase, snap, className, style, hidden, slides, modu
         </>
       )}
     </div>
+  );
+}
+
+function CoverSubtitle({ text, entering }: { text: string; entering: boolean }) {
+  // Keep delays stable when the same incoming page becomes the settled page.
+  const [delay] = useState(entering ? 380 : 0);
+  const words = text.split(" · ").flatMap((item, itemIndex) => item.split(" ").map((word, wordIndex) => ({
+    word, prefix: itemIndex > 0 && wordIndex === 0 ? " · " : wordIndex > 0 ? " " : "",
+  })));
+  return (
+    <p className="hs-cover-sub">
+      <span className="hs-sr">{text}</span>
+      {words.map(({ word, prefix }, index) => (
+        <span key={`${index}:${word}`} className="hs-cover-word" aria-hidden="true" style={{ animationDelay: `${delay + index * 90}ms` }}>
+          {prefix && <span className="hs-cover-separator">{prefix}</span>}{word}
+        </span>
+      ))}
+    </p>
   );
 }
 
