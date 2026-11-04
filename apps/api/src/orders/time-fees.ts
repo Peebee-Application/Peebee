@@ -2,6 +2,7 @@ import { timeFeePolicy, type TimeFeePolicy, type OrderTimeFees } from "@peebee/s
 import { db, executeBatch, type DbStatement } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { getTimeFeeSettings } from "../lib/settings.js";
+import { reconcilePayment } from "../payments/reconciliation.js";
 
 type Row = Record<string, unknown>;
 const money = (amount: number) => `UGX ${amount.toLocaleString("en-UG")}`;
@@ -32,11 +33,14 @@ function cancellationEligible(order: Row): boolean {
   return ["Create", "Match", "Fund", "Shop"].includes(String(order.stage));
 }
 
-export async function getOrderTimeFees(order: Row): Promise<OrderTimeFees> {
+/** `customerInitiated`: the customer is asking to cancel, so a collection still pending at "Fund" does not block it (the
+ * order would otherwise be locked until the payment settles, with the rider attached). cancelCustomerOrder then gives
+ * that payment up first. Automatic expiry leaves a payment in progress alone. */
+export async function getOrderTimeFees(order: Row, opts: { customerInitiated?: boolean } = {}): Promise<OrderTimeFees> {
   const policy = policyFor(order);
   const [fees, payments] = await Promise.all([
     db.execute({ sql: "SELECT id, kind, amount, note FROM order_time_fees WHERE order_id = ? ORDER BY created_at", args: [String(order.id)] }),
-    db.execute({ sql: "SELECT 1 FROM payments WHERE order_id = ? AND (status = 'pending' OR (type IN ('refund', 'disbursement') AND status = 'successful')) LIMIT 1", args: [String(order.id)] }),
+    db.execute({ sql: `SELECT 1 FROM payments WHERE order_id = ? AND ((status = 'pending' AND ${opts.customerInitiated && order.stage === "Fund" ? "type != 'collection'" : "1 = 1"}) OR (type IN ('refund', 'disbursement') AND status = 'successful')) LIMIT 1`, args: [String(order.id)] }),
   ]);
   const wait = waitingDue(order);
   const start = order.rider_arrived_at ? String(order.rider_arrived_at) : null;
@@ -124,10 +128,21 @@ export async function cancelCustomerOrder(
   order: Row,
   actorId: string | null,
   acceptedFee: number,
-  opts: { eventNote?: string; restoreDraft?: boolean } = {},
+  opts: { eventNote?: string; restoreDraft?: boolean; customerInitiated?: boolean } = {},
 ): Promise<{ error?: string; fee?: number }> {
   if (order.stage === "Cancelled") return {};
-  const quote = await getOrderTimeFees(order);
+  if (opts.customerInitiated && order.stage === "Fund") {
+    // A payment still pending at Funding is the lock: check it one last time and give up on it (a late approval is still
+    // credited to the wallet). If it turns out to have succeeded the order moves on and is cancelled and refunded below.
+    const live = await db.execute({ sql: "SELECT id FROM payments WHERE order_id = ? AND type = 'collection' AND status = 'pending'", args: [String(order.id)] });
+    for (const payment of live.rows as Row[]) await reconcilePayment(String(payment.id), String(actorId ?? "system"), { forceTimeout: true }).catch(() => undefined);
+    if (live.rows.length > 0) {
+      const fresh = (await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [String(order.id)] })).rows[0] as Row | undefined;
+      if (fresh) order = fresh;
+      if (order.stage === "Cancelled") return {};
+    }
+  }
+  const quote = await getOrderTimeFees(order, { customerInitiated: opts.customerInitiated });
   if (!quote.canCancel) return { error: "This order cannot be cancelled now. If a payment is processing, wait for it to finish. Otherwise, contact support." };
   if (acceptedFee !== quote.cancellationDue) return { error: "The cancellation fee has changed. Please review the amount and confirm again." };
   const token = newId("cancel");

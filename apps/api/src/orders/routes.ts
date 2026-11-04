@@ -845,7 +845,7 @@ orderRoutes.get("/orders/:id", async (c) => {
     rating: rating.rows[0] ?? null,
     feeProposals: feeProposals.rows,
     bundleStops: bundleStops.rows,
-    timeFees: await getOrderTimeFees(order),
+    timeFees: await getOrderTimeFees(order, { customerInitiated: true }),
     relay: await relayView(order, user.sub),
     ...(await rideExtrasFor(order, order.customer_id === user.sub)),
   });
@@ -1817,7 +1817,7 @@ orderRoutes.post("/orders/:id/customer-cancel", async (c) => {
 
   const parsed = z.object({ acceptedFee: z.number().int().nonnegative().default(0) }).safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
-  const result = await cancelCustomerOrder(order, user.sub, parsed.data.acceptedFee);
+  const result = await cancelCustomerOrder(order, user.sub, parsed.data.acceptedFee, { customerInitiated: true });
   if (result.error) return c.json({ error: "cannot_cancel", message: result.error }, 409);
 
   return c.json({ order: await getOrder(id) });

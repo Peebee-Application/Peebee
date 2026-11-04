@@ -112,6 +112,7 @@ const DEFAULTS = {
   /** Minutes a rider stays attached to an order its customer has not paid for before the rider is released and the
    * order goes back to the pool (see orders/unpaid-release.ts). 0 turns it off. */
   unpaid_match_release_minutes: "15",
+  stuck_funding_release_minutes: "30",
   /** Minutes a customer's mobile money / card payment may stay "pending" before Peebee stops waiting and marks it
    * failed, so the customer can try again and the order is not held forever (see payments/reconciliation.ts).
    * Only collections (money in) ever time out; payouts never do. 0 turns it off. */
@@ -1354,15 +1355,17 @@ export async function getMatchingSettings(): Promise<{
   maxAssignmentMinutes: number;
   autoAssignWithoutAcceptance: boolean;
   unpaidMatchReleaseMinutes: number;
+  stuckFundingReleaseMinutes: number;
   oneActiveRideEnabled: boolean;
   riderCloseUnpaidMinutes: number;
 }> {
-  const [modesRaw, windowRaw, maxRaw, autoRaw, unpaidRaw, oneRideRaw, closeRaw] = await Promise.all([
+  const [modesRaw, windowRaw, maxRaw, autoRaw, unpaidRaw, stuckRaw, oneRideRaw, closeRaw] = await Promise.all([
     getSetting("matching_modes_enabled"),
     getSetting("nearest_window_seconds"),
     getSetting("max_assignment_minutes"),
     getSetting("auto_assign_without_acceptance"),
     getSetting("unpaid_match_release_minutes"),
+    getSetting("stuck_funding_release_minutes"),
     getSetting("one_active_ride_enabled"),
     getSetting("rider_close_unpaid_minutes"),
   ]);
@@ -1372,6 +1375,7 @@ export async function getMatchingSettings(): Promise<{
     maxAssignmentMinutes: Number(maxRaw) || Number(DEFAULTS.max_assignment_minutes),
     autoAssignWithoutAcceptance: autoRaw === "1",
     unpaidMatchReleaseMinutes: Math.min(1440, Math.max(0, Math.floor(Number(unpaidRaw)) || 0)),
+    stuckFundingReleaseMinutes: Math.min(1440, Math.max(0, Math.floor(Number(stuckRaw ?? DEFAULTS.stuck_funding_release_minutes)) || 0)),
     oneActiveRideEnabled: oneRideRaw !== "0",
     riderCloseUnpaidMinutes: Math.min(120, Math.max(0, Math.floor(Number(closeRaw ?? 3)) || 0)),
   };
