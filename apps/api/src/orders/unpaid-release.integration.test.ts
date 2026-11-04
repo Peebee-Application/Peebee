@@ -143,3 +143,26 @@ test("an order stuck at Funding is unlocked after the admin-set wait", async (t)
     assert.equal(freed.released, 2, "both unpaid orders lose their rider");
   });
 });
+
+test("a customer can cancel an order stuck at Funding, even with a payment still pending", async () => {
+  const client = createClient({ url: "file::memory:" });
+  const migrations = join(process.cwd(), "src/db/migrations");
+  for (const file of readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort()) {
+    for (const sql of splitSqlStatements(readFileSync(join(migrations, file), "utf8"))) await client.execute(sql);
+  }
+  bindDatabase(client);
+  await client.execute("INSERT INTO users (id, phone, name, password_hash, role) VALUES ('cust', 'c', 'c', 'h', 'customer'), ('rider', 'r', 'r', 'h', 'rider')");
+  await client.execute("INSERT INTO riders (user_id, verified, is_online) VALUES ('rider', 1, 1)");
+  await client.execute("INSERT INTO lists (id, customer_id, title) VALUES ('l1', 'cust', 't')");
+  await client.execute("INSERT INTO orders (id, list_id, customer_id, stage, rider_id, payment_rail) VALUES ('o1', 'l1', 'cust', 'Fund', 'rider', 'escrow')");
+  await client.execute("INSERT INTO payments (id, order_id, type, provider, amount, currency, status) VALUES ('p1', 'o1', 'collection', 'mtn', 2500, 'UGX', 'pending')");
+  const { cancelCustomerOrder, getOrderTimeFees } = await import("./time-fees.js");
+  const row = async () => (await client.execute("SELECT * FROM orders WHERE id = 'o1'")).rows[0] as Record<string, unknown>;
+
+  assert.equal((await getOrderTimeFees(await row())).canCancel, false, "automatic expiry still leaves a payment in progress alone");
+  assert.equal((await getOrderTimeFees(await row(), { customerInitiated: true })).canCancel, true);
+  assert.deepEqual(await cancelCustomerOrder(await row(), "cust", 0, { customerInitiated: true }), { fee: 0 });
+  const after = await row();
+  assert.equal(after.stage, "Cancelled");
+  assert.equal((await client.execute("SELECT status FROM payments WHERE id = 'p1'")).rows[0].status, "failed");
+});
