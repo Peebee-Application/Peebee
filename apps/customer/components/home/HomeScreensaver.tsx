@@ -156,8 +156,9 @@ function layerStyle(role: "out" | "in", flight: Flight): React.CSSProperties {
   // Detail images share a stacking context so the moving sheet masks both.
   if (flight.axis !== "cluster") return {
     zIndex: "auto",
-    "--hs-image-y": `${reduced ? 0 : dir * (role === "out" ? -3 : 4) * (1 - progress)}%`,
-    "--hs-image-scale": reduced ? 1 : 1.12 - progress * 0.12,
+    // The outgoing photo starts at its resting 10px overscan, never a new zoom.
+    "--hs-image-inset": `${reduced ? -10 : -(role === "out" ? 10 * (1 - progress) : 10 + 10 * (1 - progress))}px`,
+    "--hs-image-y": `${reduced ? 0 : dir * (role === "out" ? -3 * progress : 4) * (1 - progress)}px`,
     "--hs-image-opacity": role === "out" ? 1 - progress : 1,
     "--hs-copy-opacity": copyOpacity,
     "--hs-copy-delay": copyDelay,
@@ -521,17 +522,16 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
         </div>
 
         <div className="hs-top">
-          <BrandLogo variant="light" className="hs-wordmark" />
+          {view === "cover" ? <BrandLogo variant="light" className="hs-wordmark" /> : (
+            <button type="button" className="hs-explore" aria-label="Back to slideshow" onClick={backToCover}>
+              <ChevronDown size={18} strokeWidth={2.2} aria-hidden />Explore
+            </button>
+          )}
           <button type="button" className="hs-glass hs-close" aria-label="Close and go to home" onClick={onClose}>
             <X size={18} strokeWidth={2.2} aria-hidden />
           </button>
         </div>
 
-        {view === "module" && (
-          <button type="button" className="hs-explore hs-back" aria-label="Back to slideshow" onClick={backToCover}>
-            <ChevronDown size={18} strokeWidth={2.2} aria-hidden />Explore
-          </button>
-        )}
         {view === "cover" && (
           <div className="hs-cover-nav"><Dots slides={slides} index={slides.indexOf(thumbModule)} onSelect={goModule} /></div>
         )}
@@ -719,7 +719,7 @@ function CoverSubtitle({ text, entering }: { text: string; entering: boolean }) 
     <p className="hs-cover-sub">
       <span className="hs-sr">{text}</span>
       {words.map(({ word, prefix }, index) => (
-        <span key={`${index}:${word}`} className="hs-cover-word" aria-hidden="true" style={{ animationDelay: `${delay + index * 90}ms` }}>
+        <span key={`${index}:${word}`} className="hs-cover-word" aria-hidden="true" style={{ animationDelay: `${delay + index * 250}ms` }}>
           {prefix && <span className="hs-cover-separator">{prefix}</span>}{word}
         </span>
       ))}

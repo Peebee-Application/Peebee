@@ -540,7 +540,7 @@ html.peebee-practice .hs-top { top: max(48px, calc(env(safe-area-inset-top, 0px)
 .hs-dot.is-on { background: rgb(var(--color-gold)); }
 .hs-layer[data-motion="entity"] { background: transparent; }
 .hs-layer[data-motion="entity"] .hs-image-motion {
-  transform: translateY(var(--hs-image-y)) scale(var(--hs-image-scale));
+  transform: translateY(var(--hs-image-y, 0px));
   transition: transform 760ms cubic-bezier(.22,1,.36,1);
 }
 .hs-layer[data-motion="entity"][data-phase="out"] .hs-sheet-shape,
@@ -579,7 +579,7 @@ html.peebee-practice .hs-top { top: max(48px, calc(env(safe-area-inset-top, 0px)
 }
 .hs-layer[data-motion="entity"] .hs-image-motion {
   opacity: var(--hs-image-opacity);
-  transition: transform 760ms cubic-bezier(.22,1,.36,1), opacity 760ms ease;
+  transition: inset 760ms cubic-bezier(.22,1,.36,1), transform 760ms cubic-bezier(.22,1,.36,1), opacity 760ms ease;
 }
 .hs-layer:not(.is-flight)[data-mode="module"] .hs-copy { animation: none; }
 .hs-layer.is-drag .hs-visual,
@@ -603,6 +603,12 @@ html.peebee-practice .hs-top { top: max(48px, calc(env(safe-area-inset-top, 0px)
 
 /* The aperture stays fixed; oversized photos move inside it without exposing edges. */
 .hs-image-motion { position: absolute; inset: 0; }
+.hs-layer[data-mode="module"] .hs-image-motion {
+  inset: var(--hs-image-inset, -10px);
+  transform: translateY(var(--hs-image-y, 0px));
+  transition: inset 760ms cubic-bezier(.22,1,.36,1), transform 760ms cubic-bezier(.22,1,.36,1), opacity 760ms ease;
+}
+.hs-layer.is-drag[data-mode="module"] .hs-image-motion { transition: none; }
 
 /* Clear the previous words before the next title and description enter. */
 .hs-layer[data-mode="module"] .hs-copy,
@@ -628,9 +634,7 @@ html.peebee-practice .hs-top { top: max(48px, calc(env(safe-area-inset-top, 0px)
 /* Shared chrome stays outside the animated cover pages. */
 .hs-cover-nav { position: absolute; z-index: 4; left: 24px; right: 24px; bottom: calc(max(32px, calc(env(safe-area-inset-bottom, 0px) + 12px)) + 80px); }
 .hs-cover-stack { bottom: calc(max(32px, calc(env(safe-area-inset-bottom, 0px) + 12px)) + 103px); }
-.hs-back { position: absolute; z-index: 6; left: 20px; top: max(80px, calc(env(safe-area-inset-top, 0px) + 68px)); }
-html.peebee-practice .hs-back { top: max(104px, calc(env(safe-area-inset-top, 0px) + 62px)); }
-.hs-cover-word { display: inline-block; animation: hs-word-reveal 420ms ease both; }
+.hs-cover-word { display: inline-block; animation: hs-word-reveal 250ms ease both; }
 .hs-cover-separator { white-space: pre; }
 @keyframes hs-word-reveal { from { opacity: 0; } to { opacity: 1; } }
 .hs-thumb-group { position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 1; transform: none; }
