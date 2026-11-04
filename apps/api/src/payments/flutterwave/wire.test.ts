@@ -70,6 +70,16 @@ test("flutterwave routes each payment to the flow the admin switched on", async 
     assert.equal(result.status, "PENDING");
   });
 
+  await t.test("if Flutterwave asks for a step on its own page, the customer is sent there", async () => {
+    calls.length = 0;
+    chargeResponse = { status: "success", data: { id: 8, status: "pending" }, meta: { authorization: { mode: "redirect", redirect: "https://checkout.flutterwave.com/mm-step" } } };
+    const result = await flutterwaveAdapter.depositFunds({ ...base, method: "mobile_money", msisdn: "0772123456" });
+    assert.equal(result.status, "PENDING");
+    assert.equal(result.redirectUrl, "https://checkout.flutterwave.com/mm-step");
+    assert.equal(result.nextAction?.type, "redirect");
+    chargeResponse = { status: "success", data: { id: 7, status: "pending" } };
+  });
+
   await t.test("airtel numbers go to Airtel", async () => {
     calls.length = 0;
     await flutterwaveAdapter.depositFunds({ ...base, method: "mobile_money", msisdn: "0752123456" });
