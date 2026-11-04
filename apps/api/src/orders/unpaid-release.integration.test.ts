@@ -166,3 +166,22 @@ test("a customer can cancel an order stuck at Funding, even with a payment still
   assert.equal(after.stage, "Cancelled");
   assert.equal((await client.execute("SELECT status FROM payments WHERE id = 'p1'")).rows[0].status, "failed");
 });
+
+test("a payment provider that errors does not keep a stuck order locked", async () => {
+  const client = createClient({ url: "file::memory:" });
+  const migrations = join(process.cwd(), "src/db/migrations");
+  for (const file of readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort()) {
+    for (const sql of splitSqlStatements(readFileSync(join(migrations, file), "utf8"))) await client.execute(sql);
+  }
+  bindDatabase(client);
+  await client.execute("INSERT INTO users (id, phone, name, password_hash, role) VALUES ('cust', 'c', 'c', 'h', 'customer'), ('rider', 'r', 'r', 'h', 'rider')");
+  await client.execute("INSERT INTO riders (user_id, verified, is_online) VALUES ('rider', 1, 1)");
+  await client.execute("INSERT INTO lists (id, customer_id, title) VALUES ('l1', 'cust', 't')");
+  await client.execute("INSERT INTO orders (id, list_id, customer_id, stage, rider_id, payment_rail, created_at, updated_at) VALUES ('o1', 'l1', 'cust', 'Fund', 'rider', 'escrow', datetime('now', '-2 days'), datetime('now', '-2 days'))");
+  // A provider reference the adapter cannot resolve (no network in tests) makes the status check throw.
+  await client.execute("INSERT INTO payments (id, order_id, type, provider, provider_ref, amount, currency, status) VALUES ('p1', 'o1', 'collection', 'mtn', 'ref-that-errors', 3000, 'UGX', 'pending')");
+  assert.deepEqual(await sweepStuckFunding(), { released: 1, skipped: 0 });
+  const o = (await client.execute("SELECT stage FROM orders WHERE id = 'o1'")).rows[0];
+  assert.equal(o.stage, "Match", "the customer can pay again or cancel; the rider is then freed");
+  assert.equal((await client.execute("SELECT status FROM payments WHERE id = 'p1'")).rows[0].status, "failed");
+});
