@@ -1,3 +1,4 @@
+import { withdrawalNumberBlocked } from "../account/number-verification.js";
 import { demoPeopleFilter } from "../practice/people.js";
 import { isRiderProfileComplete, type MobileMoneyNetwork, type Rider } from "@peebee/shared";
 import { Hono } from "hono";
@@ -696,6 +697,8 @@ riderRoutes.post("/riders/me/wallet/withdraw", requireAuth, requireRole("rider")
   if (!msisdn) {
     return c.json({ error: "no_mobile_money", message: "Add a mobile money number in your profile first" }, 409);
   }
+  const numberBlocked = await withdrawalNumberBlocked(user.sub, msisdn);
+  if (numberBlocked) return c.json(numberBlocked, 409);
 
   const reserveAmount = reserve.enabled ? reserve.amount : 0;
   const maxWithdrawable = balance - reserveAmount;
@@ -864,6 +867,10 @@ riderRoutes.post("/riders/me/close-account", requireAuth, requireRole("rider"), 
       { error: "no_mobile_money", message: "Add a mobile money number in your profile first so we can pay out your balance" },
       409,
     );
+  }
+  if (balance > 0 && msisdn) {
+    const numberBlocked = await withdrawalNumberBlocked(user.sub, msisdn);
+    if (numberBlocked) return c.json(numberBlocked, 409);
   }
 
   if (balance > 0) {

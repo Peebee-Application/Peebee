@@ -26,7 +26,8 @@
     "./practice-ui": "./src/PracticeUI.tsx",
     "./qr": "./src/qr.ts",
     "./qr-code": "./src/QrCode.tsx",
-    "./help-support": "./src/HelpSupport.tsx"
+    "./help-support": "./src/HelpSupport.tsx",
+    "./verify-number": "./src/VerifyNumber.tsx"
   },
   "scripts": {
     "lint": "tsc --noEmit",

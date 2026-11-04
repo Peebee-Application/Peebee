@@ -2,7 +2,8 @@
 
 import type { MobileNumberPurpose, SavedMobileNumber } from "@peebee/shared";
 import { detectMobileMoneyNetwork, mobileMoneyNetworkLabel } from "@peebee/shared";
-import { Check, Plus, Star, Trash2 } from "lucide-react";
+import { BadgeCheck, Check, Plus, Star, Trash2 } from "lucide-react";
+import { VerifyNumber } from "@peebee/shared/verify-number";
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../lib/api";
 
@@ -31,8 +32,14 @@ export function MobileNumberPicker({
   const saving = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Admin decides whether cash-outs need a verified number; only then do we ask for verification.
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   useEffect(() => {
+    api
+      .getSettings()
+      .then((res) => setNeedsVerification(purpose === "withdrawal" && !!res.settings.withdrawalNumbersRequireVerification))
+      .catch(() => setNeedsVerification(false));
     api
       .getMobileNumbers(purpose)
       .then((res) => {
@@ -121,10 +128,11 @@ export function MobileNumberPicker({
           {numbers.map((n) => (
             <div
               key={n.id}
-              className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 ${
+              className={`space-y-2 rounded-xl border px-3 py-2.5 ${
                 selectedId === n.id ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"
               }`}
             >
+            <div className="flex items-center gap-2">
               <button type="button" onClick={() => choose(n)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                 <span
                   className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
@@ -140,6 +148,12 @@ export function MobileNumberPicker({
                   </span>
                 </span>
               </button>
+              {n.verified && (
+                <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-bold text-green">
+                  <BadgeCheck className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                  Verified
+                </span>
+              )}
               {!!n.is_primary && (
                 <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-bold text-gold">
                   <Star className="h-3 w-3 fill-current" strokeWidth={0} aria-hidden />
@@ -165,6 +179,16 @@ export function MobileNumberPicker({
               >
                 <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
               </button>
+            </div>
+            {needsVerification && !n.verified && (
+              <VerifyNumber
+                send={() => api.sendMobileNumberCode(n.id)}
+                confirm={(code) => api.confirmMobileNumberCode(n.id, code)}
+                onVerified={() =>
+                  setNumbers((prev) => (prev ? prev.map((x) => (x.id === n.id ? { ...x, verified: true, verified_at: new Date().toISOString() } : x)) : prev))
+                }
+              />
+            )}
             </div>
           ))}
         </div>

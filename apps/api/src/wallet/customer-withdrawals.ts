@@ -4,6 +4,7 @@
  * limit, and a withdrawal that follows a recent bonus waits for an admin. Credit (bonuses, cashback, covered fees) is never
  * withdrawable — it isn't part of the cash balance this works from.
  */
+import { withdrawalNumberBlocked } from "../account/number-verification.js";
 import { withdrawableCash } from "@peebee/shared";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -78,6 +79,9 @@ customerWithdrawalRoutes.post("/wallet/withdraw", requireAuth, requireRole("cust
       : `You can withdraw up to UGX ${allowance.allowed.toLocaleString("en-UG")} right now.`;
     return c.json({ error: "amount_too_high", message: why, allowed: allowance.allowed }, 409);
   }
+
+  const numberBlocked = await withdrawalNumberBlocked(user.sub, msisdn);
+  if (numberBlocked) return c.json(numberBlocked, 409);
 
   // A withdrawal soon after a bonus waits for an admin to look at it.
   let review = false;

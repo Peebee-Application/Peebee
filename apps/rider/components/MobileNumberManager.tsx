@@ -1,7 +1,8 @@
 "use client";
 
 import type { MobileNumberPurpose, SavedMobileNumber } from "@peebee/shared";
-import { Plus, Star, Trash2 } from "lucide-react";
+import { BadgeCheck, Plus, Star, Trash2 } from "lucide-react";
+import { VerifyNumber } from "@peebee/shared/verify-number";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../lib/api";
 
@@ -14,13 +15,23 @@ export function MobileNumberManager({ purpose }: { purpose: MobileNumberPurpose 
   const [newPhone, setNewPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Admin decides whether cash-outs need a verified number; only then do we nudge riders to verify.
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   useEffect(() => {
     api
       .getMobileNumbers(purpose)
       .then((res) => setNumbers(res.numbers))
       .catch(() => setNumbers([]));
+    api
+      .getSettings()
+      .then((res) => setNeedsVerification(purpose === "withdrawal" && !!res.settings.withdrawalNumbersRequireVerification))
+      .catch(() => setNeedsVerification(false));
   }, [purpose]);
+
+  function markVerified(id: string) {
+    setNumbers((prev) => (prev ? prev.map((n) => (n.id === id ? { ...n, verified: true, verified_at: new Date().toISOString() } : n)) : prev));
+  }
 
   async function add() {
     if (!newPhone.trim()) return;
@@ -69,11 +80,18 @@ export function MobileNumberManager({ purpose }: { purpose: MobileNumberPurpose 
   return (
     <div className="space-y-2">
       {numbers.map((n) => (
-        <div key={n.id} className="flex items-center gap-2 rounded-xl border border-[var(--border-faint)] px-3 py-2.5">
+        <div key={n.id} className="space-y-2 rounded-xl border border-[var(--border-faint)] px-3 py-2.5">
+        <div className="flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">
             {n.phone}
             {n.label ? ` · ${n.label}` : ""}
           </span>
+          {n.verified && (
+            <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-bold text-green">
+              <BadgeCheck className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              Verified
+            </span>
+          )}
           {!!n.is_primary && (
             <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-bold text-gold">
               <Star className="h-3 w-3 fill-current" strokeWidth={0} aria-hidden />
@@ -99,6 +117,14 @@ export function MobileNumberManager({ purpose }: { purpose: MobileNumberPurpose 
           >
             <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
           </button>
+        </div>
+        {needsVerification && !n.verified && (
+          <VerifyNumber
+            send={() => api.sendMobileNumberCode(n.id)}
+            confirm={(code) => api.confirmMobileNumberCode(n.id, code)}
+            onVerified={() => markVerified(n.id)}
+          />
+        )}
         </div>
       ))}
 

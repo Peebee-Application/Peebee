@@ -1871,6 +1871,16 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
         body: JSON.stringify(input),
       });
     },
+    /** Texts a 6-digit code to a saved number to prove it is the owner's. */
+    async sendMobileNumberCode(id: string) {
+      return request<{ sent: true; devCode?: string }>(`/v1/mobile-numbers/${id}/verify/send`, { method: "POST" });
+    },
+    async confirmMobileNumberCode(id: string, code: string) {
+      return request<{ verified: true; number: SavedMobileNumber }>(`/v1/mobile-numbers/${id}/verify/confirm`, {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      });
+    },
     async deleteMobileNumber(id: string) {
       return request<{ ok: true }>(`/v1/mobile-numbers/${id}`, { method: "DELETE" });
     },

@@ -42,6 +42,7 @@ import {
   getFlutterwaveDirectCard,
   getPaymentsPendingTimeoutMinutes,
   getPaymentsLateWatchHours,
+  getWithdrawalNumbersRequireVerification,
   getPlatformEnvironment,
   getProSettings,
   getRiderReserveSettings,
@@ -88,11 +89,12 @@ import { paymentsIntegrationStatus } from "../payments/service.js";
 import { getShoppingUnitSettings, shoppingUnitSettingsSchema } from "./shopping-units.js";
 import { getHomeMenuSettings, homeMenuSchema } from "./home-menu.js";
 import { getRideTrackingSettings, rideTrackingSchema } from "./ride-tracking.js";
+import { verificationAvailable } from "../account/number-verification.js";
 
 export const settingsRoutes = new Hono();
 
 async function fullSettings() {
-  const [delivery, matching, activeProviders, demoMode, flwDirectMobileMoney, flwDirectCard, paymentsPendingTimeout, paymentsLateWatch, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla, lugandaAudio, pro, services] =
+  const [delivery, matching, activeProviders, demoMode, flwDirectMobileMoney, flwDirectCard, paymentsPendingTimeout, paymentsLateWatch, requireVerifiedNumbers, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla, lugandaAudio, pro, services] =
     await Promise.all([
       getDeliverySettings(),
       getMatchingSettings(),
@@ -102,6 +104,7 @@ async function fullSettings() {
       getFlutterwaveDirectCard(),
       getPaymentsPendingTimeoutMinutes(),
       getPaymentsLateWatchHours(),
+      getWithdrawalNumbersRequireVerification(),
       getWalletSettings(),
       getVoiceNoteMaxSeconds(),
       getMonetizationSettings(),
@@ -175,6 +178,7 @@ async function fullSettings() {
     paymentsFlutterwaveDirectCard: flwDirectCard,
     paymentsPendingTimeoutMinutes: paymentsPendingTimeout,
     paymentsLateWatchHours: paymentsLateWatch,
+    withdrawalNumbersRequireVerification: requireVerifiedNumbers,
     merchantPaymentsEnabled: (platformEnvironment === "sandbox" ? merchantSandbox : merchantPayments) === "1",
     merchantLiveCustodyApproved: merchantCustody === "1",
     merchantWithdrawalsFrozen: merchantFrozen === "1",
@@ -543,6 +547,7 @@ const updateSchema = z.object({
   paymentsFlutterwaveDirectCard: z.boolean().optional(),
   paymentsPendingTimeoutMinutes: z.number().int().min(0).max(1440).optional(),
   paymentsLateWatchHours: z.number().int().min(0).max(168).optional(),
+  withdrawalNumbersRequireVerification: z.boolean().optional(),
   practiceModeEnabled: z.boolean().optional(),
   merchantPaymentsEnabled: z.boolean().optional(),
   walletUnverifiedCap: z.number().int().positive().max(100_000_000).optional(),
@@ -612,6 +617,7 @@ const PAYMENTS_FIELDS = [
   "paymentsFlutterwaveDirectCard",
   "paymentsPendingTimeoutMinutes",
   "paymentsLateWatchHours",
+  "withdrawalNumbersRequireVerification",
   "merchantPaymentsEnabled",
   "walletUnverifiedCap",
   "walletVerifiedCap",
@@ -742,6 +748,12 @@ settingsRoutes.put(
     }
     if (parsed.data.paymentsPendingTimeoutMinutes != null) {
       await setSetting("payments_pending_timeout_minutes", String(parsed.data.paymentsPendingTimeoutMinutes));
+    }
+    if (parsed.data.withdrawalNumbersRequireVerification != null) {
+      if (parsed.data.withdrawalNumbersRequireVerification && !(await verificationAvailable())) {
+        return c.json({ error: "migration_pending", message: "Apply migration 0155_saved_number_verification.sql before turning this on." }, 409);
+      }
+      await setSetting("withdrawal_numbers_require_verification", parsed.data.withdrawalNumbersRequireVerification ? "1" : "0");
     }
     if (parsed.data.paymentsLateWatchHours != null) {
       await setSetting("payments_late_watch_hours", String(parsed.data.paymentsLateWatchHours));

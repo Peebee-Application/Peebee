@@ -1,3 +1,4 @@
+import { withdrawalNumberBlocked } from "../account/number-verification.js";
 import { visibleInWorld } from "../practice/people.js";
 import { currentDemandRatio } from "../costing/fares.js";
 import { trackOnline } from "../offers/incentives.js";
@@ -741,6 +742,8 @@ carRoutes.post("/car/wallet/withdraw", async (c) => {
     msisdn = numbers[0].phone as string;
   }
   if (!msisdn) return c.json({ error: "no_mobile_money", message: "Save a mobile money number for withdrawals first." }, 409);
+  const numberBlocked = await withdrawalNumberBlocked(user.sub, msisdn);
+  if (numberBlocked) return c.json(numberBlocked, 409);
 
   // Debit first (atomic: refuses if the balance dropped meanwhile), then pay out, and give the money back if the payout can't start.
   const withdrawalId = newId("cwd");

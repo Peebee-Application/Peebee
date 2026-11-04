@@ -26,6 +26,7 @@ export default function PaymentsSettingsPage() {
   const [directCard, setDirectCard] = useState(false);
   const [pendingTimeout, setPendingTimeout] = useState("10");
   const [lateWatchHours, setLateWatchHours] = useState("24");
+  const [verifyNumbers, setVerifyNumbers] = useState(false);
   const [platformEnvironment, setPlatformEnvironment] = useState<PlatformEnvironment>("live");
   const [providerInfo, setProviderInfo] = useState<PaymentProviderInfo[]>([]);
   const [busy, setBusy] = useState(false);
@@ -46,6 +47,7 @@ export default function PaymentsSettingsPage() {
         setDirectCard(settingsRes.settings.paymentsFlutterwaveDirectCard);
         setPendingTimeout(String(settingsRes.settings.paymentsPendingTimeoutMinutes ?? 10));
         setLateWatchHours(String(settingsRes.settings.paymentsLateWatchHours ?? 24));
+        setVerifyNumbers(!!settingsRes.settings.withdrawalNumbersRequireVerification);
         setPlatformEnvironment(settingsRes.settings.platformEnvironment);
         setProviderInfo(integrationsRes.integrations.mobileMoney.providers);
       })
@@ -74,6 +76,7 @@ export default function PaymentsSettingsPage() {
         paymentsFlutterwaveDirectCard: directCard,
         paymentsPendingTimeoutMinutes: Math.min(1440, Math.max(0, Math.floor(Number(pendingTimeout)) || 0)),
         paymentsLateWatchHours: Math.min(168, Math.max(0, Math.floor(Number(lateWatchHours)) || 0)),
+        withdrawalNumbersRequireVerification: verifyNumbers,
       });
       setActiveProviders(res.settings.paymentsActiveProviders);
       setPaymentsDemoMode(res.settings.paymentsDemoMode);
@@ -81,6 +84,7 @@ export default function PaymentsSettingsPage() {
       setDirectCard(res.settings.paymentsFlutterwaveDirectCard);
       setPendingTimeout(String(res.settings.paymentsPendingTimeoutMinutes ?? 10));
       setLateWatchHours(String(res.settings.paymentsLateWatchHours ?? 24));
+      setVerifyNumbers(!!res.settings.withdrawalNumbersRequireVerification);
       await refreshIntegrations();
       setSaved(true);
     } catch (err) {
@@ -317,6 +321,29 @@ export default function PaymentsSettingsPage() {
               A customer can still approve the prompt after it timed out. For this long Peebee keeps asking the provider,
               and if the payment did go through, the amount is added to the customer&apos;s Peebee wallet and they are told.
               0 stops watching the moment a payment times out.
+            </span>
+          </label>
+        </section>
+        <section className="home-card space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Withdrawal numbers</h2>
+            <p className="mt-0.5 text-xs text-ink-500">
+              Cash-outs by riders, car drivers and customers can only go to a mobile money number the owner has proved
+              is theirs with a code texted to that number. Riders and customers verify under their saved withdrawal
+              numbers. Needs the SMS provider to be set up and the number-verification database update applied; until
+              then this can&apos;t be switched on.
+            </p>
+          </div>
+          <label
+            className={`flex items-start gap-2.5 rounded-xl border p-3 ${verifyNumbers ? "border-gold/40 bg-gold/5" : "border-[var(--border-faint)]"}`}
+          >
+            <Switch checked={verifyNumbers} onChange={(e) => setVerifyNumbers(e.target.checked)} />
+            <span>
+              <span className="text-sm font-semibold text-ink">Require a verified number to withdraw</span>
+              <span className="mt-0.5 block text-xs text-ink-500">
+                On: a withdrawal to an unverified or unsaved number is refused with a message that says how to verify it.
+                Off: any saved number works, as before.
+              </span>
             </span>
           </label>
         </section>
