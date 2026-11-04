@@ -61,6 +61,14 @@ test("publish, check, download, roll back: what a phone and the build pipeline d
   };
   setR2Binding(bucket);
   await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role, admin_role) VALUES ('adm', 'adm', 'adm', 'h', 'admin', 'super_admin')", args: [] });
+  // Exercise the real mount order too: another /v1 router must not intercept phones.
+  const { default: fullApp } = await import("../app.js");
+  const phoneCheck = await fullApp.request("/v1/app-updates/customer/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ version_name: "builtin", version_code: "2" }) });
+  assert.equal(phoneCheck.status, 200, "update checks need no signed-in user");
+  assert.equal((await phoneCheck.json() as { kind: string }).kind, "up_to_date");
+  assert.equal((await fullApp.request("/v1/app-updates/customer/files/missing", { method: "POST", body: "{}" })).status, 503, "publisher token gate handles uploads, not user sign-in");
+  assert.equal((await fullApp.request("/v1/orders/active")).status, 401, "orders still require sign-in");
+  assert.equal((await fullApp.request("/v1/admin/app-updates")).status, 401, "update administration still requires sign-in");
   const app = new Hono().route("/v1", appUpdatesRoutes).route("/v1", appUpdatesAdminRoutes);
   const admin = { Authorization: `Bearer ${await signToken({ sub: "adm", role: "admin" })}`, "Content-Type": "application/json" };
   const TOKEN = "publish-token-of-at-least-24-chars";
