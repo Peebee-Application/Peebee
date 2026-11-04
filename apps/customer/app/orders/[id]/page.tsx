@@ -878,7 +878,7 @@ export default function OrderDetailPage() {
             ? t("order_delete_note")
             : timeFees?.cancellationDue
               ? `Your rider has already started the journey. Cancelling now will charge ${formatUgx(timeFees.cancellationDue)} from your main wallet. If your wallet is empty, it will show as money owed and your next top-up will clear it.`
-              : t("order_cancel_note")}
+              : order.rider_id ? t("order_cancel_note_rider") : t("order_cancel_note")}
         </p>
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <div className="flex gap-2">

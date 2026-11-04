@@ -230,12 +230,20 @@ export async function reconcilePayment(paymentId: string, actorId: string, opts:
   }
 
   let timedOut = false;
-  let status = await checkPaymentStatus({
-    provider: String(payment.provider),
-    provider_ref: payment.provider_ref as string | null,
-    created_at: String(payment.created_at),
-    type: payment.type as "collection" | "disbursement" | "refund" | undefined,
-  });
+  let status: DbPaymentStatus;
+  try {
+    status = await checkPaymentStatus({
+      provider: String(payment.provider),
+      provider_ref: payment.provider_ref as string | null,
+      created_at: String(payment.created_at),
+      type: payment.type as "collection" | "disbursement" | "refund" | undefined,
+    });
+  } catch (err) {
+    // A provider that errors must not keep an order locked: when giving up is forced, an unanswered check counts as pending.
+    if (!opts.forceTimeout) throw err;
+    console.warn("Provider check failed while forcing a payment time-out", paymentId, err);
+    status = "pending";
+  }
   if ((status === "pending" || status === "unknown") && (opts.forceTimeout || (await pendingTooLong(payment)))) {
     // The provider never answered (no prompt reached the phone, or it was ignored): stop waiting so the customer can try again.
     console.warn("Collection timed out while pending; marking failed", paymentId);
