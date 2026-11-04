@@ -604,15 +604,15 @@ html.peebee-practice .hs-top:has(.hs-wordmark) { top: max(48px, calc(env(safe-ar
 .hs-image-motion { position: absolute; inset: 0; }
 
 /* Clear the previous words before the next title and description enter. */
-.hs-layer[data-motion="entity"] .hs-copy,
-.hs-layer[data-motion="entity"] .hs-cta,
+.hs-layer[data-mode="module"] .hs-copy,
+.hs-layer[data-mode="module"] .hs-cta,
 .hs-layer[data-motion="cluster"][data-mode="cover"] .hs-cover-stack {
   opacity: var(--hs-copy-opacity, 1);
   transition: transform 300ms ease, opacity 300ms ease;
   transition-delay: var(--hs-copy-delay, 0ms);
 }
-.hs-layer[data-phase="in"][data-motion="entity"] .hs-copy,
-.hs-layer[data-phase="in"][data-motion="entity"] .hs-cta,
+.hs-layer[data-phase="in"][data-mode="module"] .hs-copy,
+.hs-layer[data-phase="in"][data-mode="module"] .hs-cta,
 .hs-layer[data-phase="in"][data-motion="cluster"][data-mode="cover"] .hs-cover-stack {
   transition-duration: 380ms;
   transition-delay: var(--hs-copy-delay, 380ms);
