@@ -135,7 +135,10 @@ type Flight = {
 
 function layerStyle(role: "out" | "in", flight: Flight): React.CSSProperties {
   const { dir, progress, reduced } = flight;
-  if (reduced) return { opacity: role === "out" ? 1 - progress : Math.max(progress, 0.001), zIndex: role === "out" ? 2 : 1, transform: "none" };
+  // Leave a clear handoff between text blocks, including during a dragged slide.
+  const copyOpacity = role === "out" ? Math.max(0, 1 - progress * 2.5) : Math.max(0, (progress - 0.5) * 2);
+  const copyDelay = `${(flight.commitOnEnd ? role === "in" : role === "out") ? 380 : 0}ms`;
+  if (reduced && flight.axis !== "entity") return { opacity: role === "out" ? 1 - progress : Math.max(progress, 0.001), zIndex: role === "out" ? 2 : 1, transform: "none", "--hs-copy-opacity": copyOpacity } as React.CSSProperties;
   // Keep the entire cover opaque until it has cleared the screen, with the
   // first detail page already in place underneath it.
   if (flight.axis === "open") return {
@@ -146,23 +149,26 @@ function layerStyle(role: "out" | "in", flight: Flight): React.CSSProperties {
   if (flight.axis === "cluster" && flight.incoming.mode === "cover") return {
     zIndex: role === "out" ? 2 : 1,
     "--hs-image-x": `${role === "out" ? -dir * progress * 100 : dir * (1 - progress) * 100}%`,
-    "--hs-copy-opacity": role === "out" ? 1 - progress : progress,
+    "--hs-copy-opacity": copyOpacity,
+    "--hs-copy-delay": copyDelay,
     "--hs-copy-y": `${role === "out" ? -progress * 12 : (1 - progress) * 28}px`,
   } as React.CSSProperties;
+  // Detail images share a stacking context so the moving sheet masks both.
   if (flight.axis !== "cluster") return {
-    zIndex: role === "out" ? 2 : 1,
-    "--hs-image-y": `${role === "out" ? -dir * progress * 12 : dir * (1 - progress) * 65}%`,
-    "--hs-image-scale": role === "out" ? 1 - progress * 0.14 : 1.12 - progress * 0.12,
+    zIndex: "auto",
+    "--hs-image-y": `${reduced ? 0 : dir * (role === "out" ? -3 : 4) * (1 - progress)}%`,
+    "--hs-image-scale": reduced ? 1 : 1.12 - progress * 0.12,
     "--hs-image-opacity": role === "out" ? 1 - progress : 1,
-    "--hs-copy-opacity": role === "out" ? 1 - progress : progress,
+    "--hs-copy-opacity": copyOpacity,
+    "--hs-copy-delay": copyDelay,
     "--hs-copy-y": "0px",
-    "--hs-copy-x": `${role === "out" ? progress * 20 : -(1 - progress) * 28}px`,
-    "--hs-roll": `${role === "out" ? progress * 90 : -90 * (1 - progress)}deg`,
+    "--hs-copy-x": `${reduced ? 0 : role === "out" ? progress * 20 : -(1 - progress) * 28}px`,
+    "--hs-roll": `${reduced ? 0 : role === "out" ? progress * 90 : -90 * (1 - progress)}deg`,
   } as React.CSSProperties;
-  if (role === "out") return { transform: `translate3d(${-dir * progress * 100}%, 0, 0)`, opacity: 1, zIndex: 2 };
-  const slide = dir * (1 - progress) * 25;
-  const scale = 0.92 + 0.08 * progress;
-  return { transform: `translate3d(${slide}%, 0, 0) scale(${scale})`, opacity: progress, zIndex: 1 };
+  const copyStyle = { "--hs-copy-opacity": copyOpacity, "--hs-copy-delay": copyDelay } as React.CSSProperties;
+  if (role === "out") return { ...copyStyle, transform: `translate3d(${-dir * progress * 100}%, 0, 0)`, opacity: 1, zIndex: 2 };
+  // Cluster pages also stay full size while sliding across the frame.
+  return { ...copyStyle, transform: `translate3d(${dir * (1 - progress) * 100}%, 0, 0)`, opacity: 1, zIndex: 1 };
 }
 
 function useSlides(): Slide[] {
@@ -221,7 +227,7 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
   const timer = useRef(0);
   const [flight, setFlight] = useState<Flight | null>(null);
   const flightRef = useRef<Flight | null>(null);
-  const actions = useRef({ view, openModule: () => {}, stepModule: (_dir: 1 | -1) => {}, stepEntity: (_dir: 1 | -1) => {} });
+  const actions = useRef({ view, openModule: () => {}, stepModule: (_dir: 1 | -1) => {}, stepEntity: (_dir: 1 | -1) => {}, autoplay: () => {} });
 
   const mi = slides.length === 0 ? 0 : Math.min(moduleIndex, slides.length - 1);
   const slide = slides[mi]!;
@@ -293,9 +299,9 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
     return () => window.clearTimeout(timeout);
   }, [flight]);
 
-  function stepModule(dir: 1 | -1) {
+  function stepModule(dir: 1 | -1, userInitiated = true) {
     if (slides.length < 2 || !slide || !entity) return;
-    stopAutoplay();
+    if (userInitiated) stopAutoplay();
     const index = wrapIndex(mi + dir, slides.length);
     const next = slides[index];
     const ent = next?.entities[0];
@@ -354,7 +360,7 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
   }
 
   useEffect(() => {
-    actions.current = { view, openModule, stepModule, stepEntity };
+    actions.current = { view, openModule, stepModule, stepEntity, autoplay: () => stepModule(1, false) };
   });
 
   useEffect(() => {
@@ -381,8 +387,7 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
       if (document.hidden) return;
       timer.current = window.setInterval(() => {
         if (document.hidden || pausedByUser.current) return;
-        setModuleIndex((index) => wrapIndex(Math.min(index, slides.length - 1) + 1, slides.length));
-        setEntityIndex(0);
+        actions.current.autoplay();
       }, AUTOPLAY_MS);
     };
     const onVisible = () => { if (document.hidden || pausedByUser.current) window.clearInterval(timer.current); else start(); };
@@ -650,7 +655,9 @@ function PageLayer({ motion, phase, snap, className, style, hidden, slides, modu
   return (
     <div className={className ?? "hs-layer"} data-mode={snap.mode} data-motion={motion} data-phase={phase} style={style} inert={hidden || undefined} aria-hidden={hidden || undefined} onTransitionEnd={onEnd}>
       <div className="hs-visual" aria-hidden="true">
-        <HeroPhoto src={snap.src} position={snap.position} gradient={snap.gradient} />
+        <div className="hs-image-motion">
+          <HeroPhoto src={snap.src} position={snap.position} gradient={snap.gradient} />
+        </div>
       </div>
       <div className="hs-scrim hs-scrim-top" />
       <div className="hs-scrim hs-scrim-bottom" />
