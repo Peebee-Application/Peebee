@@ -250,15 +250,16 @@ export async function isProviderConfigured(provider: PaymentProviderIdentity): P
 }
 
 /** Whether the saved keys are the provider's test/sandbox ones, which move no real money and never send a real phone
- * prompt. Flutterwave test secret keys start with FLWSECK_TEST; the telcos and Yo! default to "sandbox" unless the
- * Environment field says production/live. Only meaningful once the provider is configured. */
+ * prompt. Flutterwave test secret keys start with FLWSECK_TEST; the telcos and Yo! are on test when the Environment field
+ * is blank or "sandbox" (their default). Any other value is a production target (MTN's is country-specific, for example
+ * "mtnuganda"), the same rule the MTN adapter uses to pick EUR or UGX. Only meaningful once the provider is configured. */
 export async function providerUsesTestCredentials(provider: PaymentProviderIdentity): Promise<boolean> {
   if (provider === "flutterwave") {
     const key = (await getCredential("flutterwave", "secretKey")) ?? "";
     return key.toUpperCase().startsWith("FLWSECK_TEST");
   }
   const env = ((await getCredential(provider, "targetEnv")) ?? "sandbox").trim().toLowerCase();
-  return env !== "production" && env !== "live";
+  return env === "" || env === "sandbox";
 }
 
 /** Field-by-field "is something set" status for the admin UI — never the

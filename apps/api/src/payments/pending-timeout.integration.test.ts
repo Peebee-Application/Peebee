@@ -108,4 +108,16 @@ test("a stuck customer payment times out, and a rider is never trapped at Fund",
     process.env.FLUTTERWAVE_SECRET_KEY = "FLWSECK-live-key-X";
     assert.equal(await providerUsesTestCredentials("flutterwave"), false);
   });
+
+  await t.test("a telco's production environment is not mistaken for test keys", async () => {
+    delete process.env.MOMO_TARGET_ENV;
+    assert.equal(await providerUsesTestCredentials("mtn"), true, "blank defaults to sandbox");
+    process.env.MOMO_TARGET_ENV = "sandbox";
+    assert.equal(await providerUsesTestCredentials("mtn"), true);
+    process.env.MOMO_TARGET_ENV = "mtnuganda"; // MTN's production target environment is country-specific
+    assert.equal(await providerUsesTestCredentials("mtn"), false);
+    process.env.MOMO_TARGET_ENV = "production";
+    assert.equal(await providerUsesTestCredentials("mtn"), false);
+    delete process.env.MOMO_TARGET_ENV;
+  });
 });
