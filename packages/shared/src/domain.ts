@@ -852,6 +852,8 @@ export type DeliverySettings = {
   autoAssignWithoutAcceptance: boolean;
   /** Minutes before a rider is released from an order the customer has not paid for; 0 = never. */
   unpaidMatchReleaseMinutes: number;
+  /** Minutes an order may sit at "Funding" (payment started, never settled) before it is unlocked for the customer and rider; 0 = never. */
+  stuckFundingReleaseMinutes: number;
   /** One active ride per customer: no second ride while one booked for themself is active. Rides booked for someone else don't count. */
   oneActiveRideEnabled: boolean;
   /** Minutes a rider waits on an unpaid ride before they may close it; 0 = at once. */

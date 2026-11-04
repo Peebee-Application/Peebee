@@ -199,7 +199,9 @@ async function watchLatePayment(payment: Row, op: Row): Promise<DbPaymentStatus>
   return "failed";
 }
 
-export async function reconcilePayment(paymentId: string, actorId: string): Promise<DbPaymentStatus> {
+/** `forceTimeout` is for the stuck-funding sweep: a collection the provider still reports as pending is given up on now
+ * (failed, kept open for the late-approval watch) instead of waiting for the admin-set pending timeout. */
+export async function reconcilePayment(paymentId: string, actorId: string, opts: { forceTimeout?: boolean } = {}): Promise<DbPaymentStatus> {
   const result = await db.execute({ sql: "SELECT * FROM payments WHERE id = ?", args: [paymentId] });
   const payment = result.rows[0] as Row | undefined;
   if (!payment) throw new Error("Payment not found");
@@ -211,7 +213,7 @@ export async function reconcilePayment(paymentId: string, actorId: string): Prom
   // A pickup in a one-payment combined delivery has no provider request of its own:
   // it follows the first pickup's collection.
   if (payment.provider === BUNDLE_CHILD_PROVIDER && payment.provider_ref) {
-    await reconcilePayment(String(payment.provider_ref), actorId);
+    await reconcilePayment(String(payment.provider_ref), actorId, opts);
     const refreshed = await db.execute({ sql: "SELECT status FROM payments WHERE id = ?", args: [paymentId] });
     return String((refreshed.rows[0] as Row | undefined)?.status ?? payment.status) as DbPaymentStatus;
   }
@@ -234,7 +236,7 @@ export async function reconcilePayment(paymentId: string, actorId: string): Prom
     created_at: String(payment.created_at),
     type: payment.type as "collection" | "disbursement" | "refund" | undefined,
   });
-  if ((status === "pending" || status === "unknown") && (await pendingTooLong(payment))) {
+  if ((status === "pending" || status === "unknown") && (opts.forceTimeout || (await pendingTooLong(payment)))) {
     // The provider never answered (no prompt reached the phone, or it was ignored): stop waiting so the customer can try again.
     console.warn("Collection timed out while pending; marking failed", paymentId);
     status = "failed";

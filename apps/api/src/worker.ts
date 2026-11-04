@@ -6,7 +6,7 @@ import { renewProSubscriptions } from "./riders/pro-subscription.js";
 import { sweepProviderOperations } from "./payments/reconciliation.js";
 import { setR2Binding, type R2Bucket } from "./storage/r2.js";
 import { sweepExpiredOrders } from "./orders/expiry.js";
-import { sweepUnpaidAssignments } from "./orders/unpaid-release.js";
+import { sweepStuckFunding, sweepUnpaidAssignments } from "./orders/unpaid-release.js";
 import { sweepScheduledRides } from "./car/scheduled.js";
 import { releaseStaleSeats } from "./car/carpool.js";
 import { releaseStaleBookings } from "./taxipress/bookings.js";
@@ -90,6 +90,11 @@ export default {
       sweepExpiredOrders()
         .then((result) => console.log("Job expiry sweep:", JSON.stringify(result)))
         .catch((err) => console.error("Job expiry sweep failed:", err)),
+    );
+    ctx.waitUntil(
+      sweepStuckFunding()
+        .then((result) => console.log("Stuck funding release sweep:", JSON.stringify(result)))
+        .catch((err) => console.error("Stuck funding release sweep failed:", err)),
     );
     ctx.waitUntil(
       sweepUnpaidAssignments()

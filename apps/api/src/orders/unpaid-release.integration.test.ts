@@ -6,7 +6,7 @@ import { createClient, type Client, type InArgs } from "@libsql/client/node";
 import { setD1Binding, type D1Database } from "../db/client.js";
 import { splitSqlStatements } from "../db/split-sql.js";
 import { getMatchingSettings, setSetting } from "../lib/settings.js";
-import { sweepUnpaidAssignments } from "./unpaid-release.js";
+import { sweepStuckFunding, sweepUnpaidAssignments } from "./unpaid-release.js";
 
 function bindDatabase(client: Client) {
   const prepare = (sql: string) => ({
@@ -86,5 +86,60 @@ test("a rider matched to an order nobody pays for is released after the admin-se
 
   await t.test("running it again changes nothing", async () => {
     assert.deepEqual(await sweepUnpaidAssignments(), { released: 0, skipped: 0 });
+  });
+});
+
+test("an order stuck at Funding is unlocked after the admin-set wait", async (t) => {
+  const client = createClient({ url: "file::memory:" });
+  const migrations = join(process.cwd(), "src/db/migrations");
+  for (const file of readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort()) {
+    for (const sql of splitSqlStatements(readFileSync(join(migrations, file), "utf8"))) await client.execute(sql);
+  }
+  bindDatabase(client);
+  await client.execute("INSERT INTO users (id, phone, name, password_hash, role) VALUES ('cust', 'c', 'c', 'h', 'customer'), ('rider', 'r', 'r', 'h', 'rider')");
+  await client.execute("INSERT INTO riders (user_id, verified, is_online) VALUES ('rider', 1, 1)");
+  let n = 0;
+  const order = async (id: string, rider: string | null, ageMin: number) => {
+    n += 1;
+    await client.execute(`INSERT INTO lists (id, customer_id, title) VALUES ('l${n}', 'cust', 't')`);
+    await client.execute({
+      sql: `INSERT INTO orders (id, list_id, customer_id, stage, rider_id, payment_rail, created_at, updated_at) VALUES (?, ?, 'cust', 'Fund', ?, 'escrow', datetime('now', '-${ageMin} minutes'), datetime('now', '-${ageMin} minutes'))`,
+      args: [id, `l${n}`, rider],
+    });
+  };
+  const pay = (orderId: string, status: string) =>
+    client.execute({ sql: "INSERT INTO payments (id, order_id, type, provider, amount, currency, status) VALUES (?, ?, 'collection', 'mtn', 2500, 'UGX', ?)", args: [`p_${orderId}`, orderId, status] });
+
+  await order("no_payment", "rider", 90);
+  await order("failed_payment", "rider", 90); await pay("failed_payment", "failed");
+  await order("paid_but_stuck", "rider", 90); await pay("paid_but_stuck", "successful");
+  await order("no_payment_no_rider", null, 90);
+  await order("recent", "rider", 5);
+  await order("bundled", "rider", 90);
+  await client.execute("UPDATE orders SET delivery_bundle_id = 'b1' WHERE id = 'bundled'");
+
+  await t.test("does nothing at 0", async () => {
+    await setSetting("stuck_funding_release_minutes", "0");
+    assert.deepEqual(await sweepStuckFunding(), { released: 0, skipped: 0 });
+    await setSetting("stuck_funding_release_minutes", "30");
+  });
+
+  await t.test("moves old stuck orders on and leaves the rest", async () => {
+    assert.equal((await getMatchingSettings()).stuckFundingReleaseMinutes, 30);
+    assert.deepEqual(await sweepStuckFunding(), { released: 4, skipped: 0 });
+    const by = Object.fromEntries((await client.execute("SELECT id, stage, rider_id FROM orders")).rows.map((r) => [String(r.id), r]));
+    assert.equal(by.no_payment.stage, "Match", "rider stays, customer can pay again");
+    assert.equal(by.failed_payment.stage, "Match");
+    assert.equal(by.paid_but_stuck.stage, "Shop", "a payment that did go through starts the job");
+    assert.equal(by.no_payment_no_rider.stage, "Create");
+    assert.equal(by.recent.stage, "Fund", "within the wait");
+    assert.equal(by.bundled.stage, "Fund", "combined deliveries are left for a person");
+  });
+
+  await t.test("then the unpaid-assignment sweep frees the rider, and a second run changes nothing", async () => {
+    assert.deepEqual(await sweepStuckFunding(), { released: 0, skipped: 0 });
+    await client.execute("UPDATE orders SET updated_at = datetime('now', '-60 minutes') WHERE id IN ('no_payment', 'failed_payment')");
+    const freed = await sweepUnpaidAssignments();
+    assert.equal(freed.released, 2, "both unpaid orders lose their rider");
   });
 });
