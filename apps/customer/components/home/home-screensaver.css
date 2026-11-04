@@ -54,6 +54,7 @@
   width: 100%;
   height: 100%;
   z-index: 0;
+  overflow: hidden;
   transition: height 420ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -538,7 +539,7 @@ html.peebee-practice .hs-top:has(.hs-wordmark) { top: max(48px, calc(env(safe-ar
 .hs-dot { background: rgb(255 255 255 / 0.5); }
 .hs-dot.is-on { background: rgb(var(--color-gold)); }
 .hs-layer[data-motion="entity"] { background: transparent; }
-.hs-layer[data-motion="entity"] .hs-visual {
+.hs-layer[data-motion="entity"] .hs-image-motion {
   transform: translateY(var(--hs-image-y)) scale(var(--hs-image-scale));
   transition: transform 760ms cubic-bezier(.22,1,.36,1);
 }
@@ -575,12 +576,13 @@ html.peebee-practice .hs-top:has(.hs-wordmark) { top: max(48px, calc(env(safe-ar
 @media (prefers-reduced-motion: reduce) {
   .hs-frame *, .hs-frame *::before { animation: none !important; transition-duration: 180ms !important; }
 }
-.hs-layer[data-motion="entity"] .hs-visual {
+.hs-layer[data-motion="entity"] .hs-image-motion {
   opacity: var(--hs-image-opacity);
   transition: transform 760ms cubic-bezier(.22,1,.36,1), opacity 760ms ease;
 }
 .hs-layer:not(.is-flight)[data-mode="module"] .hs-copy { animation: none; }
 .hs-layer.is-drag .hs-visual,
+.hs-layer.is-drag .hs-image-motion,
 .hs-layer.is-drag .hs-copy,
 .hs-layer.is-drag .hs-cta { transition: none; }
 .hs-layer.is-drag .hs-sheet-shape { animation: none; }
@@ -597,3 +599,27 @@ html.peebee-practice .hs-top:has(.hs-wordmark) { top: max(48px, calc(env(safe-ar
 }
 .hs-thumb[data-d="0"] .hs-thumb-label { background-color: rgb(var(--color-gold)); color: rgb(var(--color-ink-gold)); }
 .hs-layer.is-drag .hs-cover-stack { transition: none; }
+
+/* The aperture stays fixed; oversized photos move inside it without exposing edges. */
+.hs-image-motion { position: absolute; inset: 0; }
+
+/* Clear the previous words before the next title and description enter. */
+.hs-layer[data-motion="entity"] .hs-copy,
+.hs-layer[data-motion="entity"] .hs-cta,
+.hs-layer[data-motion="cluster"][data-mode="cover"] .hs-cover-stack {
+  opacity: var(--hs-copy-opacity, 1);
+  transition: transform 300ms ease, opacity 300ms ease;
+  transition-delay: var(--hs-copy-delay, 0ms);
+}
+.hs-layer[data-phase="in"][data-motion="entity"] .hs-copy,
+.hs-layer[data-phase="in"][data-motion="entity"] .hs-cta,
+.hs-layer[data-phase="in"][data-motion="cluster"][data-mode="cover"] .hs-cover-stack {
+  transition-duration: 380ms;
+  transition-delay: var(--hs-copy-delay, 380ms);
+}
+.hs-layer.is-drag .hs-cta,
+.hs-layer.is-drag .hs-copy,
+.hs-layer.is-drag .hs-cover-stack { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .hs-layer .hs-copy, .hs-layer .hs-cta, .hs-layer .hs-cover-stack { transition: none !important; }
+}
