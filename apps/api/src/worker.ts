@@ -4,6 +4,7 @@ import { setD1Binding, type D1Database } from "./db/client.js";
 import { renewSubscriptions } from "./riders/subscription.js";
 import { renewProSubscriptions } from "./riders/pro-subscription.js";
 import { sweepProviderOperations } from "./payments/reconciliation.js";
+import { sweepPendingTopups } from "./wallet/topup-settle.js";
 import { setR2Binding, type R2Bucket } from "./storage/r2.js";
 import { sweepExpiredOrders } from "./orders/expiry.js";
 import { sweepStuckFunding, sweepUnpaidAssignments } from "./orders/unpaid-release.js";
@@ -75,6 +76,11 @@ export default {
       sweepProviderOperations()
         .then((result) => console.log("Provider reconciliation sweep:", JSON.stringify(result)))
         .catch((err) => console.error("Provider reconciliation sweep failed:", err)),
+    );
+    ctx.waitUntil(
+      sweepPendingTopups()
+        .then((result) => { if (result.checked > 0) console.log("Wallet top-up sweep:", JSON.stringify(result)); })
+        .catch((err) => console.error("Wallet top-up sweep failed:", err)),
     );
     ctx.waitUntil(
       sweepStageEscalations()
