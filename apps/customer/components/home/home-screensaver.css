@@ -282,7 +282,7 @@ html.peebee-practice .hs-top {
   flex-direction: column;
   padding: 0 20px max(var(--hs-chrome-inset), calc(env(safe-area-inset-bottom, 0px) + var(--hs-chrome-safe)));
   color: rgb(var(--color-ink));
-  animation: hs-rise 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  perspective: 700px;
 }
 
 .hs-copy {
@@ -359,7 +359,7 @@ html.peebee-practice .hs-top {
   container-type: inline-size;
   transform: translate(-50%, -50%);
   filter: drop-shadow(0 8px 10px rgb(0 0 0 / 0.35));
-  transition: top 360ms cubic-bezier(0.16, 1, 0.3, 1), width 360ms cubic-bezier(0.16, 1, 0.3, 1), height 360ms cubic-bezier(0.16, 1, 0.3, 1), opacity 360ms ease;
+  transition: top 760ms cubic-bezier(0.16, 1, 0.3, 1), width 760ms cubic-bezier(0.16, 1, 0.3, 1), height 760ms cubic-bezier(0.16, 1, 0.3, 1), opacity 760ms ease;
   animation: hs-thumb-in 320ms ease;
 }
 
@@ -371,7 +371,7 @@ html.peebee-practice .hs-top {
 
 .hs-thumb.is-ghost {
   pointer-events: none;
-  animation: hs-out 360ms ease forwards;
+  animation: hs-out 760ms ease forwards;
 }
 
 .hs-thumb-ring {
@@ -418,7 +418,7 @@ html.peebee-practice .hs-top {
   font-weight: 700;
   line-height: 1.15;
   white-space: nowrap;
-  transition: font-size 360ms cubic-bezier(0.16, 1, 0.3, 1), padding 360ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: font-size 760ms cubic-bezier(0.16, 1, 0.3, 1), padding 760ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .hs-thumb[data-d="0"] .hs-thumb-label {
@@ -529,10 +529,11 @@ html.peebee-practice .hs-top {
 /* Cluster navigation stays horizontal; detail layers move beneath the sheet. */
 .hs-layer { transition-duration: 760ms; }
 .hs-layer[data-mode="module"] .hs-visual { height: 56%; }
-.hs-top:has(.hs-wordmark) { flex-direction: row-reverse; }
+.hs-top:has(.hs-wordmark) { flex-direction: row; top: max(24px, calc(env(safe-area-inset-top, 0px) + var(--hs-chrome-safe))); }
+html.peebee-practice .hs-top:has(.hs-wordmark) { top: max(48px, calc(env(safe-area-inset-top, 0px) + 6px)); }
 .hs-wordmark { margin: 0; }
-.hs-cover-title { animation: hs-copy-enter 1000ms both; }
-.hs-cover-sub { animation: hs-copy-enter 1100ms 90ms both; }
+.hs-cover-title { animation: none; }
+.hs-cover-sub { animation: none; }
 .hs-details { width: 48px; border-radius: 50%; animation: hs-bob 2200ms ease-in-out infinite; }
 .hs-dot { background: rgb(255 255 255 / 0.5); }
 .hs-dot.is-on { background: rgb(var(--color-gold)); }
@@ -557,7 +558,7 @@ html.peebee-practice .hs-top {
   transition: transform 760ms cubic-bezier(.22,1,.36,1);
 }
 .hs-layer[data-motion="entity"][data-phase="in"] .hs-sheet-shape { animation: hs-pull 760ms both; }
-.hs-layer:not(.is-flight) .hs-copy { animation: hs-copy-enter 850ms both; }
+
 .hs-layer[data-motion="open"][data-phase="out"] .hs-details {
   animation: hs-expand 760ms cubic-bezier(.22,1,.36,1) forwards;
   overflow: hidden;
@@ -565,7 +566,7 @@ html.peebee-practice .hs-top {
 .hs-layer[data-motion="open"][data-phase="out"] .hs-details svg { opacity: 0; transition: opacity 180ms; }
 .hs-layer[data-motion="open"][data-phase="in"] .hs-visual { animation: hs-open-image 760ms both; }
 @keyframes hs-copy-enter {
-  from { opacity: 0; transform: translate(16px, 30px); }
+  from { opacity: 0; transform: translateY(28px); }
   to { opacity: 1; transform: none; }
 }
 @keyframes hs-bob {
@@ -599,3 +600,16 @@ html.peebee-practice .hs-top {
 .hs-layer.is-drag .hs-copy,
 .hs-layer.is-drag .hs-cta { transition: none; }
 .hs-layer.is-drag .hs-sheet-shape { animation: none; }
+
+/* Keep cover copy independent of the horizontally moving photo. */
+.hs-layer[data-motion="cluster"][data-mode="cover"] .hs-visual {
+  transform: translateX(var(--hs-image-x, 0%));
+  transition: transform 760ms cubic-bezier(.22,1,.36,1);
+}
+.hs-cover-stack {
+  opacity: var(--hs-copy-opacity, 1);
+  transform: translateY(var(--hs-copy-y, 0px));
+  transition: transform 760ms cubic-bezier(.22,1,.36,1), opacity 760ms ease;
+}
+.hs-thumb[data-d="0"] .hs-thumb-label { background-color: rgb(var(--color-gold)); color: rgb(var(--color-ink-gold)); }
+.hs-layer.is-drag .hs-cover-stack { transition: none; }
