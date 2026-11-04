@@ -382,6 +382,7 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   order_delete_title: { en: "Delete this order?", lg: "Osangula ekiragiddwa kino?" },
   order_cancel_title: { en: "Cancel this order?", lg: "Osazaamu ekiragiddwa kino?" },
   order_delete_note: { en: "This removes it from your orders list. No rider was assigned and nothing was charged, so there's nothing to refund.", lg: "Kino kikigyawo ku lukalala lw'ebiragiddwa byo. Tewali mutambuze yagabiddwa era tewali kyasasuliddwa, n'olwekyo tewali kya kuzzaayo." },
+  order_cancel_note_rider: { en: "Your rider has accepted this order. Cancelling frees them to take other jobs, and nothing will be charged. You can still see it in your order history afterward.", lg: "Omutambuze wo yakkirizza okukutwala. Bw'okiggyawo, omutambuze asobola okukola emirimu emirala, era tewali kyakusasulwa. Osobola okukiraba mu byafaayo byo oluvannyuma." },
   order_cancel_note: { en: "No rider has been assigned yet, so nothing will be charged. You can still see it in your order history afterward.", lg: "Tewali mutambuze yagabiddwa, n'olwekyo tewali kyakusasulwa. Osobola okukiraba mu byafaayo byo oluvannyuma." },
   order_never_mind: { en: "Never mind", lg: "Kirabone" },
   order_working: { en: "Working…", lg: "Tukola…" },
