@@ -1,3 +1,4 @@
+import { settleRiderTopup } from "../wallet/topup-settle.js";
 import { withdrawalNumberBlocked } from "../account/number-verification.js";
 import { demoPeopleFilter } from "../practice/people.js";
 import { isRiderProfileComplete, type MobileMoneyNetwork, type Rider } from "@peebee/shared";
@@ -584,37 +585,9 @@ riderRoutes.get("/riders/me/wallet/topups/:id/refresh", requireAuth, requireRole
   if (!topup) return c.json({ error: "not_found" }, 404);
   if (topup.status !== "pending") return c.json({ topup });
 
-  const status = await checkPaymentStatus({
-    provider: topup.provider as string,
-    provider_ref: topup.provider_ref as string | null,
-    created_at: topup.created_at as string,
-  });
-  if (status === "pending") return c.json({ topup });
-
-  if (status === "failed") {
-    await db.execute({
-      sql: "UPDATE rider_wallet_topups SET status = 'failed', updated_at = datetime('now') WHERE id = ? AND status = 'pending'",
-      args: [id],
-    });
-    return c.json({ topup: { ...topup, status: "failed" } });
-  }
-
-  // Race-guarded exactly like the customer wallet's own topup refresh: only
-  // the request that actually flips pending -> successful credits the
-  // balance, so a poll and a webhook landing together can't double-credit.
-  const updated = await db.execute({
-    sql: "UPDATE rider_wallet_topups SET status = 'successful', updated_at = datetime('now') WHERE id = ? AND status = 'pending'",
-    args: [id],
-  });
-  if ((updated.rowsAffected ?? 0) > 0) {
-    const balanceColumn = topup.environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
-    await db.execute({
-      sql: `UPDATE riders SET ${balanceColumn} = ${balanceColumn} + ?, updated_at = datetime('now') WHERE user_id = ?`,
-      args: [topup.amount as number, user.sub],
-    });
-  }
-
-  return c.json({ topup: { ...topup, status: "successful" } });
+  // The same settlement the background sweep and the provider webhooks use (../wallet/topup-settle.ts).
+  const status = await settleRiderTopup(topup);
+  return c.json({ topup: { ...topup, status } });
 });
 
 const withdrawSchema = z.object({
