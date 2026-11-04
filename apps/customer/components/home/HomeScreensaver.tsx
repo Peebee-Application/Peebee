@@ -136,6 +136,13 @@ type Flight = {
 function layerStyle(role: "out" | "in", flight: Flight): React.CSSProperties {
   const { dir, progress, reduced } = flight;
   if (reduced) return { opacity: role === "out" ? 1 - progress : Math.max(progress, 0.001), zIndex: role === "out" ? 2 : 1, transform: "none" };
+  // Keep the entire cover opaque until it has cleared the screen, with the
+  // first detail page already in place underneath it.
+  if (flight.axis === "open") return {
+    zIndex: role === "out" ? 2 : 1,
+    transform: role === "out" ? `translate3d(0, ${-progress * 100}%, 0)` : "none",
+    opacity: 1,
+  };
   if (flight.axis === "cluster" && flight.incoming.mode === "cover") return {
     zIndex: role === "out" ? 2 : 1,
     "--hs-image-x": `${role === "out" ? -dir * progress * 100 : dir * (1 - progress) * 100}%`,
@@ -568,6 +575,12 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
       start.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
     }
     if (start.axis === "x") trackHorizontal(dx);
+    else if (view === "cover" && (dy < 0 || flightRef.current?.axis === "open")) {
+      const progress = Math.min(1, Math.max(0, -dy) / (frameRef.current?.clientHeight || 1));
+      const existing = flightRef.current;
+      if (existing?.dragging && existing.axis === "open") putFlight({ ...existing, progress });
+      else if (entities[0]) playSnap(1, pageSnap(slide, entities[0], "module"), () => { setEntityIndex(0); setView("module"); }, true, progress, "open");
+    }
     else if (view === "module" && entities.length > 1) {
       const dir: 1 | -1 = dy < 0 ? 1 : -1;
       const progress = Math.min(1, Math.abs(dy) / (frameRef.current?.clientHeight || 1));
@@ -587,8 +600,8 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     const verticalFlight = flightRef.current;
-    if (verticalFlight?.dragging && verticalFlight.axis === "entity") {
-      const commit = Math.abs(dy) >= 48;
+    if (verticalFlight?.dragging && verticalFlight.axis !== "cluster") {
+      const commit = verticalFlight.axis === "open" ? dy <= -48 : Math.abs(dy) >= 48;
       putFlight({ ...verticalFlight, dragging: false, progress: commit ? 1 : 0, commitOnEnd: commit });
       return;
     }
