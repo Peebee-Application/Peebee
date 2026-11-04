@@ -61,8 +61,11 @@ Do these in order. Nothing here is irreversible, and the rollback is at the end.
    **demo mode off**, MTN **active** and first in the provider order.
 6. **Make the first real payments small and deliberate** (see the test plan below) before any customer does it.
 
-**Rollback, in seconds:** switch **Payments demo mode** on (every payment goes through the simulator and no credential is
-touched), or set the card's Environment back to `sandbox` and remove the `MOMO_BASE_URL` secret.
+**Rollback, in seconds:** untick MTN under Admin → Settings → Payments. New payments then fail with a clear message and
+nobody is charged. **Do not turn Payments demo mode on once real customers are paying**: every payment would go through
+the simulator, so orders could show as paid while no money moved. (Demo mode is for testing before launch, and for
+pulling a sandbox platform back to demo.) You can also set the card's Environment back to `sandbox` and remove the
+`MOMO_BASE_URL` secret.
 
 ## First real-money test plan
 
@@ -103,8 +106,28 @@ Go-Live page on the MTN developer site before step 1:
   settles to.
 - **Any callback, IP allow-list or domain requirement.** Peebee does not send a callback URL today. If MTN requires one,
   that is a code change.
+- **A fixed IP address for Disbursements.** MTN asks for production Disbursements calls to come from IP addresses it has
+  allow-listed. The API runs on Cloudflare Workers, which have no fixed outgoing IP, so as it stands MTN cannot
+  allow-list it. The usual fix is a small forwarder on a static IP that only the MTN calls go through; `MOMO_BASE_URL`
+  can point at it. Settle this with MTN before relying on MTN for payouts. Until then, use another payout provider
+  (Yo! or Airtel) for riders and customers.
 - **Refunds.** Peebee refunds a cancelled order to the customer's Peebee wallet, not back to their MoMo. That is
   deliberate (a refund never starts a second MoMo transaction), but confirm it is acceptable to MTN and your customers.
+
+## Behaviour added since this page was first written
+
+- **A payment that is never confirmed times out.** Admin → Payments → "Minutes before a pending payment fails" (default
+  10, 0 = wait forever). The payment is marked failed so the customer can try again, and a rider attached to the order
+  goes back to the unpaid wait described above. Payouts never time out.
+- **A late approval is not lost.** For "Hours to keep watching for a late approval" (default 24) Peebee keeps asking MTN
+  about a timed-out payment. If the customer approved after all, the amount is added to their Peebee wallet, once, and
+  they are told. Recent failed payments on the Admin dashboard mark these.
+- **Test keys are flagged.** The MTN card shows "Test keys" while its Environment is blank or `sandbox`, and a banner
+  warns when that is the case on a Live platform. Any other Environment value counts as production.
+- **Verified withdrawal numbers.** Admin → Payments → "Require a verified number to withdraw" (off by default) makes
+  rider, car-driver and customer cash-outs go only to a saved number the owner proved with a texted code. It needs
+  migration 0155 and the SMS provider. Turn it on before launch if MTN's consent guidance applies to payouts.
+- **A rider can leave an order that is still waiting for payment.**
 
 ## Known gaps worth deciding before launch
 
