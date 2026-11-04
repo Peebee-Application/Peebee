@@ -165,10 +165,10 @@ function layerStyle(role: "out" | "in", flight: Flight): React.CSSProperties {
     "--hs-copy-x": `${reduced ? 0 : role === "out" ? progress * 20 : -(1 - progress) * 28}px`,
     "--hs-roll": `${reduced ? 0 : role === "out" ? progress * 90 : -90 * (1 - progress)}deg`,
   } as React.CSSProperties;
-  if (role === "out") return { transform: `translate3d(${-dir * progress * 100}%, 0, 0)`, opacity: 1, zIndex: 2 };
-  const slide = dir * (1 - progress) * 25;
-  const scale = 0.92 + 0.08 * progress;
-  return { transform: `translate3d(${slide}%, 0, 0) scale(${scale})`, opacity: progress, zIndex: 1 };
+  const copyStyle = { "--hs-copy-opacity": copyOpacity, "--hs-copy-delay": copyDelay } as React.CSSProperties;
+  if (role === "out") return { ...copyStyle, transform: `translate3d(${-dir * progress * 100}%, 0, 0)`, opacity: 1, zIndex: 2 };
+  // Cluster pages also stay full size while sliding across the frame.
+  return { ...copyStyle, transform: `translate3d(${dir * (1 - progress) * 100}%, 0, 0)`, opacity: 1, zIndex: 1 };
 }
 
 function useSlides(): Slide[] {
