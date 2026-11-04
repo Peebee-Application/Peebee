@@ -868,6 +868,8 @@ export type DeliverySettings = {
   paymentsPendingTimeoutMinutes: number;
   /** Hours to keep watching a timed-out payment and credit the wallet if it is approved late; 0 = stop at the timeout. */
   paymentsLateWatchHours: number;
+  /** true: cash-outs only go to a saved withdrawal number verified by an SMS code. Default false. */
+  withdrawalNumbersRequireVerification: boolean;
   /** Dark-launch switch for the merchant allocation flow. Live enablement is
    * additionally gated by an active regulated-custody approval server-side. */
   merchantPaymentsEnabled: boolean;
@@ -1822,6 +1824,10 @@ export type SavedMobileNumber = {
   phone: string;
   label: string | null;
   is_primary: number;
+  /** When the owner proved the number with an SMS code; null/absent until then. */
+  verified_at?: string | null;
+  /** Convenience flag the API adds: verified_at is set. */
+  verified?: boolean;
   created_at: string;
   updated_at: string;
 };

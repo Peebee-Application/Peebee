@@ -119,6 +119,10 @@ const DEFAULTS = {
   /** Hours Peebee keeps checking a timed-out collection with the provider. If the customer approved it after all, the
    * amount is credited to their Peebee wallet (see payments/reconciliation.ts). 0 stops watching at the timeout. */
   payments_late_watch_hours: "24",
+  /** "1": a cash-out (rider, car driver, customer wallet) may only go to a saved withdrawal number that was verified with
+   * an SMS code (see account/number-verification.ts). "0" (default): any saved number works, as before. Needs migration
+   * 0155; without it this has no effect. */
+  withdrawal_numbers_require_verification: "0",
   /** One active ride per customer: while a ride booked for the customer themself is still active (not completed or
    * cancelled) they cannot request another; rides booked for someone else do not count. "1" on, "0" off. */
   one_active_ride_enabled: "1",
@@ -1475,6 +1479,10 @@ export async function getPaymentsPendingTimeoutMinutes(): Promise<number> {
   const raw = await getSetting("payments_pending_timeout_minutes");
   const minutes = Math.floor(Number(raw));
   return Number.isFinite(minutes) ? Math.min(1440, Math.max(0, minutes)) : Number(DEFAULTS.payments_pending_timeout_minutes);
+}
+
+export async function getWithdrawalNumbersRequireVerification(): Promise<boolean> {
+  return (await getSetting("withdrawal_numbers_require_verification")) === "1";
 }
 
 export async function getPaymentsLateWatchHours(): Promise<number> {

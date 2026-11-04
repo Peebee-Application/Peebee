@@ -12,11 +12,18 @@ import { z } from "zod";
 import { requireAuth } from "../auth/middleware.js";
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
+import { hasColumn } from "../lib/schema.js";
+import { confirmNumberCode, sendNumberCode } from "./number-verification.js";
 
 export const mobileNumberRoutes = new Hono();
 mobileNumberRoutes.use("*", requireAuth);
 
 type Row = Record<string, unknown>;
+
+/** Adds the convenience `verified` flag (the column only exists once migration 0155 is applied). */
+function present(row: Row | undefined): Row | undefined {
+  return row ? { ...row, verified: !!row.verified_at } : row;
+}
 
 const MAX_PER_PURPOSE = 2;
 const purposeSchema = z.enum(["payment", "withdrawal"]);
@@ -31,7 +38,7 @@ mobileNumberRoutes.get("/mobile-numbers", async (c) => {
     sql: "SELECT * FROM saved_mobile_numbers WHERE owner_id = ? AND purpose = ? ORDER BY is_primary DESC, created_at ASC",
     args: [user.sub, purpose.data],
   });
-  return c.json({ numbers: res.rows });
+  return c.json({ numbers: (res.rows as Row[]).map((r) => present(r)) });
 });
 
 const createSchema = z.object({
@@ -75,7 +82,7 @@ mobileNumberRoutes.post("/mobile-numbers", async (c) => {
   }
 
   const res = await db.execute({ sql: "SELECT * FROM saved_mobile_numbers WHERE id = ?", args: [id] });
-  return c.json({ number: res.rows[0] }, 201);
+  return c.json({ number: present(res.rows[0] as Row) }, 201);
 });
 
 const updateSchema = z.object({
@@ -104,7 +111,11 @@ mobileNumberRoutes.patch("/mobile-numbers/:id", async (c) => {
   }
 
   const fields: Record<string, unknown> = {};
-  if (d.phone != null) fields.phone = d.phone;
+  if (d.phone != null) {
+    fields.phone = d.phone;
+    // New digits are a different number: the old proof no longer applies.
+    if (d.phone !== row.phone && (await hasColumn("saved_mobile_numbers", "verified_at"))) fields.verified_at = null;
+  }
   if (d.label !== undefined) fields.label = d.label;
   if (d.isPrimary != null) fields.is_primary = d.isPrimary ? 1 : 0;
 
@@ -122,7 +133,7 @@ mobileNumberRoutes.patch("/mobile-numbers/:id", async (c) => {
   }
 
   const res = await db.execute({ sql: "SELECT * FROM saved_mobile_numbers WHERE id = ?", args: [id] });
-  return c.json({ number: res.rows[0] });
+  return c.json({ number: present(res.rows[0] as Row) });
 });
 
 mobileNumberRoutes.delete("/mobile-numbers/:id", async (c) => {
@@ -152,4 +163,30 @@ mobileNumberRoutes.delete("/mobile-numbers/:id", async (c) => {
   }
 
   return c.json({ ok: true });
+});
+
+// Proving a saved number belongs to its owner: a code is texted to the number itself. See ./number-verification.ts.
+mobileNumberRoutes.post("/mobile-numbers/:id/verify/send", async (c) => {
+  const user = c.get("user");
+  const result = await sendNumberCode(user.sub, c.req.param("id"));
+  if (!result.ok) {
+    const { status, ...body } = result;
+    return c.json(body, status);
+  }
+  return c.json({ sent: true, ...(result.devCode ? { devCode: result.devCode } : {}) });
+});
+
+const verifyCodeSchema = z.object({ code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code") });
+
+mobileNumberRoutes.post("/mobile-numbers/:id/verify/confirm", async (c) => {
+  const user = c.get("user");
+  const parsed = verifyCodeSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body", message: "Enter the 6-digit code", issues: parsed.error.issues }, 400);
+  const result = await confirmNumberCode(user.sub, c.req.param("id"), parsed.data.code);
+  if (!result.ok) {
+    const { status, ...body } = result;
+    return c.json(body, status);
+  }
+  const res = await db.execute({ sql: "SELECT * FROM saved_mobile_numbers WHERE id = ?", args: [c.req.param("id")] });
+  return c.json({ verified: true, number: present(res.rows[0] as Row) });
 });

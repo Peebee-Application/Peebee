@@ -26,6 +26,7 @@ UPDATE users SET is_demo = 1 WHERE name LIKE 'LIVETEST %';
 | `apps/api/src/db/migrations/0151_support_chat_identity.sql` | Support chat: records which app a chat came from and who was signed in (4 nullable columns on `support_chats`). Needs 0150 first. Until applied, chats work as before and the inbox shows "Not signed in" |
 | `apps/api/src/db/migrations/0152_ai_key_features.sql` | AI features: lets a Google AI key be reserved for one AI feature (`ai_api_keys.feature`) and allows one master key per pool. Needs 0074 first. Until applied, every feature shares one pool and Admin → AI features shows "separate" as unavailable |
 | `apps/api/src/db/migrations/0153_ai_key_usage.sql` | Google AI keys: records which AI feature each key has actually served (Admin → Google AI keys shows it per key). Needs 0074 first. Until applied, keys work as before and the usage lines stay empty |
+| `apps/api/src/db/migrations/0155_saved_number_verification.sql` | Verified withdrawal numbers: `saved_mobile_numbers.verified_at` and the SMS-code table. Riders and customers can verify a saved number; Admin → Payments → "Require a verified number to withdraw" stays unavailable (and off) until this is applied. Nothing changes for anyone until an admin turns that on |
 
 Each file is safe to read before running: they only add tables, columns and indexes. Run them one at a time and check
 the Admin → Commerce options page — an option whose migration is missing is shown as unavailable and cannot be chosen.

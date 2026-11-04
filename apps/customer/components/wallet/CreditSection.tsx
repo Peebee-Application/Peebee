@@ -1,5 +1,6 @@
 "use client";
 
+import { MobileNumberPicker } from "../MobileNumberPicker";
 import { formatUgx } from "../../lib/order-display";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
@@ -134,7 +135,7 @@ export function CreditSection() {
           {cashout.allowed > 0 && (
             <div className="space-y-2">
               <input aria-label="Amount" inputMode="numeric" value={wdAmount} onChange={(e) => setWdAmount(e.target.value.replace(/[^\d]/g, ""))} placeholder="Amount (UGX)" className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm" />
-              <input aria-label="Mobile money number" inputMode="tel" value={wdPhone} onChange={(e) => setWdPhone(e.target.value)} placeholder="Mobile money number" className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm" />
+              <MobileNumberPicker purpose="withdrawal" value={wdPhone} onChange={setWdPhone} />
               <button type="button" disabled={wdBusy || !wdAmount || wdPhone.trim().length < 6} onClick={() => void withdraw()} className="w-full rounded-xl bg-gold px-4 py-3 text-sm font-bold text-ink disabled:opacity-50">{wdBusy ? "Please wait…" : "Withdraw"}</button>
             </div>
           )}
