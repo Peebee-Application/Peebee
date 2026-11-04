@@ -136,14 +136,20 @@ type Flight = {
 function layerStyle(role: "out" | "in", flight: Flight): React.CSSProperties {
   const { dir, progress, reduced } = flight;
   if (reduced) return { opacity: role === "out" ? 1 - progress : Math.max(progress, 0.001), zIndex: role === "out" ? 2 : 1, transform: "none" };
+  if (flight.axis === "cluster" && flight.incoming.mode === "cover") return {
+    zIndex: role === "out" ? 2 : 1,
+    "--hs-image-x": `${role === "out" ? -dir * progress * 100 : dir * (1 - progress) * 100}%`,
+    "--hs-copy-opacity": role === "out" ? 1 - progress : progress,
+    "--hs-copy-y": `${role === "out" ? -progress * 12 : (1 - progress) * 28}px`,
+  } as React.CSSProperties;
   if (flight.axis !== "cluster") return {
     zIndex: role === "out" ? 2 : 1,
     "--hs-image-y": `${role === "out" ? -dir * progress * 12 : dir * (1 - progress) * 65}%`,
     "--hs-image-scale": role === "out" ? 1 - progress * 0.14 : 1.12 - progress * 0.12,
     "--hs-image-opacity": role === "out" ? 1 - progress : 1,
     "--hs-copy-opacity": role === "out" ? 1 - progress : progress,
-    "--hs-copy-y": `${role === "out" ? -progress * 24 : (1 - progress) * 36}px`,
-    "--hs-copy-x": `${role === "out" ? -progress * 12 : (1 - progress) * 16}px`,
+    "--hs-copy-y": "0px",
+    "--hs-copy-x": `${role === "out" ? progress * 20 : -(1 - progress) * 28}px`,
     "--hs-roll": `${role === "out" ? progress * 90 : -90 * (1 - progress)}deg`,
   } as React.CSSProperties;
   if (role === "out") return { transform: `translate3d(${-dir * progress * 100}%, 0, 0)`, opacity: 1, zIndex: 2 };
@@ -456,6 +462,13 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
 
   if (!slide || !entity) return null;
 
+  const pending = flight && flight.progress > 0 && (flight.dragging || flight.commitOnEnd) ? flight.incoming : null;
+  const thumbModule = pending ? slides.find((item) => item.entities.some((ent) => pending.id === `${pending.mode}:${item.id}:${ent.id}`)) ?? slide : slide;
+  const thumbIndex = pending?.entity ? Math.max(0, thumbModule.entities.findIndex((ent) => ent.id === pending.entity?.id)) : ei;
+  const layers: { snap: PageSnap; role?: "in" | "out" }[] = flight
+    ? [{ snap: flight.incoming, role: "in" }, { snap: flight.outgoing, role: "out" }]
+    : [{ snap: currentSnap() }];
+
   return (
     <div className={`${jakarta.className} hs-overlay`}>
       <div
@@ -473,14 +486,14 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
         onPointerCancel={clearGesture}
       >
         <div className="hs-stage">
-          {flight ? (
-            <>
-              <PageLayer key={`${flight.id}:in`} motion={flight.axis} phase="in" snap={flight.incoming} className={flight.dragging ? "hs-layer is-flight is-drag" : "hs-layer is-flight"} style={layerStyle("in", flight)} hidden slides={slides} moduleIndex={mi} />
-              <PageLayer key={`${flight.id}:out`} motion={flight.axis} phase="out" snap={flight.outgoing} className={flight.dragging ? "hs-layer is-flight is-drag" : "hs-layer is-flight"} style={layerStyle("out", flight)} onEnd={onFlightEnd} slides={slides} moduleIndex={mi} onPickModule={goModule} onOpen={openModule} />
-            </>
-          ) : (
-            <PageLayer key={`${view}:${slide.id}:${entity.id}`} snap={currentSnap()} slides={slides} moduleIndex={mi} onPickModule={goModule} onOpen={openModule} />
-          )}
+          {layers.map(({ snap, role }) => (
+            <PageLayer key={snap.id} snap={snap} motion={flight?.axis} phase={role}
+              className={flight ? (flight.dragging ? "hs-layer is-flight is-drag" : "hs-layer is-flight") : "hs-layer"}
+              style={flight && role ? layerStyle(role, flight) : undefined}
+              hidden={role === "out"} slides={slides}
+              moduleIndex={Math.max(0, slides.findIndex((item) => snap.id.startsWith(`${snap.mode}:${item.id}:`)))}
+              onPickModule={goModule} onOpen={openModule} onEnd={role === "out" ? onFlightEnd : undefined} />
+          ))}
         </div>
 
         <div className="hs-top">
@@ -504,10 +517,10 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
         {view === "module" && (
           <>
             <div className="hs-mod-switch">
-              <span className="hs-glass hs-name-pill">{slide.title}</span>
-              <Dots slides={slides} index={mi} onSelect={goModule} />
+              <span className="hs-glass hs-name-pill">{thumbModule.title}</span>
+              <Dots slides={slides} index={slides.indexOf(thumbModule)} onSelect={goModule} />
             </div>
-            <Thumbs entities={entities} active={ei} moduleId={slide.id} onSelect={goEntity} />
+            <Thumbs entities={thumbModule.entities} active={thumbIndex} moduleId={thumbModule.id} onSelect={goEntity} />
           </>
         )}
       </div>
@@ -705,7 +718,7 @@ function Thumbs({ entities, active, moduleId, onSelect }: { entities: Screensave
     const left = prior.items.find((item) => !ids.has(item.id));
     if (!left || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     setGhost(left);
-    const timeout = window.setTimeout(() => setGhost(null), 380);
+    const timeout = window.setTimeout(() => setGhost(null), 760);
     return () => window.clearTimeout(timeout);
     // visibleKey changes only when the thumb window changes; `visible` is derived from it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
