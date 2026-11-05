@@ -464,6 +464,12 @@ export async function serializePosts(posts: PostRow[], origin: string, viewerId:
 
 export type FeedFilter = "all" | "following" | "video" | "image";
 
+/** Answers, for a post, whether the Services modules behind its publisher and what it tags are on right now. */
+export async function postModuleCheck(): Promise<(p: PostRow) => boolean> {
+  const live = await liveModules([...Object.values(PUBLISHER_MODULE), ...Object.values(PRODUCT_MODULE)]);
+  return (p) => live[PUBLISHER_MODULE[p.publisher_type] ?? ""] !== false && live[PRODUCT_MODULE[String(p.product_ref_type ?? "")] ?? ""] !== false;
+}
+
 /** Ranks recent published posts from every publisher and returns one page. */
 export async function spotlightFeed(viewerId: string | null, cfg: ChannelsConfig, opts: { filter?: FeedFilter; cursor?: number }): Promise<{ posts: PostRow[]; nextCursor: number | null }> {
   const env = await getPlatformEnvironment();
@@ -475,8 +481,7 @@ export async function spotlightFeed(viewerId: string | null, cfg: ChannelsConfig
     args: [env],
   })).rows as unknown as PostRow[];
 
-  const live = await liveModules([...Object.values(PUBLISHER_MODULE), ...Object.values(PRODUCT_MODULE)]);
-  const moduleOn = (p: PostRow) => live[PUBLISHER_MODULE[p.publisher_type] ?? ""] !== false && live[PRODUCT_MODULE[String(p.product_ref_type ?? "")] ?? ""] !== false;
+  const moduleOn = await postModuleCheck();
   const allowed = rows.filter((p) => moduleOn(p) && (p.publisher_type === "personal" ? cfg.publishing.personalPosting : cfg.publishing.publishers.includes(p.publisher_type)));
   const following = viewerId ? await followedChannelIds(viewerId) : new Set<string>();
   let pool = allowed;

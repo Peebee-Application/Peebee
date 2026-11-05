@@ -145,6 +145,9 @@ test("posts: one post model for every publisher, in one ranked Spotlight", async
   const publishers = async () => (await w.call("/spotlight/feed", { token: w.fan })).json.posts.map((p: Json) => p.publisher.type);
   await setModuleFlags({ live: { "buy.food": false } });
   assert.ok(!(await publishers()).includes("restaurant") && (await publishers()).includes("driver"), "Food off: restaurant posts go, the rest stay");
+  const offlinePost = await w.call(`/posts/${rest.json.post.id}`, { token: w.fan });
+  assert.equal(offlinePost.status, 404);
+  assert.equal(offlinePost.json.message, "Currently Offline", "a saved link to a post of an offline module says so");
   await setModuleFlags({ live: { "buy.food": true, ride: false } });
   assert.ok((await publishers()).includes("restaurant") && !(await publishers()).includes("driver"), "Rides off: driver posts go");
   await setModuleFlags({ live: { ride: true } });
