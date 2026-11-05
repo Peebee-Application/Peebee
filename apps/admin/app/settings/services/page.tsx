@@ -1,6 +1,6 @@
 "use client";
 
-import { DEFAULT_MODULE_NOTICE, MODULES, syncedFlag, getModule, MODULE_CLUSTERS, MODULE_NOTICE_MESSAGE_MAX, MODULE_NOTICE_REASONS, childrenOf, cleanModuleNotice, resolveModuleAvailability, WEBSITE_SECTIONS, type ModuleDef, type ModuleFlags, type ModuleNotice, type ModuleNotices, type ModuleWorld } from "@peebee/shared";
+import { DEFAULT_MODULE_NOTICE, MODULES, syncedFlag, getModule, MODULE_CLUSTERS, MODULE_NOTICE_MESSAGE_MAX, MODULE_NOTICE_REASONS, MODULE_OFFLINE_DISPLAYS, type ModuleOfflineDisplay, childrenOf, cleanModuleNotice, resolveModuleAvailability, WEBSITE_SECTIONS, type ModuleDef, type ModuleFlags, type ModuleNotice, type ModuleNotices, type ModuleWorld } from "@peebee/shared";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -22,6 +22,8 @@ export default function ServicesPage() {
   const [world, setWorld] = useState<ModuleWorld>("live");
   const [savedSync, setSavedSync] = useState(false);
   const [sync, setSync] = useState(false);
+  const [savedDisplay, setSavedDisplay] = useState<ModuleOfflineDisplay>("hide");
+  const [display, setDisplay] = useState<ModuleOfflineDisplay>("hide");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,23 +31,24 @@ export default function ServicesPage() {
 
   useEffect(() => {
     api.adminGetModules()
-      .then(({ modules }) => { setSavedSync(!!modules.sync); setSync(!!modules.sync); setSaved(modules.flags); setFlags(structuredClone(modules.flags)); setSavedNotices(modules.notices ?? {}); setNotices(structuredClone(modules.notices ?? {})); })
+      .then(({ modules }) => { setSavedSync(!!modules.sync); setSync(!!modules.sync); setSavedDisplay(modules.display ?? "hide"); setDisplay(modules.display ?? "hide"); setSaved(modules.flags); setFlags(structuredClone(modules.flags)); setSavedNotices(modules.notices ?? {}); setNotices(structuredClone(modules.notices ?? {})); })
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false));
   }, []);
 
   const available = useMemo(() => (flags ? resolveModuleAvailability(flags, sync) : null), [flags, sync]);
   const changes = useMemo(() => {
-    const out: { live: Record<string, boolean>; practice: Record<string, boolean>; notices: Record<string, ModuleNotice | null>; sync?: boolean } = { live: {}, practice: {}, notices: {} };
+    const out: { live: Record<string, boolean>; practice: Record<string, boolean>; notices: Record<string, ModuleNotice | null>; sync?: boolean; display?: ModuleOfflineDisplay } = { live: {}, practice: {}, notices: {} };
     if (sync !== savedSync) out.sync = sync;
+    if (display !== savedDisplay) out.display = display;
     if (!flags || !saved) return out;
     for (const def of MODULES) for (const w of ["live", "practice"] as const) if (flags[def.key]![w] !== saved[def.key]![w]) out[w][def.key] = flags[def.key]![w];
     for (const key of new Set([...Object.keys(notices), ...Object.keys(savedNotices)])) {
       if (JSON.stringify(notices[key] ?? null) !== JSON.stringify(savedNotices[key] ?? null)) out.notices[key] = notices[key] ?? null;
     }
     return out;
-  }, [flags, saved, notices, savedNotices, sync, savedSync]);
-  const dirty = (changes.sync === undefined ? 0 : 1) + Object.keys(changes.live).length + Object.keys(changes.practice).length + Object.keys(changes.notices).length;
+  }, [flags, saved, notices, savedNotices, sync, savedSync, display, savedDisplay]);
+  const dirty = (changes.sync === undefined ? 0 : 1) + (changes.display === undefined ? 0 : 1) + Object.keys(changes.live).length + Object.keys(changes.practice).length + Object.keys(changes.notices).length;
 
   function setNotice(key: string, notice: ModuleNotice | null) {
     setDone(false);
@@ -72,7 +75,7 @@ export default function ServicesPage() {
     setBusy(true); setError(null); setDone(false);
     try {
       const { modules } = await api.adminUpdateModules(changes);
-      setSavedSync(!!modules.sync); setSync(!!modules.sync); setSaved(modules.flags); setFlags(structuredClone(modules.flags)); setSavedNotices(modules.notices ?? {}); setNotices(structuredClone(modules.notices ?? {})); setDone(true);
+      setSavedSync(!!modules.sync); setSync(!!modules.sync); setSavedDisplay(modules.display ?? "hide"); setDisplay(modules.display ?? "hide"); setSaved(modules.flags); setFlags(structuredClone(modules.flags)); setSavedNotices(modules.notices ?? {}); setNotices(structuredClone(modules.notices ?? {})); setDone(true);
     } catch (err) { setError(errorMessage(err)); }
     finally { setBusy(false); }
   }
@@ -82,7 +85,7 @@ export default function ServicesPage() {
   const current = WORLDS.find((w) => w.id === shown)!;
 
   return (
-    <SettingsPageShell title="Services" description="Switch a whole service on or off, or just one thing inside it. Off disappears from every app and from the website (peebee.online); the code stays ready for when it is back on." loading={loading}>
+    <SettingsPageShell title="Services" description="Switch a whole service on or off, or just one thing inside it. Off removes it from every app and from the website (peebee.online), or greys it out in the apps if you choose that below. The code stays ready for when it is back on." loading={loading}>
       {flags && available && (
         <form onSubmit={onSubmit} className="space-y-5">
           <div className="home-card flex items-start gap-3">
@@ -95,6 +98,21 @@ export default function ServicesPage() {
                   : "Off: Live and Practice each have their own switches, so you can try a module in Practice before switching it on in Live."}
               </p>
             </div>
+          </div>
+          <div className="home-card space-y-3">
+            <div>
+              <p className="text-sm font-bold text-ink">When a module is off</p>
+              <p className="text-xs text-ink-500">What people see on every screen that refers to it, in every app. Opening one of its own pages (a saved or shared link) always shows “Currently Offline”. The website always hides it.</p>
+            </div>
+            <div role="radiogroup" aria-label="When a module is off" className="grid grid-cols-2 gap-1 rounded-full bg-[rgb(var(--surface-muted))] p-1 sm:inline-grid sm:min-w-[22rem]">
+              {MODULE_OFFLINE_DISPLAYS.map((d) => (
+                <button key={d.id} type="button" role="radio" aria-checked={display === d.id} onClick={() => { setDisplay(d.id); setDone(false); }}
+                  className={`min-h-10 rounded-full px-4 text-sm font-bold transition ${display === d.id ? "bg-[rgb(var(--surface-card))] text-ink shadow-sm" : "text-ink-500"}`}>
+                  {d.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-ink-500">{MODULE_OFFLINE_DISPLAYS.find((d) => d.id === display)?.hint}</p>
           </div>
           {!sync && <div role="tablist" aria-label="World" className="grid grid-cols-2 gap-1 rounded-full bg-[rgb(var(--surface-muted))] p-1 sm:inline-grid sm:min-w-[22rem]">
             {WORLDS.map((w) => (
@@ -144,7 +162,7 @@ function ClusterCard({ cluster, world, flags, available, onToggle, notices, onNo
           <h2 className="text-base font-bold text-ink">
             {cluster.label}{" "}
             <span className="text-xs font-normal text-ink-500">
-              {world === "practice" && liveOnly ? "Not part of Practice" : !rootOn ? "Off — everything inside is hidden" : `${on} of ${inside.length} on`}
+              {world === "practice" && liveOnly ? "Not part of Practice" : !rootOn ? "Off — everything inside is offline" : `${on} of ${inside.length} on`}
             </span>
           </h2>
           <p className="text-xs text-ink-500">{cluster.description}</p>
@@ -184,7 +202,7 @@ function ModuleRow({ def, depth, world, flags, available, onToggle, notices, onN
           <p className="text-xs text-ink-500">{def.description}</p>
           {world === "live" && <WebsiteReach moduleKey={def.key} />}
           {practiceOnly && <p className="mt-0.5 text-xs font-semibold text-ink">On in Practice only. Switch it on here to make it live.</p>}
-          {!own && childrenOf(def.key).length > 0 && <p className="mt-0.5 text-xs text-ink-500">{countInside(def.key)} inside are hidden while this is off.</p>}
+          {!own && childrenOf(def.key).length > 0 && <p className="mt-0.5 text-xs text-ink-500">{countInside(def.key)} inside are offline while this is off.</p>}
           {!own && <NoticeEditor def={def} notice={notices[def.key]} onChange={(n) => onNotice(def.key, n)} />}
         </div>
       </div>

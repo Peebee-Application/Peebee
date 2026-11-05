@@ -254,10 +254,17 @@ export function syncedFlag(def: ModuleDef, own: { live: boolean; practice: boole
 }
 
 /** The wire shape of GET /v1/settings `modules`: raw flags (for the admin editor), resolved availability (for apps), and why things are off. */
-export type ModuleSettings = { flags: ModuleFlags; available: ModuleAvailability; notices?: ModuleNotices; /** Live and Practice are kept the same. */ sync?: boolean };
+export type ModuleSettings = { flags: ModuleFlags; available: ModuleAvailability; notices?: ModuleNotices; /** Live and Practice are kept the same. */ sync?: boolean; /** What a switched-off module looks like everywhere else: gone, or greyed out. */ display?: ModuleOfflineDisplay };
+
+/** Admin's choice for what a switched-off module looks like on every screen that refers to it. Opening its own page always shows "Currently Offline". */
+export type ModuleOfflineDisplay = "hide" | "inactive";
+export const MODULE_OFFLINE_DISPLAYS: readonly { id: ModuleOfflineDisplay; label: string; hint: string }[] = [
+  { id: "hide", label: "Hide it", hint: "Every button, link, card, tab and mention of it disappears." },
+  { id: "inactive", label: "Grey it out", hint: "Buttons, links, cards and tabs stay where they are, greyed out and not tappable." },
+];
 
 /** Admin write: only the flags that changed, per world. A notice of `null` clears it. */
-export type ModuleSettingsUpdate = { live?: Record<string, boolean>; practice?: Record<string, boolean>; notices?: Record<string, ModuleNotice | null>; sync?: boolean };
+export type ModuleSettingsUpdate = { live?: Record<string, boolean>; practice?: Record<string, boolean>; notices?: Record<string, ModuleNotice | null>; sync?: boolean; display?: ModuleOfflineDisplay };
 
 /** The notice to show for a module that is off: its own, else the nearest module above it that has one, else a plain "not available". */
 export function noticeFor(key: string, notices: ModuleNotices | null | undefined): ModuleNotice {

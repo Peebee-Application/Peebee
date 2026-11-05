@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { isModuleOn, noticeFor, type ModuleAvailability, type ModuleNotice, type ModuleNotices, type ModuleSettings, type ModuleWorld } from "./modules.js";
+import { isModuleOn, noticeFor, type ModuleAvailability, type ModuleNotice, type ModuleNotices, type ModuleOfflineDisplay, type ModuleSettings, type ModuleWorld } from "./modules.js";
 import { isPracticeMode } from "./practice-runtime.js";
 
-/** Keeps only the items whose module (if they name one) is on. Items without a module always stay. */
-export function filterByModule<T extends { module?: string }>(items: readonly T[], on: (key: string) => boolean): T[] {
+/**
+ * What to do with items whose module (if they name one) is off, as Admin chose: "hide" drops them; "inactive" keeps them,
+ * flagged `offline`, for the screen to draw greyed out. Items without a module always stay, and `on` without a `display`
+ * (a plain function) hides.
+ */
+export function filterByModule<T extends { module?: string }>(items: readonly T[], on: ((key: string) => boolean) & { display?: ModuleOfflineDisplay }): (T & { offline?: boolean })[] {
+  if (on.display === "inactive") return items.map((item) => (item.module && !on(item.module) ? { ...item, offline: true } : item));
   return items.filter((item) => !item.module || on(item.module));
 }
 
@@ -17,12 +22,14 @@ export function filterByModule<T extends { module?: string }>(items: readonly T[
 export type ModulesView = ((key: string) => boolean) & {
   /** Why a module is off and what to tell people: Admin's reason, message and date. */
   notice: (key: string) => ModuleNotice;
+  /** What Admin chose for switched-off modules: gone ("hide") or greyed out ("inactive"). */
+  display: ModuleOfflineDisplay;
 };
 
 /** How long the switches are kept before asking again. Coming back to the app after this long asks at once. */
 const MODULES_CACHE_MS = 15_000;
 
-type Loaded = { available: ModuleAvailability; notices: ModuleNotices };
+type Loaded = { available: ModuleAvailability; notices: ModuleNotices; display: ModuleOfflineDisplay };
 
 export function createUseModules(load: () => Promise<{ settings: { modules?: ModuleSettings } }>): () => ModulesView {
   let cached: { at: number; value: Loaded } | null = null;
@@ -33,7 +40,7 @@ export function createUseModules(load: () => Promise<{ settings: { modules?: Mod
     inflight ??= load()
       .then((res) => {
         const modules = res.settings.modules;
-        if (modules?.available) cached = { at: Date.now(), value: { available: modules.available, notices: modules.notices ?? {} } };
+        if (modules?.available) cached = { at: Date.now(), value: { available: modules.available, notices: modules.notices ?? {}, display: modules.display === "inactive" ? "inactive" : "hide" } };
         return cached?.value ?? null;
       })
       .catch(() => cached?.value ?? null)
@@ -53,6 +60,6 @@ export function createUseModules(load: () => Promise<{ settings: { modules?: Mod
       return () => { live = false; document.removeEventListener("visibilitychange", onVisible); };
     }, []);
     const world: ModuleWorld = isPracticeMode() ? "practice" : "live";
-    return Object.assign((key: string) => isModuleOn(key, world, loaded?.available), { notice: (key: string) => noticeFor(key, loaded?.notices) });
+    return Object.assign((key: string) => isModuleOn(key, world, loaded?.available), { notice: (key: string) => noticeFor(key, loaded?.notices), display: loaded?.display ?? "hide" });
   };
 }

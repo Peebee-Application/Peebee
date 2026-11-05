@@ -5,6 +5,7 @@ import type { ServiceSwitches } from "@peebee/shared";
 import { api } from "../../lib/api";
 import { loadMapTiles } from "../../lib/map-tiles";
 import { useTranslate } from "../../lib/i18n";
+import { useModules } from "../../lib/modules";
 import { loadPlaces } from "../../lib/places";
 import { SearchPill } from "../ui/SearchPill";
 import { ParcelModal } from "./ParcelModal";
@@ -17,6 +18,7 @@ import { ShoppingListModal } from "./ShoppingListModal";
 export function OrderTypeCards() {
   const [open, setOpen] = useState<"shopping" | "parcel" | "ride" | null>(null);
   const t = useTranslate();
+  const greyOut = useModules().display === "inactive";
   // Services an admin has switched off (all on until we hear otherwise).
   const [services, setServices] = useState<ServiceSwitches | null>(null);
   useEffect(() => {
@@ -43,7 +45,7 @@ export function OrderTypeCards() {
   return (
     <>
       <div className="space-y-4">
-        <SearchPill label={t("where_to")} onClick={() => setOpen("ride")} disabled={!!paused.ride} />
+        {(!paused.ride || greyOut) && <SearchPill label={t("where_to")} onClick={() => setOpen("ride")} disabled={!!paused.ride} />}
         <ServiceTiles
           onRide={() => setOpen("ride")}
           onShopping={() => setOpen("shopping")}

@@ -872,6 +872,7 @@ const modulesUpdateSchema = z.object({
     returnAt: z.string().max(40).refine((v) => v === "" || Number.isFinite(Date.parse(v)), "Not a date").optional(),
   }).nullable()).optional(),
   sync: z.boolean().optional(),
+  display: z.enum(["hide", "inactive"]).optional(),
   practiceModeEnabled: z.boolean().optional(),
   practiceSharedWorld: z.boolean().optional(),
 });
@@ -908,6 +909,7 @@ settingsRoutes.put("/admin/modules", requireAuth, requireRole("admin"), requireP
   for (const [key, n] of Object.entries(parsed.data.notices ?? {})) {
     if (JSON.stringify(before.modules.notices?.[key] ?? null) !== JSON.stringify(after.modules.notices?.[key] ?? null)) changed.push(n ? `${key} notice "${n.reason}"` : `${key} notice cleared`);
   }
+  if (before.modules.display !== after.modules.display) changed.push(`switched-off modules ${after.modules.display === "inactive" ? "greyed out" : "hidden"}`);
   if (before.modules.sync !== after.modules.sync) changed.push(`keep Live and Practice the same ${after.modules.sync ? "on" : "off"}`);
   if (before.practiceModeEnabled !== after.practiceModeEnabled) changed.push(`practice mode ${after.practiceModeEnabled ? "on" : "off"}`);
   if (before.practiceSharedWorld !== after.practiceSharedWorld) changed.push(`practice runs on ${after.practiceSharedWorld ? "the shared world" : "each person's device"}`);

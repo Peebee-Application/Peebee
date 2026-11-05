@@ -29,7 +29,7 @@ export function Launcher({ name, ownerName, learnEnabled, liveEnabled }: { name:
 
       <section className="tv-fade-in flex flex-1 flex-col justify-center gap-[2.4rem]" aria-label="Modules">
         <h1 className="text-[3rem] font-black text-ink">What would you like to do?</h1>
-        {modules.length === 0 && <p className="text-[1.4rem] text-ink-500">Nothing is switched on for this screen right now. Please check back soon.</p>}
+        {modules.length === 0 && <p className="text-[1.4rem] text-ink-500">Currently Offline</p>}
         <ul className="flex flex-wrap gap-[1.4rem]">
           {modules.map((m, i) => (
             <li key={m.id}>

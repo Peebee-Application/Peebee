@@ -18,7 +18,7 @@ export function PostPageClient({ id }: { id: string }) {
   return (
     <PublicFrame returnTo={`/post/${id}`}>
       <div className="space-y-4 px-4 pb-24 pt-2">
-        {error && <div className="space-y-3 p-8 text-center"><h1 className="text-lg font-bold text-ink">Post not found</h1><p className="text-sm text-ink-500">{error}</p></div>}
+        {error && <div className="space-y-3 p-8 text-center"><h1 className="text-lg font-bold text-ink">{error === "Currently Offline" ? error : "Post not found"}</h1>{error !== "Currently Offline" && <p className="text-sm text-ink-500">{error}</p>}</div>}
         {!post && !error && <div className="p-8 text-center text-sm text-ink-500" aria-busy="true">Loading…</div>}
         {post && <PostCard key={`${post.id}-${user?.id ?? "x"}`} post={post} />}
         {post?.publisher?.type === "channel" && post.publisher.handle && <Link href={`/c/${post.publisher.handle}`} className="block rounded-full bg-[rgb(var(--surface-muted))] py-3 text-center text-sm font-bold text-ink">More from {post.publisher.name}</Link>}

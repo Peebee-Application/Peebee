@@ -1,4 +1,5 @@
 import { primeDemoAccounts, ridersForThisWorld } from "../practice/people.js";
+import { isModuleLive, liveModules } from "../lib/modules.js";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../auth/middleware.js";
@@ -3267,6 +3268,11 @@ marketplaceRoutes.post("/merchants/me/send-sms", requireAuth, async (c) => {
 // Customer Public Marketplace Endpoints
 // ---------------------------------------------------------------------------
 
+/** The Services module a store belongs to by its category: groceries are Shopping, pharmacies are Pharmacy, the rest are Stores. */
+const storeModuleKey = (category: unknown): string => (category === "groceries" ? "buy.shopping" : category === "pharmacy" ? "buy.pharmacy" : "buy.marketplace");
+const STORE_MODULES = ["buy.marketplace", "buy.shopping", "buy.pharmacy"] as const;
+const storeOffline = async (category: unknown): Promise<boolean> => !(await isModuleLive(storeModuleKey(category)));
+
 marketplaceRoutes.get("/marketplace/stores", async (c) => {
   const category = c.req.query("category"); // 'groceries' | 'stores'
   const latParam = c.req.query("lat");
@@ -3293,6 +3299,12 @@ marketplaceRoutes.get("/marketplace/stores", async (c) => {
   if (stores.length === 0 && (await demoCatalogAllowed())) {
     // Sandbox only: demo stores so browsing and testing works immediately.
     stores = DEMO_MARKETPLACE_STORES.filter((s) => !category || s.category === category);
+  }
+
+  // A store whose module is switched off in Admin → Services is not listed at all.
+  {
+    const live = await liveModules(STORE_MODULES);
+    stores = stores.filter((s) => live[storeModuleKey(s.category)] !== false);
   }
 
   if (hasUserCoords) {
@@ -3329,6 +3341,8 @@ marketplaceRoutes.get("/marketplace/stores/:id", async (c) => {
   if (!store && (await demoCatalogAllowed())) {
     store = DEMO_MARKETPLACE_STORES.find((s) => s.id === id || s.slug === id) || null;
   }
+
+  if (store && (await storeOffline(store.category))) return c.json({ error: "store_not_found" }, 404);
 
   if (!store) {
     // A store that exists but is paused or suspended can say so (admin option) instead of looking like a bad link.
@@ -3572,6 +3586,7 @@ marketplaceRoutes.get("/marketplace/stores/:id/products", async (c) => {
   const demoOk = await demoCatalogAllowed();
   const realStoreId = publicStore ? String(publicStore.id) : demoOk && DEMO_MARKETPLACE_PRODUCTS[id] ? id : null;
   if (!realStoreId) return c.json({ products: [] });
+  if (await storeOffline((publicStore ?? DEMO_MARKETPLACE_STORES.find((s) => s.id === realStoreId))?.category)) return c.json({ products: [] });
 
   const productsRes = await db.execute({
     sql: "SELECT * FROM store_products WHERE store_id = ? AND status = 'active' ORDER BY sort_order, created_at DESC",
@@ -3646,7 +3661,7 @@ marketplaceRoutes.get("/marketplace/products/:id", async (c) => {
     }
   }
 
-  if (!product) {
+  if (!product || (store && (await storeOffline(store.category)))) {
     return c.json({ error: "product_not_found" }, 404);
   }
 
@@ -3668,6 +3683,10 @@ marketplaceRoutes.get("/marketplace/live", async (c) => {
   if (liveChannels.length === 0 && (await demoCatalogAllowed())) {
     liveChannels = DEMO_MARKETPLACE_STORES.filter((s) => s.is_live === 1);
   }
+  {
+    const live = await liveModules([...STORE_MODULES, "buy.marketplace.live"]);
+    liveChannels = liveChannels.filter((s) => live[storeModuleKey(s.category)] !== false && live["buy.marketplace.live"] !== false);
+  }
 
   return c.json({ liveChannels });
 });
@@ -3685,6 +3704,10 @@ marketplaceRoutes.get("/marketplace/spotlight", async (c) => {
       items = items.filter((item) => item.store_category === category);
     }
   }
+
+  // Store posts of a switched-off module (and live selling, while it is off) are not in the feed.
+  const live = await liveModules([...STORE_MODULES, "buy.marketplace.live"]);
+  items = items.filter((item) => live[storeModuleKey(item.store_category)] !== false && (item.type !== "live" || live["buy.marketplace.live"] !== false));
 
   return c.json({ spotlight: items });
 });
