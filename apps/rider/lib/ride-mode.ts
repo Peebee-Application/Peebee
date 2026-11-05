@@ -26,6 +26,7 @@ export function inRideMode(order: Pick<OrderRow, "id" | "is_ride" | "stage">, ri
 
 /**
  * The ride this rider is moving on right now, or null.
+ * Polls the rider's orders; a rider with no moving ride, or with ride mode switched off, gets null.
  * Admin → Ride tracking switches ride mode on or off for everyone.
  */
 export function useMovingRide(): OrderRow | null {
