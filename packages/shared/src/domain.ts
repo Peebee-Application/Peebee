@@ -828,6 +828,7 @@ export type DeliverySettings = {
   shoppingUnits?: import("./shopping-units.js").ShoppingUnitSettings;
   /** What the customer app's main menu is called, and the Hive shortcuts (admin-edited). */
   homeMenu?: import("./home-menu.js").HomeMenuSettings;
+  homeTemplates?: import("./home-templates.js").HomeTemplatesSettings;
   rideTracking?: import("./ride-tracking.js").RideTrackingSettings;
   /** A passenger ride's own per-km rate and floor — priced the same way as
    * a parcel (distance × rate, never below the floor) but tracked

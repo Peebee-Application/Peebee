@@ -8,10 +8,11 @@ import { OrderTypeCards } from "../components/home/OrderTypeCards";
 import { RecentLists } from "../components/home/RecentLists";
 import { TrustBanner } from "../components/home/TrustBanner";
 import { WalletCard } from "../components/home/WalletCard";
+import { HomeExperience } from "../components/home/HomeTemplates";
 
 export default function HomePage() {
   return (
-    <HomeLaunch>
+    <HomeExperience legacy={<HomeLaunch>
       <div className="space-y-6 px-4 pb-6 pt-2">
         <Greeting />
         <ExplorePeebeeCard />
@@ -23,6 +24,18 @@ export default function HomePage() {
         <TrustBanner />
         <LocationOnboarding />
       </div>
-    </HomeLaunch>
+    </HomeLaunch>}>
+      <FeeProposalCard />
+      <ActiveOrderCard />
+      <details className="home-card space-y-4">
+        <summary className="min-h-11 cursor-pointer py-2 text-sm font-bold">Your lists &amp; wallet</summary>
+        <div className="space-y-5 pt-3">
+          <ModuleOnly any={["buy.shopping"]}><RecentLists /></ModuleOnly>
+          <WalletCard />
+          <TrustBanner />
+        </div>
+      </details>
+      <LocationOnboarding />
+    </HomeExperience>
   );
 }

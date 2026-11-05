@@ -2,7 +2,7 @@ import type { MatchingMode } from "@peebee/shared";
 import { MODULES, channelModuleOn, getModule, type ModuleDef } from "@peebee/shared";
 import { DEFAULT_MONEY_FLOW_CONFIG, DEFAULT_PRICING_CONFIG, DEFAULT_ROUNDING_RULE, mergeDefaults, type PricingConfig } from "@peebee/shared";
 import { DEFAULT_CREDIT_CONFIG, DEFAULT_DISCOUNT_WALLET_CONFIG, DEFAULT_INCENTIVE_CONFIG, DEFAULT_OFFERS_CONFIG } from "@peebee/shared";
-import { DEFAULT_HOME_MENU, DEFAULT_RIDE_TRACKING_SETTINGS, DEFAULT_SHOPPING_UNIT_SETTINGS, DEFAULT_TIME_FEES, type JobExpirySettings, type TimeFeeSettings } from "@peebee/shared";
+import { DEFAULT_HOME_MENU, DEFAULT_HOME_TEMPLATES, DEFAULT_RIDE_TRACKING_SETTINGS, DEFAULT_SHOPPING_UNIT_SETTINGS, DEFAULT_TIME_FEES, type JobExpirySettings, type TimeFeeSettings } from "@peebee/shared";
 import { db } from "../db/client.js";
 import { inPractice } from "../db/practice-context.js";
 
@@ -26,6 +26,7 @@ const DEFAULTS = {
   shopping_units_config: JSON.stringify(DEFAULT_SHOPPING_UNIT_SETTINGS),
   /** The customer app's main menu names, the Hive shortcuts and the Hire banner. */
   home_menu_config: JSON.stringify(DEFAULT_HOME_MENU),
+  home_templates_config: JSON.stringify(DEFAULT_HOME_TEMPLATES),
   time_fees: JSON.stringify(DEFAULT_TIME_FEES),
   /** Offers, rider incentives, the rider discount wallet and customer wallet credit: JSON, edited in Admin → Offers.
    * See packages/shared/src/offers.ts for the shape and the recommended defaults. */

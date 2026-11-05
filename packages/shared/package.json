@@ -27,7 +27,9 @@
     "./qr": "./src/qr.ts",
     "./qr-code": "./src/QrCode.tsx",
     "./help-support": "./src/HelpSupport.tsx",
-    "./verify-number": "./src/VerifyNumber.tsx"
+    "./verify-number": "./src/VerifyNumber.tsx",
+    "./home-artwork": "./src/HomeTemplateArtwork.tsx",
+    "./home-artwork.css": "./home-artwork.css"
   },
   "scripts": {
     "lint": "tsc --noEmit",
@@ -42,6 +44,7 @@
   "dependencies": {
     "@radix-ui/react-select": "^2.3.7",
     "jsqr": "^1.4.0",
+    "lucide-react": "^0.468.0",
     "qrcode": "^1.5.4"
   },
   "peerDependencies": {
