@@ -94,8 +94,8 @@ test("a notice is the module's own, else the nearest one above it, else a plain 
   assert.equal(describeModuleNotice({ reason: "unavailable" }).dateLine, null);
 });
 
-test("links into a switched-off module are hidden by CSS, and an app's home never is", async () => {
-  const { hiddenLinksCss } = await import("@peebee/shared");
+test("a switched-off module leaves no trace: links, their cards and tagged content are hidden, an app's home never is", async () => {
+  const { hiddenLinksCss, OFFLINE_HEADLINE } = await import("@peebee/shared");
   const rules = [
     { prefix: "/ride/move", module: "ride.move", title: "Move" },
     { prefix: "/carpool", module: "ride.car.carpool", title: "Rideshare" },
@@ -105,7 +105,15 @@ test("links into a switched-off module are hidden by CSS, and an app's home neve
   const css = hiddenLinksCss(rules, (m: string) => m !== "ride.move" && m !== "buy.food");
   assert.ok(css.includes('a[href="/ride/move"]') && css.includes('a[href^="/ride/move/"]') && css.includes('li:has(>a[href="/ride/move"])'));
   assert.ok(css.includes('a[href^="/menu/"]'));
+  assert.ok(css.includes('[data-module="buy.food"]{display:none!important}'), "tagged content of an off module is hidden");
   assert.ok(!css.includes("/carpool"), "a module that is on is not hidden");
   assert.ok(!css.includes('a[href="/"]'), "the exact home rule never hides the home link");
   assert.equal(hiddenLinksCss(rules, () => true), "");
+  assert.ok(hiddenLinksCss(rules, (m: string) => m !== "ride.car", ["ride.car"]).includes('[data-module="ride.car"]'), "tags for modules no rule names still hide");
+  assert.equal(OFFLINE_HEADLINE, "Currently Offline");
+
+  // Grey it out: nothing is removed, everything is inert.
+  const grey = hiddenLinksCss(rules, (m: string) => m !== "ride.move", [], "inactive");
+  assert.ok(grey.includes('a[href="/ride/move"]') && grey.includes("pointer-events:none") && !grey.includes("display:none"));
 });
+

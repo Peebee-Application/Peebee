@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import type { ServiceKey } from "@peebee/shared";
 import { useTranslate, type TranslationKey } from "../../lib/i18n";
+import { useModules } from "../../lib/modules";
 
 type Tile = { key: ServiceKey; labelKey: TranslationKey; icon: LucideIcon; href?: string; onClick?: () => void };
 
@@ -23,6 +24,7 @@ export function ServiceTiles({
   paused?: Partial<Record<ServiceKey, boolean>>;
 }) {
   const t = useTranslate();
+  const greyOut = useModules().display === "inactive";
   const tiles: Tile[] = [
     { key: "ride", labelKey: "service_ride", icon: Bike, onClick: onRide },
     { key: "food", labelKey: "service_food", icon: UtensilsCrossed, href: "/food" },
@@ -35,17 +37,21 @@ export function ServiceTiles({
         <tile.icon className="h-7 w-7" strokeWidth={1.75} aria-hidden />
       </span>
       <span className="relative z-[2] text-[13px] font-semibold text-ink">{t(tile.labelKey)}</span>
-      {paused[tile.key] && <span className="relative z-[2] -mt-1 text-[11px] font-semibold text-ink-500">{t("service_paused")}</span>}
+      {paused[tile.key] && <span className="relative z-[2] -mt-1 text-[11px] font-semibold text-ink-500">Currently Offline</span>}
     </>
   );
   const cls = "service-shortcut relative isolate flex min-w-0 flex-col items-center gap-1.5 overflow-visible transition-transform active:scale-95";
-  // A service an admin switched off is not shown at all: no greyed tile, nothing to tap.
-  const shown = tiles.filter((tile) => !paused[tile.key]);
+  // A service an admin switched off is not shown at all, or (when Admin chose to grey it out) stays as an inactive tile.
+  const shown = greyOut ? tiles : tiles.filter((tile) => !paused[tile.key]);
   if (shown.length === 0) return null;
   return (
     <div className="grid gap-3 overflow-visible" style={{ gridTemplateColumns: `repeat(${shown.length}, minmax(0, 1fr))` }}>
       {shown.map((tile) =>
-        tile.href ? (
+        paused[tile.key] ? (
+          <button key={tile.key} data-service={tile.key} type="button" disabled aria-disabled="true" aria-label={`${t(tile.labelKey)}, currently offline`} className={`${cls} cursor-not-allowed`}>
+            {inner(tile)}
+          </button>
+        ) : tile.href ? (
           <Link key={tile.key} data-service={tile.key} href={tile.href} className={cls}>
             {inner(tile)}
           </Link>

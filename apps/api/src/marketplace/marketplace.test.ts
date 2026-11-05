@@ -1,3 +1,4 @@
+import { setModuleFlags } from "../lib/modules.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -774,3 +775,40 @@ test("merchant elite tier: upgrades to elite, manages Store 2.0 theme, smart col
   }
 });
 
+
+
+test("a store whose module is switched off is in no list, page, product, live rail or spotlight feed", async () => {
+  resetSchemaCache();
+  const client = createClient({ url: "file::memory:" });
+  const migrations = existsSync(join(process.cwd(), "apps/api/src/db/migrations")) ? join(process.cwd(), "apps/api/src/db/migrations") : join(process.cwd(), "src/db/migrations");
+  for (const file of readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort()) {
+    for (const sql of splitSqlStatements(readFileSync(join(migrations, file), "utf8"))) await client.execute(sql);
+  }
+  bindDatabase(client);
+  await allowDemoCatalog(client);
+  const json = async (path: string) => { const res = await app.request(path); return { status: res.status, body: (await res.json()) as any }; };
+
+  const before = await json("/v1/marketplace/stores");
+  const groceries = before.body.stores.filter((s: any) => s.category === "groceries").length;
+  assert.ok(before.body.stores.length > groceries, "demo has stores beyond groceries");
+  assert.equal((await json("/v1/marketplace/stores/store_demo_fresh_mart")).status, 200);
+
+  await setModuleFlags({ live: { "buy.marketplace": false } });
+  const off = await json("/v1/marketplace/stores");
+  assert.ok(off.body.stores.every((s: any) => s.category === "groceries" || s.category === "pharmacy"), "only the other modules' stores remain");
+  const storeCategory = before.body.stores.find((s: any) => s.id === "store_demo_fresh_mart").category;
+  if (storeCategory !== "groceries" && storeCategory !== "pharmacy") {
+    assert.equal((await json("/v1/marketplace/stores/store_demo_fresh_mart")).status, 404);
+    assert.deepEqual((await json("/v1/marketplace/stores/store_demo_fresh_mart/products")).body.products, []);
+    assert.equal((await json("/v1/marketplace/products/prod_honey_glazed_chicken")).status, 404);
+  }
+  assert.ok((await json("/v1/marketplace/spotlight")).body.spotlight.every((i: any) => i.store_category === "groceries" || i.store_category === "pharmacy"));
+
+  await setModuleFlags({ live: { "buy.marketplace": true, "buy.shopping": false, "buy.pharmacy": false } });
+  assert.ok((await json("/v1/marketplace/stores")).body.stores.every((s: any) => s.category !== "groceries" && s.category !== "pharmacy"));
+
+  await setModuleFlags({ live: { "buy": false } });
+  assert.deepEqual((await json("/v1/marketplace/stores")).body.stores, []);
+  assert.deepEqual((await json("/v1/marketplace/spotlight")).body.spotlight, []);
+  assert.deepEqual((await json("/v1/marketplace/live")).body.liveChannels, []);
+});

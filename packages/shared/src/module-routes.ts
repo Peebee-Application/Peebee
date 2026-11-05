@@ -31,15 +31,30 @@ export function describeModuleNotice(notice: ModuleNotice): { headline: string; 
   return { headline: reason.headline, dateLine, message: notice.message ?? null };
 }
 
+/** What every offline notice is headed with, whatever Admin's reason: the same plain words in every app. */
+export const OFFLINE_HEADLINE = "Currently Offline";
+
 /**
- * CSS that hides every link into the screens of a switched-off module, and the list item or card it sits in. This is the
- * catch-all behind each app's own lists: whatever card, tab or menu entry links to a module that is off disappears, even
- * where nobody wrote a check for it. An app's home path (an `exact` rule) is never hidden.
+ * CSS for the screens that refer to a switched-off module, as Admin chose. "hide" removes every trace: each link into its
+ * screens, the list item or card it sits in, and anything an app tagged `data-module="<key>"` (a sentence, a button that
+ * is not a link). "inactive" keeps all of that where it is, greyed out and not tappable. Either way, only a direct visit
+ * to one of the module's own pages (a saved or shared link) shows the "Currently Offline" notice, and an app's home path
+ * (an `exact` rule) is never touched.
  */
-export function hiddenLinksCss(rules: readonly ModuleRouteRule[], isOn: (module: string) => boolean): string {
+export function hiddenLinksCss(rules: readonly ModuleRouteRule[], isOn: (module: string) => boolean, tagged: readonly string[] = [], display: "hide" | "inactive" = "hide"): string {
   const off = rules.filter((r) => !r.exact && r.prefix !== "/" && !isOn(r.module));
-  return off
-    .flatMap((r) => [`a[href="${r.prefix}"]`, `a[href^="${r.prefix}/"]`, `a[href^="${r.prefix}?"]`])
-    .map((sel) => `${sel},li:has(>${sel}){display:none!important}`)
-    .join("");
+  const links = off.flatMap((r) => [`a[href="${r.prefix}"]`, `a[href^="${r.prefix}/"]`, `a[href^="${r.prefix}?"]`]);
+  const marked = [...new Set([...off.map((r) => r.module), ...tagged.filter((m) => !isOn(m))])].map((m) => `[data-module="${m}"]`);
+  if (display === "inactive") {
+    const all = [...links, ...marked];
+    return all.length ? `${all.join(",")}{pointer-events:none!important;cursor:not-allowed!important;opacity:.4!important;filter:grayscale(1)!important}` : "";
+  }
+  return [...links.flatMap((sel) => [sel, `li:has(>${sel})`]), ...marked].map((sel) => `${sel}{display:none!important}`).join("");
+}
+
+/** The selectors of links into switched-off modules' screens, so a greyed-out link can also be kept out of the keyboard's reach. */
+export function offlineLinkSelectors(rules: readonly ModuleRouteRule[], isOn: (module: string) => boolean): string[] {
+  return rules
+    .filter((r) => !r.exact && r.prefix !== "/" && !isOn(r.module))
+    .flatMap((r) => [`a[href="${r.prefix}"]`, `a[href^="${r.prefix}/"]`, `a[href^="${r.prefix}?"]`]);
 }

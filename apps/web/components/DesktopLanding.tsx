@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useDoors, type DoorId } from "../lib/doors";
 import { moduleOfHref, moduleOfPartner } from "../lib/module-map";
+import { useWebModules } from "../lib/web-modules";
 import { ModuleShow } from "./ModuleNotice";
 import { subPath } from "../lib/pages";
 import { ALSO_IN_ACCOUNT, APP_URL, DOOR_CONTENT, ORDER_PATH, WALLET_NOTE } from "../lib/content";
@@ -26,7 +27,16 @@ const SHOT: Record<DoorId | "home" | "wallet" | "track", string> = {
 };
 const SHOT_ALT = "A screen from the Peebee customer app";
 
-const MARQUEE = ["Boda", "Cars", "TaxiPress", "The List", "Stores", "Groceries", "Spotlight", "Restaurants", "Home kitchens", "Rolex", "Juice bars", "Bakeries", "Sprouts", "Foundations", "Academy", "Compass", "Skills", "Clean", "Laundry", "Fix", "Pharmacy", "Parcels", "Wallet"];
+/** The scrolling words, each tied to the Admin → Services module it names (none: always shown). A switched-off module's words leave the strip. */
+const MARQUEE: { word: string; module?: string }[] = [
+  { word: "Boda", module: "ride.boda" }, { word: "Cars", module: "ride.car" }, { word: "TaxiPress", module: "ride.taxipress" }, { word: "The List", module: "buy.shopping" },
+  { word: "Stores", module: "buy.marketplace" }, { word: "Groceries", module: "buy.shopping" }, { word: "Spotlight", module: "channels" }, { word: "Restaurants", module: "buy.food" },
+  { word: "Home kitchens", module: "buy.food" }, { word: "Rolex", module: "buy.food" }, { word: "Juice bars", module: "buy.food" }, { word: "Bakeries", module: "buy.food" },
+  { word: "Sprouts", module: "learn" }, { word: "Foundations", module: "learn" }, { word: "Academy", module: "learn" }, { word: "Compass", module: "learn" }, { word: "Skills", module: "learn" },
+  { word: "Clean", module: "hive.work" }, { word: "Laundry", module: "hive.work" }, { word: "Fix", module: "hive.work" }, { word: "Pharmacy", module: "buy.pharmacy" },
+  { word: "Parcels", module: "deliver.parcel" }, { word: "Wallet" },
+];
+const COUNT_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five"];
 
 function reduced() {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -83,6 +93,7 @@ function Counter({ to, suffix = "" }: { to: number; suffix?: string }) {
 
 export function DesktopLanding() {
   const doors = useDoors();
+  const modules = useWebModules();
   const { scroller, openDoor, openFeature } = useShell();
   const root = useRef<HTMLDivElement>(null);
   const pin = useRef<HTMLElement>(null);
@@ -189,7 +200,7 @@ export function DesktopLanding() {
         </div>
         <div className="dl-wrap dl-hero-grid">
           <div className="dl-hero-copy">
-            <p className="dl-pill" data-reveal><Sparkles size={14} aria-hidden /> One account. One wallet. Five doors.</p>
+            <p className="dl-pill" data-reveal><Sparkles size={14} aria-hidden /> One account. One wallet. {COUNT_WORDS[doors.length] ?? doors.length} {doors.length === 1 ? "door" : "doors"}.</p>
             <Lines as="h1" text="Everything Kampala does in a day, in one app." className="dl-h1" />
             <p className="dl-sub" data-reveal style={{ transitionDelay: "260ms" }}>
               Ride across town, send the list to the market, order dinner from a kitchen you love, sit a class, get the house cleaned. Pay once from a wallet that holds the money until the job is done.
@@ -209,7 +220,7 @@ export function DesktopLanding() {
       <div className="dl-marquee" data-ambient aria-hidden>
         <div className="dl-marquee-track">
           {[0, 1].map((k) => (
-            <span key={k}>{MARQUEE.map((m) => <em key={m}>{m}</em>)}</span>
+            <span key={k}>{MARQUEE.filter((m) => !m.module || modules.on(m.module)).map((m) => <em key={m.word}>{m.word}</em>)}</span>
           ))}
         </div>
       </div>
@@ -219,8 +230,8 @@ export function DesktopLanding() {
         <div className="dl-pin">
           <div className="dl-wrap dl-pin-grid">
             <div className="dl-pin-copy">
-              <h2 id="dl-doors-h" className="dl-h2">Five doors, one account.</h2>
-              <ul className="dl-doortabs" role="tablist" aria-label="The five doors">
+              <h2 id="dl-doors-h" className="dl-h2">{COUNT_WORDS[doors.length] ?? doors.length} {doors.length === 1 ? "door" : "doors"}, one account.</h2>
+              <ul className="dl-doortabs" role="tablist" aria-label="The doors">
                 {doors.map((d, i) => {
                   const C = DOOR_CONTENT[d.id].icon;
                   return (

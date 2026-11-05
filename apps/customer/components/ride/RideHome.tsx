@@ -732,7 +732,9 @@ export function RideHome() {
                     );
                     return (
                       <li key={m.id} className="shrink-0 snap-start">
-                        {m.href ? (
+                        {m.offline ? (
+                          <button type="button" disabled aria-disabled="true" title="Currently Offline" className="ride-mode cursor-not-allowed opacity-40">{body}</button>
+                        ) : m.href ? (
                           <Link href={m.href} onClick={m.onGo} className="ride-mode">{body}</Link>
                         ) : (
                           <button type="button" aria-pressed={on} onClick={() => setPrefer(m.prefer!)} className={`ride-mode ${on ? "is-on" : ""}`}>{body}</button>

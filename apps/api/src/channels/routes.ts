@@ -14,7 +14,7 @@ import { ChannelsError, fail, requireChannels, type Row } from "./common.js";
 import { addComment, deleteComment, listComments, reportPost, toggleLike, votePoll } from "./engagement.js";
 import { cancelSubscription, createTier, listTiers, mySubscriptions, sendTip, subscribe, unlockPost, updateTier } from "./money.js";
 import { activeSubscription } from "./access.js";
-import { channelPosts, createPost, deletePost, getPost, publishPost, serializePosts, spotlightFeed, updatePost, type FeedFilter, type PostInput } from "./posts.js";
+import { channelPosts, createPost, postModuleCheck, deletePost, getPost, publishPost, serializePosts, spotlightFeed, updatePost, type FeedFilter, type PostInput } from "./posts.js";
 import { listIdentities } from "./publishers.js";
 import { recordView } from "./rewards.js";
 import { optionalUser, originOf, viewerKey } from "./viewer.js";
@@ -332,6 +332,8 @@ channelsRoutes.get("/posts/:id", async (c) => {
     const post = await getPost(c.req.param("id") as string);
     const visible = post && (post.status === "published" || (user && post.author_id === user.id && post.status !== "removed"));
     if (!post || !visible) throw new ChannelsError("not_found", "Post not found.", 404);
+    // A saved link to a post whose Services module is switched off says so instead of showing it.
+    if (!(await postModuleCheck())(post)) throw new ChannelsError("module_offline", "Currently Offline", 404);
     c.header("Cache-Control", "private, no-store");
     return c.json({ post: (await serializePosts([post], originOf(c), user?.id ?? null, cfg))[0] });
   } catch (err) {

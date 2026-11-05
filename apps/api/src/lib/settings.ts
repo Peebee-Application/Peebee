@@ -13,6 +13,8 @@ const DEFAULTS = {
   modules_practice: "{}",
   /** "1" keeps Live and Practice the same: a module is on only if it is on in both, and a switch in one world sets both. */
   modules_sync: "0",
+  // What people see where a switched-off module used to be: "hide" removes every trace, "inactive" greys it out.
+  modules_offline_display: "hide",
   /** Why a module is off and what people see instead: {"ride.car": {"reason": "coming_soon", "returnAt": "2026-12-01"}}. See ./modules.ts. */
   modules_notices: "{}",
   /** Over-the-air updates for the mobile apps: the master switch, whether a newly published version goes live by itself,
