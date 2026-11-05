@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { FOOD_BUSINESS_TYPES, type FoodBusinessType } from "@peebee/shared";
 import type { Restaurant } from "@peebee/shared";
-import { LogOut, MapPin, Store, User, LifeBuoy, ChevronRight } from "lucide-react";
+import { Building2, LogOut, MapPin, Palette, Settings, Store, User, LifeBuoy, ChevronRight } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { AppearanceSettings } from "../../components/AppearanceSettings";
@@ -14,6 +14,8 @@ import { BusinessStyleEditor } from "../../components/BusinessStyleEditor";
 import { ChangePasswordPanel } from "../../components/ChangePasswordPanel";
 import { LanguageSettings } from "../../components/LanguageSettings";
 import { PracticeModeCard } from "../../components/PracticeMode";
+import { Accordion } from "../../components/Accordion";
+import { TabBar } from "../../components/TabBar";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 
@@ -37,7 +39,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-semibold text-ink-500">
+      <label className="text-base font-semibold text-ink-500">
         {label}
         {required && <span className="text-red-500"> *</span>}
       </label>
@@ -45,7 +47,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+        className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-4 text-lg outline-none focus:border-gold"
       />
     </div>
   );
@@ -75,6 +77,7 @@ export default function AccountPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [tab, setTab] = useState<"business" | "settings">("business");
 
   useEffect(() => {
     api
@@ -144,15 +147,15 @@ export default function AccountPage() {
 
   return (
     <div className="space-y-5 px-4 pb-6 pt-4">
-      <h1 className="text-xl font-bold text-ink">Account</h1>
+      <h1 className="text-3xl font-black text-ink">Account</h1>
 
       <section className="home-card flex items-center gap-3">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
           <User className="h-6 w-6" strokeWidth={1.75} aria-hidden />
         </span>
         <span>
-          <span className="block text-[15px] font-bold text-ink">{user?.name ?? "—"}</span>
-          <span className="block text-sm text-ink-500">{user?.phone ?? user?.email}</span>
+          <span className="block text-xl font-bold text-ink">{user?.name ?? "—"}</span>
+          <span className="block text-base text-ink-500">{user?.phone ?? user?.email}</span>
         </span>
       </section>
 
@@ -166,7 +169,7 @@ export default function AccountPage() {
             <Store className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-ink">{STATUS_LABEL[restaurant.status]}</span>
+            <span className="block text-lg font-bold text-ink">{STATUS_LABEL[restaurant.status]}</span>
             {restaurant.status === "pending_approval" && (
               <span className="block text-xs text-ink-500">
                 An admin needs to approve your food business before customers can see it.
@@ -178,24 +181,32 @@ export default function AccountPage() {
           </span>
           {restaurant.status === "active" && (
             <label className="flex shrink-0 items-center gap-2">
-              <span className="text-xs font-semibold text-ink-500">{restaurant.is_open ? "Open" : "Closed"}</span>
+              <span className="text-lg font-bold text-ink">{restaurant.is_open ? "Open" : "Closed"}</span>
               <input
                 type="checkbox"
                 checked={!!restaurant.is_open}
                 onChange={(e) => toggleOpen(e.target.checked)}
                 disabled={busy}
-                className="h-5 w-9 shrink-0 accent-gold"
+                className="h-8 w-8 shrink-0 accent-gold"
               />
             </label>
           )}
         </section>
       )}
 
+      <TabBar label="Account" active={tab} onChange={setTab} tabs={[{ id: "business", label: "Business", icon: Building2 }, { id: "settings", label: "Settings", icon: Settings }]} />
+
+      {tab === "business" && (
+        <div className="space-y-4" role="tabpanel" aria-label="Business">
+      {restaurant && (
+        <Accordion title="Photos and style" icon={Palette}>
       {restaurant&&<CoverEditor restaurant={restaurant} onSaved={async()=>{const res=await api.myRestaurant();setRestaurant(res.restaurant);await refreshRestaurant();}}/>}
       {restaurant&&<LogoEditor restaurant={restaurant} onSaved={async()=>{const res=await api.myRestaurant();setRestaurant(res.restaurant);await refreshRestaurant();}}/>}
       {restaurant&&<BusinessStyleEditor restaurant={restaurant} onSaved={async()=>{const res=await api.myRestaurant();setRestaurant(res.restaurant);await refreshRestaurant();}}/>}
+        </Accordion>
+      )}
       <form onSubmit={submit} className="home-card space-y-3">
-        <h2 className="text-sm font-semibold text-ink">{restaurant ? "Food business profile" : "Register your food business"}</h2>
+        <h2 className="text-xl font-bold text-ink">{restaurant ? "Business details" : "Register your food business"}</h2>
         <fieldset className="food-type-picker"><legend className="mb-3 text-sm font-semibold">What kind of food business do you run?</legend><div className="grid grid-cols-2 gap-3">{FOOD_BUSINESS_TYPES.map(type => <label key={type.value} className={`food-type-option ${businessType === type.value ? "selected" : ""}`}><input type="radio" name="businessType" required value={type.value} checked={businessType === type.value} onChange={() => setBusinessType(type.value)} /><span className="block font-bold">{type.label}</span><span className="mt-1 block text-xs text-ink-500">{type.description}</span></label>)}</div></fieldset>
         <Field label="Name" value={name} onChange={setName} placeholder="e.g. Kampala Kitchen" required />
         <Field label="Cuisine" value={cuisine} onChange={setCuisine} placeholder="e.g. Ugandan, fast food, pizza" />
@@ -229,7 +240,7 @@ export default function AccountPage() {
         <button
           type="button"
           onClick={() => setShowMap(true)}
-          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink"
+          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-gold px-4 text-lg font-bold text-gold"
         >
           <MapPin className="h-4 w-4" strokeWidth={2} aria-hidden />
           {coords ? "Change pickup location" : "Set pickup location"}
@@ -246,16 +257,21 @@ export default function AccountPage() {
         <button
           type="submit"
           disabled={busy || !name.trim() || !businessType}
-          className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
+          className="min-h-14 w-full rounded-full bg-gold px-4 text-lg font-bold text-ink-gold disabled:opacity-60"
         >
           {busy ? "Saving…" : restaurant ? "Save changes" : "Register food business"}
         </button>
       </form>
 
-      <Link href="/help" className="home-card flex items-center gap-3 !rounded-2xl !py-3 text-sm font-semibold text-ink">
-        <LifeBuoy className="h-5 w-5 text-gold" strokeWidth={1.75} aria-hidden />
+        </div>
+      )}
+
+      {tab === "settings" && (
+        <div className="space-y-4" role="tabpanel" aria-label="Settings">
+      <Link href="/help" className="home-card flex min-h-16 items-center gap-3 !rounded-2xl text-lg font-bold text-ink">
+        <LifeBuoy className="h-6 w-6 text-gold" strokeWidth={1.75} aria-hidden />
         <span className="flex-1">Help &amp; support</span>
-        <ChevronRight className="h-4 w-4 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
+        <ChevronRight className="h-6 w-6 shrink-0 text-ink-500" strokeWidth={1.75} aria-hidden />
       </Link>
       <PracticeModeCard role="restaurant" />
       {!restaurant&&<AppearanceSettings />}
@@ -264,11 +280,14 @@ export default function AccountPage() {
 
       <button
         onClick={logout}
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink"
+        className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-red-300 px-4 text-lg font-bold text-red-600"
       >
         <LogOut className="h-4 w-4" strokeWidth={2} aria-hidden />
         Log out
       </button>
+
+        </div>
+      )}
 
       {showMap && (
         <LocationMapPicker

@@ -48,55 +48,52 @@ export default function MerchantPaymentConfirmationPage() {
   const complete = payment && ["available", "held", "settlement_pending", "paid"].includes(payment.status);
 
   return (
-    <div className="space-y-5 px-4 pb-24 pt-4">
-      <header className="flex items-center gap-2">
-        <Link href="/" aria-label="Back" className="flex h-9 w-9 items-center justify-center rounded-full text-ink-500">
-          <ChevronLeft className="h-5 w-5" aria-hidden />
+    <div className="space-y-4 px-4 pb-24 pt-4">
+      <header className="flex items-center gap-3">
+        <Link href="/" aria-label="Back" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink">
+          <ChevronLeft className="h-6 w-6" aria-hidden />
         </Link>
-        <div>
-          <h1 className="text-xl font-bold text-ink">Confirm rider payment</h1>
-          <p className="text-xs text-ink-500">Confirm only after checking the goods and amount together.</p>
-        </div>
+        <h1 className="text-3xl font-black text-ink">Rider payment</h1>
       </header>
 
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-base text-red-700">{error}</p>}
 
       <form onSubmit={lookUp} className="home-card space-y-3">
-        <label className="block text-xs font-semibold text-ink-500" htmlFor="payment-id">Payment code from rider</label>
         <input
           id="payment-id"
+          aria-label="Payment code from rider"
           required
           value={paymentId}
           onChange={(event) => setPaymentId(event.target.value)}
-          placeholder="mpay_…"
+          placeholder="Payment code"
           autoCapitalize="none"
-          className="min-h-11 w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 text-sm outline-none focus:border-gold"
+          className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-4 text-lg outline-none focus:border-gold"
         />
-        <button disabled={busy || !paymentId.trim()} className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60">
+        <button disabled={busy || !paymentId.trim()} className="min-h-14 w-full rounded-full bg-gold px-4 text-lg font-bold text-ink-gold disabled:opacity-60">
           {busy ? "Checking…" : "Check payment"}
         </button>
       </form>
 
       {payment && (
-        <section className="home-card space-y-4">
+        <section className="home-card space-y-4" aria-live="polite">
           <div>
-            <p className="text-xs uppercase tracking-wide text-ink-500">Rider requests</p>
-            <p className="mt-1 text-3xl font-bold text-ink">{money(payment.amount)}</p>
-            <p className="mt-1 text-xs text-ink-500">Outlet: {payment.outlet_name ?? "your outlet"} · Order {payment.order_id}</p>
+            <p className="text-base text-ink-500">Rider asks for</p>
+            <p className="mt-1 text-4xl font-black tabular-nums text-ink">{money(payment.amount)}</p>
+            <p className="mt-1 text-base text-ink-500">{payment.outlet_name ?? "Your outlet"}</p>
           </div>
           {complete ? (
-            <div className="flex items-start gap-2 rounded-xl bg-green/10 p-3 text-sm text-green">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-              <span>{payment.status === "held" ? "Confirmed. This transaction is held for review." : "Confirmed. The value is now in your merchant balance."}</span>
+            <div className="flex items-center gap-2 rounded-xl bg-green/10 p-4 text-lg font-bold text-green">
+              <CheckCircle2 className="h-6 w-6 shrink-0" aria-hidden />
+              <span>{payment.status === "held" ? "Confirmed (held for review)" : "Confirmed"}</span>
             </div>
           ) : payment.status === "awaiting_confirmation" ? (
-            <button type="button" disabled={busy} onClick={confirm} className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60">
-              {busy ? "Confirming…" : `Confirm receipt of ${money(payment.amount)}`}
+            <button type="button" disabled={busy} onClick={confirm} className="min-h-16 w-full rounded-full bg-gold px-4 text-xl font-extrabold text-ink-gold disabled:opacity-60">
+              {busy ? "Confirming…" : "Confirm"}
             </button>
           ) : (
-            <p className="rounded-xl bg-[rgb(var(--surface-muted))] p-3 text-sm text-ink-500">This payment cannot be confirmed because its status is {payment.status.replaceAll("_", " ")}.</p>
+            <p className="rounded-xl bg-[rgb(var(--surface-muted))] p-4 text-base text-ink-500">Cannot confirm: {payment.status.replaceAll("_", " ")}.</p>
           )}
-          <p className="text-xs text-ink-500">Do not confirm a different amount. Ask the rider to correct the request first.</p>
+          <p className="text-base text-ink-500">Check the goods and amount together first. Never confirm a different amount.</p>
         </section>
       )}
     </div>

@@ -6,16 +6,20 @@ import {
   type FoodSellerOrders,
 } from "@peebee/shared";
 import {
+  Bike,
+  ChevronDown,
   ClipboardList,
+  Clock,
+  History,
   MessageCircle,
   RefreshCw,
   ShieldCheck,
-  WalletCards,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OpenStatusCard } from "../components/OpenStatusCard";
+import { TabBar } from "../components/TabBar";
 import { useAuth } from "../lib/auth-context";
 import { api, errorMessage } from "../lib/api";
 
@@ -42,70 +46,58 @@ function OrderCard({
   history: boolean;
 }) {
   const awaiting = order.stage === "Create" || order.stage === "Match";
+  const count = order.items.reduce((sum, item) => sum + item.quantity, 0);
   return (
-    <article className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4">
+    <article className="home-card space-y-3 !rounded-3xl !p-4">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-mono text-xs text-ink-500" title={order.id}>
-            #{order.id.slice(-8).toUpperCase()}
+        <div className="min-w-0">
+          <h2 className="truncate text-xl font-extrabold">{order.customerName}</h2>
+          <p className="text-base text-ink-500" title={order.id}>
+            #{order.id.slice(-6).toUpperCase()} · {orderTime(order.createdAt)}
           </p>
-          <h2 className="mt-1 font-bold">{order.customerName}</h2>
         </div>
-        <span className="max-w-[55%] rounded-xl bg-gold/10 px-3 py-2 text-right text-xs font-bold">
+        <span className="max-w-[45%] shrink-0 rounded-xl bg-gold/15 px-3 py-2 text-right text-base font-bold">
           {foodOrderStatus(order.stage)}
         </span>
       </div>
-      <p className="mt-2 text-xs text-ink-500">{orderTime(order.createdAt)}</p>
       {awaiting && (
-        <p className="mt-3 rounded-xl bg-[rgb(var(--surface-muted))] p-3 text-xs text-ink-500">
-          Awaiting customer/rider confirmation. Do not prepare this order yet.
+        <p className="flex items-center gap-2 rounded-xl bg-[rgb(var(--surface-muted))] p-3 text-base text-ink-500">
+          <Clock className="h-5 w-5 shrink-0" aria-hidden /> Do not prepare yet: waiting for confirmation.
         </p>
       )}
-      <details open={!history} className="mt-3">
-        <summary className="min-h-11 cursor-pointer py-3 text-sm font-bold">
-          Order details ·{" "}
-          {order.items.reduce((sum, item) => sum + item.quantity, 0)} items
+      <details open={!history && !awaiting}>
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 text-lg font-bold">
+          <span>{count} item{count === 1 ? "" : "s"}</span>
+          <span className="flex items-center gap-2">
+            {order.itemsTotal == null ? "Pending" : money(order.itemsTotal)}
+            <ChevronDown className="h-5 w-5 text-ink-500" aria-hidden />
+          </span>
         </summary>
         <ul className="space-y-2 border-t border-[var(--border-faint)] pt-3">
           {order.items.map((item, index) => (
-            <li
-              key={index}
-              className="flex items-start justify-between gap-3 text-sm"
-            >
+            <li key={index} className="flex items-start justify-between gap-3 text-lg">
               <span className="min-w-0 break-words">
                 <strong>{item.quantity} ×</strong> {item.name}
               </span>
-              <span className="shrink-0 text-xs text-ink-500">
-                {item.unitPrice == null
-                  ? "Price pending"
-                  : money(item.quantity * item.unitPrice)}
+              <span className="shrink-0 text-base text-ink-500">
+                {item.unitPrice == null ? "Pending" : money(item.quantity * item.unitPrice)}
               </span>
             </li>
           ))}
         </ul>
-        {!order.items.length && (
-          <p className="text-sm text-ink-500">Item details are unavailable.</p>
-        )}
-        <div className="mt-3 flex justify-between border-t border-[var(--border-faint)] pt-3 text-sm font-bold">
-          <span>Food total</span>
-          <span>
-            {order.itemsTotal == null ? "Pending" : money(order.itemsTotal)}
-          </span>
-        </div>
-        <p className="mt-2 break-all text-[10px] text-ink-500">
-          Order reference: {order.id}
-        </p>
+        {!order.items.length && <p className="text-base text-ink-500">Item details are unavailable.</p>}
       </details>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-faint)] pt-3">
-        <p className="text-xs text-ink-500">
-          {order.riderName ? `Rider: ${order.riderName}` : "Rider not assigned"}
+      <div className="flex items-center justify-between gap-2 border-t border-[var(--border-faint)] pt-3">
+        <p className="flex min-w-0 items-center gap-2 truncate text-base text-ink-500">
+          <Bike className="h-5 w-5 shrink-0" aria-hidden />
+          {order.riderName ?? "No rider yet"}
         </p>
         <Link
           href={`/chat/${encodeURIComponent(order.customerId)}`}
-          className="flex min-h-11 items-center gap-2 text-xs font-bold text-gold"
+          aria-label={`Chat with ${order.customerName}`}
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink"
         >
-          <MessageCircle size={15} />
-          Chat with customer
+          <MessageCircle className="h-6 w-6" aria-hidden />
         </Link>
       </div>
     </article>
@@ -193,22 +185,17 @@ function OrdersInbox() {
   }, [view, load]);
   return (
     <section className="space-y-4" aria-label="Food orders">
-      <div className="flex items-center gap-2">
-        {(["active", "history"] as const).map((tab) => (
-          <button
-            type="button"
-            key={tab}
-            aria-pressed={view === tab}
-            onClick={() => setView(tab)}
-            className={`min-h-12 flex-1 rounded-2xl border px-4 text-sm font-bold ${view === tab ? "border-gold bg-gold/15" : "border-[var(--border-faint)] text-ink-500"}`}
-          >
-            {tab === "active" ? "Active orders" : "History"}
-            {feed ? ` · ${feed.counts[tab]}` : ""}
-          </button>
-        ))}
-      </div>
+      <TabBar
+        label="Orders"
+        active={view}
+        onChange={setView}
+        tabs={[
+          { id: "active", label: "Active", icon: ClipboardList, count: feed?.counts.active },
+          { id: "history", label: "History", icon: History },
+        ]}
+      />
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-ink-500">
+        <p className="text-base text-ink-500">
           {updated ? `Updated ${updated}` : "Checking orders…"}
           {feed && feed.orders.length > 50 ? " · Viewing older orders" : ""}
         </p>
@@ -216,9 +203,9 @@ function OrdersInbox() {
           type="button"
           disabled={busy}
           onClick={() => void load()}
-          className="flex min-h-11 items-center gap-2 text-xs font-bold text-gold disabled:opacity-50"
+          className="flex min-h-12 items-center gap-2 text-base font-bold text-gold disabled:opacity-50"
         >
-          <RefreshCw size={15} className={busy ? "animate-spin" : ""} />
+          <RefreshCw size={20} className={busy ? "animate-spin" : ""} />
           Refresh
         </button>
       </div>
@@ -236,26 +223,11 @@ function OrdersInbox() {
         </p>
       )}
       {feed && !feed.orders.length && (
-        <div className="space-y-3 rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-6">
-          <ClipboardList size={30} className="text-gold" />
-          <h2 className="text-lg font-bold">
-            {view === "active"
-              ? "No active orders yet."
-              : "No order history yet."}
+        <div className="home-card flex flex-col items-center gap-2 py-10 text-center">
+          <ClipboardList size={48} className="text-ink-500" aria-hidden />
+          <h2 className="text-xl font-bold text-ink-500">
+            {view === "active" ? "No active orders" : "No history yet"}
           </h2>
-          <p className="text-sm text-ink-500">
-            {view === "active"
-              ? "New food orders will appear here. Keep your business open when you are ready to serve."
-              : "Delivered and cancelled orders will appear here."}
-          </p>
-          {view === "active" && (
-            <Link
-              href="/menu"
-              className="inline-flex min-h-11 items-center text-sm font-bold text-gold"
-            >
-              Check your menu →
-            </Link>
-          )}
         </div>
       )}
       {feed?.orders.map((order) => (
@@ -266,7 +238,7 @@ function OrdersInbox() {
           type="button"
           disabled={busy}
           onClick={() => void load(feed.nextCursor ?? undefined)}
-          className="min-h-12 w-full rounded-full border border-[var(--border-faint)] text-sm font-bold disabled:opacity-50"
+          className="min-h-14 w-full rounded-full border border-gold text-lg font-bold text-gold disabled:opacity-50"
         >
           {busy ? "Loading…" : "Load more orders"}
         </button>
@@ -290,11 +262,18 @@ export default function HomePage() {
   if (!restaurant) return null;
   return (
     <div className="space-y-4 px-4 pb-8 pt-4">
-      <header className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm text-ink-500">{restaurant.name}</p>
-          <h1 className="mt-1 text-2xl font-bold">Orders</h1>
+      <header className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base text-ink-500">{restaurant.name}</p>
+          <h1 className="text-3xl font-black leading-tight">Orders</h1>
         </div>
+        <Link
+          href="/payments"
+          aria-label="Confirm a rider's payment"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold"
+        >
+          <ShieldCheck className="h-6 w-6" aria-hidden />
+        </Link>
         {restaurant.status === "active" ? (
           <OpenStatusCard
             compact
@@ -308,7 +287,7 @@ export default function HomePage() {
             aria-checked={false}
             aria-label={`${restaurant.name} accepting new orders`}
             disabled
-            className="min-h-12 shrink-0 rounded-full border border-[var(--border-faint)] px-3 text-xs font-bold text-ink-500 opacity-60"
+            className="min-h-14 shrink-0 rounded-full border border-[var(--border-faint)] px-4 text-base font-bold text-ink-500 opacity-60"
           >
             Closed
           </button>
@@ -337,22 +316,6 @@ export default function HomePage() {
           </Link>
         </section>
       ) : null}
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href="/payments"
-          className="flex min-h-11 items-center gap-2 rounded-full border border-[var(--border-faint)] px-3 text-xs font-bold"
-        >
-          <ShieldCheck size={15} />
-          Rider payment
-        </Link>
-        <Link
-          href="/wallet"
-          className="flex min-h-11 items-center gap-2 rounded-full border border-[var(--border-faint)] px-3 text-xs font-bold"
-        >
-          <WalletCards size={15} />
-          Business balance
-        </Link>
-      </div>
       <OrdersInbox key={restaurant.id} />
     </div>
   );
