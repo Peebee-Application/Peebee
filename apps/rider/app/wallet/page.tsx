@@ -1,7 +1,7 @@
 "use client";
 
 import type { OrderRow, SavedMobileNumber, Wallet } from "@peebee/shared";
-import { ChevronRight, Fuel } from "lucide-react";
+import { Banknote, Fuel, History, Receipt, Wallet as WalletIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
@@ -9,6 +9,8 @@ import { formatUgx } from "../../lib/order-display";
 import { useTranslate, type TranslationKey } from "../../lib/i18n";
 import { StageSavingsCard } from "../../components/StageSavingsCard";
 import { RiderEarningsExtras } from "../../components/RiderEarningsExtras";
+import { Accordion } from "../../components/Accordion";
+import { TabBar } from "../../components/TabBar";
 
 const WITHDRAWAL_STATUS_KEYS: Record<Wallet["withdrawals"][number]["status"], TranslationKey> = {
   pending: "wallet_withdrawal_processing",
@@ -27,6 +29,7 @@ export default function WalletPage() {
   const [withdrawalNumbers, setWithdrawalNumbers] = useState<SavedMobileNumber[]>([]);
   const [selectedNumberId, setSelectedNumberId] = useState<string | null>(null);
   const polling = useRef(false);
+  const [tab, setTab] = useState<"cash" | "history">("cash");
 
   const [topupMsisdn, setTopupMsisdn] = useState("");
   const [topupBusy, setTopupBusy] = useState(false);
@@ -136,15 +139,32 @@ export default function WalletPage() {
     amountInput.trim().length > 0 && parsedAmount > 0 && parsedAmount <= maxWithdrawable && !needsNumberChoice;
 
   return (
-    <div className="space-y-5 px-4 pb-6 pt-4">
-      <h1 className="text-xl font-bold text-ink">{t("wallet_title")}</h1>
-      <RiderEarningsExtras />
+    <div className="space-y-4 px-4 pb-6 pt-4">
+      <header className="flex items-center gap-3">
+        <h1 className="min-w-0 flex-1 truncate text-2xl font-extrabold tracking-tight text-ink">{t("wallet_title")}</h1>
+        <Link href="/fuel" aria-label="Peebee Gas" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
+          <Fuel className="h-6 w-6" aria-hidden />
+        </Link>
+      </header>
+
+      <section className="home-card space-y-1 text-center" aria-label={t("wallet_balance")}>
+        <WalletIcon className="mx-auto h-8 w-8 text-gold" aria-hidden />
+        <p className={`text-4xl font-extrabold tabular-nums ${wallet && wallet.balance < 0 ? "text-red-600" : "text-ink"}`}>
+          {wallet ? formatUgx(wallet.balance) : "—"}
+        </p>
+        {wallet && wallet.balance < 0 && <p className="text-sm text-ink-500">{t("wallet_balance_negative_note")}</p>}
+        {reserve.enabled && (
+          <p className="text-sm text-ink-500">
+            {t("wallet_reserve_note", { reserve: formatUgx(reserveAmount), available: formatUgx(maxWithdrawable) })}
+          </p>
+        )}
+      </section>
 
       {wallet && wallet.depositRequired && wallet.depositShortfall > 0 && (
         <section className="home-card space-y-3 !border-l-4 !border-l-red-500">
           <div>
-            <p className="text-sm font-bold text-red-600">{t("wallet_topup_title")}</p>
-            <p className="mt-1 text-xs text-ink-500">
+            <p className="text-lg font-bold text-red-600">{t("wallet_topup_title")}</p>
+            <p className="mt-1 text-base text-ink-500">
               {t("wallet_topup_note", {
                 shortfall: formatUgx(wallet.depositShortfall),
                 required: formatUgx(wallet.requiredDeposit),
@@ -153,23 +173,23 @@ export default function WalletPage() {
           </div>
           {pendingTopupId ? (
             <div className="flex items-center gap-3 py-1">
-              <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-gold border-t-transparent" />
-              <p className="text-sm text-ink-500">{t("wallet_topup_confirming")}</p>
+              <span className="h-6 w-6 shrink-0 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+              <p className="text-base text-ink-500">{t("wallet_topup_confirming")}</p>
             </div>
           ) : (
             <form onSubmit={submitTopup} className="space-y-2">
-              {topupError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{topupError}</p>}
+              {topupError && <p className="rounded-lg bg-red-50 px-3 py-2 text-base text-red-700">{topupError}</p>}
               <input
                 required
                 value={topupMsisdn}
                 onChange={(e) => setTopupMsisdn(e.target.value)}
                 placeholder={t("wallet_topup_placeholder")}
-                className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+                className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-3 text-lg outline-none focus:border-gold"
               />
               <button
                 type="submit"
                 disabled={topupBusy}
-                className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
+                className="min-h-14 w-full rounded-full bg-gold px-4 text-lg font-bold text-ink-gold disabled:opacity-60"
               >
                 {topupBusy ? t("wallet_topup_starting") : t("wallet_topup_button", { amount: formatUgx(wallet.depositShortfall) })}
               </button>
@@ -178,148 +198,117 @@ export default function WalletPage() {
         </section>
       )}
 
-      <section className="home-card space-y-3 text-center">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{t("wallet_balance")}</p>
-          <p className={`text-2xl font-bold ${wallet && wallet.balance < 0 ? "text-red-600" : "text-ink"}`}>
-            {wallet ? formatUgx(wallet.balance) : "—"}
-          </p>
-          <p className="text-xs text-ink-500">{t("wallet_balance_note")}</p>
-          {wallet && wallet.balance < 0 && (
-            <p className="mt-1 text-xs text-ink-500">{t("wallet_balance_negative_note")}</p>
-          )}
-          {reserve.enabled && (
-            <p className="mt-1 text-xs text-ink-500">
-              {t("wallet_reserve_note", { reserve: formatUgx(reserveAmount), available: formatUgx(maxWithdrawable) })}
-            </p>
-          )}
-        </div>
-        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <StageSavingsCard context="wallet" />
 
-        {withdrawalNumbers.length >= 2 && (
-          <div className="space-y-1.5 text-left">
-            <label className="text-xs font-semibold text-ink-500">{t("wallet_withdraw_to")}</label>
-            <div className="flex gap-2">
-              {withdrawalNumbers.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => setSelectedNumberId(n.id)}
-                  disabled={busy || hasPendingWithdrawal}
-                  className={`min-h-10 flex-1 rounded-xl border px-3 text-sm font-semibold disabled:opacity-50 ${
-                    selectedNumberId === n.id ? "border-gold bg-gold/10 text-ink" : "border-[var(--border-faint)] text-ink-500"
-                  }`}
-                >
-                  {n.phone}
-                </button>
-              ))}
+      <TabBar
+        label={t("wallet_title")}
+        active={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "cash", label: "Cash out", icon: Banknote },
+          { id: "history", label: "History", icon: History },
+        ]}
+      />
+
+      {tab === "cash" && (
+        <section className="home-card space-y-4" role="tabpanel" aria-label="Cash out">
+          {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-base text-red-700">{error}</p>}
+
+          {withdrawalNumbers.length >= 2 && (
+            <div className="space-y-2">
+              <p className="text-base font-bold text-ink-500">{t("wallet_withdraw_to")}</p>
+              <div className="flex gap-2">
+                {withdrawalNumbers.map((n) => (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => setSelectedNumberId(n.id)}
+                    disabled={busy || hasPendingWithdrawal}
+                    className={`min-h-14 flex-1 rounded-xl border px-3 text-base font-bold disabled:opacity-50 ${
+                      selectedNumberId === n.id ? "border-gold bg-gold/10 text-ink" : "border-[var(--border-faint)] text-ink-500"
+                    }`}
+                  >
+                    {n.phone}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="space-y-2 text-left">
-          <label className="text-xs font-semibold text-ink-500" htmlFor="withdrawAmount">
-            {t("wallet_amount_label")}
-          </label>
           <input
             id="withdrawAmount"
+            aria-label={t("wallet_amount_label")}
             inputMode="numeric"
             value={amountInput}
             onChange={(e) => setAmountInput(e.target.value.replace(/[^\d]/g, ""))}
             placeholder={maxWithdrawable > 0 ? String(maxWithdrawable) : "0"}
             disabled={busy || hasPendingWithdrawal || maxWithdrawable <= 0}
-            className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold disabled:opacity-50"
+            className="min-h-16 w-full rounded-xl border border-[var(--border-faint)] px-4 text-2xl font-bold tabular-nums outline-none focus:border-gold disabled:opacity-50"
           />
-        </div>
 
-        <div className="flex gap-2">
-          <button
-            onClick={() => withdraw(parsedAmount)}
-            disabled={busy || hasPendingWithdrawal || !canWithdrawCustom}
-            className="min-h-11 flex-1 rounded-full border border-gold px-4 text-sm font-bold text-gold disabled:opacity-50"
-          >
-            {busy ? t("wallet_sending") : t("wallet_withdraw_amount")}
-          </button>
-          <button
-            onClick={() => withdraw(undefined)}
-            disabled={busy || hasPendingWithdrawal || maxWithdrawable <= 0 || needsNumberChoice}
-            className="min-h-11 flex-1 rounded-full bg-gold px-4 text-sm font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-50"
-          >
-            {busy ? t("wallet_sending") : t("wallet_withdraw_all")}
-          </button>
-        </div>
-        {needsNumberChoice && <p className="text-xs text-red-600">{t("wallet_choose_number")}</p>}
-      </section>
-
-      <StageSavingsCard context="wallet" />
-
-      {/* Fuel Voucher Quick Card */}
-      <Link
-        href="/fuel"
-        className="home-card flex items-center justify-between !p-4 transition hover:border-gold/50"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gold/15 text-gold">
-            <Fuel className="h-6 w-6" />
+          <div className="grid gap-2">
+            <button
+              onClick={() => withdraw(undefined)}
+              disabled={busy || hasPendingWithdrawal || maxWithdrawable <= 0 || needsNumberChoice}
+              className="flex min-h-16 w-full items-center justify-center gap-2 rounded-full bg-gold px-4 text-xl font-extrabold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-50"
+            >
+              <Banknote className="h-6 w-6" aria-hidden /> {busy ? t("wallet_sending") : t("wallet_withdraw_all")}
+            </button>
+            <button
+              onClick={() => withdraw(parsedAmount)}
+              disabled={busy || hasPendingWithdrawal || !canWithdrawCustom}
+              className="min-h-14 w-full rounded-full border border-gold px-4 text-lg font-bold text-gold disabled:opacity-50"
+            >
+              {busy ? t("wallet_sending") : t("wallet_withdraw_amount")}
+            </button>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-black text-ink">Peebee Gas Voucher</h2>
-              <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-bold text-ink-gold">
-                New
-              </span>
-            </div>
-            <p className="mt-0.5 text-xs text-ink-500">
-              Generate 6-digit pump PIN or scan QR at partner petrol stations
-            </p>
-          </div>
-        </div>
-        <ChevronRight className="h-4 w-4 text-ink-500" />
-      </Link>
-
-      {wallet && wallet.withdrawals.length > 0 && (
-        <section className="space-y-2.5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">{t("wallet_withdrawals_header")}</h2>
-          <ul className="space-y-2">
-            {wallet.withdrawals.map((w) => (
-              <li key={w.id} className="home-card flex items-center justify-between !rounded-2xl !px-3 !py-3">
-                <div>
-                  <span className="block text-sm text-ink">{formatUgx(w.amount)}</span>
-                  <span className="block text-xs text-ink-500">{new Date(w.created_at).toLocaleDateString()}</span>
-                </div>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                    w.status === "successful"
-                      ? "bg-green/15 text-green"
-                      : w.status === "failed"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-[rgb(var(--surface-muted))] text-ink-500"
-                  }`}
-                >
-                  {t(WITHDRAWAL_STATUS_KEYS[w.status])}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {needsNumberChoice && <p className="text-base text-red-600">{t("wallet_choose_number")}</p>}
+          {hasPendingWithdrawal && <p className="text-base text-ink-500">{t("wallet_withdrawal_processing")}…</p>}
         </section>
       )}
 
-      <section className="space-y-2.5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">
-          {t("wallet_job_history", { total: formatUgx(settledTotal) })}
-        </h2>
-        {orders.length === 0 && <p className="py-6 text-center text-sm text-ink-500">{t("wallet_no_completed_jobs")}</p>}
-        <ul className="space-y-2">
-          {orders.map((order) => (
-            <li key={order.id} className="home-card flex items-center justify-between !rounded-2xl !px-3 !py-3">
-              <span className="text-sm text-ink">{order.destination_area ?? t("wallet_job_fallback", { id: order.id.slice(-6) })}</span>
-              <span className="text-sm font-semibold text-green">
-                {formatUgx(order.final_total ?? order.estimated_total)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {tab === "history" && (
+        <div className="space-y-3" role="tabpanel" aria-label="History">
+          <RiderEarningsExtras />
+
+          <Accordion title={t("wallet_withdrawals_header")} icon={Banknote} summary={wallet?.withdrawals.length ?? 0} defaultOpen>
+            {(!wallet || wallet.withdrawals.length === 0) && <p className="py-3 text-center text-base text-ink-500">—</p>}
+            <ul className="space-y-2">
+              {(wallet?.withdrawals ?? []).slice(0, 8).map((w) => (
+                <li key={w.id} className="flex items-center justify-between gap-3">
+                  <span>
+                    <span className="block text-lg font-bold tabular-nums text-ink">{formatUgx(w.amount)}</span>
+                    <span className="block text-sm text-ink-500">{new Date(w.created_at).toLocaleDateString()}</span>
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-full px-3 py-1 text-sm font-bold ${
+                      w.status === "successful"
+                        ? "bg-green/15 text-green"
+                        : w.status === "failed"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-[rgb(var(--surface-muted))] text-ink-500"
+                    }`}
+                  >
+                    {t(WITHDRAWAL_STATUS_KEYS[w.status])}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Accordion>
+
+          <Accordion title="Completed jobs" icon={Receipt} summary={formatUgx(settledTotal)}>
+            {orders.length === 0 && <p className="py-3 text-center text-base text-ink-500">{t("wallet_no_completed_jobs")}</p>}
+            <ul className="space-y-2">
+              {orders.slice(0, 8).map((order) => (
+                <li key={order.id} className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate text-base text-ink">{order.destination_area ?? t("wallet_job_fallback", { id: order.id.slice(-6) })}</span>
+                  <span className="shrink-0 text-lg font-bold tabular-nums text-green">{formatUgx(order.final_total ?? order.estimated_total)}</span>
+                </li>
+              ))}
+            </ul>
+          </Accordion>
+        </div>
+      )}
     </div>
   );
 }

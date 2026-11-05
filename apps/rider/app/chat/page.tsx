@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChatThread } from "@peebee/shared";
-import { User } from "lucide-react";
+import { MessageCircle, User } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
@@ -36,10 +36,10 @@ function ThreadAvatar({ counterpartId, hasPhoto }: { counterpartId: string; hasP
 
   if (url) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />;
+    return <img src={url} alt="" className="h-14 w-14 shrink-0 rounded-full object-cover" />;
   }
   return (
-    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
+    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
       <User className="h-6 w-6" strokeWidth={1.75} aria-hidden />
     </span>
   );
@@ -70,33 +70,34 @@ export default function ChatListPage() {
 
   if (threads.length === 0) {
     return (
-      <div className="flex min-h-[70dvh] flex-col items-center justify-center space-y-2 p-4 text-center">
-        <h1 className="text-xl font-bold text-ink">{t("chat_title")}</h1>
-        <p className="text-sm text-ink-500">{t("chat_empty")}</p>
+      <div className="flex min-h-[70dvh] flex-col items-center justify-center gap-3 p-4 text-center">
+        <MessageCircle className="h-14 w-14 text-ink-500" aria-hidden />
+        <h1 className="text-2xl font-extrabold text-ink">{t("chat_title")}</h1>
+        <p className="text-lg text-ink-500">{t("chat_empty")}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-3 px-4 pb-6 pt-4">
-      <h1 className="text-xl font-bold text-ink">{t("chat_title")}</h1>
+      <h1 className="text-2xl font-extrabold tracking-tight text-ink">{t("chat_title")}</h1>
       <ul className="space-y-2">
         {threads.map((t) => (
           <li key={t.counterpartId}>
             <Link
               href={`/chat/${t.counterpartId}`}
-              className="home-card flex items-center gap-3 !rounded-2xl !px-3 !py-3"
+              className="home-card flex min-h-20 items-center gap-3 !rounded-2xl !px-3 !py-3"
             >
               <ThreadAvatar counterpartId={t.counterpartId} hasPhoto={t.counterpartHasPhoto} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-bold text-ink">{t.counterpartName}</span>
-                <span className={`block truncate text-xs ${t.unread ? "font-semibold text-ink" : "text-ink-500"}`}>
+                <span className="block truncate text-lg font-bold text-ink">{t.counterpartName}</span>
+                <span className={`block truncate text-base ${t.unread ? "font-semibold text-ink" : "text-ink-500"}`}>
                   {t.lastMessagePreview}
                 </span>
               </span>
               <span className="flex shrink-0 flex-col items-end gap-1.5">
-                <span className="text-[11px] text-ink-500">{formatTime(t.lastMessageAt)}</span>
-                {t.unread && <span className="h-2 w-2 rounded-full bg-gold" aria-hidden />}
+                <span className="text-sm text-ink-500">{formatTime(t.lastMessageAt)}</span>
+                {t.unread && <span className="h-3 w-3 rounded-full bg-gold" aria-hidden />}
               </span>
             </Link>
           </li>

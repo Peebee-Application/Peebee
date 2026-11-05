@@ -2,10 +2,11 @@
 
 import { isPracticeMode, isProSubscriptionCurrent, type MerchantPayment, type OrderDetail } from "@peebee/shared";
 import { codeFromScan } from "@peebee/shared/qr";
-import { Crown, MapPin, MessageCircle, Pencil, QrCode as QrIcon, X } from "lucide-react";
+import { Crown, Ellipsis, HandCoins, MapPin, MessageCircle, Pencil, QrCode as QrIcon, ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Accordion } from "../../../components/Accordion";
 import { CodeQr } from "../../../components/CodeQr";
 import { CustomerAvatar } from "../../../components/CustomerAvatar";
 import { DeliveryNavigation } from "../../../components/DeliveryNavigation";
@@ -312,85 +313,11 @@ export default function JobDetailPage() {
     }
   }
 
-  return (
-    <div className="space-y-6 px-4 pb-24 pt-4">
-      {scanningOutlet && <QrScanner title="Scan the merchant's QR" onScan={(raw) => { setScanningOutlet(false); setOutletCode(codeFromScan(raw)); }} onClose={() => setScanningOutlet(false)} />}
-      <header className="space-y-1">
-        <div className="flex items-center gap-3">
-          {order.customer_id && <CustomerAvatar customerId={order.customer_id} />}
-          <h1 className="text-xl font-bold text-ink">{jobTitle(order)}</h1>
-        </div>
-        <p className="text-sm font-semibold text-green">{stageLabel(order.stage, order.type, !!order.is_ride)}</p>
-        {!!order.is_ride && order.passenger_name && (
-          <p className="text-sm text-ink">
-            Passenger: <span className="font-bold">{order.passenger_name}</span>
-            {order.passenger_phone && (
-              <>
-                {" · "}
-                <a href={`tel:${order.passenger_phone}`} className="font-bold text-gold underline">{order.passenger_phone}</a>
-              </>
-            )}
-          </p>
-        )}
-        {(order.store_name || order.restaurant_name || order.pickup_address || (order.type === "parcel" && order.pickup_area)) && (
-          <p className="flex items-center gap-1.5 text-sm text-ink-500">
-            <MapPin className="h-3.5 w-3.5 text-ink-500" strokeWidth={2} aria-hidden />
-            <span className="font-semibold text-ink">
-              {order.type === "parcel"
-                ? t("job_pickup", { area: order.pickup_area ?? "" })
-                : `Pickup: ${order.store_name ?? order.restaurant_name ?? order.pickup_address}`}
-            </span>
-            {(order.store_name || order.restaurant_name) && order.pickup_address ? ` · ${order.pickup_address}` : ""}
-          </p>
-        )}
-        {order.destination_area && (
-          <p className="flex items-center gap-1.5 text-sm text-ink-500">
-            <MapPin className="h-3.5 w-3.5 text-ink-500" strokeWidth={2} aria-hidden />
-            {order.type === "parcel" ? t("job_deliver_to") : ""}
-            {order.destination_area}
-            {order.destination_address ? ` · ${order.destination_address}` : ""}
-          </p>
-        )}
-      </header>
-
-      {rideStops.length > 0 && <RideStopsPanel order={order} stops={rideStops} />}
-
-      {(detail.bundleStops?.length ?? 0) > 1 && (
-        <section className="rounded-2xl border border-gold/25 bg-gold/10 p-4" aria-label="Combined delivery pickups">
-          <h2 className="font-bold text-ink">Combined delivery · collect from {detail.bundleStops!.length} restaurants</h2>
-          <p className="mt-1 text-sm text-ink-500">Pick up every order below before delivering. They are paid and delivered together.</p>
-          <ol className="mt-3 space-y-2">
-            {detail.bundleStops!.map((stop, index) => (
-              <li key={stop.id} className="flex items-center justify-between gap-3 text-sm">
-                <span><span className="font-bold">{index + 1}. {stop.restaurant_name ?? stop.outlet_name ?? "Shopping pickup"}</span>{stop.pickup_address && <span className="block text-xs text-ink-500">{stop.pickup_address}</span>}</span>
-                {stop.id === order.id ? <span className="text-xs font-semibold text-gold">This order</span> : <Link className="shrink-0 font-bold text-gold underline" href={`/jobs/${stop.id}`}>Open stop</Link>}
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
-
-      {order.voice_note_key && <VoiceNotePlayer orderId={orderId} />}
-
-      {lugandaAudioEnabled && items.length > 0 && (
-        lugandaAudioRequiresPro && !isProSubscriptionCurrent(rider) ? (
-          <Link
-            href="/account#rider-pro"
-            className="flex items-center gap-2 rounded-full border border-gold bg-gold/10 px-4 py-2 text-sm font-bold text-ink"
-          >
-            <Crown className="h-4 w-4 text-gold" strokeWidth={2} aria-hidden />
-            Upgrade to Pro to listen in Luganda
-          </Link>
-        ) : (
-          <LugandaListPlayer orderId={orderId} />
-        )
-      )}
-
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-
+  // On a shopping job the rider shops first, so the list leads; otherwise the next step leads and the list follows.
+  const listBlock = (
+    <>
       {order.type === "shopping" ? (
-        <section className="home-card space-y-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">{t("job_shopping_list")}</h2>
+        <Accordion title={t("job_shopping_list")} icon={ShoppingCart} summary={formatUgx((order.final_total ?? order.estimated_total ?? 0) - (order.delivery_fee ?? 0))} defaultOpen={canPropose || pendingCount > 0}>
           <ul className="space-y-1.5">
             {items.map((item) => {
               const edit = pendingEdits[item.id];
@@ -509,17 +436,16 @@ export default function JobDetailPage() {
               </button>
             </div>
           )}
-        </section>
+        </Accordion>
       ) : (
-        <section className="home-card flex justify-between text-sm font-semibold">
+        <section className="home-card flex justify-between text-lg font-bold">
           <span>{t("job_delivery_fee")}</span>
           <span>{formatUgx(order.delivery_fee ?? order.final_total ?? order.estimated_total)}</span>
         </section>
       )}
 
       {canProposeFee && (
-        <section className="home-card space-y-2">
-          <h2 className="text-sm font-semibold text-ink">{t("job_delivery_fee")}</h2>
+        <Accordion title={t("job_delivery_fee")} icon={HandCoins} summary={formatUgx(order.delivery_fee ?? order.final_total ?? order.estimated_total)}>
           {latestFeeProposal && (
             <div className="rounded-xl bg-[rgb(var(--surface-muted))] p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
@@ -614,16 +540,66 @@ export default function JobDetailPage() {
               </div>
             </div>
           )}
-        </section>
+        </Accordion>
       )}
+
+
+    </>
+  );
+
+  return (
+    <div className="space-y-6 px-4 pb-24 pt-4">
+      {scanningOutlet && <QrScanner title="Scan the merchant's QR" onScan={(raw) => { setScanningOutlet(false); setOutletCode(codeFromScan(raw)); }} onClose={() => setScanningOutlet(false)} />}
+      <header className="space-y-1">
+        <div className="flex items-center gap-3">
+          {order.customer_id && <CustomerAvatar customerId={order.customer_id} />}
+          <h1 className="text-2xl font-extrabold leading-tight text-ink">{jobTitle(order)}</h1>
+        </div>
+        <p className="text-lg font-bold text-green">{stageLabel(order.stage, order.type, !!order.is_ride)}</p>
+        {!!order.is_ride && order.passenger_name && (
+          <p className="text-sm text-ink">
+            Passenger: <span className="font-bold">{order.passenger_name}</span>
+            {order.passenger_phone && (
+              <>
+                {" · "}
+                <a href={`tel:${order.passenger_phone}`} className="font-bold text-gold underline">{order.passenger_phone}</a>
+              </>
+            )}
+          </p>
+        )}
+        {(order.store_name || order.restaurant_name || order.pickup_address || (order.type === "parcel" && order.pickup_area)) && (
+          <p className="flex items-center gap-1.5 text-sm text-ink-500">
+            <MapPin className="h-3.5 w-3.5 text-ink-500" strokeWidth={2} aria-hidden />
+            <span className="font-semibold text-ink">
+              {order.type === "parcel"
+                ? t("job_pickup", { area: order.pickup_area ?? "" })
+                : `Pickup: ${order.store_name ?? order.restaurant_name ?? order.pickup_address}`}
+            </span>
+            {(order.store_name || order.restaurant_name) && order.pickup_address ? ` · ${order.pickup_address}` : ""}
+          </p>
+        )}
+        {order.destination_area && (
+          <p className="flex items-center gap-1.5 text-sm text-ink-500">
+            <MapPin className="h-3.5 w-3.5 text-ink-500" strokeWidth={2} aria-hidden />
+            {order.type === "parcel" ? t("job_deliver_to") : ""}
+            {order.destination_area}
+            {order.destination_address ? ` · ${order.destination_address}` : ""}
+          </p>
+        )}
+      </header>
+
+      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-base text-red-700">{error}</p>}
+
+
+      {canPropose && listBlock}
 
       <section className="home-card space-y-3">
         {["Create", "Match", "Fund"].includes(order.stage) && (
-          <p className="text-sm text-ink-500">{t("job_waiting_on_customer_fund")}</p>
+          <p className="text-base text-ink-500">{t("job_waiting_on_customer_fund")}</p>
         )}
 
         {canPropose && pendingCount === 0 && (
-          <p className="text-sm text-ink-500">{t("job_tap_pencil_hint")}</p>
+          <p className="text-base text-ink-500">{t("job_tap_pencil_hint")}</p>
         )}
 
         {substitutions.length > 0 && (
@@ -720,7 +696,7 @@ export default function JobDetailPage() {
             <button
               type="submit"
               disabled={busy}
-              className="min-h-11 flex-1 rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
+              className="min-h-14 flex-1 rounded-full bg-gold px-4 text-lg font-bold text-ink-gold disabled:opacity-60"
             >
               {t("job_start_delivery")}
             </button>
@@ -747,7 +723,7 @@ export default function JobDetailPage() {
 
         {order.stage === "Deliver" && !relayFirstRider && !relayAwaitingCollect && (
           <>
-            <p className="text-sm text-ink-500">
+            <p className="text-base text-ink-500">
               {order.is_ride
                 ? t("job_heading_pickup_passenger", { eta: order.eta_minutes ? ` — ~${order.eta_minutes} min` : "" })
                 : t("job_on_the_way", { eta: order.eta_minutes ? ` — ~${order.eta_minutes} min` : "" })}
@@ -775,7 +751,7 @@ export default function JobDetailPage() {
 
         {order.stage === "Arrived" && order.is_ride && (
           <>
-            <p className="text-sm text-ink-500">{t("job_passenger_notified")}</p>
+            <p className="text-base text-ink-500">{t("job_passenger_notified")}</p>
             <button
               disabled={busy}
               onClick={() =>
@@ -783,7 +759,7 @@ export default function JobDetailPage() {
                   await api.pickedUpOrder(orderId);
                 })
               }
-              className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
+              className="min-h-14 w-full rounded-full bg-gold px-4 text-lg font-bold text-ink-gold disabled:opacity-60"
             >
               {t("job_confirm_passenger_picked_up")}
             </button>
@@ -791,12 +767,12 @@ export default function JobDetailPage() {
         )}
 
         {order.stage === "Arrived" && !order.is_ride && (
-          <p className="text-sm text-ink-500">{t("job_customer_notified_handover")}</p>
+          <p className="text-base text-ink-500">{t("job_customer_notified_handover")}</p>
         )}
 
         {order.stage === "PickedUp" && nextStop?.status === "pending" && (
           <>
-            <p className="text-sm text-ink-500">
+            <p className="text-base text-ink-500">
               {t("stop_heading", { n: nextStop.position })}
               {nextStop.area ? ` · ${nextStop.area}` : ""}
             </p>
@@ -823,7 +799,7 @@ export default function JobDetailPage() {
               type="button"
               disabled={busy}
               onClick={() => run(() => api.continueFromStop(orderId, nextStop.position))}
-              className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
+              className="min-h-14 w-full rounded-full bg-gold px-4 text-lg font-bold text-ink-gold disabled:opacity-60"
             >
               {t("stop_continue_btn", {
                 next: stopAfter ? t("stop_label", { n: stopAfter.position }) : t("stop_the_destination"),
@@ -834,7 +810,7 @@ export default function JobDetailPage() {
 
         {order.stage === "PickedUp" && !nextStop && (
           <>
-            <p className="text-sm text-ink-500">{t("job_heading_destination")}</p>
+            <p className="text-base text-ink-500">{t("job_heading_destination")}</p>
             <DeliveryNavigation
               orderId={orderId}
               destinationLat={order.destination_lat}
@@ -849,11 +825,11 @@ export default function JobDetailPage() {
 
         {order.stage === "Handover" && (
           <>
-            <p className="text-sm text-ink-500">{t("job_handover_confirmed")}</p>
+            <p className="text-base text-ink-500">{t("job_handover_confirmed")}</p>
             <button
               disabled={busy}
               onClick={() => run(() => api.settleOrder(orderId))}
-              className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-60"
+              className="min-h-14 w-full rounded-full bg-gold px-4 text-lg font-bold text-ink-gold disabled:opacity-60"
             >
               {t("job_settle_get_paid")}
             </button>
@@ -877,7 +853,7 @@ export default function JobDetailPage() {
               )}
             </div>
             {walletBalance != null && (
-              <p className="text-sm text-ink-500">
+              <p className="text-base text-ink-500">
                 {t("job_wallet_balance_label")}
                 <span className="text-base font-bold text-ink">{formatUgx(walletBalance)}</span>
               </p>
@@ -892,17 +868,54 @@ export default function JobDetailPage() {
         )}
       </section>
 
+
+      {!canPropose && listBlock}
+
+      {rideStops.length > 0 && <RideStopsPanel order={order} stops={rideStops} />}
+
+      {(detail.bundleStops?.length ?? 0) > 1 && (
+        <section className="rounded-2xl border border-gold/25 bg-gold/10 p-4" aria-label="Combined delivery pickups">
+          <h2 className="font-bold text-ink">Combined delivery · collect from {detail.bundleStops!.length} restaurants</h2>
+          <p className="mt-1 text-sm text-ink-500">Pick up every order below before delivering. They are paid and delivered together.</p>
+          <ol className="mt-3 space-y-2">
+            {detail.bundleStops!.map((stop, index) => (
+              <li key={stop.id} className="flex items-center justify-between gap-3 text-sm">
+                <span><span className="font-bold">{index + 1}. {stop.restaurant_name ?? stop.outlet_name ?? "Shopping pickup"}</span>{stop.pickup_address && <span className="block text-xs text-ink-500">{stop.pickup_address}</span>}</span>
+                {stop.id === order.id ? <span className="text-xs font-semibold text-gold">This order</span> : <Link className="shrink-0 font-bold text-gold underline" href={`/jobs/${stop.id}`}>Open stop</Link>}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {order.voice_note_key && <VoiceNotePlayer orderId={orderId} />}
+
+      {lugandaAudioEnabled && items.length > 0 && (
+        lugandaAudioRequiresPro && !isProSubscriptionCurrent(rider) ? (
+          <Link
+            href="/account#rider-pro"
+            className="flex items-center gap-2 rounded-full border border-gold bg-gold/10 px-4 py-2 text-sm font-bold text-ink"
+          >
+            <Crown className="h-4 w-4 text-gold" strokeWidth={2} aria-hidden />
+            Upgrade to Pro to listen in Luganda
+          </Link>
+        ) : (
+          <LugandaListPlayer orderId={orderId} />
+        )
+      )}
+
+      {(canCancel || (order.is_ride && order.stage === "Match" && order.payment_rail === "escrow")) && (
+        <Accordion title="More" icon={Ellipsis}>
       {order.is_ride && order.stage === "Match" && order.payment_rail === "escrow" && (
-        <section className="home-card space-y-2">
+        <div className="space-y-2">
           <p className="text-sm text-ink-500">Waiting for the customer to pay? If they haven&apos;t paid, you can close this ride and take another job.</p>
           <button type="button" disabled={busy} onClick={closeUnpaid} className="w-full rounded-full border border-[var(--border-faint)] py-2 text-sm font-bold text-ink disabled:opacity-60">
             Customer hasn&apos;t paid — close ride
           </button>
-        </section>
+        </div>
       )}
-
       {canCancel && (
-        <section className="home-card space-y-2">
+        <div className="space-y-2">
           {!confirmCancel ? (
             <button
               type="button"
@@ -933,15 +946,17 @@ export default function JobDetailPage() {
               </div>
             </div>
           )}
-        </section>
+        </div>
+      )}
+        </Accordion>
       )}
 
       {order.customer_id && (
         <Link
           href={`/chat/${order.customer_id}`}
-          className="home-card flex items-center gap-2 !rounded-2xl !py-3 text-sm font-bold text-ink"
+          className="home-card flex min-h-16 items-center gap-3 !rounded-2xl text-lg font-bold text-ink"
         >
-          <MessageCircle className="h-4 w-4 text-gold" strokeWidth={2} aria-hidden />
+          <MessageCircle className="h-6 w-6 text-gold" strokeWidth={2} aria-hidden />
           {t("job_open_fullscreen_chat")}
         </Link>
       )}
