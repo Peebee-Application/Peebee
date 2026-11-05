@@ -19,7 +19,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { Accordion } from "../../components/Accordion";
 import { FuelQrCode } from "../../components/FuelQrCode";
+import { TabBar } from "../../components/TabBar";
 import { api, errorMessage } from "../../lib/api";
 
 export default function RiderFuelPage() {
@@ -30,6 +32,7 @@ export default function RiderFuelPage() {
   const [products, setProducts] = useState<FuelProduct[]>([]);
   const [dispenses, setDispenses] = useState<FuelReceipt[]>([]);
   const [copied, setCopied] = useState(false);
+  const [tab, setTab] = useState<"voucher" | "stations" | "receipts">("voucher");
 
   // New Voucher Generation Form State
   const [amountUgx, setAmountUgx] = useState<number>(20_000);
@@ -123,46 +126,48 @@ export default function RiderFuelPage() {
     : "";
 
   return (
-    <div className="space-y-4 pb-12">
-      {/* Top Header */}
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-ink"
-            aria-label="Back to Jobs"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="flex h-5 items-center gap-1 rounded-md bg-gold/15 px-1.5 text-[10px] font-black uppercase text-gold">
-                <Fuel className="h-3 w-3" />
-                Peebee Gas
-              </span>
-              <span className="text-xs text-ink-500">Partner Station Network</span>
-            </div>
-            <h1 className="text-lg font-black text-ink">Fuel Voucher & Stations</h1>
-          </div>
-        </div>
-
+    <div className="space-y-4 px-4 pb-6 pt-4">
+      <header className="flex items-center gap-3">
+        <Link
+          href="/"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink"
+          aria-label="Back to Jobs"
+        >
+          <ArrowLeft className="h-6 w-6" aria-hidden />
+        </Link>
+        <h1 className="flex min-w-0 flex-1 items-center gap-2 text-2xl font-extrabold tracking-tight text-ink">
+          <Fuel className="h-7 w-7 shrink-0 text-gold" aria-hidden /> <span className="truncate">Peebee Gas</span>
+        </h1>
         <button
           type="button"
           onClick={loadData}
           disabled={loading}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-ink hover:bg-[rgb(var(--surface-muted))]"
-          title="Refresh fuel status"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink"
+          aria-label="Refresh"
         >
-          <RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          <RotateCcw className={`h-6 w-6 ${loading ? "animate-spin" : ""}`} aria-hidden />
         </button>
       </header>
 
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
+        <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-base text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
           {error}
         </div>
       )}
 
+      <TabBar
+        label="Peebee Gas"
+        active={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "voucher", label: "Voucher", icon: QrCode },
+          { id: "stations", label: "Stations", icon: Building2 },
+          { id: "receipts", label: "Receipts", icon: Receipt },
+        ]}
+      />
+
+      {tab === "voucher" && (
+        <div className="space-y-4" role="tabpanel" aria-label="Voucher">
       {/* ACTIVE VOUCHER SECTION */}
       {activeCode && remainingTime !== "Expired" ? (
         <section className="home-card space-y-4 border-2 border-gold/40 bg-[rgb(var(--surface-card))] text-center">
@@ -324,21 +329,19 @@ export default function RiderFuelPage() {
         </section>
       )}
 
-      {/* HOW IT WORKS / DISPENSE GUIDE */}
-      <section className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] p-4 space-y-2 text-xs">
-        <div className="flex items-center gap-2 font-black text-ink">
-          <Info className="h-4 w-4 text-gold" />
-          <span>How Peebee Gas Works at the Pump</span>
-        </div>
-        <ol className="list-decimal space-y-1 pl-4 leading-relaxed text-ink-500">
-          <li>Drive into any partner petrol station lane below.</li>
+      <Accordion title="How it works" icon={Info}>
+        <ol className="list-decimal space-y-2 pl-5 text-base leading-relaxed text-ink-500">
+          <li>Drive into any partner petrol station lane.</li>
           <li>Show your 6-digit PIN or let the attendant scan your QR code.</li>
-          <li>Attendant verifies your motorcycle plate and pumps the requested fuel.</li>
-          <li>Digital receipt is saved instantly with 0 cash handling needed.</li>
+          <li>The attendant checks your plate and pumps the fuel.</li>
+          <li>Your receipt is saved. No cash needed.</li>
         </ol>
-      </section>
+      </Accordion>
+        </div>
+      )}
 
-      {/* NEARBY PARTNER PETROL STATIONS */}
+      {tab === "stations" && (
+        <div className="space-y-4" role="tabpanel" aria-label="Stations">
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -387,9 +390,17 @@ export default function RiderFuelPage() {
           ))}
         </div>
       </section>
+        </div>
+      )}
 
-      {/* RECENT FUEL DISPENSE RECEIPTS */}
-      {dispenses.length > 0 && (
+      {tab === "receipts" && (
+        <div className="space-y-4" role="tabpanel" aria-label="Receipts">
+          {dispenses.length === 0 ? (
+            <div className="home-card flex flex-col items-center gap-2 py-10 text-center">
+              <Receipt className="h-12 w-12 text-ink-500" aria-hidden />
+              <p className="text-lg font-bold text-ink-500">No receipts yet</p>
+            </div>
+          ) : (
         <section className="space-y-3">
           <div className="flex items-center gap-2">
             <Receipt className="h-4 w-4 text-gold" />
@@ -425,6 +436,8 @@ export default function RiderFuelPage() {
             ))}
           </div>
         </section>
+          )}
+        </div>
       )}
     </div>
   );
