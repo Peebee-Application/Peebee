@@ -12,6 +12,7 @@ import { clientIp } from "../lib/ratelimit.js";
 import { decryptSecret, encryptSecret, isCredentialsEncryptionConfigured } from "../lib/crypto.js";
 import { getPlatformEnvironment, invalidateSettingsCache } from "../lib/settings.js";
 import { hasColumn } from "../lib/schema.js";
+import { getOption } from "../lib/option-settings.js";
 import {
   initiateDisbursement,
   paymentProviderErrorResponse,
@@ -50,7 +51,10 @@ async function membership(userId: string, merchantId: string): Promise<Row | und
           WHERE mm.user_id = ? AND mm.merchant_id = ? AND mm.status = 'active'`,
     args: [userId, merchantId],
   });
-  return result.rows[0] as Row | undefined;
+  const member = result.rows[0] as Row | undefined;
+  // A business is not pinned to the world it was registered in. Money records
+  // keep their original environment; new operations follow the admin switch.
+  return member ? { ...member, environment: await getPlatformEnvironment() } : undefined;
 }
 
 function mayManage(role: unknown): boolean {
@@ -120,7 +124,9 @@ merchantRoutes.get("/merchants/me", requireAuth, async (c) => {
           ORDER BY m.created_at`,
     args: [user.sub],
   });
-  return c.json({ merchants: result.rows });
+  const environment = await getPlatformEnvironment();
+  c.header("Cache-Control", "private, no-store");
+  return c.json({ merchants: result.rows.map((merchant) => ({ ...merchant, environment })) });
 });
 
 const merchantProfileSchema = z.object({
@@ -141,7 +147,7 @@ merchantRoutes.patch("/merchants/:id", requireAuth, async (c) => {
     args: [parsed.data.legalName ?? null, parsed.data.displayName ?? null, merchantId],
   });
   const result = await db.execute({ sql: "SELECT * FROM merchants WHERE id=?", args: [merchantId] });
-  return c.json({ merchant: result.rows[0] });
+  return c.json({ merchant: { ...result.rows[0], environment: await getPlatformEnvironment() } });
 });
 
 const kycSubmissionSchema = z.object({
@@ -388,9 +394,9 @@ merchantRoutes.get("/merchants/:id/transactions", requireAuth, async (c) => {
           FROM ledger_accounts a
           JOIN ledger_entries e ON e.account_id = a.id
           JOIN ledger_transactions t ON t.id = e.transaction_id
-          WHERE a.owner_type = 'merchant' AND a.owner_id = ?
+          WHERE a.owner_type = 'merchant' AND a.owner_id = ? AND a.environment = ?
           ORDER BY t.created_at DESC LIMIT 100`,
-    args: [merchantId],
+    args: [merchantId, String(member.environment)],
   });
   return c.json({ transactions: result.rows });
 });
@@ -407,9 +413,9 @@ merchantRoutes.get("/merchants/:id/payments", requireAuth, async (c) => {
           FROM merchant_payments mp
           JOIN merchant_outlets o ON o.id=mp.outlet_id
           JOIN users u ON u.id=mp.rider_id
-          WHERE mp.merchant_id=? AND (? != 'cashier' OR mp.outlet_id=?)
+          WHERE mp.merchant_id=? AND mp.environment=? AND (? != 'cashier' OR mp.outlet_id=?)
           ORDER BY mp.created_at DESC LIMIT 200`,
-    args: [merchantId, String(member.role), member.outlet_id == null ? "" : String(member.outlet_id)],
+    args: [merchantId, String(member.environment), String(member.role), member.outlet_id == null ? "" : String(member.outlet_id)],
   });
   return c.json({ payments: result.rows });
 });
@@ -422,8 +428,8 @@ merchantRoutes.get("/merchants/:id/disputes", requireAuth, async (c) => {
   const result = await db.execute({
     sql: `SELECT d.* FROM merchant_disputes d
           JOIN merchant_payments mp ON mp.id=d.merchant_payment_id
-          WHERE mp.merchant_id=? ORDER BY d.created_at DESC LIMIT 100`,
-    args: [merchantId],
+          WHERE mp.merchant_id=? AND mp.environment=? ORDER BY d.created_at DESC LIMIT 100`,
+    args: [merchantId, String(member.environment)],
   });
   return c.json({ disputes: result.rows });
 });
@@ -519,7 +525,7 @@ merchantRoutes.post("/merchant-payments", requireAuth, requireRole("rider"), asy
   if (!outlet || outlet.status !== "active" || outlet.merchant_status !== "active") {
     return c.json({ error: "merchant_not_available" }, 409);
   }
-  if (outlet.environment !== order.environment) return c.json({ error: "environment_mismatch" }, 409);
+  if (await getPlatformEnvironment() !== order.environment) return c.json({ error: "environment_mismatch" }, 409);
   const related = await db.execute({
     sql: "SELECT 1 FROM merchant_members WHERE merchant_id = ? AND user_id = ? AND status = 'active' LIMIT 1",
     args: [String(outlet.merchant_id), user.sub],
@@ -654,7 +660,7 @@ merchantRoutes.post("/merchants/:id/settlement-accounts", requireAuth, async (c)
     return c.json({ error: "encryption_not_configured", message: "Settlement destinations cannot be stored until encryption is configured." }, 503);
   }
   const id = newId("msa");
-  const coolingHours = String(member.environment) === "sandbox" ? 0 : 24;
+  const coolingHours = member.environment === "sandbox" ? 0 : Number(await getOption("merchant_settlement_cooling_hours"));
   const encryptedAccountRef = await encryptSecret(parsed.data.accountRef);
   await db.execute({
     sql: `INSERT INTO merchant_settlement_accounts
@@ -702,8 +708,9 @@ merchantRoutes.post("/merchants/:id/settlement-quotes", requireAuth, async (c) =
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
   const account = await db.execute({
     sql: `SELECT * FROM merchant_settlement_accounts
-          WHERE id = ? AND merchant_id = ? AND status = 'verified' AND (cooling_until IS NULL OR cooling_until <= datetime('now'))`,
-    args: [parsed.data.settlementAccountId, merchantId],
+          WHERE id = ? AND merchant_id = ? AND status = 'verified' AND (cooling_until IS NULL OR cooling_until <= datetime('now'))
+            AND (? = 'sandbox' OR created_at <= datetime('now', ?))`,
+    args: [parsed.data.settlementAccountId, merchantId, String(member.environment), `-${Number(await getOption("merchant_settlement_cooling_hours"))} hours`],
   });
   if (!account.rows[0]) return c.json({ error: "settlement_account_not_ready" }, 409);
   const policy = await resolveMerchantPolicy(merchantId, String(member.trust_tier));
@@ -734,8 +741,8 @@ merchantRoutes.get("/merchants/:id/settlements", requireAuth, async (c) => {
   const result = await db.execute({
     sql: `SELECT id, merchant_id, settlement_account_id, amount, fee, total_debit, mode,
                  provider, provider_ref, status, failure_code, environment, created_at, updated_at
-          FROM merchant_settlements WHERE merchant_id=? ORDER BY created_at DESC LIMIT 100`,
-    args: [merchantId],
+          FROM merchant_settlements WHERE merchant_id=? AND environment=? ORDER BY created_at DESC LIMIT 100`,
+    args: [merchantId, String(member.environment)],
   });
   return c.json({ settlements: result.rows });
 });
@@ -765,8 +772,10 @@ merchantRoutes.post("/merchants/:id/settlements", requireAuth, async (c) => {
     sql: `SELECT q.*, a.type, a.provider AS destination_provider, a.account_ref, a.network_or_bank
           FROM merchant_settlement_quotes q
           JOIN merchant_settlement_accounts a ON a.id = q.settlement_account_id
-          WHERE q.id = ? AND q.merchant_id = ? AND q.used_at IS NULL AND q.expires_at > datetime('now')`,
-    args: [parsed.data.quoteId, merchantId],
+          WHERE q.id = ? AND q.merchant_id = ? AND q.environment = ? AND q.used_at IS NULL AND q.expires_at > datetime('now')
+            AND a.status = 'verified' AND (a.cooling_until IS NULL OR a.cooling_until <= datetime('now'))
+            AND (? = 'sandbox' OR a.created_at <= datetime('now', ?))`,
+    args: [parsed.data.quoteId, merchantId, String(member.environment), String(member.environment), `-${Number(await getOption("merchant_settlement_cooling_hours"))} hours`],
   });
   const quote = quoteResult.rows[0] as Row | undefined;
   if (!quote) return c.json({ error: "quote_expired_or_used" }, 409);
@@ -943,12 +952,12 @@ merchantRoutes.get("/admin/merchants", requireAuth, requireRole("admin"), requir
                  b.held, b.available, b.settling
           FROM merchants m
           LEFT JOIN merchant_kyc_cases k ON k.merchant_id = m.id
-          LEFT JOIN merchant_balances b ON b.merchant_id = m.id AND b.environment = m.environment
+          LEFT JOIN merchant_balances b ON b.merchant_id = m.id AND b.environment = ?
           WHERE NOT EXISTS (SELECT 1 FROM restaurants r WHERE r.merchant_id = m.id) AND ${demoPeopleFilter(viewing, "m.id")}
            ORDER BY m.created_at DESC`,
-    args: [],
+    args: [viewing],
   });
-  return c.json({ merchants: result.rows });
+  return c.json({ merchants: result.rows.map((merchant) => ({ ...merchant, environment: viewing })) });
 });
 
 const adminMerchantRangeSchema = z.enum(["day", "week", "month", "year"]);
@@ -961,6 +970,8 @@ const ADMIN_MERCHANT_RANGE_MODIFIER = {
 
 merchantRoutes.get("/admin/merchants/:id", requireAuth, requireRole("admin"), requirePermission("merchants.view"), async (c) => {
   const merchantId = String(c.req.param("id"));
+  const requested = c.req.query("environment");
+  const viewing = requested === "live" || requested === "sandbox" ? requested : await getPlatformEnvironment();
   const parsedRange = adminMerchantRangeSchema.safeParse(c.req.query("range") ?? "month");
   if (!parsedRange.success) return c.json({ error: "invalid_range" }, 400);
   const range = parsedRange.data;
@@ -979,12 +990,12 @@ merchantRoutes.get("/admin/merchants/:id", requireAuth, requireRole("admin"), re
                  approver.name AS approved_by_name, reviewer.name AS reviewed_by_name
           FROM merchants m
           LEFT JOIN merchant_kyc_cases k ON k.merchant_id = m.id
-          LEFT JOIN merchant_balances b ON b.merchant_id = m.id AND b.environment = m.environment
+          LEFT JOIN merchant_balances b ON b.merchant_id = m.id AND b.environment = ?
           LEFT JOIN users approver ON approver.id = m.approved_by
           LEFT JOIN users reviewer ON reviewer.id = k.reviewed_by
           WHERE m.id = ?
             AND NOT EXISTS (SELECT 1 FROM restaurants r WHERE r.merchant_id = m.id)`,
-    args: [merchantId],
+    args: [viewing, merchantId],
   });
   const merchant = merchantResult.rows[0] as Row | undefined;
   if (!merchant) return c.json({ error: "not_found" }, 404);
@@ -1029,9 +1040,9 @@ merchantRoutes.get("/admin/merchants/:id", requireAuth, requireRole("admin"), re
               FROM merchant_payments mp
               JOIN merchant_outlets o ON o.id = mp.outlet_id
               JOIN users u ON u.id = mp.rider_id
-              WHERE mp.merchant_id = ? AND mp.created_at >= datetime('now', ?)
+              WHERE mp.merchant_id = ? AND mp.environment = ? AND mp.created_at >= datetime('now', ?)
               ORDER BY mp.created_at DESC LIMIT 500`,
-        args: [merchantId, rangeModifier],
+        args: [merchantId, viewing, rangeModifier],
       }),
       db.execute({
         sql: `SELECT t.id, t.kind, t.reference_type, t.reference_id, t.description, t.created_at,
@@ -1039,10 +1050,10 @@ merchantRoutes.get("/admin/merchants/:id", requireAuth, requireRole("admin"), re
               FROM ledger_accounts a
               JOIN ledger_entries e ON e.account_id = a.id
               JOIN ledger_transactions t ON t.id = e.transaction_id
-              WHERE a.owner_type = 'merchant' AND a.owner_id = ?
+              WHERE a.owner_type = 'merchant' AND a.owner_id = ? AND a.environment = ?
                 AND t.created_at >= datetime('now', ?)
               ORDER BY t.created_at DESC LIMIT 500`,
-        args: [merchantId, rangeModifier],
+        args: [merchantId, viewing, rangeModifier],
       }),
       db.execute({
         sql: `SELECT s.id, s.amount, s.fee, s.total_debit, s.mode, s.status, s.provider,
@@ -1051,9 +1062,9 @@ merchantRoutes.get("/admin/merchants/:id", requireAuth, requireRole("admin"), re
                      '••••' || a.account_ref_last4 AS masked_account_ref
               FROM merchant_settlements s
               JOIN merchant_settlement_accounts a ON a.id = s.settlement_account_id
-              WHERE s.merchant_id = ? AND s.created_at >= datetime('now', ?)
+              WHERE s.merchant_id = ? AND s.environment = ? AND s.created_at >= datetime('now', ?)
               ORDER BY s.created_at DESC LIMIT 500`,
-        args: [merchantId, rangeModifier],
+        args: [merchantId, viewing, rangeModifier],
       }),
     ]);
     payments = paymentResult.rows as Row[];
@@ -1062,7 +1073,7 @@ merchantRoutes.get("/admin/merchants/:id", requireAuth, requireRole("admin"), re
   }
 
   return c.json({
-    merchant,
+    merchant: { ...merchant, environment: viewing },
     outlets: outletResult.rows,
     members: memberResult.rows,
     settlementAccounts: settlementAccountResult.rows,
@@ -1152,7 +1163,7 @@ merchantRoutes.post("/admin/merchants/:id/status", requireAuth, requireRole("adm
     before: { status: merchant.status }, after: { status: parsed.data.status }, ip: clientIp(c),
   });
   const updated = await db.execute({ sql: "SELECT * FROM merchants WHERE id = ?", args: [id] });
-  return c.json({ merchant: updated.rows[0] });
+  return c.json({ merchant: { ...updated.rows[0], environment: await getPlatformEnvironment() } });
 });
 
 const settlementAccountStatusSchema = z.object({ status: z.enum(["verified", "disabled"]) });

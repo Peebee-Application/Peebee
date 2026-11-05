@@ -62,6 +62,7 @@ const ROLES: OptionChoice[] = [
 ];
 
 export const OPTION_SETTINGS: SettingDef[] = [
+  { key: "merchant_settlement_cooling_hours", module: "platform", kind: "int", label: "Merchant payout destination cooling period", description: "Minimum age in hours of a verified payout destination before live withdrawals. Applies when returning from sandbox too; sandbox withdrawals have no waiting period.", default: 24, min: 0, max: 720, unit: "hours" },
   // ------------------------------------------------------------------ Storefront
   {
     key: "storefront_checkout_mode", module: "storefront", kind: "enum", label: "Web storefront checkout",
