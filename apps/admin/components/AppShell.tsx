@@ -6,6 +6,7 @@ import { AuthGate } from "./AuthGate";
 import { BottomNav } from "./BottomNav";
 import { BrandHeader } from "./BrandHeader";
 import { SettingsDrawer } from "./SettingsDrawer";
+import { SupportAlertsProvider } from "./SupportAlerts";
 import { Breadcrumbs } from "./shell/Breadcrumbs";
 import { CommandPalette } from "./shell/CommandPalette";
 import { Sidebar } from "./shell/Sidebar";
@@ -40,6 +41,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthGate>
+      <SupportAlertsProvider>
       {!isAuthPage && <BrandHeader onMenuClick={() => setDrawerOpen(true)} onSearch={openSearch} />}
       {!isAuthPage && <Sidebar onSearch={openSearch} />}
       {!isAuthPage && <SettingsDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onSearch={openSearch} />}
@@ -52,6 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       {!isAuthPage && <BottomNav onSettingsClick={() => setDrawerOpen(true)} />}
       {!isAuthPage && <Toaster />}
+      </SupportAlertsProvider>
     </AuthGate>
   );
 }

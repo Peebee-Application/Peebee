@@ -16,9 +16,11 @@ type Sender = "user" | "ai" | "agent" | "system";
 type Message = { id: number; from: Sender; text: string; at: string; agentName?: string };
 type Status = "ai" | "waiting" | "human" | "closed";
 type Session = { id: string; secret: string };
-type Config = { live: boolean; aiEnabled: boolean; humanEnabled: boolean };
+type Availability = { state: "online" | "offline"; reason: "hours" | "nobody" | null; offer: "talk" | "message" | "none"; hours: string | null; agentsOnline: number | null };
+type Config = { live: boolean; aiEnabled: boolean; humanEnabled: boolean; availability?: Availability | null };
+type Poll = { status: Status; agentName: string | null; position: number | null; leftOffline?: boolean; availability?: Availability | null; messages: Message[] };
 
-const GREETING = "Hi, I am the Peebee assistant. Ask me about orders, trips, the wallet or how this app works. You can talk to a person at any time.";
+const GREETING = "Hi, I am the Peebee assistant. Ask me about orders, trips, the wallet or how this app works. If you need a person, use the button above.";
 const POLL_MS = 3000;
 const POLL_HIDDEN_MS = 15000;
 const CHIPS = ["How does the wallet work?", "I have a problem with a payment", "How do I get paid?", "Something else"];
@@ -56,6 +58,11 @@ const CSS = `
 .pbhs-send:disabled{opacity:.45;cursor:default}
 .pbhs-note{padding:1rem;font-size:.85rem;color:rgb(var(--color-ink-500,92 102 112))}
 .pbhs :focus-visible{outline:2px solid rgb(var(--color-gold,201 162 39));outline-offset:2px}
+.pbhs-away{margin:0 1rem .6rem;padding:.7rem .9rem;border-radius:14px;border:1px solid rgb(var(--color-gold,201 162 39) / .6);font-size:.8rem;display:flex;flex-direction:column;gap:.5rem}
+.pbhs-away p{margin:0}
+.pbhs-away small{color:rgb(var(--color-ink-500,92 102 112))}
+.pbhs-away .pbhs-field{border-radius:12px}
+.pbhs-row{display:flex;gap:.5rem;flex-wrap:wrap}
 .pbhs-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 `;
 
@@ -73,6 +80,10 @@ export function HelpSupport({ app, apiBase, getToken }: { app: SupportAppId; api
   const [status, setStatus] = useState<Status>("ai");
   const [agentName, setAgentName] = useState<string | null>(null);
   const [position, setPosition] = useState<number | null>(null);
+  const [availability, setAvailability] = useState<Availability | null>(null);
+  const [leftOffline, setLeftOffline] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const [contact, setContact] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -106,13 +117,19 @@ export function HelpSupport({ app, apiBase, getToken }: { app: SupportAppId; api
       try {
         const c = await call<Config>(`/config?app=${encodeURIComponent(app)}`);
         if (!live) return;
-        setConfig(c);
-        const saved = c.live ? loadSession(app) : null;
+        setConfig(c); setAvailability(c.availability ?? null);
+        if (!c.live) return;
+        // This tab's chat, or (when signed in) the person's latest chat, so a reply left while they were away is waiting for them.
+        let saved = loadSession(app);
+        if (!saved && getToken?.()) {
+          const back = await call<Session>("/resume", { method: "POST", body: { app } }).catch(() => null);
+          if (back) { saved = { id: back.id, secret: back.secret }; saveSession(app, saved); }
+        }
         if (!saved) return;
         try {
-          const first = await call<{ status: Status; agentName: string | null; position: number | null; messages: Message[] }>(`/${saved.id}?after=0`, { secret: saved.secret });
+          const first = await call<Poll>(`/${saved.id}?after=0`, { secret: saved.secret });
           if (!live) return;
-          setSession(saved); setStatus(first.status); setAgentName(first.agentName); setPosition(first.position); merge(first.messages);
+          setSession(saved); setStatus(first.status); setAgentName(first.agentName); setPosition(first.position); setLeftOffline(Boolean(first.leftOffline)); if (first.availability) setAvailability(first.availability); merge(first.messages);
         } catch { saveSession(app, null); }
       } catch { if (live) setConfig({ live: false, aiEnabled: false, humanEnabled: false }); }
     })();
@@ -126,11 +143,11 @@ export function HelpSupport({ app, apiBase, getToken }: { app: SupportAppId; api
     let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {
       try {
-        const p = await call<{ status: Status; agentName: string | null; position: number | null; messages: Message[] }>(`/${session.id}?after=${lastId.current}`, { secret: session.secret });
+        const p = await call<Poll>(`/${session.id}?after=${lastId.current}`, { secret: session.secret });
         if (stopped) return;
         merge(p.messages.filter((m) => m.from !== "user"));
         lastId.current = Math.max(lastId.current, ...p.messages.map((m) => m.id), 0);
-        setAgentName(p.agentName); setPosition(p.position);
+        setAgentName(p.agentName); setPosition(p.position); if (p.availability) setAvailability(p.availability);
         if (p.status !== status) setStatus(p.status);
         if (p.status === "ai") return;
       } catch { /* a dropped connection waits for the next poll */ }
@@ -164,12 +181,14 @@ export function HelpSupport({ app, apiBase, getToken }: { app: SupportAppId; api
     } finally { setBusy(false); }
   }
 
-  async function toPerson() {
+  /** Asks for a person. While the team is away this is "leave a message", and the visitor may add a way to reach them. */
+  async function toPerson(contactLine?: string) {
     setError(null); setBusy(true);
     try {
       const s = await ensureSession();
-      const res = await call<{ status: Status; position: number | null }>(`/${s.id}/handoff`, { method: "POST", secret: s.secret });
-      setStatus(res.status); setPosition(res.position);
+      const res = await call<{ status: Status; position: number | null; leftOffline?: boolean; availability?: Availability | null }>(`/${s.id}/handoff`, { method: "POST", secret: s.secret, body: contactLine?.trim() ? { contact: contactLine.trim() } : {} });
+      setStatus(res.status); setPosition(res.position); setLeftOffline(Boolean(res.leftOffline)); if (res.availability) setAvailability(res.availability);
+      setComposing(false);
       const fresh = await call<{ messages: Message[] }>(`/${s.id}?after=${lastId.current}`, { secret: s.secret });
       merge(fresh.messages);
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
@@ -191,9 +210,12 @@ export function HelpSupport({ app, apiBase, getToken }: { app: SupportAppId; api
 
   const withPerson = status === "waiting" || status === "human";
   const ended = status === "closed";
-  const sub = status === "human" ? `${agentName ?? "Support agent"}, a person on the team` : status === "waiting" ? "Finding a support agent" : "AI assistant, replies instantly";
-  // The queue card below says the same thing as the server's "Connecting you…" line.
-  const visible = messages.filter((m) => !(m.from === "system" && m.text.startsWith("Connecting you to a support agent")));
+  const offer = availability?.offer ?? (config.humanEnabled ? "talk" : "none");
+  const sub = status === "human" ? `${agentName ?? "Support agent"}, a person on the team` : status === "waiting" ? (leftOffline ? "Your message is with the team" : "Finding a support agent") : offer === "message" ? "AI assistant · the team is away" : "AI assistant, replies instantly";
+  const signedIn = Boolean(getToken?.());
+  const away = (availability?.hours ? ` We are on ${availability.hours}.` : "");
+  // The waiting card below says what the server's "Connecting you…" / "team is away" line says.
+  const visible = messages.filter((m) => !(m.from === "system" && (m.text.startsWith("Connecting you to a support agent") || m.text.startsWith("The team is away right now"))));
   const shown = messages.length === 0 ? [{ id: 0, from: "ai" as Sender, text: GREETING, at: "" }] : visible;
 
   return (
@@ -207,8 +229,10 @@ export function HelpSupport({ app, apiBase, getToken }: { app: SupportAppId; api
           </span>
           {withPerson ? (
             <button type="button" className="pbhs-swap" onClick={backToAI} disabled={busy}>Back to the AI assistant</button>
-          ) : config.humanEnabled ? (
-            <button type="button" className="pbhs-swap" data-primary onClick={toPerson} disabled={busy}>Talk to a person</button>
+          ) : offer === "talk" ? (
+            <button type="button" className="pbhs-swap" data-primary onClick={() => void toPerson()} disabled={busy}>Talk to a person</button>
+          ) : offer === "message" ? (
+            <button type="button" className="pbhs-swap" data-primary onClick={() => setComposing((v) => !v)} disabled={busy} aria-expanded={composing}>Leave a message</button>
           ) : null}
         </div>
         <ol ref={list} className="pbhs-list" aria-live="polite" aria-label="Messages">
@@ -222,7 +246,13 @@ export function HelpSupport({ app, apiBase, getToken }: { app: SupportAppId; api
           ))}
           {status === "waiting" && (
             <li className="pbhs-queue">
-              <span><b>Connecting you to a support agent</b><small>{position && position > 1 ? `You are number ${position} in the queue. ` : ""}Stay on this page and a person from the team will join.</small></span>
+              {leftOffline ? (
+                <span><b>Your message is with the team</b><small>The team is away right now.{away} We will reply right here{signedIn ? ", and send you a notification when we do" : ""}. You can leave this page{signedIn ? "" : " and come back to it in this tab"}.</small></span>
+              ) : availability?.agentsOnline === 0 ? (
+                <span><b>We have alerted the team</b><small>Nobody is watching the chat this second, so it may take a few minutes. You can leave this page: we will reply here{signedIn ? " and send you a notification" : ""}.</small></span>
+              ) : (
+                <span><b>Connecting you to a support agent</b><small>{position && position > 1 ? `You are number ${position} in the queue. ` : ""}Stay on this page and a person from the team will join.</small></span>
+              )}
             </li>
           )}
           {ended && <li className="pbhs-sys">The support agent ended the chat. You can keep asking the AI assistant.</li>}
@@ -231,6 +261,17 @@ export function HelpSupport({ app, apiBase, getToken }: { app: SupportAppId; api
             <li className="pbhs-chips">{CHIPS.map((c) => <button key={c} type="button" className="pbhs-chip" onClick={() => send(c)}>{c}</button>)}</li>
           )}
         </ol>
+        {composing && status === "ai" && (
+          <div className="pbhs-away" role="group" aria-label="Leave a message for the team">
+            <p><b>The team is away right now.</b>{away}</p>
+            <small>Your conversation so far goes to the team, and they reply here{signedIn ? " (we will send you a notification)" : ""}. Add a phone number or email if you would like to be reached outside this chat. It is optional.</small>
+            <div className="pbhs-field"><input aria-label="Phone or email (optional)" value={contact} maxLength={120} onChange={(e) => setContact(e.target.value)} placeholder="Phone or email (optional)" autoComplete="off" /></div>
+            <div className="pbhs-row">
+              <button type="button" className="pbhs-swap" style={{ marginLeft: 0 }} data-primary disabled={busy} onClick={() => void toPerson(contact)}>Leave my message</button>
+              <button type="button" className="pbhs-swap" style={{ marginLeft: 0 }} disabled={busy} onClick={() => setComposing(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
         {error && <p role="alert" className="pbhs-note" style={{ paddingTop: 0, paddingBottom: ".4rem", color: "rgb(185 28 28)" }}>{error}</p>}
         <form className="pbhs-form" onSubmit={(e: FormEvent) => { e.preventDefault(); void send(text); }}>
           <label className="pbhs-sr" htmlFor="pbhs-input">Message</label>

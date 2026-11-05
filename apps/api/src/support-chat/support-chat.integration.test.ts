@@ -93,7 +93,8 @@ test("support chat: assistant, hand-over to a person, and back", async (t) => {
       app.request(`/v1/support-chat${path}`, { method, headers: { "X-Chat-Secret": s, "Content-Type": "application/json", "cf-connecting-ip": "1.2.3.4" }, body: body === undefined ? undefined : JSON.stringify(body) });
 
     await t.test("config is live once the tables exist", async () => {
-      assert.deepEqual(await json(await app.request("/v1/support-chat/config")), { live: true, aiEnabled: true, humanEnabled: true });
+      const cfg = await json(await app.request("/v1/support-chat/config"));
+      assert.deepEqual([cfg.live, cfg.aiEnabled, cfg.humanEnabled, cfg.availability.offer], [true, true, true, "talk"]);
     });
 
     await t.test("a visitor starts a chat and the assistant answers", async () => {

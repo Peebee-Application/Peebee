@@ -1,6 +1,7 @@
 "use client";
 
 import { resetNotificationSnapshots } from "@peebee/shared";
+import { unsubscribeFromPush } from "./push";
 
 import type { AuthUser } from "@peebee/shared";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
@@ -59,6 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // server for the rest of its life. That matters most here: this is the
     // account that can read every rider's National ID.
     const revoked = api.logout().catch(() => undefined);
+    // Stop this device getting support-chat alerts for the account that just signed out (reads the token before it is removed).
+    void unsubscribeFromPush();
     // A shared device shouldn't see this account's cached data — the
     // service worker's runtime cache is keyed by URL, not by who's signed
     // in, so it has to be cleared explicitly. Matters most here: this is

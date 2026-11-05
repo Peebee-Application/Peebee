@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Menu, Search } from "lucide-react";
+import { Bell, Headset, Menu, Search } from "lucide-react";
 import { BrandLogo } from "./BrandLogo";
 import { ThemeToggle } from "./ThemeToggle";
 import { useResolvedTheme } from "../lib/theme";
+import { useSupportAlerts } from "./SupportAlerts";
 
 export function BrandHeader({ onMenuClick, onSearch }: { onMenuClick?: () => void; onSearch?: () => void }) {
   const activeTheme = useResolvedTheme();
   const isDarkMode = activeTheme === "dark";
+  const support = useSupportAlerts();
 
   return (
     <header className="customer-header sticky top-0 z-40 transition-colors">
@@ -55,6 +57,22 @@ export function BrandHeader({ onMenuClick, onSearch }: { onMenuClick?: () => voi
             >
               <Search className="h-4.5 w-4.5" strokeWidth={2} aria-hidden />
             </button>
+          )}
+          {support.enabled && (
+            <Link
+              href="/support-chat"
+              aria-label={support.waiting > 0 ? `Support chat: ${support.waiting} waiting for a person` : "Support chat"}
+              className={`relative flex h-8 w-8 items-center justify-center rounded-full transition active:opacity-60 ${
+                isDarkMode ? "text-black hover:bg-black/10" : "text-white hover:bg-white/10"
+              }`}
+            >
+              <Headset className="h-4.5 w-4.5" strokeWidth={2} aria-hidden />
+              {support.waiting > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-black leading-none text-white">
+                  {support.waiting > 9 ? "9+" : support.waiting}
+                </span>
+              )}
+            </Link>
           )}
           <Link
             href="/activity"

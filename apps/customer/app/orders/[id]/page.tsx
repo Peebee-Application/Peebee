@@ -1,5 +1,6 @@
 "use client";
 
+import { RideJourney } from "../../../components/ride/RideJourney";
 import { RideStopsList } from "../../../components/ride/RideStopsList";
 import { useRegisterNavPrimaryAction } from "../../../lib/nav-primary-action";
 import { useChatDrawer } from "../../../lib/chat-drawer";
@@ -539,6 +540,81 @@ export default function OrderDetailPage() {
   const matatuLeg = detail.relay?.legs.find((l) => l.kind === "matatu");
   const onMatatu = !order.rider_id && (matatuLeg?.status === "in_transit" || matatuLeg?.status === "arrived");
 
+  const overlays = (
+    <>
+      <BottomDrawer
+        isOpen={cancelConfirm !== null}
+        onClose={() => setCancelConfirm(null)}
+        title={cancelConfirm === "delete" ? t("order_delete_title") : t("order_cancel_title")}
+      >
+        <p className="text-sm text-ink-500">
+          {cancelConfirm === "delete"
+            ? t("order_delete_note")
+            : timeFees?.cancellationDue
+              ? `Your rider has already started the journey. Cancelling now will charge ${formatUgx(timeFees.cancellationDue)} from your main wallet. If your wallet is empty, it will show as money owed and your next top-up will clear it.`
+              : order.rider_id ? t("order_cancel_note_rider") : t("order_cancel_note")}
+        </p>
+        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setCancelConfirm(null)}
+            disabled={busy}
+            className="min-h-11 flex-1 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink disabled:opacity-60"
+          >
+            {t("order_never_mind")}
+          </button>
+          <button
+            type="button"
+            onClick={cancelConfirm === "delete" ? deleteThisOrder : cancelThisOrder}
+            disabled={busy}
+            className="min-h-11 flex-1 rounded-full bg-red-600 px-4 text-sm font-bold text-white disabled:opacity-60"
+          >
+            {busy ? t("order_working") : cancelConfirm === "delete" ? t("order_delete_order") : t("order_cancel_order")}
+          </button>
+        </div>
+      </BottomDrawer>
+      {waitingNoticeOpen && timeFees && (
+        <Modal title="Waiting fee notice" onClose={() => setWaitingNoticeOpen(false)}>
+          <div className="space-y-4">
+            <p className="text-sm leading-6 text-ink-500">
+              {timeFees.waitingDue > 0
+                ? `Your rider has waited beyond the free time. A waiting fee of ${formatUgx(timeFees.waitingDue)} will be charged from your main wallet when this stop is completed.`
+                : `Your rider has arrived. You have about ${waitingMinutesLeft} minute${waitingMinutesLeft === 1 ? "" : "s"} left before the waiting fee applies.`}
+            </p>
+            <button
+              type="button"
+              onClick={() => setWaitingNoticeOpen(false)}
+              className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink"
+            >
+              Okay
+            </button>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+
+  // A ride is not a shopping order: it gets its own four-moment screen (on the way, here, ride on, arrived).
+  if (order.is_ride && order.stage !== "Cancelled") {
+    return (
+      <>
+        <PracticeRiderCall orderId={orderId} stage={order.stage} riderName={order.rider_name ?? null} isRide />
+        <RideJourney
+          detail={detail}
+          busy={busy}
+          error={error}
+          canCancel={canCancel}
+          onCancel={() => setCancelConfirm("cancel")}
+          onChanged={() => void load().catch(() => {})}
+          onRated={handleRated}
+          onComplete={() => run(() => api.handoverOrder(orderId, order.pin_code as string))}
+        />
+        {overlays}
+      </>
+    );
+  }
+
   return (
     <div className="space-y-6 px-4 pt-4">
       <PracticeRiderCall orderId={orderId} stage={order.stage} riderName={order.rider_name ?? null} isRide={!!order.is_ride} />
@@ -868,56 +944,7 @@ export default function OrderDetailPage() {
       </section>
       )}
 
-      <BottomDrawer
-        isOpen={cancelConfirm !== null}
-        onClose={() => setCancelConfirm(null)}
-        title={cancelConfirm === "delete" ? t("order_delete_title") : t("order_cancel_title")}
-      >
-        <p className="text-sm text-ink-500">
-          {cancelConfirm === "delete"
-            ? t("order_delete_note")
-            : timeFees?.cancellationDue
-              ? `Your rider has already started the journey. Cancelling now will charge ${formatUgx(timeFees.cancellationDue)} from your main wallet. If your wallet is empty, it will show as money owed and your next top-up will clear it.`
-              : order.rider_id ? t("order_cancel_note_rider") : t("order_cancel_note")}
-        </p>
-        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setCancelConfirm(null)}
-            disabled={busy}
-            className="min-h-11 flex-1 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink disabled:opacity-60"
-          >
-            {t("order_never_mind")}
-          </button>
-          <button
-            type="button"
-            onClick={cancelConfirm === "delete" ? deleteThisOrder : cancelThisOrder}
-            disabled={busy}
-            className="min-h-11 flex-1 rounded-full bg-red-600 px-4 text-sm font-bold text-white disabled:opacity-60"
-          >
-            {busy ? t("order_working") : cancelConfirm === "delete" ? t("order_delete_order") : t("order_cancel_order")}
-          </button>
-        </div>
-      </BottomDrawer>
-      {waitingNoticeOpen && timeFees && (
-        <Modal title="Waiting fee notice" onClose={() => setWaitingNoticeOpen(false)}>
-          <div className="space-y-4">
-            <p className="text-sm leading-6 text-ink-500">
-              {timeFees.waitingDue > 0
-                ? `Your rider has waited beyond the free time. A waiting fee of ${formatUgx(timeFees.waitingDue)} will be charged from your main wallet when this stop is completed.`
-                : `Your rider has arrived. You have about ${waitingMinutesLeft} minute${waitingMinutesLeft === 1 ? "" : "s"} left before the waiting fee applies.`}
-            </p>
-            <button
-              type="button"
-              onClick={() => setWaitingNoticeOpen(false)}
-              className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink"
-            >
-              Okay
-            </button>
-          </div>
-        </Modal>
-      )}
+      {overlays}
     </div>
   );
 }

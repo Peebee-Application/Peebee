@@ -1,16 +1,18 @@
 "use client";
 
 import { hasPermission } from "@peebee/shared";
-import { Headset, Send, UserRound, Bot } from "lucide-react";
+import { BellRing, Headset, Send, UserRound, Bot } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OptionSettingsPanel } from "../../components/OptionSettingsPanel";
 import { PageHeader } from "../../components/SettingsPageShell";
 import { useAuth } from "../../lib/auth-context";
 import { adminRequest, requestErrorMessage } from "../../lib/admin-request";
+import { enablePush, pushState, type PushState } from "../../lib/push";
+import { useSupportAlerts } from "../../components/SupportAlerts";
 
-type ChatRow = { appLabel: string; person: string | null; id: string; status: "waiting" | "human" | "closed"; agentName: string | null; mine: boolean; page: string | null; waitingSince: string | null; startedAt: string; updatedAt: string; lastText: string | null; lastFrom: string | null; visitorMessages: number };
+type ChatRow = { contact: string | null; leftOffline: boolean; appLabel: string; person: string | null; id: string; status: "waiting" | "human" | "closed"; agentName: string | null; mine: boolean; page: string | null; waitingSince: string | null; startedAt: string; updatedAt: string; lastText: string | null; lastFrom: string | null; visitorMessages: number };
 type Message = { id: number; from: "user" | "ai" | "agent" | "system"; text: string; at: string; agentName?: string };
-type Detail = { appLabel: string; person: string | null; id: string; status: string; agentName: string | null; mine: boolean; page: string | null; messages: Message[] };
+type Detail = { contact: string | null; leftOffline: boolean; appLabel: string; person: string | null; id: string; status: string; agentName: string | null; mine: boolean; page: string | null; messages: Message[] };
 
 const ago = (value: string | null) => {
   if (!value) return "";
@@ -36,8 +38,40 @@ export default function SupportChatPage() {
           </button>
         ))}
       </div>
-      {tab === "inbox" ? <Inbox /> : <ChatSettings canManage={canManage} />}
+      {tab === "inbox" ? <><AlertsCard /><Inbox /></> : <ChatSettings canManage={canManage} />}
     </div>
+  );
+}
+
+/** This device's alerts: with them on, a chat asking for a person reaches this phone or computer even when the admin app is closed. */
+function AlertsCard() {
+  const support = useSupportAlerts();
+  const [state, setState] = useState<PushState | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const first = setTimeout(() => void pushState().then(setState).catch(() => setState("unsupported")), 0);
+    return () => clearTimeout(first);
+  }, []);
+  const text: Record<PushState, string> = {
+    on: "This device will be alerted when someone asks for a person, even when the admin app is closed.",
+    off: "Turn alerts on for this device, so you hear about a waiting chat even when the admin app is closed.",
+    blocked: "Alerts are blocked for this site in your browser. Allow notifications for the admin site in the browser's site settings, then come back.",
+    unsupported: "This browser cannot receive alerts while the app is closed. On a phone, add the admin app to your home screen first. A badge and a sound still work while the app is open.",
+  };
+  return (
+    <section className="home-card flex flex-wrap items-center gap-3" aria-label="Alerts on this device">
+      <BellRing className="h-5 w-5 shrink-0 text-gold" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold text-ink">
+          Alerts on this device: {state === "on" ? "on" : state === "blocked" ? "blocked" : state === "unsupported" ? "not available" : "off"}
+          {support.enabled && support.agentsOnline != null && <span className="ml-2 text-xs font-semibold text-ink-500">{support.agentsOnline} {support.agentsOnline === 1 ? "person" : "people"} online</span>}
+        </p>
+        <p className="text-xs text-ink-500">{state ? text[state] : "Checking…"}</p>
+      </div>
+      {state === "off" && (
+        <button type="button" disabled={busy} onClick={async () => { setBusy(true); setState(await enablePush()); setBusy(false); }} className="min-h-10 rounded-full bg-gold px-5 text-xs font-bold text-ink disabled:opacity-50">Turn on alerts</button>
+      )}
+    </section>
   );
 }
 
@@ -81,11 +115,11 @@ function Inbox() {
               <button type="button" onClick={() => setSelected(c.id)} aria-current={selected === c.id}
                 className={`w-full rounded-[var(--radius-card)] border p-3 text-left transition ${selected === c.id ? "border-gold bg-gold/10" : "border-ink/10"}`}>
                 <span className="flex items-center justify-between gap-2 text-xs">
-                  <b className={c.status === "waiting" ? "text-gold" : "text-ink-600"}>{STATUS[c.status]}</b>
+                  <b className={c.status === "waiting" ? "text-gold" : "text-ink-600"}>{STATUS[c.status]}{c.leftOffline && c.status === "waiting" ? " · left while away" : ""}</b>
                   <span className="text-ink-400">{ago(c.waitingSince ?? c.updatedAt)}</span>
                 </span>
                 <span className="mt-1 block truncate text-sm text-ink">{c.lastText ?? "No messages yet"}</span>
-                <span className="mt-0.5 block truncate text-[11px] font-semibold text-ink-500">{c.person ?? "Not signed in"} · {c.appLabel}</span>
+                <span className="mt-0.5 block truncate text-[11px] font-semibold text-ink-500">{c.person ?? "Not signed in"} · {c.appLabel}{c.contact ? ` · ${c.contact}` : ""}</span>
                 <span className="mt-0.5 block truncate text-[11px] text-ink-400">{c.visitorMessages} message{c.visitorMessages === 1 ? "" : "s"}{c.page ? ` · from ${c.page}` : ""}{c.agentName ? ` · ${c.mine ? "you" : c.agentName}` : ""}</span>
               </button>
             </li>
@@ -148,7 +182,7 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void | P
   return (
     <div className="flex h-full flex-col rounded-[var(--radius-card)] border border-ink/10">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink/10 p-3">
-        <p className="text-sm font-bold text-ink">{detail ? `${detail.person ?? "Not signed in"} · ${detail.appLabel} · ` : ""}{detail ? STATUS[detail.status] : "Loading…"}{detail?.agentName && detail.status === "human" ? ` · ${mine ? "you" : detail.agentName}` : ""}</p>
+        <p className="text-sm font-bold text-ink">{detail ? `${detail.person ?? "Not signed in"} · ${detail.appLabel} · ${detail.contact ? `reach at ${detail.contact} · ` : ""}` : ""}{detail ? STATUS[detail.status] : "Loading…"}{detail?.agentName && detail.status === "human" ? ` · ${mine ? "you" : detail.agentName}` : ""}</p>
         <div className="flex gap-2">
           {detail?.status === "waiting" && <button type="button" disabled={busy} onClick={() => act("claim")} className="min-h-9 rounded-full bg-gold px-4 text-xs font-bold text-ink disabled:opacity-50">Take this chat</button>}
           {(detail?.status === "waiting" || (detail?.status === "human" && mine)) && <button type="button" disabled={busy} onClick={() => act("close")} className="min-h-9 rounded-full border border-ink/10 px-4 text-xs font-bold text-ink-600 disabled:opacity-50">End chat</button>}
