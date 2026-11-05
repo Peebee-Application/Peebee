@@ -131,6 +131,7 @@ export default function Sales() {
   const [retry, setRetry] = useState("");
   const [recordFilter, setRecordFilter] = useState<string>("all");
   const [recordSearch, setRecordSearch] = useState("");
+  const [recordLimit, setRecordLimit] = useState(10);
   const [successInfo, setSuccessInfo] = useState<{
     name: string;
     type: OnboardingType;
@@ -139,6 +140,7 @@ export default function Sales() {
   } | null>(null);
 
   const requestId = useRef("");
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [step, tab]);
   const draft = drafts[type];
 
   const totalSteps = type === "customer" ? 3 : 5;
@@ -394,7 +396,7 @@ export default function Sales() {
 
   function field(key: string, labelText: string, required = false, kind = "text", placeholder = "") {
     return (
-      <label key={key} className="block text-sm font-semibold">
+      <label key={key} className="block text-base font-bold">
         {labelText}
         <input
           type={kind}
@@ -416,7 +418,7 @@ export default function Sales() {
 
   function upload(key: string, uploadLabel: string, required = false, photoOnly = false) {
     return (
-      <label className="block text-sm font-semibold">
+      <label className="block text-base font-bold">
         {uploadLabel}
         <input
           key={`${type}-${key}-${requestId.current}`}
@@ -428,7 +430,7 @@ export default function Sales() {
           }
           required={required && !defer && !draft.files[key]}
           onChange={(e) => file(key, e.target.files?.[0])}
-          className="sales-input mt-2 text-xs"
+          className="sales-input mt-2 text-base"
         />
         <span className="mt-1 block text-xs font-normal text-ink-500">
           {photoOnly ? "JPG, PNG or WebP, up to 4 MB" : "JPG, PNG, WebP or PDF, up to 8 MB"}
@@ -505,52 +507,19 @@ export default function Sales() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-4xl px-4 py-6 pb-[calc(96px+env(safe-area-inset-bottom))] sm:px-6">
-        {/* Metric summary banner */}
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-ink-500">
-              Grow the Peebee community
-            </p>
-            <h1 className="mt-1 text-2xl font-black sm:text-3xl">Onboard with confidence.</h1>
-            <p className="mt-1 text-sm text-ink-500">
-              Streamlined step-by-step account activation for all user types.
-            </p>
+        {/* Stats */}
+        {(tab === "records" || step === 1) && (
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <div className="home-card !p-4 text-center">
+            <strong className="block text-4xl font-black tabular-nums">{records.length}</strong>
+            <p className="text-base font-semibold text-ink-500">Registered</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface))] px-3.5 py-2">
-              <strong className="text-xl font-black">{records.length}</strong>
-              <p className="text-[11px] font-semibold text-ink-500">Registrations</p>
-            </div>
-            <div className="rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface))] px-3.5 py-2">
-              <strong className="text-xl font-black text-green">{activatedCount}</strong>
-              <p className="text-[11px] font-semibold text-ink-500">Activated</p>
-            </div>
+          <div className="home-card !p-4 text-center">
+            <strong className="block text-4xl font-black tabular-nums text-green">{activatedCount}</strong>
+            <p className="text-base font-semibold text-ink-500">Activated</p>
           </div>
         </div>
-
-        {/* Section Tabs */}
-        <nav aria-label="Onboarding sections" className="mb-6 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setTab("new")}
-            className={`sales-tab ${tab === "new" ? "sales-tab-active" : ""}`}
-          >
-            <Plus size={16} />
-            New registration
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("records")}
-            className={`sales-tab ${tab === "records" ? "sales-tab-active" : ""}`}
-          >
-            Records ({records.length})
-          </button>
-          {me?.superAdmin && (
-            <a href="https://admin.peebee.online/onboarding" className="sales-tab ml-auto">
-              Manage agents
-            </a>
-          )}
-        </nav>
+        )}
 
         {notice && (
           <div
@@ -579,23 +548,12 @@ export default function Sales() {
             {/* STEP 1: Select User Type */}
             {step === 1 && (
               <section className="space-y-6">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-xs font-black text-gold">
-                      Step 1 of {totalSteps}
-                    </span>
-                    <span className="text-xs font-semibold text-ink-500">Select account type</span>
-                  </div>
-                  <h2 className="mt-2 text-xl font-black sm:text-2xl">Who are you onboarding?</h2>
-                  <p className="mt-1 text-sm text-ink-500">
-                    Choose an account type below. You will automatically proceed to the next step.
-                  </p>
-                </div>
+                <h2 className="text-2xl font-black">Who are you registering?</h2>
 
                 <div
                   role="group"
                   aria-label="Account types"
-                  className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3"
+                  className="grid grid-cols-2 gap-3 lg:grid-cols-4"
                 >
                   {ONBOARDING_TYPES.map((value) => {
                     const Icon = icons[value];
@@ -605,32 +563,22 @@ export default function Sales() {
                         key={value}
                         type="button"
                         onClick={() => handleSelectType(value)}
-                        className={`group relative flex flex-col items-start rounded-2xl border p-5 text-left transition-all duration-200 active:scale-[0.98] ${
+                        className={`group relative flex min-h-32 flex-col items-center justify-center gap-2 rounded-2xl border p-3 text-center transition-all duration-200 active:scale-[0.98] ${
                           isCurrent
                             ? "border-gold bg-gold/10 shadow-sm"
                             : "border-[var(--border-faint)] bg-[rgb(var(--surface))] hover:border-gold/40"
                         }`}
                       >
                         <div
-                          className={`mb-3 flex h-11 w-11 items-center justify-center rounded-xl transition ${
+                          className={`flex h-14 w-14 items-center justify-center rounded-2xl transition ${
                             isCurrent
                               ? "bg-gold text-ink-gold"
                               : "bg-[rgb(var(--surface-input))] text-gold group-hover:bg-gold group-hover:text-ink-gold"
                           }`}
                         >
-                          <Icon size={24} />
+                          <Icon size={28} />
                         </div>
-                        <h3 className="text-base font-black text-ink">{labels[value]}</h3>
-                        <p className="mt-1 text-xs text-ink-500 leading-relaxed">
-                          {subtitles[value]}
-                        </p>
-                        <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-gold">
-                          <span>Select & proceed</span>
-                          <ArrowRight
-                            size={14}
-                            className="transition-transform group-hover:translate-x-1"
-                          />
-                        </div>
+                        <h3 className="text-lg font-black leading-tight text-ink">{labels[value]}</h3>
                       </button>
                     );
                   })}
@@ -645,19 +593,19 @@ export default function Sales() {
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="flex items-center gap-1.5 text-xs font-bold text-ink-500 hover:text-ink"
+                    className="flex min-h-12 items-center gap-1.5 text-base font-bold text-ink-500 hover:text-ink"
                   >
-                    <ArrowLeft size={16} />
+                    <ArrowLeft size={22} />
                     <span>Back</span>
                   </button>
 
                   <div className="flex items-center gap-2">
-                    <span className="flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-bold text-ink">
-                      <ActiveTypeIcon size={14} className="text-gold" />
+                    <span className="flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-4 py-1.5 text-base font-bold text-ink">
+                      <ActiveTypeIcon size={20} className="text-gold" />
                       <span>{labels[type]}</span>
                     </span>
-                    <span className="text-xs font-bold text-ink-500">
-                      Step {step} of {totalSteps}
+                    <span className="text-base font-bold text-ink-500">
+                      {step}/{totalSteps}
                     </span>
                   </div>
                 </div>
@@ -676,17 +624,11 @@ export default function Sales() {
             {step === 2 && (
               <div className="home-card space-y-6">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-ink-500">
-                    Step 2 of {totalSteps} · {labels[type]}
-                  </p>
-                  <h2 className="mt-1 text-xl font-black">Contact Details</h2>
-                  <p className="mt-1 text-xs text-ink-500">
-                    Enter the primary contact person. Their activation invitation will be sent here.
-                  </p>
+                  <h2 className="text-2xl font-black">Contact Details</h2>
                 </div>
 
                 <div className="space-y-4">
-                  <label className="block text-sm font-semibold">
+                  <label className="block text-base font-bold">
                     Full name
                     <input
                       required
@@ -700,7 +642,7 @@ export default function Sales() {
                   </label>
 
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="block text-sm font-semibold">
+                    <label className="block text-base font-bold">
                       Phone number
                       <input
                         type="tel"
@@ -712,7 +654,7 @@ export default function Sales() {
                       />
                     </label>
 
-                    <label className="block text-sm font-semibold">
+                    <label className="block text-base font-bold">
                       Email address
                       <input
                         type="email"
@@ -728,12 +670,13 @@ export default function Sales() {
                     Provide at least a phone number or email address.
                   </p>
 
-                  <label className="block text-sm font-semibold">
+                  <label className="block text-base font-bold">
                     Preferred activation channel
                     <Select
                       value={channel}
                       onValueChange={(val) => setChannel(val as ActivationChannel)}
                       className="mt-2"
+                      sizing="stretch"
                     >
                       <option value="auto">Best available channel (Auto)</option>
                       <option value="whatsapp">WhatsApp message</option>
@@ -743,7 +686,7 @@ export default function Sales() {
                   </label>
                 </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-[var(--border-faint)]">
+                <div className="flex flex-col-reverse gap-3 border-t border-[var(--border-faint)] pt-4 [&>*]:w-full">
                   <button
                     type="button"
                     onClick={handleBack}
@@ -758,7 +701,7 @@ export default function Sales() {
                     className="sales-primary"
                   >
                     <span>
-                      {type === "customer" ? "Review & Confirm" : "Continue to Profile"}
+                      {type === "customer" ? "Review & Confirm" : "Next"}
                     </span>
                     <ArrowRight size={16} />
                   </button>
@@ -770,10 +713,7 @@ export default function Sales() {
             {step === 3 && type !== "customer" && (
               <div className="home-card space-y-6">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-ink-500">
-                    Step 3 of {totalSteps} · {labels[type]}
-                  </p>
-                  <h2 className="mt-1 text-xl font-black">
+                  <h2 className="text-2xl font-black">
                     {type === "rider"
                       ? "Rider & Stage Profile"
                       : type === "partner"
@@ -784,9 +724,6 @@ export default function Sales() {
                       ? "Pharmacy & Chemist Profile"
                       : "Business Profile"}
                   </h2>
-                  <p className="mt-1 text-xs text-ink-500">
-                    Capture operating and registration details.
-                  </p>
                 </div>
 
                 {/* Rider fields */}
@@ -810,7 +747,7 @@ export default function Sales() {
                 {type === "partner" && (
                   <div className="space-y-4">
                     <div>
-                      <span className="block text-sm font-semibold mb-2">Partner role</span>
+                      <span className="block text-base font-bold mb-2">Partner role</span>
                       <div className="grid grid-cols-3 gap-2">
                         {(["driver", "owner", "both"] as const).map((r) => (
                           <button
@@ -859,13 +796,14 @@ export default function Sales() {
                 {type === "restaurant" && (
                   <div className="grid gap-4 sm:grid-cols-2">
                     {field("businessName", "Business name", true, "text", "e.g. Kampala Bistro")}
-                    <label className="block text-sm font-semibold">
+                    <label className="block text-base font-bold">
                       Food business type
                       <Select
                         required={!defer}
                         value={String(draft.profile.businessType ?? "restaurant")}
                         onValueChange={(val) => profile("businessType", val)}
                         className="mt-2"
+                        sizing="stretch"
                       >
                         {FOOD_BUSINESS_TYPES.map((c) => (
                           <option key={c.value} value={c.value}>
@@ -887,13 +825,14 @@ export default function Sales() {
                     {field("businessName", "Store display name", true, "text", "e.g. Fresh Mart")}
                     {field("legalName", "Legal business name", false, "text", "e.g. Fresh Mart Ltd")}
                     {field("outletName", "Outlet branch name", false, "text", "e.g. Main Branch - Nakasero")}
-                    <label className="block text-sm font-semibold">
+                    <label className="block text-base font-bold">
                       Store category
                       <Select
                         required={!defer}
                         value={String(draft.profile.categoryId ?? "")}
                         onValueChange={(val) => profile("categoryId", val)}
                         className="mt-2"
+                        sizing="stretch"
                       >
                         <option value="">Choose category</option>
                         {categories.map((c) => (
@@ -916,12 +855,13 @@ export default function Sales() {
                     {field("outletName", "Outlet / Station branch", true, "text", "e.g. Shell Bugolobi")}
                     {field("address", "Physical station address", true, "text", "Jinja Road, Bugolobi")}
                     {field("activePumps", "Active pump count", false, "number", "4")}
-                    <label className="block text-sm font-semibold">
+                    <label className="block text-base font-bold">
                       Manager role
                       <Select
                         value={String(draft.profile.managerRole ?? "station_manager")}
                         onValueChange={(val) => profile("managerRole", val)}
                         className="mt-2"
+                        sizing="stretch"
                       >
                         <option value="station_manager">Station Manager</option>
                         <option value="dealer">Dealer / Owner</option>
@@ -958,7 +898,7 @@ export default function Sales() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-4 border-t border-[var(--border-faint)]">
+                <div className="flex flex-col-reverse gap-3 border-t border-[var(--border-faint)] pt-4 [&>*]:w-full">
                   <button
                     type="button"
                     onClick={handleBack}
@@ -972,7 +912,7 @@ export default function Sales() {
                     onClick={goNextFromStep3}
                     className="sales-primary"
                   >
-                    <span>Continue to Location</span>
+                    <span>Next</span>
                     <ArrowRight size={16} />
                   </button>
                 </div>
@@ -983,13 +923,7 @@ export default function Sales() {
             {step === 4 && type !== "customer" && (
               <div className="home-card space-y-6">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-ink-500">
-                    Step 4 of {totalSteps} · {labels[type]}
-                  </p>
-                  <h2 className="mt-1 text-xl font-black">Location & Documents</h2>
-                  <p className="mt-1 text-xs text-ink-500">
-                    Capture GPS coordinates and attach verification documents.
-                  </p>
+                  <h2 className="text-2xl font-black">Location & Documents</h2>
                 </div>
 
                 {/* GPS Pinpoint */}
@@ -1084,7 +1018,7 @@ export default function Sales() {
                   </label>
                 </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-[var(--border-faint)]">
+                <div className="flex flex-col-reverse gap-3 border-t border-[var(--border-faint)] pt-4 [&>*]:w-full">
                   <button
                     type="button"
                     onClick={handleBack}
@@ -1098,7 +1032,7 @@ export default function Sales() {
                     onClick={goNextFromStep4}
                     className="sales-primary"
                   >
-                    <span>Continue to Review</span>
+                    <span>Next</span>
                     <ArrowRight size={16} />
                   </button>
                 </div>
@@ -1109,13 +1043,7 @@ export default function Sales() {
             {((type === "customer" && step === 3) || (type !== "customer" && step === 5)) && (
               <form onSubmit={submit} className="home-card space-y-6">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-ink-500">
-                    Final Step · Review & Confirm
-                  </p>
-                  <h2 className="mt-1 text-xl font-black">Review {labels[type]} Registration</h2>
-                  <p className="mt-1 text-xs text-ink-500">
-                    Verify the details captured below before sending the activation invite.
-                  </p>
+                  <h2 className="text-2xl font-black">Review {labels[type]} Registration</h2>
                 </div>
 
                 {/* Summary Card */}
@@ -1135,7 +1063,7 @@ export default function Sales() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="grid grid-cols-2 gap-4 text-base">
                     <div>
                       <span className="font-semibold text-ink-500">Phone</span>
                       <p className="font-bold text-ink mt-0.5">{phone || "Not provided"}</p>
@@ -1289,7 +1217,7 @@ export default function Sales() {
                   </span>
                 </label>
 
-                <div className="flex items-center justify-between pt-4 border-t border-[var(--border-faint)]">
+                <div className="flex flex-col-reverse gap-3 border-t border-[var(--border-faint)] pt-4 [&>*]:w-full">
                   <button
                     type="button"
                     onClick={handleBack}
@@ -1362,8 +1290,7 @@ export default function Sales() {
           <section className="home-card space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-black">Onboarding Records</h2>
-                <p className="text-xs text-ink-500">Track registrations and resend invitations.</p>
+                <h2 className="text-2xl font-black">Records</h2>
               </div>
               <button
                 aria-label="Refresh records"
@@ -1376,11 +1303,11 @@ export default function Sales() {
             </div>
 
             {/* Filter Pills */}
-            <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-[var(--border-faint)]">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[var(--border-faint)]">
               <button
                 type="button"
                 onClick={() => setRecordFilter("all")}
-                className={`sales-tab text-xs py-1.5 px-3 ${
+                className={`sales-tab ${
                   recordFilter === "all" ? "sales-tab-active" : ""
                 }`}
               >
@@ -1394,7 +1321,7 @@ export default function Sales() {
                     key={t}
                     type="button"
                     onClick={() => setRecordFilter(t)}
-                    className={`sales-tab text-xs py-1.5 px-3 ${
+                    className={`sales-tab ${
                       recordFilter === t ? "sales-tab-active" : ""
                     }`}
                   >
@@ -1407,25 +1334,25 @@ export default function Sales() {
             {/* Search Input */}
             <div className="relative">
               <Search
-                size={16}
+                size={22}
                 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-500"
               />
               <input
                 type="text"
-                placeholder="Search by name, phone or email..."
+                placeholder="Search"
                 value={recordSearch}
                 onChange={(e) => setRecordSearch(e.target.value)}
-                className="sales-input pl-9 text-xs"
+                className="sales-input" style={{ paddingLeft: 48 }}
               />
             </div>
 
             {!filteredRecords.length ? (
-              <p className="py-12 text-center text-sm text-ink-500">
+              <p className="py-12 text-center text-lg text-ink-500">
                 {records.length ? "No matching records found." : "No registrations yet. Onboard your first user!"}
               </p>
             ) : (
               <ul className="divide-y divide-[var(--border-faint)]">
-                {filteredRecords.map((record) => {
+                {filteredRecords.slice(0, recordLimit).map((record) => {
                   const recordType = record.account_type as OnboardingType;
                   const Icon = icons[recordType] ?? UserRound;
                   return (
@@ -1434,16 +1361,16 @@ export default function Sales() {
                       className="flex flex-wrap items-center justify-between gap-3 py-4"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[rgb(var(--surface-input))] text-gold">
-                          <Icon size={20} />
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[rgb(var(--surface-input))] text-gold">
+                          <Icon size={28} />
                         </div>
                         <div>
-                          <p className="font-bold text-sm text-ink">{record.name}</p>
-                          <p className="text-xs text-ink-500">
+                          <p className="text-lg font-extrabold text-ink">{record.name}</p>
+                          <p className="text-base text-ink-500">
                             {labels[recordType] ?? record.account_type} ·{" "}
                             {record.email ?? record.phone ?? "No contact"}
                           </p>
-                          <p className="mt-1 text-[11px] font-semibold">
+                          <p className="mt-1 text-base font-semibold">
                             {record.activated_at ? (
                               <span className="text-green flex items-center gap-1">
                                 <Check size={12} /> Activated
@@ -1465,15 +1392,20 @@ export default function Sales() {
                         <button
                           onClick={() => resend(record.id)}
                           disabled={!!retry}
-                          className="sales-tab text-xs"
+                          className="sales-tab"
                         >
-                          {retry === record.id ? "Sending…" : "Resend invitation"}
+                          {retry === record.id ? "Sending…" : "Resend"}
                         </button>
                       )}
                     </li>
                   );
                 })}
               </ul>
+            )}
+            {filteredRecords.length > recordLimit && (
+              <button type="button" onClick={() => setRecordLimit((n) => n + 10)} className="sales-tab w-full">
+                Show more ({filteredRecords.length - recordLimit})
+              </button>
             )}
           </section>
         )}
