@@ -46,7 +46,7 @@ export function OpenStatusCard({
         disabled={busy}
         className={
           compact
-            ? `flex min-h-12 items-center gap-2 rounded-full border px-3 text-xs font-bold disabled:opacity-60 ${isOpen ? "border-gold bg-gold/15 text-ink" : "border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] text-ink-500"}`
+            ? `flex min-h-14 items-center gap-2 rounded-full border px-4 text-base font-bold disabled:opacity-60 ${isOpen ? "border-gold bg-gold/15 text-ink" : "border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] text-ink-500"}`
             : `flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl text-base font-extrabold transition-colors disabled:opacity-60 ${isOpen ? "bg-green/15 text-green" : "bg-red-50 text-red-600"}`
         }
       >
@@ -63,10 +63,10 @@ export function OpenStatusCard({
         {compact && (
           <span
             aria-hidden
-            className={`flex h-6 w-10 items-center rounded-full p-0.5 ${isOpen ? "bg-gold" : "bg-[rgb(var(--surface-card))]"}`}
+            className={`flex h-7 w-12 items-center rounded-full p-0.5 ${isOpen ? "bg-gold" : "bg-[rgb(var(--surface-card))]"}`}
           >
             <span
-              className={`h-5 w-5 rounded-full bg-cream shadow-sm motion-safe:transition-transform ${isOpen ? "translate-x-4" : "translate-x-0"}`}
+              className={`h-6 w-6 rounded-full bg-cream shadow-sm motion-safe:transition-transform ${isOpen ? "translate-x-5" : "translate-x-0"}`}
             />
           </span>
         )}

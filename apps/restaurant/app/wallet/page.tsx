@@ -3,8 +3,7 @@
 import { Select } from "@peebee/shared/select";
 
 import type { MerchantBalance, MerchantSettlement, MerchantSettlementAccount } from "@peebee/shared";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
-import Link from "next/link";
+import { AlertTriangle, CheckCircle2, Loader2, WalletCards } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
@@ -124,40 +123,40 @@ export default function MerchantWalletPage() {
     return <div className="px-4 py-8 text-sm text-ink-500">This restaurant has not yet been connected to Peebee Merchant.</div>;
   }
 
+  const field = "min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-4 text-lg";
+  const big = "min-h-14 w-full rounded-full bg-gold text-lg font-bold text-ink-gold disabled:opacity-50";
   return (
-    <div className="space-y-5 px-4 pb-8 pt-4">
-      <div className="flex items-center gap-3">
-        <Link href="/" aria-label="Back" className="rounded-full p-2 text-ink"><ArrowLeft className="h-5 w-5" /></Link>
-        <div><h1 className="text-xl font-bold text-ink">Merchant balance</h1><p className="text-xs text-ink-500">Backed UGX payable to {restaurant.name}</p></div>
-      </div>
-
-      {error && <div className="flex gap-2 rounded-2xl border border-red-300 bg-red-50 p-3 text-sm text-red-800"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
-
-      <section className="home-card grid grid-cols-3 gap-3 text-center">
-        <div><p className="text-[11px] text-ink-500">Available</p><p className="mt-1 text-sm font-bold text-ink">{ugx(balance?.available ?? 0)}</p></div>
-        <div><p className="text-[11px] text-ink-500">Held</p><p className="mt-1 text-sm font-bold text-ink">{ugx(balance?.held ?? 0)}</p></div>
-        <div><p className="text-[11px] text-ink-500">Settling</p><p className="mt-1 text-sm font-bold text-ink">{ugx(balance?.settling ?? 0)}</p></div>
+    <div className="space-y-4 px-4 pb-8 pt-4">
+      <header><h1 className="text-3xl font-black">Balance</h1></header>
+      {error && <div role="alert" className="flex gap-2 rounded-2xl border border-red-300 bg-red-50 p-4 text-base text-red-800"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />{error}</div>}
+      <section className="rounded-[24px] border border-white/10 bg-black-900 p-5 text-center text-white dark:bg-black-900" aria-label="Balance">
+        <WalletCards className="mx-auto h-8 w-8 text-gold" aria-hidden />
+        <p className="mt-1 text-4xl font-black tabular-nums">{ugx(balance?.available ?? 0)}</p>
+        <p className="text-base text-white/70">Available</p>
+        <p className="mt-2 text-base text-white/70">Held {ugx(balance?.held ?? 0)} · Settling {ugx(balance?.settling ?? 0)}</p>
       </section>
+      {settlement && <section className="home-card flex items-center gap-3">{settlement.status === "successful" ? <CheckCircle2 className="h-7 w-7 text-green" /> : <Loader2 className="h-7 w-7 animate-spin text-gold" />}<div><p className="text-lg font-bold capitalize">Withdrawal {settlement.status}</p><p className="text-base text-ink-500">Do not retry a pending transfer.</p></div></section>}
 
       {accounts.length === 0 ? (
         <section className="home-card space-y-3">
-          <div><h2 className="text-sm font-bold text-ink">Add a Mobile Money destination</h2><p className="text-xs text-ink-500">It must be verified by Peebee and then complete a 24-hour security cooling period.</p></div>
-          <Select aria-label="Mobile Money network" value={network} onValueChange={(value) => setNetwork(value as "MTN" | "Airtel")} className="w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 py-3 text-sm"><option>MTN</option><option>Airtel</option></Select>
-          <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Mobile Money number" className="w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 py-3 text-sm" />
-          <button disabled={busy || phone.trim().length < 6} onClick={addDestination} className="w-full rounded-xl bg-gold px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? "Saving…" : "Save destination"}</button>
+          <h2 className="text-xl font-bold">Where should we send money?</h2>
+          <p className="text-base text-ink-500">Peebee verifies the number first, then there is a 24-hour wait before first use.</p>
+          <Select aria-label="Mobile Money network" value={network} onValueChange={(value) => setNetwork(value as "MTN" | "Airtel")} className={field}><option>MTN</option><option>Airtel</option></Select>
+          <input aria-label="Mobile Money number" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Mobile Money number" className={field} />
+          <button disabled={busy || phone.trim().length < 6} onClick={addDestination} className={big}>{busy ? "Saving…" : "Save number"}</button>
         </section>
       ) : !verifiedAccount ? (
-        <section className="home-card space-y-2"><h2 className="text-sm font-bold text-ink">Destination awaiting verification</h2>{accounts.map((account) => <p key={account.id} className="text-xs text-ink-500">{account.network_or_bank} {account.masked_account_ref} — {account.status.replace("_", " ")}</p>)}</section>
+        <section className="home-card space-y-2"><h2 className="text-xl font-bold">Waiting for verification</h2>{accounts.map((account) => <p key={account.id} className="text-lg text-ink-500">{account.network_or_bank} {account.masked_account_ref} · {account.status.replace("_", " ")}</p>)}</section>
       ) : (
         <section className="home-card space-y-3">
-          <div><h2 className="text-sm font-bold text-ink">Settle to Mobile Money</h2><p className="text-xs text-ink-500">{verifiedAccount.network_or_bank} {verifiedAccount.masked_account_ref}</p></div>
-          <input inputMode="numeric" value={amount} onChange={(event) => { setAmount(event.target.value.replace(/\D/g, "")); setQuote(null); }} placeholder="Amount in UGX" className="w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 py-3 text-sm" />
-          <Select aria-label="Settlement mode" value={mode} onValueChange={(value) => { setMode(value as "instant" | "scheduled"); setQuote(null); }} className="w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 py-3 text-sm"><option value="scheduled">Scheduled settlement</option><option value="instant">Instant settlement</option></Select>
-          {!quote ? <button disabled={busy || !amount} onClick={requestQuote} className="w-full rounded-xl bg-gold px-4 py-3 text-sm font-bold text-white disabled:opacity-50">Review settlement</button> : <div className="space-y-3 rounded-xl border border-gold/40 p-3 text-sm"><div className="flex justify-between"><span>Merchant receives</span><strong>{ugx(quote.amount)}</strong></div><div className="flex justify-between"><span>Settlement fee</span><strong>{ugx(quote.fee)}</strong></div><div className="flex justify-between border-t border-[var(--border-faint)] pt-2"><span>Total balance debit</span><strong>{ugx(quote.totalDebit)}</strong></div><button disabled={busy} onClick={confirmSettlement} className="w-full rounded-xl bg-gold px-4 py-3 font-bold text-white">Confirm settlement</button></div>}
+          <p className="text-base text-ink-500">To {verifiedAccount.network_or_bank} {verifiedAccount.masked_account_ref}</p>
+          <input aria-label="Amount in UGX" inputMode="numeric" value={amount} onChange={(event) => { setAmount(event.target.value.replace(/\D/g, "")); setQuote(null); }} placeholder="Amount in UGX" className={`${field} !min-h-16 text-2xl font-bold tabular-nums`} />
+          <Select aria-label="Settlement mode" value={mode} onValueChange={(value) => { setMode(value as "instant" | "scheduled"); setQuote(null); }} className={field}><option value="scheduled">Scheduled</option><option value="instant">Instant</option></Select>
+          {!quote
+            ? <button disabled={busy || !amount} onClick={requestQuote} className={big}>Review</button>
+            : <div className="space-y-2 rounded-xl border border-gold/40 p-4 text-lg"><p className="flex justify-between"><span>You receive</span><strong>{ugx(quote.amount)}</strong></p><p className="flex justify-between"><span>Fee</span><strong>{ugx(quote.fee)}</strong></p><p className="flex justify-between border-t border-[var(--border-faint)] pt-2"><span>Total</span><strong>{ugx(quote.totalDebit)}</strong></p><button disabled={busy} onClick={confirmSettlement} className={`${big} mt-2`}>{busy ? "Please wait…" : "Confirm"}</button></div>}
         </section>
       )}
-
-      {settlement && <section className="home-card flex items-start gap-3">{settlement.status === "successful" ? <CheckCircle2 className="h-5 w-5 text-green" /> : <Loader2 className="h-5 w-5 animate-spin text-gold" />}<div><p className="text-sm font-bold text-ink">Settlement {settlement.status}</p><p className="text-xs text-ink-500">{ugx(settlement.amount)} · Never retry while the result is pending or unknown.</p></div></section>}
     </div>
   );
 }

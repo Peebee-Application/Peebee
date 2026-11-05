@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardList, MessageCircle, User, UtensilsCrossed } from "lucide-react";
+import { ClipboardList, MessageCircle, User, UtensilsCrossed, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
@@ -10,6 +10,7 @@ import { filterByModule, useModules } from "../lib/modules";
 const tabs: { href: string; labelKey: TranslationKey; icon: LucideIcon; module?: string }[] = [
   { href: "/", labelKey: "nav_orders", icon: ClipboardList, module: "buy.food" },
   { href: "/menu", labelKey: "nav_menu", icon: UtensilsCrossed, module: "buy.food" },
+  { href: "/wallet", labelKey: "nav_wallet", icon: WalletCards },
   { href: "/chat", labelKey: "nav_chat", icon: MessageCircle },
   { href: "/account", labelKey: "nav_account", icon: User },
 ];
@@ -46,12 +47,12 @@ export function BottomNav() {
                 <Link
                   href={tab.href}
                   aria-current={active ? "page" : undefined}
-                  className={`customer-nav-item relative flex h-[58px] flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-[11px] font-bold transition-all duration-200 active:scale-95 ${
+                  className={`customer-nav-item relative flex h-[62px] flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-xs font-bold transition-all duration-200 active:scale-95 ${
                     active ? "is-active" : ""
                   }`}
                 >
-                  <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 1.8} aria-hidden />
-                  <span className="leading-none truncate max-w-[64px]">{t(tab.labelKey)}</span>
+                  <Icon className="h-6 w-6" strokeWidth={active ? 2.4 : 1.8} aria-hidden />
+                  <span className="leading-none truncate max-w-[72px]">{t(tab.labelKey)}</span>
                   {active && (
                     <span
                       className="customer-nav-indicator absolute bottom-1.5 h-1 w-3.5 rounded-full"
