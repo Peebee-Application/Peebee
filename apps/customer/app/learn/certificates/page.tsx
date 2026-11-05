@@ -1,12 +1,11 @@
 "use client";
 
 import type { LearnerBadge, LearnerCertificate } from "@peebee/shared";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { Award, ChevronRight, GraduationCap } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../../lib/api";
-
-const card = "rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))]";
+import { Empty, ErrorNote, LearnScreen, Pill, ScreenHeader, SectionTitle, Skeleton, card, cardLink, displayFont } from "../ui";
 
 export default function CertificatesPage() {
   const [certs, setCerts] = useState<LearnerCertificate[] | null>(null);
@@ -19,33 +18,35 @@ export default function CertificatesPage() {
     api.learnBadges().then((r) => { setBadges(r.badges); setBadgesOn(r.enabled); }).catch(() => undefined);
   }, []);
 
+  const earned = badges.filter((b) => b.awardedAt).length;
+
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-4 pb-28">
-      <div className="space-y-1">
-        <Link href="/learn/my" className="inline-flex items-center gap-1 text-xs font-semibold text-gold">
-          <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> My learning
-        </Link>
-        <h1 className="text-xl font-bold text-ink">Certificates and badges</h1>
-      </div>
-      {error && <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 px-3.5 py-3 text-sm text-ink">{error}</p>}
+    <LearnScreen>
+      <ScreenHeader back={{ href: "/learn/my", label: "My class" }} label="Peebee Learn" title="Certificates and badges" subtitle="Everything you have earned, ready to print or share." />
+      {error && <ErrorNote>{error}</ErrorNote>}
 
       <section aria-labelledby="certs-h" className="space-y-3">
-        <h2 id="certs-h" className="text-sm font-semibold text-ink">Certificates</h2>
+        <SectionTitle id="certs-h" icon={GraduationCap}>
+          Certificates
+        </SectionTitle>
         {certs === null ? (
-          <div className="h-20 animate-pulse rounded-2xl bg-[rgb(var(--surface-muted))]" />
+          <Skeleton className="h-20" />
         ) : certs.length === 0 ? (
-          <p className="text-sm text-ink-500">Finish every item of a class and your certificate appears here.</p>
+          <Empty icon={GraduationCap}>Finish every item of a class and your certificate appears here.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-2.5">
             {certs.map((c) => (
               <li key={c.id}>
-                <Link href={`/learn/certificates/${c.id}`} className={`${card} flex items-center gap-3 p-4`}>
-                  <span className="text-2xl" aria-hidden>🎓</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold text-ink">{c.courseTitle}</span>
+                <Link href={`/learn/certificates/${c.id}`} className={`${cardLink} relative flex items-center gap-3 overflow-hidden p-4`}>
+                  <span className="pointer-events-none absolute -left-6 -top-8 h-24 w-24 rounded-full bg-[radial-gradient(circle,rgb(var(--color-gold)/0.4),transparent_70%)]" aria-hidden />
+                  <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(145deg,rgb(var(--color-gold)/0.4),rgb(var(--color-gold)/0.12))] text-gold ring-1 ring-gold/30">
+                    <GraduationCap className="h-5 w-5" aria-hidden />
+                  </span>
+                  <span className="relative min-w-0 flex-1">
+                    <span className={`${displayFont} block truncate text-[15px] font-semibold text-ink`}>{c.courseTitle}</span>
                     <span className="block truncate text-xs text-ink-500">{c.schoolName} · {new Date(c.issuedAt.replace(" ", "T") + "Z").toLocaleDateString("en-UG", { day: "numeric", month: "short", year: "numeric" })}</span>
                   </span>
-                  <ChevronRight className="h-4 w-4 text-ink-500" aria-hidden />
+                  <ChevronRight className="relative h-4 w-4 text-ink-500" aria-hidden />
                 </Link>
               </li>
             ))}
@@ -55,18 +56,21 @@ export default function CertificatesPage() {
 
       {badgesOn && (
         <section aria-labelledby="badges-h" className="space-y-3">
-          <h2 id="badges-h" className="text-sm font-semibold text-ink">Badges</h2>
-          <ul className="grid grid-cols-2 gap-3">
+          <SectionTitle id="badges-h" icon={Award} action={badges.length > 0 ? <Pill tone="muted">{earned} of {badges.length}</Pill> : undefined}>
+            Badges
+          </SectionTitle>
+          <ul className="grid grid-cols-2 gap-2.5">
             {badges.map((b) => (
-              <li key={b.key} className={`${card} space-y-1 p-4 text-center ${b.awardedAt ? "" : "opacity-50"}`}>
-                <span className={`block text-3xl ${b.awardedAt ? "" : "grayscale"}`} aria-hidden>{b.icon}</span>
-                <span className="block text-sm font-bold text-ink">{b.title}</span>
-                <span className="block text-xs text-ink-500">{b.awardedAt ? "Earned" : b.description}</span>
+              <li key={b.key} className={`${card} relative space-y-1 overflow-hidden p-4 text-center ${b.awardedAt ? "" : "opacity-55"}`}>
+                {b.awardedAt && <span className="pointer-events-none absolute left-1/2 top-0 h-20 w-20 -translate-x-1/2 -translate-y-8 rounded-full bg-gold/30 blur-xl" aria-hidden />}
+                <span className={`relative block text-3xl ${b.awardedAt ? "" : "grayscale"}`} aria-hidden>{b.icon}</span>
+                <span className={`${displayFont} relative block text-sm font-bold text-ink`}>{b.title}</span>
+                <span className="relative block text-xs text-ink-500">{b.awardedAt ? "Earned" : b.description}</span>
               </li>
             ))}
           </ul>
         </section>
       )}
-    </div>
+    </LearnScreen>
   );
 }

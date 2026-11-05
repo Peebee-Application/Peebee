@@ -11,6 +11,8 @@ import { AudioPlayer } from "../../../../../../components/learn/AudioPlayer";
 import { KIND_ICON, KIND_LABEL, whenLabel } from "../../../../../../components/learn/kinds";
 import { QuizRunner } from "../../../../../../components/learn/QuizRunner";
 import { SlideDeck } from "../../../../../../components/learn/SlideDeck";
+import { Ambient } from "../../../../ui";
+import { bodyFont, display, monoFont } from "../../../../fonts";
 import { api, errorMessage } from "../../../../../../lib/api";
 
 function Media({ lesson, onEnded }: { lesson: LearnerLessonDetail; onEnded: () => void }) {
@@ -126,23 +128,24 @@ export default function LessonPage() {
   const needsButton = lesson && !assessment && lesson.contentType !== "live" && lesson.contentType !== "assignment";
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[rgb(var(--color-cream))]">
-      <header className="flex items-center gap-3 border-b border-[var(--border-faint)] px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
-        <Link href={`/learn/course/${id}`} aria-label="Back to the class" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink">
+    <div className={`${display.variable} ${bodyFont.variable} ${monoFont.variable} fixed inset-0 z-50 isolate flex flex-col overflow-hidden bg-[rgb(var(--color-cream))] font-[family-name:var(--font-lh-body)]`}>
+      <Ambient />
+      <header className="flex items-center gap-2.5 border-b border-[var(--border-faint)] bg-[rgb(var(--color-cream)/0.7)] px-3 pb-2.5 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-md">
+        <Link href={`/learn/course/${id}`} aria-label="Back to the class" className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[13px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-ink">
           <ArrowLeft className="h-5 w-5" aria-hidden />
         </Link>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[11px] font-bold uppercase tracking-wider text-ink-500">{items[at]?.section ?? course?.title ?? ""}</p>
-          <p className="truncate text-sm font-semibold text-ink">{lesson?.title ?? "Loading…"}</p>
+          <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-gold">{items[at]?.section ?? course?.title ?? ""}</p>
+          <p className="truncate font-[family-name:var(--font-lh-display)] text-sm font-semibold text-ink">{lesson?.title ?? "Loading…"}</p>
         </div>
-        <Link href={`/learn/course/${id}/discuss?lesson=${lessonId}`} aria-label="Ask a question about this lesson" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink">
+        <Link href={`/learn/course/${id}/discuss?lesson=${lessonId}`} aria-label="Ask a question about this lesson" className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[13px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-ink">
           <MessageCircle className="h-5 w-5" aria-hidden />
         </Link>
         {lesson?.completed && <CheckCircle2 className="h-5 w-5 shrink-0 text-green" aria-label="Completed" />}
       </header>
       {course && (
         <div className="h-1 bg-[rgb(var(--surface-muted))]" role="progressbar" aria-valuenow={course.progressPercent} aria-valuemin={0} aria-valuemax={100} aria-label="Class progress">
-          <div className="h-full bg-gold transition-all" style={{ width: `${course.progressPercent}%` }} />
+          <div className="h-full bg-[linear-gradient(90deg,rgb(var(--color-gold)/0.7),rgb(var(--color-gold)))] transition-all" style={{ width: `${course.progressPercent}%` }} />
         </div>
       )}
 
@@ -159,7 +162,7 @@ export default function LessonPage() {
                   <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gold">
                     <Icon className="h-3.5 w-3.5" aria-hidden /> {KIND_LABEL[lesson.contentType]} · {lesson.durationMinutes} min
                   </p>
-                  <h1 className="text-2xl font-bold leading-tight text-ink">{lesson.title}</h1>
+                  <h1 className="font-[family-name:var(--font-lh-display)] text-[26px] font-bold leading-[1.1] tracking-[-0.02em] text-ink">{lesson.title}</h1>
                 </div>
               )}
 
@@ -167,7 +170,7 @@ export default function LessonPage() {
                 <>
                   <Media lesson={lesson} onEnded={() => !lesson.completed && void complete()} />
                   {lesson.contentUrl && (
-                    <a href={lesson.contentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-faint)] px-4 py-2.5 text-sm font-semibold text-gold">
+                    <a href={lesson.contentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4 py-2.5 text-sm font-semibold text-gold">
                       {lesson.contentType === "audio" ? "Open the audio" : "Open the video"} <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                     </a>
                   )}
@@ -194,18 +197,18 @@ export default function LessonPage() {
         </div>
       </div>
 
-      <footer className="flex items-center gap-3 border-t border-[var(--border-faint)] bg-[rgb(var(--color-cream))] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-        <Link href={prev ? href(prev.id) : `/learn/course/${id}`} aria-label="Previous" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[var(--border-faint)] text-ink">
+      <footer className="flex items-center gap-3 border-t border-[var(--border-faint)] bg-[rgb(var(--color-cream)/0.8)] px-3 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+        <Link href={prev ? href(prev.id) : `/learn/course/${id}`} aria-label="Previous" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-ink">
           <ChevronLeft className="h-5 w-5" aria-hidden />
         </Link>
         {needsButton && !lesson?.quiz ? (
-          <button type="button" onClick={markAndContinue} disabled={busy} className="h-12 flex-1 rounded-full bg-gold px-4 text-base font-bold text-ink-gold disabled:opacity-50">
+          <button type="button" onClick={markAndContinue} disabled={busy} className="h-12 flex-1 whitespace-nowrap rounded-2xl bg-gold px-3 text-[15px] font-bold text-ink-gold shadow-[0_10px_24px_-12px_rgb(var(--color-gold)/0.9)] transition active:scale-[0.98] disabled:opacity-50">
             {lesson?.completed ? (next ? "Next" : "Finish") : next ? "Mark done & continue" : "Mark done & finish"}
           </button>
         ) : (
           <div className="h-12 flex-1" />
         )}
-        <Link href={next ? href(next.id) : `/learn/course/${id}`} aria-label="Next" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[var(--border-faint)] text-ink">
+        <Link href={next ? href(next.id) : `/learn/course/${id}`} aria-label="Next" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-ink">
           <ChevronRight className="h-5 w-5" aria-hidden />
         </Link>
       </footer>

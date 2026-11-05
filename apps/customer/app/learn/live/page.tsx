@@ -1,12 +1,12 @@
 "use client";
 
 import type { PhoneCue } from "@peebee/shared";
-import { ArrowLeft, Check, Hand, Radio } from "lucide-react";
+import { Check, Hand, Radio } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../../../lib/api";
+import { LearnScreen, Pill, ScreenHeader, card, displayFont, monoCls, primaryBtn } from "../ui";
 
-const card = "rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))]";
 const SESSION_KEY = "peebee_live_session";
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
@@ -368,27 +368,26 @@ export default function LiveClassPage() {
 
   if (!joined) {
     return (
-      <div className="mx-auto max-w-md space-y-6 p-4 pb-10">
-        <Link href="/learn" className="inline-flex items-center gap-1 text-xs font-semibold text-gold">
-          <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Learn
-        </Link>
-        <div className="space-y-2">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/15 text-gold">
-            <Radio className="h-6 w-6" aria-hidden />
-          </span>
-          <h1 className="text-2xl font-bold text-ink">Join a live class</h1>
-          <p className="text-sm text-ink-500">Enter the 6-digit code shown on the classroom screen, or scan its picture with your camera.</p>
-        </div>
+      <LearnScreen width="max-w-md">
+        <ScreenHeader
+          back={{ href: "/learn", label: "Learn" }}
+          label="Peebee Learn"
+          title="Join a live class"
+          icon={Radio}
+          subtitle="Enter the 6-digit code shown on the classroom screen, or scan its picture with your camera."
+        />
         <form
           onSubmit={(e) => {
             e.preventDefault();
             void join(code);
           }}
-          className={`${card} space-y-4 p-5`}
+          className={`${card} relative space-y-4 overflow-hidden p-5`}
         >
-          <label htmlFor="live-code" className="block text-xs font-semibold text-ink-500">
+          <span className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-[radial-gradient(circle,rgb(var(--color-gold)/0.35),transparent_70%)]" aria-hidden />
+          <label htmlFor="live-code" className={`${displayFont} relative block text-sm font-semibold text-ink`}>
             Class code
           </label>
+          <div className="field-box relative rounded-2xl border border-[var(--border-faint)]">
           <input
             id="live-code"
             inputMode="numeric"
@@ -397,33 +396,36 @@ export default function LiveClassPage() {
             maxLength={6}
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            className="w-full rounded-xl border border-[var(--border-faint)] text-center font-mono text-3xl font-black tracking-[0.3em] text-ink outline-none focus:border-gold"
+            className={`${monoCls} h-16 w-full text-center text-3xl font-medium tracking-[0.3em] text-ink outline-none`}
             placeholder="000000"
           />
+          </div>
           {joinError && (
-            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            <p role="alert" className="relative text-sm text-red-600 dark:text-red-400">
               {joinError}
             </p>
           )}
-          <button type="submit" disabled={joining || code.length !== 6} className="w-full rounded-xl bg-gold px-4 py-3.5 text-base font-semibold text-ink-gold disabled:opacity-50">
+          <button type="submit" disabled={joining || code.length !== 6} className={`${primaryBtn} relative w-full !py-3.5 !text-base`}>
             {joining ? "Joining…" : "Join class"}
           </button>
         </form>
-      </div>
+      </LearnScreen>
     );
   }
 
   return (
-    <div className="mx-auto max-w-md space-y-4 p-4 pb-24">
+    <LearnScreen width="max-w-md" bottom="pb-28">
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gold">
-            <span className={`h-2 w-2 rounded-full ${status === "live" ? "bg-green" : "bg-ink-500"}`} aria-hidden /> {status === "live" ? "Live" : "Ended"}
+          <p className="mb-1">
+            <Pill tone={status === "live" ? "green" : "muted"}>
+              <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${status === "live" ? "animate-pulse bg-green" : "bg-ink-500"}`} aria-hidden /> {status === "live" ? "Live" : "Ended"}
+            </Pill>
           </p>
-          <h1 className="truncate text-lg font-bold text-ink">{title}</h1>
+          <h1 className={`${displayFont} truncate text-xl font-bold tracking-[-0.02em] text-ink`}>{title}</h1>
           {hostName && <p className="truncate text-xs text-ink-500">with {hostName}</p>}
         </div>
-        <button type="button" onClick={leave} className="shrink-0 text-xs font-semibold text-ink-500 underline">
+        <button type="button" onClick={leave} className="shrink-0 rounded-[13px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-2 text-xs font-semibold text-ink">
           Leave
         </button>
       </header>
@@ -435,7 +437,7 @@ export default function LiveClassPage() {
 
       {status === "ended" ? (
         <div className={`${card} space-y-2 p-6 text-center`}>
-          <h2 className="text-lg font-semibold text-ink">This class has ended</h2>
+          <h2 className={`${displayFont} text-lg font-semibold text-ink`}>This class has ended</h2>
           <p className="text-sm text-ink-500">Thanks for joining. Your tutor will share anything that needs following up.</p>
           <Link href="/learn/my" className="inline-block pt-2 text-sm font-semibold text-gold underline">
             Back to my learning
@@ -443,7 +445,7 @@ export default function LiveClassPage() {
         </div>
       ) : !cue ? (
         <div className={`${card} space-y-2 p-6 text-center`}>
-          <h2 className="text-lg font-semibold text-ink">You&apos;re in</h2>
+          <h2 className={`${displayFont} text-lg font-semibold text-ink`}>You&apos;re in</h2>
           <p className="text-sm text-ink-500">Watch the classroom screen. Questions will appear here when your tutor sends them.</p>
         </div>
       ) : (
@@ -454,7 +456,7 @@ export default function LiveClassPage() {
           {(cue.kind === "slide" || cue.kind === "lesson") && (
             <div className={`${card} space-y-2 p-5`}>
               <p className="text-xs font-bold uppercase tracking-wider text-gold">{cue.kind === "lesson" ? "Now" : "Slide"}</p>
-              <h2 className="text-xl font-bold text-ink">{cue.title}</h2>
+              <h2 className={`${displayFont} text-xl font-bold text-ink`}>{cue.title}</h2>
               {cue.media && <LessonMedia cue={cue} />}
               {cue.body && <p className="whitespace-pre-line text-sm text-ink">{cue.body}</p>}
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -464,32 +466,32 @@ export default function LiveClassPage() {
           {cue.kind === "announcement" && (
             <div className={`${card} space-y-2 p-5`}>
               <p className="text-xs font-bold uppercase tracking-wider text-gold">Announcement</p>
-              <p className="text-xl font-bold text-ink">{cue.text}</p>
+              <p className={`${displayFont} text-xl font-bold text-ink`}>{cue.text}</p>
             </div>
           )}
           {cue.kind === "timer" && (
             <div className={`${card} space-y-2 p-6 text-center`}>
               {cue.label && <p className="text-sm font-semibold text-ink">{cue.label}</p>}
-              <p className="font-mono text-6xl font-black text-ink">{left === null ? clock(cue.seconds ?? 0) : clock(left)}</p>
+              <p className={`${monoCls} text-6xl font-medium text-ink`}>{left === null ? clock(cue.seconds ?? 0) : clock(left)}</p>
             </div>
           )}
         </div>
       )}
 
       {status === "live" && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--border-faint)] bg-[rgb(var(--surface-card)/0.85)] p-3 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="mx-auto max-w-md">
             <button
               type="button"
               onClick={() => void toggleHand()}
               aria-pressed={hand}
-              className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition ${hand ? "bg-gold text-ink-gold" : "border border-[var(--border-faint)] text-ink"}`}
+              className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold transition active:scale-[0.98] ${hand ? "bg-gold text-ink-gold" : "border border-[var(--border-faint)] text-ink"}`}
             >
               <Hand className="h-4 w-4" aria-hidden /> {hand ? "Hand raised. Tap to lower" : "Raise my hand"}
             </button>
           </div>
         </div>
       )}
-    </div>
+    </LearnScreen>
   );
 }

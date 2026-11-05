@@ -5,10 +5,8 @@ import { BadgeCheck, MessageSquarePlus, MessagesSquare, Send } from "lucide-reac
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { api, errorMessage } from "../../../lib/api";
-import { bodyFont, display, monoFont } from "../fonts";
+import { LearnScreen, ScreenHeader, card, displayFont as DISPLAY } from "../ui";
 
-const card = "rounded-[18px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))]";
-const DISPLAY = "font-[family-name:var(--font-lh-display)]";
 const MAX_CHARS = 1500;
 
 /** SQLite stores UTC times without a zone ("2026-10-20 09:30:00"); read them as UTC. */
@@ -122,7 +120,7 @@ function Composer({ courses, initialCourse, onPosted, onCancel }: { courses: Con
           onChange={(e) => setBody(e.target.value.slice(0, MAX_CHARS))}
           rows={4}
           placeholder="What would you like to ask or discuss?"
-          className="mt-1 w-full resize-none rounded-xl px-3 py-2.5 text-sm text-ink"
+          className="mt-1 w-full resize-none rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm text-ink"
         />
       </label>
       {error && (
@@ -282,13 +280,8 @@ export default function ConnectPage() {
   const chips = useMemo(() => [{ id: "", title: "All courses" }, ...courses.map((c) => ({ id: c.id, title: c.title }))], [courses]);
 
   return (
-    <div className={`${display.variable} ${bodyFont.variable} ${monoFont.variable} min-h-dvh font-[family-name:var(--font-lh-body)]`}>
-      <div className="mx-auto max-w-3xl space-y-[18px] px-3.5 pb-44 pt-4">
-        <header>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gold">Peebee Learn</p>
-          <h1 className={`${DISPLAY} mt-[3px] text-[22px] font-bold leading-[1.1] tracking-[-0.02em] text-ink`}>Connect</h1>
-          <p className="mt-1 text-xs text-ink-500">Ask questions and talk with the people in your courses. Tutors are marked with a badge.</p>
-        </header>
+    <LearnScreen width="max-w-3xl" bottom="pb-44">
+        <ScreenHeader label="Peebee Learn" title="Connect" icon={MessagesSquare} subtitle="Ask questions and talk with the people in your courses. Tutors are marked with a badge." />
 
         {error && (
           <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 px-3.5 py-3 text-sm text-ink">
@@ -377,7 +370,6 @@ export default function ConnectPage() {
             )}
           </>
         )}
-      </div>
-    </div>
+    </LearnScreen>
   );
 }

@@ -1,13 +1,12 @@
 "use client";
 
 import type { Announcement, QaQuestion } from "@peebee/shared";
-import { ArrowLeft, MessageCircle, Trash2 } from "lucide-react";
-import Link from "next/link";
+import { MessageCircle, Trash2 } from "lucide-react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../../../../lib/api";
+import { Empty, ErrorNote, LearnScreen, Pill, ScreenHeader, Skeleton, card, displayFont, primaryBtn } from "../../../ui";
 
-const card = "rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))]";
 const ago = (iso: string) => new Date(iso.replace(" ", "T") + "Z").toLocaleDateString("en-UG", { day: "numeric", month: "short" });
 
 function Question({ q, onChanged, onError }: { q: QaQuestion; onChanged: () => void; onError: (m: string) => void }) {
@@ -30,7 +29,7 @@ function Question({ q, onChanged, onError }: { q: QaQuestion; onChanged: () => v
     <li className={`${card} space-y-3 p-4`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink">{q.body}</p>
+          <p className={`${displayFont} text-[15px] font-semibold leading-snug text-ink`}>{q.body}</p>
           <p className="text-xs text-ink-500">{q.askedBy} · {ago(q.createdAt)}</p>
         </div>
         {q.canDelete && (
@@ -46,7 +45,7 @@ function Question({ q, onChanged, onError }: { q: QaQuestion; onChanged: () => v
               <p className="text-sm text-ink">{a.body}</p>
               <p className="flex items-center gap-2 text-xs text-ink-500">
                 {a.by}
-                {a.byTeacher && <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-bold text-gold">Teacher</span>}
+                {a.byTeacher && <Pill>Teacher</Pill>}
                 · {ago(a.createdAt)}
                 {a.canDelete && <button type="button" className="underline" onClick={() => api.learnDeleteAnswer(a.id).then(onChanged).catch((e) => onError(errorMessage(e)))}>Delete</button>}
               </p>
@@ -54,7 +53,7 @@ function Question({ q, onChanged, onError }: { q: QaQuestion; onChanged: () => v
           ))}
         </ul>
       )}
-      <div className="field-box flex items-center gap-2 rounded-xl px-3 py-1.5">
+      <div className="field-box flex items-center gap-2 rounded-xl px-3 py-1.5 border border-[var(--border-faint)]">
         <input aria-label="Write an answer" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Write an answer" maxLength={1500} className="min-w-0 flex-1 text-sm" />
         <button type="button" onClick={answer} disabled={busy} className="shrink-0 text-xs font-bold text-gold disabled:opacity-50">Reply</button>
       </div>
@@ -93,45 +92,49 @@ function Discuss() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5 p-4 pb-28">
-      <Link href={`/learn/course/${id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-gold">
-        <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Back to the class
-      </Link>
-      <h1 className="flex items-center gap-2 text-xl font-bold text-ink"><MessageCircle className="h-5 w-5 text-gold" aria-hidden /> {lessonId ? "Questions about this lesson" : "Questions and announcements"}</h1>
-      {error && <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 px-3.5 py-3 text-sm text-ink">{error}</p>}
+    <LearnScreen>
+      <ScreenHeader
+        back={{ href: `/learn/course/${id}`, label: "Class" }}
+        label="Peebee Learn"
+        title={lessonId ? "Questions about this lesson" : "Questions and announcements"}
+        icon={MessageCircle}
+        subtitle="Ask your tutor and classmates."
+      />
+      {error && <ErrorNote>{error}</ErrorNote>}
 
       {!lessonId && announcements.length > 0 && (
-        <section aria-label="Announcements" className="space-y-2">
+        <section aria-label="Announcements" className="space-y-2.5">
           {announcements.map((a) => (
-            <article key={a.id} className="rounded-2xl border border-gold/40 bg-gold/10 p-4">
-              <p className="text-sm font-bold text-ink">📣 {a.title}</p>
-              {a.body && <p className="whitespace-pre-line text-sm text-ink">{a.body}</p>}
-              <p className="mt-1 text-xs text-ink-500">{ago(a.createdAt)}</p>
+            <article key={a.id} className="relative overflow-hidden rounded-[20px] border border-gold/40 bg-[linear-gradient(145deg,rgb(var(--color-gold)/0.18),rgb(var(--color-gold)/0.06))] p-4">
+              <span className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gold/30 blur-2xl" aria-hidden />
+              <p className={`${displayFont} relative text-[15px] font-bold text-ink`}>📣 {a.title}</p>
+              {a.body && <p className="relative mt-1 whitespace-pre-line text-sm text-ink">{a.body}</p>}
+              <p className="relative mt-1.5 text-xs text-ink-500">{ago(a.createdAt)}</p>
             </article>
           ))}
         </section>
       )}
 
-      <section className={`${card} space-y-2 p-4`}>
-        <label htmlFor="ask" className="block text-xs font-semibold text-ink-500">Ask a question</label>
-        <textarea id="ask" rows={3} value={text} onChange={(e) => setText(e.target.value)} maxLength={1500} className="w-full rounded-xl px-3 py-2.5 text-sm" placeholder="What would you like to know?" />
-        <button type="button" onClick={ask} disabled={busy} className="rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-ink-gold disabled:opacity-50">{busy ? "Posting…" : "Post question"}</button>
+      <section className={`${card} space-y-2.5 p-4`}>
+        <label htmlFor="ask" className={`${displayFont} block text-sm font-semibold text-ink`}>Ask a question</label>
+        <textarea id="ask" rows={3} value={text} onChange={(e) => setText(e.target.value)} maxLength={1500} className="w-full rounded-2xl border border-[var(--border-faint)] px-3.5 py-3 text-sm" placeholder="What would you like to know?" />
+        <button type="button" onClick={ask} disabled={busy} className={primaryBtn}>{busy ? "Posting…" : "Post question"}</button>
       </section>
 
       {questions === null ? (
-        <div className="h-24 animate-pulse rounded-2xl bg-[rgb(var(--surface-muted))]" />
+        <Skeleton className="h-24" />
       ) : questions.length === 0 ? (
-        <p className="text-sm text-ink-500">No questions yet. Be the first to ask.</p>
+        <Empty icon={MessageCircle}>No questions yet. Be the first to ask.</Empty>
       ) : (
         <ul className="space-y-3">{questions.map((q) => <Question key={q.id} q={q} onChanged={load} onError={setError} />)}</ul>
       )}
-    </div>
+    </LearnScreen>
   );
 }
 
 export default function DiscussPage() {
   return (
-    <Suspense fallback={<div className="p-4"><div className="h-24 animate-pulse rounded-2xl bg-[rgb(var(--surface-muted))]" /></div>}>
+    <Suspense fallback={<div className="p-4"><Skeleton className="h-24" /></div>}>
       <Discuss />
     </Suspense>
   );
