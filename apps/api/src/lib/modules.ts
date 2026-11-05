@@ -1,4 +1,4 @@
-import { MODULES, channelModulePatch, cleanModuleNotice, getModule, resolveModuleAvailability, syncedFlag, type ModuleFlags, type ModuleNotices, type ModuleSettings, type ModuleSettingsUpdate } from "@peebee/shared";
+import { MODULES, channelModulePatch, cleanModuleNotice, getModule, resolveModuleAvailability, syncedFlag, type ModuleFlags, type ModuleOfflineDisplay, type ModuleNotices, type ModuleSettings, type ModuleSettingsUpdate } from "@peebee/shared";
 import { getChannelsConfig, saveChannelsConfig } from "../channels/settings.js";
 import { getSetting, getSettingRaw, rawModuleLive, setSetting, type SettingKey } from "./settings.js";
 
@@ -36,11 +36,15 @@ export async function isModuleSync(): Promise<boolean> {
   return (await getSettingRaw("modules_sync")) === "1";
 }
 
+export async function getOfflineDisplay(): Promise<ModuleOfflineDisplay> {
+  return (await getSettingRaw("modules_offline_display")) === "inactive" ? "inactive" : "hide";
+}
+
 export async function getModuleSettings(): Promise<ModuleSettings> {
   const [stored, sync] = await Promise.all([getModuleFlags(), isModuleSync()]);
   // Kept the same: show each module's switch as what it really is, on only if on in both worlds.
   const flags = sync ? Object.fromEntries(MODULES.map((x) => [x.key, syncedFlag(x, stored[x.key]!, true)])) : stored;
-  return { flags, available: resolveModuleAvailability(flags, sync), notices: await getModuleNotices(flags), sync };
+  return { flags, available: resolveModuleAvailability(flags, sync), notices: await getModuleNotices(flags), sync, display: await getOfflineDisplay() };
 }
 
 /** Is this module on in Live right now, counting every module above it? */
@@ -72,6 +76,7 @@ export function unknownModuleKeys(update: ModuleSettingsUpdate): string[] {
  * one world is switched off in the other.
  */
 export async function setModuleFlags(update: ModuleSettingsUpdate): Promise<void> {
+  if (update.display) await setSetting("modules_offline_display", update.display);
   const wasSync = await isModuleSync();
   const sync = update.sync ?? wasSync;
   if (sync !== wasSync) {

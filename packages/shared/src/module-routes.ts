@@ -1,4 +1,4 @@
-import { MODULE_NOTICE_REASONS, getModule, type ModuleNotice } from "./modules.js";
+import { MODULE_NOTICE_REASONS, type ModuleNotice } from "./modules.js";
 
 /**
  * Which screens belong to which module, per app. `prefix` matches that path and everything under it; `exact` matches only
@@ -35,38 +35,26 @@ export function describeModuleNotice(notice: ModuleNotice): { headline: string; 
 export const OFFLINE_HEADLINE = "Currently Offline";
 
 /**
- * The highest switched-off module above each rule's module, once each, in rule order. Buy off reads as "Buy", not as
- * Shopping, Stores, Pharmacy and Food one by one. Admin's notice for that module is what people are shown.
+ * CSS for the screens that refer to a switched-off module, as Admin chose. "hide" removes every trace: each link into its
+ * screens, the list item or card it sits in, and anything an app tagged `data-module="<key>"` (a sentence, a button that
+ * is not a link). "inactive" keeps all of that where it is, greyed out and not tappable. Either way, only a direct visit
+ * to one of the module's own pages (a saved or shared link) shows the "Currently Offline" notice, and an app's home path
+ * (an `exact` rule) is never touched.
  */
-export function offlineRoots(rules: readonly ModuleRouteRule[], isOn: (module: string) => boolean): { module: string; title: string }[] {
-  const seen = new Set<string>();
-  const out: { module: string; title: string }[] = [];
-  for (const rule of rules) {
-    if (isOn(rule.module)) continue;
-    let top = getModule(rule.module);
-    for (let up = top?.parent ? getModule(top.parent) : undefined; top && up && !isOn(up.key); up = up.parent ? getModule(up.parent) : undefined) top = up;
-    const key = top?.key ?? rule.module;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ module: key, title: top?.label ?? rule.title });
+export function hiddenLinksCss(rules: readonly ModuleRouteRule[], isOn: (module: string) => boolean, tagged: readonly string[] = [], display: "hide" | "inactive" = "hide"): string {
+  const off = rules.filter((r) => !r.exact && r.prefix !== "/" && !isOn(r.module));
+  const links = off.flatMap((r) => [`a[href="${r.prefix}"]`, `a[href^="${r.prefix}/"]`, `a[href^="${r.prefix}?"]`]);
+  const marked = [...new Set([...off.map((r) => r.module), ...tagged.filter((m) => !isOn(m))])].map((m) => `[data-module="${m}"]`);
+  if (display === "inactive") {
+    const all = [...links, ...marked];
+    return all.length ? `${all.join(",")}{pointer-events:none!important;cursor:not-allowed!important;opacity:.4!important;filter:grayscale(1)!important}` : "";
   }
-  return out;
+  return [...links.flatMap((sel) => [sel, `li:has(>${sel})`]), ...marked].map((sel) => `${sel}{display:none!important}`).join("");
 }
 
-/** The attribute selectors of every link into a switched-off module's screens (an app's `exact` home is never one). */
+/** The selectors of links into switched-off modules' screens, so a greyed-out link can also be kept out of the keyboard's reach. */
 export function offlineLinkSelectors(rules: readonly ModuleRouteRule[], isOn: (module: string) => boolean): string[] {
   return rules
     .filter((r) => !r.exact && r.prefix !== "/" && !isOn(r.module))
     .flatMap((r) => [`a[href="${r.prefix}"]`, `a[href^="${r.prefix}/"]`, `a[href^="${r.prefix}?"]`]);
-}
-
-/**
- * CSS that greys out every link into the screens of a switched-off module, and cannot be tapped. Nothing is removed: the
- * card, tab or menu entry stays where people expect it, but inactive. This is the catch-all behind each app's own
- * lists, so whatever links to a module that is off is inactive even where nobody wrote a check for it.
- */
-export function inactiveLinksCss(rules: readonly ModuleRouteRule[], isOn: (module: string) => boolean): string {
-  const selectors = offlineLinkSelectors(rules, isOn);
-  if (!selectors.length) return "";
-  return `${selectors.join(",")}{pointer-events:none!important;cursor:not-allowed!important;opacity:.4!important;filter:grayscale(1)!important}`;
 }

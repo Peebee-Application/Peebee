@@ -1,6 +1,7 @@
 import { ActiveOrderCard } from "../components/home/ActiveOrderCard";
 import { FeeProposalCard } from "../components/home/FeeProposalCard";
 import { Greeting } from "../components/home/Greeting";
+import { ModuleOnly } from "../components/ModuleOnly";
 import { ExplorePeebeeCard, HomeLaunch } from "../components/home/HomeScreensaver";
 import { LocationOnboarding } from "../components/home/LocationOnboarding";
 import { OrderTypeCards } from "../components/home/OrderTypeCards";
@@ -17,7 +18,7 @@ export default function HomePage() {
         <OrderTypeCards />
         <FeeProposalCard />
         <ActiveOrderCard />
-        <RecentLists />
+        <ModuleOnly any={["buy.shopping"]}><RecentLists /></ModuleOnly>
         <WalletCard />
         <TrustBanner />
         <LocationOnboarding />

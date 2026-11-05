@@ -4,10 +4,12 @@ import { CarFront, KeyRound, LayoutGrid, Route, Users, UserRound, WalletCards } 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
+import { filterByModule, useModules } from "../lib/modules";
 
 export function BottomNav() {
   const pathname = usePathname();
   const { mode } = useAuth();
+  const moduleOn = useModules();
 
   if (pathname === "/login") return null;
 
@@ -27,7 +29,7 @@ export function BottomNav() {
           { href: "/wallet", label: "Earnings", icon: WalletCards },
           { href: "/account", label: "Account", icon: UserRound },
         ];
-  const tabs = allTabs;
+  const tabs = filterByModule(allTabs, moduleOn);
 
   return (
     <nav

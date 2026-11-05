@@ -20,7 +20,7 @@ import {
 import { saveSelfDriveRoute } from "../../lib/selfdrive-route";
 import { useSpecialCarServices } from "../../lib/special-car";
 import { useTaxipress } from "../../lib/taxipress";
-import { markOffline, useModules } from "../../lib/modules";
+import { filterByModule, useModules } from "../../lib/modules";
 import { useLivePolling } from "../../lib/use-live-polling";
 import { useRoadRoute } from "../../lib/useRoadRoute";
 import { FeeProposalCard } from "../home/FeeProposalCard";
@@ -449,8 +449,7 @@ export function RideHome() {
     { id: "parcel", module: "deliver.parcel", label: "Parcel", icon: Package, sub: "Send a package", href: "/deliver/parcel" },
   ];
 
-  // A ride type whose module is switched off in Admin → Services stays in the row, inactive.
-  const modes = markOffline(allModes, moduleOn);
+  const modes = filterByModule(allModes, moduleOn);
 
   const sheetStyle = { height: expanded ? "calc(100% - 12px)" : "min(60%, 500px)" };
   const whoLabel = passenger ? `For ${passenger.name.split(" ")[0]}` : "For me";

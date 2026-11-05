@@ -60,7 +60,7 @@ import { useLivePolling } from "../lib/use-live-polling";
 import { BottomDrawer } from "./BottomDrawer";
 import { CartDrawer } from "./CartDrawer";
 import { useCart } from "../lib/cart";
-import { markOffline, useModules } from "../lib/modules";
+import { filterByModule, useModules } from "../lib/modules";
 import { SPOTLIGHT_FILTERS, setSpotlightFilter, useSpotlightFilter, type SpotlightFilter } from "../lib/spotlight-filter";
 import { goBackOr, useNavBack, useNavPrimaryAction } from "../lib/nav-primary-action";
 
@@ -77,7 +77,7 @@ function SwappingLabel({ first, second, seconds }: { first: string; second: stri
 }
 
 type MenuGroup = "original" | "ride" | "shopping" | "food" | "hive" | "learn" | "spotlight";
-type MenuItem = { id: string; label: string; /** The Services module that shows or hides this button. */ module?: string; /** A second name that swaps with `label`. */ alt?: { label: string; seconds: number }; icon: LucideIcon; href?: string; group?: Exclude<MenuGroup, "original" | "spotlight">; disabled?: boolean; /** Its module is switched off in Admin: the button stays, inactive. */ offline?: boolean; /** A Spotlight filter this button switches on. */ spotlight?: SpotlightFilter };
+type MenuItem = { id: string; label: string; /** The Services module that shows or hides this button. */ module?: string; /** A second name that swaps with `label`. */ alt?: { label: string; seconds: number }; icon: LucideIcon; href?: string; group?: Exclude<MenuGroup, "original" | "spotlight">; disabled?: boolean; /** Its module is off and Admin chose to grey it out: the button stays, inactive. */ offline?: boolean; /** A Spotlight filter this button switches on. */ spotlight?: SpotlightFilter };
 
 // Five main buttons: Ride, Buy, Eat, Learn and Hive. Learn goes straight to its own home; the others open a row of shortcuts.
 // The names come from the admin's home menu setting; these are the buttons' icons and where they lead.
@@ -225,8 +225,8 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
   const onHomeScreen = pathname === "/" && menuGroup === "original";
 
   const moduleOn = useModules();
-  // A button whose module is switched off in Admin → Services stays in every row, inactive.
-  const menuItems: MenuItem[] = markOffline(
+  // A button whose module is switched off in Admin → Services is left out of every row, or kept greyed out (Admin chooses).
+  const menuItems: MenuItem[] = filterByModule(
     menuGroup === "original" ? originalMenu(homeMenu)
     : menuGroup === "ride" ? rideItems(special, taxipress.enabled)
     : menuGroup === "hive" ? hiveItems(homeMenu, hireAvailability)
@@ -533,14 +533,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
                   return (
                     <li key={item.id} className={scrolls ? "w-[19%] shrink-0 snap-start" : "flex-1 min-w-0"}>
                       {item.offline ? (
-                        <button
-                          type="button"
-                          disabled
-                          aria-disabled="true"
-                          aria-label={`${item.label}, currently offline`}
-                          title="Currently Offline"
-                          className={btnClass}
-                        >
+                        <button type="button" disabled aria-disabled="true" aria-label={`${item.label}, currently offline`} title="Currently Offline" className={btnClass}>
                           {content}
                         </button>
                       ) : item.group ? (

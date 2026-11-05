@@ -4,6 +4,7 @@ import { Briefcase, Fuel, GraduationCap, History, Package, Store } from "lucide-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
+import { filterByModule, useModules } from "../lib/modules";
 
 const BASE_TABS = [
   { href: "/", label: "Pump", icon: Fuel, module: "buy.gas" },
@@ -17,11 +18,12 @@ const BASE_TABS = [
 export function BottomNav() {
   const pathname = usePathname();
   const { isManager } = useAuth();
+  const moduleOn = useModules();
 
   // Do not show bottom nav on login page
   if (pathname === "/login") return null;
 
-  const tabs = BASE_TABS;
+  const tabs = filterByModule(BASE_TABS, moduleOn);
 
   return (
     <nav

@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import type { HiveShortcutId } from "@peebee/shared";
 import { useHireAvailability, useHomeMenu } from "../lib/home-menu";
-import { markOffline, useModules } from "../lib/modules";
+import { filterByModule, useModules } from "../lib/modules";
 import { useSpecialCarServices } from "../lib/special-car";
 import { useTaxipress } from "../lib/taxipress";
 
@@ -55,8 +55,8 @@ export function ServiceLanding({ group }: { group: LandingGroup }) {
   const moduleOn = useModules();
   const base = landingContent[group];
   const withExtras = group === "ride" ? { ...base, items: [...base.items, ...(taxipress.enabled ? [taxipressItem] : []), ...specialRideItems.filter((s) => special[s.key]).map((s) => s.item)] } : base;
-  // A card whose module is switched off in Admin → Services stays, inactive; the code behind it stays ready.
-  const content = { ...withExtras, items: markOffline(withExtras.items, moduleOn) };
+  // A card whose module is switched off in Admin → Services is left out; the code behind it stays ready.
+  const content = { ...withExtras, items: filterByModule(withExtras.items, moduleOn) };
   // Wide cards (Taxipress, Ambulance) stack full-width under the two-column grid; the rest stay in it.
   const gridItems = content.items.filter((item) => !item.wide);
   const wideItems = content.items.filter((item) => item.wide);

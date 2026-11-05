@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import type { ServiceKey } from "@peebee/shared";
 import { useTranslate, type TranslationKey } from "../../lib/i18n";
+import { useModules } from "../../lib/modules";
 
 type Tile = { key: ServiceKey; labelKey: TranslationKey; icon: LucideIcon; href?: string; onClick?: () => void };
 
@@ -23,6 +24,7 @@ export function ServiceTiles({
   paused?: Partial<Record<ServiceKey, boolean>>;
 }) {
   const t = useTranslate();
+  const greyOut = useModules().display === "inactive";
   const tiles: Tile[] = [
     { key: "ride", labelKey: "service_ride", icon: Bike, onClick: onRide },
     { key: "food", labelKey: "service_food", icon: UtensilsCrossed, href: "/food" },
@@ -39,10 +41,12 @@ export function ServiceTiles({
     </>
   );
   const cls = "service-shortcut relative isolate flex min-w-0 flex-col items-center gap-1.5 overflow-visible transition-transform active:scale-95";
-  // A service an admin switched off stays where it is, greyed out and not tappable, marked "Currently Offline".
+  // A service an admin switched off is not shown at all, or (when Admin chose to grey it out) stays as an inactive tile.
+  const shown = greyOut ? tiles : tiles.filter((tile) => !paused[tile.key]);
+  if (shown.length === 0) return null;
   return (
-    <div className="grid gap-3 overflow-visible" style={{ gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))` }}>
-      {tiles.map((tile) =>
+    <div className="grid gap-3 overflow-visible" style={{ gridTemplateColumns: `repeat(${shown.length}, minmax(0, 1fr))` }}>
+      {shown.map((tile) =>
         paused[tile.key] ? (
           <button key={tile.key} data-service={tile.key} type="button" disabled aria-disabled="true" aria-label={`${t(tile.labelKey)}, currently offline`} className={`${cls} cursor-not-allowed`}>
             {inner(tile)}

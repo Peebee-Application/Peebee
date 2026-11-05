@@ -4,6 +4,7 @@ import { MoreHorizontal, Briefcase, Building2, CreditCard, LayoutGrid, Store, Us
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
+import { filterByModule, useModules } from "../lib/modules";
 
 const tabs = [
   { href: "/", label: "Overview", icon: LayoutGrid },
@@ -18,11 +19,12 @@ const tabs = [
 export function BottomNav() {
   const pathname = usePathname();
   const { merchant } = useAuth();
+  const moduleOn = useModules();
 
   if (pathname === "/login" || pathname === "/apply" || pathname === "/activate") return null;
 
   const visibleTabs =
-    (merchant?.member_role === "cashier" ? tabs.filter((tab) => tab.href !== "/wallet") : tabs);
+    filterByModule(merchant?.member_role === "cashier" ? tabs.filter((tab) => tab.href !== "/wallet") : tabs, moduleOn);
 
   return (
     <nav

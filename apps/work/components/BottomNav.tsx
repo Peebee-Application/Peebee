@@ -4,18 +4,20 @@ import { Briefcase, Home, Users, UserRound, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
+import { filterByModule, useModules } from "../lib/modules";
 
 export function BottomNav() {
   const pathname = usePathname();
   const { provider, isOwner } = useAuth();
+  const moduleOn = useModules();
 
-  const tabs = [
+  const tabs = filterByModule([
     { href: "/", label: "Home", icon: Home },
     { href: "/jobs", label: "Jobs", icon: Briefcase, module: "hive.work" },
     ...(isOwner ? [{ href: "/earnings", label: "Earnings", icon: Wallet }] : []),
     ...(isOwner && provider?.kind === "company" ? [{ href: "/team", label: "Team", icon: Users }] : []),
     { href: "/account", label: "Account", icon: UserRound },
-  ];
+  ], moduleOn);
 
   return (
     <nav aria-label="Primary navigation" className="customer-nav fixed inset-x-0 bottom-3 z-40 px-3 pointer-events-none pb-[env(safe-area-inset-bottom)]">

@@ -2,10 +2,12 @@
 
 import { ChevronRight, Users } from "lucide-react";
 import { useTranslate } from "../../lib/i18n";
+import { ModuleOnly } from "../ModuleOnly";
 
 export function TrustBanner() {
   const t = useTranslate();
   return (
+    <ModuleOnly any={["ride", "deliver", "buy.shopping"]}>
     <div className="home-card flex items-center gap-3 !py-3.5">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy/15 text-navy">
         <Users className="h-5 w-5" strokeWidth={2} aria-hidden />
@@ -16,5 +18,6 @@ export function TrustBanner() {
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-ink-500/60" strokeWidth={2} aria-hidden />
     </div>
+    </ModuleOnly>
   );
 }
