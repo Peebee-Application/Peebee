@@ -63,6 +63,10 @@ test("settings persist in existing settings table, require permission, reach cus
     assert.deepEqual(JSON.parse(String(log.after_json)).homeTemplates, changed);
     assert.deepEqual(await revertActivity(String(log.id), { sub: "ht-admin", name: "Admin", adminRole: "super_admin" }), { ok: true });
     assert.deepEqual(await getHomeTemplatesSettings(), DEFAULT_HOME_TEMPLATES, "activity undo restores the home template setting");
+    const only = { ...changed, templates: ["07"] };
+    assert.equal((await put(admin, only)).status, 200);
+    const single = await app.request("/v1/settings", { headers: { Authorization: `Bearer ${customer}` } });
+    assert.deepEqual((await single.json() as { settings: { homeTemplates: HomeTemplatesSettings } }).settings.homeTemplates.templates, ["07"], "only the selected design reaches customer settings");
     await setSetting("home_templates_config", '{"templates":[]}');
     assert.deepEqual(await getHomeTemplatesSettings(), DEFAULT_HOME_TEMPLATES);
   } finally { setD1Binding(undefined); client.close(); }

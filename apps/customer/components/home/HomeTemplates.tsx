@@ -1,7 +1,8 @@
 "use client";
 
 import { HOME_TEMPLATES, availableHomeShortcuts, isModuleOn, isPracticeMode, randomHomeInterval, resolveHomeMenu, resolveHomeTemplates, type DeliverySettings, type HomeShortcut, type HomeTemplatesSettings } from "@peebee/shared";
-import { Ambulance, ArrowRight, Award, Bike, BookOpen, Briefcase, Bus, Car, ChefHat, Citrus, Clapperboard, Croissant, Crown, HardHat, ListChecks, MessagesSquare, Package, Pause, Pill, Play, Radio, ShoppingBag, ShoppingBasket, Sparkles, Truck, Tv, UsersRound, UtensilsCrossed, WashingMachine, Wrench, type LucideIcon } from "lucide-react";
+import { ArrowRight, Pause, Play } from "lucide-react";
+import { HomeTemplateArtwork } from "@peebee/shared/home-artwork";
 import Link from "next/link";
 import { useCallback, useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 import { api, errorMessage } from "../../lib/api";
@@ -15,14 +16,7 @@ import { isNavigationOverlayOpen } from "../../lib/location-flow-state";
 import { canRotateHome, chooseHomeSelection, restoreHomeSelection, type HomeSelection } from "../../lib/home-rotation";
 import { Greeting } from "./Greeting";
 import { ExplorePeebeeCard } from "./HomeScreensaver";
-import "./home-templates.css";
-
-const ICONS: Record<HomeShortcut["icon"], LucideIcon> = {
-  bike: Bike, car: Car, people: UsersRound, truck: Truck, parcel: Package, bus: Bus, crown: Crown, ambulance: Ambulance,
-  list: ListChecks, basket: ShoppingBasket, store: ShoppingBag, pill: Pill, food: UtensilsCrossed, chef: ChefHat, bread: Croissant,
-  juice: Citrus, clean: Sparkles, laundry: WashingMachine, fix: Wrench, worker: HardHat, hire: Briefcase, book: BookOpen,
-  live: Radio, tv: Tv, award: Award, chat: MessagesSquare, spotlight: Clapperboard,
-};
+import "@peebee/shared/home-artwork.css";
 
 /** Replaces home content only. BrandHeader and BottomNav remain owned by AppShell. */
 export function HomeExperience({ legacy, children }: { legacy: ReactNode; children: ReactNode }) {
@@ -128,21 +122,9 @@ function HomeArtwork({ config, available, storageKey, blocked }: { config: HomeT
   return <>
     <div className="dh-controls"><span className="text-xs text-ink-500">A little help for your day</span><button type="button" aria-pressed={paused} onClick={pause} className="dh-pause">{paused ? <Play size={14} aria-hidden /> : <Pause size={14} aria-hidden />}{paused ? "Resume changes" : "Pause changes"}</button></div>
     {available.length === 0 ? <section className="dh-empty"><h2>Nothing to show here just yet</h2><p>The main menu still takes you to available services.</p><Link href="/help">Get help <ArrowRight size={16} aria-hidden /></Link></section> :
-      <section className={`dh-art dh-${template.id}`} data-home-template={template.id} aria-label={template.name}
-        onPointerEnter={(e) => { if (e.pointerType === "mouse") hovered.current = true; }} onPointerLeave={() => { hovered.current = false; lastInteraction.current = Date.now(); }}>
-        <span className="dh-object" aria-hidden />
-        <h2>{template.title}</h2>
-        {template.id === "08" && <p className="dh-intro">Choose what you need to get started</p>}
-        {template.id === "11" && <p className="dh-intro">Pick a note to begin.</p>}
-        <ul className="dh-options">{shortcuts.map((shortcut, index) => {
-          const Icon = ICONS[shortcut.icon];
-          return <li key={shortcut.id} className="dh-option"><Link href={shortcut.href} prefetch={false} data-module={shortcut.module}>
-            <span className="dh-number" aria-hidden>{String(index + 1).padStart(2, "0")}</span>
-            <span className="dh-icon"><Icon strokeWidth={1.6} aria-hidden /></span>
-            <span className="dh-copy"><span className="dh-label">{shortcut.label}</span><span className="dh-description">{shortcut.description}</span></span>
-            <ArrowRight className="dh-arrow" size={20} aria-hidden />
-          </Link></li>;
-        })}</ul>
-      </section>}
+      <HomeTemplateArtwork templateId={template.id} shortcuts={shortcuts}
+        renderLink={(shortcut, content) => <Link href={shortcut.href} prefetch={false} className="dh-shortcut" data-module={shortcut.module}>{content}</Link>}
+        onPointerEnter={(e) => { if (e.pointerType === "mouse") hovered.current = true; }}
+        onPointerLeave={() => { hovered.current = false; lastInteraction.current = Date.now(); }} />}
   </>;
 }

@@ -5,6 +5,7 @@ import { DEFAULT_HOME_TEMPLATES, HOME_SHORTCUTS, HOME_TEMPLATES, HOME_TEMPLATE_L
 import { SettingsPageShell, SettingsSaveBar } from "../../../components/SettingsPageShell";
 import { Switch } from "../../../components/ui/Switch";
 import { api, errorMessage } from "../../../lib/api";
+import { HomeTemplatePreview } from "../../../components/HomeTemplatePreview";
 
 const field = "mt-1 min-h-11 w-full rounded-xl border border-[var(--border-faint)] px-3 py-2 text-sm";
 
@@ -14,6 +15,7 @@ export default function HomeTemplatesPage() {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewId, setPreviewId] = useState<HomeTemplateId>("11");
   async function load() {
     try { const { settings } = await api.getSettings(); setConfig(resolveHomeTemplates(settings.homeTemplates)); setError(null); }
     catch (e) { setError(errorMessage(e)); }
@@ -29,10 +31,20 @@ export default function HomeTemplatesPage() {
   function change(patch: Partial<HomeTemplatesSettings>) {
     setConfig((current) => current ? { ...current, ...patch } : current); setSaved(false); setError(null);
   }
+  function preview(id: HomeTemplateId) {
+    setPreviewId(id);
+    if (!window.matchMedia("(min-width: 1280px)").matches) {
+      requestAnimationFrame(() => {
+        const panel = document.getElementById("home-template-preview");
+        panel?.focus({ preventScroll: true });
+        panel?.scrollIntoView({ block: "start" });
+      });
+    }
+  }
   function template(id: HomeTemplateId) {
     if (!config) return;
     const templates = config.templates.includes(id) ? config.templates.filter((v) => v !== id) : [...config.templates, id];
-    if (!templates.length) { setError("Keep at least one template selected."); return; }
+    if (!templates.length) { setError("Keep one template active, or turn off Dynamic home above to use the existing home."); return; }
     change({ templates });
   }
   function eligible(id: HomeShortcutId) {
@@ -60,9 +72,28 @@ export default function HomeTemplatesPage() {
             <p className="text-sm text-ink-500">Off restores the existing home and launch experience. On keeps “Hello, [first name]” above the artwork, with the same sans-serif font in every template. Orders, fee proposals, saved lists and wallet remain available.</p>
           </section>
           <section className="home-card space-y-3">
-            <h2 className="font-bold">Template pool</h2>
-            <p className="text-sm text-ink-500">Each change chooses a different enabled design when more than one is selected. All ten approved designs are included; 12 was tentative in the design shortlist.</p>
-            <div className="grid gap-2 sm:grid-cols-2">{HOME_TEMPLATES.map((t) => <label key={t.id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[var(--border-faint)] p-3 text-sm"><input type="checkbox" checked={config.templates.includes(t.id)} onChange={() => template(t.id)} className="h-5 w-5 accent-gold" /><span><span className="font-semibold">{t.id}</span> · {t.name}</span></label>)}</div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-bold">Active home templates</h2>
+              <button type="button" className="min-h-11 rounded-xl border border-[var(--border-faint)] px-4 text-sm font-semibold" onClick={() => change({ templates: HOME_TEMPLATES.map((t) => t.id) })}>Activate all templates</button>
+            </div>
+            <p className="text-sm text-ink-500">Switch each design on or off. Preview any design without activating it. “Use only this template” makes that design the only active one. Changes apply after Save settings.</p>
+            <p role="status" className="text-sm font-semibold">{!config.enabled ? "Dynamic home is off. Your template selections are kept for when you turn it on." : config.templates.length === 1 ? `Only ${HOME_TEMPLATES.find((t) => t.id === config.templates[0])?.name} will appear. Its shortcuts can still refresh at your chosen intervals.` : `${config.templates.length} active templates will rotate. ${HOME_TEMPLATES.length - config.templates.length} inactive.`}</p>
+            <div className="grid items-start gap-6 xl:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">{HOME_TEMPLATES.map((t) => {
+                const active = config.templates.includes(t.id);
+                return <div key={t.id} className="rounded-2xl border border-[var(--border-faint)] p-3">
+                  <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm">
+                    <span><span className="block font-semibold">{t.id} · {t.name}</span><span className="block text-xs text-ink-500">{active ? "Active" : "Inactive"}</span></span>
+                    <Switch aria-label={`${t.name} active`} checked={active} onChange={() => template(t.id)} />
+                  </label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button type="button" aria-pressed={previewId === t.id} aria-controls="home-template-preview" onClick={() => preview(t.id)} className="min-h-11 rounded-xl border border-[var(--border-faint)] px-3 text-sm font-semibold aria-pressed:bg-gold aria-pressed:text-ink">Preview {t.id}</button>
+                    <button type="button" onClick={() => { change({ enabled: true, templates: [t.id] }); setPreviewId(t.id); }} className="min-h-11 rounded-xl border border-[var(--border-faint)] px-3 text-sm font-semibold" aria-label={`Use only ${t.name}`}>Use only this template</button>
+                  </div>
+                </div>;
+              })}</div>
+              <HomeTemplatePreview templateId={previewId} config={config} />
+            </div>
           </section>
           <section className="home-card space-y-4">
             <h2 className="font-bold">Timing and frequency</h2>

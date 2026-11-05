@@ -7,7 +7,8 @@ The ten approved layouts are 04 Day Ticket, 07 Open Book, 08 City Line, 09 Cut-P
 ## Admin controls
 
 - Master switch: off restores the previous home and automatic launch slideshow. While dynamic home is on, the existing slideshow remains accessible through Explore Peebee.
-- Template pool: one or more of the ten designs. With multiple templates, the next design differs from the current one.
+- Template pool: individual Active/Inactive switches for all ten designs. With multiple active templates, the next design differs from the current one. **Use only this template** enables dynamic home with that single design and deactivates the other nine; its shortcuts can still refresh. **Activate all templates** restores the full pool. Keep at least one selected, or turn off Dynamic home to restore the existing home.
+- Admin previews: preview any active or inactive design before saving, with “Hello, Sarah” above it. Admin and Customer use the same artwork renderer, icons and stylesheet. Shuffle sample shortcuts uses the eligible list and preferred weights; preview links are inert and actual customer availability rules still apply. Previewing does not change activation or save settings. All activation changes use the existing Save settings flow and activity log.
 - Eligible shortcuts: 30 existing customer destinations across Ride, Deliver, Buy, Food, Work/Hire, Learn and Spotlight. Provider/back-office feature switches without a standalone customer destination are not launch shortcuts.
 - Most-used shortcuts and weight: Admin chooses the frequently promoted entries; there is no claim of automatic usage analytics. Weighted sampling without replacement increases their frequency while keeping other eligible entries discoverable.
 - Shortcuts per design: 1–6, limited to the number of available eligible destinations.
