@@ -56,6 +56,7 @@ export default function PaymentPage() {
   const [codeInput, setCodeInput] = useState("");
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
   const [codeMessage, setCodeMessage] = useState<string | null>(null);
+  const [promoOpen, setPromoOpen] = useState(false);
   const appliedCodeRef = useRef<string | null>(null);
   const paying = useRef(false);
   const ticketId = useRef<string | null>(null);
@@ -145,6 +146,8 @@ export default function PaymentPage() {
   const network = detectMobileMoneyNetwork(phone);
   const pending = detail?.payments.some((p) => p.type === "collection" && ["pending", "unknown"].includes(p.status)) ?? false;
   const combinedStops = detail?.bundleStops ?? [];
+  // A ride is paid in one glance: the fare, a way to pay, done. No order breakdown, promo code tucked away.
+  const isRide = !!detail?.order.is_ride;
   // Relay: pay straight away, before any rider (admin setting). Direct: wait until a rider accepts.
   const payFirst = !!quote?.payBeforeRider;
   const ready = !pending && (payFirst || (detail?.order.stage === "Match" && !!detail.order.rider_id
@@ -225,7 +228,7 @@ export default function PaymentPage() {
   return (
     <div className="mx-auto max-w-lg space-y-5 px-4 pt-5">
       <div className="space-y-1">
-        <Link href={`/orders/${id}`} className="text-sm font-semibold text-ink-500">Back to order</Link>
+        <Link href={`/orders/${id}`} className="text-sm font-semibold text-ink-500">{isRide ? "Back" : "Back to order"}</Link>
         <h1 className="text-2xl font-bold text-ink">Payment</h1>
         <p className="text-sm text-ink-500">How would you like to pay?</p>
       </div>
@@ -257,6 +260,8 @@ export default function PaymentPage() {
               <span className="font-semibold text-ink">Code {appliedCode.toUpperCase()}</span>
               <button type="button" onClick={removeCode} className="font-semibold text-ink-500">Remove</button>
             </div>
+          ) : isRide && !promoOpen ? (
+            <button type="button" onClick={() => setPromoOpen(true)} className="min-h-10 text-sm font-semibold text-ink-500">Have a promo code?</button>
           ) : (
             <div className="flex items-center gap-2">
               <input aria-label="Promo code" value={codeInput} onChange={(e) => setCodeInput(e.target.value.toUpperCase())} placeholder="Promo code" maxLength={30} autoCapitalize="characters" className="min-w-0 flex-1 rounded-xl border border-[var(--border-faint)] px-3 py-3 text-[15px]" />
@@ -316,7 +321,7 @@ export default function PaymentPage() {
         {method !== "cash" && <p className="rounded-xl bg-gold/10 p-3 text-sm leading-6 text-ink">Your money is held safely in the app. Your rider receives it only after your delivery or ride is completed.</p>}
       </section>
       <section className="home-card space-y-2" aria-live="polite">
-        {quote?.delivery && quote.items && quote.itemsSubtotal != null ? (
+        {!isRide && quote?.delivery && quote.items && quote.itemsSubtotal != null ? (
           // Items, their subtotal, a faint line, the delivery and its breakdown, then the total.
           <OrderBreakdown
             items={quote.items}
@@ -329,10 +334,10 @@ export default function PaymentPage() {
         ) : (
           <>
             {quote && amount != null && amount > quote.baseAmount && <>
-              <div className="flex justify-between text-sm text-ink-500"><span>Order amount</span><span>{formatUgx(quote.baseAmount)}</span></div>
+              <div className="flex justify-between text-sm text-ink-500"><span>{isRide ? "Fare" : "Order amount"}</span><span>{formatUgx(quote.baseAmount)}</span></div>
               <div className="flex justify-between text-sm text-ink-500"><span>Payment and service fees</span><span>{formatUgx(amount - quote.baseAmount)}</span></div>
             </>}
-            <div className="flex justify-between gap-3 text-lg font-bold text-ink"><span>Total</span><span>{amount == null ? "Loading…" : formatUgx(amount)}</span></div>
+            <div className="flex justify-between gap-3 text-lg font-bold text-ink"><span>{isRide ? "Total fare" : "Total"}</span><span>{amount == null ? "Loading…" : formatUgx(amount)}</span></div>
           </>
         )}
       </section>
