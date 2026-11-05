@@ -13,6 +13,8 @@ import { clientIp, hashKey } from "../lib/ratelimit.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
 import { getRawSetting, setRawSetting } from "../lib/settings.js";
 import { AI_UNAVAILABLE_REPLY, AI_OFF_REPLY, askAssistant, type ChatTurn } from "./ai.js";
+import { agentsOnline, alertStaffAboutChat, closeIdleChats, notifyVisitorOfReply, touchAgentPresence } from "./alerts.js";
+import { getAvailability, hasOfflineColumn } from "./availability.js";
 import { SUPPORT_KNOWLEDGE } from "./knowledge.js";
 
 /**
@@ -74,13 +76,14 @@ async function messagesAfter(chatId: string, after: number, limit = 100): Promis
   return (res.rows as Row[]).map(toMessage);
 }
 
-/** Chats left with a person or in the queue and gone quiet are closed, so the queue never fills with abandoned chats. */
-async function closeIdleChats(): Promise<void> {
-  const minutes = Number((await getOptions(["support_chat_idle_close_minutes"])).support_chat_idle_close_minutes);
-  await db.execute({
-    sql: "UPDATE support_chats SET status = 'closed', closed_at = datetime('now') WHERE status IN ('waiting', 'human') AND updated_at < datetime('now', ?)",
-    args: [`-${minutes} minutes`],
-  });
+/** What the visitor is told when they leave a message while nobody can answer. */
+const awayNotice = (hours: string | null) =>
+  `The team is away right now${hours ? ` (we are on ${hours})` : ""}. Your message is saved, and the team will reply here as soon as someone is back.`;
+
+/** Runs best-effort work (a push) without making the visitor wait; on a Worker it is kept alive after the reply is sent. */
+async function background(c: Context, work: Promise<unknown>): Promise<void> {
+  const safe = work.catch((err) => console.error("Support chat background task failed:", err instanceof Error ? err.message : err));
+  try { c.executionCtx.waitUntil(safe); } catch { await safe; }
 }
 
 async function queuePosition(chat: Row): Promise<number | null> {
@@ -105,7 +108,8 @@ supportChatRoutes.get("/support-chat/config", async (c) => {
   const o = await getOptions(["support_chat_enabled", "support_chat_ai_enabled", "support_chat_human_enabled"]);
   const app = c.req.query("app") ?? null;
   const ready = o.support_chat_enabled === true && (await tablesReady()) && (await appEnabled(app));
-  return c.json({ live: ready, aiEnabled: ready && o.support_chat_ai_enabled === true, humanEnabled: ready && o.support_chat_human_enabled === true });
+  const availability = ready ? await getAvailability() : null;
+  return c.json({ live: ready, aiEnabled: ready && o.support_chat_ai_enabled === true, humanEnabled: ready && o.support_chat_human_enabled === true, availability });
 });
 
 supportChatRoutes.post("/support-chat", async (c) => {
@@ -122,7 +126,8 @@ supportChatRoutes.post("/support-chat", async (c) => {
   const id = newId("sch");
   const secret = `${crypto.randomUUID()}${crypto.randomUUID()}`.replace(/-/g, "");
   // A chat with the assistant switched off starts in the queue.
-  const toQueue = o.support_chat_ai_enabled !== true && o.support_chat_human_enabled === true;
+  const availability = await getAvailability();
+  const toQueue = o.support_chat_ai_enabled !== true && availability.offer !== "none";
   await db.execute({
     sql: `INSERT INTO support_chats (id, secret_hash, status, page, ip_hash, handoff_at) VALUES (?, ?, ?, ?, ?, ${toQueue ? "datetime('now')" : "NULL"})`,
     args: [id, await shaHex(secret), toQueue ? "waiting" : "ai", body.success ? (body.data.page ?? null) : null, await hashKey(clientIp(c))],
@@ -131,8 +136,34 @@ supportChatRoutes.post("/support-chat", async (c) => {
   if (await hasColumn("support_chats", "app")) {
     await db.execute({ sql: "UPDATE support_chats SET app = ?, user_id = ?, user_name = ?, user_role = ? WHERE id = ?", args: [app, person?.id ?? null, person?.name ?? null, person?.role ?? null, id] });
   }
-  if (toQueue) await addMessage(id, "system", "Connecting you to a support agent…");
+  if (toQueue) {
+    const away = availability.offer === "message";
+    if (away && (await hasOfflineColumn())) await db.execute({ sql: "UPDATE support_chats SET left_offline = 1 WHERE id = ?", args: [id] });
+    await addMessage(id, "system", away ? awayNotice(availability.hours) : "Connecting you to a support agent…");
+    await background(c, alertStaffAboutChat(id, "new"));
+  }
   return c.json({ id, secret, status: toQueue ? "waiting" : "ai", aiEnabled: o.support_chat_ai_enabled === true, humanEnabled: o.support_chat_human_enabled === true }, 201);
+});
+
+/**
+ * A signed-in person coming back to Help & support (a new tab, another device, the next day) picks up their latest chat from
+ * their login, so a reply left while they were away is waiting for them. The chat's secret is only ever stored as a hash, so a
+ * fresh one is issued, which means any older browser copy stops working: only the signed-in owner can do this.
+ */
+supportChatRoutes.post("/support-chat/resume", async (c) => {
+  const person = await signedInPerson(c);
+  if (!person || !(await tablesReady()) || !(await hasColumn("support_chats", "user_id"))) return c.json({ error: "none" }, 404);
+  const body = z.object({ app: z.string().trim().max(30).optional() }).safeParse(await c.req.json().catch(() => ({})));
+  const app = body.success && isSupportApp(body.data.app) ? body.data.app : null;
+  const row = (await db.execute({
+    sql: `SELECT id FROM support_chats WHERE user_id = ? AND ${app ? "app = ?" : "1 = 1"} AND updated_at > datetime('now', '-7 days')
+          ORDER BY CASE status WHEN 'closed' THEN 1 ELSE 0 END, updated_at DESC LIMIT 1`,
+    args: app ? [person.id, app] : [person.id],
+  })).rows[0] as Row | undefined;
+  if (!row) return c.json({ error: "none" }, 404);
+  const secret = `${crypto.randomUUID()}${crypto.randomUUID()}`.replace(/-/g, "");
+  await db.execute({ sql: "UPDATE support_chats SET secret_hash = ? WHERE id = ?", args: [await shaHex(secret), String(row.id)] });
+  return c.json({ id: String(row.id), secret });
 });
 
 /** The poll: new messages since `after`, plus who the visitor is talking to. */
@@ -141,8 +172,15 @@ supportChatRoutes.get("/support-chat/:id", async (c) => {
   if ("error" in own) return own.error;
   const after = Math.max(0, Number(c.req.query("after")) || 0);
   const chat = own.chat;
+  // So a reply is only pushed to someone who is not already looking at the chat (at most one write per 15 seconds).
+  if (await hasColumn("support_chats", "visitor_seen_at")) {
+    await db.execute({ sql: "UPDATE support_chats SET visitor_seen_at = datetime('now') WHERE id = ? AND (visitor_seen_at IS NULL OR visitor_seen_at < datetime('now', '-15 seconds'))", args: [String(chat.id)] });
+  }
   return c.json({
     status: chat.status, agentName: chat.agent_name ?? null, position: await queuePosition(chat),
+    leftOffline: Number(chat.left_offline) === 1,
+    // So the waiting card can say honestly whether someone is there right now.
+    availability: chat.status === "waiting" ? await getAvailability() : null,
     messages: await messagesAfter(String(chat.id), after),
   });
 });
@@ -195,13 +233,22 @@ supportChatRoutes.post("/support-chat/:id/handoff", async (c) => {
   if ("error" in own) return own.error;
   const o = await getOptions(["support_chat_human_enabled"]);
   if (o.support_chat_human_enabled !== true) return c.json({ error: "disabled", message: "Talking to a person is not available right now." }, 403);
+  const availability = await getAvailability();
+  if (availability.offer === "none") {
+    return c.json({ error: "team_away", message: `The team is away right now${availability.hours ? ` (we are on ${availability.hours})` : ""}. The assistant can keep helping you.` }, 403);
+  }
+  const body = z.object({ contact: z.string().trim().min(3).max(120).optional() }).safeParse(await c.req.json().catch(() => ({})));
+  const contact = body.success ? body.data.contact?.replace(/[\u0000-\u001f]/g, "") : undefined;
   const chatId = String(own.chat.id);
   if (own.chat.status === "ai" || own.chat.status === "closed") {
+    const away = availability.offer === "message";
     await db.execute({ sql: "UPDATE support_chats SET status = 'waiting', agent_id = NULL, agent_name = NULL, closed_at = NULL, handoff_at = datetime('now'), updated_at = datetime('now') WHERE id = ?", args: [chatId] });
-    await addMessage(chatId, "system", "Connecting you to a support agent…");
+    if (await hasOfflineColumn()) await db.execute({ sql: "UPDATE support_chats SET left_offline = ?, contact = COALESCE(?, contact) WHERE id = ?", args: [away ? 1 : 0, contact ?? null, chatId] });
+    await addMessage(chatId, "system", away ? awayNotice(availability.hours) : "Connecting you to a support agent…");
+    await background(c, alertStaffAboutChat(chatId, "new"));
   }
   const chat = (await db.execute({ sql: "SELECT * FROM support_chats WHERE id = ?", args: [chatId] })).rows[0] as Row;
-  return c.json({ status: chat.status, position: await queuePosition(chat) });
+  return c.json({ status: chat.status, position: await queuePosition(chat), leftOffline: Number(chat.left_offline) === 1, availability });
 });
 
 /** Visitor leaves the person (or the queue) and goes back to the assistant. */
@@ -227,8 +274,9 @@ supportChatRoutes.get("/admin/support-chats", ...gate, async (c) => {
   await closeIdleChats();
   const view = c.req.query("view") === "all" ? "all" : "open";
   const identity = await hasColumn("support_chats", "app");
+  const offlineCol = await hasOfflineColumn();
   const res = await db.execute(
-    `SELECT c.id, c.status, c.agent_id, c.agent_name, c.page, c.handoff_at, c.created_at, c.updated_at, ${identity ? "c.app, c.user_name, c.user_role," : "NULL AS app, NULL AS user_name, NULL AS user_role,"}
+    `SELECT c.id, c.status, c.agent_id, c.agent_name, c.page, c.handoff_at, c.created_at, c.updated_at, ${identity ? "c.app, c.user_name, c.user_role," : "NULL AS app, NULL AS user_name, NULL AS user_role,"} ${offlineCol ? "c.contact, c.left_offline," : "NULL AS contact, 0 AS left_offline,"}
             (SELECT body FROM support_messages m WHERE m.chat_id = c.id AND m.sender != 'system' ORDER BY m.id DESC LIMIT 1) AS last_text,
             (SELECT sender FROM support_messages m WHERE m.chat_id = c.id AND m.sender != 'system' ORDER BY m.id DESC LIMIT 1) AS last_from,
             (SELECT COUNT(*) FROM support_messages m WHERE m.chat_id = c.id AND m.sender = 'user') AS visitor_messages
@@ -241,11 +289,31 @@ supportChatRoutes.get("/admin/support-chats", ...gate, async (c) => {
   return c.json({
     chats: (res.rows as Row[]).map((r) => ({
       id: r.id, status: r.status, agentName: r.agent_name ?? null, mine: r.agent_id === me, page: r.page ?? null,
+      contact: r.contact ?? null, leftOffline: Number(r.left_offline) === 1,
       app: r.app ?? null, appLabel: supportAppLabel(r.app as string | null), person: r.user_name ? `${r.user_name}${r.user_role ? ` (${r.user_role})` : ""}` : null,
       waitingSince: r.handoff_at ?? null, startedAt: r.created_at, updatedAt: r.updated_at,
       lastText: r.last_text ?? null, lastFrom: r.last_from ?? null, visitorMessages: Number(r.visitor_messages),
     })),
   });
+});
+
+/**
+ * What the admin app polls to show a badge, play a sound and tell visitors someone is here: how many chats are waiting, which
+ * is the newest, and how many staff have the admin app open. Calling it also marks this staff member as online.
+ */
+supportChatRoutes.get("/admin/support-chats/summary", ...gate, async (c) => {
+  if (!(await tablesReady())) return c.json({ ready: false, waiting: 0, mine: 0, newestWaitingAt: null, oldestWaitingAt: null, agentsOnline: null });
+  const user = c.get("user");
+  await touchAgentPresence(user.sub, staffName(c));
+  const res = await db.execute({
+    sql: `SELECT SUM(status = 'waiting') AS waiting, SUM(status = 'human' AND agent_id = ?) AS mine,
+                 MAX(CASE WHEN status = 'waiting' THEN handoff_at END) AS newest, MIN(CASE WHEN status = 'waiting' THEN handoff_at END) AS oldest
+            FROM support_chats WHERE status IN ('waiting', 'human')`,
+    args: [user.sub],
+  });
+  const r = res.rows[0] as Row;
+  const o = await getOptions(["support_chat_alerts_enabled"]);
+  return c.json({ ready: true, waiting: Number(r.waiting) || 0, mine: Number(r.mine) || 0, newestWaitingAt: r.newest ?? null, oldestWaitingAt: r.oldest ?? null, agentsOnline: await agentsOnline(), alertsEnabled: o.support_chat_alerts_enabled === true });
 });
 
 supportChatRoutes.get("/admin/support-chats/:id", ...gate, async (c) => {
@@ -256,6 +324,7 @@ supportChatRoutes.get("/admin/support-chats/:id", ...gate, async (c) => {
   const after = Math.max(0, Number(c.req.query("after")) || 0);
   return c.json({
     id: chat.id, status: chat.status, agentName: chat.agent_name ?? null, mine: chat.agent_id === c.get("user").sub, page: chat.page ?? null,
+    contact: chat.contact ?? null, leftOffline: Number(chat.left_offline) === 1,
     appLabel: supportAppLabel((chat.app as string | null) ?? null), person: chat.user_name ? `${chat.user_name}${chat.user_role ? ` (${chat.user_role})` : ""}` : null,
     messages: await messagesAfter(String(chat.id), after, 500),
   });
@@ -283,7 +352,9 @@ supportChatRoutes.post("/admin/support-chats/:id/messages", ...gate, async (c) =
   const chat = (await db.execute({ sql: "SELECT * FROM support_chats WHERE id = ?", args: [idOf(c)] })).rows[0] as Row | undefined;
   if (!chat) return c.json({ error: "not_found" }, 404);
   if (chat.status !== "human" || chat.agent_id !== c.get("user").sub) return c.json({ error: "not_yours", message: "Claim this chat before replying." }, 409);
-  return c.json({ message: await addMessage(String(chat.id), "agent", parsed.data.text, String(chat.agent_name ?? staffName(c))) }, 201);
+  const message = await addMessage(String(chat.id), "agent", parsed.data.text, String(chat.agent_name ?? staffName(c)));
+  await background(c, notifyVisitorOfReply(String(chat.id), parsed.data.text));
+  return c.json({ message }, 201);
 });
 
 supportChatRoutes.post("/admin/support-chats/:id/close", ...gate, async (c) => {

@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import { Search } from "lucide-react";
 import { useAuth } from "../../lib/auth-context";
 import { isActive, visibleGroups } from "../../lib/admin-nav";
+import { useSupportAlerts } from "../SupportAlerts";
 
 /** Desktop navigation: every admin area in clear groups, always in view. */
 export function Sidebar({ onSearch }: { onSearch: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const groups = visibleGroups(user?.adminRole ?? null);
+  const support = useSupportAlerts();
   return (
     <aside aria-label="Admin navigation" className="admin-sidebar fixed bottom-0 left-0 top-16 z-30 hidden w-[264px] flex-col lg:flex">
       <div className="px-4 pb-2 pt-4">
@@ -33,6 +35,9 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                     <Link href={item.href} aria-current={on ? "page" : undefined} className={`admin-nav-link ${on ? "is-active" : ""}`}>
                       <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={on ? 2.2 : 1.8} aria-hidden />
                       <span className="truncate">{item.label}</span>
+                      {item.href === "/support-chat" && support.waiting > 0 && (
+                        <span className="ml-auto rounded-full bg-red-500 px-1.5 text-[11px] font-black leading-5 text-white" aria-label={`${support.waiting} waiting`}>{support.waiting}</span>
+                      )}
                     </Link>
                   </li>
                 );
