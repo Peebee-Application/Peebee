@@ -1,6 +1,7 @@
 "use client";
 
 import { OpeningHours } from "../../components/services/OpeningHours";
+import { TabBar } from "../../components/TabBar";
 import {
   Briefcase,
   Calendar,
@@ -386,14 +387,10 @@ export default function ServicesPlatformPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-gold/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-gold-dark">
-            <Briefcase className="h-3.5 w-3.5" />
-            Standalone Services Engine
-          </div>
-          <h1 className="text-2xl font-black text-ink tracking-tight mt-1">
+          <h1 className="text-3xl font-black text-ink tracking-tight">
             {business ? business.name : "Service Support & Booking Platform"}
           </h1>
-          <p className="text-sm text-ink-500 mt-0.5">
+          <p className="text-lg text-ink-500 mt-0.5">
             {business
               ? `${CATEGORY_LABELS[business.category] || business.category} · ${business.service_area}`
               : "Launch your dedicated service site, offer appointments & consultations, and manage your bookings in one place."}
@@ -490,48 +487,18 @@ export default function ServicesPlatformPage() {
       {business && (
         <div className="space-y-6">
           {/* Navigation Sub-Tabs */}
-          <div className="flex items-center gap-1.5 border-b border-ink/10 pb-2 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab("offerings")}
-              className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors shrink-0 ${
-                activeTab === "offerings" ? "bg-ink text-cream" : "text-ink-600 hover:bg-ink/5"
-              }`}
-            >
-              Service Offerings ({offerings.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("bookings")}
-              className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors shrink-0 ${
-                activeTab === "bookings" ? "bg-ink text-cream" : "text-ink-600 hover:bg-ink/5"
-              }`}
-            >
-              Bookings & CRM ({bookings.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("staff")}
-              className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors shrink-0 ${
-                activeTab === "staff" ? "bg-ink text-cream" : "text-ink-600 hover:bg-ink/5"
-              }`}
-            >
-              Team Specialists ({staff.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("hours")}
-              className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors shrink-0 ${
-                activeTab === "hours" ? "bg-ink text-cream" : "text-ink-600 hover:bg-ink/5"
-              }`}
-            >
-              Opening hours
-            </button>
-            <button
-              onClick={() => setActiveTab("compliance")}
-              className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors shrink-0 ${
-                activeTab === "compliance" ? "bg-ink text-cream" : "text-ink-600 hover:bg-ink/5"
-              }`}
-            >
-              Payment Rails & Compliance
-            </button>
-          </div>
+          <TabBar
+            label="Services"
+            active={activeTab}
+            onChange={setActiveTab}
+            tabs={[
+              { id: "offerings", label: "Offers", icon: Briefcase, count: offerings.length },
+              { id: "bookings", label: "Bookings", icon: Calendar, count: bookings.length },
+              { id: "staff", label: "Team", icon: Users, count: staff.length },
+              { id: "hours", label: "Hours", icon: Clock },
+              { id: "compliance", label: "Pay", icon: ShieldCheck },
+            ]}
+          />
 
           {/* TAB 1: SERVICE OFFERINGS */}
           {activeTab === "offerings" && (

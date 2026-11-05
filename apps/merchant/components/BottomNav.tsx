@@ -6,12 +6,13 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
 import { filterByModule, useModules } from "../lib/modules";
 
+// The first four are the bar; on a phone the rest sit under More.
 const tabs = [
-  { href: "/", label: "Overview", icon: LayoutGrid },
-  { href: "/store", label: "Products", icon: Store, module: "buy.marketplace" },
-  { href: "/services", label: "Services", icon: Briefcase },
+  { href: "/", label: "Home", icon: LayoutGrid },
   { href: "/payments", label: "Payments", icon: CreditCard },
   { href: "/wallet", label: "Wallet", icon: WalletCards },
+  { href: "/store", label: "Store", icon: Store, module: "buy.marketplace" },
+  { href: "/services", label: "Services", icon: Briefcase },
   { href: "/outlets", label: "Outlets", icon: Building2 },
   { href: "/account", label: "Account", icon: UserRound },
 ];
@@ -42,12 +43,12 @@ export function BottomNav() {
                 <Link
                   href={tab.href}
                   aria-current={active ? "page" : undefined}
-                  className={`customer-nav-item relative flex h-[58px] flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-[11px] font-bold transition-all duration-200 active:scale-95 ${
+                  className={`customer-nav-item relative flex h-[62px] flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-xs font-bold transition-all duration-200 active:scale-95 ${
                     active ? "is-active" : ""
                   }`}
                 >
-                  <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 1.8} aria-hidden />
-                  <span className="leading-none truncate max-w-[58px]">{tab.label}</span>
+                  <Icon className="h-6 w-6" strokeWidth={active ? 2.4 : 1.8} aria-hidden />
+                  <span className="leading-none truncate max-w-[72px]">{tab.label}</span>
                   {active && (
                     <span
                       className="customer-nav-indicator absolute bottom-1.5 h-1 w-3.5 rounded-full"
@@ -60,11 +61,11 @@ export function BottomNav() {
           })}
           <li className="min-w-0 flex-1 sm:hidden">
             <details className="relative">
-              <summary className="customer-nav-item flex h-[58px] cursor-pointer list-none flex-col items-center justify-center gap-1 rounded-[18px] text-[11px] font-bold" aria-label="More merchant pages">
-                <MoreHorizontal className="h-5 w-5" aria-hidden /><span>More</span>
+              <summary className="customer-nav-item flex h-[62px] cursor-pointer list-none flex-col items-center justify-center gap-1 rounded-[18px] text-xs font-bold" aria-label="More merchant pages">
+                <MoreHorizontal className="h-6 w-6" aria-hidden /><span>More</span>
               </summary>
-              <ul className="absolute bottom-full right-0 mb-3 min-w-44 space-y-1 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-2 shadow-xl">
-                {visibleTabs.slice(4).map(tab => <li key={tab.href}><Link href={tab.href} aria-current={pathname.startsWith(tab.href) ? "page" : undefined} className="block min-h-11 rounded-xl px-4 py-3 text-sm font-bold text-ink" onClick={event => event.currentTarget.closest("details")?.removeAttribute("open")}>{tab.label}</Link></li>)}
+              <ul className="absolute bottom-full right-0 mb-3 min-w-52 space-y-1 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-2 shadow-xl">
+                {visibleTabs.slice(4).map(tab => <li key={tab.href}><Link href={tab.href} aria-current={pathname.startsWith(tab.href) ? "page" : undefined} className="flex min-h-14 items-center gap-3 rounded-xl px-4 text-lg font-bold text-ink" onClick={event => event.currentTarget.closest("details")?.removeAttribute("open")}><tab.icon className="h-6 w-6 text-gold" aria-hidden />{tab.label}</Link></li>)}
               </ul>
             </details>
           </li>
