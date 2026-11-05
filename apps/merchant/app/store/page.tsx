@@ -3,6 +3,8 @@
 import { ExistingDigitalPurchases } from "../../components/store/ExistingDigitalPurchases";
 import { SectionContentEditor } from "../../components/SectionContentEditor";
 import { PlanLadder, type PlanInfo } from "../../components/store/PlanLadder";
+import { Accordion } from "../../components/Accordion";
+import { TabBar } from "../../components/TabBar";
 import { Select } from "@peebee/shared/select";
 import type {
   MarketplaceSettings,
@@ -188,6 +190,7 @@ export default function MerchantProStorePage() {
   const [activeTab, setActiveTab] = useState<"catalog" | "live" | "ads" | "elite" | "settings">("catalog");
 
   // Elite OS sub-navigation
+  const [eliteMenuOpen, setEliteMenuOpen] = useState(false);
   const [eliteSection, setEliteSection] = useState<
     "overview" | "pos" | "theme" | "sections" | "sms" | "digital" | "lms" | "collections" | "discounts" | "inventory" | "b2b" | "crm" | "po" | "bundles" | "winback"
   >("overview");
@@ -1287,7 +1290,7 @@ export default function MerchantProStorePage() {
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-serif text-xl font-black text-ink">{store.name}</h1>
+                <h1 className="font-serif text-2xl font-black text-ink">{store.name}</h1>
                 <span className="rounded-full bg-green-500/15 px-2.5 py-0.5 text-[10px] font-bold text-green-600 dark:text-green-400">
                   {store.status === "active" ? "OPEN" : "CLOSED"}
                 </span>
@@ -1312,6 +1315,9 @@ export default function MerchantProStorePage() {
           </button>
         </div>
 
+      </div>
+
+      <Accordion title="Plan and links" icon={Crown} summary={isElite ? "Elite" : "Pro"}>
         {/* Merchant / Pro / Elite plans */}
         <PlanLadder
           plan={store.plan}
@@ -1325,7 +1331,7 @@ export default function MerchantProStorePage() {
         />
 
         {/* Dual-Channel Auto-Sync Status: Peebee Customer App vs Dedicated Storefront */}
-        <div className="mt-3 grid grid-cols-1 gap-2 border-t border-[var(--border-faint)] pt-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 border-t border-[var(--border-faint)] pt-3 sm:grid-cols-2">
           <div className="flex items-center justify-between gap-2 rounded-2xl bg-[rgb(var(--surface-muted))] px-3 py-2">
             <div className="min-w-0">
               <span className="block text-[10px] font-black uppercase text-ink-500">
@@ -1370,7 +1376,7 @@ export default function MerchantProStorePage() {
             </a>
           </div>
         </div>
-      </div>
+      </Accordion>
 
       {notice && (
         <div className="flex items-center justify-between rounded-2xl bg-gold/15 p-3.5 text-sm font-semibold text-ink">
@@ -1391,67 +1397,18 @@ export default function MerchantProStorePage() {
       )}
 
       {/* Main Tabs Navigation */}
-      <div className="flex items-center gap-1 overflow-x-auto rounded-2xl bg-[rgb(var(--surface-muted))] p-1">
-        <button
-          onClick={() => setActiveTab("catalog")}
-          className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2.5 text-xs font-bold transition whitespace-nowrap ${
-            activeTab === "catalog"
-              ? "bg-[rgb(var(--surface-card))] text-ink shadow-sm"
-              : "text-ink-500 hover:text-ink"
-          }`}
-        >
-          <Package className="h-3.5 w-3.5" />
-          <span>Catalog ({products.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("elite")}
-          className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2.5 text-xs font-bold transition whitespace-nowrap ${
-            activeTab === "elite"
-              ? "bg-gold text-ink-gold shadow-sm"
-              : "text-gold hover:bg-gold/10"
-          }`}
-        >
-          <Crown className="h-3.5 w-3.5" />
-          <span>Elite OS</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("live")}
-          className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2.5 text-xs font-bold transition whitespace-nowrap ${
-            activeTab === "live"
-              ? "bg-[rgb(var(--surface-card))] text-ink shadow-sm"
-              : "text-ink-500 hover:text-ink"
-          }`}
-        >
-          <Tv className="h-3.5 w-3.5 text-red-500" />
-          <span>Live</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("ads")}
-          className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2.5 text-xs font-bold transition whitespace-nowrap ${
-            activeTab === "ads"
-              ? "bg-[rgb(var(--surface-card))] text-ink shadow-sm"
-              : "text-ink-500 hover:text-ink"
-          }`}
-        >
-          <Megaphone className="h-3.5 w-3.5 text-gold" />
-          <span>Ads</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("settings")}
-          className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2.5 text-xs font-bold transition whitespace-nowrap ${
-            activeTab === "settings"
-              ? "bg-[rgb(var(--surface-card))] text-ink shadow-sm"
-              : "text-ink-500 hover:text-ink"
-          }`}
-        >
-          <StoreIcon className="h-3.5 w-3.5" />
-          <span>Settings</span>
-        </button>
-      </div>
+      <TabBar
+        label="Store"
+        active={activeTab}
+        onChange={setActiveTab}
+        tabs={[
+          { id: "catalog", label: "Catalog", icon: Package, count: products.length },
+          { id: "elite", label: "Elite", icon: Crown },
+          { id: "live", label: "Live", icon: Tv },
+          { id: "ads", label: "Ads", icon: Megaphone },
+          { id: "settings", label: "Settings", icon: StoreIcon },
+        ]}
+      />
 
       {!isElite && <ExistingDigitalPurchases purchases={digitalFulfillments} canRefund={store.permissions?.refund_revoke !== false} onRefund={handleRefundFulfillment} onRevoke={handleRevokeFulfillment} />}
 
@@ -1486,9 +1443,9 @@ export default function MerchantProStorePage() {
 
           {isElite && (
           <>
-          {/* Elite Sub-Navigation Pills */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            {[
+          {/* Elite section picker: one row showing where you are; tap to open the big-tile menu */}
+          {(() => {
+            const items = [
               { id: "overview", label: "P&L Analytics", icon: BarChart3 },
               { id: "pos", label: `POS Register (${posSales.length})`, icon: ShoppingBag },
               { id: "theme", label: "Store 2.0 Theme", icon: Palette },
@@ -1504,27 +1461,46 @@ export default function MerchantProStorePage() {
               { id: "po", label: `Supplier POs (${purchaseOrders.length})`, icon: Truck },
               { id: "bundles", label: `Bundles & Kits (${bundles.length})`, icon: Package },
               { id: "winback", label: `Win-Back (${winbackCampaigns.length})`, icon: Send },
-            ].map((item) => {
-              const Icon = item.icon;
-              const active = eliteSection === item.id;
-              return (
+            ];
+            const current = items.find((item) => item.id === eliteSection) ?? items[0];
+            const CurrentIcon = current.icon;
+            return (
+              <div className="space-y-2">
                 <button
-                  key={item.id}
                   type="button"
-                  aria-pressed={active}
-                  onClick={() => setEliteSection(item.id as typeof eliteSection)}
-                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold text-left transition ${
-                    active
-                      ? "bg-gold text-ink-gold shadow-xs"
-                      : "bg-[rgb(var(--surface-card))] border border-[var(--border-faint)] text-ink-500 hover:text-ink"
-                  }`}
+                  aria-expanded={eliteMenuOpen}
+                  onClick={() => setEliteMenuOpen((open) => !open)}
+                  className="home-card flex min-h-16 w-full items-center gap-3 !p-4 text-left"
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                  <span>{item.label}</span>
+                  <CurrentIcon className="h-6 w-6 shrink-0 text-gold" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-lg font-bold text-ink">{current.label}</span>
+                  <span className="shrink-0 text-base font-semibold text-ink-500">{eliteMenuOpen ? "Close" : "Change"}</span>
                 </button>
-              );
-            })}
-          </div>
+                {eliteMenuOpen && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {items.map((item) => {
+                      const Icon = item.icon;
+                      const active = eliteSection === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => { setEliteSection(item.id as typeof eliteSection); setEliteMenuOpen(false); }}
+                          className={`flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl px-2 py-3 text-center text-base font-bold ${
+                            active ? "bg-gold text-ink-gold" : "border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-ink"
+                          }`}
+                        >
+                          <Icon className="h-7 w-7" aria-hidden />
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <a href="/reports" className="inline-flex min-h-11 items-center rounded-full border border-gold px-4 py-2 font-bold">Financial statements & expenses</a>
           {/* ELITE SECTION 1: EXECUTIVE P&L & MARGIN ANALYTICS */}

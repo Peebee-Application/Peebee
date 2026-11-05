@@ -59,31 +59,30 @@ export default function DeliveriesPage() {
   }, [openId, loadTrack]);
 
   return (
-    <div className="space-y-5 px-4 py-5">
+    <div className="space-y-4 px-4 pb-6 pt-5">
       <header className="flex items-center gap-3">
         <Link
           href="/"
           aria-label="Back to overview"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface))] text-ink"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-6 w-6" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-black text-ink">Deliveries</h1>
-          <p className="truncate text-sm text-ink-500">Follow store orders sent by matatu</p>
+          <h1 className="text-3xl font-black text-ink">Deliveries</h1>
         </div>
         <button
           type="button"
           onClick={() => void load()}
           aria-label="Refresh"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface))] text-ink"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink"
         >
-          <RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          <RotateCcw className={`h-6 w-6 ${loading ? "animate-spin" : ""}`} />
         </button>
       </header>
 
       {error && <p className={errorBox}>{error}</p>}
-      {orders && orders.length === 0 && <p className="home-card text-sm text-ink-500">No relayed deliveries yet.</p>}
+      {orders && orders.length === 0 && <div className="home-card flex flex-col items-center gap-2 py-10 text-center"><Truck className="h-12 w-12 text-ink-500" aria-hidden /><p className="text-lg font-bold text-ink-500">No deliveries yet</p></div>}
 
       {orders?.map((o) => {
         const open = openId === o.id;
@@ -91,19 +90,19 @@ export default function DeliveriesPage() {
         return (
           <article key={o.id} className="home-card space-y-3">
             <button type="button" onClick={() => setOpenId(open ? null : o.id)} aria-expanded={open} className="flex w-full items-center gap-3 text-left">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gold/15 text-gold">
-                <Truck className="h-5 w-5" aria-hidden />
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold/15 text-gold">
+                <Truck className="h-6 w-6" aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-bold text-ink">
+                <span className="block truncate text-lg font-bold text-ink">
                   {o.customer_name ?? "Customer"}
                   {o.destination_area ? ` · ${o.destination_area}` : ""}
                 </span>
-                <span className="block truncate text-xs text-ink-500">
+                <span className="block truncate text-base text-ink-500">
                   {o.store_name} · {o.stage} · {formatWhen(o.created_at)}
                 </span>
               </span>
-              {open ? <ChevronDown className="h-5 w-5 shrink-0 text-ink-500" /> : <ChevronRight className="h-5 w-5 shrink-0 text-ink-500" />}
+              {open ? <ChevronDown className="h-6 w-6 shrink-0 text-ink-500" /> : <ChevronRight className="h-6 w-6 shrink-0 text-ink-500" />}
             </button>
             {open && (
               <div className="border-t border-[var(--border-faint)] pt-3">
