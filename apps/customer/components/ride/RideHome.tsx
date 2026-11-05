@@ -20,7 +20,7 @@ import {
 import { saveSelfDriveRoute } from "../../lib/selfdrive-route";
 import { useSpecialCarServices } from "../../lib/special-car";
 import { useTaxipress } from "../../lib/taxipress";
-import { filterByModule, useModules } from "../../lib/modules";
+import { markOffline, useModules } from "../../lib/modules";
 import { useLivePolling } from "../../lib/use-live-polling";
 import { useRoadRoute } from "../../lib/useRoadRoute";
 import { FeeProposalCard } from "../home/FeeProposalCard";
@@ -449,7 +449,8 @@ export function RideHome() {
     { id: "parcel", module: "deliver.parcel", label: "Parcel", icon: Package, sub: "Send a package", href: "/deliver/parcel" },
   ];
 
-  const modes = filterByModule(allModes, moduleOn);
+  // A ride type whose module is switched off in Admin → Services stays in the row, inactive.
+  const modes = markOffline(allModes, moduleOn);
 
   const sheetStyle = { height: expanded ? "calc(100% - 12px)" : "min(60%, 500px)" };
   const whoLabel = passenger ? `For ${passenger.name.split(" ")[0]}` : "For me";
@@ -732,7 +733,9 @@ export function RideHome() {
                     );
                     return (
                       <li key={m.id} className="shrink-0 snap-start">
-                        {m.href ? (
+                        {m.offline ? (
+                          <button type="button" disabled aria-disabled="true" title="Currently Offline" className="ride-mode cursor-not-allowed opacity-40">{body}</button>
+                        ) : m.href ? (
                           <Link href={m.href} onClick={m.onGo} className="ride-mode">{body}</Link>
                         ) : (
                           <button type="button" aria-pressed={on} onClick={() => setPrefer(m.prefer!)} className={`ride-mode ${on ? "is-on" : ""}`}>{body}</button>

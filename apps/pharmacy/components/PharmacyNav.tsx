@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { filterByModule, useModules } from "../lib/modules";
 
 const NAV_ITEMS: { href: string; label: string; icon: typeof Home; badge?: string; module?: string }[] = [
   { href: "/", label: "Overview", icon: Home },
@@ -22,12 +21,11 @@ const NAV_ITEMS: { href: string; label: string; icon: typeof Home; badge?: strin
 
 export function PharmacyNav() {
   const pathname = usePathname();
-  const moduleOn = useModules();
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-faint)] bg-[rgb(var(--surface-card))]/95 backdrop-blur-md safe-bottom">
       <div className="mx-auto flex max-w-lg items-center justify-around px-2 py-2">
-        {filterByModule(NAV_ITEMS, moduleOn).map((item) => {
+        {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href;
           return (

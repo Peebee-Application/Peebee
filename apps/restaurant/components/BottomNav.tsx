@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { useTranslate, type TranslationKey } from "../lib/i18n";
-import { filterByModule, useModules } from "../lib/modules";
 
 const tabs: { href: string; labelKey: TranslationKey; icon: LucideIcon; module?: string }[] = [
   { href: "/", labelKey: "nav_orders", icon: ClipboardList, module: "buy.food" },
@@ -17,7 +16,6 @@ const tabs: { href: string; labelKey: TranslationKey; icon: LucideIcon; module?:
 export function BottomNav() {
   const pathname = usePathname();
   const t = useTranslate();
-  const moduleOn = useModules();
 
   // Hide on auth pages or specific full-screen chat threads
   if (
@@ -37,7 +35,7 @@ export function BottomNav() {
     >
       <div className="mx-auto flex max-w-lg items-center justify-center">
         <ul className="customer-nav-capsule pointer-events-auto flex w-full items-stretch justify-around rounded-[24px] p-1.5 gap-1">
-          {filterByModule(tabs, moduleOn).map((tab) => {
+          {tabs.map((tab) => {
             const active = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
             const Icon = tab.icon;
 

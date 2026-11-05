@@ -3,19 +3,17 @@
 import { GraduationCap, Home, MessageSquare, UserRound, Video } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { filterByModule, useModules } from "../lib/modules";
 
 export function BottomNav() {
   const pathname = usePathname();
-  const moduleOn = useModules();
 
-  const tabs = filterByModule([
+  const tabs = [
     { href: "/", label: "Home", icon: Home },
     { href: "/schools", label: "Schools", icon: GraduationCap },
     { href: "/classroom", label: "Live", icon: Video, module: "learn.live" },
     { href: "/chat", label: "Students", icon: MessageSquare },
     { href: "/account", label: "Account", icon: UserRound },
-  ], moduleOn);
+  ];
 
   return (
     <nav aria-label="Primary navigation" className="customer-nav fixed inset-x-0 bottom-3 z-40 px-3 pointer-events-none pb-[env(safe-area-inset-bottom)]">

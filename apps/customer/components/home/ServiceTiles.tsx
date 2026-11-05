@@ -35,17 +35,19 @@ export function ServiceTiles({
         <tile.icon className="h-7 w-7" strokeWidth={1.75} aria-hidden />
       </span>
       <span className="relative z-[2] text-[13px] font-semibold text-ink">{t(tile.labelKey)}</span>
-      {paused[tile.key] && <span className="relative z-[2] -mt-1 text-[11px] font-semibold text-ink-500">{t("service_paused")}</span>}
+      {paused[tile.key] && <span className="relative z-[2] -mt-1 text-[11px] font-semibold text-ink-500">Currently Offline</span>}
     </>
   );
   const cls = "service-shortcut relative isolate flex min-w-0 flex-col items-center gap-1.5 overflow-visible transition-transform active:scale-95";
-  // A service an admin switched off is not shown at all: no greyed tile, nothing to tap.
-  const shown = tiles.filter((tile) => !paused[tile.key]);
-  if (shown.length === 0) return null;
+  // A service an admin switched off stays where it is, greyed out and not tappable, marked "Currently Offline".
   return (
-    <div className="grid gap-3 overflow-visible" style={{ gridTemplateColumns: `repeat(${shown.length}, minmax(0, 1fr))` }}>
-      {shown.map((tile) =>
-        tile.href ? (
+    <div className="grid gap-3 overflow-visible" style={{ gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))` }}>
+      {tiles.map((tile) =>
+        paused[tile.key] ? (
+          <button key={tile.key} data-service={tile.key} type="button" disabled aria-disabled="true" aria-label={`${t(tile.labelKey)}, currently offline`} className={`${cls} cursor-not-allowed`}>
+            {inner(tile)}
+          </button>
+        ) : tile.href ? (
           <Link key={tile.key} data-service={tile.key} href={tile.href} className={cls}>
             {inner(tile)}
           </Link>

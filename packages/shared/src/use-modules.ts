@@ -9,6 +9,11 @@ export function filterByModule<T extends { module?: string }>(items: readonly T[
   return items.filter((item) => !item.module || on(item.module));
 }
 
+/** Keeps every item, but flags the ones whose module is off as `offline`, so a screen can show them inactive instead of dropping them. */
+export function markOffline<T extends { module?: string }>(items: readonly T[], on: (key: string) => boolean): (T & { offline?: boolean })[] {
+  return items.map((item) => (item.module && !on(item.module) ? { ...item, offline: true } : item));
+}
+
 /**
  * Builds an app's `useModules` hook from its own settings call. `on("ride.car")` is false while Peebee Car, or the Ride
  * cluster above it, is switched off in Admin → Services for the world this device is in (Practice only when the person

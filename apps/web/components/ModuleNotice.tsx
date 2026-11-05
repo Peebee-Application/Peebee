@@ -22,7 +22,8 @@ export function ModuleNoticePage({ name, notice }: { name: string; notice: Notic
   return (
     <div className="plain wrap" role="status">
       <p className="kicker">{text.kicker}</p>
-      <h1 className="display">{name}: {text.headline.toLowerCase()}.</h1>
+      <h1 className="display">{name}: currently offline.</h1>
+      {notice.reason !== "unavailable" && <p className="lead"><b>{text.headline}</b></p>}
       {notice.message && <p className="lead">{notice.message}</p>}
       {date && <p className="lead">{text.date}: {date}</p>}
       <Link href="/" className="btn btn-gold">Back to Peebee</Link>

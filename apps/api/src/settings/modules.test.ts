@@ -94,18 +94,31 @@ test("a notice is the module's own, else the nearest one above it, else a plain 
   assert.equal(describeModuleNotice({ reason: "unavailable" }).dateLine, null);
 });
 
-test("links into a switched-off module are hidden by CSS, and an app's home never is", async () => {
-  const { hiddenLinksCss } = await import("@peebee/shared");
+test("links into a switched-off module are greyed out and untappable, and an app's home never is", async () => {
+  const { inactiveLinksCss, offlineRoots, OFFLINE_HEADLINE } = await import("@peebee/shared");
   const rules = [
     { prefix: "/ride/move", module: "ride.move", title: "Move" },
     { prefix: "/carpool", module: "ride.car.carpool", title: "Rideshare" },
     { prefix: "/", module: "buy.food", title: "Orders", exact: true },
     { prefix: "/menu", module: "buy.food", title: "Menu" },
   ];
-  const css = hiddenLinksCss(rules, (m: string) => m !== "ride.move" && m !== "buy.food");
-  assert.ok(css.includes('a[href="/ride/move"]') && css.includes('a[href^="/ride/move/"]') && css.includes('li:has(>a[href="/ride/move"])'));
+  const css = inactiveLinksCss(rules, (m: string) => m !== "ride.move" && m !== "buy.food");
+  assert.ok(css.includes('a[href="/ride/move"]') && css.includes('a[href^="/ride/move/"]') && css.includes("pointer-events:none"));
+  assert.ok(!css.includes("display:none"), "inactive, not hidden");
   assert.ok(css.includes('a[href^="/menu/"]'));
-  assert.ok(!css.includes("/carpool"), "a module that is on is not hidden");
-  assert.ok(!css.includes('a[href="/"]'), "the exact home rule never hides the home link");
-  assert.equal(hiddenLinksCss(rules, () => true), "");
+  assert.ok(!css.includes("/carpool"), "a module that is on is not made inactive");
+  assert.ok(!css.includes('a[href="/"]'), "the exact home rule never disables the home link");
+  assert.equal(inactiveLinksCss(rules, () => true), "");
+  assert.equal(OFFLINE_HEADLINE, "Currently Offline");
+
+  // Buy off reads as one "Buy", not as each thing inside it.
+  const buyRules = [
+    { prefix: "/shoplist", module: "buy.shopping", title: "Shopping list" },
+    { prefix: "/stores", module: "buy.marketplace", title: "Stores" },
+    { prefix: "/learn", module: "learn", title: "Learn" },
+  ];
+  const roots = offlineRoots(buyRules, (m: string) => !m.startsWith("buy"));
+  assert.deepEqual(roots.map((r: { module: string }) => r.module), ["buy"]);
+  assert.equal(roots[0]!.title, "Buy");
+  assert.deepEqual(offlineRoots(buyRules, () => true), []);
 });

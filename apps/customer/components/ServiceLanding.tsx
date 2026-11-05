@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import type { HiveShortcutId } from "@peebee/shared";
 import { useHireAvailability, useHomeMenu } from "../lib/home-menu";
-import { filterByModule, useModules } from "../lib/modules";
+import { markOffline, useModules } from "../lib/modules";
 import { useSpecialCarServices } from "../lib/special-car";
 import { useTaxipress } from "../lib/taxipress";
 
@@ -55,8 +55,8 @@ export function ServiceLanding({ group }: { group: LandingGroup }) {
   const moduleOn = useModules();
   const base = landingContent[group];
   const withExtras = group === "ride" ? { ...base, items: [...base.items, ...(taxipress.enabled ? [taxipressItem] : []), ...specialRideItems.filter((s) => special[s.key]).map((s) => s.item)] } : base;
-  // A card whose module is switched off in Admin → Services is left out; the code behind it stays ready.
-  const content = { ...withExtras, items: filterByModule(withExtras.items, moduleOn) };
+  // A card whose module is switched off in Admin → Services stays, inactive; the code behind it stays ready.
+  const content = { ...withExtras, items: markOffline(withExtras.items, moduleOn) };
   // Wide cards (Taxipress, Ambulance) stack full-width under the two-column grid; the rest stay in it.
   const gridItems = content.items.filter((item) => !item.wide);
   const wideItems = content.items.filter((item) => item.wide);
@@ -79,7 +79,7 @@ export function ServiceLanding({ group }: { group: LandingGroup }) {
               </span>
               <span className="mt-4 flex items-center justify-between gap-2">
                 <strong className="text-base">{item.title}</strong>
-                {item.href ? <ArrowRight size={17} className="shrink-0 text-gold" aria-hidden /> : <span className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--surface-muted))] px-2 py-1 text-[10px] font-semibold text-ink-500"><Clock3 size={12} aria-hidden />Soon</span>}
+                {item.offline ? <span className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--surface-muted))] px-2 py-1 text-[10px] font-semibold text-ink-500"><Clock3 size={12} aria-hidden />Offline</span> : item.href ? <ArrowRight size={17} className="shrink-0 text-gold" aria-hidden /> : <span className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--surface-muted))] px-2 py-1 text-[10px] font-semibold text-ink-500"><Clock3 size={12} aria-hidden />Soon</span>}
               </span>
               <span className="mt-1 block text-xs leading-relaxed text-ink-500">{item.description}</span>
             </>
@@ -88,7 +88,9 @@ export function ServiceLanding({ group }: { group: LandingGroup }) {
           const span = item.wide || (index === gridItems.length - 1 && gridItems.length % 2 === 1) ? " col-span-2" : "";
           const classes = "home-card min-h-[148px] rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 text-left transition-transform active:scale-[0.98]";
 
-          return item.href ? (
+          return item.offline ? (
+            <div key={item.title} aria-disabled="true" title="Currently Offline" className={`${classes}${span} cursor-not-allowed opacity-40`}>{card}</div>
+          ) : item.href ? (
             <Link key={item.title} href={item.href} className={`block ${classes}${span}`}>{card}</Link>
           ) : (
             <div key={item.title} aria-disabled="true" className={`${classes}${span} opacity-75`}>{card}</div>

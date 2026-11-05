@@ -82,7 +82,7 @@ export default function ServicesPage() {
   const current = WORLDS.find((w) => w.id === shown)!;
 
   return (
-    <SettingsPageShell title="Services" description="Switch a whole service on or off, or just one thing inside it. Off disappears from every app and from the website (peebee.online); the code stays ready for when it is back on." loading={loading}>
+    <SettingsPageShell title="Services" description="Switch a whole service on or off, or just one thing inside it. Off shows “Currently Offline” on the home screen of every app that depends on it and makes everything that leads into it inactive; on the website (peebee.online) it disappears. The code stays ready for when it is back on." loading={loading}>
       {flags && available && (
         <form onSubmit={onSubmit} className="space-y-5">
           <div className="home-card flex items-start gap-3">
@@ -144,7 +144,7 @@ function ClusterCard({ cluster, world, flags, available, onToggle, notices, onNo
           <h2 className="text-base font-bold text-ink">
             {cluster.label}{" "}
             <span className="text-xs font-normal text-ink-500">
-              {world === "practice" && liveOnly ? "Not part of Practice" : !rootOn ? "Off — everything inside is hidden" : `${on} of ${inside.length} on`}
+              {world === "practice" && liveOnly ? "Not part of Practice" : !rootOn ? "Off — everything inside is offline" : `${on} of ${inside.length} on`}
             </span>
           </h2>
           <p className="text-xs text-ink-500">{cluster.description}</p>
@@ -184,7 +184,7 @@ function ModuleRow({ def, depth, world, flags, available, onToggle, notices, onN
           <p className="text-xs text-ink-500">{def.description}</p>
           {world === "live" && <WebsiteReach moduleKey={def.key} />}
           {practiceOnly && <p className="mt-0.5 text-xs font-semibold text-ink">On in Practice only. Switch it on here to make it live.</p>}
-          {!own && childrenOf(def.key).length > 0 && <p className="mt-0.5 text-xs text-ink-500">{countInside(def.key)} inside are hidden while this is off.</p>}
+          {!own && childrenOf(def.key).length > 0 && <p className="mt-0.5 text-xs text-ink-500">{countInside(def.key)} inside are offline while this is off.</p>}
           {!own && <NoticeEditor def={def} notice={notices[def.key]} onChange={(n) => onNotice(def.key, n)} />}
         </div>
       </div>
