@@ -1,12 +1,13 @@
 "use client";
 
-import { Select } from "@peebee/shared/select";
-
 import { ApiError, observeNotificationSnapshot } from "@peebee/shared";
 
 import type { AvailableJob, OrderRow, RelayOpenLeg, Rider } from "@peebee/shared";
 import { isRiderProfileComplete } from "@peebee/shared";
-import { Bike, Bus, ChevronRight, Fuel, MapPin, Package, ShoppingCart, TriangleAlert, Utensils } from "lucide-react";
+import {
+  ArrowUpDown, Bike, Briefcase, Bus, Check, ChevronLeft, ChevronRight, ChevronUp, ClipboardList, Fuel, HandCoins, LayoutGrid, MapPin,
+  Package, Power, ShoppingCart, TriangleAlert, Utensils, Zap,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -27,26 +28,19 @@ import {
 import { useLivePolling } from "../lib/use-live-polling";
 import { useNetworkStatus } from "../lib/use-network-status";
 
-type SortOrder = "distance" | "price_high" | "price_low" | "newest" | "oldest";
-
-const SORT_KEYS: Record<
-  SortOrder,
-  "home_sort_nearest" | "home_sort_price_high" | "home_sort_price_low" | "home_sort_newest" | "home_sort_oldest"
-> = {
-  distance: "home_sort_nearest",
-  price_high: "home_sort_price_high",
-  price_low: "home_sort_price_low",
-  newest: "home_sort_newest",
-  oldest: "home_sort_oldest",
-};
+type SortOrder = "distance" | "price_high" | "newest";
+/** One tap cycles through the three orders riders actually use. */
+const SORT_CYCLE: SortOrder[] = ["distance", "price_high", "newest"];
+const SORT_LABELS: Record<SortOrder, string> = { distance: "Near", price_high: "Pay", newest: "New" };
+const PAGE_SIZE = 4;
 
 const CATEGORY_ICONS = { ride: Bike, parcel: Package, shopping: ShoppingCart, food: Utensils };
 
 function CategoryIcon({ category }: { category: JobCategory }) {
   const Icon = CATEGORY_ICONS[category];
   return (
-    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold/10 text-ink">
-      <Icon className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gold/10 text-ink">
+      <Icon className="h-7 w-7" strokeWidth={1.75} aria-hidden />
     </span>
   );
 }
@@ -75,6 +69,9 @@ export default function JobsHomePage() {
   const [categoryFilter, setCategoryFilter] = useState<JobCategory | "all">("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("distance");
   const [bids, setBids] = useState<Record<string, string>>({});
+  const [openBid, setOpenBid] = useState<string | null>(null);
+  const [tab, setTab] = useState<"jobs" | "mine">("jobs");
+  const [page, setPage] = useState(0);
   const online = useNetworkStatus();
 
   const load = useCallback(() => {
@@ -206,13 +203,9 @@ export default function JobsHomePage() {
     sorted.sort((a, b) => {
       switch (sortOrder) {
         case "price_high":
-          return (b.final_total ?? b.estimated_total ?? 0) - (a.final_total ?? a.estimated_total ?? 0);
-        case "price_low":
-          return (a.final_total ?? a.estimated_total ?? 0) - (b.final_total ?? b.estimated_total ?? 0);
+          return (b.delivery_fee ?? b.final_total ?? b.estimated_total ?? 0) - (a.delivery_fee ?? a.final_total ?? a.estimated_total ?? 0);
         case "newest":
           return b.created_at.localeCompare(a.created_at);
-        case "oldest":
-          return a.created_at.localeCompare(b.created_at);
         case "distance":
         default:
           return (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity);
@@ -221,289 +214,259 @@ export default function JobsHomePage() {
     return sorted;
   }, [availableJobs, categoryFilter, sortOrder]);
 
+
   if (!ready) {
-    return <div className="p-4 text-sm text-ink-500">{t("loading")}</div>;
+    return <div className="p-4 text-base text-ink-500">{t("loading")}</div>;
   }
 
   const activeOrders = orders.filter((o) => o.stage !== "Settle" && o.stage !== "Cancelled");
+  const riderOnline = !!rider?.is_online;
+  const pageCount = Math.max(1, Math.ceil(visibleJobs.length / PAGE_SIZE));
+  const pageNow = Math.min(page, pageCount - 1);
+  const pageJobs = visibleJobs.slice(pageNow * PAGE_SIZE, pageNow * PAGE_SIZE + PAGE_SIZE);
+  const nextSort = () => {
+    setSortOrder(SORT_CYCLE[(SORT_CYCLE.indexOf(sortOrder) + 1) % SORT_CYCLE.length]);
+    setPage(0);
+  };
+
+  const bigButton = "flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-4 text-lg font-bold disabled:opacity-60";
 
   return (
-    <div className="space-y-6 px-4 pb-8 pt-5">
-      <header className="flex items-center justify-between gap-3">
-        <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-ink">
+    <div className="space-y-4 px-4 pb-6 pt-4">
+      <header className="flex items-center gap-3">
+        <h1 className="min-w-0 flex-1 truncate text-2xl font-extrabold tracking-tight text-ink">
           {t("home_hi")}
           {user?.name ? `, ${user.name.trim().split(/\s+/)[0]}` : ""}
         </h1>
+        <Link href="/fuel" aria-label="Peebee Gas" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
+          <Fuel className="h-6 w-6" aria-hidden />
+        </Link>
         <button
           type="button"
           role="switch"
-          aria-checked={!!rider?.is_online}
+          aria-checked={riderOnline}
           aria-label={t("home_availability")}
           disabled={busy || !online}
           onClick={toggleOnline}
-          className={`flex min-h-12 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold disabled:opacity-50 ${
-            rider?.is_online ? "bg-green/15 text-green-600" : "bg-[rgb(var(--surface-muted))] text-ink"
+          className={`flex h-14 shrink-0 items-center gap-2 rounded-full pl-4 pr-2 text-base font-bold disabled:opacity-50 ${
+            riderOnline ? "bg-green/15 text-green-600" : "bg-[rgb(var(--surface-muted))] text-ink"
           }`}
         >
-          {rider?.is_online ? t("home_online") : t("home_offline")}
-          <span aria-hidden className={`flex h-6 w-10 items-center rounded-full p-0.5 ${rider?.is_online ? "justify-end bg-green" : "justify-start bg-ink-500"}`}>
-            <span className="h-5 w-5 rounded-full bg-white" />
+          {riderOnline ? t("home_online") : t("home_offline")}
+          <span aria-hidden className={`flex h-8 w-14 items-center rounded-full p-1 ${riderOnline ? "justify-end bg-green" : "justify-start bg-ink-500"}`}>
+            <span className="h-6 w-6 rounded-full bg-white" />
           </span>
         </button>
       </header>
 
-      {error && <p role="alert" className="rounded-lg bg-gold/10 px-3 py-2 text-sm text-ink">{error}</p>}
+      {error && <p role="alert" className="rounded-xl bg-gold/10 px-4 py-3 text-base text-ink">{error}</p>}
+
+      <div role="tablist" aria-label="Jobs" className="grid grid-cols-2 gap-1 rounded-2xl bg-[rgb(var(--surface-muted))] p-1">
+        {([
+          { id: "jobs", label: t("nav_jobs"), icon: Briefcase, count: riderOnline ? availableJobs.length + relayLegs.length : 0 },
+          { id: "mine", label: t("home_your_jobs"), icon: ClipboardList, count: activeOrders.length },
+        ] as const).map(({ id, label, icon: Icon, count }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={`flex min-h-14 items-center justify-center gap-2 rounded-xl text-lg font-bold ${tab === id ? "bg-gold text-ink-gold shadow-sm" : "text-ink-500"}`}
+          >
+            <Icon className="h-6 w-6" aria-hidden />
+            <span className="truncate">{label}</span>
+            {count > 0 && <span className="rounded-full bg-ink/10 px-2 text-sm tabular-nums">{count}</span>}
+          </button>
+        ))}
+      </div>
+
+      {tab === "jobs" && (
+        <section className="space-y-3" role="tabpanel" aria-label={t("home_available_jobs")}>
+          {!riderOnline ? (
+            <div className="home-card flex flex-col items-center gap-3 py-8 text-center">
+              <Power className="h-12 w-12 text-ink-500" aria-hidden />
+              <p className="text-lg font-bold text-ink">{t("home_go_online")}</p>
+              <button type="button" onClick={toggleOnline} disabled={busy || !online} className={`${bigButton} bg-gold text-ink-gold`}>
+                <Power className="h-6 w-6" aria-hidden /> {t("home_online")}
+              </button>
+            </div>
+          ) : (
+            <>
+              {availableJobs.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <div role="group" aria-label={t("home_categories")} className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
+                    {(["all", "ride", "parcel", "shopping", "food"] as const).map((cat) => {
+                      const Icon = cat === "all" ? LayoutGrid : CATEGORY_ICONS[cat];
+                      const count = cat === "all" ? availableJobs.length : categoryCounts[cat];
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          aria-pressed={categoryFilter === cat}
+                          aria-label={`${cat === "all" ? t("home_all") : JOB_CATEGORY_LABELS[cat]} (${count})`}
+                          onClick={() => { setCategoryFilter(cat); setPage(0); }}
+                          className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
+                            categoryFilter === cat ? "bg-gold text-ink-gold" : "bg-[rgb(var(--surface-muted))] text-ink-500"
+                          }`}
+                        >
+                          <Icon className="h-6 w-6" aria-hidden />
+                          {count > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-5 rounded-full bg-ink px-1 text-center text-[11px] font-bold leading-5 text-cream">{count}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button type="button" onClick={nextSort} aria-label={`${t("home_sort")}: ${SORT_LABELS[sortOrder]}`} className="flex h-14 shrink-0 items-center gap-1.5 rounded-2xl bg-[rgb(var(--surface-muted))] px-3 text-base font-bold text-ink">
+                    <ArrowUpDown className="h-5 w-5" aria-hidden /> {SORT_LABELS[sortOrder]}
+                  </button>
+                </div>
+              )}
+
+              {pageNow === 0 && relayLegs.map((leg) => (
+                <article key={leg.id} className="home-card space-y-3 !rounded-2xl !p-3.5">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gold/10 text-ink"><Bus className="h-6 w-6" aria-hidden /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-lg font-bold text-ink">{leg.vehicle_plate ? `Matatu ${leg.vehicle_plate}` : "Relay pickup"}</span>
+                      <span className="flex items-center gap-1 truncate text-sm text-ink-500"><MapPin className="h-4 w-4 shrink-0" aria-hidden />{leg.from_name} → {leg.destination_area ?? leg.to_name} · {leg.distance_km} km</span>
+                    </span>
+                    <span className="text-xl font-extrabold tabular-nums text-ink">{formatUgx(leg.fee)}</span>
+                  </div>
+                  <button type="button" onClick={() => claimRelay(leg)} disabled={claimingId === leg.id || !online} className={`${bigButton} bg-gold text-ink-gold`}>
+                    <Zap className="h-6 w-6" aria-hidden />
+                    {claimingId === leg.id ? t("home_claiming") : !online ? t("home_offline_btn") : t("home_claim_job")}
+                  </button>
+                  {jobErrors[leg.id] && <p role="alert" className="rounded-lg bg-gold/10 px-3 py-2 text-base text-ink">{jobErrors[leg.id]}</p>}
+                </article>
+              ))}
+
+              {availableJobs.length === 0 && relayLegs.length === 0 && (
+                <div className="home-card flex flex-col items-center gap-2 py-10 text-center">
+                  <Briefcase className="h-12 w-12 text-ink-500" aria-hidden />
+                  <p className="text-lg font-bold text-ink-500">{t("home_no_jobs")}</p>
+                </div>
+              )}
+              {availableJobs.length > 0 && visibleJobs.length === 0 && (
+                <p className="py-6 text-center text-base text-ink-500">
+                  {t("home_no_category_jobs", { category: JOB_CATEGORY_LABELS[categoryFilter as JobCategory]?.toLowerCase() ?? "" })}
+                </p>
+              )}
+
+              {pageJobs.map((job) => {
+                const fee = job.delivery_fee ?? job.final_total ?? job.estimated_total;
+                const biddable = !!job.bidding && job.matching_mode !== "first_to_claim" && !job.applied && !job.fareOffer;
+                const claim = job.matching_mode === "first_to_claim";
+                return (
+                  <article key={job.id} className="home-card space-y-3 !rounded-2xl !p-3.5">
+                    <button type="button" onClick={() => setPreviewJobItem(job)} className="flex w-full items-center gap-3 text-left" aria-label={`${jobTitle(job)} — ${t("home_preview")}`}>
+                      <CategoryIcon category={jobCategory(job)} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-lg font-bold text-ink">{jobTitle(job)}</span>
+                        <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-ink-500">
+                          <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" aria-hidden />{job.distanceKm != null ? `${job.distanceKm} km` : "—"}</span>
+                          {(job.stop_count ?? 0) > 0 && <span className="rounded-full bg-gold/15 px-2 text-sm font-bold text-ink">+{job.stop_count}</span>}
+                          {(job.bundle_order_count ?? 1) > 1 && <span className="rounded-full bg-gold/15 px-2 text-sm font-bold text-ink">×{job.bundle_order_count}</span>}
+                          {job.outOfServiceRange && <TriangleAlert className="h-4 w-4 text-gold" aria-label={t("home_out_of_range")} />}
+                        </span>
+                      </span>
+                      <span className="text-xl font-extrabold tabular-nums text-ink">{formatUgx(fee)}</span>
+                    </button>
+
+                    {job.fareOffer && !job.applied && (
+                      <FareOfferPanel job={job as AvailableJob & { fareOffer: NonNullable<AvailableJob["fareOffer"]> }} online={online} onChanged={load} />
+                    )}
+
+                    {biddable && (
+                      <div>
+                        <button
+                          type="button"
+                          aria-expanded={openBid === job.id}
+                          onClick={() => setOpenBid(openBid === job.id ? null : job.id)}
+                          className="flex min-h-12 w-full items-center gap-2 rounded-xl bg-[rgb(var(--surface-muted))] px-3 text-base font-bold text-ink"
+                        >
+                          <HandCoins className="h-5 w-5 text-gold" aria-hidden />
+                          <span className="flex-1 text-left">{t("bid_your_price")}</span>
+                          <span className="tabular-nums">{formatUgx(Number(bids[job.id] ?? job.bidding!.appPrice ?? 0))}</span>
+                          {openBid === job.id ? <ChevronUp className="h-5 w-5" aria-hidden /> : <ChevronRight className="h-5 w-5" aria-hidden />}
+                        </button>
+                        {openBid === job.id && (
+                          <div className="mt-2 space-y-1">
+                            <input
+                              id={`bid-${job.id}`}
+                              aria-label={t("bid_your_price")}
+                              inputMode="numeric"
+                              value={bids[job.id] ?? String(job.bidding!.appPrice ?? "")}
+                              onChange={(e) => setBids((prev) => ({ ...prev, [job.id]: e.target.value.replace(/[^\d]/g, "") }))}
+                              className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3 text-xl font-bold text-ink outline-none focus:border-gold"
+                            />
+                            <p className="text-sm text-ink-500">
+                              {t("bid_range", { min: formatUgx(job.bidding!.min), max: formatUgx(job.bidding!.max) })}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => (claim ? claimJob(job.id) : applyToJob(job.id))}
+                      disabled={claimingId === job.id || (!claim && !!job.applied) || !online}
+                      className={`${bigButton} ${!claim && job.applied ? "bg-[rgb(var(--surface-muted))] text-ink-500" : "bg-gold text-ink-gold"}`}
+                    >
+                      {claim ? <Zap className="h-6 w-6" aria-hidden /> : <Check className="h-6 w-6" aria-hidden />}
+                      {claimingId === job.id
+                        ? claim ? t("home_claiming") : t("home_applying")
+                        : !claim && job.applied
+                          ? t("home_applied")
+                          : !online
+                            ? t("home_offline_btn")
+                            : job.fareOffer
+                              ? t("offer_accept", { price: formatUgx(job.fareOffer.amount) })
+                              : claim ? t("home_claim_job") : t("home_apply")}
+                    </button>
+                    {jobErrors[job.id] && <p role="alert" className="rounded-lg bg-gold/10 px-3 py-2 text-base text-ink">{jobErrors[job.id]}</p>}
+                  </article>
+                );
+              })}
+
+              {pageCount > 1 && (
+                <nav aria-label="Pages" className="flex items-center justify-between gap-3">
+                  <button type="button" onClick={() => setPage(pageNow - 1)} disabled={pageNow === 0} aria-label="Previous" className="flex h-14 w-14 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink disabled:opacity-30">
+                    <ChevronLeft className="h-6 w-6" aria-hidden />
+                  </button>
+                  <span className="text-lg font-bold tabular-nums text-ink-500">{pageNow + 1} / {pageCount}</span>
+                  <button type="button" onClick={() => setPage(pageNow + 1)} disabled={pageNow >= pageCount - 1} aria-label="Next" className="flex h-14 w-14 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink disabled:opacity-30">
+                    <ChevronRight className="h-6 w-6" aria-hidden />
+                  </button>
+                </nav>
+              )}
+            </>
+          )}
+        </section>
+      )}
+
+      {tab === "mine" && (
+        <section className="space-y-3" role="tabpanel" aria-label={t("home_your_jobs")}>
+          {activeOrders.length === 0 && (
+            <div className="home-card flex flex-col items-center gap-2 py-10 text-center">
+              <ClipboardList className="h-12 w-12 text-ink-500" aria-hidden />
+              <p className="text-lg font-bold text-ink-500">{t("home_no_active_jobs")}</p>
+            </div>
+          )}
+          {activeOrders.map((order) => (
+            <Link key={order.id} href={`/jobs/${order.id}`} className="home-card flex items-center gap-3 !rounded-2xl !p-3.5">
+              <CategoryIcon category={jobCategory(order)} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-lg font-bold text-ink">{jobTitle(order)}</span>
+                <span className="mt-0.5 inline-block rounded-full bg-gold/15 px-3 py-0.5 text-sm font-bold text-ink">{stageLabel(order.stage, order.type, !!order.is_ride)}</span>
+              </span>
+              <ChevronRight className="h-6 w-6 shrink-0 text-ink-500" aria-hidden />
+            </Link>
+          ))}
+        </section>
+      )}
 
       <StageSavingsCard compact />
-
-      {/* Peebee Gas Quick Shortcut */}
-      <Link
-        href="/fuel"
-        className="home-card flex items-center justify-between !py-3 !px-4 hover:border-gold/50"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold">
-            <Fuel className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-ink">Peebee Gas</span>
-              <span className="rounded-full bg-gold/20 px-1.5 py-0.2 text-[9px] font-bold text-ink-gold">
-                Fuel PIN
-              </span>
-            </div>
-            <p className="truncate text-[11px] text-ink-500">
-              Pump fuel at Shell, Total & partner stations with 6-digit code
-            </p>
-          </div>
-        </div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
-      </Link>
-
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xl font-bold tracking-tight text-ink">{t("home_available_jobs")}</h2>
-          {rider?.is_online && availableJobs.length > 0 && (
-            <span className="relative max-w-full">
-              <Select
-                aria-label={t("home_sort")}
-                value={sortOrder}
-                onValueChange={(value) => setSortOrder(value as SortOrder)}
-                className="min-h-12 w-32 max-w-full rounded-full border border-[var(--border-faint)] px-3 py-2 text-sm font-medium text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold"
-              >
-                {(Object.keys(SORT_KEYS) as SortOrder[]).map((key) => (
-                  <option key={key} value={key}>{key === "distance" ? t("home_nearest") : t(SORT_KEYS[key])}</option>
-                ))}
-              </Select>
-            </span>
-          )}
-        </div>
-
-        {rider?.is_online && availableJobs.length > 0 && (
-          <div className="space-y-2">
-            <div role="group" aria-label={t("home_categories")} className="flex gap-1.5 overflow-x-auto pb-1">
-              {(["all", "ride", "parcel", "shopping", "food"] as const).map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  aria-pressed={categoryFilter === cat}
-                  onClick={() => setCategoryFilter(cat)}
-                  className={`min-h-12 shrink-0 rounded-full border px-3 text-sm font-medium ${
-                    categoryFilter === cat
-                      ? "border-gold bg-gold text-ink-gold"
-                      : "border-transparent bg-[rgb(var(--surface-muted))] text-ink-500"
-                  }`}
-                >
-                  {cat === "all" ? t("home_all") : JOB_CATEGORY_LABELS[cat]}
-                  <span className="sr-only"> ({cat === "all" ? availableJobs.length : categoryCounts[cat]})</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {rider?.is_online && relayLegs.length > 0 && (
-          <ul className="space-y-5">
-            {relayLegs.map((leg) => (
-              <li key={leg.id} className="home-card space-y-3 !rounded-2xl !p-3.5">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold/10 text-ink">
-                    <Bus className="h-6 w-6" strokeWidth={1.75} aria-hidden />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-base font-semibold leading-snug text-ink">Relay pickup</span>
-                    <span className="mt-0.5 block text-sm text-ink-500">
-                      {leg.vehicle_plate ? `Meet matatu ${leg.vehicle_plate} at ${leg.from_name}` : `Pick up at ${leg.from_name}`}
-                      {leg.matatu_status === "arrived" ? " · arrived" : ""}
-                    </span>
-                  </span>
-                </div>
-                <dl className="grid grid-cols-2 border-t border-[var(--border-faint)] pt-3">
-                  <div className="min-w-0 pr-3">
-                    <dt className="text-sm text-ink-500">Deliver</dt>
-                    <dd className="mt-0.5 break-words text-lg font-semibold tabular-nums text-ink">{leg.distance_km} km</dd>
-                    <dd className="truncate text-xs text-ink-500">{leg.destination_area ?? leg.to_name}</dd>
-                  </div>
-                  <div className="min-w-0 border-l border-[var(--border-faint)] pl-3">
-                    <dt className="text-sm text-ink-500">{t("home_delivery_fee")}</dt>
-                    <dd className="mt-0.5 break-words text-lg font-semibold tabular-nums text-ink">{formatUgx(leg.fee)}</dd>
-                  </div>
-                </dl>
-                <button
-                  type="button"
-                  onClick={() => claimRelay(leg)}
-                  disabled={claimingId === leg.id || !online}
-                  className="min-h-12 w-full rounded-xl bg-gold px-3 py-2 text-sm font-semibold text-ink-gold disabled:opacity-60"
-                >
-                  {claimingId === leg.id ? t("home_claiming") : !online ? t("home_offline_btn") : t("home_claim_job")}
-                </button>
-                {jobErrors[leg.id] && <p role="alert" className="rounded-lg bg-gold/10 px-3 py-2 text-sm text-ink">{jobErrors[leg.id]}</p>}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {!rider?.is_online && (
-          <p className="py-4 text-center text-sm text-ink-500">{t("home_go_online")}</p>
-        )}
-        {rider?.is_online && availableJobs.length === 0 && relayLegs.length === 0 && (
-          <p className="py-4 text-center text-sm text-ink-500">{t("home_no_jobs")}</p>
-        )}
-        {rider?.is_online && availableJobs.length > 0 && visibleJobs.length === 0 && (
-          <p className="py-4 text-center text-sm text-ink-500">
-            {t("home_no_category_jobs", { category: JOB_CATEGORY_LABELS[categoryFilter as JobCategory]?.toLowerCase() ?? "" })}
-          </p>
-        )}
-        <ul className="space-y-5">
-          {visibleJobs.map((job) => (
-            <li key={job.id} className="home-card space-y-3 !rounded-2xl !p-3.5">
-              <div className="flex items-center justify-between gap-3">
-                <CategoryIcon category={jobCategory(job)} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-base font-semibold leading-snug text-ink">{jobTitle(job)}</span>
-                  <span className="mt-0.5 block text-sm text-ink-500">{JOB_CATEGORY_LABELS[jobCategory(job)]}</span>
-                  {(job.stop_count ?? 0) > 0 && (
-                    <span className="mr-1 mt-1 inline-flex rounded-full bg-gold/15 px-2.5 py-1 text-xs font-bold text-ink">
-                      {job.stop_count === 1 ? t("stops_one") : t("stops_count", { count: job.stop_count ?? 0 })}
-                    </span>
-                  )}
-                  {(job.bundle_order_count ?? 1) > 1 && <span className="mt-1 inline-flex rounded-full bg-gold/15 px-2.5 py-1 text-xs font-bold text-ink">Combined trip · {job.bundle_pickups ?? `${job.bundle_order_count} pickups`}</span>}
-                </span>
-                <span className="max-w-[30%] text-right text-xs leading-5 text-ink-500">
-                  {job.distanceKm != null ? `${job.distanceKm} ${t("home_km_away")}` : t("home_distance_unknown")}
-                </span>
-              </div>
-              <dl className="grid grid-cols-2 border-t border-[var(--border-faint)] pt-3">
-                <div className="min-w-0 pr-3">
-                  <dt className="text-sm text-ink-500">{t("home_total")}</dt>
-                  <dd className="mt-0.5 break-words text-lg font-semibold tabular-nums text-ink">{formatUgx(job.final_total ?? job.estimated_total)}</dd>
-                </div>
-                <div className="min-w-0 border-l border-[var(--border-faint)] pl-3">
-                  <dt className="text-sm text-ink-500">{t("home_delivery_fee")}</dt>
-                  <dd className="mt-0.5 break-words text-lg font-semibold tabular-nums text-ink">{formatUgx(job.delivery_fee ?? job.final_total ?? job.estimated_total)}</dd>
-                </div>
-              </dl>
-              {job.outOfServiceRange && (
-                <div className="flex items-start gap-1.5 rounded-lg bg-gold/10 px-2.5 py-1.5">
-                  <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" strokeWidth={2.25} aria-hidden />
-                  <p className="text-xs text-ink-500">{t("home_out_of_range")}</p>
-                </div>
-              )}
-              {job.fareOffer && !job.applied && (
-                <FareOfferPanel job={job as AvailableJob & { fareOffer: NonNullable<AvailableJob["fareOffer"]> }} online={online} onChanged={load} />
-              )}
-              {job.bidding && job.matching_mode !== "first_to_claim" && !job.applied && (
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-ink-500" htmlFor={`bid-${job.id}`}>
-                    {t("bid_your_price")}
-                  </label>
-                  <input
-                    id={`bid-${job.id}`}
-                    inputMode="numeric"
-                    value={bids[job.id] ?? String(job.bidding.appPrice ?? "")}
-                    onChange={(e) => setBids((prev) => ({ ...prev, [job.id]: e.target.value.replace(/[^\d]/g, "") }))}
-                    className="min-h-11 w-full rounded-xl border border-[var(--border-faint)] px-3 text-base font-bold text-ink outline-none focus:border-gold"
-                  />
-                  <p className="text-xs text-ink-500">
-                    {t("bid_app_price", { price: formatUgx(job.bidding.appPrice) })} ·{" "}
-                    {t("bid_range", { min: formatUgx(job.bidding.min), max: formatUgx(job.bidding.max) })}
-                  </p>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPreviewJobItem(job)}
-                  className="min-h-12 flex-1 rounded-xl bg-[rgb(var(--surface-muted))] px-3 py-2 text-sm font-semibold text-ink"
-                >
-                  {t("home_preview")}
-                </button>
-                {job.matching_mode === "first_to_claim" ? (
-                  <button
-                    onClick={() => claimJob(job.id)}
-                    disabled={claimingId === job.id || !online}
-                    className="min-h-12 flex-1 rounded-xl bg-gold px-3 py-2 text-sm font-semibold text-ink-gold disabled:opacity-60"
-                  >
-                    {claimingId === job.id
-                      ? t("home_claiming")
-                      : !online
-                        ? t("home_offline_btn")
-                        : job.fareOffer
-                          ? t("offer_accept", { price: formatUgx(job.fareOffer.amount) })
-                          : t("home_claim_job")}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => applyToJob(job.id)}
-                    disabled={claimingId === job.id || job.applied || !online}
-                    className={`min-h-12 flex-1 rounded-xl px-3 py-2 text-sm font-semibold disabled:opacity-60 ${
-                      job.applied ? "bg-[rgb(var(--surface-muted))] text-ink-500" : "bg-gold text-ink-gold"
-                    }`}
-                  >
-                    {claimingId === job.id
-                      ? t("home_applying")
-                      : job.applied
-                        ? t("home_applied")
-                        : !online
-                          ? t("home_offline_btn")
-                          : job.fareOffer
-                            ? t("offer_accept", { price: formatUgx(job.fareOffer.amount) })
-                            : t("home_apply")}
-                  </button>
-                )}
-              </div>
-              {jobErrors[job.id] && <p role="alert" className="mt-2 rounded-lg bg-gold/10 px-3 py-2 text-sm text-ink">{jobErrors[job.id]}</p>}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="space-y-4">
-        <h2 className="text-xl font-bold tracking-tight text-ink">{t("home_your_jobs")}</h2>
-        {activeOrders.length === 0 && (
-          <p className="py-6 text-center text-sm text-ink-500">{t("home_no_active_jobs")}</p>
-        )}
-        <ul className="space-y-5">
-          {activeOrders.map((order) => (
-            <li key={order.id}>
-              <Link href={`/jobs/${order.id}`} className="home-card block !rounded-2xl !p-3.5">
-                <span className="flex items-center gap-3">
-                  <CategoryIcon category={jobCategory(order)} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-base font-semibold leading-snug text-ink">{jobTitle(order)}</span>
-                    <span className="mt-0.5 block text-sm text-ink-500">{JOB_CATEGORY_LABELS[jobCategory(order)]}</span>
-                  </span>
-                  <span className="max-w-[40%] rounded-full bg-gold/15 px-3 py-1.5 text-xs font-semibold text-ink">{stageLabel(order.stage, order.type, !!order.is_ride)}</span>
-                </span>
-                <span className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-faint)] pt-3">
-                  <span className="flex min-w-0 items-center gap-1 text-sm text-ink-500"><MapPin className="h-4 w-4 shrink-0" aria-hidden />{order.pickup_area ?? order.destination_area ?? t("home_pickup")}</span>
-                  <span className="flex min-h-12 items-center gap-2 rounded-xl bg-[rgb(var(--surface-muted))] px-3 text-sm font-semibold text-ink">{t("home_continue_job")}<ChevronRight className="h-4 w-4" aria-hidden /></span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
 
       {previewJobItem && (
         <JobPreviewModal

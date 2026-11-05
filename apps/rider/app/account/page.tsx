@@ -7,7 +7,7 @@ import {
   type Rider,
   type RiderSubscriptionView,
 } from "@peebee/shared";
-import { CheckCircle2, LogOut, MapPin, Megaphone, PiggyBank, TriangleAlert, Upload, User, LifeBuoy, ChevronRight } from "lucide-react";
+import { CheckCircle2, LogOut, Settings, MapPin, Megaphone, PiggyBank, TriangleAlert, Upload, User, LifeBuoy, ChevronRight } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -114,6 +114,7 @@ export default function AccountPage() {
   const detectedNetwork = useMemo(() => detectMobileMoneyNetwork(momoMsisdn), [momoMsisdn]);
 
   const [showMap, setShowMap] = useState(false);
+  const [tab, setTab] = useState<"profile" | "settings" | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploadingId, setUploadingId] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -197,6 +198,8 @@ export default function AccountPage() {
   }
 
   const complete = isRiderProfileComplete(rider);
+  // A rider who still has to finish or await verification lands on Profile; everyone else on Settings.
+  const activeTab = tab ?? (complete && rider?.verified ? "settings" : "profile");
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -293,7 +296,27 @@ export default function AccountPage() {
 
       <SubscriptionCard />
 
-      <ProSubscriptionCard />
+      <div role="tablist" aria-label={t("account_title")} className="grid grid-cols-2 gap-1 rounded-2xl bg-[rgb(var(--surface-muted))] p-1">
+        {([
+          { id: "profile", label: "Profile", icon: User },
+          { id: "settings", label: "Settings", icon: Settings },
+        ] as const).map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === id}
+            onClick={() => setTab(id)}
+            className={`flex min-h-14 items-center justify-center gap-2 rounded-xl text-lg font-bold ${activeTab === id ? "bg-gold text-ink-gold shadow-sm" : "text-ink-500"}`}
+          >
+            <Icon className="h-6 w-6" aria-hidden /> {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "settings" && (
+        <div className="space-y-5" role="tabpanel" aria-label="Settings">
+          <ProSubscriptionCard />
 
       <Link href="/help" className="home-card flex items-center gap-3 !rounded-2xl !py-3 text-sm font-semibold text-ink">
         <LifeBuoy className="h-5 w-5 text-gold" strokeWidth={1.75} aria-hidden />
@@ -310,6 +333,32 @@ export default function AccountPage() {
 
       <ChangePasswordPanel />
 
+      {showSavingsLink && (
+        <Link
+          href="/savings"
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink"
+        >
+          <PiggyBank className="h-4 w-4" strokeWidth={2} aria-hidden />
+          RSLA
+        </Link>
+      )}
+
+      <SpotlightLink />
+
+      <button
+        onClick={logout}
+        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink"
+      >
+        <LogOut className="h-4 w-4" strokeWidth={2} aria-hidden />
+        {t("log_out")}
+      </button>
+
+      <CloseAccountCard onClosed={logout} />
+        </div>
+      )}
+
+      {activeTab === "profile" && (
+        <div className="space-y-5" role="tabpanel" aria-label="Profile">
       {complete && rider && !rider.verified && (
         <div className="home-card flex items-center gap-3 !border-l-4 !border-l-gold">
           <p className="text-sm text-ink-500">{t("acc_profile_waiting")}</p>
@@ -530,27 +579,9 @@ export default function AccountPage() {
         </button>
       </section>
 
-      {showSavingsLink && (
-        <Link
-          href="/savings"
-          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink"
-        >
-          <PiggyBank className="h-4 w-4" strokeWidth={2} aria-hidden />
-          RSLA
-        </Link>
+        </div>
       )}
 
-      <SpotlightLink />
-
-      <button
-        onClick={logout}
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink"
-      >
-        <LogOut className="h-4 w-4" strokeWidth={2} aria-hidden />
-        {t("log_out")}
-      </button>
-
-      <CloseAccountCard onClosed={logout} />
 
       {showMap && (
         <LocationMapPicker

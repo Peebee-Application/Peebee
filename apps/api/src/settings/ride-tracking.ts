@@ -8,6 +8,8 @@ export const rideTrackingSchema = z.object({
   locationIntervalSeconds: z.number().int().min(3).max(60),
   staleAfterSeconds: z.number().int().min(15).max(300),
   routeRefreshSeconds: z.number().int().min(15).max(300),
+  // Older stored settings have no rideMode: they get the safe default (on).
+  rideMode: z.boolean().default(true),
 }).refine((value) => value.staleAfterSeconds >= value.locationIntervalSeconds * 2, {
   message: "Stale location threshold must allow at least two location updates.",
 });
