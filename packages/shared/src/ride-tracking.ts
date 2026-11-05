@@ -4,6 +4,8 @@ export type RideTrackingSettings = {
   locationIntervalSeconds: number;
   staleAfterSeconds: number;
   routeRefreshSeconds: number;
+  /** Rider app: once a ride is moving, show one minimal full-screen view with no navigation. */
+  rideMode: boolean;
 };
 
 export const DEFAULT_RIDE_TRACKING_SETTINGS: RideTrackingSettings = {
@@ -12,6 +14,7 @@ export const DEFAULT_RIDE_TRACKING_SETTINGS: RideTrackingSettings = {
   locationIntervalSeconds: 5,
   staleAfterSeconds: 60,
   routeRefreshSeconds: 30,
+  rideMode: true,
 };
 
 export function locationTimestamp(value: string | null | undefined): number {

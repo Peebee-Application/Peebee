@@ -97,3 +97,10 @@ test("journey location is assigned-rider only, stops on completion/disable, and 
     assert.equal(row.rider_lat, null); assert.equal(row.rider_lng, null); assert.equal(row.rider_location_updated_at, null);
   } finally { setD1Binding(undefined); client.close(); }
 });
+
+test("ride mode defaults on for settings saved before it existed, and can be switched off", () => {
+  const { rideMode: _omit, ...legacy } = DEFAULT_RIDE_TRACKING_SETTINGS;
+  assert.equal(DEFAULT_RIDE_TRACKING_SETTINGS.rideMode, true);
+  assert.equal(rideTrackingSchema.parse(legacy).rideMode, true);
+  assert.equal(rideTrackingSchema.parse({ ...legacy, rideMode: false }).rideMode, false);
+});

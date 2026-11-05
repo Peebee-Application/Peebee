@@ -11,6 +11,7 @@ import { CustomerAvatar } from "../../../components/CustomerAvatar";
 import { DeliveryNavigation } from "../../../components/DeliveryNavigation";
 import { FeeProposalVoicePlayer } from "../../../components/FeeProposalVoicePlayer";
 import { LugandaListPlayer } from "../../../components/LugandaListPlayer";
+import { RideMode } from "../../../components/RideMode";
 import { RelayCollectFromMatatu, RelayHandToMatatu } from "../../../components/RelayHandoff";
 import { QrScanner } from "../../../components/QrScanner";
 import { RideStopsPanel } from "../../../components/RideStopsPanel";
@@ -20,6 +21,7 @@ import { api, errorMessage } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth-context";
 import { useTranslate } from "../../../lib/i18n";
 import { formatUgx, jobTitle, stageLabel } from "../../../lib/order-display";
+import { inRideMode } from "../../../lib/ride-mode";
 import { useLivePolling } from "../../../lib/use-live-polling";
 
 type PendingEdit = { originalName: string; substituteName: string; priceDelta: number };
@@ -52,6 +54,8 @@ export default function JobDetailPage() {
   const [merchantPayment, setMerchantPayment] = useState<MerchantPayment | null>(null);
   const [lugandaAudioEnabled, setLugandaAudioEnabled] = useState(false);
   const [lugandaAudioRequiresPro, setLugandaAudioRequiresPro] = useState(false);
+  // Admin → Ride tracking: ride mode is on unless switched off.
+  const [rideModeOn, setRideModeOn] = useState(true);
 
   useEffect(() => {
     api
@@ -59,6 +63,7 @@ export default function JobDetailPage() {
       .then(({ settings }) => {
         setLugandaAudioEnabled(settings.lugandaAudioEnabled);
         setLugandaAudioRequiresPro(settings.lugandaAudioRequiresPro);
+        setRideModeOn(settings.rideTracking?.rideMode ?? true);
       })
       .catch(() => {});
   }, []);
@@ -129,6 +134,10 @@ export default function JobDetailPage() {
   }
 
   const { order, items, substitutions, feeProposals } = detail;
+  // A ride that is moving gets one minimal screen: no sections, no navigation.
+  if (inRideMode(order, rideModeOn)) {
+    return <RideMode detail={detail} busy={busy} error={error} run={run} onCancel={cancelJob} onDone={() => router.push("/")} />;
+  }
   const rideStops = detail.rideStops ?? [];
   // Multi-stop: the next stop not yet left behind (null = straight to the destination).
   const nextStop = rideStops.find((stop) => stop.status !== "done") ?? null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { observeNotificationSnapshot } from "@peebee/shared";
-import { Briefcase, ClipboardList, MessageCircle, PiggyBank, User, Wallet } from "lucide-react";
+import { Briefcase, MessageCircle, PiggyBank, User, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -14,7 +14,6 @@ type Tab = { href: string; label: string; icon: LucideIcon };
 
 const BASE_TABS: { href: string; labelKey: TranslationKey; icon: LucideIcon }[] = [
   { href: "/", labelKey: "nav_jobs", icon: Briefcase },
-  { href: "/active", labelKey: "nav_active", icon: ClipboardList },
   { href: "/chat", labelKey: "nav_chat", icon: MessageCircle },
   { href: "/wallet", labelKey: "nav_wallet", icon: Wallet },
   { href: "/account", labelKey: "nav_account", icon: User },
@@ -67,7 +66,7 @@ export function BottomNav() {
 
   const tabs: Tab[] = BASE_TABS.map((tab) => ({ href: tab.href, label: t(tab.labelKey), icon: tab.icon }));
   if (showSavingsTab) {
-    tabs.splice(4, 0, { href: "/savings", label: "RSLA", icon: PiggyBank });
+    tabs.splice(3, 0, { href: "/savings", label: "RSLA", icon: PiggyBank });
   }
 
   return (
@@ -89,17 +88,17 @@ export function BottomNav() {
                 <Link
                   href={tab.href}
                   aria-current={active ? "page" : undefined}
-                  className={`customer-nav-item relative flex h-[58px] flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-[11px] font-bold transition-all duration-200 active:scale-95 ${
+                  className={`customer-nav-item relative flex h-[62px] flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-xs font-bold transition-all duration-200 active:scale-95 ${
                     active ? "is-active" : ""
                   }`}
                 >
                   <span className="relative">
-                    <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 1.8} aria-hidden />
+                    <Icon className="h-6 w-6" strokeWidth={active ? 2.4 : 1.8} aria-hidden />
                     {tab.href === "/chat" && hasUnread && (
                       <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" aria-hidden />
                     )}
                   </span>
-                  <span className="leading-none truncate max-w-[58px]">{tab.label}</span>
+                  <span className="leading-none truncate max-w-[72px]">{tab.label}</span>
                   {active && (
                     <span
                       className="customer-nav-indicator absolute bottom-1.5 h-1 w-3.5 rounded-full"
