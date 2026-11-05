@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { addVideo, setup, type Json } from "./test-harness.js";
+import { setModuleFlags } from "../lib/modules.js";
 
 const MONEY_ON = { monetization: { enabled: true }, kyc: { withdrawalsEnabled: true, payoutAccountCooldownDays: 0 } };
 
@@ -139,6 +140,14 @@ test("posts: one post model for every publisher, in one ranked Spotlight", async
   assert.deepEqual(types, ["channel", "channel", "driver", "personal", "restaurant"]);
   const channelPost = feed.json.posts.find((p: Json) => p.publisher.type === "channel");
   assert.equal(channelPost.publisher.handle, "amina");
+
+  // A publisher's posts leave the Spotlight while the Services module behind it is switched off.
+  const publishers = async () => (await w.call("/spotlight/feed", { token: w.fan })).json.posts.map((p: Json) => p.publisher.type);
+  await setModuleFlags({ live: { "buy.food": false } });
+  assert.ok(!(await publishers()).includes("restaurant") && (await publishers()).includes("driver"), "Food off: restaurant posts go, the rest stay");
+  await setModuleFlags({ live: { "buy.food": true, ride: false } });
+  assert.ok((await publishers()).includes("restaurant") && !(await publishers()).includes("driver"), "Rides off: driver posts go");
+  await setModuleFlags({ live: { ride: true } });
 
   await w.configure(w.admin, { publishing: { publishers: ["channel"] } });
   const narrowed = await w.call("/spotlight/feed", { token: w.fan });

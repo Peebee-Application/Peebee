@@ -1,4 +1,5 @@
 import { parseWordList, type ChannelsConfig } from "@peebee/shared";
+import { liveModules } from "../lib/modules.js";
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { getPlatformEnvironment } from "../lib/settings.js";
@@ -41,6 +42,10 @@ export type PostInput = {
 };
 
 const POST_TYPES = ["video", "image", "carousel", "text", "audio", "live"];
+/** The Services module each kind of publisher, and each kind of tagged item, belongs to: a post is left out of the Spotlight while its module is off. */
+const PUBLISHER_MODULE: Record<string, string> = { store: "buy.marketplace", restaurant: "buy.food", learn: "learn", driver: "ride" };
+const PRODUCT_MODULE: Record<string, string> = { product: "buy.marketplace", dish: "buy.food", course: "learn" };
+
 const PRODUCT_REF_TYPES: Record<string, string[]> = { store: ["product"], restaurant: ["dish"], learn: ["course"] };
 
 export function containsBlockedWord(text: string, cfg: ChannelsConfig): boolean {
@@ -470,7 +475,9 @@ export async function spotlightFeed(viewerId: string | null, cfg: ChannelsConfig
     args: [env],
   })).rows as unknown as PostRow[];
 
-  const allowed = rows.filter((p) => (p.publisher_type === "personal" ? cfg.publishing.personalPosting : cfg.publishing.publishers.includes(p.publisher_type)));
+  const live = await liveModules([...Object.values(PUBLISHER_MODULE), ...Object.values(PRODUCT_MODULE)]);
+  const moduleOn = (p: PostRow) => live[PUBLISHER_MODULE[p.publisher_type] ?? ""] !== false && live[PRODUCT_MODULE[String(p.product_ref_type ?? "")] ?? ""] !== false;
+  const allowed = rows.filter((p) => moduleOn(p) && (p.publisher_type === "personal" ? cfg.publishing.personalPosting : cfg.publishing.publishers.includes(p.publisher_type)));
   const following = viewerId ? await followedChannelIds(viewerId) : new Set<string>();
   let pool = allowed;
   if (opts.filter === "following") pool = pool.filter((p) => p.publisher_type === "channel" && following.has(p.publisher_id));

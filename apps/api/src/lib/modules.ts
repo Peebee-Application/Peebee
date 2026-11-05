@@ -65,6 +65,13 @@ export async function isModuleLive(key: string): Promise<boolean> {
   return true;
 }
 
+/** Which of these modules are on in Live right now (each counted with every module above it), asked once per key. */
+export async function liveModules(keys: readonly string[]): Promise<Record<string, boolean>> {
+  const unique = [...new Set(keys)];
+  const on = await Promise.all(unique.map((k) => isModuleLive(k)));
+  return Object.fromEntries(unique.map((k, i) => [k, on[i]!]));
+}
+
 /** Only the keys that exist: anything else in an update is a mistake worth refusing. */
 export function unknownModuleKeys(update: ModuleSettingsUpdate): string[] {
   return [...Object.keys(update.live ?? {}), ...Object.keys(update.practice ?? {}), ...Object.keys(update.notices ?? {})].filter((k) => !getModule(k));
