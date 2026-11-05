@@ -28,11 +28,11 @@ export function BottomNav({
               type="button"
               onClick={() => onTabChange?.("new")}
               aria-current={activeTab === "new" ? "page" : undefined}
-              className={`customer-nav-item relative flex h-[58px] w-full flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-[11px] font-bold transition-all duration-200 active:scale-95 ${
+              className={`customer-nav-item relative flex h-[62px] w-full flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-xs font-bold transition-all duration-200 active:scale-95 ${
                 activeTab === "new" ? "is-active" : ""
               }`}
             >
-              <Plus className="h-5 w-5" strokeWidth={activeTab === "new" ? 2.4 : 1.8} aria-hidden />
+              <Plus className="h-6 w-6" strokeWidth={activeTab === "new" ? 2.4 : 1.8} aria-hidden />
               <span className="leading-none">Register</span>
               {activeTab === "new" && (
                 <span
@@ -47,11 +47,11 @@ export function BottomNav({
               type="button"
               onClick={() => onTabChange?.("records")}
               aria-current={activeTab === "records" ? "page" : undefined}
-              className={`customer-nav-item relative flex h-[58px] w-full flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-[11px] font-bold transition-all duration-200 active:scale-95 ${
+              className={`customer-nav-item relative flex h-[62px] w-full flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-xs font-bold transition-all duration-200 active:scale-95 ${
                 activeTab === "records" ? "is-active" : ""
               }`}
             >
-              <ClipboardList className="h-5 w-5" strokeWidth={activeTab === "records" ? 2.4 : 1.8} aria-hidden />
+              <ClipboardList className="h-6 w-6" strokeWidth={activeTab === "records" ? 2.4 : 1.8} aria-hidden />
               <span className="leading-none">Records</span>
               {activeTab === "records" && (
                 <span
@@ -67,9 +67,9 @@ export function BottomNav({
                 href="https://admin.peebee.online/onboarding"
                 target="_blank"
                 rel="noreferrer"
-                className="customer-nav-item relative flex h-[58px] w-full flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-[11px] font-bold transition-all duration-200 active:scale-95"
+                className="customer-nav-item relative flex h-[62px] w-full flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-xs font-bold transition-all duration-200 active:scale-95"
               >
-                <ExternalLink className="h-5 w-5" strokeWidth={1.8} aria-hidden />
+                <ExternalLink className="h-6 w-6" strokeWidth={1.8} aria-hidden />
                 <span className="leading-none">Admin</span>
               </a>
             </li>
