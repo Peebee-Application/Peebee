@@ -479,6 +479,8 @@ export const OPTION_SETTINGS: SettingDef[] = [
   { key: "member_roles_manage_digital", module: "platform", kind: "multi", label: "Who can manage digital products and courses", description: "Merchant team roles.", default: ["owner", "manager"], min: 1, options: ROLES },
   { key: "member_roles_refund_revoke", module: "platform", kind: "multi", label: "Who can revoke access and refund", description: "Merchant team roles.", default: ["owner", "manager", "finance"], min: 1, options: ROLES },
   { key: "member_roles_manage_billing", module: "platform", kind: "multi", label: "Who can change the store plan", description: "Merchant team roles.", default: ["owner"], min: 1, options: ROLES },
+  { key: "member_roles_view_financial_reports", module: "platform", kind: "multi", label: "Who can view financial reports and record expenses", description: "Merchant team roles. Bookkeeping entries do not move wallet funds.", default: ["owner", "finance"], min: 1, options: ROLES },
+  { key: "merchant_financial_reports_enabled", module: "platform", kind: "bool", label: "Merchant financial reports and expense journal", description: "Source statements, recorded expenses, taxes and cost evidence.", default: true },
   {
     key: "marketplace_demo_catalog", module: "platform", kind: "enum", label: "Demo stores and products",
     description: "Where the built-in demo catalogue may be ordered from. Practice mode never uses this; it runs in the app.",

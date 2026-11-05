@@ -1,3 +1,4 @@
+import { settleTopupByReference } from "../wallet/topup-settle.js";
 import { Hono, type Context } from "hono";
 import { db } from "../db/client.js";
 import { requireAuth } from "../auth/middleware.js";
@@ -112,13 +113,15 @@ paymentRoutes.post("/payments/yo/callback", async (c) => {
   const payment = res.rows[0] as Row | undefined;
   if (!payment) {
     try {
+      if (await settleTopupByReference(reference)) return c.json({ received: true, matched: true });
       return c.json({ received: true, matched: await reconcileSettlementCallback("yo", reference) });
     } catch (err) {
       console.error("Yo! settlement callback status check failed:", err);
       return c.json({ received: true, matched: true, changed: false });
     }
   }
-  if (payment.status !== "pending") return c.json({ received: true, matched: true, changed: false });
+  // A "failed" payment is re-checked too: it may be a timed-out one whose customer approved late.
+  if (payment.status !== "pending" && payment.status !== "failed") return c.json({ received: true, matched: true, changed: false });
 
   try {
     const before = String(payment.status);
@@ -155,13 +158,16 @@ paymentRoutes.post("/payments/flutterwave/callback", async (c) => {
   const payment = res.rows[0] as Row | undefined;
   if (!payment) {
     try {
+      // A wallet top-up (customer or rider) is settled here as well, so it credits even if the customer never returns to the app.
+      if (await settleTopupByReference(reference)) return c.json({ received: true, matched: true });
       return c.json({ received: true, matched: await reconcileSettlementCallback("flutterwave", reference) });
     } catch (err) {
       console.error("Flutterwave settlement callback status check failed:", err);
       return c.json({ received: true, matched: true, changed: false });
     }
   }
-  if (payment.status !== "pending") return c.json({ received: true, matched: true, changed: false });
+  // A "failed" payment is re-checked too: it may be a timed-out one whose customer approved late.
+  if (payment.status !== "pending" && payment.status !== "failed") return c.json({ received: true, matched: true, changed: false });
 
   try {
     const before = String(payment.status);

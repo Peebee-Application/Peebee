@@ -13,7 +13,7 @@ export async function touchAgentPresence(userId: string, name: string): Promise<
   });
 }
 
-/** Staff who had the admin app open in the last 90 seconds. Null when it cannot be told (migration 0154 not applied). */
+/** Staff who had the admin app open in the last 90 seconds. Null when it cannot be told (migration 0156 not applied). */
 export async function agentsOnline(): Promise<number | null> {
   if (!(await hasTable("support_agent_presence"))) return null;
   const res = await db.execute("SELECT COUNT(*) AS n FROM support_agent_presence WHERE last_seen_at > datetime('now', '-90 seconds')");

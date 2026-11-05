@@ -9,7 +9,7 @@ const ASSET_CACHE = "peebee-admin-assets-v1";
 // How long a page waits for the server before showing the stored copy.
 const PAGE_WAIT_MS = 4000;
 const PAGE_CACHE = "peebee-admin-pages-v3";
-const RUNTIME_CACHE = "peebee-admin-runtime-v2";
+const RUNTIME_CACHE = "peebee-admin-runtime-v3";
 const KEEP_CACHES = [ASSET_CACHE, PAGE_CACHE, RUNTIME_CACHE];
 const OFFLINE_URL = "/offline.html";
 const SHELL_URLS = ["/", "/login"];
@@ -162,10 +162,18 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  if (["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname)) return;
+
   // A mutation (POST/PUT/DELETE — funding an order, sending a message,
   // claiming a job) always goes straight to the network, exactly as
   // before. Only reads are ever served from a cache.
   if (request.method !== "GET") return;
+
+  // Private finance and permission evidence must never be replayed across staff accounts.
+  if (request.headers.has("Authorization") || request.headers.has("X-Phone-Proof") || url.pathname.startsWith("/v1/admin/")) {
+    event.respondWith(fetch(request, { cache: "no-store" }));
+    return;
+  }
 
   const sameOrigin = url.origin === self.location.origin;
 

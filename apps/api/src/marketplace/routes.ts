@@ -2490,12 +2490,20 @@ marketplaceRoutes.post("/merchants/me/pos-sales", requireAuth, async (c) => {
   const totalAmount = Math.max(0, afterDiscount - loyaltyRedeemedUgx);
   const receiptCode = `POS-${saleId.slice(-6).toUpperCase()}`;
 
+  const financeSnapshot = await hasColumn("store_pos_sales", "cost_snapshot_json") && await hasColumn("store_pos_sales", "environment");
+  const costSnapshot: {productId: string; quantity: number; unitCostUgx: number | null}[] = [];
+  if (financeSnapshot) {
+    const costRows = (await db.execute({sql: "SELECT id,cost_price FROM store_products WHERE store_id=?", args: [String(store.id)]})).rows;
+    const costByProduct = new Map(costRows.map(p => [String(p.id), p.cost_price == null ? null : Number(p.cost_price)]));
+    for (const item of parsed.data.items) costSnapshot.push({productId: item.productId, quantity: item.quantity, unitCostUgx: costByProduct.get(item.productId) ?? null});
+  }
+
   writes.push({
     sql: `INSERT INTO store_pos_sales (
             id, store_id, outlet_id, cashier_user_id, customer_phone, customer_name,
             items_json, subtotal_amount, discount_amount, loyalty_redeemed_ugx,
-            loyalty_earned_ugx, total_amount, payment_method, receipt_code
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            loyalty_earned_ugx, total_amount, payment_method, receipt_code${financeSnapshot ? ", environment, cost_snapshot_json" : ""}
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${financeSnapshot ? ", ?, ?" : ""})`,
     args: [
       saleId,
       String(store.id),
@@ -2511,6 +2519,7 @@ marketplaceRoutes.post("/merchants/me/pos-sales", requireAuth, async (c) => {
       totalAmount,
       parsed.data.payment_method,
       receiptCode,
+      ...(financeSnapshot ? [await getPlatformEnvironment(), JSON.stringify(costSnapshot)] : []),
     ],
   });
 

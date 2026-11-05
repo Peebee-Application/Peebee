@@ -157,9 +157,11 @@ type ChargeResponse = {
 };
 
 /** Direct mobile money: Flutterwave pushes the approval prompt to the
- * customer's phone and the charge settles when they approve. Nothing for
- * the customer to open — the result is just PENDING until the webhook or a
- * status check says otherwise. */
+ * customer's phone and the charge settles when they approve. The result is
+ * PENDING until the webhook or a status check says otherwise. If Flutterwave
+ * instead asks the customer to complete a step on a page of its own (an
+ * authorization mode of "redirect"), that link is passed on so the app sends
+ * them there; without it no prompt would ever reach the phone. */
 async function chargeMobileMoney(input: GatewayChargeInput, network: "MTN" | "AIRTEL", phone: string): Promise<GatewayResult> {
   const body = await call<ChargeResponse>("/charges?type=mobile_money_uganda", {
     method: "POST",
@@ -174,13 +176,28 @@ async function chargeMobileMoney(input: GatewayChargeInput, network: "MTN" | "AI
       meta: { narrative: input.narrative },
     }),
   });
+  const auth = body.meta?.authorization;
+  // What Flutterwave answered, so a charge that never reaches a phone can be diagnosed from the logs. No phone numbers.
+  console.log("Flutterwave mobile money charge", {
+    txRef: input.referenceId,
+    network,
+    apiStatus: body.status,
+    message: (body.message ?? "").slice(0, 200),
+    chargeStatus: body.data?.status ?? null,
+    processorResponse: (body.data?.processor_response ?? "").slice(0, 200),
+    authorizationMode: auth?.mode ?? null,
+    hasRedirect: !!auth?.redirect,
+  });
   if (body.status !== "success") {
     throw new Error(`Flutterwave did not accept the mobile money charge: ${body.message ?? "unknown error"}`);
   }
+  const nextAction = auth?.mode === "redirect" && auth.redirect ? ({ type: "redirect", url: auth.redirect } as const) : undefined;
   return {
     status: "PENDING",
     transactionReference: input.referenceId,
     providerTransactionId: body.data?.id != null ? String(body.data.id) : undefined,
+    nextAction,
+    redirectUrl: nextAction?.url,
   };
 }
 

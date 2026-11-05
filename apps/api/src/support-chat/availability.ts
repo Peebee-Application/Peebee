@@ -64,7 +64,7 @@ export function computeAvailability(s: AvailabilitySettings, now: Date, online: 
   if (!humanEnabled) return { state: "offline", reason: null, offer: "none", hours, agentsOnline: online };
   let reason: Availability["reason"] = null;
   if (!withinHours(s, now)) reason = "hours";
-  // Presence is only known once migration 0154 is applied; until then it cannot say that nobody is there.
+  // Presence is only known once migration 0156 is applied; until then it cannot say that nobody is there.
   else if (s.needsStaff && online === 0) reason = "nobody";
   if (!reason) return { state: "online", reason: null, offer: "talk", hours, agentsOnline: online };
   return { state: "offline", reason, offer: s.offlineMode === "ai_only" ? "none" : "message", hours, agentsOnline: online };

@@ -4,7 +4,7 @@ import type { HiveShortcutId, HomeClusterId } from "@peebee/shared";
  * Launch screensaver content. Titles for the five slides come from the admin
  * home-menu labels at runtime. Everything else here is isolated placeholder
  * copy (including "15 riders near you") until a real source exists.
- * Photos live in /home-screensaver; Buy, Work and Learn use token gradients.
+ * Photos live in /home-screensaver. Token gradients stay behind every photo as the loading and error fallback.
  */
 
 export type ScreensaverIcon =
@@ -16,6 +16,8 @@ export type ScreensaverIcon =
 export type ScreensaverEntity = {
   id: string;
   title: string;
+  /** One word on the thumbnail pill. The sheet and the button name keep `title`. */
+  thumbLabel?: string;
   /** Hidden when this Services switch is off. Parent modules are already applied by useModules. */
   module?: string;
   /** Hidden when this Hive shortcut is switched off in the home menu. */
@@ -128,6 +130,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "restaurants",
         title: "Restaurants",
+        thumbLabel: "Dine",
         meta: "42 open near you · 25–40 min",
         description: "Meals from Kampala's favourite kitchens, delivered hot to your door.",
         cta: "Order food",
@@ -140,6 +143,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "street-food",
         title: "Street food",
+        thumbLabel: "Street",
         meta: "Stalls open near you",
         description: "Street food from cooks near you, packed up and brought to your door.",
         cta: "Order street food",
@@ -152,6 +156,7 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
       {
         id: "bakeries",
         title: "Bakeries",
+        thumbLabel: "Baked",
         meta: "Ovens on near you",
         description: "Bread, cakes and pastries from bakeries around you, still warm.",
         cta: "Order from a bakery",
@@ -168,6 +173,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
     cluster: "shopping",
     title: "Buy",
     module: "buy",
+    cover: photo("buy-hero"),
+    coverPosition: "50% 38%",
     coverGradient: wash(168),
     entities: [
       {
@@ -179,39 +186,50 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Start a list",
         href: "/shoplist",
         icon: "list",
+        image: photo("list"),
+        imagePosition: "50% 32%",
         gradient: wash(162),
       },
       {
         id: "groceries",
         title: "Groceries",
+        thumbLabel: "Grocer",
         module: "buy.shopping",
         meta: "Markets open near you",
         description: "Fresh food from markets and shops around you, brought to your door.",
         cta: "Shop groceries",
         href: "/groceries",
         icon: "basket",
+        image: photo("groceries"),
+        imagePosition: "50% 28%",
         gradient: wash(176),
       },
       {
         id: "stores",
         title: "Stores",
+        thumbLabel: "Store",
         module: "buy.marketplace",
         meta: "Stores open near you",
         description: "Browse shops and order what you need. A rider delivers it.",
         cta: "Browse stores",
         href: "/stores",
         icon: "store",
+        image: photo("stores"),
+        imagePosition: "50% 22%",
         gradient: wash(194),
       },
       {
         id: "pharmacy",
         title: "Pharmacy",
+        thumbLabel: "Pharma",
         module: "buy.pharmacy",
         meta: "Pharmacies open near you",
         description: "Medicine and pharmacy items, delivered with care.",
         cta: "Order medicine",
         href: "/pharmacy",
         icon: "pill",
+        image: photo("pharmacy"),
+        imagePosition: "50% 24%",
         gradient: wash(208),
       },
     ],
@@ -221,6 +239,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
     cluster: "hive",
     title: "Work",
     module: "hive",
+    cover: photo("work-hero"),
+    coverPosition: "38% 32%",
     coverGradient: wash(180),
     entities: [
       {
@@ -233,11 +253,14 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Book a clean",
         href: "/services/clean",
         icon: "sparkles",
+        image: photo("clean"),
+        imagePosition: "50% 28%",
         gradient: wash(164),
       },
       {
         id: "laundry",
         title: "Laundry",
+        thumbLabel: "Wash",
         module: "hive.work",
         shortcut: "laundry",
         meta: "Pickup available near you",
@@ -245,6 +268,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Book laundry",
         href: "/services/laundry",
         icon: "washer",
+        image: photo("laundry"),
+        imagePosition: "42% 26%",
         gradient: wash(178),
       },
       {
@@ -257,11 +282,14 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Book a fix",
         href: "/services/fix",
         icon: "wrench",
+        image: photo("fix"),
+        imagePosition: "58% 22%",
         gradient: wash(196),
       },
       {
         id: "workers",
         title: "Workers",
+        thumbLabel: "Work",
         module: "hive.hire.search",
         shortcut: "workers",
         meta: "People ready for odd jobs",
@@ -269,6 +297,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Find a worker",
         href: "/services/hire/workers?segment=informal",
         icon: "hardhat",
+        image: photo("workers"),
+        imagePosition: "50% 32%",
         gradient: wash(210),
       },
       {
@@ -281,6 +311,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Hire someone",
         href: "/services/hire",
         icon: "briefcase",
+        image: photo("hire"),
+        imagePosition: "50% 28%",
         gradient: wash(222),
       },
     ],
@@ -290,16 +322,21 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
     cluster: "learn",
     title: "Learn",
     module: "learn",
+    cover: photo("learn-hero"),
+    coverPosition: "50% 36%",
     coverGradient: wash(192),
     entities: [
       {
         id: "discover",
         title: "Discover",
+        thumbLabel: "Courses",
         meta: "Courses open now",
         description: "Classes and courses to learn at your own pace.",
         cta: "Browse courses",
         href: "/learn",
         icon: "book",
+        image: photo("discover"),
+        imagePosition: "50% 30%",
         gradient: wash(170),
       },
       {
@@ -311,6 +348,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "See live classes",
         href: "/learn/live",
         icon: "radio",
+        image: photo("live"),
+        imagePosition: "50% 36%",
         gradient: wash(186),
       },
       {
@@ -322,6 +361,8 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
         cta: "Watch on TV",
         href: "/learn/tv",
         icon: "tv",
+        image: photo("tv"),
+        imagePosition: "50% 62%",
         gradient: wash(204),
       },
     ],
@@ -330,6 +371,12 @@ export const SCREENSAVER_MODULES: readonly ScreensaverModuleDef[] = [
 
 export function entitySubtitle(entities: readonly { title: string }[]): string {
   return entities.map((entity) => entity.title).join(" · ");
+}
+
+/** Word on the thumbnail pill. Falls back to the full title when no short label is set. */
+export function thumbLabelOf(entity: { title: string; thumbLabel?: string }): string {
+  const short = entity.thumbLabel?.trim();
+  return short || entity.title;
 }
 
 /** Signed steps around a loop, in (-count/2, count/2]. */

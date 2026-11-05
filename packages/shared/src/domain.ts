@@ -850,6 +850,14 @@ export type DeliverySettings = {
   maxAssignmentMinutes: number;
   /** false (default): a live order is only ever given to a rider who accepted it. true: the nearest online rider is assigned automatically. */
   autoAssignWithoutAcceptance: boolean;
+  /** Minutes before a rider is released from an order the customer has not paid for; 0 = never. */
+  unpaidMatchReleaseMinutes: number;
+  /** Minutes an order may sit at "Funding" (payment started, never settled) before it is unlocked for the customer and rider; 0 = never. */
+  stuckFundingReleaseMinutes: number;
+  /** One active ride per customer: no second ride while one booked for themself is active. Rides booked for someone else don't count. */
+  oneActiveRideEnabled: boolean;
+  /** Minutes a rider waits on an unpaid ride before they may close it; 0 = at once. */
+  riderCloseUnpaidMinutes: number;
   paymentsActiveProviders: PaymentProviderIdentity[];
   /** Demo/sandbox mode — every payment runs through the mock adapters
    * regardless of saved credentials. See PaymentProviderInfo/IntegrationsStatus. */
@@ -858,6 +866,12 @@ export type DeliverySettings = {
   paymentsFlutterwaveDirectMobileMoney: boolean;
   /** Flutterwave cards: true = Peebee's own card form (needs PCI accreditation; default off), false = Flutterwave's hosted page. */
   paymentsFlutterwaveDirectCard: boolean;
+  /** Minutes a customer payment may stay pending before it is marked failed so they can retry; 0 = wait forever. */
+  paymentsPendingTimeoutMinutes: number;
+  /** Hours to keep watching a timed-out payment and credit the wallet if it is approved late; 0 = stop at the timeout. */
+  paymentsLateWatchHours: number;
+  /** true: cash-outs only go to a saved withdrawal number verified by an SMS code. Default false. */
+  withdrawalNumbersRequireVerification: boolean;
   /** Dark-launch switch for the merchant allocation flow. Live enablement is
    * additionally gated by an active regulated-custody approval server-side. */
   merchantPaymentsEnabled: boolean;
@@ -1812,6 +1826,10 @@ export type SavedMobileNumber = {
   phone: string;
   label: string | null;
   is_primary: number;
+  /** When the owner proved the number with an SMS code; null/absent until then. */
+  verified_at?: string | null;
+  /** Convenience flag the API adds: verified_at is set. */
+  verified?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -2002,6 +2020,9 @@ export type IntegrationsStatus = {
 
 export type FailedPayment = {
   id: string;
+  /** For a collection that timed out: "watching" while Peebee still checks for a late approval, "credited" once a late
+   * approval was added to the customer's wallet. Null for an ordinary failure. */
+  late?: "watching" | "credited" | null;
   order_id: string;
   type: "collection" | "disbursement" | "refund";
   amount: number;
@@ -2273,6 +2294,8 @@ export type PaymentProviderInfo = {
   active: boolean;
   /** Position in the admin's priority order, or -1 if not active. */
   priority: number;
+  /** True when the saved keys are the provider's test/sandbox ones: no real money moves, and phones get no real prompt. */
+  testMode: boolean;
   /** This provider's real API credential fields (from the provider's own
    * requirements — see apps/api/src/payments/credentials.ts) and whether
    * each is currently set, DB-stored or env-var fallback alike. */

@@ -1,8 +1,4 @@
 import { Hono } from "hono";
-import { hasColumn } from "../lib/schema.js";
-import { planTopupFor } from "../offers/topup.js";
-import { grantCredit } from "../offers/credit.js";
-import { applyDepositBonus } from "../offers/deposit-bonus.js";
 import { getCreditBalance } from "../offers/credit.js";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../auth/middleware.js";
@@ -11,7 +7,6 @@ import { newId } from "../lib/ids.js";
 import { consume, tooManyRequests } from "../lib/ratelimit.js";
 import { getPlatformEnvironment, getWalletSettings } from "../lib/settings.js";
 import {
-  checkPaymentStatus,
   initiateCollection,
   paymentProviderErrorResponse,
   paymentProviderHttpStatus,
@@ -19,7 +14,8 @@ import {
 } from "../payments/service.js";
 import { cardSchema } from "../payments/card.js";
 import { appBaseUrl } from "../verify/service.js";
-import { creditWallet, getWalletCap, resolveCustomerByIdentifier, transferWallet } from "./service.js";
+import { getWalletCap, resolveCustomerByIdentifier, transferWallet } from "./service.js";
+import { settleCustomerTopup } from "./topup-settle.js";
 
 export const walletRoutes = new Hono();
 
@@ -137,52 +133,9 @@ walletRoutes.get("/wallet/topups/:id/refresh", requireAuth, requireRole("custome
   if (!topup) return c.json({ error: "not_found" }, 404);
   if (topup.status !== "pending") return c.json({ topup });
 
-  const status = await checkPaymentStatus({
-    provider: topup.provider as string,
-    provider_ref: topup.provider_ref as string | null,
-    created_at: topup.created_at as string,
-  });
-
-  if (status === "pending") return c.json({ topup });
-
-  if (status === "failed") {
-    await db.execute({
-      sql: "UPDATE wallet_topups SET status = 'failed', updated_at = datetime('now') WHERE id = ? AND status = 'pending'",
-      args: [id],
-    });
-    return c.json({ topup: { ...topup, status: "failed" } });
-  }
-
-  // Race-guarded exactly like payments/routes.ts applyPaymentStatus(): only
-  // the request that actually flips pending -> successful gets to credit
-  // the wallet, so a poll landing at the same moment as a second poll (or
-  // a future webhook) can't double-credit.
-  const updated = await db.execute({
-    sql: "UPDATE wallet_topups SET status = 'successful', updated_at = datetime('now') WHERE id = ? AND status = 'pending'",
-    args: [id],
-  });
-  if ((updated.rowsAffected ?? 0) > 0) {
-    const env = topup.environment === "sandbox" ? "sandbox" : "live";
-    // What the gateway took, and how much of it Peebee covers as credit (Admin → Wallet credit). With no gateway rate set up,
-    // or before migration 0148, the wallet gets the whole amount exactly as it always has.
-    const plan = (await hasColumn("wallet_topups", "gateway_fee")) ? await planTopupFor({ ...topup, user_id: user.sub }, env).catch(() => null) : null;
-    await creditWallet(user.sub, plan ? plan.cash : (topup.amount as number), {
-      type: "topup",
-      environment: env,
-      topupId: id,
-      note: plan && plan.gatewayFee > 0 ? `Wallet top-up (gateway fee ${plan.gatewayFee + plan.taxOnFee} deducted)` : "Wallet top-up",
-    });
-    if (plan) {
-      await db.execute({
-        sql: "UPDATE wallet_topups SET gateway_fee = ?, tax_on_fee = ?, fee_cover = ?, cash_credited = ? WHERE id = ?",
-        args: [plan.gatewayFee, plan.taxOnFee, plan.feeCover, plan.cash, id],
-      });
-      if (plan.feeCover > 0) await grantCredit({ userId: user.sub, amount: plan.feeCover, kind: "fee_cover", env, topupId: id, expiryDays: 0, campaign: "fee_cover", note: "Fee on your top-up covered by Peebee" });
-    }
-    await applyDepositBonus({ userId: user.sub, topupId: id, amount: topup.amount as number, env: topup.environment === "sandbox" ? "sandbox" : "live" });
-  }
-
-  return c.json({ topup: { ...topup, status: "successful" } });
+  // The same settlement the background sweep and the provider webhooks use (./topup-settle.ts).
+  const status = await settleCustomerTopup(topup);
+  return c.json({ topup: { ...topup, status } });
 });
 
 // ---------------------------------------------------------------------------

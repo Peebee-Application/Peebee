@@ -1,5 +1,8 @@
 name: Customer iOS Build
 
+# macOS runners are billed and, on arm64, often sit in a queue. Run only when
+# the customer app, the native project, the shared package, or this workflow
+# changes — not on every merge to main.
 on:
   workflow_dispatch:
   push:
@@ -12,36 +15,89 @@ on:
       - "packages/shared/**"
       - ".github/workflows/customer-ios.yml"
 
+# A superseded commit must not go red. cancel-in-progress marks that older
+# run cancelled, and GitHub reports a cancelled job that never started as a
+# failed workflow. Leave the older run in place and skip its macOS job.
 concurrency:
   group: customer-ios-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      proceed: ${{ steps.tip.outputs.proceed }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build only the latest commit on this branch
+        id: tip
+        run: |
+          set -eu
+          git fetch --no-tags origin "${GITHUB_REF_NAME}"
+          tip="$(git rev-parse FETCH_HEAD)"
+          if [ "$GITHUB_SHA" = "$tip" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "Commit ${GITHUB_SHA} is superseded by ${tip}. Skipping the iOS build."
+          fi
+
   build-ios:
-    runs-on: macos-latest
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true'
+    # macos-latest is macOS 26 arm64. On 2 Nov 2026 GitHub left those jobs
+    # queued for about 15 minutes, then cancelled them: "The job was not
+    # acquired by Runner of type hosted even after multiple attempts", with a
+    # notice that macOS arm64 runners were short of capacity. That is GitHub's
+    # runner pool, not an Actions spending limit in this repo. macos-15 and
+    # macos-26 are the same arm64 pool. The Intel image is outside it and
+    # still has current Xcode. The device .ipa is still an iphoneos build;
+    # the simulator .app from this image is x86_64.
+    runs-on: macos-26-intel
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
+      - name: Skip when this commit is no longer the branch tip
+        id: tip
+        run: |
+          set -eu
+          git fetch --no-tags origin "${GITHUB_REF_NAME}"
+          tip="$(git rev-parse FETCH_HEAD)"
+          if [ "$GITHUB_SHA" = "$tip" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "Commit ${GITHUB_SHA} is superseded by ${tip}. Skipping Xcode."
+          fi
+
       - uses: pnpm/action-setup@v4
+        if: steps.tip.outputs.proceed == 'true'
 
       - uses: actions/setup-node@v4
+        if: steps.tip.outputs.proceed == 'true'
         with:
           node-version: "22"
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.tip.outputs.proceed == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Build customer-mobile static web bundle
+        if: steps.tip.outputs.proceed == 'true'
         run: pnpm --filter customer-mobile build
 
       - name: Sync Capacitor iOS & install CocoaPods
+        if: steps.tip.outputs.proceed == 'true'
         working-directory: apps/customer-mobile
         run: |
           pnpm exec cap copy ios
           pnpm exec cap update ios
 
       - name: Build iOS Simulator app (.app)
+        if: steps.tip.outputs.proceed == 'true'
         working-directory: apps/customer-mobile/ios/App
         run: |
           xcodebuild \
@@ -54,6 +110,7 @@ jobs:
             build
 
       - name: Build iOS Device app & package unsigned .ipa
+        if: steps.tip.outputs.proceed == 'true'
         working-directory: apps/customer-mobile/ios/App
         run: |
           xcodebuild \
@@ -72,6 +129,7 @@ jobs:
           zip -qry ../../peebee-customer-unsigned.ipa Payload
 
       - name: Upload iOS Simulator .app artifact
+        if: steps.tip.outputs.proceed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: peebee-customer-ios-simulator-app
@@ -79,6 +137,7 @@ jobs:
           retention-days: 14
 
       - name: Upload unsigned iOS .ipa artifact
+        if: steps.tip.outputs.proceed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: peebee-customer-ios-unsigned-ipa

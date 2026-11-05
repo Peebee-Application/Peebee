@@ -24,6 +24,9 @@ export default function PaymentsSettingsPage() {
   const [paymentsDemoMode, setPaymentsDemoMode] = useState(false);
   const [directMobileMoney, setDirectMobileMoney] = useState(true);
   const [directCard, setDirectCard] = useState(false);
+  const [pendingTimeout, setPendingTimeout] = useState("10");
+  const [lateWatchHours, setLateWatchHours] = useState("24");
+  const [verifyNumbers, setVerifyNumbers] = useState(false);
   const [platformEnvironment, setPlatformEnvironment] = useState<PlatformEnvironment>("live");
   const [providerInfo, setProviderInfo] = useState<PaymentProviderInfo[]>([]);
   const [busy, setBusy] = useState(false);
@@ -42,6 +45,9 @@ export default function PaymentsSettingsPage() {
         setPaymentsDemoMode(settingsRes.settings.paymentsDemoMode);
         setDirectMobileMoney(settingsRes.settings.paymentsFlutterwaveDirectMobileMoney);
         setDirectCard(settingsRes.settings.paymentsFlutterwaveDirectCard);
+        setPendingTimeout(String(settingsRes.settings.paymentsPendingTimeoutMinutes ?? 10));
+        setLateWatchHours(String(settingsRes.settings.paymentsLateWatchHours ?? 24));
+        setVerifyNumbers(!!settingsRes.settings.withdrawalNumbersRequireVerification);
         setPlatformEnvironment(settingsRes.settings.platformEnvironment);
         setProviderInfo(integrationsRes.integrations.mobileMoney.providers);
       })
@@ -68,11 +74,17 @@ export default function PaymentsSettingsPage() {
         paymentsDemoMode,
         paymentsFlutterwaveDirectMobileMoney: directMobileMoney,
         paymentsFlutterwaveDirectCard: directCard,
+        paymentsPendingTimeoutMinutes: Math.min(1440, Math.max(0, Math.floor(Number(pendingTimeout)) || 0)),
+        paymentsLateWatchHours: Math.min(168, Math.max(0, Math.floor(Number(lateWatchHours)) || 0)),
+        withdrawalNumbersRequireVerification: verifyNumbers,
       });
       setActiveProviders(res.settings.paymentsActiveProviders);
       setPaymentsDemoMode(res.settings.paymentsDemoMode);
       setDirectMobileMoney(res.settings.paymentsFlutterwaveDirectMobileMoney);
       setDirectCard(res.settings.paymentsFlutterwaveDirectCard);
+      setPendingTimeout(String(res.settings.paymentsPendingTimeoutMinutes ?? 10));
+      setLateWatchHours(String(res.settings.paymentsLateWatchHours ?? 24));
+      setVerifyNumbers(!!res.settings.withdrawalNumbersRequireVerification);
       await refreshIntegrations();
       setSaved(true);
     } catch (err) {
@@ -110,6 +122,26 @@ export default function PaymentsSettingsPage() {
             </div>
           </section>
         )}
+        {platformEnvironment === "live" &&
+          providerInfo.some((p) => p.testMode && activeProviders.includes(p.key)) && (
+            <section className="rounded-xl border border-gold/50 bg-gold/10 p-3">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-gold" strokeWidth={2} aria-hidden />
+                <div className="min-w-0 space-y-1">
+                  <p className="text-sm font-semibold text-ink">Test keys are active on a live platform</p>
+                  <p className="text-xs text-ink-500">
+                    {providerInfo
+                      .filter((p) => p.testMode && activeProviders.includes(p.key))
+                      .map((p) => p.displayName)
+                      .join(", ")}{" "}
+                    is using test keys. No real money moves and customers never get a real phone prompt, so their
+                    payments will sit on &quot;Waiting for payment&quot;. Save the provider&apos;s live keys, or turn
+                    it off.
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
         <section className="home-card space-y-3">
           <p className="text-xs text-ink-500">
             Turn on one or both aggregators. With both on, the first is used until it has no working API keys,
@@ -172,6 +204,11 @@ export default function PaymentsSettingsPage() {
                         >
                           {info?.configured ? "API keys set" : "No API keys yet"}
                         </span>
+                        {info?.configured && info.testMode && (
+                          <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold text-gold">
+                            Test keys
+                          </span>
+                        )}
                         {isPrimary && (
                           <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold text-gold">
                             Primary
@@ -245,6 +282,68 @@ export default function PaymentsSettingsPage() {
                   No Flutterwave Encryption key saved yet — cards will keep using the hosted page until you add it.
                 </span>
               )}
+            </span>
+          </label>
+        </section>
+        <section className="home-card space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Pending payments</h2>
+            <p className="mt-0.5 text-xs text-ink-500">
+              If a customer&apos;s mobile money or card payment is still unconfirmed after this many minutes, Peebee
+              stops waiting and marks it failed so they can try again and the order isn&apos;t held. Payouts never time
+              out. 0 waits indefinitely.
+            </p>
+          </div>
+          <label className="block space-y-1">
+            <span className="text-xs font-semibold text-ink-500">Minutes before a pending payment fails</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={1440}
+              value={pendingTimeout}
+              onChange={(e) => setPendingTimeout(e.target.value)}
+              className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs font-semibold text-ink-500">Hours to keep watching for a late approval</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={168}
+              value={lateWatchHours}
+              onChange={(e) => setLateWatchHours(e.target.value)}
+              className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
+            />
+            <span className="block text-xs text-ink-500">
+              A customer can still approve the prompt after it timed out. For this long Peebee keeps asking the provider,
+              and if the payment did go through, the amount is added to the customer&apos;s Peebee wallet and they are told.
+              0 stops watching the moment a payment times out.
+            </span>
+          </label>
+        </section>
+        <section className="home-card space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Withdrawal numbers</h2>
+            <p className="mt-0.5 text-xs text-ink-500">
+              Cash-outs by riders, car drivers and customers can only go to a mobile money number the owner has proved
+              is theirs with a code texted to that number. Riders and customers verify under their saved withdrawal
+              numbers. Needs the SMS provider to be set up and the number-verification database update applied; until
+              then this can&apos;t be switched on.
+            </p>
+          </div>
+          <label
+            className={`flex items-start gap-2.5 rounded-xl border p-3 ${verifyNumbers ? "border-gold/40 bg-gold/5" : "border-[var(--border-faint)]"}`}
+          >
+            <Switch checked={verifyNumbers} onChange={(e) => setVerifyNumbers(e.target.checked)} />
+            <span>
+              <span className="text-sm font-semibold text-ink">Require a verified number to withdraw</span>
+              <span className="mt-0.5 block text-xs text-ink-500">
+                On: a withdrawal to an unverified or unsaved number is refused with a message that says how to verify it.
+                Off: any saved number works, as before.
+              </span>
             </span>
           </label>
         </section>

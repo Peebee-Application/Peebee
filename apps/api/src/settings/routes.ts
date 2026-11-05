@@ -40,6 +40,9 @@ import {
   getPaymentsDemoMode,
   getFlutterwaveDirectMobileMoney,
   getFlutterwaveDirectCard,
+  getPaymentsPendingTimeoutMinutes,
+  getPaymentsLateWatchHours,
+  getWithdrawalNumbersRequireVerification,
   getPlatformEnvironment,
   getProSettings,
   getRiderReserveSettings,
@@ -86,11 +89,12 @@ import { paymentsIntegrationStatus } from "../payments/service.js";
 import { getShoppingUnitSettings, shoppingUnitSettingsSchema } from "./shopping-units.js";
 import { getHomeMenuSettings, homeMenuSchema } from "./home-menu.js";
 import { getRideTrackingSettings, rideTrackingSchema } from "./ride-tracking.js";
+import { verificationAvailable } from "../account/number-verification.js";
 
 export const settingsRoutes = new Hono();
 
 async function fullSettings() {
-  const [delivery, matching, activeProviders, demoMode, flwDirectMobileMoney, flwDirectCard, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla, lugandaAudio, pro, services] =
+  const [delivery, matching, activeProviders, demoMode, flwDirectMobileMoney, flwDirectCard, paymentsPendingTimeout, paymentsLateWatch, requireVerifiedNumbers, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla, lugandaAudio, pro, services] =
     await Promise.all([
       getDeliverySettings(),
       getMatchingSettings(),
@@ -98,6 +102,9 @@ async function fullSettings() {
       getPaymentsDemoMode(),
       getFlutterwaveDirectMobileMoney(),
       getFlutterwaveDirectCard(),
+      getPaymentsPendingTimeoutMinutes(),
+      getPaymentsLateWatchHours(),
+      getWithdrawalNumbersRequireVerification(),
       getWalletSettings(),
       getVoiceNoteMaxSeconds(),
       getMonetizationSettings(),
@@ -169,6 +176,9 @@ async function fullSettings() {
     paymentsDemoMode: demoMode,
     paymentsFlutterwaveDirectMobileMoney: flwDirectMobileMoney,
     paymentsFlutterwaveDirectCard: flwDirectCard,
+    paymentsPendingTimeoutMinutes: paymentsPendingTimeout,
+    paymentsLateWatchHours: paymentsLateWatch,
+    withdrawalNumbersRequireVerification: requireVerifiedNumbers,
     merchantPaymentsEnabled: (platformEnvironment === "sandbox" ? merchantSandbox : merchantPayments) === "1",
     merchantLiveCustodyApproved: merchantCustody === "1",
     merchantWithdrawalsFrozen: merchantFrozen === "1",
@@ -528,10 +538,17 @@ const updateSchema = z.object({
   nearestWindowSeconds: z.number().int().positive().max(3600).optional(),
   maxAssignmentMinutes: z.number().int().positive().max(120).optional(),
   autoAssignWithoutAcceptance: z.boolean().optional(),
+  unpaidMatchReleaseMinutes: z.number().int().min(0).max(1440).optional(),
+  stuckFundingReleaseMinutes: z.number().int().min(0).max(1440).optional(),
+  oneActiveRideEnabled: z.boolean().optional(),
+  riderCloseUnpaidMinutes: z.number().int().min(0).max(120).optional(),
   paymentsActiveProviders: z.array(z.enum(["yo", "flutterwave", "mtn", "airtel"])).min(1).max(4).optional(),
   paymentsDemoMode: z.boolean().optional(),
   paymentsFlutterwaveDirectMobileMoney: z.boolean().optional(),
   paymentsFlutterwaveDirectCard: z.boolean().optional(),
+  paymentsPendingTimeoutMinutes: z.number().int().min(0).max(1440).optional(),
+  paymentsLateWatchHours: z.number().int().min(0).max(168).optional(),
+  withdrawalNumbersRequireVerification: z.boolean().optional(),
   practiceModeEnabled: z.boolean().optional(),
   merchantPaymentsEnabled: z.boolean().optional(),
   walletUnverifiedCap: z.number().int().positive().max(100_000_000).optional(),
@@ -599,6 +616,9 @@ const PAYMENTS_FIELDS = [
   "paymentsDemoMode",
   "paymentsFlutterwaveDirectMobileMoney",
   "paymentsFlutterwaveDirectCard",
+  "paymentsPendingTimeoutMinutes",
+  "paymentsLateWatchHours",
+  "withdrawalNumbersRequireVerification",
   "merchantPaymentsEnabled",
   "walletUnverifiedCap",
   "walletVerifiedCap",
@@ -706,6 +726,18 @@ settingsRoutes.put(
     if (parsed.data.autoAssignWithoutAcceptance != null) {
       await setSetting("auto_assign_without_acceptance", parsed.data.autoAssignWithoutAcceptance ? "1" : "0");
     }
+    if (parsed.data.unpaidMatchReleaseMinutes != null) {
+      await setSetting("unpaid_match_release_minutes", String(parsed.data.unpaidMatchReleaseMinutes));
+    }
+    if (parsed.data.stuckFundingReleaseMinutes != null) {
+      await setSetting("stuck_funding_release_minutes", String(parsed.data.stuckFundingReleaseMinutes));
+    }
+    if (parsed.data.oneActiveRideEnabled != null) {
+      await setSetting("one_active_ride_enabled", parsed.data.oneActiveRideEnabled ? "1" : "0");
+    }
+    if (parsed.data.riderCloseUnpaidMinutes != null) {
+      await setSetting("rider_close_unpaid_minutes", String(parsed.data.riderCloseUnpaidMinutes));
+    }
     if (parsed.data.paymentsActiveProviders != null) {
       await setActiveProviders(parsed.data.paymentsActiveProviders as PaymentProviderIdentity[]);
     }
@@ -717,6 +749,18 @@ settingsRoutes.put(
     }
     if (parsed.data.paymentsFlutterwaveDirectCard != null) {
       await setFlutterwaveDirect("card", parsed.data.paymentsFlutterwaveDirectCard);
+    }
+    if (parsed.data.paymentsPendingTimeoutMinutes != null) {
+      await setSetting("payments_pending_timeout_minutes", String(parsed.data.paymentsPendingTimeoutMinutes));
+    }
+    if (parsed.data.withdrawalNumbersRequireVerification != null) {
+      if (parsed.data.withdrawalNumbersRequireVerification && !(await verificationAvailable())) {
+        return c.json({ error: "migration_pending", message: "Apply migration 0155_saved_number_verification.sql before turning this on." }, 409);
+      }
+      await setSetting("withdrawal_numbers_require_verification", parsed.data.withdrawalNumbersRequireVerification ? "1" : "0");
+    }
+    if (parsed.data.paymentsLateWatchHours != null) {
+      await setSetting("payments_late_watch_hours", String(parsed.data.paymentsLateWatchHours));
     }
     if (parsed.data.practiceModeEnabled != null) {
       await setSetting("user_practice_mode_enabled", parsed.data.practiceModeEnabled ? "1" : "0");

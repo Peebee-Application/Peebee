@@ -109,6 +109,26 @@ const DEFAULTS = {
    * of a rider who said yes. On restores the old behaviour, where the nearest online rider is assigned
    * automatically. Sandbox orders (the demo world) always auto-assign, whatever this says. */
   auto_assign_without_acceptance: "0",
+  /** Minutes a rider stays attached to an order its customer has not paid for before the rider is released and the
+   * order goes back to the pool (see orders/unpaid-release.ts). 0 turns it off. */
+  unpaid_match_release_minutes: "15",
+  stuck_funding_release_minutes: "30",
+  /** Minutes a customer's mobile money / card payment may stay "pending" before Peebee stops waiting and marks it
+   * failed, so the customer can try again and the order is not held forever (see payments/reconciliation.ts).
+   * Only collections (money in) ever time out; payouts never do. 0 turns it off. */
+  payments_pending_timeout_minutes: "10",
+  /** Hours Peebee keeps checking a timed-out collection with the provider. If the customer approved it after all, the
+   * amount is credited to their Peebee wallet (see payments/reconciliation.ts). 0 stops watching at the timeout. */
+  payments_late_watch_hours: "24",
+  /** "1": a cash-out (rider, car driver, customer wallet) may only go to a saved withdrawal number that was verified with
+   * an SMS code (see account/number-verification.ts). "0" (default): any saved number works, as before. Needs migration
+   * 0155; without it this has no effect. */
+  withdrawal_numbers_require_verification: "0",
+  /** One active ride per customer: while a ride booked for the customer themself is still active (not completed or
+   * cancelled) they cannot request another; rides booked for someone else do not count. "1" on, "0" off. */
+  one_active_ride_enabled: "1",
+  /** Minutes a rider must have waited on a ride the customer has not paid for before the rider may close it. 0 = at once. */
+  rider_close_unpaid_minutes: "3",
   /** How long an order in "nearest_window" mode waits to collect applicants
    * before the app auto-assigns whichever is nearest. */
   nearest_window_seconds: "90",
@@ -1334,18 +1354,30 @@ export async function getMatchingSettings(): Promise<{
   nearestWindowSeconds: number;
   maxAssignmentMinutes: number;
   autoAssignWithoutAcceptance: boolean;
+  unpaidMatchReleaseMinutes: number;
+  stuckFundingReleaseMinutes: number;
+  oneActiveRideEnabled: boolean;
+  riderCloseUnpaidMinutes: number;
 }> {
-  const [modesRaw, windowRaw, maxRaw, autoRaw] = await Promise.all([
+  const [modesRaw, windowRaw, maxRaw, autoRaw, unpaidRaw, stuckRaw, oneRideRaw, closeRaw] = await Promise.all([
     getSetting("matching_modes_enabled"),
     getSetting("nearest_window_seconds"),
     getSetting("max_assignment_minutes"),
     getSetting("auto_assign_without_acceptance"),
+    getSetting("unpaid_match_release_minutes"),
+    getSetting("stuck_funding_release_minutes"),
+    getSetting("one_active_ride_enabled"),
+    getSetting("rider_close_unpaid_minutes"),
   ]);
   return {
     enabledModes: parseEnabledModes(modesRaw),
     nearestWindowSeconds: Number(windowRaw) || Number(DEFAULTS.nearest_window_seconds),
     maxAssignmentMinutes: Number(maxRaw) || Number(DEFAULTS.max_assignment_minutes),
     autoAssignWithoutAcceptance: autoRaw === "1",
+    unpaidMatchReleaseMinutes: Math.min(1440, Math.max(0, Math.floor(Number(unpaidRaw)) || 0)),
+    stuckFundingReleaseMinutes: Math.min(1440, Math.max(0, Math.floor(Number(stuckRaw ?? DEFAULTS.stuck_funding_release_minutes)) || 0)),
+    oneActiveRideEnabled: oneRideRaw !== "0",
+    riderCloseUnpaidMinutes: Math.min(120, Math.max(0, Math.floor(Number(closeRaw ?? 3)) || 0)),
   };
 }
 
@@ -1445,6 +1477,21 @@ export async function setPaymentsDemoMode(enabled: boolean): Promise<void> {
 /** Whether the shared practice world is on offer, and the background job that keeps it busy runs. Always on while the whole platform is in sandbox. */
 export async function practiceWorldRunning(): Promise<boolean> {
   return (await getSetting("practice_shared_world")) === "1" || (await getPlatformEnvironment()) === "sandbox";
+}
+
+export async function getPaymentsPendingTimeoutMinutes(): Promise<number> {
+  const raw = await getSetting("payments_pending_timeout_minutes");
+  const minutes = Math.floor(Number(raw));
+  return Number.isFinite(minutes) ? Math.min(1440, Math.max(0, minutes)) : Number(DEFAULTS.payments_pending_timeout_minutes);
+}
+
+export async function getWithdrawalNumbersRequireVerification(): Promise<boolean> {
+  return (await getSetting("withdrawal_numbers_require_verification")) === "1";
+}
+
+export async function getPaymentsLateWatchHours(): Promise<number> {
+  const hours = Math.floor(Number(await getSetting("payments_late_watch_hours")));
+  return Number.isFinite(hours) ? Math.min(168, Math.max(0, hours)) : Number(DEFAULTS.payments_late_watch_hours);
 }
 
 export async function getFlutterwaveDirectMobileMoney(): Promise<boolean> {

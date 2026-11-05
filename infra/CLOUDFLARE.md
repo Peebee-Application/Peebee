@@ -50,6 +50,15 @@ The deploy script checks the Git source, builds the OpenNext Worker, then deploy
 Running the default `npx wrangler deploy` from the repository root cannot select
 an application in this workspace.
 
+Preview builds (any branch other than `main`) use the same root directory,
+`apps/web`. Their build command is `pnpm run build:worker` and their preview
+command stays `npx wrangler preview`. A root of `/` makes Wrangler look for
+`wrangler.jsonc` in the repository root, where there is none, and the preview
+command then fails before it builds. `apps/web/wrangler.jsonc` keeps an empty-enough
+`previews` block (with `NEXT_PRIVATE_MINIMAL_MODE`) because `wrangler preview`
+refuses to run without one. Do not point the preview command at `pnpm run deploy`:
+that checks out `main` and publishes the live site.
+
 The Worker name must match `apps/web/wrangler.jsonc`. Both website hostnames are
 custom domains in the active `peebee.online` Cloudflare zone, so Cloudflare manages
 their DNS records without requiring a separate origin server.
@@ -124,10 +133,13 @@ pnpm --filter web deploy:preview
 cd apps/api
 wrangler secret put JWT_SECRET   # done
 
-# Optional, only needed to test MoMo escrow funding/payout:
-wrangler secret put MOMO_SUBSCRIPTION_KEY
+# MoMo is normally set in Admin -> Settings -> Payments. These are the fallback names (see infra/ENV.md and
+# docs/MTN_GO_LIVE.md); MOMO_BASE_URL is what moves the API from MTN's sandbox to production:
+wrangler secret put MOMO_COLLECTION_SUBSCRIPTION_KEY
+wrangler secret put MOMO_DISBURSEMENT_SUBSCRIPTION_KEY
 wrangler secret put MOMO_API_USER
 wrangler secret put MOMO_API_KEY
+wrangler secret put MOMO_BASE_URL
 ```
 
 ### Local dev (Turso fallback)

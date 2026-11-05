@@ -1526,6 +1526,7 @@ export default function MerchantProStorePage() {
             })}
           </div>
 
+          <a href="/reports" className="inline-flex min-h-11 items-center rounded-full border border-gold px-4 py-2 font-bold">Financial statements & expenses</a>
           {/* ELITE SECTION 1: EXECUTIVE P&L & MARGIN ANALYTICS */}
           {eliteSection === "overview" && (
             <div className="space-y-4">

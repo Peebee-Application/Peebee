@@ -4,8 +4,10 @@ import { setD1Binding, type D1Database } from "./db/client.js";
 import { renewSubscriptions } from "./riders/subscription.js";
 import { renewProSubscriptions } from "./riders/pro-subscription.js";
 import { sweepProviderOperations } from "./payments/reconciliation.js";
+import { sweepPendingTopups } from "./wallet/topup-settle.js";
 import { setR2Binding, type R2Bucket } from "./storage/r2.js";
 import { sweepExpiredOrders } from "./orders/expiry.js";
+import { sweepStuckFunding, sweepUnpaidAssignments } from "./orders/unpaid-release.js";
 import { sweepScheduledRides } from "./car/scheduled.js";
 import { releaseStaleSeats } from "./car/carpool.js";
 import { releaseStaleBookings } from "./taxipress/bookings.js";
@@ -77,6 +79,11 @@ export default {
         .catch((err) => console.error("Provider reconciliation sweep failed:", err)),
     );
     ctx.waitUntil(
+      sweepPendingTopups()
+        .then((result) => { if (result.checked > 0) console.log("Wallet top-up sweep:", JSON.stringify(result)); })
+        .catch((err) => console.error("Wallet top-up sweep failed:", err)),
+    );
+    ctx.waitUntil(
       sweepStageEscalations()
         .then((result) => console.log("Stage savings escalation sweep:", JSON.stringify(result)))
         .catch((err) => console.error("Stage savings escalation sweep failed:", err)),
@@ -90,6 +97,16 @@ export default {
       sweepExpiredOrders()
         .then((result) => console.log("Job expiry sweep:", JSON.stringify(result)))
         .catch((err) => console.error("Job expiry sweep failed:", err)),
+    );
+    ctx.waitUntil(
+      sweepStuckFunding()
+        .then((result) => console.log("Stuck funding release sweep:", JSON.stringify(result)))
+        .catch((err) => console.error("Stuck funding release sweep failed:", err)),
+    );
+    ctx.waitUntil(
+      sweepUnpaidAssignments()
+        .then((result) => console.log("Unpaid assignment release sweep:", JSON.stringify(result)))
+        .catch((err) => console.error("Unpaid assignment release sweep failed:", err)),
     );
     ctx.waitUntil(
       sweepScheduledRides()

@@ -1,4 +1,4 @@
--- Migration 0154: support chat alerts, and staff availability (who is online, messages left while the team is away).
+-- Migration 0156: support chat alerts, and staff availability (who is online, messages left while the team is away).
 -- Additive only (new nullable/default columns and one new table). Apply by hand to the live D1 database; the deploy does not run it.
 -- Needs 0150 and 0151 first. The code works without it: chats still work, but staff are told only once about a waiting chat
 -- (no reminders), visitors are not pushed a reply, and "who is online" cannot be told.

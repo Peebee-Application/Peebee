@@ -963,6 +963,10 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async cancelOrder(orderId: string) {
       return request<{ order: OrderRow }>(`/v1/orders/${orderId}/cancel`, { method: "POST" });
     },
+    /** Rider closes a ride the customer never paid for — the order is cancelled and the rider is freed. */
+    async closeUnpaidOrder(orderId: string) {
+      return request<{ order: OrderRow }>(`/v1/orders/${orderId}/close-unpaid`, { method: "POST" });
+    },
     /** Customer backs out of their own order — only while it's still
      * unmatched (no rider, nothing paid). Stays in their order history as
      * "Cancelled". */
@@ -1865,6 +1869,16 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       return request<{ number: SavedMobileNumber }>(`/v1/mobile-numbers/${id}`, {
         method: "PATCH",
         body: JSON.stringify(input),
+      });
+    },
+    /** Texts a 6-digit code to a saved number to prove it is the owner's. */
+    async sendMobileNumberCode(id: string) {
+      return request<{ sent: true; devCode?: string }>(`/v1/mobile-numbers/${id}/verify/send`, { method: "POST" });
+    },
+    async confirmMobileNumberCode(id: string, code: string) {
+      return request<{ verified: true; number: SavedMobileNumber }>(`/v1/mobile-numbers/${id}/verify/confirm`, {
+        method: "POST",
+        body: JSON.stringify({ code }),
       });
     },
     async deleteMobileNumber(id: string) {

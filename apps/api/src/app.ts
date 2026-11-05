@@ -6,6 +6,8 @@ import { cors } from "hono/cors";
 import { verifyToken } from "./auth/jwt.js";
 import { mobileNumberRoutes } from "./account/mobile-numbers.js";
 import { adminRoutes } from "./admin/routes.js";
+import { financialRoutes } from "./marketplace/financial-routes.js";
+import { refundReviewRoutes } from "./admin/refund-review-routes.js";
 import { callRoutes } from "./calls/routes.js";
 import { carRoutes } from "./car/routes.js";
 import { carpoolRoutes } from "./car/carpool.js";
@@ -285,6 +287,9 @@ app.use("/v1/*", async (_c, next) => {
   await applyRounding().catch(() => undefined);
   await next();
 });
+// Phones check/download updates without a user token; publishing uses its own token.
+// Register before shared /v1 routers with catch-all sign-in middleware.
+app.route("/v1", appUpdatesRoutes);
 app.route("/v1/auth", authRoutes);
 app.route("/v1", onboardingRoutes);
 app.route("/v1/auth", verifyRoutes);
@@ -339,7 +344,6 @@ app.route("/v1", locationRoutes);
 app.route("/v1", passengerRoutes);
 app.route("/v1", aiKeyRoutes);
 app.route("/v1", aiFeatureRoutes);
-app.route("/v1", appUpdatesRoutes);
 app.route("/v1", appUpdatesAdminRoutes);
 app.route("/v1", emailKeyRoutes);
 app.route("/v1", mobileNumberRoutes);
@@ -369,6 +373,8 @@ app.route("/v1", merchantRoutes);
 // inherited the admin-only check.
 app.route("/v1", voiceRoutes);
 app.route("/v1", adminRoutes);
+app.route("/v1", financialRoutes);
+app.route("/v1", refundReviewRoutes);
 
 /**
  * Anything a route throws ends up here. It is logged (Cloudflare → Workers → peebee-api → Logs), and a signed-in admin
