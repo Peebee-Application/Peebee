@@ -1,0 +1,29 @@
+import { z } from "zod";
+import { HOME_TEMPLATE_IDS, HOME_SHORTCUT_IDS, HOME_TEMPLATE_LIMITS, resolveHomeTemplates, type HomeTemplatesSettings } from "@peebee/shared";
+import { getSetting } from "../lib/settings.js";
+
+const limits = HOME_TEMPLATE_LIMITS;
+const seconds = z.number().int().min(limits.minSeconds).max(limits.maxSeconds);
+export const homeTemplatesSchema = z.object({
+  enabled: z.boolean(),
+  templates: z.array(z.enum(HOME_TEMPLATE_IDS)).min(1).max(HOME_TEMPLATE_IDS.length),
+  eligibleShortcuts: z.array(z.enum(HOME_SHORTCUT_IDS)).min(1).max(HOME_SHORTCUT_IDS.length),
+  preferredShortcuts: z.array(z.enum(HOME_SHORTCUT_IDS)).max(HOME_SHORTCUT_IDS.length),
+  preferredWeight: z.number().int().min(1).max(limits.maxWeight),
+  shortcutCount: z.number().int().min(1).max(limits.maxShortcuts),
+  minIntervalSeconds: seconds,
+  maxIntervalSeconds: seconds,
+  interactionPauseSeconds: z.number().int().min(1).max(limits.maxInteractionSeconds),
+}).superRefine((config, ctx) => {
+  for (const key of ["templates", "eligibleShortcuts", "preferredShortcuts"] as const) {
+    if (new Set(config[key]).size !== config[key].length) ctx.addIssue({ code: "custom", path: [key], message: "Each item can appear only once." });
+  }
+  if (config.maxIntervalSeconds < config.minIntervalSeconds) ctx.addIssue({ code: "custom", path: ["maxIntervalSeconds"], message: "The maximum interval must be at least the minimum." });
+  if (config.preferredShortcuts.some((id) => !config.eligibleShortcuts.includes(id))) ctx.addIssue({ code: "custom", path: ["preferredShortcuts"], message: "Most-used shortcuts must also be eligible." });
+});
+
+/** Existing settings table; no new columns and no migration dependency. */
+export async function getHomeTemplatesSettings(): Promise<HomeTemplatesSettings> {
+  try { return resolveHomeTemplates(JSON.parse((await getSetting("home_templates_config")) || "null")); }
+  catch { return resolveHomeTemplates(null); }
+}

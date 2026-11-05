@@ -18,6 +18,7 @@ export { CAR_MODEL_CATALOG, isVipRate, getCarBodyType, getCarDefaults } from "./
 export type { CarModel, CarBodyType } from "./car-model-catalog.js";
 export * from "./shopping-units.js";
 export * from "./home-menu.js";
+export * from "./home-templates.js";
 export * from "./modules.js";
 export * from "./website-sections.js";
 export * from "./module-routes.js";

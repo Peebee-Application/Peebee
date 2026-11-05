@@ -73,6 +73,7 @@ const REVERT_HANDLERS: Record<string, (entityId: string, before: Row) => Promise
     });
   },
   "settings.update": async (_entityId, before) => {
+    if (before.homeTemplates != null) await setSetting("home_templates_config", JSON.stringify(before.homeTemplates));
     if (before.timeFees != null) await setSetting("time_fees", JSON.stringify(before.timeFees));
     if (before.jobExpiry != null) await setJobExpirySettings(before.jobExpiry as never);
     if (before.bidding != null) await setBiddingSettings(before.bidding as never);

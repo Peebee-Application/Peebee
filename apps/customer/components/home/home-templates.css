@@ -1,0 +1,149 @@
+/* All ten everyday objects share typography, live text and tap targets.
+   AppShell's header/navigation are deliberately outside this scope. */
+.dh { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.dh h1,.dh h2,.dh a,.dh button { font-family: inherit; }
+.dh-greeting h1 { font-size: clamp(1.5rem, 6.5vw, 2rem); }
+.dh-controls { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.dh-pause { display:inline-flex; flex-shrink:0; align-items:center; justify-content:center; gap:6px; min-height:44px; padding:6px 10px; border:1px solid var(--border-faint); border-radius:999px; font-size:.75rem; font-weight:600; }
+.dh-pause[aria-pressed="true"] { background:rgb(var(--surface-card)); }
+.dh-loading { min-height:390px; margin-top:20px; border-radius:26px; background:rgb(var(--surface-muted)); }
+.dh-art { --paper:rgb(var(--surface-card)); position:relative; isolation:isolate; padding:24px 20px; color:rgb(var(--color-ink)); }
+.dh-art h2,.dh-empty h2 { position:relative; margin:0 0 22px; font-size:clamp(1.6rem, 7.2vw, 2.15rem); line-height:1.1; letter-spacing:-.045em; font-weight:800; overflow-wrap:anywhere; }
+.dh-intro { position:relative; margin:-10px 0 24px; font-size:.875rem; color:rgb(var(--color-ink-500)); }
+.dh-object { pointer-events:none; position:absolute; inset:0; z-index:-1; }
+.dh-options { position:relative; margin:0; padding:0; list-style:none; display:grid; gap:0; }
+.dh-option { position:relative; min-width:0; }
+.dh-option a { position:relative; display:flex; align-items:center; gap:12px; min-height:82px; padding:16px 0; color:inherit; text-decoration:none; border-radius:10px; }
+.dh-icon { flex:0 0 auto; display:grid; place-items:center; }
+.dh-icon svg { width:32px; height:32px; }
+.dh-copy { flex:1; min-width:0; }
+.dh-label { display:block; font-size:1.06rem; font-weight:750; line-height:1.25; overflow-wrap:anywhere; }
+.dh-description { display:block; margin-top:3px; font-size:.8rem; line-height:1.4; color:rgb(var(--color-ink-500)); }
+.dh-arrow { flex-shrink:0; }
+.dh-number { display:none; }
+.dh-option a:focus-visible,.dh-pause:focus-visible,.dh-empty a:focus-visible { outline:3px solid rgb(var(--color-gold)); outline-offset:4px; }
+.dh-option a:active { opacity:.7; }
+.dh-empty { padding:24px; background:rgb(var(--surface-card)); border-radius:24px; }
+.dh-empty p { margin-bottom:16px; font-size:.875rem; color:rgb(var(--color-ink-500)); }
+.dh-empty a { display:inline-flex; min-height:44px; align-items:center; gap:8px; font-weight:700; }
+
+/* 04 — a notched ticket. Greeting stays above, never printed inside it. */
+.dh-04 { padding:30px 24px 20px; }
+.dh-04 .dh-object { border:1px solid var(--border-faint); border-radius:28px; background:var(--paper); box-shadow:var(--shadow-card); }
+.dh-04 h2 { max-width:280px; margin-bottom:28px; font-size:clamp(2rem,8.5vw,2.8rem); }
+.dh-04 .dh-option:first-child { padding-bottom:18px; margin-bottom:8px; border-bottom:2px dotted rgb(var(--color-gold)); }
+.dh-04 .dh-option:first-child::before,.dh-04 .dh-option:first-child::after { content:""; position:absolute; bottom:-11px; width:20px; height:20px; border-radius:50%; background:rgb(var(--color-cream)); }
+.dh-04 .dh-option:first-child::before { left:-34px; }
+.dh-04 .dh-option:first-child::after { right:-34px; }
+.dh-04 .dh-option:first-child a { padding:14px; background:rgb(var(--color-gold)); color:rgb(var(--color-ink-gold)); border-radius:20px; }
+.dh-04 .dh-option:first-child .dh-description { color:rgb(var(--color-ink-gold) / .8); }
+.dh-04 .dh-option:not(:first-child) { border-bottom:1px solid var(--border-faint); }
+.dh-04 .dh-option:last-child { border-bottom:0; }
+
+/* 07 — open leaf, stacked page edge and folded corner. */
+.dh-07 { margin-right:8px; padding:28px 22px; }
+.dh-07 .dh-object { border:1px solid var(--border-faint); border-radius:5px 24px 24px 30px; background:var(--paper); box-shadow:5px 5px 0 rgb(var(--color-cream-100)),8px 8px 0 var(--paper),var(--shadow-card); }
+.dh-07 .dh-object::after { content:""; position:absolute; top:0; right:0; width:35px; height:35px; background:rgb(var(--color-cream-100)); border-radius:0 22px 0 8px; clip-path:polygon(0 0,100% 100%,0 100%); }
+.dh-07 .dh-object::before { content:""; position:absolute; top:0; bottom:0; left:6px; width:7px; border-left:1px solid rgb(var(--color-gold) / .35); border-radius:50%; }
+.dh-07 .dh-number { display:block; color:rgb(var(--color-gold)); font-size:.75rem; font-weight:800; }
+.dh-07 .dh-option { border-top:1px solid var(--border-faint); }
+.dh-07 .dh-icon svg { width:28px; height:28px; }
+
+/* 08 — independent stops on a gold connector, not a required sequence. */
+.dh-08 { padding:10px 4px 4px; }
+.dh-08 .dh-options { gap:18px; }
+.dh-08 .dh-option a { gap:14px; padding:4px 0 20px; }
+.dh-08 .dh-icon { width:64px; height:64px; border:1px solid var(--border-faint); border-radius:50%; background:var(--paper); box-shadow:var(--shadow-card); z-index:1; }
+.dh-08 .dh-option:not(:last-child)::after { content:""; position:absolute; left:30px; right:30px; top:48px; bottom:-35px; border-bottom:6px solid rgb(var(--color-gold)); border-right:6px solid rgb(var(--color-gold)); border-radius:0 22px 22px 0; z-index:-1; }
+.dh-08 .dh-option:nth-child(even) a { flex-direction:row-reverse; text-align:right; }
+.dh-08 .dh-option:nth-child(even)::after { border-right:0; border-left:6px solid rgb(var(--color-gold)); border-radius:22px 0 0 22px; }
+.dh-08 .dh-arrow { display:none; }
+
+/* 09 — interlocking cut-paper bands. */
+.dh-09 { padding:10px 0; }
+.dh-09 h2 { padding:0 12px; }
+.dh-09 .dh-options { gap:4px; }
+.dh-09 .dh-option { background:var(--paper); border-radius:48% 8% 44% 7% / 14% 12% 15% 12%; box-shadow:var(--shadow-card); }
+.dh-09 .dh-option:nth-child(3n) { background:rgb(var(--color-gold) / .18); }
+.dh-09 .dh-option:nth-child(even) { border-radius:8% 45% 9% 48% / 12% 14% 12% 14%; }
+.dh-09 .dh-option a { padding:20px 22px; }
+.dh-09 .dh-icon { order:2; }
+.dh-09 .dh-arrow { display:none; }
+
+/* 11 — asymmetric sticky notes; text never rotates with the paper. */
+.dh-11 { padding:8px 4px 12px; }
+.dh-11 .dh-options { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px 12px; padding-top:8px; }
+.dh-11 .dh-option { background:var(--paper); box-shadow:var(--shadow-card-hover); border-radius:2px 3px 22px 2px; }
+.dh-11 .dh-option:nth-child(3n+1) { background:rgb(var(--color-gold) / .24); }
+.dh-11 .dh-option:nth-child(even) { margin-top:18px; margin-bottom:-8px; }
+.dh-11 .dh-option::before { content:""; position:absolute; top:-7px; left:32%; width:38%; height:18px; background:rgb(var(--color-cream-100) / .8); transform:rotate(-5deg); z-index:1; pointer-events:none; }
+.dh-11 .dh-option::after { content:""; position:absolute; bottom:0; right:0; width:20px; height:20px; background:rgb(var(--color-cream-100)); clip-path:polygon(100% 0,100% 100%,0 100%); border-radius:0 0 20px; pointer-events:none; }
+.dh-11 .dh-option a { flex-direction:column; gap:12px; min-height:158px; padding:27px 12px 22px; text-align:center; justify-content:center; }
+.dh-11 .dh-icon svg { width:42px; height:42px; }
+.dh-11 .dh-label { font-size:1.1rem; }
+.dh-11 .dh-description { font-size:.76rem; }
+.dh-11 .dh-arrow { display:none; }
+
+/* 12 — angular paper folds; backgrounds, not links, are clipped. */
+.dh-12 { padding:8px 4px 12px; }
+.dh-12 .dh-options { padding-top:10px; filter:drop-shadow(0 7px 5px rgb(var(--color-ink) / .06)); }
+.dh-12 .dh-option::before { content:""; position:absolute; inset:0; z-index:-1; background:var(--paper); clip-path:polygon(0 0,100% 8%,100% 100%,0 92%); }
+.dh-12 .dh-option:nth-child(odd)::before { background:rgb(var(--color-gold) / .18); clip-path:polygon(0 8%,100% 0,100% 92%,0 100%); }
+.dh-12 .dh-option a { min-height:96px; padding:22px 18px; }
+
+/* 16 — ring-bound daily diary. */
+.dh-16 { margin:0 3px 0 9px; padding:30px 20px 18px 34px; }
+.dh-16 .dh-object { background:var(--paper); border:1px solid var(--border-faint); border-radius:22px; box-shadow:var(--shadow-card); }
+.dh-16 .dh-object::before { content:""; position:absolute; top:22px; bottom:22px; left:-8px; width:18px; background:repeating-linear-gradient(to bottom,transparent 0,transparent 17px,rgb(var(--color-gold)) 17px,rgb(var(--color-gold)) 22px,transparent 22px,transparent 36px); border-right:1px solid var(--border-faint); }
+.dh-16 .dh-object::after,.dh-20 .dh-object::after { content:""; position:absolute; top:0; right:22px; width:27px; height:48px; background:rgb(var(--color-gold)); clip-path:polygon(0 0,100% 0,100% 100%,50% 80%,0 100%); }
+.dh-16 h2 { padding-right:18px; }
+.dh-16 .dh-option { border-top:1px solid var(--border-faint); }
+.dh-16 .dh-option::before { content:""; position:absolute; inset:0; background:repeating-linear-gradient(to bottom,transparent 0,transparent 25px,rgb(var(--color-ink) / .025) 25px,rgb(var(--color-ink) / .025) 26px); pointer-events:none; }
+
+/* 17 — an errands sheet on a clipboard. */
+.dh-17 { margin-top:40px!important; padding:40px 24px 20px; }
+.dh-17 .dh-object { background:var(--paper); border:10px solid rgb(var(--color-cream-100)); outline:1px solid var(--border-faint); border-radius:25px; box-shadow:var(--shadow-card); }
+.dh-17 .dh-object::before { content:""; position:absolute; top:-25px; left:calc(50% - 55px); width:110px; height:34px; background:rgb(var(--color-gold)); border-radius:16px 16px 8px 8px; box-shadow:var(--shadow-card); }
+.dh-17 .dh-option { border-top:1px dotted rgb(var(--color-ink) / .2); }
+.dh-17 .dh-object::after { content:""; position:absolute; bottom:0; right:0; width:27px; height:27px; background:rgb(var(--color-cream-100)); clip-path:polygon(100% 0,100% 100%,0 100%); }
+
+/* 18 — each service in a visible desk-sorter pocket. */
+.dh-18 { padding:8px 4px 12px; }
+.dh-18 .dh-options { padding:10px 8px 18px; }
+.dh-18 .dh-options::after { content:""; position:absolute; inset:auto 0 0; height:52px; z-index:-1; border:1px solid var(--border-faint); border-radius:9px 9px 24px 24px; background:rgb(var(--color-cream-100)); box-shadow:var(--shadow-card); }
+.dh-18 .dh-option { background:var(--paper); border:1px solid var(--border-faint); border-top-color:rgb(var(--color-gold) / .45); border-radius:20px 30px 12px 12px; box-shadow:var(--shadow-card); }
+.dh-18 .dh-option:not(:first-child) { margin-top:-2px; }
+.dh-18 .dh-option:nth-child(even) { margin-left:-4px; margin-right:4px; }
+.dh-18 .dh-option a { min-height:90px; padding:18px 16px; }
+.dh-18 .dh-option::before { content:""; position:absolute; top:-9px; left:18px; width:45%; height:10px; background:var(--paper); border:1px solid var(--border-faint); border-bottom:0; border-radius:14px 20px 0 0; }
+
+/* 20 — indexed address book, decorative thumb tabs at the edge. */
+.dh-20 { margin-right:24px; padding:30px 20px 20px 28px; }
+.dh-20 .dh-object { background:var(--paper); border:1px solid var(--border-faint); border-radius:20px; box-shadow:4px 4px 0 rgb(var(--color-cream-100)),var(--shadow-card); }
+.dh-20 .dh-object::before { content:""; position:absolute; top:25px; bottom:25px; left:-8px; width:17px; background:repeating-linear-gradient(to bottom,transparent 0,transparent 20px,rgb(var(--color-gold)) 20px,rgb(var(--color-gold)) 25px,transparent 25px,transparent 40px); }
+.dh-20 h2 { font-size:clamp(1.5rem,6.4vw,1.95rem); padding-top:15px; }
+.dh-20 .dh-option { border-bottom:1px solid var(--border-faint); }
+.dh-20 .dh-option::after { content:""; position:absolute; left:calc(100% + 19px); top:12px; bottom:12px; width:22px; border:1px solid rgb(var(--color-gold) / .65); border-left:0; border-radius:0 11px 11px 0; background:var(--paper); box-shadow:var(--shadow-card); z-index:-1; }
+.dh-20 .dh-arrow { width:16px; }
+
+@media (max-width:359px) {
+  .dh-art { padding-left:16px; padding-right:16px; }
+  .dh-art h2 { font-size:1.65rem; }
+  .dh-option a { gap:9px; }
+  .dh-label { font-size:1rem; }
+  .dh-description { font-size:.75rem; }
+  .dh-icon svg { width:27px; height:27px; }
+  .dh-11 { padding-left:0; padding-right:0; }
+  .dh-11 .dh-options { gap:15px 10px; }
+  .dh-11 .dh-option a { padding-left:10px; padding-right:10px; }
+  .dh-16 { padding-left:27px; }
+  .dh-20 { padding-left:22px; }
+}
+@media (prefers-reduced-motion:no-preference) {
+  .dh-art { animation:dh-appear 200ms ease-out; }
+  @keyframes dh-appear { from { opacity:.8; } to { opacity:1; } }
+}
+@media (forced-colors:active) {
+  .dh-object,.dh-option { border:1px solid CanvasText; }
+  .dh-option a { outline:1px solid CanvasText; }
+}
