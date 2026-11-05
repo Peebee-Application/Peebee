@@ -1476,6 +1476,9 @@ settingsRoutes.patch(
   async (c) => {
     const body = (await c.req.json().catch(() => null)) as { values?: Record<string, unknown> } | null;
     if (!body?.values || typeof body.values !== "object" || Array.isArray(body.values)) return c.json({ error: "invalid_body" }, 400);
+    if (Object.hasOwn(body.values, "merchant_settlement_cooling_hours") && !hasPermission(c.get("user").adminRole, "payments.manage")) {
+      return c.json({ error: "forbidden", message: "Requires the payments.manage permission" }, 403);
+    }
     const result = await setOptions(body.values, c.get("user"), clientIp(c));
     if (!result.ok) return c.json({ error: "invalid_settings", errors: result.errors }, 400);
     return c.json({ ok: true, changed: result.changed, settings: await describeOptions() });

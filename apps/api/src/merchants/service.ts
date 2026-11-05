@@ -373,6 +373,12 @@ export async function finalizeMerchantPayment(paymentId: string, actorId: string
         args: [amount, amount, payment.order_id],
       },
       {
+        // The first real payment after a sandbox registration creates an empty
+        // live balance inside the same atomic batch. Test funds stay sandboxed.
+        sql: "INSERT OR IGNORE INTO merchant_balances (merchant_id, environment) VALUES (?, ?)",
+        args: [payment.merchant_id, environment],
+      },
+      {
         sql: held
           ? `UPDATE merchant_balances SET held = held + ?, updated_at = datetime('now')
               WHERE merchant_id = ? AND environment = ?`
