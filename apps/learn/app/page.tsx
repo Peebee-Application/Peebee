@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Accordion } from "../components/Accordion";
 import { Chip, EmptyState, LinkButton, Notice, Skeleton, cardCls } from "../components/ui";
 import { api, errorMessage } from "../lib/api";
+import { LearningCreatorLink } from "@peebee/shared/learning-creator-link";
 import { useLearnAuth } from "../lib/auth-context";
 import { STREAM_UI, plural } from "../lib/streams";
 
@@ -64,6 +65,7 @@ export default function HomePage() {
 
   return (
     <div className="space-y-4 pb-6">
+      <LearningCreatorLink api={api} href="/create" label="AI-assisted course authoring" />
       <h1 className="text-lg font-bold text-gold">
         {greeting()}, {firstName}
       </h1>

@@ -48,6 +48,11 @@ import { schoolChatRoutes } from "./chat.js";
 import { communityLearnRoutes, communityStudioRoutes } from "./community.js";
 import { getLearnSettings } from "./settings.js";
 import { learningReady, studioReady, studioRoutes } from "./studio.js";
+import { creatorRoutes } from "./creator-routes.js";
+import { creatorStudyRoutes } from "./creator-study.js";
+import { creatorFileRoutes, creatorResourceRoutes } from "./creator-resources.js";
+import { creatorCommerceRoutes } from "./creator-commerce.js";
+import { creatorPublicRoutes } from "./creator-public.js";
 
 /**
  * Peebee Learn API, mounted at /v1/education.
@@ -78,12 +83,18 @@ educationRoutes.get("/institutions/:slug", (c) => {
 educationRoutes.route("/catalog", catalogRoutes);
 educationRoutes.route("/art", artRoutes);
 educationRoutes.route("/", mediaRoutes);
+educationRoutes.route("/creator-files", creatorFileRoutes);
+educationRoutes.route("/creator-public", creatorPublicRoutes);
 
 // ----------------------------------------------------
 // Signed-in only from here
 // ----------------------------------------------------
 const authed = new Hono();
 authed.use("*", requireAuth);
+creatorRoutes.route("/", creatorStudyRoutes);
+creatorRoutes.route("/", creatorResourceRoutes);
+creatorRoutes.route("/", creatorCommerceRoutes);
+authed.route("/creator", creatorRoutes);
 
 authed.route("/studio", studioRoutes);
 authed.route("/studio", studioLearningRoutes);

@@ -109,6 +109,17 @@ export async function computeLocks(
 
 /** Whether a learner has finished every item of a course. */
 export async function courseFinished(userId: string, courseId: string): Promise<boolean> {
+  if (await hasTable("edu_publication_access") && await hasTable("edu_course_publications")) {
+    const pinned=(await db.execute({sql:"SELECT p.body_json FROM edu_publication_access a JOIN edu_course_publications p ON p.id=a.publication_id WHERE a.user_id=? AND a.course_id=?",args:[userId,courseId]})).rows[0];
+    if(pinned){
+      const draft=JSON.parse(String(pinned.body_json)) as {modules:Array<{lessons:Array<{id:string}>}>};
+      const ids=draft.modules.flatMap((m)=>m.lessons.map((l)=>l.id));
+      if(!ids.length)return false;
+      const progress=(await db.execute({sql:"SELECT lesson_id FROM edu_lesson_progress WHERE user_id=? AND course_id=?",args:[userId,courseId]})).rows;
+      const done=new Set(progress.map((r)=>String(r.lesson_id)));
+      return ids.every((id)=>done.has(id));
+    }
+  }
   const total = Number(((await db.execute({ sql: "SELECT COUNT(*) AS n FROM edu_lessons WHERE course_id = ?", args: [courseId] })).rows[0] as Row).n);
   if (total === 0) return false;
   const done = Number(((await db.execute({ sql: "SELECT COUNT(*) AS n FROM edu_lesson_progress WHERE user_id = ? AND course_id = ?", args: [userId, courseId] })).rows[0] as Row).n);

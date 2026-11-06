@@ -443,7 +443,9 @@ async function linkLearnCourses(userId: string, store: Row, onlyUnlinked: boolea
   const res = await db.execute({
     sql: `SELECT c.id, c.title, c.summary, c.price_ugx, c.status, c.store_id
           FROM edu_courses c JOIN edu_schools s ON s.id = c.school_id
-          WHERE s.owner_id = ? AND (c.store_id IS NULL ${onlyUnlinked ? "" : "OR c.store_id = ?"})`,
+          WHERE s.owner_id = ? AND (c.store_id IS NULL ${onlyUnlinked ? "" : "OR c.store_id = ?"})
+          ${(await hasTable("edu_creator_profiles")) ? "AND NOT EXISTS(SELECT 1 FROM edu_creator_profiles p WHERE p.school_id=c.school_id)" : ""}
+          ${(await hasTable("edu_course_drafts")) ? "AND NOT EXISTS(SELECT 1 FROM edu_course_drafts d WHERE d.course_id=c.id AND d.context != 'store')" : ""}`,
     args: onlyUnlinked ? [userId] : [userId, storeId],
   });
   let linked = 0;
@@ -607,6 +609,10 @@ digitalLmsRoutes.post("/merchants/me/lms/courses", requireAuth, async (c) => {
 
   const storeId = String(store.id);
   const courseId = d.id ?? newId("crs");
+  if (d.id && await hasTable("edu_course_drafts")) {
+    const managed = (await db.execute({ sql: "SELECT course_id FROM edu_course_drafts WHERE course_id=?", args: [d.id] })).rows[0];
+    if (managed) return c.json({ error: "creator_editor_required", message: "Open the shared course editor to preserve this course's rich content, versions and review status." },409);
+  }
   const modulesInput = d.modules ?? [];
 
   // An id the client supplies may only update something this store already owns.
@@ -804,6 +810,10 @@ async function setListing(c: any, listed: boolean) {
   const course = (await db.execute({ sql: "SELECT id, status FROM edu_courses WHERE id = ? AND store_id = ?", args: [c.req.param("id"), String(store.id)] })).rows[0] as Row | undefined;
   if (!course) return c.json({ error: "not_found", message: "That isn't one of your courses." }, 404);
   if (listed && course.status !== "published") return c.json({ error: "not_published", message: "Publish the course before listing it." }, 409);
+  if(listed && await hasTable("edu_course_drafts") && await hasTable("edu_course_publications")) {
+    const snapshot=(await db.execute({sql:"SELECT p.body_json FROM edu_course_drafts d JOIN edu_course_publications p ON p.id=d.published_version WHERE d.course_id=?",args:[String(course.id)]})).rows[0];
+    if(snapshot && JSON.parse(String(snapshot.body_json)).visibility!=="public")return c.json({error:"not_public",message:"Publish a public version in shared authoring before listing this course."},409);
+  }
   await db.execute({ sql: "UPDATE edu_courses SET catalog_listed = ?, updated_at = datetime('now') WHERE id = ?", args: [listed ? 1 : 0, String(course.id)] });
   return c.json({ ok: true, listed });
 }
@@ -1032,6 +1042,12 @@ digitalLmsRoutes.get("/marketplace/stores/:id/digital-products", async (c) => {
     courses = crsRes.rows as Row[];
   }
 
+  if(publicStore && await hasTable("edu_course_drafts") && await hasTable("edu_course_publications")) {
+    const versions=await db.execute({sql:"SELECT d.course_id,p.body_json FROM edu_course_drafts d LEFT JOIN edu_course_publications p ON p.id=d.published_version WHERE d.store_id=?",args:[storeId]});
+    const hidden=new Set(versions.rows.filter((r)=>!r.body_json||JSON.parse(String(r.body_json)).visibility!=="public").map((r)=>String(r.course_id)));
+    courses=courses.filter((r)=>!hidden.has(String(r.id)));
+    digitalProducts=digitalProducts.filter((p)=>!p.linked_course_id||!hidden.has(p.linked_course_id));
+  }
   return c.json({
     digitalProducts,
     courses: demoStore ? DEMO_LMS_COURSES : courses,

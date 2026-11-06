@@ -77,6 +77,7 @@ function Live({ lesson, onJoined }: { lesson: LearnerLessonDetail; onJoined: () 
 export default function LessonPage() {
   const { id, lessonId } = useParams<{ id: string; lessonId: string }>();
   const router = useRouter();
+  useEffect(()=>{let active=true;api.learningPublication(id).then((r)=>{const lesson=r.publication.modules.flatMap((m)=>m.lessons).find((l)=>l.id===lessonId);if(active&&lesson&&!lesson.nativeActivity)router.replace(`/learn/study/${encodeURIComponent(id)}`);}).catch(()=>undefined);return()=>{active=false;};},[id,lessonId,router]);
   const [course, setCourse] = useState<LearnerCourse | null>(null);
   const [lesson, setLesson] = useState<LearnerLessonDetail | null>(null);
   const [error, setError] = useState<string | null>(null);

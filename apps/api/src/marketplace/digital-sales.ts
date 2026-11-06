@@ -148,6 +148,31 @@ export async function purchaseDigitalProduct(input: {
   if (!marketplace.eliteDigitalProductsEnabled) return fail(403, "digital_disabled", "Digital sales are paused by the platform.");
   if (!(await storePlan(input.store, marketplace)).isElite) return fail(403, "plan_required", "The store needs an active Merchant Elite plan to accept new digital purchases.");
 
+  if(product.kind==="course" && product.linked_course_id && await hasTable("edu_course_drafts")) {
+    const versioned=(await db.execute({sql:"SELECT course_id FROM edu_course_drafts WHERE course_id=?",args:[String(product.linked_course_id)]})).rows[0];
+    if(versioned) {
+      try {
+        const {publicationFor}=await import("../education/creator-study.js");
+        const publication=await publicationFor(input.buyer.id,String(product.linked_course_id),false);
+        if(Number(product.price_ugx)===0){const {learningEnrollmentStatements}=await import("../education/creator-enrollment.js");const {getLearnSettings}=await import("../education/settings.js");await learningEnrollmentStatements(input.buyer.id,String(product.linked_course_id),await getLearnSettings());}
+        if(publication.draft.priceUgx!==Number(product.price_ugx))return fail(409,"offer_changed","Reload the current course offer before continuing.");
+      } catch {return fail(403,"course_unavailable","This course is not available to this account.");}
+    }
+  }
+  if (Number(product.price_ugx) > 0 && product.kind === "course" && product.linked_course_id && await hasTable("edu_course_drafts")) {
+    const managed = (await db.execute({ sql: "SELECT published_version,store_id FROM edu_course_drafts WHERE course_id=?", args: [String(product.linked_course_id)] })).rows[0];
+    if (managed) {
+      if (managed.store_id !== input.store.id || !managed.published_version) return fail(409,"course_missing","This offer isn't linked to a published business course.");
+      try {
+        const { purchaseLearningCourse } = await import("../education/creator-commerce.js");
+        const paid = await purchaseLearningCourse({ buyerId: input.buyer.id, courseId: String(product.linked_course_id), publicationId: String(managed.published_version), price: Number(product.price_ugx), requestId: `store-${crypto.randomUUID()}` });
+        return { ok: true, fulfillmentId: paid.fulfillmentId || paid.purchaseId, token: paid.token, accessUrl: `${process.env.CUSTOMER_APP_URL ?? "https://app.peebee.online"}/learn/study/${String(product.linked_course_id)}`, licenseKey: null, expiresAt: null, maxDownloads: 0, pricePaidUgx: paid.pricePaidUgx, sms: null, needsManualFulfilment: false, enrollmentId: paid.enrollmentId };
+      } catch (err) {
+        return fail(409,"course_purchase_failed",err instanceof Error ? err.message : "The purchase could not be completed.");
+      }
+    }
+  }
+
   const price = Number(product.price_ugx) || 0;
   const kind = String(product.kind);
   const environment = await getPlatformEnvironment();
@@ -300,6 +325,13 @@ export async function purchaseDigitalProduct(input: {
 export async function refundFulfillment(input: { fulfillmentId: string; storeId: string; actorId: string }): Promise<{ ok: true } | { ok: false; error: string; message: string }> {
   const row = (await db.execute({ sql: "SELECT * FROM store_digital_fulfillments WHERE id = ? AND store_id = ?", args: [input.fulfillmentId, input.storeId] })).rows[0] as Row | undefined;
   if (!row) return { ok: false, error: "not_found", message: "That purchase doesn't exist." };
+  if (await hasTable("edu_creator_purchases")) {
+    const managed = (await db.execute({ sql: "SELECT id FROM edu_creator_purchases WHERE fulfillment_id=? AND store_id=?", args: [input.fulfillmentId,input.storeId] })).rows[0];
+    if (managed) {
+      try { const { refundLearningPurchase } = await import("../education/creator-commerce.js"); return await refundLearningPurchase(String(managed.id),input.actorId); }
+      catch (err) { return { ok: false, error: "refund_review_required", message: err instanceof Error ? err.message : "The refund needs reconciliation." }; }
+    }
+  }
   const price = Number(row.price_paid_ugx) || 0;
   const refundWalletEntryId = `wl_digital_refund_${input.fulfillmentId}`;
   if (row.refunded_at) {

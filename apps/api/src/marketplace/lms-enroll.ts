@@ -122,5 +122,8 @@ export async function enrollStudent(input: {
       await db.execute({ sql: "UPDATE store_lms_enrollments SET access_status = 'active' WHERE id = ?", args: [String((have as Row).id)] });
     }
   }
+  if (await hasTable("edu_publication_access") && await hasTable("edu_course_drafts")) {
+    await db.execute({sql:"INSERT OR IGNORE INTO edu_publication_access(user_id,course_id,publication_id,source) SELECT ?,course_id,published_version,'merchant_enrollment' FROM edu_course_drafts WHERE course_id=? AND published_version IS NOT NULL",args:[input.userId,input.courseId]});
+  }
   return { enrollmentId, storeRecordId, created };
 }

@@ -49,7 +49,8 @@ export function createUseModules(load: () => Promise<{ settings: { modules?: Mod
   };
 
   return function useModules() {
-    const [loaded, setLoaded] = useState<Loaded | null>(cached?.value ?? null);
+    // The first client render must match SSR; apply the shared cache from the effect.
+    const [loaded, setLoaded] = useState<Loaded | null>(null);
     useEffect(() => {
       let live = true;
       const refresh = () => { void fetchAvailability().then((v) => { if (live && v) setLoaded(v); }); };

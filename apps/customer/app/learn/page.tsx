@@ -24,6 +24,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LearnThumb } from "@peebee/shared/learn-thumb";
+import { LearningCreatorLink } from "@peebee/shared/learning-creator-link";
 import { useAuth } from "../../lib/auth-context";
 import { api, errorMessage } from "../../lib/api";
 import { bodyFont, display, monoFont } from "./fonts";
@@ -572,6 +573,7 @@ function LearnHome() {
   return (
     <div className={`${display.variable} ${bodyFont.variable} ${monoFont.variable} min-h-dvh font-[family-name:var(--font-lh-body)]`}>
     <div className="mx-auto max-w-3xl space-y-[18px] px-3.5 pb-44 pt-4">
+      {!signedOut && <LearningCreatorLink api={api} href="/learn/create" />}
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gold">Peebee Learn</p>

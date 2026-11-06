@@ -360,4 +360,5 @@ export * from "./pricing.js";
 export { SUPPORT_APPS, isSupportApp, supportAppLabel } from "./support-chat.js";
 export type { SupportAppId } from "./support-chat.js";
 export { AI_FEATURES, isAiFeature, aiFeatureLabel, parseKeyLines } from "./ai-features.js";
+export * from "./learn-creator.js";
 export type { AiFeatureId, AiFeatureStatus, AiFeaturesOverview } from "./ai-features.js";

@@ -78,7 +78,8 @@ test("AI features: shared keys, separating them, and keeping each feature to its
       await call("POST", "/admin/ai-keys", "admin", { keys: [{ label: "Shared", key: K("shared") }] });
       const o = await json(await call("GET", "/admin/ai-features", "admin"));
       assert.deepEqual([o.separate, o.separateAvailable, o.sharedKeys], [false, true, 1]);
-      assert.deepEqual(o.features.map((f: any) => [f.id, f.pool]), [["translation", "shared"], ["support_chat", "shared"]]);
+      assert.deepEqual(o.features.map((f: any) => [f.id, f.pool]), [["translation", "shared"], ["support_chat", "shared"], ["learn_generation", "shared"], ["learn_tutor", "shared"]]);
+      assert.ok(o.features.filter((f:any)=>f.id.startsWith("learn_")).every((f:any)=>!f.enabled));
       used.length = 0;
       await translateToLuganda("milk");
       await askAssistant([{ from: "user", text: "hi" }], "");
@@ -118,7 +119,7 @@ test("AI features: shared keys, separating them, and keeping each feature to its
       assert.equal(res.status, 200);
       const o = (await json(res)).overview;
       assert.equal(o.separate, true);
-      assert.deepEqual(o.features.map((f: any) => [f.id, f.pool, f.ownKeys]), [["translation", "own", 1], ["support_chat", "own", 1]]);
+      assert.deepEqual(o.features.map((f: any) => [f.id, f.pool, f.ownKeys]), [["translation", "own", 1], ["support_chat", "own", 1], ["learn_generation", "own", 0], ["learn_tutor", "own", 0]]);
       used.length = 0;
       await translateToLuganda("milk");
       await askAssistant([{ from: "user", text: "hi" }], "");
@@ -185,7 +186,7 @@ test("AI features: shared keys, separating them, and keeping each feature to its
       assert.deepEqual(tr.usage.map((u: any) => u.feature), ["translation"], "its own key only ever served its own feature");
       assert.ok(tr.usage[0].uses >= 2 && tr.usage[0].lastUsedAt);
       const pools = (await json(await call("GET", "/admin/ai-keys", "admin"))).pools;
-      assert.deepEqual(pools.map((p: any) => [p.id, p.keys]), [["shared", 1], ["translation", 1], ["support_chat", 2]]);
+      assert.deepEqual(pools.map((p: any) => [p.id, p.keys]), [["shared", 1], ["translation", 1], ["support_chat", 2], ["learn_generation", 0], ["learn_tutor", 0]]);
       const overview = (await json(await call("GET", "/admin/ai-features", "admin"))).features.find((f: any) => f.id === "translation");
       assert.deepEqual(overview.keys.map((k: any) => k.status), ["ready"]);
     });
@@ -224,7 +225,7 @@ test("AI features: shared keys, separating them, and keeping each feature to its
       // Put everything back where it was.
       await call("PATCH", `/admin/ai-keys/${tr.id}`, "admin", { assignTo: "translation" });
       await call("PATCH", `/admin/ai-keys/${shared.id}?pool=translation`, "admin", { assignTo: "shared" });
-      assert.deepEqual((await json(await call("GET", "/admin/ai-keys", "admin"))).pools.map((p: any) => [p.id, p.keys]), [["shared", 1], ["translation", 1], ["support_chat", 2]]);
+      assert.deepEqual((await json(await call("GET", "/admin/ai-keys", "admin"))).pools.map((p: any) => [p.id, p.keys]), [["shared", 1], ["translation", 1], ["support_chat", 2], ["learn_generation", 0], ["learn_tutor", 0]]);
     });
 
     await t.test("a master key cannot be moved away while paid mode depends on it", async () => {

@@ -5,7 +5,7 @@ import { ApiError } from "@peebee/shared";
 import { LearnThumb } from "@peebee/shared/learn-thumb";
 import { ArrowLeft, CheckCircle2, ChevronRight, GraduationCap, Lock, MessageCircle, Play, Star } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KIND_ICON, KIND_LABEL, metaLine } from "../../../../components/learn/kinds";
 import { api, errorMessage } from "../../../../lib/api";
@@ -76,6 +76,8 @@ function Row({ courseId, lesson }: { courseId: string; lesson: LearnerLesson }) 
 
 export default function LearnCoursePage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  useEffect(()=>{let active=true;api.learningPublication(id).then(()=>{if(active)router.replace(`/learn/study/${encodeURIComponent(id)}`);}).catch(()=>undefined);return()=>{active=false;};},[id,router]);
   const [course, setCourse] = useState<LearnerCourse | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [error, setError] = useState<string | null>(null);

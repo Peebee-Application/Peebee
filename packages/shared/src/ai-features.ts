@@ -17,6 +17,8 @@ export const AI_FEATURES = [
     label: "Support chat assistant",
     description: "The AI that answers first in Help & support on the website and in every app (Admin → Support chat).",
   },
+  { id: "learn_generation", label: "Learn course generation", description: "Shared personal, school and Merchant Elite AI course authoring." },
+  { id: "learn_tutor", label: "Learn personal tutor", description: "Private tutoring grounded in authorized course content." },
 ] as const;
 
 export type AiFeatureId = (typeof AI_FEATURES)[number]["id"];

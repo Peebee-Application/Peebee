@@ -5,6 +5,7 @@ import { hasPermission } from "@peebee/shared";
 import { OptionSettingsPanel } from "../../../components/OptionSettingsPanel";
 import { PageHeader } from "../../../components/SettingsPageShell";
 import { useAuth } from "../../../lib/auth-context";
+import { LearningCreatorPermissions } from "../../../components/LearningCreatorPermissions";
 
 const TABS = [
   { id: "storefront", label: "Web storefront" },
@@ -42,6 +43,7 @@ export default function CommerceOptionsPage() {
         ))}
       </div>
       <OptionSettingsPanel module={tab} canManage={canManage} />
+      {tab === "lms" && <LearningCreatorPermissions canManage={canManage} />}
     </div>
   );
 }
