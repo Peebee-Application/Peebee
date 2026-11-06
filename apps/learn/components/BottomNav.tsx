@@ -35,7 +35,7 @@ export function BottomNav() {
     { href: "/", label: "Home", icon: Home },
     { href: "/schools", label: "Schools", icon: GraduationCap },
     { href: "/classroom", label: "Live", icon: Video, module: "learn.live" },
-    { href: "/chat", label: "Students", icon: MessageSquare },
+    { href: "/chat", label: "Chat", icon: MessageSquare },
     { href: "/account", label: "Account", icon: UserRound },
   ], moduleOn);
 

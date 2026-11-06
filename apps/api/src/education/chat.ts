@@ -1,5 +1,5 @@
 /**
- * School messaging: learners and parents talk to a school, and the school's owner replies. The same model as restaurant
+ * School messaging: learners, parents and anyone else talk to a school, and the school's owner replies. The same model as restaurant
  * chat (../restaurants/chat.ts): one continuous thread per (school, person), a learner or parent is any signed-in customer
  * account, and the teacher side is the school owner. Calls placed from a thread are logged in it (../calls/routes.ts).
  *
@@ -95,7 +95,7 @@ schoolChatRoutes.post("/schools/:id", async (c) => {
   const user = c.get("user");
   const school = await schoolById(c.req.param("id"));
   if (!school || school.status === "suspended") return fail(c, { status: 404, error: "not_found", message: "That school wasn't found." });
-  if (school.owner_id === user.sub) return fail(c, { status: 400, error: "own_school", message: "This is your own school. Reply to messages from the Students tab." });
+  if (school.owner_id === user.sub) return fail(c, { status: 400, error: "own_school", message: "This is your own school. Reply to messages from the Chat tab." });
   const parsed = await readBody(c, z.object({ body: clean(g.maxMessageChars) }));
   if (!parsed.ok) return parsed.res;
   const slow = await quota(c, user.sub, g.messagesPerHour);

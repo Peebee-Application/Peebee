@@ -477,7 +477,7 @@ export interface LearnSettings {
   maxQaChars: number;
   /** Questions and answers one person may post per hour. */
   qaPostsPerHour: number;
-  /** Learners and parents can message a school, and its teachers reply. */
+  /** Learners, parents and others can message a school, and its teacher replies. */
   messagingEnabled: boolean;
   /** Learners, parents and teachers can call each other from a school conversation. */
   callsEnabled: boolean;
@@ -639,7 +639,7 @@ export const DEFAULT_LEARN_SETTINGS: LearnSettings = {
 };
 
 // ---------------------------------------------------------------------------
-// School messaging: learners and parents talking to a school, and its teachers replying
+// School messaging: learners, parents and others talking to a school, and its teachers replying
 // ---------------------------------------------------------------------------
 
 export interface SchoolChatMessage {

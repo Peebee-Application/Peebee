@@ -6,7 +6,7 @@ import { useCallback, useState } from "react";
 import { api, errorMessage } from "../../../../lib/api";
 import { useCalls } from "../../../../lib/calls-context";
 
-/** One conversation with a learner or parent. */
+/** One conversation with someone who wrote to the school. */
 export default function StudentChatPage() {
   const { schoolId, customerId } = useParams<{ schoolId: string; customerId: string }>();
   const router = useRouter();
@@ -15,7 +15,7 @@ export default function StudentChatPage() {
 
   const load = useCallback(async () => {
     const res = await api.studioSchoolChat(schoolId, customerId);
-    setNames({ person: res.customerName ?? "Learner", school: res.schoolName });
+    setNames({ person: res.customerName ?? "Someone", school: res.schoolName });
     return res;
   }, [schoolId, customerId]);
   const send = useCallback((body: string) => api.replySchoolChat(schoolId, customerId, body), [schoolId, customerId]);

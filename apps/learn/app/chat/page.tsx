@@ -15,8 +15,8 @@ function when(iso: string) {
   return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : d.toLocaleDateString([], { day: "numeric", month: "short" });
 }
 
-/** Learners and parents who have written to one of the teacher's schools. */
-export default function StudentsPage() {
+/** Everyone who has written to one of the teacher's schools: learners, parents and others. */
+export default function ChatPage() {
   const [threads, setThreads] = useState<StudioSchoolChatThread[] | null>(null);
   const [unavailable, setUnavailable] = useState(false);
 
@@ -48,14 +48,14 @@ export default function StudentsPage() {
   return (
     <div className="space-y-4 pb-6">
       <h1 className="flex items-center gap-2 text-2xl font-black text-ink">
-        <MessageSquare className="h-7 w-7 text-gold" aria-hidden /> Students
+        <MessageSquare className="h-7 w-7 text-gold" aria-hidden /> Chat
       </h1>
       {threads === null ? (
         <Skeleton className="h-24" />
       ) : unavailable && threads.length === 0 ? (
         <EmptyState icon={MessageSquare} title="Messages aren't ready yet" body="Try again shortly." />
       ) : threads.length === 0 ? (
-        <EmptyState icon={MessageSquare} title="No messages yet" body="Learners and parents can message your school from the Peebee app. Their messages appear here." />
+        <EmptyState icon={MessageSquare} title="No messages yet" body="Learners, parents and others can message your school from the Peebee app. Their messages appear here." />
       ) : (
         <ul className="space-y-2">
           {threads.map((t) => (
@@ -65,7 +65,7 @@ export default function StudentsPage() {
                   <UserRound className="h-6 w-6" aria-hidden />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xl font-bold text-ink">{t.customerName ?? "Learner"}</span>
+                  <span className="block truncate text-xl font-bold text-ink">{t.customerName ?? "Someone"}</span>
                   <span className="block truncate text-base text-ink-500">{t.schoolName}</span>
                   <span className={`block truncate text-lg ${t.unread ? "font-bold text-ink" : "text-ink-500"}`}>{t.lastMessagePreview}</span>
                 </span>

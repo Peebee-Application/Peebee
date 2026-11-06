@@ -1,5 +1,5 @@
 -- Migration 0157: school messaging for Peebee Learn.
--- Learners and parents (customer accounts) message a school; the school's owner replies. One continuous thread per
+-- Learners, parents and anyone else (customer accounts) message a school; the school's owner replies. One continuous thread per
 -- (school, person), the same shape as restaurant chat (0037). Calls placed from the thread are logged in it, which needs
 -- a school_id on calls (the school the call was about).
 -- Additive only. Apply by hand to the live D1 database; the deploy does not run it.

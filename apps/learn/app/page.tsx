@@ -211,7 +211,7 @@ export default function HomePage() {
       <section aria-label="More tools" className="grid grid-cols-3 gap-3">
         {[
           { href: "/classroom", icon: Radio, title: "Live" },
-          { href: "/chat", icon: MessageSquare, title: "Students" },
+          { href: "/chat", icon: MessageSquare, title: "Chat" },
           { href: "/streams", icon: Eye, title: "Preview" },
         ].map((tool) => (
           <Link key={tool.href} href={tool.href} className={`${cardCls} flex min-h-24 flex-col items-center justify-center gap-2 p-3 text-center`}>
