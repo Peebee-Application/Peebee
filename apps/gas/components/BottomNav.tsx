@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Fuel, GraduationCap, History, Package, Store } from "lucide-react";
+import { Briefcase, Fuel, History, Package, Store } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
@@ -12,7 +12,6 @@ const BASE_TABS = [
   { href: "/manager", label: "Manager", icon: Briefcase },
   { href: "/shift", label: "Shift", icon: History },
   { href: "/prices", label: "Prices", icon: Store, module: "buy.gas" },
-  { href: "/practice", label: "Practice", icon: GraduationCap },
 ];
 
 export function BottomNav() {
@@ -44,11 +43,11 @@ export function BottomNav() {
                 <Link
                   href={tab.href}
                   aria-current={active ? "page" : undefined}
-                  className={`customer-nav-item relative flex h-[58px] flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-[11px] font-bold transition-all duration-200 active:scale-95 ${
+                  className={`customer-nav-item relative flex h-16 flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-xs font-bold transition-all duration-200 active:scale-95 ${
                     active ? "is-active" : ""
                   }`}
                 >
-                  <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 1.8} aria-hidden />
+                  <Icon className="h-6 w-6" strokeWidth={active ? 2.4 : 1.8} aria-hidden />
                   <span className="leading-none">{tab.label}</span>
                   {active && (
                     <span
