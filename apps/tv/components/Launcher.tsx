@@ -19,11 +19,11 @@ export function Launcher({ name, ownerName, learnEnabled, liveEnabled }: { name:
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-[1rem]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/peebee-logo-light.svg?v=logo-6" alt="" width={64} height={64} className="h-[3.4rem] w-[3.4rem]" />
+          <img src="/brand/peebee-logo-dark.svg?v=logo-6" alt="" width={64} height={64} className="h-[3.4rem] w-[3.4rem]" />
           <p className="text-[1.6rem] font-black text-ink">Peebee TV</p>
         </div>
         <p className="text-[1.2rem] text-ink-500">
-          {name} · linked to <strong className="text-ink">{ownerName}</strong>
+          {name} · <strong className="text-ink">{ownerName}</strong>
         </p>
       </header>
 
@@ -42,7 +42,7 @@ export function Launcher({ name, ownerName, learnEnabled, liveEnabled }: { name:
                 <m.icon className="h-[3.4rem] w-[3.4rem]" aria-hidden />
                 <span>
                   <span className="block text-[2rem] font-black">{m.title}</span>
-                  <span className="mt-1 block text-[1rem] leading-snug opacity-80">{m.description}</span>
+                  <span className="mt-1 block text-[1.15rem] leading-snug opacity-80">{m.description}</span>
                 </span>
               </Link>
             </li>
@@ -51,10 +51,10 @@ export function Launcher({ name, ownerName, learnEnabled, liveEnabled }: { name:
       </section>
 
       <footer className="flex items-center justify-between text-[1rem] text-ink-500">
-        <p>Use the arrow keys to move and OK to choose. Press Back to return.</p>
+        <p>Arrows move · OK chooses · Back returns</p>
         {confirming ? (
           <span className="flex items-center gap-[1rem]">
-            Disconnect this screen from {ownerName}?
+            Disconnect this screen?
             <button type="button" data-focusable className="rounded-full bg-gold px-[1.2rem] py-[0.4rem] font-bold text-ink-gold" onClick={() => void unpair()}>
               Disconnect
             </button>

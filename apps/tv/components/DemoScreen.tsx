@@ -25,7 +25,7 @@ export function DemoScreen() {
 
   return (
     <section aria-label="Demo screen" className="space-y-[1rem]">
-      <h2 className="text-[1.5rem] font-bold text-ink">Want to see it with courses already set up?</h2>
+      <h2 className="text-[1.5rem] font-bold text-ink">Try it with demo courses</h2>
       <button
         type="button"
         data-focusable
@@ -34,7 +34,7 @@ export function DemoScreen() {
         className="flex w-[34rem] flex-col rounded-[1.4rem] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-[1.3rem] text-left focus:bg-gold focus:text-ink-gold disabled:opacity-60"
       >
         <span className="text-[1.5rem] font-black leading-tight">Open the demo screen</span>
-        <span className="mt-[0.3rem] text-[1.05rem] opacity-80">A paired screen with a demo learner, enrolled courses and live classes. Nothing here is real.</span>
+        <span className="mt-[0.3rem] text-[1.05rem] opacity-80">A demo learner with courses and live classes. Nothing here is real.</span>
       </button>
       {error && <p role="alert" className="text-[1.1rem] text-red-500">{error}</p>}
     </section>

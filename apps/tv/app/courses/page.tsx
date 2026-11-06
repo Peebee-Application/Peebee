@@ -19,7 +19,7 @@ export default function MyCoursesPage() {
       {error && <Message tone="error">{error.message}</Message>}
       {!loading && !error && courses.length === 0 && (
         <div className="flex flex-col items-start gap-[1.2rem]">
-          <Message>You haven&apos;t joined a course yet. Find one to start learning.</Message>
+          <Message>No courses yet. Browse to find one.</Message>
           <Link href="/browse" data-focusable className="rounded-full bg-gold px-[1.8rem] py-[0.7rem] text-[1.3rem] font-bold text-ink-gold focus:outline-none">
             Browse courses
           </Link>

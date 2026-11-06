@@ -46,7 +46,7 @@ export default function BrowsePage() {
       </div>
       {loading && <Message>Loading courses…</Message>}
       {error && <Message tone="error">{error.message}</Message>}
-      {!loading && !error && courses.length === 0 && <Message>No courses here yet. Try another level.</Message>}
+      {!loading && !error && courses.length === 0 && <Message>No courses here. Try another level.</Message>}
       {courses.length > 0 && (
         <ul className="grid grid-cols-[repeat(auto-fill,minmax(19rem,1fr))] gap-[1.3rem]">
           {courses.map((c) => (

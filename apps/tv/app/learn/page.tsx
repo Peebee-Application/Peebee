@@ -65,15 +65,15 @@ export default function LearnPage() {
     return (
       <main className="tv-safe flex min-h-screen flex-col items-center justify-center gap-[1.6rem] text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/peebee-logo-light.svg?v=logo-6" alt="" width={96} height={96} className="h-[6rem] w-[6rem]" />
+        <img src="/brand/peebee-logo-dark.svg?v=logo-6" alt="" width={96} height={96} className="h-[6rem] w-[6rem]" />
         <h1 className="text-[3.6rem] font-black text-ink">Waiting for your tutor</h1>
         <p className="max-w-[44rem] text-[1.5rem] leading-snug text-ink-500">
-          In Peebee Learn, start a live class and choose <strong className="text-ink">{screen.device.name}</strong> as the screen. This page will switch over by itself.
+          In Peebee Learn, start a class and choose <strong className="text-ink">{screen.device.name}</strong>.
         </p>
         <div className="mt-[1.2rem] w-full max-w-[84rem] text-left">
           <TrialPicker heading="While you wait, watch a practice class" />
         </div>
-        <p className="text-[1.1rem] text-ink-500">Press Back to return to the home screen.</p>
+        <p className="text-[1.1rem] text-ink-500">Back returns home</p>
       </main>
     );
   }
@@ -108,7 +108,7 @@ export default function LearnPage() {
             <div className="flex h-full flex-col justify-center gap-[1rem]">
               <p className="text-[1.1rem] font-bold uppercase tracking-[0.2em] text-gold">Class in session</p>
               <h1 className="text-[4.4rem] font-black leading-[1.08] text-ink">{session.title}</h1>
-              <p className="text-[1.6rem] text-ink-500">Your tutor will be with you in a moment. Join from your phone with the code on the right.</p>
+              <p className="text-[1.6rem] text-ink-500">Join from your phone with the code on the right.</p>
             </div>
           )}
         </section>
