@@ -13,6 +13,8 @@ import {
 import { ChevronRight, Clock, Filter, Search, Store, Users as UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { adminRequest } from "../../lib/admin-request";
+import { Segments } from "../../components/people/Segments";
+import { TabBar } from "../../components/TabBar";
 import { PersonCard } from "../../components/PersonPreview";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
@@ -449,42 +451,57 @@ function ReviewEntry() {
 
 export default function UsersPage() {
   const [tab, setTab] = useState<Tab>("riders");
-  useEffect(()=>{const saved=new URLSearchParams(window.location.search).get("tab");if(saved==="riders"||saved==="customers"||saved==="restaurants"||saved==="merchants")setTab(saved);},[]);
   const [dateRange, setDateRange] = useState<DateRange>("all");
+  // Segments (who is on Peebee, by kind) first; the directory (browse and open people) is one tap away.
+  const [view, setView] = useState<"segments" | "directory">("segments");
+  useEffect(()=>{const saved=new URLSearchParams(window.location.search).get("tab");if(saved==="riders"||saved==="customers"||saved==="restaurants"||saved==="merchants"){setTab(saved);setView("directory");}},[]);
 
   return (
-    <div className="space-y-5 px-4 pb-6 pt-4">
-      <h1 className="text-xl font-bold text-ink">Users</h1>
-
-      <ReviewEntry />
-
-      <SummaryStrip />
-
-      {(tab === "riders" || tab === "customers") && <DateRangeTabs value={dateRange} onChange={setDateRange} />}
-
-      <div className="flex rounded-full bg-[rgb(var(--surface-muted))] p-1">
-        {(["riders", "customers", "restaurants", "merchants"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`min-w-0 flex-1 rounded-full px-1 py-2 text-xs font-semibold capitalize transition-colors sm:text-sm ${
-              tab === t ? "bg-gold text-ink-gold shadow-sm" : "text-ink-500"
-            }`}
-          >
-            {t === "restaurants" ? "Food" : t}
-          </button>
-        ))}
+    <div className="space-y-5 px-4 pb-6 pt-4 lg:px-8 lg:pt-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="flex-1 text-2xl font-extrabold text-ink">Users</h1>
+        <div className="w-full lg:w-80"><TabBar label="View" active={view} onChange={setView} tabs={[{ id: "segments", label: "Segments", icon: UsersIcon }, { id: "directory", label: "Directory", icon: Search }]} /></div>
       </div>
 
-      {tab === "riders" ? (
-        <RidersTab dateRange={dateRange} />
-      ) : tab === "customers" ? (
-        <CustomersTab dateRange={dateRange} />
-      ) : tab === "restaurants" ? (
-        <RestaurantsTab />
+      {view === "segments" ? (
+        <>
+          <ReviewEntry />
+          <Segments />
+        </>
       ) : (
-        <MerchantsTab />
+        <>
+          <SummaryStrip />
+
+          {(tab === "riders" || tab === "customers") && <DateRangeTabs value={dateRange} onChange={setDateRange} />}
+
+          <div className="flex rounded-full bg-[rgb(var(--surface-muted))] p-1 lg:max-w-xl">
+            {(["riders", "customers", "restaurants", "merchants"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={`min-w-0 flex-1 rounded-full px-1 py-2 text-xs font-semibold capitalize transition-colors sm:text-sm ${
+                  tab === t ? "bg-gold text-ink-gold shadow-sm" : "text-ink-500"
+                }`}
+              >
+                {t === "restaurants" ? "Food" : t}
+              </button>
+            ))}
+          </div>
+
+          {/* One column on a phone; cards flow into columns on a desktop. */}
+          <div className="[&_ul]:lg:grid [&_ul]:lg:grid-cols-2 [&_ul]:lg:gap-4 [&_ul]:lg:space-y-0 [&_ul]:2xl:grid-cols-3">
+            {tab === "riders" ? (
+              <RidersTab dateRange={dateRange} />
+            ) : tab === "customers" ? (
+              <CustomersTab dateRange={dateRange} />
+            ) : tab === "restaurants" ? (
+              <RestaurantsTab />
+            ) : (
+              <MerchantsTab />
+            )}
+          </div>
+        </>
       )}
     </div>
   );
