@@ -156,7 +156,10 @@ function save(store: Store) {
 export function resetStudioSandbox() {
   memory = null;
   try {
-    if (typeof window !== "undefined") window.localStorage.removeItem(STORAGE_KEY);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(MESSAGES_KEY);
+    }
   } catch {
     /* ignore */
   }
@@ -207,6 +210,7 @@ function httpsOrEmpty(v: unknown): string | null {
 
 /** Answers a Studio request from the browser's own store. Returns null for paths that are not Studio paths. */
 export function handleStudioSandbox(path: string, method: string, body: Record<string, unknown>): Response | null {
+  if (path.startsWith("/v1/education/messages/")) return handleMessagesSandbox(path, method, body);
   if (path === "/v1/education/catalog/courses" && method === "GET") {
     const st = load();
     const courses = st.courses
@@ -483,4 +487,85 @@ export function handleStudioSandbox(path: string, method: string, body: Record<s
   }
 
   return problem(404, "not_found", "That wasn't found.");
+}
+
+
+// ---------------------------------------------------------------------------
+// School messages in Sandbox: two practice conversations kept in the browser. Calls are off here.
+// ---------------------------------------------------------------------------
+
+const MESSAGES_KEY = "peebee.practice.learn.messages.v1";
+type SandboxMessage = { id: string; sender_role: "customer" | "school"; body: string; type: "text"; call_id: null; call_status: null; call_duration_seconds: null; read: number; created_at: string };
+type SandboxThread = { schoolId: string; customerId: string; customerName: string; messages: SandboxMessage[] };
+
+function seedThreads(): SandboxThread[] {
+  const school = load().schools[0];
+  if (!school) return [];
+  const at = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
+  const m = (id: string, role: "customer" | "school", body: string, minutesAgo: number, read: number): SandboxMessage => ({ id, sender_role: role, body, type: "text", call_id: null, call_status: null, call_duration_seconds: null, read, created_at: at(minutesAgo) });
+  return [
+    { schoolId: school.id, customerId: "practice-parent", customerName: "Grace Namutebi (parent)", messages: [m("pm1", "customer", "Good morning. Is there still a seat in the P.4 class this term?", 90, 0)] },
+    { schoolId: school.id, customerId: "practice-student", customerName: "Brian Okello (student)", messages: [m("pm2", "customer", "When is the next maths quiz?", 600, 1), m("pm3", "school", "Friday at 10am. Revise units 3 and 4.", 540, 1)] },
+  ];
+}
+
+function loadThreads(): SandboxThread[] {
+  try {
+    const raw = typeof window !== "undefined" ? window.localStorage.getItem(MESSAGES_KEY) : null;
+    if (raw) return JSON.parse(raw) as SandboxThread[];
+  } catch {
+    /* fall through to a fresh set */
+  }
+  return seedThreads();
+}
+
+function saveThreads(threads: SandboxThread[]) {
+  try {
+    if (typeof window !== "undefined") window.localStorage.setItem(MESSAGES_KEY, JSON.stringify(threads));
+  } catch {
+    /* private mode: the practice conversation just won't persist */
+  }
+}
+
+function handleMessagesSandbox(path: string, method: string, body: Record<string, unknown>): Response {
+  const parts = path.replace("/v1/education/messages/", "").split("/").filter(Boolean);
+  const threads = loadThreads();
+  const school = load().schools[0];
+  const preview = (t: SandboxThread) => t.messages[t.messages.length - 1];
+  const config = { callsEnabled: false, maxMessageChars: DEFAULT_LEARN_SETTINGS.maxMessageChars };
+
+  if (parts[0] === "studio" && parts.length === 1 && method === "GET") {
+    return json({
+      ok: true,
+      threads: threads.map((t) => ({
+        schoolId: t.schoolId,
+        schoolName: load().schools.find((x) => x.id === t.schoolId)?.name ?? school?.name ?? "",
+        customerId: t.customerId,
+        customerName: t.customerName,
+        lastMessagePreview: preview(t)?.body ?? "",
+        lastMessageAt: preview(t)?.created_at ?? new Date().toISOString(),
+        unread: t.messages.some((x) => x.sender_role === "customer" && !x.read),
+      })),
+    });
+  }
+  if (parts[0] === "studio" && parts.length >= 3) {
+    const thread = threads.find((t) => t.schoolId === parts[1] && t.customerId === parts[2]);
+    if (!thread) return problem(404, "not_found", "That conversation wasn't found.");
+    if (parts[3] === "read" && method === "POST") {
+      thread.messages.forEach((x) => { if (x.sender_role === "customer") x.read = 1; });
+      saveThreads(threads);
+      return json({ ok: true });
+    }
+    if (method === "GET") return json({ ok: true, schoolName: load().schools.find((x) => x.id === thread.schoolId)?.name ?? "", customerName: thread.customerName, ...config, messages: thread.messages });
+    if (method === "POST") {
+      const text = clean(body.body, config.maxMessageChars);
+      if (!text) return problem(400, "invalid_body", "Write a message first.");
+      const id = uid("pm");
+      thread.messages.push({ id, sender_role: "school", body: text, type: "text", call_id: null, call_status: null, call_duration_seconds: null, read: 0, created_at: new Date().toISOString() });
+      saveThreads(threads);
+      return json({ ok: true, id }, 201);
+    }
+  }
+  if (parts[0] === "mine" && method === "GET") return json({ ok: true, threads: [] });
+  return problem(503, "sandbox_only", "This needs the live service. It isn't available in the sandbox.");
 }

@@ -29,6 +29,8 @@ import {
   type SdpDescription,
 } from "./cloudflare.js";
 import { resolveP2PIceServers } from "./webrtc-p2p.js";
+import { getLearnSettings } from "../education/settings.js";
+import { hasColumn, hasTable } from "../lib/schema.js";
 
 export const callRoutes = new Hono();
 callRoutes.use("*", requireAuth);
@@ -47,6 +49,7 @@ const startSchema = z.object({
   calleeId: z.string().min(1),
   orderId: z.string().optional(),
   restaurantId: z.string().optional(),
+  schoolId: z.string().optional(),
 });
 
 /** Places a call — creates the ringing row and pushes a notification to
@@ -60,6 +63,15 @@ callRoutes.post("/calls", async (c) => {
   const d = parsed.data;
   if (d.calleeId === user.sub) return c.json({ error: "cannot_call_self" }, 400);
 
+  // A call from a school conversation: Admin can switch these off, and it must be between the school's owner and the person
+  // who messaged it. Before the school-chat migration is applied the call still rings, it just isn't linked to the school.
+  let schoolId: string | null = null;
+  if (d.schoolId) {
+    if (!(await getLearnSettings()).callsEnabled) return c.json({ error: "calls_off", message: "Calls are switched off right now." }, 503);
+    const school = (await db.execute({ sql: "SELECT id, owner_id FROM edu_schools WHERE id = ?", args: [d.schoolId] })).rows[0] as Row | undefined;
+    if (!school || (school.owner_id !== user.sub && school.owner_id !== d.calleeId)) return c.json({ error: "not_found" }, 404);
+    if ((await hasColumn("calls", "school_id")) && (await hasTable("school_chat_messages"))) schoolId = d.schoolId;
+  }
   const environment = await getPlatformEnvironment();
   const id = newId("call");
   // A sandbox demo car driver has no phone to ring: it picks up at once, on a call with no audio.
@@ -77,6 +89,7 @@ callRoutes.post("/calls", async (c) => {
           VALUES (?, ?, ?, ?, ?, ?, 'ringing', ?)`,
     args: [id, user.sub, d.calleeId, d.orderId ?? null, d.restaurantId ?? null, provider, environment],
   });
+  if (schoolId) await db.execute({ sql: "UPDATE calls SET school_id = ? WHERE id = ?", args: [schoolId, id] });
 
   await notifyUser(d.calleeId, {
     title: `${user.name ?? "Someone"} is calling`,
@@ -199,6 +212,20 @@ async function logCallToChat(call: Row, status: string, durationSeconds: number 
   const restaurantId = call.restaurant_id as string | null;
   const orderId = call.order_id as string | null;
   const callId = call.id as string;
+  const schoolId = (call.school_id as string | null | undefined) ?? null;
+
+  if (schoolId) {
+    const school = (await db.execute({ sql: "SELECT owner_id FROM edu_schools WHERE id = ?", args: [schoolId] })).rows[0] as Row | undefined;
+    const ownerId = school?.owner_id as string | undefined;
+    if (!ownerId) return;
+    const customerId = callerId === ownerId ? calleeId : callerId;
+    await db.execute({
+      sql: `INSERT INTO school_chat_messages (id, school_id, customer_id, sender_role, body, type, call_id, call_status, call_duration_seconds)
+            VALUES (?, ?, ?, ?, ?, 'call', ?, ?, ?)`,
+      args: [messageId, schoolId, customerId, callerId === ownerId ? "school" : "customer", body, callId, status, durationSeconds],
+    });
+    return;
+  }
 
   if (restaurantId) {
     const restaurantRes = await db.execute({

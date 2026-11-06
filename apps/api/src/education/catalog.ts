@@ -135,6 +135,7 @@ catalogRoutes.get("/courses/:id", async (c) => {
       priceUgx: Number(course.price_ugx ?? 0),
       framework: String(course.framework),
       outcomes: outcomes(course.outcomes_json),
+      schoolId: String(course.school_id),
       schoolName: String(course.school_name),
       className: String(course.class_name),
       modules: modules.map((m) => ({

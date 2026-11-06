@@ -20,6 +20,7 @@
     "./google-button": "./src/GoogleButtonSurface.tsx",
     "./food-cover": "./src/FoodCover.tsx",
     "./learn-thumb": "./src/LearnThumb.tsx",
+    "./school-chat": "./src/SchoolChat.tsx",
     "./data-refresh": "./src/DataRefresh.tsx",
     "./colour-scenes.css": "./colour-scenes.css",
     "./business-theme": "./src/BusinessTheme.tsx",

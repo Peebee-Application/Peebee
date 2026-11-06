@@ -684,6 +684,7 @@ learnRoutes.get("/courses/:id", async (c) => {
       title: String(access.course.title),
       summary: String(access.course.summary ?? ""),
       stream: String(access.course.stream),
+      schoolId: String(access.course.school_id),
       schoolName: String(access.school.name),
       progressPercent: lessons.length ? Math.round((st.done.size / lessons.length) * 100) : 0,
       modules: modules.map((m) => ({

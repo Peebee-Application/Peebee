@@ -3,17 +3,29 @@
 import type { CohortInfo, CourseOffers, CourseReview, LearnerCourse, LearnerLesson } from "@peebee/shared";
 import { ApiError } from "@peebee/shared";
 import { LearnThumb } from "@peebee/shared/learn-thumb";
-import { ArrowLeft, CheckCircle2, ChevronRight, Lock, MessageCircle, Play, Star } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronRight, GraduationCap, Lock, MessageCircle, Play, Star } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KIND_ICON, KIND_LABEL, metaLine } from "../../../../components/learn/kinds";
 import { api, errorMessage } from "../../../../lib/api";
+import { useChatDrawer } from "../../../../lib/chat-drawer";
 
 const card = "rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))]";
 const ugx = (n: number) => (n > 0 ? `UGX ${n.toLocaleString("en-UG")}` : "Free");
 
-type Preview = { title: string; summary: string; priceUgx: number; schoolName: string; outcomes: string[]; lessonCount: number };
+/** Opens the chat with the school behind this course, for questions to its teachers. Hidden when the school is unknown (the sandbox). */
+function MessageSchool({ schoolId }: { schoolId?: string }) {
+  const { openThread } = useChatDrawer();
+  if (!schoolId) return null;
+  return (
+    <button type="button" onClick={() => openThread({ type: "school", id: schoolId })} className="flex min-h-12 items-center gap-2 text-sm font-bold text-gold">
+      <GraduationCap className="h-5 w-5" aria-hidden /> Message the school
+    </button>
+  );
+}
+
+type Preview = { schoolId?: string; title: string; summary: string; priceUgx: number; schoolName: string; outcomes: string[]; lessonCount: number };
 
 function Ring({ percent }: { percent: number }) {
   const r = 26;
@@ -100,7 +112,7 @@ export default function LearnCoursePage() {
           setRating(c.rating ?? { average: null, count: 0 });
           setReviews(c.reviews ?? []);
           setCohorts(c.cohorts ?? []);
-          setPreview({ title: c.title, summary: c.summary, priceUgx: c.priceUgx, schoolName: c.schoolName, outcomes: c.outcomes, lessonCount: c.modules.reduce((n, m) => n + m.lessons.length, 0) });
+          setPreview({ schoolId: c.schoolId, title: c.title, summary: c.summary, priceUgx: c.priceUgx, schoolName: c.schoolName, outcomes: c.outcomes, lessonCount: c.modules.reduce((n, m) => n + m.lessons.length, 0) });
           setError(null);
         } catch (inner) {
           setError(errorMessage(inner));
@@ -197,6 +209,7 @@ export default function LearnCoursePage() {
               <p className="text-xs font-bold uppercase tracking-wider text-gold">{preview.schoolName}</p>
               <h1 className="text-xl font-bold text-ink">{preview.title}</h1>
               {preview.summary && <p className="text-sm text-ink-500">{preview.summary}</p>}
+              <MessageSchool schoolId={preview.schoolId} />
             </div>
             {preview.outcomes.length > 0 && (
               <ul className="list-disc space-y-0.5 pl-5 text-sm text-ink">
@@ -303,6 +316,7 @@ export default function LearnCoursePage() {
                 <Ring percent={course.progressPercent} />
               </div>
               {course.summary && <p className="text-sm text-ink-500">{course.summary}</p>}
+              <MessageSchool schoolId={course.schoolId} />
               <p className="text-xs text-ink-500">
                 {course.modules.length} section{course.modules.length === 1 ? "" : "s"} · {items.length} item{items.length === 1 ? "" : "s"}
               </p>
