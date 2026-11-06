@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../lib/api";
 import { formatUgx, formatDate } from "../lib/order-display";
 import { TabBar } from "../components/TabBar";
+import { loadIncome } from "../lib/income";
 
 const RANGE_LABEL: Record<OrderOverviewRange, string> = {
   today: "Today",
@@ -61,7 +62,7 @@ function OrdersByModule() {
   return (
     <section className="home-card space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-extrabold text-ink">Orders</h2>
+        <div><h2 className="text-lg font-extrabold text-ink">Orders</h2><p className="text-xs text-ink-500">Rides, parcels, shopping, food. Other income is under Money.</p></div>
         <div className="flex rounded-full bg-[rgb(var(--surface-muted))] p-0.5">
           {(["revenue", "profit"] as const).map((v) => (
             <button
@@ -147,6 +148,7 @@ export default function OverviewPage() {
   const [failedPayments, setFailedPayments] = useState<FailedPayment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<OverviewTab>("today");
+  const [allIncome, setAllIncome] = useState<{ total: number; counted: number; streams: number } | null>(null);
 
   const load = useCallback(() => {
     Promise.all([api.adminStats(), api.adminIntegrations()])
@@ -163,6 +165,11 @@ export default function OverviewPage() {
     const interval = setInterval(load, 15000);
     return () => clearInterval(interval);
   }, [load]);
+
+  // All income streams (not just orders), for the Money tab. Loaded once; a failure just leaves the card without a figure.
+  useEffect(() => {
+    loadIncome("month").then((d) => setAllIncome({ total: d.total, counted: d.counted, streams: d.rows.length })).catch(() => setAllIncome(null));
+  }, []);
 
   if (error) {
     return <p className="m-4 rounded-lg bg-red-50 px-3 py-2 text-base text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>;
@@ -225,15 +232,17 @@ export default function OverviewPage() {
 
       {tab === "money" && (
         <>
-          <section className="home-card !bg-black-700 text-white dark:!bg-black">
-            <p className="text-sm font-semibold text-white/70">Settled GMV, all time</p>
-            <p className="mt-1 text-4xl font-extrabold text-gold">{formatUgx(stats.settledGmv)}</p>
-          </section>
-          <Link href="/income" className="home-card flex min-h-16 items-center gap-3">
-            <Wallet className="h-6 w-6 shrink-0 text-gold" aria-hidden />
-            <span className="min-w-0 flex-1 text-lg font-bold text-ink">Every income stream</span>
-            <ChevronRight className="h-5 w-5 text-ink-500/60" aria-hidden />
+          <Link href="/income" className="home-card !bg-black-700 block text-white dark:!bg-black">
+            <p className="text-sm font-semibold text-white/70">All income, last 30 days</p>
+            <p className="mt-1 text-4xl font-extrabold text-gold">{allIncome ? formatUgx(allIncome.total) : "…"}</p>
+            <p className="mt-1 text-sm text-white/70">
+              {allIncome ? `Rides, parcels, shopping, food, Learn, subscriptions and more. ${allIncome.counted} of ${allIncome.streams} streams totalled.` : "Every way Peebee earns."}
+            </p>
           </Link>
+          <section className="home-card">
+            <p className="text-sm font-semibold text-ink-500">Settled GMV, all time</p>
+            <p className="mt-1 text-3xl font-extrabold text-ink">{formatUgx(stats.settledGmv)}</p>
+          </section>
           <section className="grid grid-cols-3 gap-3">
             <StatCard label="Pending" value={stats.paymentsByStatus.pending ?? 0} />
             <StatCard label="Paid" value={stats.paymentsByStatus.successful ?? 0} />

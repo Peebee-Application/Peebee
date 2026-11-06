@@ -119,13 +119,20 @@ platformMapRoutes.get("/admin/platform/people", requirePermission("stats.view"),
  * ledger posting yet are still listed (with how they work and where to set them) so nothing is invisible.
  */
 type IncomeKind = "commission" | "fee" | "subscription" | "ads" | "deposit" | "other";
-type IncomeDef = { key: string; group: PersonGroup; label: string; kind: IncomeKind; how: string; purposes?: string[]; href?: string };
+/** A table that records what Peebee kept on each sale, summed over a period (and one environment where the table has one). */
+type IncomeSource = { table: string; sum: string; where?: string; at: string; env?: string };
+type IncomeDef = { key: string; group: PersonGroup; label: string; kind: IncomeKind; how: string; purposes?: string[]; sources?: IncomeSource[]; href?: string };
 
 const INCOME: IncomeDef[] = [
   { key: "ride_boda", group: "ride", label: "Boda rides", kind: "commission", how: "A commission on each ride fare, plus the service fee.", href: "/money-flow" },
-  { key: "ride_car", group: "ride", label: "Car rides and rentals", kind: "commission", how: "A share of each car fare, carpool seat and rental.", href: "/settings/car" },
+  { key: "ride_car", group: "ride", label: "Car rides and rentals", kind: "commission", how: "Peebee's share of each completed car ride, carpool seat and self-drive rental.", href: "/settings/car", sources: [
+    { table: "car_bookings", sum: "COALESCE(SUM(platform_amount),0)", where: "status = 'completed'", at: "created_at", env: "environment" },
+    { table: "rentals", sum: "COALESCE(SUM(platform_amount),0)", where: "platform_amount IS NOT NULL", at: "created_at" },
+  ] },
   { key: "rental_forfeit", group: "ride", label: "Rental deposits kept", kind: "deposit", how: "Damage or overtime taken from a self-drive deposit.", purposes: ["rental_deposit_forfeiture"], href: "/settings/car" },
-  { key: "taxipress", group: "ride", label: "Taxipress seats", kind: "commission", how: "A commission on seats, luggage and assistance.", href: "/settings/taxipress" },
+  { key: "taxipress", group: "ride", label: "Taxipress seats", kind: "commission", how: "A commission on seats, luggage and assistance, plus any general fees.", href: "/settings/taxipress", sources: [
+    { table: "taxipress_settlements", sum: "COALESCE(SUM(commission + platform_fees),0)", at: "created_at", env: "environment" },
+  ] },
   { key: "delivery", group: "ride", label: "Parcel and shopping delivery", kind: "commission", how: "A commission and service fee on each delivery.", href: "/settings/delivery" },
   { key: "relay", group: "ride", label: "Relay delivery", kind: "fee", how: "What is left of the delivery price after every leg is paid.", purposes: ["order_revenue"], href: "/settings/relay" },
   { key: "cancel_time", group: "ride", label: "Cancel, waiting and rush-hour fees", kind: "fee", how: "Late-cancel fees, waiting time and busy-hour surcharges.", href: "/pricing" },
@@ -140,17 +147,37 @@ const INCOME: IncomeDef[] = [
   { key: "gas", group: "buy", label: "Fuel vouchers", kind: "commission", how: "A margin on fuel redeemed at stations.", href: "/money-flow" },
   { key: "ads", group: "buy", label: "Ads and Spotlight", kind: "ads", how: "Stores and brands pay to be shown.", href: "/settings/video-ads" },
 
-  { key: "learn_fees", group: "learn", label: "Course and class sales", kind: "commission", how: "A commission on paid courses, masterclasses and school fees.", href: "/settings/learn" },
-  { key: "learn_plans", group: "learn", label: "Educator plans and learner passes", kind: "subscription", how: "Educators pay for more room; learners pay for subscription passes.", href: "/settings/learn" },
+  { key: "learn_courses", group: "learn", label: "Course, class and bundle sales", kind: "commission", how: "The commission kept on every paid course, masterclass and course bundle.", href: "/settings/learn", sources: [
+    { table: "edu_enrollments", sum: "COALESCE(SUM(commission_ugx),0)", where: "status = 'active'", at: "created_at", env: "environment" },
+    { table: "edu_bundle_purchases", sum: "COALESCE(SUM(commission_ugx),0)", at: "created_at", env: "environment" },
+  ] },
+  { key: "learn_fees", group: "learn", label: "School fees", kind: "commission", how: "The commission kept when learners pay tuition and other school invoices.", href: "/settings/learn", sources: [
+    { table: "edu_fee_payments", sum: "COALESCE(SUM(commission_ugx),0)", at: "created_at", env: "environment" },
+  ] },
+  { key: "learn_plans", group: "learn", label: "Learner passes and educator plans", kind: "subscription", how: "Commission on learner subscription passes, and what educators pay for a paid plan.", href: "/settings/learn", sources: [
+    { table: "edu_subscriptions", sum: "COALESCE(SUM(commission_ugx),0)", at: "starts_at", env: "environment" },
+    { table: "edu_educator_plans", sum: "COALESCE(SUM(price_paid_ugx),0)", where: "source = 'purchase'", at: "started_at" },
+  ] },
 
-  { key: "work", group: "hive", label: "Work jobs (Clean, Laundry, Fix)", kind: "commission", how: "A commission on each job, and a worker commission for companies.", href: "/work/settings" },
+  { key: "work", group: "hive", label: "Work jobs (Clean, Laundry, Fix)", kind: "commission", how: "The commission kept on each finished job.", href: "/work/settings", sources: [
+    { table: "work_jobs", sum: "COALESCE(SUM(commission_ugx),0)", where: "status IN ('completed','settled')", at: "created_at", env: "environment" },
+  ] },
   { key: "services", group: "hive", label: "Service bookings", kind: "commission", how: "A commission on each standalone service booking.", purposes: ["service_commission"], href: "/settings/services-platform" },
-  { key: "talent", group: "hive", label: "Hire fees, plans and unlocks", kind: "fee", how: "Job fees, contact unlocks, featured posts and employer plans.", href: "/talent/money" },
+  { key: "talent", group: "hive", label: "Hire fees, plans and unlocks", kind: "fee", how: "Job fees, contact unlocks, featured posts and Hire plans that were paid.", href: "/talent/money", sources: [
+    { table: "talent_charges", sum: "COALESCE(SUM(amount_ugx),0)", where: "status = 'paid'", at: "created_at", env: "environment" },
+    { table: "talent_subscriptions", sum: "COALESCE(SUM(price_paid_ugx),0)", at: "created_at", env: "environment" },
+  ] },
 
   { key: "channel_fees", group: "channels", label: "Channel fees", kind: "fee", how: "The platform's cut of memberships, tips, gifts, pay-per-view and donations.", purposes: ["channel_fees"], href: "/settings/channels" },
 
-  { key: "rider_pro", group: "money", label: "Peebee Pro (riders)", kind: "subscription", how: "Riders pay monthly for Pro tools.", href: "/settings/monetization" },
-  { key: "wallet_fees", group: "money", label: "Wallet and withdrawal fees", kind: "fee", how: "Fees on top-ups and cash-outs.", href: "/settings/payments" },
+  { key: "rider_pro", group: "money", label: "Rider subscriptions and Pro", kind: "subscription", how: "What riders pay for Peebee Pro and their subscription.", href: "/settings/monetization", sources: [
+    { table: "rider_pro_subscription_payments", sum: "COALESCE(SUM(amount),0)", where: "status = 'successful'", at: "created_at", env: "environment" },
+    { table: "rider_subscription_payments", sum: "COALESCE(SUM(amount),0)", where: "status = 'successful'", at: "created_at", env: "environment" },
+  ] },
+  { key: "wallet_fees", group: "money", label: "Withdrawal fees", kind: "fee", how: "Fees taken when customers and fuel stations cash out.", href: "/settings/payments", sources: [
+    { table: "customer_withdrawals", sum: "COALESCE(SUM(fee),0)", where: "status = 'successful'", at: "created_at", env: "environment" },
+    { table: "fuel_station_withdrawals", sum: "COALESCE(SUM(fee_ugx),0)", where: "status = 'completed'", at: "created_at" },
+  ] },
 ];
 
 platformMapRoutes.get("/admin/platform/income", requirePermission("stats.view"), async (c) => {
@@ -177,6 +204,24 @@ platformMapRoutes.get("/admin/platform/income", requirePermission("stats.view"),
       ledgerOk = false;
     }
   }
+  // Streams recorded in their own tables. Each table is read on its own; one that is missing leaves that part out and the
+  // stream shows what could be read, and a stream with nothing readable stays "not totalled".
+  const fromTables = new Map<string, { amount: number; readable: number; total: number }>();
+  await Promise.all(INCOME.filter((x) => x.sources?.length).map(async (def) => {
+    let amount = 0, readable = 0;
+    for (const src of def.sources!) {
+      if (!/^[a-z0-9_]+$/.test(src.table) || !(await hasTable(src.table))) continue;
+      const conds = [src.where, src.env ? `${src.env} = ?` : "", days ? `${src.at} >= datetime('now', '-${days} days')` : ""].filter(Boolean);
+      try {
+        const res = await db.execute({ sql: `SELECT ${src.sum} AS n FROM ${src.table}${conds.length ? ` WHERE ${conds.join(" AND ")}` : ""}`, args: src.env ? [environment] : [] });
+        amount += Number((res.rows[0] as Record<string, unknown>)?.n ?? 0);
+        readable += 1;
+      } catch (err) {
+        console.error(`Income source ${src.table} failed:`, err);
+      }
+    }
+    fromTables.set(def.key, { amount, readable, total: def.sources!.length });
+  }));
   return c.json({
     environment,
     range: range ?? "all",
@@ -184,11 +229,14 @@ platformMapRoutes.get("/admin/platform/income", requirePermission("stats.view"),
     streams: INCOME.map((s) => {
       const posted = s.purposes?.map((p) => byPurpose.get(p)).filter((x): x is { amount: number; count: number } => !!x) ?? [];
       const tracked = !!s.purposes && ledgerOk;
+      const table = fromTables.get(s.key);
       return {
         key: s.key, group: s.group, label: s.label, kind: s.kind, how: s.how, href: s.href ?? null,
         // null = this stream is not posted to the platform ledger yet, so Admin can't total it here.
-        amount: tracked ? posted.reduce((n, x) => n + x.amount, 0) : null,
+        amount: tracked ? posted.reduce((n, x) => n + x.amount, 0) : table && table.readable > 0 ? table.amount : null,
         count: tracked ? posted.reduce((n, x) => n + x.count, 0) : null,
+        // "partial" = some of this stream's tables couldn't be read, so the figure may be low.
+        partial: table ? table.readable < table.total && table.readable > 0 : false,
       };
     }),
   });
