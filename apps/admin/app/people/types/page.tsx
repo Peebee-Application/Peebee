@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Accordion } from "../../../components/Accordion";
 import { adminRequest, requestErrorMessage } from "../../../lib/admin-request";
 
-type Person = { key: string; group: string; label: string; what: string; href: string | null; total: number | null; last30: number | null; pending: number | null };
+type Person = { key: string; group: string; label: string; what: string; href: string | null; reviewable?: boolean; total: number | null; last30: number | null; pending: number | null };
 type Loaded = { groups: { id: string; label: string }[]; people: Person[] };
 
 const n = (v: number | null) => (v == null ? "—" : v.toLocaleString("en-UG"));
@@ -55,13 +55,13 @@ export default function UserTypesPage() {
                       </span>
                     </span>
                     <span className="shrink-0 text-3xl font-extrabold text-ink">{n(p.total)}</span>
-                    {p.href && <ChevronRight className="h-5 w-5 shrink-0 text-ink-500/60" aria-hidden />}
+                    {(p.reviewable || p.href) && <ChevronRight className="h-5 w-5 shrink-0 text-ink-500/60" aria-hidden />}
                   </>
                 );
                 const cls = "flex min-h-16 items-center gap-3 rounded-2xl bg-[rgb(var(--surface-muted))] px-4 py-3";
                 return (
                   <li key={p.key}>
-                    {p.href ? <Link href={p.href} className={cls}>{body}</Link> : <div className={cls}>{body}</div>}
+                    {p.reviewable ? <Link href={`/people/types/${p.key}`} className={cls}>{body}</Link> : p.href ? <Link href={p.href} className={cls}>{body}</Link> : <div className={cls}>{body}</div>}
                   </li>
                 );
               })}
