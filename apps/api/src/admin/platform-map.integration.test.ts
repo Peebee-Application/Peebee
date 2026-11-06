@@ -31,6 +31,8 @@ test("Platform map lists every kind of person and income stream, reads real tabl
   await client.execute("INSERT INTO ledger_transactions(id,kind,idempotency_key,environment) VALUES('lt1','channel_sale','k1','live')");
   await client.execute("INSERT INTO ledger_entries(id,transaction_id,account_id,amount) VALUES('le1','lt1','la1',1500)");
 
+  await client.execute("PRAGMA foreign_keys = OFF");
+  await client.execute("INSERT INTO edu_fee_payments(id,invoice_id,payer_id,amount_ugx,commission_ugx,environment) VALUES('p1','i1','c1',10000,1000,'live'),('p2','i1','c1',5000,500,'sandbox')");
   const app = new Hono().route("/v1", platformMapRoutes);
   const admin = await signToken({ sub: "admin", role: "admin" });
   const customer = await signToken({ sub: "c1", role: "customer" });
@@ -50,7 +52,13 @@ test("Platform map lists every kind of person and income stream, reads real tabl
 
   const incomeRes = await get("/admin/platform/income?range=all", admin);
   assert.equal(incomeRes.status, 200);
-  const income = (await incomeRes.json()) as { streams: { key: string; amount: number | null }[] };
+  const income = (await incomeRes.json()) as { streams: { key: string; amount: number | null; partial?: boolean }[] };
+  // Streams read from their own tables: every table must be readable (a wrong column makes it "partial" or null).
+  for (const key of ["ride_car", "taxipress", "learn_courses", "learn_fees", "learn_plans", "work", "talent", "rider_pro", "wallet_fees"]) {
+    const stream = income.streams.find((x) => x.key === key);
+    assert.ok(stream && typeof stream.amount === "number" && !stream.partial, `${key} should read every table it sums`);
+  }
+  assert.equal(income.streams.find((x) => x.key === "learn_fees")?.amount, 1000, "only the live environment's commission counts");
   assert.ok(income.streams.length >= 20, "every income stream is listed");
   assert.equal(income.streams.find((s) => s.key === "channel_fees")?.amount, 1500);
   assert.equal(income.streams.find((s) => s.key === "digital_sales")?.amount, 0);
