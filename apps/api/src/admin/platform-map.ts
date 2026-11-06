@@ -4,7 +4,9 @@ import { requireAuth, requireRole } from "../auth/middleware.js";
 import { getPlatformEnvironment } from "../lib/settings.js";
 import { hasTable } from "../lib/schema.js";
 import { demoPeopleFilter, primeDemoAccounts } from "../practice/people.js";
-import { requirePermission } from "./permissions.js";
+import { clientIp } from "../lib/ratelimit.js";
+import { logActivity } from "./activity.js";
+import { hasPermission, requirePermission, type Permission } from "./permissions.js";
 
 /**
  * Two read-only maps of the platform for Admin: every kind of person on it, and every way it earns.
@@ -108,7 +110,7 @@ platformMapRoutes.get("/admin/platform/people", requirePermission("stats.view"),
   const counts = await Promise.all(PEOPLE.map((p) => countOne(p, environment)));
   return c.json({
     groups: (Object.keys(GROUP_LABEL) as PersonGroup[]).map((id) => ({ id, label: GROUP_LABEL[id] })),
-    people: PEOPLE.map((p, i) => ({ key: p.key, group: p.group, label: p.label, what: p.what, href: p.href ?? null, ...counts[i]! })),
+    people: PEOPLE.map((p, i) => ({ key: p.key, group: p.group, label: p.label, what: p.what, href: p.href ?? null, reviewable: Object.hasOwn(REVIEW, p.key), ...counts[i]! })),
   });
 });
 
@@ -190,4 +192,146 @@ platformMapRoutes.get("/admin/platform/income", requirePermission("stats.view"),
       };
     }),
   });
+});
+
+
+// ---------------------------------------------------------------------------
+// Review: the people of one kind, with where each stands, so Admin can approve, suspend or reinstate them.
+// ---------------------------------------------------------------------------
+
+/**
+ * What Admin does to change one kind of person. Almost every kind already has its own approve/suspend endpoint (each
+ * with its own rules and notices), so Admin calls those; only the kinds that had none are changed by the endpoint
+ * below. "user" means the person's account itself, which is the only lever for kinds with no status of their own.
+ */
+export type ReviewAction =
+  | "user" | "rider" | "car_owner" | "car_driver" | "taxipress" | "relay" | "restaurant" | "merchant"
+  | "work_provider" | "worker" | "service_business" | "channel" | "school" | "platform";
+
+type ReviewDef = {
+  kind: ReviewAction;
+  /** SQL for the id the action endpoint wants. */
+  id: string;
+  /** SQL for the person's user id, for their name and account actions. */
+  user?: string;
+  name: string;
+  phone?: string;
+  /** SQL giving one of waiting | active | suspended | rejected. */
+  status: string;
+  detail?: string;
+  created?: string;
+  /** One row per person even if the table holds several. */
+  group?: boolean;
+  view: Permission;
+  manage: Permission;
+  /** For kind "platform": how this table is changed. */
+  write?: { table: string; idCol: string; active: string; suspended: string; label: string };
+};
+
+const OWNER_PHONE = "(SELECT u.phone FROM merchant_members m JOIN users u ON u.id = m.user_id WHERE m.merchant_id = t.id AND m.role = 'owner' LIMIT 1)";
+const USER_NAME = (col: string) => `(SELECT name FROM users WHERE id = t.${col})`;
+const USER_PHONE = (col: string) => `(SELECT phone FROM users WHERE id = t.${col})`;
+const STD = (col = "status") => `CASE t.${col} WHEN 'pending' THEN 'waiting' WHEN 'approved' THEN 'active' WHEN 'suspended' THEN 'suspended' WHEN 'rejected' THEN 'rejected' ELSE 'active' END`;
+const ACCOUNT_STATUS = (col: string) => `CASE (SELECT status FROM users WHERE id = t.${col}) WHEN 'suspended' THEN 'suspended' ELSE 'active' END`;
+const accountOf = (col: string, label: string, view: Permission, created?: string, group = false): ReviewDef => ({
+  kind: "user", id: col, user: col, name: USER_NAME(col), phone: USER_PHONE(col), status: ACCOUNT_STATUS(col), created, group, view, manage: "customers.manage",
+  detail: `'${label}'`,
+});
+
+const REVIEW: Record<string, ReviewDef> = {
+  customers: { kind: "user", id: "t.id", user: "t.id", name: "t.name", phone: "t.phone", status: "CASE t.status WHEN 'suspended' THEN 'suspended' ELSE 'active' END", created: "t.created_at", view: "customers.view", manage: "customers.manage" },
+  boda_riders: { kind: "rider", id: "t.user_id", user: "t.user_id", name: USER_NAME("user_id"), phone: USER_PHONE("user_id"), status: `CASE WHEN (SELECT status FROM users WHERE id = t.user_id) = 'suspended' THEN 'suspended' WHEN t.verified = 1 THEN 'active' ELSE 'waiting' END`, created: "t.created_at", view: "riders.view", manage: "riders.verify" },
+  car_owners: { kind: "car_owner", id: "t.user_id", user: "t.user_id", name: USER_NAME("user_id"), phone: USER_PHONE("user_id"), status: STD("owner_status"), created: "t.created_at", view: "car.view", manage: "car.manage" },
+  car_drivers: { kind: "car_driver", id: "t.user_id", user: "t.user_id", name: USER_NAME("user_id"), phone: USER_PHONE("user_id"), status: STD("driver_status"), created: "t.created_at", view: "car.view", manage: "car.manage" },
+  taxipress: { kind: "taxipress", id: "t.id", user: "t.user_id", name: USER_NAME("user_id"), phone: USER_PHONE("user_id"), status: STD(), detail: "t.plate", created: "t.created_at", view: "riders.view", manage: "riders.verify" },
+  relay: { kind: "relay", id: "t.user_id", user: "t.user_id", name: USER_NAME("user_id"), phone: USER_PHONE("user_id"), status: STD(), detail: "t.vehicle_plate", created: "t.created_at", view: "riders.view", manage: "riders.verify" },
+  restaurants: { kind: "restaurant", id: "t.id", user: "t.owner_id", name: "t.name", phone: USER_PHONE("owner_id"), status: "CASE t.status WHEN 'pending_approval' THEN 'waiting' WHEN 'suspended' THEN 'suspended' ELSE 'active' END", created: "t.created_at", view: "restaurants.view", manage: "restaurants.manage" },
+  merchants: { kind: "merchant", id: "t.id", name: "t.display_name", phone: OWNER_PHONE, status: "CASE t.status WHEN 'pending_approval' THEN 'waiting' WHEN 'provisional' THEN 'waiting' WHEN 'suspended' THEN 'suspended' WHEN 'rejected' THEN 'rejected' ELSE 'active' END", detail: "t.business_kind", created: "t.created_at", view: "merchants.view", manage: "merchants.manage" },
+  work_providers: { kind: "work_provider", id: "t.id", user: "t.user_id", name: "t.display_name", phone: USER_PHONE("user_id"), status: STD(), detail: "t.kind", created: "t.created_at", view: "work.view", manage: "work.manage" },
+  workers: { kind: "worker", id: "t.user_id", user: "t.user_id", name: USER_NAME("user_id"), phone: USER_PHONE("user_id"), status: STD(), created: "t.created_at", view: "talent.view", manage: "talent.manage" },
+  service_businesses: { kind: "service_business", id: "t.id", user: "t.owner_id", name: "t.name", phone: USER_PHONE("owner_id"), status: "CASE t.status WHEN 'pending_review' THEN 'waiting' WHEN 'paused' THEN 'suspended' ELSE 'active' END", created: "t.created_at", view: "settings.view", manage: "settings.manage" },
+  channels: { kind: "channel", id: "t.id", user: "t.owner_id", name: "t.display_name", phone: USER_PHONE("owner_id"), status: "CASE t.status WHEN 'suspended' THEN 'suspended' ELSE 'active' END", detail: "'@' || t.handle", created: "t.created_at", view: "channels.view", manage: "settings.manage" },
+  schools: { kind: "school", id: "t.id", user: "t.owner_id", name: "t.name", phone: USER_PHONE("owner_id"), status: "CASE t.status WHEN 'suspended' THEN 'suspended' ELSE 'active' END", detail: "t.kind", created: "t.created_at", view: "settings.view", manage: "settings.manage" },
+  // These four had no approve or suspend of their own.
+  fuel_stations: { kind: "platform", id: "t.id", name: "t.brand_name", status: "CASE t.status WHEN 'pending_approval' THEN 'waiting' WHEN 'suspended' THEN 'suspended' ELSE 'active' END", detail: "t.company_name", created: "t.created_at", view: "merchants.view", manage: "merchants.manage", write: { table: "fuel_stations", idCol: "id", active: "active", suspended: "suspended", label: "fuel station" } },
+  fuel_managers: { kind: "platform", id: "t.id", user: "t.user_id", name: USER_NAME("user_id"), phone: USER_PHONE("user_id"), status: "CASE t.status WHEN 'suspended' THEN 'suspended' ELSE 'active' END", detail: "t.role", created: "t.created_at", view: "merchants.view", manage: "merchants.manage", write: { table: "fuel_station_managers", idCol: "id", active: "active", suspended: "suspended", label: "station manager" } },
+  fuel_attendants: { kind: "platform", id: "t.id", user: "t.user_id", name: USER_NAME("user_id"), phone: USER_PHONE("user_id"), status: "CASE t.status WHEN 'suspended' THEN 'suspended' ELSE 'active' END", created: "t.created_at", view: "merchants.view", manage: "merchants.manage", write: { table: "fuel_pump_attendants", idCol: "id", active: "off_duty", suspended: "suspended", label: "pump attendant" } },
+  employers: { kind: "platform", id: "t.user_id", user: "t.user_id", name: USER_NAME("user_id"), phone: USER_PHONE("user_id"), status: "CASE t.status WHEN 'suspended' THEN 'suspended' ELSE 'active' END", created: "t.created_at", view: "talent.view", manage: "talent.manage", write: { table: "talent_employers", idCol: "user_id", active: "active", suspended: "suspended", label: "employer" } },
+  // No status of their own: the only lever is the person's account, which Admin labels clearly.
+  sales_agents: accountOf("user_id", "Sales agent", "customers.view", "t.created_at"),
+  learners: accountOf("user_id", "Learner", "customers.view", "MIN(t.created_at)", true),
+  subscribers: accountOf("user_id", "Channel member", "customers.view", "MIN(t.created_at)", true),
+  stage_members: accountOf("rider_id", "Stage member", "riders.view", "MIN(t.joined_at)", true),
+  merchant_staff: accountOf("user_id", "Merchant staff", "merchants.view", "MIN(t.created_at)", true),
+};
+
+const reviewOf = (key: string): { def: PersonDef; rv: ReviewDef } | null => {
+  const def = PEOPLE.find((p) => p.key === key);
+  const rv = Object.hasOwn(REVIEW, key) ? REVIEW[key] : undefined;
+  return def && rv ? { def, rv } : null;
+};
+
+/** Which kinds Admin can review, and what it does to each. */
+platformMapRoutes.get("/admin/platform/people/:key/list", async (c) => {
+  const found = reviewOf(c.req.param("key"));
+  if (!found) return c.json({ error: "not_found", message: "That kind of person has no approval step." }, 404);
+  const { def, rv } = found;
+  const user = c.get("user") as { adminRole?: string | null };
+  if (!hasPermission(user?.adminRole as never, rv.view)) return c.json({ error: "forbidden", message: "Your role doesn't include this." }, 403);
+  if (!(await hasTable(def.table))) return c.json({ kind: rv.kind, label: def.label, what: def.what, canManage: false, counts: {}, items: [], notReady: true });
+
+  const environment = await getPlatformEnvironment();
+  await primeDemoAccounts();
+  const status = c.req.query("status") ?? "all";
+  const q = (c.req.query("q") ?? "").trim().slice(0, 60);
+  const baseWhere = [def.where, def.who ? demoPeopleFilter(environment, `t.${def.who}`) : ""].filter(Boolean);
+  // The kind's own filter uses bare column names; they all belong to this table, so aliasing the table as "t" is safe.
+  const where = baseWhere.length ? `WHERE ${baseWhere.join(" AND ")}` : "";
+  const grouped = rv.group ? `GROUP BY ${rv.id}` : "";
+  const inner = `SELECT ${rv.id} AS id, ${rv.user ?? "NULL"} AS user_id, ${rv.name} AS name, ${rv.phone ?? "NULL"} AS phone, ${rv.status} AS st, ${rv.detail ?? "NULL"} AS detail, ${rv.created ?? "NULL"} AS created FROM ${def.table} t ${where} ${grouped}`;
+  try {
+    const counts: Record<string, number> = {};
+    const cres = await db.execute(`SELECT st, COUNT(*) AS n FROM (${inner}) GROUP BY st`);
+    for (const row of cres.rows as Record<string, unknown>[]) counts[String(row.st)] = Number(row.n ?? 0);
+    const args: (string | number)[] = [];
+    const conds: string[] = [];
+    if (status !== "all") { conds.push("st = ?"); args.push(status); }
+    if (q) { conds.push("(LOWER(COALESCE(name,'')) LIKE ? OR COALESCE(phone,'') LIKE ?)"); args.push(`%${q.toLowerCase()}%`, `%${q}%`); }
+    const res = await db.execute({ sql: `SELECT * FROM (${inner}) ${conds.length ? `WHERE ${conds.join(" AND ")}` : ""} ORDER BY created DESC LIMIT 100`, args });
+    return c.json({
+      kind: rv.kind, label: def.label, what: def.what, href: def.href ?? null, canManage: hasPermission(user?.adminRole as never, rv.manage), counts,
+      accountOnly: rv.kind === "user" && rv.id !== "t.id",
+      items: (res.rows as Record<string, unknown>[]).map((r) => ({
+        id: String(r.id), userId: r.user_id ? String(r.user_id) : null, name: r.name ? String(r.name) : "Unnamed", phone: r.phone ? String(r.phone) : null,
+        status: String(r.st), detail: r.detail ? String(r.detail) : null, createdAt: r.created ? String(r.created) : null,
+      })),
+    });
+  } catch (err) {
+    console.error(`Admin people list failed for ${def.key}:`, err);
+    return c.json({ error: "list_failed", message: "This list could not be read right now." }, 500);
+  }
+});
+
+/** Approve/suspend for the kinds that had no endpoint of their own. Everything else is done through that kind's existing endpoint. */
+platformMapRoutes.post("/admin/platform/people/:key/:id/status", async (c) => {
+  const found = reviewOf(c.req.param("key"));
+  const w = found?.rv.write;
+  if (!found || found.rv.kind !== "platform" || !w) return c.json({ error: "not_found", message: "This kind is changed elsewhere." }, 404);
+  const { def, rv } = found;
+  const user = c.get("user") as { sub: string; adminRole?: string | null };
+  if (!hasPermission(user?.adminRole as never, rv.manage)) return c.json({ error: "forbidden", message: "Your role doesn't include this action." }, 403);
+  const body = (await c.req.json().catch(() => ({}))) as { status?: string };
+  if (body.status !== "active" && body.status !== "suspended") return c.json({ error: "invalid_body", message: "Choose active or suspended." }, 400);
+  const id = c.req.param("id");
+  if (!(await hasTable(w.table))) return c.json({ error: "not_found" }, 404);
+  const next = body.status === "active" ? w.active : w.suspended;
+  const before = await db.execute({ sql: `SELECT status FROM ${w.table} WHERE ${w.idCol} = ?`, args: [id] });
+  if (!before.rows[0]) return c.json({ error: "not_found", message: "Not found." }, 404);
+  await db.execute({ sql: `UPDATE ${w.table} SET status = ? WHERE ${w.idCol} = ?`, args: [next, id] });
+  await logActivity({
+    actor: user as never, action: `people.${def.key}.${body.status}`, entityType: def.key, entityId: id,
+    summary: `${body.status === "active" ? "Reinstated" : "Suspended"} ${w.label} ${id}`,
+    before: { status: (before.rows[0] as Record<string, unknown>).status }, after: { status: next }, ip: clientIp(c),
+  });
+  return c.json({ ok: true, status: body.status });
 });

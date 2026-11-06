@@ -56,3 +56,52 @@ test("Platform map lists every kind of person and income stream, reads real tabl
   assert.equal(income.streams.find((s) => s.key === "digital_sales")?.amount, 0);
   assert.equal(income.streams.find((s) => s.key === "ride_boda")?.amount, null);
 });
+
+test("Every kind with an approval step lists its people from real columns, and the new status endpoint changes only its own kinds", async () => {
+  process.env.JWT_SECRET = "platform-map-tests-only";
+  const client = createClient({ url: "file::memory:" });
+  const migrations = join(process.cwd(), "src/db/migrations");
+  for (const file of readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort())
+    for (const sql of splitSqlStatements(readFileSync(join(migrations, file), "utf8"))) await client.execute(sql);
+  const prepare = (sql: string) => ({
+    sql,
+    args: [] as unknown[],
+    bind(...args: unknown[]) { this.args = args; return this; },
+    async all() {
+      const result = await client.execute({ sql: this.sql, args: this.args as InArgs });
+      return { results: result.rows, success: true, meta: { changes: result.rowsAffected } };
+    },
+  });
+  setD1Binding({ prepare } as unknown as D1Database);
+  await client.execute("INSERT INTO users(id,name,password_hash,role,admin_role,email) VALUES('admin','Admin','h','admin','super_admin','a@example.test'),('viewer','Viewer','h','admin','finance_manager','v@example.test'),('emp','Employer Eve','h','customer',NULL,'e@example.test')");
+  await client.execute("INSERT INTO talent_employers(user_id) VALUES('emp')");
+  const app = new Hono().route("/v1", platformMapRoutes);
+  const admin = await signToken({ sub: "admin", role: "admin" });
+  const send = (method: string, path: string, body?: unknown, bearer = admin) =>
+    app.request("/v1" + path, { method, headers: { Authorization: `Bearer ${bearer}`, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+
+  const keys = ["customers", "boda_riders", "car_owners", "car_drivers", "taxipress", "relay", "restaurants", "merchants", "work_providers", "workers", "service_businesses", "channels", "schools", "fuel_stations", "fuel_managers", "fuel_attendants", "employers", "sales_agents", "learners", "subscribers", "stage_members", "merchant_staff"];
+  for (const key of keys) {
+    const res = await send("GET", `/admin/platform/people/${key}/list?status=all&q=a`);
+    assert.equal(res.status, 200, `${key} list should read real columns`);
+    const body = (await res.json()) as { items: unknown[]; counts: Record<string, number> };
+    assert.ok(Array.isArray(body.items), key);
+  }
+  assert.equal((await send("GET", "/admin/platform/people/guests/list")).status, 404);
+
+  const emp = (await (await send("GET", "/admin/platform/people/employers/list")).json()) as { items: { id: string; status: string; name: string }[] };
+  assert.equal(emp.items[0]?.status, "active");
+  assert.equal(emp.items[0]?.name, "Employer Eve");
+
+  // Changing status: validated, logged, reversible, and gated by the kind's own permission.
+  assert.equal((await send("POST", "/admin/platform/people/employers/emp/status", { status: "bogus" })).status, 400);
+  assert.equal((await send("POST", "/admin/platform/people/boda_riders/emp/status", { status: "suspended" })).status, 404);
+  assert.equal((await send("POST", "/admin/platform/people/employers/emp/status", { status: "suspended" })).status, 200);
+  assert.equal((await client.execute("SELECT status FROM talent_employers WHERE user_id='emp'")).rows[0]!.status, "suspended");
+  assert.equal(Number((await client.execute("SELECT COUNT(*) AS n FROM admin_activity_log WHERE action='people.employers.suspended'")).rows[0]!.n), 1);
+  assert.equal((await send("POST", "/admin/platform/people/employers/emp/status", { status: "active" })).status, 200);
+  assert.equal((await client.execute("SELECT status FROM talent_employers WHERE user_id='emp'")).rows[0]!.status, "active");
+  const viewer = await signToken({ sub: "viewer", role: "admin" });
+  assert.equal((await send("POST", "/admin/platform/people/employers/emp/status", { status: "suspended" }, viewer)).status, 403);
+  assert.equal((await send("POST", "/admin/platform/people/employers/missing/status", { status: "suspended" })).status, 404);
+});
