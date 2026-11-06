@@ -39,11 +39,11 @@ export function AppShell({ children }: { children: any }) {
       <header className="sticky top-0 z-30 border-b border-[var(--border-faint)] bg-[rgb(var(--surface-card))]/95 backdrop-blur-md px-4 py-3">
         <div className="mx-auto flex max-w-lg items-center justify-between">
           <div className="min-w-0 space-y-0.5">
-            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-gold">
+            <div className="flex items-center gap-1.5 text-sm font-black uppercase tracking-wider text-gold">
               <ShieldCheck className="h-3.5 w-3.5 text-gold" />
               <span>{pharmacy?.ndaLicenseNumber}</span>
             </div>
-            <h1 className="truncate text-sm font-black text-ink">
+            <h1 className="truncate text-lg font-black text-ink">
               {pharmacy?.name}
             </h1>
           </div>
@@ -52,7 +52,7 @@ export function AppShell({ children }: { children: any }) {
             <button
               type="button"
               onClick={toggleOpen}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black transition active:scale-95 ${
+              className={`flex min-h-12 items-center gap-2 rounded-full px-4 text-base font-black transition active:scale-95 ${
                 pharmacy?.isOpen
                   ? "bg-green-600/15 text-green-600 hover:bg-green-600/20"
                   : "bg-red-500/15 text-red-500 hover:bg-red-500/20"

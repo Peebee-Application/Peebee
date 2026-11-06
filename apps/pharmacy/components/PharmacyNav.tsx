@@ -13,10 +13,10 @@ import { usePathname } from "next/navigation";
 import { filterByModule, useModules } from "../lib/modules";
 
 const NAV_ITEMS: { href: string; label: string; icon: typeof Home; badge?: string; module?: string }[] = [
-  { href: "/", label: "Overview", icon: Home },
-  { href: "/prescriptions", label: "Rx Review", icon: FileText, badge: "Live", module: "buy.pharmacy" },
+  { href: "/", label: "Home", icon: Home },
+  { href: "/prescriptions", label: "Rx", icon: FileText, badge: "Live", module: "buy.pharmacy" },
   { href: "/inventory", label: "Medicines", icon: Pill, module: "buy.pharmacy" },
-  { href: "/license", label: "Compliance", icon: ShieldCheck },
+  { href: "/license", label: "Licence", icon: ShieldCheck },
   { href: "/wallet", label: "Wallet", icon: Wallet },
 ];
 
@@ -34,14 +34,14 @@ export function PharmacyNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`relative flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-[11px] font-bold transition active:scale-95 ${
+              className={`relative flex flex-col items-center min-h-16 min-w-0 flex-1 justify-center gap-1 rounded-2xl px-1 py-1.5 text-xs font-bold transition active:scale-95 ${
                 active
                   ? "text-gold font-black"
                   : "text-ink-500 hover:text-ink"
               }`}
             >
               <div className="relative">
-                <Icon className={`h-5 w-5 ${active ? "text-gold" : "text-ink-500"}`} />
+                <Icon className={`h-6 w-6 ${active ? "text-gold" : "text-ink-500"}`} />
                 {item.badge && !active && (
                   <span className="absolute -right-1.5 -top-1 flex h-2 w-2 rounded-full bg-gold" />
                 )}
