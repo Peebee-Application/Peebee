@@ -14,7 +14,7 @@ export function BrandHeader({ onMenuClick, onSearch }: { onMenuClick?: () => voi
 
   return (
     <header className="customer-header sticky top-0 z-40 transition-colors">
-      <div className="mx-auto flex h-16 max-w-lg items-center justify-between gap-3 px-4 lg:max-w-none lg:px-6">
+      <div className="mx-auto flex h-16 max-w-lg items-center justify-between gap-2 px-3 lg:max-w-none lg:px-6">
         <div className="flex items-center gap-2">
           {onMenuClick && (
             <button
@@ -45,7 +45,7 @@ export function BrandHeader({ onMenuClick, onSearch }: { onMenuClick?: () => voi
           </Link>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-0.5">
           {onSearch && (
             <button
               type="button"

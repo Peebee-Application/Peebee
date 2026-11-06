@@ -47,9 +47,9 @@ function FilterDropdown<T extends string>({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 py-1.5 text-xs font-semibold text-ink"
+        className="flex items-center gap-1.5 min-h-12 rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4 py-2 text-base font-bold text-ink"
       >
-        <Filter className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+        <Filter className="h-5 w-5" strokeWidth={2} aria-hidden />
         {label}: {labels[value]}
       </button>
       {open && (
@@ -64,7 +64,7 @@ function FilterDropdown<T extends string>({
                   onChange(opt);
                   setOpen(false);
                 }}
-                className={`block w-full px-3 py-2.5 text-left text-sm font-medium ${
+                className={`block w-full px-4 py-3.5 text-left text-base font-semibold ${
                   opt === value ? "bg-gold/10 text-gold" : "text-ink"
                 }`}
               >
@@ -97,11 +97,10 @@ function ModuleStatCards() {
         return (
           <div key={key} className="home-card !p-3">
             <div className="flex items-center gap-1.5">
-              <Icon className="h-4 w-4 text-gold" strokeWidth={1.75} aria-hidden />
-              <p className="text-xs font-semibold text-ink-500">{MODULE_LABEL[key]}</p>
+              <Icon className="h-6 w-6 text-gold" strokeWidth={1.75} aria-hidden />
+              <p className="text-base font-bold text-ink-500">{MODULE_LABEL[key]}</p>
             </div>
-            <p className="mt-1 text-xl font-bold text-ink">{stats.orderCount}</p>
-            <p className="text-[11px] text-ink-500">orders</p>
+            <p className="mt-1 text-3xl font-extrabold text-ink">{stats.orderCount}</p>
           </div>
         );
       })}
@@ -143,7 +142,7 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-4 px-4 pb-6 pt-4">
-      <h1 className="text-xl font-bold text-ink">Orders</h1>
+      <h1 className="text-2xl font-extrabold text-ink">Orders</h1>
 
       <ModuleStatCards />
 
@@ -159,20 +158,20 @@ export default function OrdersPage() {
       </div>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
-      {orders.length === 0 && <p className="py-6 text-center text-sm text-ink-500">No orders match.</p>}
+      {orders.length === 0 && <p className="py-8 text-center text-base text-ink-500">No orders match.</p>}
 
       <ul className="space-y-2.5">
         {orders.map((order) => (
           <li key={order.id}>
-            <Link href={`/orders/${order.id}`} className="home-card flex items-center gap-3 !rounded-2xl !px-3 !py-3">
+            <Link href={`/orders/${order.id}`} className="home-card flex items-center gap-3 !rounded-2xl !px-4 !py-4 min-h-16">
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-bold text-ink">{orderTitle(order)}</span>
-                <span className="mt-0.5 block truncate text-xs text-ink-500">
+                <span className="block truncate text-lg font-extrabold text-ink">{orderTitle(order)}</span>
+                <span className="mt-0.5 block truncate text-sm text-ink-500">
                   {stageLabel(order.stage, order.type)}
                   {order.rider_name ? ` · ${order.rider_name}` : ""}
                 </span>
               </span>
-              <span className="shrink-0 text-sm font-semibold text-ink">
+              <span className="shrink-0 text-base font-extrabold text-ink">
                 {formatUgx(order.final_total ?? order.estimated_total)}
               </span>
               <ChevronRight className="h-5 w-5 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />

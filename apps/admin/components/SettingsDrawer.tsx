@@ -140,13 +140,13 @@ export function SettingsListContent({ onItemClick, onSearch }: { onItemClick?: (
             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-500">Platform</p>
             <h3 className="font-serif text-2xl font-black tracking-tight text-ink">{platformMode === null ? "…" : platformMode === "live" ? "Live" : "Sandbox"}</h3>
           </div>
-          <Link href="/settings/platform" onClick={onItemClick} className="rounded-full bg-ink px-4 py-1.5 text-xs font-bold text-cream transition hover:opacity-90 active:scale-95">
+          <Link href="/settings/platform" onClick={onItemClick} className="rounded-full bg-ink px-5 py-2.5 text-base font-bold text-cream transition hover:opacity-90 active:scale-95">
             Manage
           </Link>
         </div>
         <Link href="/settings/services" onClick={onItemClick} className="flex items-center justify-between border-t border-[var(--border-faint)] pt-3 transition active:opacity-75">
-          <span className="flex items-center gap-2.5 text-sm font-semibold text-ink"><Sparkles className="h-4 w-4 text-gold" strokeWidth={2} /> Active services</span>
-          <span className="flex items-center gap-1.5 text-xs font-medium text-ink-500">
+          <span className="flex items-center gap-2.5 text-base font-bold text-ink"><Sparkles className="h-5 w-5 text-gold" strokeWidth={2} /> Active services</span>
+          <span className="flex items-center gap-1.5 text-sm font-medium text-ink-500">
             {activeServicesCount !== null ? `${activeServicesCount} on` : "…"}
             <ChevronRight className="h-4 w-4 text-ink-500/50" strokeWidth={1.8} />
           </span>
@@ -154,7 +154,7 @@ export function SettingsListContent({ onItemClick, onSearch }: { onItemClick?: (
       </div>
 
       {onSearch && (
-        <button type="button" onClick={onSearch} className="admin-search-btn flex h-12 w-full items-center gap-2.5 rounded-2xl px-4 text-sm text-ink-500">
+        <button type="button" onClick={onSearch} className="admin-search-btn flex h-14 w-full items-center gap-2.5 rounded-2xl px-4 text-base text-ink-500">
           <Search className="h-4 w-4" aria-hidden /> Search pages and settings…
         </button>
       )}
@@ -206,12 +206,12 @@ function SettingsCardSection({
         const content = (
           <>
             <div className="flex items-center gap-3 min-w-0">
-              <Icon className="h-5 w-5 text-ink/80 shrink-0" strokeWidth={1.8} />
-              <span className="text-sm font-medium text-ink truncate">{item.label}</span>
+              <Icon className="h-6 w-6 text-gold shrink-0" strokeWidth={1.8} />
+              <span className="text-base font-bold text-ink truncate">{item.label}</span>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               {item.value && (
-                <span className="max-w-[45vw] truncate text-[13px] font-medium text-ink-500">{item.value}</span>
+                <span className="hidden max-w-[45vw] truncate text-sm font-medium text-ink-500 sm:inline">{item.value}</span>
               )}
               {item.isExternal ? (
                 <ArrowUpRight className="h-4 w-4 text-ink-500/60" strokeWidth={1.8} />
@@ -231,7 +231,7 @@ function SettingsCardSection({
                 target="_blank"
                 rel="noreferrer"
                 onClick={onItemClick}
-                className="flex items-center justify-between px-4 py-3.5 transition active:bg-black/5 dark:active:bg-white/5"
+                className="flex items-center justify-between min-h-14 px-4 py-3.5 transition active:bg-black/5 dark:active:bg-white/5"
               >
                 {content}
               </a>
@@ -242,7 +242,7 @@ function SettingsCardSection({
               key={item.href}
               href={item.href}
               onClick={onItemClick}
-              className="flex items-center justify-between px-4 py-3.5 transition active:bg-black/5 dark:active:bg-white/5"
+              className="flex items-center justify-between min-h-14 px-4 py-3.5 transition active:bg-black/5 dark:active:bg-white/5"
             >
               {content}
             </Link>
@@ -256,7 +256,7 @@ function SettingsCardSection({
             onClick={() => {
               item.onClick?.();
             }}
-            className="flex w-full items-center justify-between px-4 py-3.5 text-left transition active:bg-black/5 dark:active:bg-white/5"
+            className="flex w-full items-center justify-between min-h-14 px-4 py-3.5 text-left transition active:bg-black/5 dark:active:bg-white/5"
           >
             {content}
           </button>
