@@ -10,6 +10,8 @@ Anyone can describe what they want to learn, generate a personal learning path o
 
 Schools and teachers also receive AI-assisted course creation inside the existing Learn Studio. They can turn an approved syllabus, scheme of work, teaching notes, or learning outcomes into editable courses, teaching plans, lessons, and assessments for their classes. Personal creation and institutional authoring use the same generation services with different ownership, curriculum context, permissions, and publication workflows.
 
+Product direction: give private creation to both learners and educators, while applying additional responsibility to public publishing, selling, and educational endorsement. Learner status is not a permanent barrier to becoming a creator; teacher status does not bypass quality checks. Combine learner agency with accountable human guidance rather than restricting generation to institutions.
+
 The complete journey is: goal -> objectives -> editable roadmap -> lessons and materials -> private study or publication -> message/link sharing -> free enrollment or purchase -> individual tutoring and progress -> creator earnings.
 
 This is a native extension of Peebee, using its existing accounts, customer app, Learn Studio, education API, D1, R2, and wallet systems. Base44 is product inspiration, not a required dependency; its exact template internals have not been verified.
@@ -104,6 +106,12 @@ Learners can read/watch lessons, open resources, take practice, ask the tutor, r
 
 List drafts and publications, processing jobs, shared invitations, learners, sales, refunds, and earnings. Show aggregate learning difficulties and consented feedback rather than private learner transcripts by default.
 
+### Learner-to-educator collaboration
+
+A learner can generate a private path and explicitly invite a teacher to suggest improvements, collaborate on selected content, or review a specified draft version. Invitations identify the requested role and access scope. Reviewer access includes only the material needed for that task, not private tutoring conversations or diagnostic history by default. Accepting a review invitation does not transfer ownership or grant publishing/selling permission.
+
+The teacher can return comments and proposed corrections; the creator accepts edits into a new draft and requests review of the resulting version. Preserve attribution, review decisions, and an audit trail. Teachers may also sell their own courses and offer tutoring through compatible Peebee offerings. A paid review service is a planned extension after the basic invitation/review flow: disclose the reviewer, competence/verification status, fee, scope, deliverable, and what the review does and does not establish. Payment purchases review work, never a guaranteed positive endorsement. Service-specific refund, delivery, and settlement rules must be designed and exposed in Admin before paid reviews are enabled; do not treat them as a content purchase automatically.
+
 ## 5. AI objectives, generation, and tutoring
 
 Treat these as separate operations with validated contracts:
@@ -158,6 +166,35 @@ Only authorized source segments can enter tutor retrieval. Partition retrieval b
 
 Model visibility and price independently: private, invite-only, unlisted, or public; free or paid. Support draft, review where configured, published, suspended, and archived lifecycle states. New content starts private and unpublished by default.
 
+### Creation access and publication responsibility
+
+| Capability | Learners | Teachers and schools |
+| --- | --- | --- |
+| Generate private courses or personal paths | Yes, subject to age-appropriate permissions and usage limits | Yes, within authorized personal/school context and budgets |
+| Edit and add owned/permitted materials | Yes | Yes |
+| Share with friends | Yes, with clear authorship/review labels and access controls | Yes, within school permissions where applicable |
+| Publish publicly | Creator eligibility and publication checks | Authorized publishing workflow plus applicable quality checks |
+| Sell | Seller onboarding, eligibility, and content checks; being a learner alone does not disqualify a creator | Seller onboarding, eligibility, content checks, and school approval where applicable |
+| Approve official classroom content | Only when separately assigned an authorized educator role | Only teachers/reviewers authorized by the institution |
+
+Do not require every privately generated plan to undergo educator review. Shared or publicly listed material must accurately display its authorship and review status. Reviewed and unreviewed content can coexist where Admin permits, without implying equal endorsement. Neither an educator identity nor a school account guarantees accuracy, curriculum alignment, or absence of bias; content checks apply to all publishing groups.
+
+Younger learners have age-appropriate creation, sharing, purchase, and selling permissions, including guardian/school involvement where required by the applicable policy. Define age bands, eligibility, guardian authority, and restricted actions during implementation with appropriate review rather than assuming one universal threshold. Store only the necessary eligibility/consent evidence; deny restricted actions server-side. Adult creator defaults must not accidentally apply to accounts with unresolved age eligibility.
+
+### Evidence-based authorship and review labels
+
+| Label | Required evidence |
+| --- | --- |
+| AI-assisted, creator-edited | The author explicitly reviewed/edited and published this version; this is not an independent educational endorsement |
+| Educator-reviewed | A named, verified educator completed a recorded review of this version with disclosed subject/scope and findings |
+| School-approved | An authorized institution approved this version for a recorded purpose/audience |
+
+Verification of identity or educator credentials is separate from checking the content. Record the reviewer, verification basis/status, review date, exact version, scope, decision, and any unresolved limitations. A teacher's name alone cannot earn a review label. Display evidence and distinguish self-review, independent educator review, and school approval; do not imply independence when the creator reviews their own work.
+
+Labels describe what happened, not a promise that content is unbiased or error-free. Store endorsements against immutable versions. Any content change produces a new unreviewed draft; prior labels remain attached only to the reviewed version. The replacement version receives an endorsement only through an explicit review/revalidation decision under Admin policy, with substantive changes requiring renewed review. Revocation or expired verification produces an accurate current status while preserving historical evidence.
+
+Support this approach with reporting/correction tools and educational checks for factual errors, missing viewpoints, cultural/language bias, and unsupported curriculum claims. Guidance informing this product direction: [UNESCO guidance on generative AI in education](https://www.unesco.org/en/articles/guidance-generative-ai-education-and-research?hub=802). This is a design rationale, not evidence that Peebee's implementation has already been evaluated or certified.
+
 Direct links use a stable canonical course/path page. An unlisted link is discoverability control, not proof of permission. Private and invite-only access requires authenticated authorization; paid content requires an entitlement. Any token-based access grants have an explicit scope, expiration policy, revocation, and optional recipient binding.
 
 Message sharing uses a persisted structured course/path card: item ID, canonical link, display snapshot, and safe preview metadata. Resolve current availability and access on open. Use the existing recipient picker and permission checks. Do not automatically send messages on publication. External sharing is a copy-link/native-share action initiated by the user.
@@ -184,6 +221,14 @@ Creators see gross sales, platform fees, refunds, net earnings, and available/pe
 
 Do not promise lifetime access or unlimited tutoring. Recommended default offer is a one-time content purchase with clearly disclosed access terms and separately governed tutoring allowance. Creator-selected terms must remain inside admin policy.
 
+### Monetization experiments and AI economics
+
+Keep one-time course/path sales as the initial commerce mechanism. Evaluate a limited introductory generation/tutoring allowance, paid generation/tutoring packages, school plans with institutional allowances, and marketplace commission. These are proposed experiments, not assumptions of free unlimited AI or guaranteed revenue. Course content access and consumable AI allowance have distinct records and clear checkout descriptions. Reuse school subscriptions only where their actual semantics fit the institutional offer; existing school passes do not automatically include AI credits.
+
+Teacher participation can earn revenue through authored courses and tutoring, with paid content-review services following when their delivery and financial rules are ready. Keep earnings beneficiaries and permissions explicit for school versus personal work. Do not enable automatic review-service revenue splits as a shortcut around the one-seller offer model.
+
+More learner accounts do not establish profitability. Measure generation/tutoring usage costs, retries, material-processing costs, and attributable storage/delivery costs alongside content revenue, AI package revenue, school-plan revenue, commissions, refunds, and payment fees. Distinguish gross marketplace sales, creator payouts, Peebee revenue, and contribution after variable costs; do not count total course sales as platform revenue. Test learning outcomes, retention, conversion, and revenue after AI costs together. Use admin-configured allowances, budgets, experiment cohorts, and success thresholds; do not optimize only for generation volume or purchases.
+
 ## 10. Versions, updates, and buyer protection
 
 Separate mutable drafts from immutable published versions. Publishing snapshots objectives, lesson content, assessment references, resource versions, and offer metadata. A learner is associated with a known content version; their personal progress and tutor history reference it.
@@ -202,6 +247,8 @@ Names below are proposed logical records, not migration filenames or a commitmen
 | School memberships and scoped roles | Teacher/reviewer assignments and author/publish/sell permissions; extend existing instructor structures where suitable |
 | Curriculum mappings and teaching plans | Supplied framework/source versions, outcome coverage, term/week sequence, teacher-reviewed variants |
 | Review submissions and decisions | Draft version submitted, reviewer comments, approval/return state, actor and audit history |
+| Reviewer verification and version endorsements | Verification evidence/status, exact content version, reviewer/institution, review scope/date, disclosure, revocation history |
+| Creator/seller eligibility and consent | Publishing/selling eligibility, age-appropriate permissions, necessary guardian/school authorization and audit |
 | Learning profiles | Goal-relevant preferences without duplicating account identity |
 | Objectives and content-objective mappings | Observable outcomes, prerequisites, evidence criteria |
 | Learning paths, versions, and ordered steps | Reusable authored roadmap and referenced content |
@@ -214,6 +261,7 @@ Names below are proposed logical records, not migration filenames or a commitmen
 | Invitations and share grants | Scoped access offers, acceptance, expiry, revocation |
 | Offers, purchases, settlements, entitlements | Access and money linked through auditable operations |
 | AI usage reservations and events | Budgets, model usage, failed calls, reconciliation |
+| AI allowances, packages, and experiment attribution | Introductory/paid/institutional allowance source, consumption/expiry under policy, cost and cohort attribution distinct from content entitlements |
 | Reports and moderation decisions | Review state, actions, reasons, audit trail |
 
 Reuse enrollments/progress/assessments where their semantics match. Add appropriate foreign keys, uniqueness, indexes, pagination, and tenant/environment boundaries. Store private answer keys separately from learner-facing payloads. Avoid large mutable chat-history JSON fields when individual messages and resumable sessions are required.
@@ -227,6 +275,8 @@ Proposed capabilities, fitted to existing route conventions during implementatio
 - Start/cancel/retry generation; get job progress; accept generated changes.
 - Generate school coverage maps, schemes of work, and lesson plans; propose selected teacher edits; submit/review institutional drafts.
 - Manage scoped school membership/resource permissions and class/cohort assignments within platform policy.
+- Invite scoped educator collaboration/review, record version-specific findings and endorsements, inspect label evidence, revoke endorsements, and enforce creator/seller/age eligibility.
+- Inspect AI allowance and package offers/consumption, attribute school usage and experimental outcomes, and keep AI purchases separate from course entitlements.
 - Authorize upload, complete upload, list/update resources, request processing, authorized preview/download.
 - Publish new version, inspect storefront, archive, list creator publications.
 - Create/accept/revoke invitations; resolve canonical links and shared-message cards.
@@ -248,7 +298,9 @@ All behavioral settings live in `settings`, are validated in settings routes, ap
 | Learning | Mastery criteria, revision intervals, diagnostic behavior, progression rules |
 | Materials | Allowed types, sizes, counts, duration limits, OCR/transcription, embed hosts, downloads |
 | Publishing | Creator eligibility, review requirements, permitted visibility, samples, content limits |
+| Trust and eligibility | Reviewer verification workflow, endorsement/revalidation policy, self-review disclosure, public/seller onboarding, age-appropriate permissions and guardian/school authorization |
 | Commerce | Price bounds, commission, selling eligibility, payout/refund rules, bundled tutor allowance |
+| AI monetization experiments | Introductory allowances, paid AI packages, institutional plans, experiment cohorts, budget and profitability thresholds; paid review-service rules before enabling that extension |
 | Sharing | Invite limits/expiry, allowed grants, copying/remixing policy |
 | Privacy and retention | Transcript/source retention, creator analytics access, deletion behavior |
 
@@ -273,9 +325,9 @@ Each phase is a bounded implementation milestone, with separate reviewable PRs w
 | 2. AI generation | Personal generation plus school/teacher syllabus import, objectives, coverage maps, schemes of work, staged lesson/assessment generation, scoped budgets, recoverable jobs | Personal and school drafts survive refresh/retry/failure; school generation maps to supplied sources, respects roles, and preserves teacher edits |
 | 3. Materials | Multiple resources and inline media, video/image/animated GIF/PDF/DOCX support, preview/download, processing and provenance | Authorized learner can use materials; GIF playback respects motion controls; failed extraction remains honest and recoverable; private assets remain private |
 | 4. Tutor and adaptation | Persistent sessions, grounded answers, objective evidence, private plan adjustments | Two learners on the same course have separate sessions/progress; real references; existing grading rules preserved |
-| 5. Publishing and sharing | Immutable versions, school review/approval, class/cohort assignment, storefront/sample, direct links, messages, free enrollments/invites | School review gates and class access enforced; friend opens link/card, authenticates, obtains correct access, and begins their own study; revoked invites are rejected |
+| 5. Publishing and sharing | Immutable versions, creator eligibility, evidence-based labels, scoped teacher collaboration/review, school approval, class/cohort assignment, storefront/sample, direct links, messages, free enrollments/invites | School gates/class access enforced; friend begins private study from a card/link; revoked invites rejected; review labels match actual version evidence |
 | 6. Commerce | Paid offers, entitlements, retry-safe wallet settlement, earnings and refunds | Duplicate requests and simulated interruptions cannot duplicate debit/payout or strand money without recovery |
-| 7. Public launch | Discovery, moderation, analytics, operational controls, rollout documentation | Full create-edit-share-buy-study-update-refund flow passes; monitoring and rollback exercised |
+| 7. Public launch | Discovery, moderation, outcome/retention/conversion/cost analytics, controlled monetization experiments, operational controls, rollout documentation | Full create-edit-share-buy-study-update-refund flow passes; quality and unit-economics gates met; monitoring and rollback exercised |
 
 Phases 2 and 3 follow foundation authoring; phase 4 needs objectives and source processing; phase 5 needs stable content versions; phase 6 needs publication and verified payment recovery. Scope delivery by these gates rather than an unsupported calendar promise. Legacy document conversion, advanced video processing, offline downloads, and multi-creator commercial bundles can follow the core release where infrastructure warrants; PDF, DOCX, video attachments, sharing, and selling remain required core outcomes.
 
@@ -289,6 +341,10 @@ Use existing education integration test patterns and add meaningful tests for ch
 - School generation uses the correct budget; role removal blocks future school access and preserves institution-owned content.
 - Teacher-only answers/rubrics stay out of learner payloads and tutor retrieval; adaptations do not alter official grades or the published base course.
 - School-owned sales credit the configured institutional beneficiary; teachers cannot export school materials into personal sales without authorization.
+- Learner creators can become eligible public sellers through onboarding; teacher status cannot bypass publishing checks.
+- Scoped review invitations do not expose private study data or grant ownership/publishing rights. Review labels require recorded evidence, disclose self-review, and never transfer silently to changed content.
+- Age-appropriate sharing/selling/purchase permissions and guardian/school requirements are enforced server-side, including unresolved eligibility states.
+- Introductory/paid/school AI allowances are consumed and reconciled correctly, distinct from content access; experiments report platform contribution after variable costs rather than gross sales alone.
 - Private drafts, published content, paid content, source files, and tutor sessions enforce the access matrix.
 - Invalid model output, cyclic paths, provider failures, exhausted budgets, retries, and cancellation preserve integrity.
 - Invalid file signatures, hostile document content, processing failures, source deletion, and unauthorized retrieval are handled.
@@ -308,11 +364,15 @@ Use additive migrations with a manifest in each implementation PR listing exact 
 
 Roll out in order: compatible dormant code -> manually applied migrations -> processing/job infrastructure and credentials -> readiness verification -> internal creators -> invited learners -> free sharing -> limited paid offers -> broader discovery. Keep feature flags independently reversible and stop new sales without stranding existing buyers. Disabling AI must leave purchased content and non-AI study accessible.
 
+After the internal readiness pilot, open private generation to both eligible learners and educators under controlled allowances. Pilot public publishing and sales with a smaller onboarded creator group, including learner creators as well as educators. Expand discovery/publishing based on recorded educational quality, corrections/reports, learning outcomes, retention, conversion, and contribution after AI/processing costs. Define the cohort size, quality/economic thresholds, evaluation windows, and rollback criteria in Admin; do not promise profitability or expand solely because learner signup volume is high.
+
 For each code milestone: fetch origin, use an isolated `codex/<task>` worktree from current `origin/main`, preserve unrelated work, run relevant checks, commit and push, review and merge via PR. Deploy only from clean main matching origin/main, through `scripts/preflight-deploy.mjs`. This document itself requires no deployment.
 
 ## 18. Decisions carried into implementation
 
 Working assumptions: personal and school creators coexist; one-time UGX wallet purchases first; one seller per offer; third-party paid course access sold separately; private drafts by default; tutor usage disclosed separately from content ownership; no implicit resale/remix rights; no automatic publication or message delivery.
+
+Creation is available to learners and educators; public publishing, selling, and official approval have separate eligibility/authorization checks. Evidence-based authorship, educator review, and school approval labels distinguish accountability without guaranteeing absence of bias. Core scope includes educator review invitations; paid review services follow their own operational/settlement design. Private generation opens to both audiences after readiness, while public publishing/sales expand through quality and economic gates. Introductory AI allowance, paid AI packages, school plans, and commission are admin-controlled monetization experiments rather than fixed promises.
 
 School and teacher authoring is core release scope, using the shared generation engine rather than a later separate product. Institutional review, curriculum mappings, scoped resource access, school budget attribution, and authorized classroom delivery are included. Recommended school review defaults and delegation remain configurable in platform Admin; school-level choices operate within those constraints.
 
