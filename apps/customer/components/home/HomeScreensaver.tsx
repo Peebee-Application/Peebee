@@ -45,6 +45,8 @@ import {
   type ScreensaverModuleDef,
 } from "../../lib/home-screensaver";
 import { useModules } from "../../lib/modules";
+import { DEFAULT_HOME_TEMPLATES, resolveHomeTemplates, type HomeTemplatesSettings } from "@peebee/shared";
+import { api } from "../../lib/api";
 import "./home-screensaver.css";
 
 // Latin variable file (one woff2 covers every weight). Each face is declared
@@ -211,17 +213,61 @@ export function HomeLaunch({ children, startClosed = false }: { children: React.
   );
 }
 
-/** Compact way back into the slideshow. Hidden when every module is switched off. */
-export function ExplorePeebeeCard() {
+const EXPLORE_LINES: Record<string, string> = {
+  ride: "Your next stop starts here.",
+  eat: "Find your next favourite bite.",
+  buy: "Big finds. Little effort.",
+  work: "Less to do. More living.",
+  learn: "Feed your curiosity.",
+};
+
+function ExploreTypewriter({ lines, timing, onIndexChange }: { lines: string[]; timing: HomeTemplatesSettings; onIndexChange: (index: number) => void }) {
+  const [frame, setFrame] = useState({ index: 0, letters: 0, leaving: false });
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduced(preference.matches);
+    update();
+    preference.addEventListener("change", update);
+    return () => preference.removeEventListener("change", update);
+  }, []);
+  const line = lines[frame.index % lines.length];
+  useEffect(() => { onIndexChange(reduced ? 0 : frame.index); }, [frame.index, onIndexChange, reduced]);
+  useEffect(() => {
+    if (reduced) return;
+    const delay = frame.leaving ? 240 : frame.letters < line.length ? timing.exploreTypeMs : timing.exploreHoldSeconds * 1000;
+    const timer = window.setTimeout(() => setFrame((previous) => previous.leaving
+      ? { index: (previous.index + 1) % lines.length, letters: 0, leaving: false }
+      : previous.letters < line.length
+        ? { ...previous, letters: previous.letters + 1 }
+        : { ...previous, leaving: true }), delay);
+    return () => window.clearTimeout(timer);
+  }, [frame, line, lines.length, reduced, timing.exploreTypeMs, timing.exploreHoldSeconds]);
+  return <span className={`hs-home-explore__sub${!reduced && frame.leaving ? " is-leaving" : ""}`} dir="ltr" aria-hidden>
+    {reduced ? lines[0] : line.slice(0, frame.letters)}
+    {!reduced && <span className="hs-home-explore__cursor" />}
+  </span>;
+}
+
+/** Reopens the slideshow. Hidden when every module is switched off. */
+export function ExplorePeebeeCard({ timing }: { timing?: HomeTemplatesSettings } = {}) {
   const slides = useSlides();
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const [savedTiming, setSavedTiming] = useState(DEFAULT_HOME_TEMPLATES);
+  useEffect(() => {
+    if (timing) return;
+    let active = true;
+    void api.getSettings().then(({ settings }) => { if (active) setSavedTiming(resolveHomeTemplates(settings.homeTemplates)); }).catch(() => {});
+    return () => { active = false; };
+  }, [timing]);
   if (slides.length === 0) return null;
-  const sub = slides.map((slide) => slide.title).join(" · ");
+  const lines = slides.map((slide) => EXPLORE_LINES[slide.id] ?? `Discover ${slide.title.toLowerCase()}.`);
   return (
-    <button type="button" className="hs-home-explore" onClick={openHomeScreensaver} aria-label={`Explore Peebee, ${sub}`}>
-      <span className="hs-home-explore__media" aria-hidden />
+    <button type="button" className="hs-home-explore" onClick={openHomeScreensaver} aria-label="Explore Peebee — open screensaver">
+      <span className="hs-home-explore__media" aria-hidden style={{ backgroundImage: `url("${slides[photoIndex % slides.length].cover}")`, backgroundPosition: slides[photoIndex % slides.length].coverPosition ?? "center" }} />
       <span className="hs-home-explore__copy">
         <span className="hs-home-explore__title">Explore Peebee</span>
-        <span className="hs-home-explore__sub">{sub}</span>
+        <ExploreTypewriter key={slides.map((slide) => slide.id).join("|")} lines={lines} timing={timing ?? savedTiming} onIndexChange={setPhotoIndex} />
       </span>
       <ChevronRight size={20} strokeWidth={2.2} aria-hidden />
     </button>

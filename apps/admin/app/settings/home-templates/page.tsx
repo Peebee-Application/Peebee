@@ -97,6 +97,10 @@ export default function HomeTemplatesPage() {
           </section>
           <section className="home-card space-y-4">
             <h2 className="font-bold">Timing and frequency</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-semibold">Explore typing speed (milliseconds per letter)<input required type="number" min={20} max={300} step={1} className={field} value={config.exploreTypeMs} onChange={(e) => change({ exploreTypeMs: Number(e.target.value) })} /></label>
+              <label className="text-sm font-semibold">Explore completed text hold (seconds)<input required type="number" min={2} max={30} step={1} className={field} value={config.exploreHoldSeconds} onChange={(e) => change({ exploreHoldSeconds: Number(e.target.value) })} /></label>
+            </div>
             <p className="text-sm text-ink-500">A new random interval is drawn between these values for each change. Use the same minimum and maximum for a fixed interval. Touching, focusing, scrolling, opening a sheet or leaving the app postpones changes.</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold">Minimum interval (seconds)<input required type="number" min={HOME_TEMPLATE_LIMITS.minSeconds} max={HOME_TEMPLATE_LIMITS.maxSeconds} step={1} className={field} value={config.minIntervalSeconds} onChange={(e) => change({ minIntervalSeconds: Number(e.target.value) })} /></label>

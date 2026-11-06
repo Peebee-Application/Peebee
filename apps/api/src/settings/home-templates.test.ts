@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { createClient, type InArgs } from "@libsql/client/node";
 import { Hono } from "hono";
-import { DEFAULT_HOME_TEMPLATES, type HomeTemplatesSettings } from "@peebee/shared";
+import { DEFAULT_HOME_TEMPLATES, resolveHomeTemplates, type HomeTemplatesSettings } from "@peebee/shared";
 import { homeTemplatesSchema, getHomeTemplatesSettings } from "./home-templates.js";
 import { settingsRoutes } from "./routes.js";
 import { setD1Binding, type D1Database } from "../db/client.js";
@@ -21,7 +21,19 @@ test("template schema rejects unknown IDs, duplicate entries, reversed intervals
     { preferredShortcuts: ["boda", "boda"] }, { eligibleShortcuts: ["parcel"], preferredShortcuts: ["boda"] },
     { minIntervalSeconds: 120, maxIntervalSeconds: 30 }, { minIntervalSeconds: 0 },
     { preferredWeight: 0 }, { shortcutCount: 7 }, { interactionPauseSeconds: 0 },
+    { exploreTypeMs: 0 }, { exploreTypeMs: 301 }, { exploreHoldSeconds: 1 }, { exploreHoldSeconds: 31 },
   ]) assert.equal(homeTemplatesSchema.safeParse({ ...DEFAULT_HOME_TEMPLATES, ...patch }).success, false, JSON.stringify(patch));
+});
+
+test("older home settings keep their selections and acquire Explore timing defaults", () => {
+  const legacy: Record<string, unknown> = { ...DEFAULT_HOME_TEMPLATES, templates: ["07"], minIntervalSeconds: 240, maxIntervalSeconds: 240 };
+  delete legacy.exploreTypeMs;
+  delete legacy.exploreHoldSeconds;
+  const expected = { ...legacy, exploreTypeMs: 65, exploreHoldSeconds: 5 };
+  assert.deepEqual(resolveHomeTemplates(legacy), expected);
+  assert.deepEqual(homeTemplatesSchema.parse(legacy), expected);
+  const custom = { ...expected, exploreTypeMs: 90, exploreHoldSeconds: 8 };
+  assert.deepEqual(resolveHomeTemplates(homeTemplatesSchema.parse(custom)), custom);
 });
 
 test("settings persist in existing settings table, require permission, reach customers and record before/after", async () => {

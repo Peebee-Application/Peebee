@@ -59,7 +59,7 @@ function DynamicHome({ config, settings, children }: { config: HomeTemplatesSett
     <Greeting compact />
     <HomeArtwork key={`${storageKey}:${availableKey}:${config.shortcutCount}:${config.templates.join("|")}`} config={config} available={available} storageKey={storageKey} blocked={blocked} />
     {children}
-    <ExplorePeebeeCard />
+    <ExplorePeebeeCard timing={config} />
   </div></HomeLaunch>;
 }
 
