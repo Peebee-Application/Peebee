@@ -1,7 +1,7 @@
 "use client";
 
 import type { RiderApplicant, RiderApplicantProfile } from "@peebee/shared";
-import { BadgeCheck, MessageCircle, Phone, Star, ThumbsUp, User } from "lucide-react";
+import { BadgeCheck, MapPin, MessageCircle, Phone, Star, ThumbsUp, User } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../lib/api";
@@ -92,6 +92,12 @@ export function RiderProfileModal({ orderId, applicant, available = true, busy =
           <h3 className="break-words text-2xl font-extrabold text-ink">{applicant.riderName}</h3>
           {profile?.verified && <p className="flex items-center gap-1 text-sm font-semibold text-green"><BadgeCheck className="h-4 w-4" aria-hidden />{t("rider_verified")}</p>}
           {(profile?.vehicleInfo || profile?.area) && <p className="break-words text-sm text-ink-500">{[profile?.vehicleInfo, profile?.area].filter(Boolean).join(" · ")}</p>}
+          {profile?.stage && (
+            <p className="flex max-w-full items-center gap-1.5 rounded-full bg-[rgb(var(--surface-muted))] px-3 py-1 text-sm font-semibold text-ink">
+              <MapPin className="h-4 w-4 shrink-0 text-gold" aria-hidden />
+              <span className="truncate">{t("rider_stage")}: {profile.stage.name}{profile.stage.area ? ` · ${profile.stage.area}` : ""}</span>
+            </p>
+          )}
         </div>
         <dl className="grid grid-cols-3 gap-2 text-center">
           {([

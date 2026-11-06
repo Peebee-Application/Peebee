@@ -2071,6 +2071,8 @@ export type RiderApplicantProfile = {
   verified: boolean;
   vehicleInfo: string | null;
   area: string | null;
+  /** The boda stage they belong to; null when they are not in one. */
+  stage: { name: string; area: string | null; role: string } | null;
   /** A few words the rider wrote about themselves; null until they do. */
   bio: string | null;
   /** Kilometres covered across every finished job. */

@@ -308,6 +308,7 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   rider_total_rides: { en: "Rides done", lg: "Entambula ezikoleddwa" },
   rider_distance: { en: "Km covered", lg: "Kiromita ezitambuddwa" },
   rider_rating: { en: "Rating", lg: "Omutindo" },
+  rider_stage: { en: "Stage", lg: "Sitegi" },
   rider_days_short: { en: "Days here", lg: "Ennaku wano" },
   rider_about: { en: "About", lg: "Ebimukwatako" },
   rider_call: { en: "Call", lg: "Kuba essimu" },

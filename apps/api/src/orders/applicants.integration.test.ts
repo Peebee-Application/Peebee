@@ -114,6 +114,11 @@ test("applicant profiles and assignment lifecycle", async (t) => {
       const detailed = await (await request("b/applicants/rider/profile")).json();
       assert.equal(detailed.totalKm, 7, "3.6 + 3.6 km, rounded");
       assert.equal(detailed.bio, "Ten years on a boda. Careful and on time.");
+      assert.equal(detailed.stage, null, "not in a stage yet");
+      await client.execute("INSERT INTO stages (id, name, area) VALUES ('stg1', 'Kisementi Stage', 'Kololo')");
+      await client.execute("INSERT INTO stage_members (id, stage_id, rider_id, role) VALUES ('sm1', 'stg1', 'rider', 'chairman')");
+      const staged = await (await request("b/applicants/rider/profile")).json();
+      assert.deepEqual(staged.stage, { name: "Kisementi Stage", area: "Kololo", role: "chairman" });
       assert.equal(profile.joinedAt, "2024-01-01 00:00:00");
       assert.equal(profile.reviews.length, 20);
       assert.equal(profile.nextOffset, 20);

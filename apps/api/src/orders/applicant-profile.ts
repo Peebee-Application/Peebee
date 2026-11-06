@@ -1,11 +1,12 @@
 import type { RiderApplicantProfile } from "@peebee/shared";
 import { db } from "../db/client.js";
-import { hasColumn } from "../lib/schema.js";
+import { hasColumn, hasTable } from "../lib/schema.js";
 
 export async function getApplicantProfile(riderId: string, environment: string, offset: number): Promise<RiderApplicantProfile | null> {
   // The bio column arrives with a hand-applied migration; until then the profile just has none.
   const hasBio = await hasColumn("riders", "bio");
-  const [rider, totals, reviews, rated] = await Promise.all([
+  const hasStages = (await hasTable("stage_members")) && (await hasTable("stages"));
+  const [rider, totals, reviews, rated, stage] = await Promise.all([
     db.execute({
       sql: `SELECT u.name, r.created_at, r.verified, r.vehicle_info, r.area${hasBio ? ", r.bio" : ""}
             FROM riders r JOIN users u ON u.id = r.user_id WHERE r.user_id = ?`,
@@ -33,6 +34,15 @@ export async function getApplicantProfile(riderId: string, environment: string, 
             FROM order_ratings r JOIN orders o ON o.id = r.order_id WHERE r.rider_id = ? AND o.environment = ?`,
       args: [riderId, environment],
     }),
+    // The boda stage they belong to (their longest-standing active membership).
+    hasStages
+      ? db.execute({
+          sql: `SELECT s.name, s.area, m.role FROM stage_members m JOIN stages s ON s.id = m.stage_id
+                WHERE m.rider_id = ? AND m.status = 'active' AND s.status = 'active'
+                ORDER BY m.joined_at ASC LIMIT 1`,
+          args: [riderId],
+        })
+      : Promise.resolve({ rows: [] as Record<string, unknown>[] }),
   ]);
   const person = rider.rows[0];
   if (!person) return null;
@@ -40,6 +50,9 @@ export async function getApplicantProfile(riderId: string, environment: string, 
   return {
     riderId, riderName: String(person.name), joinedAt: String(person.created_at),
     verified: Boolean(person.verified), vehicleInfo: person.vehicle_info as string | null, area: person.area as string | null,
+    stage: stage.rows[0]
+      ? { name: String(stage.rows[0].name), area: (stage.rows[0].area as string | null) ?? null, role: String(stage.rows[0].role) }
+      : null,
     bio: hasBio && typeof person.bio === "string" && person.bio.trim() ? person.bio.trim() : null,
     // The route distance of every finished job, added up.
     totalKm: Math.round(Number(counts.km ?? 0)),
