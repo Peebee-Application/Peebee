@@ -10,8 +10,8 @@ import { Switch } from "../../../components/ui/Switch";
 import { api, errorMessage } from "../../../lib/api";
 
 const WORLDS: Array<{ id: ModuleWorld; label: string; blurb: string }> = [
-  { id: "live", label: "Live", blurb: "What real customers, riders and businesses get. Switching a module off stops new orders; anything already in progress finishes." },
-  { id: "practice", label: "Practice", blurb: "The simulated Entebbe world people use to learn the apps. A module can be on here while it is still off in Live: try it, then switch Live on." },
+  { id: "live", label: "Live", blurb: "What real people get. Off stops new orders; work in progress finishes." },
+  { id: "practice", label: "Practice", blurb: "The practice world. Try a module here before switching Live on." },
 ];
 
 export default function ServicesPage() {
@@ -85,7 +85,7 @@ export default function ServicesPage() {
   const current = WORLDS.find((w) => w.id === shown)!;
 
   return (
-    <SettingsPageShell title="Services" description="Switch a whole service on or off, or just one thing inside it. Off removes it from every app and from the website (peebee.online), or greys it out in the apps if you choose that below. The code stays ready for when it is back on." loading={loading}>
+    <SettingsPageShell title="Services" description="Switch a whole service, or one thing inside it, on or off." loading={loading}>
       {flags && available && (
         <form onSubmit={onSubmit} className="space-y-5">
           <div className="home-card flex items-start gap-3">
@@ -93,16 +93,13 @@ export default function ServicesPage() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-ink">Keep Live and Practice the same</p>
               <p className="text-xs text-ink-500">
-                {sync
-                  ? "On: a module is on only when it is on in both. Switch something off in either and it goes off in both; one list below controls both."
-                  : "Off: Live and Practice each have their own switches, so you can try a module in Practice before switching it on in Live."}
+                {sync ? "One list controls Live and Practice together." : "Live and Practice have their own switches."}
               </p>
             </div>
           </div>
           <div className="home-card space-y-3">
             <div>
               <p className="text-sm font-bold text-ink">When a module is off</p>
-              <p className="text-xs text-ink-500">What people see on every screen that refers to it, in every app. Opening one of its own pages (a saved or shared link) always shows “Currently Offline”. The website always hides it.</p>
             </div>
             <div role="radiogroup" aria-label="When a module is off" className="grid grid-cols-2 gap-1 rounded-full bg-[rgb(var(--surface-muted))] p-1 sm:inline-grid sm:min-w-[22rem]">
               {MODULE_OFFLINE_DISPLAYS.map((d) => (
@@ -146,7 +143,7 @@ type NoticeProps = { notices: ModuleNotices; onNotice: (key: string, notice: Mod
 function ClusterCard({ cluster, world, flags, available, onToggle, notices, onNotice }: {
   cluster: (typeof MODULE_CLUSTERS)[number]; world: ModuleWorld; flags: ModuleFlags; available: Available; onToggle: Toggle;
 } & NoticeProps) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const root = MODULES.find((m) => m.key === cluster.id);
   const inside = MODULES.filter((m) => m.cluster === cluster.id && m.key !== cluster.id);
   const on = inside.filter((m) => available[m.key]![world]).length;
@@ -159,17 +156,17 @@ function ClusterCard({ cluster, world, flags, available, onToggle, notices, onNo
           <Switch aria-label={`${cluster.label} in ${world}`} checked={rootOn} onChange={(e) => onToggle(root.key, world, e.target.checked)} className="mt-1 shrink-0" />
         ) : null}
         <div className="min-w-0 flex-1">
-          <h2 className="text-base font-bold text-ink">
+          <h2 className="text-lg font-extrabold text-ink">
             {cluster.label}{" "}
-            <span className="text-xs font-normal text-ink-500">
+            <span className="text-sm font-normal text-ink-500">
               {world === "practice" && liveOnly ? "Not part of Practice" : !rootOn ? "Off — everything inside is offline" : `${on} of ${inside.length} on`}
             </span>
           </h2>
-          <p className="text-xs text-ink-500">{cluster.description}</p>
+          {open && <p className="text-sm text-ink-500">{cluster.description}</p>}
         </div>
         {inside.length > 0 && (
-          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} what is inside ${cluster.label}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-500">
-            <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
+          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} what is inside ${cluster.label}`} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-500">
+            <ChevronDown className={`h-6 w-6 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
           </button>
         )}
       </header>
@@ -195,7 +192,7 @@ function ModuleRow({ def, depth, world, flags, available, onToggle, notices, onN
       <div className="flex items-start gap-3 rounded-xl px-2 py-2" style={{ marginLeft: depth * 20 }}>
         <Switch aria-label={`${def.label} in ${world}`} checked={own} onChange={(e) => onToggle(def.key, world, e.target.checked)} className="mt-0.5 shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-ink">
+          <p className="text-base font-bold text-ink">
             {def.label}{" "}
             <span className="font-normal text-ink-500">— {own ? "on" : "off"}</span>
           </p>

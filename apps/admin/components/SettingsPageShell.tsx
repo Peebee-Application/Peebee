@@ -13,13 +13,13 @@ export function PageHeader({ title, description, backHref = "/settings", actions
   const hit = locate(pathname);
   return (
     <div className="flex items-start gap-2">
-      <Link href={hit?.child ? hit.item.href : backHref} aria-label="Back" className="-ml-1.5 mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink transition active:opacity-60 lg:hidden">
-        <ChevronLeft className="h-5 w-5" strokeWidth={2} aria-hidden />
+      <Link href={hit?.child ? hit.item.href : backHref} aria-label="Back" className="-ml-1.5 mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink transition active:opacity-60 lg:hidden">
+        <ChevronLeft className="h-6 w-6" strokeWidth={2} aria-hidden />
       </Link>
       <div className="min-w-0 flex-1">
         {hit && <p className="admin-eyebrow hidden lg:block">{hit.group.label}</p>}
         <h1 className="admin-title">{title}</h1>
-        {description && <p className="mt-1 max-w-2xl text-sm text-ink-500">{description}</p>}
+        {description && <p className="mt-1 max-w-2xl text-base text-ink-500">{description}</p>}
       </div>
       {actions}
     </div>
@@ -72,13 +72,13 @@ export function SettingsSaveBar({
   }, [saved, error]);
   return (
     <>
-      {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
+      {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-base text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       <div className="admin-savebar sticky bottom-[calc(96px+env(safe-area-inset-bottom))] z-20 lg:bottom-4">
         <span className="hidden text-sm text-ink-500 sm:block" role="status">{saved ? "All changes saved." : "Changes apply when you save."}</span>
         <button
           type="submit"
           disabled={busy}
-          className="admin-btn-gold min-h-11 w-full px-6 text-sm font-bold sm:w-auto"
+          className="admin-btn-gold min-h-14 w-full px-6 text-base font-extrabold sm:w-auto"
         >
           {busy ? "Saving…" : "Save settings"}
         </button>
