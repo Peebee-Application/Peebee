@@ -3,6 +3,7 @@
 Date: 2026-11-06
 Status: implementation proposal; no runtime changes in this document-only change.
 Repository baseline inspected: origin/main at e1b2eaf4.
+Merchant Elite integration review: 2026-11-06, against the same baseline; source and existing test inspection, not live production verification.
 
 ## 1. Intended outcome
 
@@ -15,6 +16,8 @@ Product direction: give private creation to both learners and educators, while a
 The complete journey is: goal -> objectives -> editable roadmap -> lessons and materials -> private study or publication -> message/link sharing -> free enrollment or purchase -> individual tutoring and progress -> creator earnings.
 
 This is a native extension of Peebee, using its existing accounts, customer app, Learn Studio, education API, D1, R2, and wallet systems. Base44 is product inspiration, not a required dependency; its exact template internals have not been verified.
+
+Merchant Elite's existing LMS is a required part of this platform. Individuals, school/teacher Studio, and Merchant Elite author and distribute through one learning core. Merchant Elite remains the premium business-management/storefront channel; learner generation does not unlock its merchant capabilities or create a second LMS.
 
 ## 2. Existing foundations and integration decisions
 
@@ -29,9 +32,38 @@ This is a native extension of Peebee, using its existing accounts, customer app,
 | `apps/api/src/education/community.ts` | Extend existing reviews, questions, and collaboration where applicable |
 | `apps/api/src/ai/features.ts` | Register Learn AI features with the existing feature switches, key pools, and usage visibility |
 | `apps/api/src/storage/r2.ts` | Private originals, protected lesson materials, and generated derivatives |
+| `apps/merchant/app/store/page.tsx`, LMS & Learn Sync | Existing Elite authoring, store-course listing, enrollment management, and certificate UI; add AI-assisted entry points and shared authoring access |
+| `apps/api/src/marketplace/digital-lms.ts`, `lms-enroll.ts`, `lms-rules.ts` | Existing shared Learn course records, store linking, real learner enrollment, listing, drip, and certificate integration |
+| `apps/api/src/marketplace/digital-sales.ts`, `digital-delivery.ts` | Store digital-product offers, purchase/fulfillment/refund path, course enrollment, and protected delivery |
+| `apps/api/src/marketplace/plans.ts`, `apps/api/src/lib/guards.ts` | Effective Elite entitlement, selected merchant context, membership and `manage_digital` permissions |
+| `apps/api/src/lib/option-registry.ts`, Admin commerce options/marketplace settings | Existing LMS listing, identity, payment, protection, certificate, release, and course-limit policy; extend rather than create competing switches |
 | Customer chat and education chat | Verify delivery, recipient authorization, and message persistence before adding course cards; simulated tutor UI is not a production messaging foundation |
 
 Keep shared contracts in `packages/shared`. Do not replace the stack with a separate PostgreSQL/Prisma application. Verify provider and processing-runtime capabilities during implementation before selecting extraction or media libraries.
+
+### Merchant Elite: verified existing connections and required extensions
+
+The source already implements these connections:
+
+- Merchant LMS course creation writes to Learn's `edu_courses`, `edu_modules`, and `edu_lessons`; it is not an independent course database. A store can link through `stores.learn_school_id` and `edu_courses.store_id` to a store academy/school and class.
+- Store course offers use `store_digital_products.linked_course_id`, with matching course products created/synchronized from Learn records. Public store course data reads those same Learn courses.
+- `lms_learn_sync_mode` supports `two_way_auto`, `publish_to_learn_manual`, and `store_only`. `catalog_listed` controls Learn catalog discovery independently from store distribution. These names describe existing behavior, not a guarantee of full synchronization of every future field.
+- Course purchases call the shared enrollment helper to create/use `edu_enrollments` for the buyer and store-side `store_lms_enrollments`. Learners open the customer app's Learn course player; merchant enrollment views derive progress from Learn records. Account resolution follows `lms_enrollment_identity`.
+- `lms_payment_path` chooses Learn commission/school-owner wallet payment or store checkout/digital-sales commission and merchant balance. Refund and fulfillment code already handles those commercial records; extend and test it rather than invent a disconnected payout counter.
+- Elite management gates, selected-business membership, and `manage_digital` authorization exist. Certificate, lesson protection/allowed hosts, and drip behavior are already admin-configured.
+
+Required work before the proposed AI platform can be called integrated:
+
+1. Add Create with AI and Assist with AI to Merchant Elite LMS using the same jobs, schemas, resources, versioning, tutor, and review services as Learn Studio. Generation inherits store/school ownership, selected merchant, permissions, and the configured business AI budget. Merchant status alone never earns educator-review or school-approval labels.
+2. Expand shared contracts and mutation services. The inspected merchant lesson parser/write path represents title, type, duration, summary, and URL; it does not expose the proposed full lesson body, rich blocks, multiple attachments, assessments, objectives, or endorsements. Build shared authoring services or open the common editor with an authorized return link, and make merchant saves round-trip rich content without dropping fields. Do not maintain incompatible duplicate lesson formats.
+3. Guard automatic linking before introducing personal generation. The inspected `linkLearnCourses()` selects unlinked courses from schools owned by the user, so an expanded creator model cannot rely on that routine to infer intentional store distribution. Require explicit store ownership/association and distribution eligibility; never attach private personal drafts or school-owned work to a store merely because the same account can access both. Existing intentional store links remain compatible. Store-channel linking is not a transfer of content ownership.
+4. Synchronize publication and offers by stable IDs and versions. Define source-of-truth fields and conflict handling for title, price, status, listing, samples, published version, reviews, and resources. Background sync is retry-safe; it must not publish drafts, restore withdrawn listings, or revive a stale store offer. Legacy published courses get an explicit compatibility/backfill strategy.
+5. Resolve checkout routing across both channels. An offer records its store/school/creator beneficiary, commission basis, version, price, and original payment rail. Store and Learn views disclose the applicable offer. One buyer gets coherent course access across channels; retries or moving between store and Learn must not duplicate charges/enrollments. Different prices require explicit channel offers rather than accidental stale copies. A refund reverses the original settlement and removes only the access grant it funded, preserving access from another valid purchase or school enrollment.
+6. Preserve current plan boundaries. Personal learning generation does not confer Elite storefront selling, merchant analytics, staff operations, or business publishing. New merchant management/sales continue to check effective Elite entitlement plus admin switches and role permissions. Separately govern AI allowance; Elite does not imply unlimited AI. On expiry, preserve existing learner access and purchase servicing/refunds while blocking new restricted business activity according to policy. Define any renewal, limited maintenance, or sunset behavior in Admin without stranding buyers.
+7. Keep access, media, curriculum evidence, review labels, progress, and certificate decisions consistent in the customer Learn player, Learn Studio, Merchant Elite, storefront, and shared course cards. Teaching evidence comes from the shared learning core; store marketing cannot independently mark mastery or grant an official endorsement.
+8. Decide how merchant offers represent learning paths. Existing merchant digital products link a course ID, not a path. Add an explicit compatible course/path offer mapping and entitlement flow before selling paths through stores; do not squeeze a path ID into `linked_course_id`.
+
+Integration evidence inspected: `digital-lms.ts`, `digital-input.ts`, `lms-enroll.ts`, `lms-rules.ts`, `digital-sales.ts`, `digital-delivery.ts`, `plans.ts`, `option-registry.ts`, the merchant/storefront UI, shared API client, migrations `0133_merchant_tier3_digital_products_lms.sql` and `0139_lms_hardening.sql`, and existing marketplace/security LMS test cases. Database migration files and tests in source do not establish that live production is configured or that every runtime flow currently succeeds.
 
 ## 3. Product objects and ownership
 
@@ -111,6 +143,10 @@ List drafts and publications, processing jobs, shared invitations, learners, sal
 A learner can generate a private path and explicitly invite a teacher to suggest improvements, collaborate on selected content, or review a specified draft version. Invitations identify the requested role and access scope. Reviewer access includes only the material needed for that task, not private tutoring conversations or diagnostic history by default. Accepting a review invitation does not transfer ownership or grant publishing/selling permission.
 
 The teacher can return comments and proposed corrections; the creator accepts edits into a new draft and requests review of the resulting version. Preserve attribution, review decisions, and an audit trail. Teachers may also sell their own courses and offer tutoring through compatible Peebee offerings. A paid review service is a planned extension after the basic invitation/review flow: disclose the reviewer, competence/verification status, fee, scope, deliverable, and what the review does and does not establish. Payment purchases review work, never a guaranteed positive endorsement. Service-specific refund, delivery, and settlement rules must be designed and exposed in Admin before paid reviews are enabled; do not treat them as a content purchase automatically.
+
+### Merchant Elite creator journey
+
+An authorized Elite merchant opens Store -> LMS & Learn Sync -> Create with AI, chooses the selected business and permitted teaching context, and generates a private draft. The shared editor supports objectives, course/path structure, videos, images, GIFs, documents, assessments, and teacher review. After any required review, the merchant explicitly publishes to the store and, subject to `lms_learn_sync_mode`, lists in Learn. A customer buys the appropriate course/path offer from the storefront or Learn, receives canonical Learn access, and studies with private progress and tutor sessions. Merchant sales/enrollment reporting and shared Learn progress refer to the same underlying purchase/content identities. Neither publishing nor paid AI generation automatically creates an educator endorsement.
 
 ## 5. AI objectives, generation, and tutoring
 
@@ -260,6 +296,7 @@ Names below are proposed logical records, not migration filenames or a commitmen
 | Learning evidence and objective progress | Assessment evidence, misconceptions, revision needs |
 | Invitations and share grants | Scoped access offers, acceptance, expiry, revocation |
 | Offers, purchases, settlements, entitlements | Access and money linked through auditable operations |
+| Store associations and channel-offer mappings | Extend existing course/store/product/fulfillment links with deliberate distribution, content versions, course/path target type, beneficiary and immutable settlement provenance |
 | AI usage reservations and events | Budgets, model usage, failed calls, reconciliation |
 | AI allowances, packages, and experiment attribution | Introductory/paid/institutional allowance source, consumption/expiry under policy, cost and cohort attribution distinct from content entitlements |
 | Reports and moderation decisions | Review state, actions, reasons, audit trail |
@@ -277,6 +314,7 @@ Proposed capabilities, fitted to existing route conventions during implementatio
 - Manage scoped school membership/resource permissions and class/cohort assignments within platform policy.
 - Invite scoped educator collaboration/review, record version-specific findings and endorsements, inspect label evidence, revoke endorsements, and enforce creator/seller/age eligibility.
 - Inspect AI allowance and package offers/consumption, attribute school usage and experimental outcomes, and keep AI purchases separate from course entitlements.
+- Adapt Merchant Elite LMS/store APIs to shared versioned authoring and offer/entitlement services, including explicit association, sync/reconciliation status, selected-business permissions, and compatible legacy payloads.
 - Authorize upload, complete upload, list/update resources, request processing, authorized preview/download.
 - Publish new version, inspect storefront, archive, list creator publications.
 - Create/accept/revoke invitations; resolve canonical links and shared-message cards.
@@ -290,11 +328,14 @@ Every operation validates the authenticated actor, ownership/role, current entit
 
 All behavioral settings live in `settings`, are validated in settings routes, appear on an Admin page, and create activity-log records. Product choices below are recommended defaults that Admin can change, not hardcoded constants.
 
+Extend the existing merchant LMS option registry and Marketplace/Commerce Options pages where they already own a policy. Do not add a Learn toggle that contradicts `lms_learn_sync_mode`, `lms_payment_path`, `lms_content_protection`, `lms_certificates`, `lms_drip_default`, or effective Elite entitlement. Document precedence: platform availability/safety and commercial policy -> effective business plan -> scoped role -> authorized creator/course choices -> learner preferences. Keep store listing, Learn discovery, purchased access, and AI allowance distinct.
+
 | Area | Controls |
 | --- | --- |
 | Availability | Personal creation, AI generation, tutoring, uploads, sharing, discovery, sales |
 | AI | Allowed provider/model, templates/teaching modes, budgets, quotas, context and output limits, concurrency, retries |
 | Schools and teachers | School AI eligibility/budgets, per-teacher allowance policy, allowed authoring modes, curriculum-source rules, review requirements, delegation limits, institutional sharing/selling permissions |
+| Merchant Elite LMS | Existing plan/management/sales gates, intentional store association, sync/listing and channel-price policy, business AI allowance, original payment/beneficiary mapping, expiry servicing and path-offer eligibility |
 | Learning | Mastery criteria, revision intervals, diagnostic behavior, progression rules |
 | Materials | Allowed types, sizes, counts, duration limits, OCR/transcription, embed hosts, downloads |
 | Publishing | Creator eligibility, review requirements, permitted visibility, samples, content limits |
@@ -320,13 +361,13 @@ Each phase is a bounded implementation milestone, with separate reviewable PRs w
 
 | Phase | Deliverable | Exit evidence |
 | --- | --- | --- |
-| 0. Foundation | Ownership audit, school/teacher role and review matrix, schema/API contracts, admin controls, job/runtime design, payment recovery design | Existing school workflows remain compatible; personal and school ownership, budget attribution, and policy assumptions documented |
+| 0. Foundation | Ownership and Merchant Elite integration audit, role/review/plan matrix, schema/API contracts, admin controls, job/runtime and payment recovery design | School and Elite workflows compatible; private drafts cannot auto-link to stores; ownership, budget attribution, channel offer and settlement policy documented |
 | 1. Personal authoring | Private manual courses/paths, creator identity, learner dashboard, outline editor, autosave | User creates and resumes a course without creating a school; another user cannot access its draft |
-| 2. AI generation | Personal generation plus school/teacher syllabus import, objectives, coverage maps, schemes of work, staged lesson/assessment generation, scoped budgets, recoverable jobs | Personal and school drafts survive refresh/retry/failure; school generation maps to supplied sources, respects roles, and preserves teacher edits |
+| 2. AI generation | Shared personal, school/teacher, and Merchant Elite entry points; syllabus import, objectives, coverage maps, schemes of work, staged lessons/assessments, scoped budgets, recoverable jobs | Drafts survive refresh/retry/failure in every channel; school generation maps to sources; Elite roles/plan checked; common editor preserves rich content |
 | 3. Materials | Multiple resources and inline media, video/image/animated GIF/PDF/DOCX support, preview/download, processing and provenance | Authorized learner can use materials; GIF playback respects motion controls; failed extraction remains honest and recoverable; private assets remain private |
 | 4. Tutor and adaptation | Persistent sessions, grounded answers, objective evidence, private plan adjustments | Two learners on the same course have separate sessions/progress; real references; existing grading rules preserved |
 | 5. Publishing and sharing | Immutable versions, creator eligibility, evidence-based labels, scoped teacher collaboration/review, school approval, class/cohort assignment, storefront/sample, direct links, messages, free enrollments/invites | School gates/class access enforced; friend begins private study from a card/link; revoked invites rejected; review labels match actual version evidence |
-| 6. Commerce | Paid offers, entitlements, retry-safe wallet settlement, earnings and refunds | Duplicate requests and simulated interruptions cannot duplicate debit/payout or strand money without recovery |
+| 6. Commerce | Shared Learn/store course and path offers, entitlements, retry-safe settlement across existing LMS payment modes, earnings/refunds | Cross-channel retries cannot duplicate debit/payout/enrollment; refunds reverse original rail/beneficiary; Elite expiry preserves buyer access and servicing |
 | 7. Public launch | Discovery, moderation, outcome/retention/conversion/cost analytics, controlled monetization experiments, operational controls, rollout documentation | Full create-edit-share-buy-study-update-refund flow passes; quality and unit-economics gates met; monitoring and rollback exercised |
 
 Phases 2 and 3 follow foundation authoring; phase 4 needs objectives and source processing; phase 5 needs stable content versions; phase 6 needs publication and verified payment recovery. Scope delivery by these gates rather than an unsupported calendar promise. Legacy document conversion, advanced video processing, offline downloads, and multi-creator commercial bundles can follow the core release where infrastructure warrants; PDF, DOCX, video attachments, sharing, and selling remain required core outcomes.
@@ -342,6 +383,11 @@ Use existing education integration test patterns and add meaningful tests for ch
 - Teacher-only answers/rubrics stay out of learner payloads and tutor retrieval; adaptations do not alter official grades or the published base course.
 - School-owned sales credit the configured institutional beneficiary; teachers cannot export school materials into personal sales without authorization.
 - Learner creators can become eligible public sellers through onboarding; teacher status cannot bypass publishing checks.
+- Merchant Elite AI creation and editing use canonical Learn IDs/versions; rich lessons, images/GIFs, files, objective maps, assessments, and endorsements survive round trips through both UIs.
+- Automatic/manual/store-only listing modes remain enforced; sync never attaches private drafts, crosses business ownership, publishes a draft, or revives a withdrawn offer. Concurrent edits yield an explicit conflict rather than silent data loss.
+- Store and Learn checkout produce coherent access/progress for the same learner/course; repeat cross-channel purchase attempts cannot cause unintended double charges. Refunds preserve unrelated valid grants and reverse the recorded original payment path/beneficiary.
+- Effective Elite expiry, selected `X-Merchant-Id`, `manage_digital`, business AI budgets, and admin feature switches are enforced; existing buyers retain permitted access/refund servicing. Course/path offer typing cannot confuse a path ID with a course ID.
+- Existing digital downloads/license products, student identity modes, module drip, completion, certificate modes, catalog visibility, and store-only offers retain their intended behavior.
 - Scoped review invitations do not expose private study data or grant ownership/publishing rights. Review labels require recorded evidence, disclose self-review, and never transfer silently to changed content.
 - Age-appropriate sharing/selling/purchase permissions and guardian/school requirements are enforced server-side, including unresolved eligibility states.
 - Introductory/paid/school AI allowances are consumed and reconciled correctly, distinct from content access; experiments report platform contribution after variable costs rather than gross sales alone.
@@ -353,6 +399,8 @@ Use existing education integration test patterns and add meaningful tests for ch
 - Purchase idempotency, concurrent checkout, interrupted debit/payout, refunds, and sandbox/live separation reconcile correctly.
 - Tutor citations refer to actual accessible sources, and protected assessment answers remain protected.
 - Mobile/desktop browser verification covers manual creation, AI creation, editing, upload, publication, sharing, checkout, tutoring, and creator earnings.
+
+Extend the existing `marketplace/digital-lms.test.ts`, `security/lms.test.ts`, `security/digital.test.ts`, merchant hardening tests, and education integration tests with the cross-channel cases above. Existing source tests were inspected for this plan; they were not executed as part of this documentation change. Runtime acceptance must include a merchant/storefront -> checkout -> Learn player -> progress/reporting -> refund exercise under each configured payment mode.
 
 Record a fixed educational evaluation set for objectives and grounded tutoring with explicit rubrics, including insufficient-source cases. Automated structural tests and educational review serve different purposes; both are required before broad AI rollout.
 
@@ -378,6 +426,10 @@ School and teacher authoring is core release scope, using the shared generation 
 
 Foundation work must resolve: exact personal ownership schema, existing messaging capabilities, durable job infrastructure, document/video processing providers, payment recovery primitives, and how creator eligibility/refund/update policies appear in Admin. These are bounded implementation decisions, not reasons to omit the create/share/sell journey.
 
+Merchant Elite integration is a core dependency, not a later synchronization add-on. Resolve shared authoring contracts, safe store association, course/path offer targets, channel prices and settlement provenance, plan expiry, and legacy migration behavior before enabling the new generator for merchant distribution. The existing shared Learn course tables remain the starting point; extend them and their services without creating parallel course/progress systems.
+
 The release is complete when a user can generate a bookkeeping course from a goal, edit objectives and lessons, add videos, images, animated GIFs, and supporting PDF/Word material, publish a version, send it to a friend by message or link, sell access to another learner, have each learner study privately with a grounded tutor, and see reconciled earnings while retaining the existing school-based Learn experience.
 
 It must also support a school teacher generating a source-mapped course from an approved syllabus, editing and enriching it, obtaining any required school approval, assigning it to the correct class, and optionally publishing/selling under institutional authorization, with school ownership, budgets, private assessment material, and learner access preserved throughout.
+
+It must also support an authorized Merchant Elite business generating and editing that same canonical learning content, publishing through its store and permitted Learn listing, selling course/path access, and seeing consistent learner progress, settlement, and refunds. Private learner/school drafts remain isolated from store association; business plan changes do not strand existing buyers.
