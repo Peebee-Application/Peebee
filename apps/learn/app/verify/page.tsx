@@ -91,7 +91,7 @@ export default function VerifyPage() {
 
         <div className="space-y-1 text-center">
           <h1 className="text-xl font-bold text-ink">Verify your account</h1>
-          <p className="text-sm text-ink-500">
+          <p className="text-lg text-ink-500">
             {channel === "sms"
               ? `Enter the 6-digit code we texted to ${sentTarget ?? user?.phone ?? "your phone"}.`
               : `Enter the 6-digit code we emailed to ${sentTarget ?? user?.email ?? "your email"}.`}
@@ -105,7 +105,7 @@ export default function VerifyPage() {
                 key={c}
                 type="button"
                 onClick={() => switchChannel(c)}
-                className={`flex-1 rounded-full py-2 text-sm font-semibold transition-colors ${
+                className={`flex-1 rounded-full py-2 text-lg font-semibold transition-colors ${
                   channel === c ? "bg-[rgb(var(--surface-card))] text-ink shadow-sm" : "text-ink-500"
                 }`}
               >
@@ -117,7 +117,7 @@ export default function VerifyPage() {
 
         <form onSubmit={confirm} className="card space-y-4 !p-5">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-ink-500" htmlFor="code">
+            <label className="text-base font-semibold text-ink-500" htmlFor="code">
               6-digit code
             </label>
             <input
@@ -134,16 +134,16 @@ export default function VerifyPage() {
           </div>
 
           {devCode && (
-            <p className="rounded-lg bg-gold/10 px-3 py-2 text-xs text-ink-500">
+            <p className="rounded-lg bg-gold/10 px-3 py-2 text-base text-ink-500">
               No SMS/email provider configured yet — your code is <strong>{devCode}</strong>.
             </p>
           )}
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-lg text-red-700">{error}</p>}
 
           <button
             type="submit"
             disabled={busy || code.length !== 6}
-            className="flex min-h-12 w-full items-center justify-center rounded-full bg-gold px-4 py-3 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
+            className="flex min-h-14 w-full items-center justify-center rounded-full bg-gold px-4 py-3 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
           >
             {busy ? "Please wait…" : "Verify"}
           </button>
@@ -152,13 +152,13 @@ export default function VerifyPage() {
             type="button"
             onClick={() => sendCode(channel)}
             disabled={busy || cooldown > 0}
-            className="w-full text-center text-sm font-semibold text-gold disabled:cursor-not-allowed disabled:text-ink-500/60"
+            className="w-full text-center text-lg font-semibold text-gold disabled:cursor-not-allowed disabled:text-ink-500/60"
           >
             {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
           </button>
         </form>
 
-        <button type="button" onClick={logout} className="mx-auto block text-center text-xs text-ink-500 underline">
+        <button type="button" onClick={logout} className="mx-auto block text-center text-base text-ink-500 underline">
           Log out
         </button>
       </div>

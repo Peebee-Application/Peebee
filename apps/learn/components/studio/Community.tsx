@@ -19,14 +19,14 @@ function Answer({ q, onDone, onError }: { q: QaQuestion; onDone: () => void; onE
   const [text, setText] = useState("");
   return (
     <li className="space-y-1.5 rounded-xl border border-[var(--border-faint)] p-3">
-      <p className="text-sm font-semibold text-ink">{q.body}</p>
-      <p className="text-xs text-ink-500">{q.askedBy} · {q.answers.length} answer{q.answers.length === 1 ? "" : "s"}</p>
+      <p className="text-lg font-semibold text-ink">{q.body}</p>
+      <p className="text-base text-ink-500">{q.askedBy} · {q.answers.length} answer{q.answers.length === 1 ? "" : "s"}</p>
       {q.answers.map((a) => (
-        <p key={a.id} className="border-l-2 border-gold/40 pl-2 text-xs text-ink">{a.byTeacher ? "Teacher: " : `${a.by}: `}{a.body}</p>
+        <p key={a.id} className="border-l-2 border-gold/40 pl-2 text-base text-ink">{a.byTeacher ? "Teacher: " : `${a.by}: `}{a.body}</p>
       ))}
       <div className="flex gap-2">
         <input aria-label="Your answer" value={text} onChange={(e) => setText(e.target.value)} maxLength={1500} className={controlCls} placeholder="Answer as the teacher" />
-        <Button className="!min-h-9 shrink-0 !px-3 !text-xs" disabled={text.trim().length < 2} onClick={() => api.learnAnswer(q.id, text).then(() => { setText(""); onDone(); }).catch((e) => onError(errorMessage(e)))}>Answer</Button>
+        <Button className="!min-h-14 shrink-0 !px-3 !text-base" disabled={text.trim().length < 2} onClick={() => api.learnAnswer(q.id, text).then(() => { setText(""); onDone(); }).catch((e) => onError(errorMessage(e)))}>Answer</Button>
       </div>
     </li>
   );
@@ -86,16 +86,16 @@ export function Community({ courseId }: { courseId: string }) {
     <section aria-labelledby="community-heading" className={`${cardCls} space-y-5 p-4`}>
       <div className="flex items-center gap-2">
         <Users className="h-4 w-4 text-gold" aria-hidden />
-        <h3 id="community-heading" className="text-sm font-semibold text-ink">Teachers, intakes and discussion</h3>
+        <h3 id="community-heading" className="text-lg font-semibold text-ink">Teachers, intakes and discussion</h3>
       </div>
       {error && <Notice tone="error">{error}</Notice>}
       {notice && <Notice tone="success" onClose={() => setNotice(null)}>{notice}</Notice>}
 
       {settings.instructorsEnabled && (
         <div className="space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500">Teachers</h4>
-          <ul className="space-y-1 text-sm text-ink">
-            {data.instructors.length === 0 && <li className="text-xs text-ink-500">Just you for now.</li>}
+          <h4 className="text-base font-bold uppercase tracking-wider text-ink-500">Teachers</h4>
+          <ul className="space-y-1 text-lg text-ink">
+            {data.instructors.length === 0 && <li className="text-base text-ink-500">Just you for now.</li>}
             {data.instructors.map((t) => (
               <li key={t.userId} className="flex items-center justify-between gap-2">
                 {t.name}
@@ -114,14 +114,14 @@ export function Community({ courseId }: { courseId: string }) {
 
       {settings.cohortsEnabled && (
         <div className="space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500">Intakes</h4>
-          <p className="text-xs text-ink-500">With intakes, learners choose a start date when they join, and the course opens for them on that day. No intakes means anyone can join any time.</p>
+          <h4 className="text-base font-bold uppercase tracking-wider text-ink-500">Intakes</h4>
+          <p className="text-base text-ink-500">With intakes, learners choose a start date when they join, and the course opens for them on that day. No intakes means anyone can join any time.</p>
           <ul className="space-y-1.5">
             {data.cohorts.map((h: StudioCohort) => (
-              <li key={h.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border-faint)] p-2.5 text-sm text-ink">
+              <li key={h.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border-faint)] p-2.5 text-lg text-ink">
                 <span><span className="font-semibold">{h.name}</span> · starts {when(h.startsAt)} · {h.members}{h.capacity ? ` of ${h.capacity}` : ""} joined</span>
                 <span className="flex gap-1">
-                  <Button variant="secondary" className="!min-h-8 !px-3 !text-xs" onClick={() => setCohort({ id: h.id, name: h.name, startsAt: localInput(h.startsAt), enrolUntil: localInput(h.enrolUntil), capacity: h.capacity ? String(h.capacity) : "" })}>Edit</Button>
+                  <Button variant="secondary" className="!min-h-8 !px-3 !text-base" onClick={() => setCohort({ id: h.id, name: h.name, startsAt: localInput(h.startsAt), enrolUntil: localInput(h.enrolUntil), capacity: h.capacity ? String(h.capacity) : "" })}>Edit</Button>
                   <button type="button" aria-label={`Delete ${h.name}`} onClick={() => window.confirm(`Delete ${h.name}?`) && void run(() => api.studioDeleteCohort(h.id), "Intake deleted.")} className="p-2 text-ink-500 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
                 </span>
               </li>
@@ -145,7 +145,7 @@ export function Community({ courseId }: { courseId: string }) {
 
       {settings.announcementsEnabled && (
         <div className="space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500">Announcements</h4>
+          <h4 className="text-base font-bold uppercase tracking-wider text-ink-500">Announcements</h4>
           <div className="space-y-2">
             <input aria-label="Announcement title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} className={controlCls} placeholder="Title" />
             <textarea aria-label="Announcement text" rows={2} value={text} onChange={(e) => setText(e.target.value)} maxLength={settings.maxQaChars} className={controlCls} placeholder="What do your learners need to know?" />
@@ -153,8 +153,8 @@ export function Community({ courseId }: { courseId: string }) {
           </div>
           <ul className="space-y-1.5">
             {data.announcements.map((a) => (
-              <li key={a.id} className="flex items-start justify-between gap-2 text-sm text-ink">
-                <span><span className="font-semibold">{a.title}</span> <span className="text-xs text-ink-500">{when(a.createdAt.replace(" ", "T") + "Z")}</span></span>
+              <li key={a.id} className="flex items-start justify-between gap-2 text-lg text-ink">
+                <span><span className="font-semibold">{a.title}</span> <span className="text-base text-ink-500">{when(a.createdAt.replace(" ", "T") + "Z")}</span></span>
                 <button type="button" aria-label={`Delete ${a.title}`} onClick={() => void run(() => api.studioDeleteAnnouncement(a.id), "Announcement removed.")} className="text-ink-500 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
               </li>
             ))}
@@ -164,24 +164,24 @@ export function Community({ courseId }: { courseId: string }) {
 
       {settings.qaEnabled && (
         <div className="space-y-2">
-          <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-ink-500"><MessageCircle className="h-3.5 w-3.5" aria-hidden /> Questions ({data.openQuestions} waiting for a teacher)</h4>
-          {questions.length === 0 ? <p className="text-xs text-ink-500">No questions yet.</p> : <ul className="space-y-2">{questions.slice(0, 20).map((q) => <Answer key={`${q.id}-${q.answers.length}`} q={q} onDone={load} onError={setError} />)}</ul>}
+          <h4 className="flex items-center gap-1.5 text-base font-bold uppercase tracking-wider text-ink-500"><MessageCircle className="h-3.5 w-3.5" aria-hidden /> Questions ({data.openQuestions} waiting for a teacher)</h4>
+          {questions.length === 0 ? <p className="text-base text-ink-500">No questions yet.</p> : <ul className="space-y-2">{questions.slice(0, 20).map((q) => <Answer key={`${q.id}-${q.answers.length}`} q={q} onDone={load} onError={setError} />)}</ul>}
         </div>
       )}
 
       {settings.reviewsEnabled && (
         <div className="space-y-2">
-          <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-ink-500"><Star className="h-3.5 w-3.5" aria-hidden /> Reviews {data.rating.average !== null && `· ${data.rating.average} from ${data.rating.count}`}</h4>
-          {data.reviews.length === 0 ? <p className="text-xs text-ink-500">No reviews yet.</p> : (
+          <h4 className="flex items-center gap-1.5 text-base font-bold uppercase tracking-wider text-ink-500"><Star className="h-3.5 w-3.5" aria-hidden /> Reviews {data.rating.average !== null && `· ${data.rating.average} from ${data.rating.count}`}</h4>
+          {data.reviews.length === 0 ? <p className="text-base text-ink-500">No reviews yet.</p> : (
             <ul className="space-y-2">
               {data.reviews.map((r) => (
-                <li key={r.userId} className="space-y-1 rounded-xl border border-[var(--border-faint)] p-3 text-sm text-ink">
+                <li key={r.userId} className="space-y-1 rounded-xl border border-[var(--border-faint)] p-3 text-lg text-ink">
                   <p><span className="font-semibold">{r.name}</span> · {"★".repeat(r.rating)}</p>
-                  {r.body && <p className="text-xs">{r.body}</p>}
-                  {r.reply ? <p className="text-xs text-ink-500">Your reply: {r.reply}</p> : (
+                  {r.body && <p className="text-base">{r.body}</p>}
+                  {r.reply ? <p className="text-base text-ink-500">Your reply: {r.reply}</p> : (
                     <div className="flex gap-2">
                       <input aria-label={`Reply to ${r.name}`} value={replies[r.userId] ?? ""} onChange={(e) => setReplies({ ...replies, [r.userId]: e.target.value })} className={controlCls} placeholder="Reply publicly" />
-                      <Button className="!min-h-9 shrink-0 !px-3 !text-xs" disabled={busy || !(replies[r.userId] ?? "").trim()} onClick={() => void run(() => api.studioReplyReview(courseId, r.userId, replies[r.userId]!), "Reply posted.")}>Reply</Button>
+                      <Button className="!min-h-14 shrink-0 !px-3 !text-base" disabled={busy || !(replies[r.userId] ?? "").trim()} onClick={() => void run(() => api.studioReplyReview(courseId, r.userId, replies[r.userId]!), "Reply posted.")}>Reply</Button>
                     </div>
                   )}
                 </li>

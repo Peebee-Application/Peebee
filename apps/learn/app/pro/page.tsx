@@ -43,9 +43,9 @@ export default function ProPage() {
     <div className="space-y-5 pb-6">
       <Crumbs items={[{ label: "Home", href: "/" }, { label: "Learn Pro" }]} />
       <header className="space-y-1">
-        <p className="text-xs font-bold uppercase tracking-wider text-gold">Peebee Learn</p>
+        <p className="text-base font-bold uppercase tracking-wider text-gold">Peebee Learn</p>
         <h2 className="font-display text-2xl font-semibold text-ink">Learn Pro</h2>
-        <p className="text-sm text-ink-500">Everything for teaching a whole room from one screen.</p>
+        <p className="text-lg text-ink-500">Everything for teaching a whole room from one screen.</p>
       </header>
 
       {error && (
@@ -76,7 +76,7 @@ export default function ProPage() {
               </div>
               {tv!.pro ? <Chip tone="green">{tv!.expiresAt ? `Pro until ${dateOf(tv!.expiresAt)}` : "Pro, no end date"}</Chip> : <Chip>Not on Pro</Chip>}
             </div>
-            <ul className="space-y-3 text-sm text-ink">
+            <ul className="space-y-3 text-lg text-ink">
               <li className="flex items-start gap-3">
                 <Monitor className="mt-0.5 h-5 w-5 shrink-0 text-gold" aria-hidden />
                 <span>
@@ -93,7 +93,7 @@ export default function ProPage() {
 
             {tv!.required && !tv!.pro && (
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-faint)] pt-4">
-                <p className="text-sm text-ink">
+                <p className="text-lg text-ink">
                   <strong>{ugx(status.priceUgx)}</strong> for {status.days} days, paid from your Peebee wallet.
                 </p>
                 <Button onClick={() => void subscribe()} disabled={busy}>
@@ -103,7 +103,7 @@ export default function ProPage() {
             )}
             {tv!.required && tv!.pro && tv!.expiresAt && (
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-faint)] pt-4">
-                <p className="text-sm text-ink-500">Renew early and the days you have left are kept.</p>
+                <p className="text-lg text-ink-500">Renew early and the days you have left are kept.</p>
                 <Button variant="secondary" onClick={() => void subscribe()} disabled={busy}>
                   {busy ? "Working…" : `Add ${status.days} days for ${ugx(status.priceUgx)}`}
                 </Button>
@@ -111,7 +111,7 @@ export default function ProPage() {
             )}
           </section>
 
-          <p className="text-xs text-ink-500">
+          <p className="text-base text-ink-500">
             Practice classes on a TV are always free. <Link href="/screens" className="font-semibold text-gold underline">Connect a screen</Link>
           </p>
         </>

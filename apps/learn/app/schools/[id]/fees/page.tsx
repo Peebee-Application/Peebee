@@ -90,9 +90,9 @@ export default function FeesPage() {
       <Crumbs items={[{ label: "Schools", href: "/schools" }, { label: school?.name ?? "School", href: `/schools/${id}` }, { label: "Fees" }]} />
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-gold">School fees</p>
+          <p className="text-base font-bold uppercase tracking-wider text-gold">School fees</p>
           <h2 className="font-display text-2xl font-semibold text-ink">Invoices</h2>
-          <p className="text-sm text-ink-500">Learners pay from their Peebee wallet. Peebee keeps {settings.commissionPercent}% of each payment.</p>
+          <p className="text-lg text-ink-500">Learners pay from their Peebee wallet. Peebee keeps {settings.commissionPercent}% of each payment.</p>
         </div>
         {!creating && settings.feesEnabled && school?.status !== "suspended" && (
           <Button onClick={() => setCreating(true)}>
@@ -111,11 +111,11 @@ export default function FeesPage() {
 
       <section className="grid grid-cols-2 gap-3">
         <div className={`${cardCls} p-4`}>
-          <p className="text-xs text-ink-500">Collected</p>
+          <p className="text-base text-ink-500">Collected</p>
           <p className="font-display text-xl font-semibold text-ink">{formatMoney(totalPaid)}</p>
         </div>
         <div className={`${cardCls} p-4`}>
-          <p className="text-xs text-ink-500">Still owed</p>
+          <p className="text-base text-ink-500">Still owed</p>
           <p className="font-display text-xl font-semibold text-ink">{formatMoney(totalOwed)}</p>
         </div>
       </section>
@@ -156,8 +156,8 @@ export default function FeesPage() {
           {invoices.map((inv) => (
             <li key={inv.id} className={`${cardCls} flex flex-wrap items-center justify-between gap-3 p-4`}>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-ink">{inv.title}</p>
-                <p className="truncate text-xs text-ink-500">
+                <p className="truncate text-lg font-semibold text-ink">{inv.title}</p>
+                <p className="truncate text-base text-ink-500">
                   {inv.studentName} · {formatMoney(inv.paidUgx)} of {formatMoney(inv.amountUgx)}
                   {inv.dueDate ? ` · due ${inv.dueDate}` : ""}
                 </p>
@@ -165,7 +165,7 @@ export default function FeesPage() {
               <div className="flex items-center gap-2">
                 <Chip tone={STATUS[inv.status].tone}>{STATUS[inv.status].label}</Chip>
                 {inv.status === "unpaid" && (
-                  <button type="button" onClick={() => void cancel(inv)} className="text-xs font-semibold text-ink-500 underline hover:text-red-600">
+                  <button type="button" onClick={() => void cancel(inv)} className="text-base font-semibold text-ink-500 underline hover:text-red-600">
                     Cancel
                   </button>
                 )}

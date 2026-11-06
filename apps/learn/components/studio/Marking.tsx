@@ -30,21 +30,21 @@ function Row({ s, a, onSaved }: { s: StudioSubmission; a: StudioAssignment; onSa
   return (
     <li className="space-y-2 rounded-xl border border-[var(--border-faint)] p-3">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-ink">{s.learnerName}</p>
-        <span className={`shrink-0 text-xs font-semibold ${s.status === "graded" ? "text-green" : "text-gold"}`}>{s.status === "graded" ? `Marked ${s.score}/${a.maxPoints}` : "Waiting to be marked"}</span>
+        <p className="text-lg font-semibold text-ink">{s.learnerName}</p>
+        <span className={`shrink-0 text-base font-semibold ${s.status === "graded" ? "text-green" : "text-gold"}`}>{s.status === "graded" ? `Marked ${s.score}/${a.maxPoints}` : "Waiting to be marked"}</span>
       </div>
-      {s.body && <p className="whitespace-pre-line text-sm text-ink">{s.body}</p>}
+      {s.body && <p className="whitespace-pre-line text-lg text-ink">{s.body}</p>}
       {s.link && (
-        <a href={s.link} target="_blank" rel="noopener noreferrer" className="block break-all text-xs font-semibold text-gold underline">
+        <a href={s.link} target="_blank" rel="noopener noreferrer" className="block break-all text-base font-semibold text-gold underline">
           {s.link}
         </a>
       )}
       <div className="grid gap-2 sm:grid-cols-[6rem_1fr_auto] sm:items-end">
-        <label className="space-y-1 text-xs font-semibold text-ink-500">
+        <label className="space-y-1 text-base font-semibold text-ink-500">
           Points (of {a.maxPoints})
           <input type="number" min={0} max={a.maxPoints} inputMode="numeric" value={score} onChange={(e) => setScore(e.target.value)} className={controlCls} />
         </label>
-        <label className="space-y-1 text-xs font-semibold text-ink-500">
+        <label className="space-y-1 text-base font-semibold text-ink-500">
           Feedback
           <input maxLength={2000} value={feedback} onChange={(e) => setFeedback(e.target.value)} className={controlCls} />
         </label>
@@ -67,9 +67,9 @@ export function Marking({ lessonId, onChanged }: { lessonId: string; onChanged: 
   useEffect(load, [load]);
 
   if (error) return <Notice tone="error">{error}</Notice>;
-  if (!data) return <p className="text-xs text-ink-500">Loading…</p>;
-  if (!data.assignment) return <p className="text-xs text-ink-500">This assignment has no settings yet.</p>;
-  if (data.submissions.length === 0) return <p className="text-xs text-ink-500">Nothing has been handed in yet.</p>;
+  if (!data) return <p className="text-base text-ink-500">Loading…</p>;
+  if (!data.assignment) return <p className="text-base text-ink-500">This assignment has no settings yet.</p>;
+  if (data.submissions.length === 0) return <p className="text-base text-ink-500">Nothing has been handed in yet.</p>;
   return (
     <ul className="space-y-2">
       {data.submissions.map((s) => (
@@ -107,23 +107,23 @@ export function GradebookTable({ courseId, refreshKey }: { courseId: string; ref
   return (
     <section aria-labelledby="gradebook-heading" className={`${cardCls} space-y-3 p-4`}>
       <div className="flex items-center justify-between gap-3">
-        <h3 id="gradebook-heading" className="text-sm font-semibold text-ink">
+        <h3 id="gradebook-heading" className="text-lg font-semibold text-ink">
           Gradebook
         </h3>
         {book && book.rows.length > 0 && (
-          <Button variant="secondary" className="!min-h-8 !px-3 !text-xs" onClick={download}>
+          <Button variant="secondary" className="!min-h-8 !px-3 !text-base" onClick={download}>
             <Download className="h-3.5 w-3.5" aria-hidden /> Download CSV
           </Button>
         )}
       </div>
       {error && <Notice tone="error">{error}</Notice>}
       {!book ? (
-        <p className="text-xs text-ink-500">Loading…</p>
+        <p className="text-base text-ink-500">Loading…</p>
       ) : book.rows.length === 0 ? (
-        <p className="text-xs text-ink-500">Marks appear here once learners enrol.</p>
+        <p className="text-base text-ink-500">Marks appear here once learners enrol.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
+          <table className="min-w-full text-left text-base">
             <thead>
               <tr className="border-b border-[var(--border-faint)] text-ink-500">
                 <th className="sticky left-0 bg-[rgb(var(--surface-card))] py-2 pr-3 font-semibold">Learner</th>

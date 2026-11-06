@@ -56,7 +56,7 @@ export default function ForgotPasswordPage() {
 
         <div className="space-y-1 text-center">
           <h1 className="text-xl font-bold text-ink">Reset your password</h1>
-          <p className="text-sm text-ink-500">
+          <p className="text-lg text-ink-500">
             {step === "request"
               ? "Enter the phone or email on your account and we'll send you a reset code."
               : `Enter the code we sent to ${sentTarget ?? "you"} and choose a new password.`}
@@ -66,7 +66,7 @@ export default function ForgotPasswordPage() {
         {step === "request" ? (
           <form onSubmit={requestCode} className="card space-y-4 !p-5">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-ink-500" htmlFor="identifier">
+              <label className="text-base font-semibold text-ink-500" htmlFor="identifier">
                 Phone or email
               </label>
               <input
@@ -80,12 +80,12 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
-            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-lg text-red-700">{error}</p>}
 
             <button
               type="submit"
               disabled={busy || !identifier.trim()}
-              className="flex min-h-12 w-full items-center justify-center rounded-full bg-gold px-4 py-3 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
+              className="flex min-h-14 w-full items-center justify-center rounded-full bg-gold px-4 py-3 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
             >
               {busy ? "Sending…" : "Send reset code"}
             </button>
@@ -93,7 +93,7 @@ export default function ForgotPasswordPage() {
         ) : (
           <form onSubmit={confirmReset} className="card space-y-4 !p-5">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-ink-500" htmlFor="code">
+              <label className="text-base font-semibold text-ink-500" htmlFor="code">
                 6-digit code
               </label>
               <input
@@ -110,7 +110,7 @@ export default function ForgotPasswordPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-ink-500" htmlFor="newPassword">
+              <label className="text-base font-semibold text-ink-500" htmlFor="newPassword">
                 New password
               </label>
               <PasswordInput
@@ -125,16 +125,16 @@ export default function ForgotPasswordPage() {
             </div>
 
             {devCode && (
-              <p className="rounded-lg bg-gold/10 px-3 py-2 text-xs text-ink-500">
+              <p className="rounded-lg bg-gold/10 px-3 py-2 text-base text-ink-500">
                 No SMS/email provider configured yet — your code is <strong>{devCode}</strong>.
               </p>
             )}
-            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-lg text-red-700">{error}</p>}
 
             <button
               type="submit"
               disabled={busy || code.length !== 6 || newPassword.length < 6}
-              className="flex min-h-12 w-full items-center justify-center rounded-full bg-gold px-4 py-3 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
+              className="flex min-h-14 w-full items-center justify-center rounded-full bg-gold px-4 py-3 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
             >
               {busy ? "Resetting…" : "Reset password"}
             </button>
@@ -142,14 +142,14 @@ export default function ForgotPasswordPage() {
             <button
               type="button"
               onClick={() => setStep("request")}
-              className="w-full text-center text-sm font-semibold text-gold"
+              className="w-full text-center text-lg font-semibold text-gold"
             >
               Use a different phone or email
             </button>
           </form>
         )}
 
-        <Link href="/login" className="block text-center text-xs text-ink-500 underline">
+        <Link href="/login" className="block text-center text-base text-ink-500 underline">
           Back to log in
         </Link>
       </div>

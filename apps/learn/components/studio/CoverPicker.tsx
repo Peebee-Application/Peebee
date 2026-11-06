@@ -72,10 +72,10 @@ export function CoverPicker({
               <Undo2 className="h-4 w-4" aria-hidden /> Use the drawn picture
             </Button>
           )}
-          <p className="text-xs text-ink-500">JPEG, PNG or WebP, up to {maxMb} MB. A picture is drawn for you if you don&apos;t add one.</p>
+          <p className="text-base text-ink-500">JPEG, PNG or WebP, up to {maxMb} MB. A picture is drawn for you if you don&apos;t add one.</p>
         </div>
       )}
-      {!published && <p className="text-xs text-ink-500">Learners see this picture once the course is published.</p>}
+      {!published && <p className="text-base text-ink-500">Learners see this picture once the course is published.</p>}
       {error && <Notice tone="error">{error}</Notice>}
     </div>
   );

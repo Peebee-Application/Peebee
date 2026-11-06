@@ -7,7 +7,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 export const cardCls = "rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))]";
 
 const buttonBase =
-  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl px-5 py-2 text-lg font-bold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50";
 
 export const buttonCls = {
   primary: `${buttonBase} bg-gold text-ink-gold`,
@@ -31,16 +31,16 @@ export function LinkButton({ href, variant = "primary", children, className = ""
 export function Field({ label, hint, htmlFor, children, className = "" }: { label: string; hint?: string; htmlFor: string; children: ReactNode; className?: string }) {
   return (
     <div className={`space-y-1 ${className}`}>
-      <label htmlFor={htmlFor} className="block text-xs font-semibold text-ink-500">
+      <label htmlFor={htmlFor} className="block text-base font-semibold text-ink-500">
         {label}
       </label>
       {children}
-      {hint && <p className="text-[11px] text-ink-500">{hint}</p>}
+      {hint && <p className="text-sm text-ink-500">{hint}</p>}
     </div>
   );
 }
 
-export const controlCls = "w-full rounded-xl border border-[var(--border-faint)] text-sm text-ink outline-none focus:border-gold";
+export const controlCls = "min-h-14 w-full rounded-xl border border-[var(--border-faint)] text-lg text-ink outline-none focus:border-gold";
 
 export function Notice({ tone = "info", children, onClose }: { tone?: "info" | "success" | "error"; children: ReactNode; onClose?: () => void }) {
   const styles = {
@@ -50,8 +50,8 @@ export function Notice({ tone = "info", children, onClose }: { tone?: "info" | "
   }[tone];
   const Icon = tone === "error" ? AlertCircle : CheckCircle2;
   return (
-    <div role={tone === "error" ? "alert" : "status"} className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-sm ${styles}`}>
-      <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${tone === "error" ? "text-red-600 dark:text-red-400" : tone === "success" ? "text-green" : "text-gold"}`} aria-hidden />
+    <div role={tone === "error" ? "alert" : "status"} className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 text-lg ${styles}`}>
+      <Icon className={`mt-1 h-5 w-5 shrink-0 ${tone === "error" ? "text-red-600 dark:text-red-400" : tone === "success" ? "text-green" : "text-gold"}`} aria-hidden />
       <div className="min-w-0 flex-1">{children}</div>
       {onClose && (
         <button type="button" onClick={onClose} aria-label="Dismiss" className="shrink-0 text-ink-500 hover:text-ink">
@@ -65,12 +65,12 @@ export function Notice({ tone = "info", children, onClose }: { tone?: "info" | "
 export function EmptyState({ icon: Icon, title, body, action }: { icon: LucideIcon; title: string; body: string; action?: ReactNode }) {
   return (
     <div className={`${cardCls} flex flex-col items-center gap-3 px-5 py-10 text-center`}>
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/15 text-gold">
-        <Icon className="h-6 w-6" aria-hidden />
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gold/15 text-gold">
+        <Icon className="h-7 w-7" aria-hidden />
       </span>
       <div className="space-y-1">
-        <h2 className="text-base font-semibold text-ink">{title}</h2>
-        <p className="mx-auto max-w-sm text-sm text-ink-500">{body}</p>
+        <h2 className="text-xl font-bold text-ink">{title}</h2>
+        <p className="mx-auto max-w-sm text-lg text-ink-500">{body}</p>
       </div>
       {action}
     </div>
@@ -79,7 +79,7 @@ export function EmptyState({ icon: Icon, title, body, action }: { icon: LucideIc
 
 export function Crumbs({ items }: { items: { label: string; href?: string }[] }) {
   return (
-    <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-xs text-ink-500">
+    <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-base text-ink-500">
       {items.map((item, i) => (
         <span key={`${item.label}-${i}`} className="flex items-center gap-1.5">
           {i > 0 && <span aria-hidden>›</span>}
@@ -98,7 +98,7 @@ export function Crumbs({ items }: { items: { label: string; href?: string }[] })
 
 export function Chip({ children, tone = "muted" }: { children: ReactNode; tone?: "muted" | "gold" | "green" }) {
   const tones = { muted: "bg-[rgb(var(--surface-muted))] text-ink-500", gold: "bg-gold/15 text-gold", green: "bg-green/15 text-green" }[tone];
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${tones}`}>{children}</span>;
+  return <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${tones}`}>{children}</span>;
 }
 
 export function Skeleton({ className = "" }: { className?: string }) {
@@ -117,7 +117,7 @@ export function Segmented<T extends string>({ value, onChange, options, label }:
           aria-checked={value === o.id}
           disabled={o.disabled}
           onClick={() => onChange(o.id)}
-          className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-40 ${value === o.id ? "bg-gold text-ink-gold" : "text-ink-500 hover:text-ink"}`}
+          className={`min-h-12 flex-1 rounded-lg px-3 text-base font-bold transition disabled:opacity-40 ${value === o.id ? "bg-gold text-ink-gold" : "text-ink-500 hover:text-ink"}`}
         >
           {o.label}
         </button>

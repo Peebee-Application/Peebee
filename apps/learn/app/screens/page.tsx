@@ -89,11 +89,11 @@ export default function ScreensPage() {
     <div className="space-y-5 pb-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gold">
+          <p className="flex items-center gap-2 text-base font-bold uppercase tracking-wider text-gold">
             Peebee TV <ProChip status={pro} />
           </p>
           <h2 className="font-display text-2xl font-semibold text-ink">Your screens</h2>
-          <p className="text-sm text-ink-500">Open Peebee TV on a smart TV, then connect it here with the code it shows.</p>
+          <p className="text-lg text-ink-500">Open Peebee TV on a smart TV, then connect it here with the code it shows.</p>
         </div>
         {!adding && (
           <Button onClick={() => setAdding(true)} disabled={full || !settings.liveEnabled || !allowed}>
@@ -115,7 +115,7 @@ export default function ScreensPage() {
       {adding && (
         <form onSubmit={pair} className={`${cardCls} space-y-4 p-4 sm:p-5`}>
           <h3 className="text-base font-semibold text-ink">Add a screen</h3>
-          <p className="text-sm text-ink-500">
+          <p className="text-lg text-ink-500">
             On the TV, open the browser and go to <strong className="text-ink">tv.peebee.online</strong>. It shows a 6-character code.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -158,12 +158,12 @@ export default function ScreensPage() {
           {devices.map((d) => (
             <li key={d.id} className={`${cardCls} flex flex-wrap items-center justify-between gap-3 p-4`}>
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold">
                   <Monitor className="h-5 w-5" aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink">{d.name}</p>
-                  <p className="truncate text-xs text-ink-500">{d.sessionTitle ? `Showing “${d.sessionTitle}”` : "Free"}</p>
+                  <p className="truncate text-lg font-semibold text-ink">{d.name}</p>
+                  <p className="truncate text-base text-ink-500">{d.sessionTitle ? `Showing “${d.sessionTitle}”` : "Free"}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">

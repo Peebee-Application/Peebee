@@ -59,21 +59,17 @@ export default function SchoolsPage() {
   return (
     <div className="space-y-5 pb-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-gold">Peebee Learn</p>
-          <h2 className="font-display text-2xl font-semibold text-ink">Your schools</h2>
-          <p className="text-sm text-ink-500">Each school holds its own classes, courses and lessons.</p>
-        </div>
+        <h1 className="flex items-center gap-2 text-2xl font-black text-ink"><GraduationCap className="h-7 w-7 text-gold" aria-hidden /> Schools</h1>
         {!creating && (
           <Button onClick={() => setCreating(true)} disabled={atLimit || !settings.enabled}>
-            <Plus className="h-4 w-4" aria-hidden /> New school
+            <Plus className="h-6 w-6" aria-hidden /> New school
           </Button>
         )}
       </header>
 
-      {!settings.enabled && <Notice tone="info">The Studio is switched off right now, so schools can&apos;t be created or edited. Published courses stay visible to learners.</Notice>}
+      {!settings.enabled && <Notice tone="info">The Studio is off right now. Published courses stay visible.</Notice>}
       {atLimit && settings.enabled && !creating && (
-        <Notice tone="info">You&apos;ve reached the limit of {settings.maxSchoolsPerUser} schools. Open one of them to keep building.</Notice>
+        <Notice tone="info">Limit of {settings.maxSchoolsPerUser} schools reached.</Notice>
       )}
       {error && <Notice tone="error">{error}</Notice>}
 
@@ -102,10 +98,10 @@ export default function SchoolsPage() {
           <EmptyState
             icon={GraduationCap}
             title="Start with a school"
-            body="Your school is the home for everything you teach. Then add classes, courses and lessons."
+            body="Classes, courses and lessons live in it."
             action={
               <Button onClick={() => setCreating(true)}>
-                <Plus className="h-4 w-4" aria-hidden /> Create your school
+                <Plus className="h-6 w-6" aria-hidden /> Create your school
               </Button>
             }
           />
@@ -115,12 +111,14 @@ export default function SchoolsPage() {
           {schools.map((school) => (
             <li key={school.id}>
               <Link href={`/schools/${school.id}`} className={`${cardCls} block space-y-3 overflow-hidden transition hover:border-gold/50 hover:shadow-[var(--shadow-card-hover)]`}>
-                <LearnThumb src={api.learnArtUrl("school", school.id)} />
+                <div className="h-28 overflow-hidden [&>*]:!aspect-auto [&>*]:!h-full [&_img]:h-full [&_img]:w-full [&_img]:object-cover">
+                  <LearnThumb src={api.learnArtUrl("school", school.id)} />
+                </div>
                 <div className="space-y-3 px-4 pb-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="truncate text-base font-semibold text-ink">{school.name}</h3>
-                    <p className="truncate text-xs text-ink-500">{school.tagline || school.location || "No description yet"}</p>
+                    <h3 className="truncate text-xl font-bold text-ink">{school.name}</h3>
+                    <p className="truncate text-base text-ink-500">{school.tagline || school.location || "No description yet"}</p>
                   </div>
                   {school.status === "suspended" && <Chip tone="gold">Suspended</Chip>}
                 </div>
@@ -129,7 +127,7 @@ export default function SchoolsPage() {
                     <Chip key={s.id}>{STREAM_UI[s.id].title}</Chip>
                   ))}
                 </div>
-                <p className="text-xs text-ink-500">
+                <p className="text-base text-ink-500">
                   {plural(school.classCount, "class", "classes")} · {plural(school.courseCount, "course")} ({school.publishedCourseCount} live) · {plural(school.lessonCount, "lesson")}
                 </p>
                 </div>
@@ -140,12 +138,12 @@ export default function SchoolsPage() {
       )}
       {shared.length > 0 && (
         <section aria-labelledby="shared-heading" className="space-y-2">
-          <h3 id="shared-heading" className="text-sm font-semibold text-ink">Courses you teach with others</h3>
+          <h3 id="shared-heading" className="text-lg font-semibold text-ink">Courses you teach with others</h3>
           <ul className="space-y-2">
             {shared.map((c) => (
               <li key={c.id}>
                 <Link href={`/courses/${c.id}`} className={`${cardCls} flex items-center justify-between gap-3 p-3 hover:border-gold/50`}>
-                  <span className="min-w-0"><span className="block truncate text-sm font-semibold text-ink">{c.title}</span><span className="block text-xs text-ink-500">{c.schoolName}</span></span>
+                  <span className="min-w-0"><span className="block truncate text-lg font-semibold text-ink">{c.title}</span><span className="block text-base text-ink-500">{c.schoolName}</span></span>
                   <Chip tone={c.status === "published" ? "green" : "muted"}>{c.status === "published" ? "Live" : "Draft"}</Chip>
                 </Link>
               </li>

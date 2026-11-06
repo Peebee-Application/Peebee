@@ -133,19 +133,9 @@ export default function TutorChatPage() {
   return (
     <div className="space-y-4">
       {/* Page Title & Safeguarding Notice */}
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold">
-          Academic Support & Mentorship
-        </p>
-        <h1 className="font-display text-2xl font-semibold text-ink mt-0.5">
-          Live Chat with Your Tutors
-        </h1>
-        <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3.5 py-2 text-xs text-ink-500">
-          <ShieldCheck className="h-4 w-4 shrink-0 text-gold" />
-          <span>
-            Verified school & tutor messaging with student safeguarding enabled.
-          </span>
-        </div>
+      <div className="space-y-2">
+        <h1 className="flex items-center gap-2 text-2xl font-black text-ink"><ShieldCheck className="h-7 w-7 text-gold" aria-hidden /> Students</h1>
+        <p className="text-lg text-ink-500">Verified, safeguarded messaging.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -158,7 +148,7 @@ export default function TutorChatPage() {
               placeholder="Search tutors & subjects..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-xs text-ink placeholder:text-ink-500/50"
+              className="w-full text-base text-ink placeholder:text-ink-500/50"
             />
           </div>
 
@@ -179,7 +169,7 @@ export default function TutorChatPage() {
                     <img
                       src={tutor.avatarUrl}
                       alt={tutor.name}
-                      className="h-10 w-10 rounded-full object-cover"
+                      className="h-12 w-12 rounded-full object-cover"
                     />
                     {tutor.isOnline && (
                       <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-cream bg-gold" />
@@ -188,10 +178,10 @@ export default function TutorChatPage() {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
-                      <p className="truncate text-xs font-black text-ink">{tutor.name}</p>
-                      <span className="text-[10px] text-ink-500">{tutor.lastMessageTime}</span>
+                      <p className="truncate text-base font-black text-ink">{tutor.name}</p>
+                      <span className="text-sm text-ink-500">{tutor.lastMessageTime}</span>
                     </div>
-                    <p className="truncate text-[11px] text-ink-500">{tutor.subject}</p>
+                    <p className="truncate text-sm text-ink-500">{tutor.subject}</p>
                   </div>
                 </button>
               );
@@ -207,22 +197,22 @@ export default function TutorChatPage() {
               <img
                 src={selectedTutor.avatarUrl}
                 alt={selectedTutor.name}
-                className="h-10 w-10 rounded-full object-cover shrink-0"
+                className="h-12 w-12 rounded-full object-cover shrink-0"
               />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="truncate text-sm font-black text-ink">{selectedTutor.name}</h2>
-                  <span className="rounded bg-gold/15 px-1.5 py-0.2 text-[10px] font-black text-gold capitalize">
+                  <h2 className="truncate text-lg font-black text-ink">{selectedTutor.name}</h2>
+                  <span className="rounded bg-gold/15 px-1.5 py-0.2 text-sm font-black text-gold capitalize">
                     {selectedTutor.stream}
                   </span>
                 </div>
-                <p className="truncate text-xs text-ink-500">{selectedTutor.title}</p>
+                <p className="truncate text-base text-ink-500">{selectedTutor.title}</p>
               </div>
             </div>
 
             <Link
               href="/classroom"
-              className="flex items-center gap-1.5 rounded-xl bg-gold px-3 py-1.5 text-xs font-black text-black shadow-sm transition hover:opacity-90"
+              className="flex items-center gap-1.5 rounded-xl bg-gold px-3 py-1.5 text-base font-black text-black shadow-sm transition hover:opacity-90"
             >
               <Video className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Join Live Class</span>
@@ -238,14 +228,14 @@ export default function TutorChatPage() {
                   key={msg.id}
                   className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
                 >
-                  <div className="flex items-center gap-1.5 text-[10px] text-ink-500 mb-1">
+                  <div className="flex items-center gap-1.5 text-sm text-ink-500 mb-1">
                     <span className="font-bold">{msg.senderName}</span>
                     <span>•</span>
                     <span>{msg.timestamp}</span>
                   </div>
 
                   <div
-                    className={`max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed ${
+                    className={`max-w-[85%] rounded-2xl p-3 text-base leading-relaxed ${
                       isMe
                         ? "bg-ink text-cream dark:bg-gold dark:text-black font-medium"
                         : "border border-[var(--border-faint)] bg-cream text-ink dark:bg-black/50"
@@ -253,7 +243,7 @@ export default function TutorChatPage() {
                   >
                     {/* Question highlight */}
                     {msg.isQuestion && (
-                      <div className="mb-1 flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-gold">
+                      <div className="mb-1 flex items-center gap-1 text-sm font-black uppercase tracking-wider text-gold">
                         <HelpCircle className="h-3 w-3" />
                         <span>Question for Tutor</span>
                       </div>
@@ -287,7 +277,7 @@ export default function TutorChatPage() {
                             <span className="h-4 w-1 bg-gold rounded-full" />
                           </div>
                         </div>
-                        <span className="font-mono text-[10px] font-bold">
+                        <span className="font-mono text-sm font-bold">
                           0:{msg.voiceDurationSecs || 20}
                         </span>
                       </div>
@@ -295,7 +285,7 @@ export default function TutorChatPage() {
 
                     {/* Attachment preview */}
                     {msg.attachmentUrl && (
-                      <div className="mt-2 flex items-center justify-between rounded-xl bg-black/10 p-2 text-[11px] font-bold dark:bg-white/10">
+                      <div className="mt-2 flex items-center justify-between rounded-xl bg-black/10 p-2 text-sm font-bold dark:bg-white/10">
                         <span className="flex items-center gap-1.5">
                           <FileText className="h-3.5 w-3.5 text-gold" />
                           <span>reconciliation_spec_v2.pdf</span>
@@ -314,7 +304,7 @@ export default function TutorChatPage() {
                             a.click();
                             URL.revokeObjectURL(url);
                           }}
-                          className="text-[10px] text-gold underline cursor-pointer"
+                          className="text-sm text-gold underline cursor-pointer"
                         >
                           Save Copy
                         </button>
@@ -328,8 +318,8 @@ export default function TutorChatPage() {
 
           {/* Chat Composer */}
           <div className="border-t border-[var(--border-faint)] bg-cream p-3 dark:bg-black-700 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <label className="flex items-center gap-1.5 cursor-pointer text-ink-500 text-[11px]">
+            <div className="flex items-center justify-between text-base">
+              <label className="flex items-center gap-1.5 cursor-pointer text-ink-500 text-sm">
                 <input
                   type="checkbox"
                   checked={isQuestion}
@@ -340,7 +330,7 @@ export default function TutorChatPage() {
               </label>
 
               {isRecordingVoice ? (
-                <div className="flex items-center gap-2 text-xs font-bold text-gold">
+                <div className="flex items-center gap-2 text-base font-bold text-gold">
                   <span className="h-2 w-2 rounded-full bg-gold animate-ping" />
                   <span>Recording voice note...</span>
                   <button
@@ -353,7 +343,7 @@ export default function TutorChatPage() {
               ) : (
                 <button
                   onClick={() => setIsRecordingVoice(true)}
-                  className="flex items-center gap-1 text-[11px] font-bold text-gold hover:underline"
+                  className="flex items-center gap-1 text-sm font-bold text-gold hover:underline"
                 >
                   <Mic className="h-3.5 w-3.5" />
                   <span>Record Voice Note</span>
@@ -376,13 +366,13 @@ export default function TutorChatPage() {
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                className="w-full text-xs text-ink placeholder:text-ink-500/50"
+                className="w-full text-base text-ink placeholder:text-ink-500/50"
               />
 
               <button
                 onClick={handleSendMessage}
                 disabled={!chatInput.trim()}
-                className="ml-2 rounded-xl bg-gold px-3 py-1.5 text-xs font-black text-black disabled:opacity-40 transition hover:opacity-90"
+                className="ml-2 rounded-xl bg-gold px-3 py-1.5 text-base font-black text-black disabled:opacity-40 transition hover:opacity-90"
               >
                 <Send className="h-3.5 w-3.5" />
               </button>
