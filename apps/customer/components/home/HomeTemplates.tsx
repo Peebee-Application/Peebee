@@ -123,6 +123,7 @@ function HomeArtwork({ config, available, storageKey, blocked }: { config: HomeT
     <div className="dh-controls"><span className="text-xs text-ink-500">A little help for your day</span><button type="button" aria-pressed={paused} onClick={pause} className="dh-pause">{paused ? <Play size={14} aria-hidden /> : <Pause size={14} aria-hidden />}{paused ? "Resume changes" : "Pause changes"}</button></div>
     {available.length === 0 ? <section className="dh-empty"><h2>Nothing to show here just yet</h2><p>The main menu still takes you to available services.</p><Link href="/help">Get help <ArrowRight size={16} aria-hidden /></Link></section> :
       <HomeTemplateArtwork templateId={template.id} shortcuts={shortcuts}
+        footer={available.some((shortcut) => shortcut.id === "shopping") ? <Link href="/shoplist" prefetch={false}>Recent lists <ArrowRight size={18} aria-hidden /></Link> : undefined}
         renderLink={(shortcut, content) => <Link href={shortcut.href} prefetch={false} className="dh-shortcut" data-module={shortcut.module}>{content}</Link>}
         onPointerEnter={(e) => { if (e.pointerType === "mouse") hovered.current = true; }}
         onPointerLeave={() => { hovered.current = false; lastInteraction.current = Date.now(); }} />}
