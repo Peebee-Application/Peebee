@@ -3,9 +3,11 @@
 import { Select } from "@peebee/shared/select";
 
 import type { CarDriverActive, CarOwnerRides } from "@peebee/shared";
-import { Bus, ChevronRight, Fuel } from "lucide-react";
+import { Bus, CarFront, Clock, Fuel, Package, Power, Search, Users, Wallet } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { Accordion } from "../components/Accordion";
 import { ActiveRide } from "../components/ActiveRide";
 import { ApplyCard } from "../components/ApplyCard";
 import { KycCard } from "../components/KycCard";
@@ -21,10 +23,29 @@ export default function HomePage() {
   const { me, meReady, mode } = useAuth();
   if (!meReady) return null;
   return (
-    <div className="space-y-5 px-4 py-5">
+    <div className="space-y-4 px-4 py-5">
       {mode === "driver" ? <DriverHome /> : <OwnerHome />}
       {me && !me.vehicles.length && mode === "owner" && me.ownerStatus === "approved" && null}
     </div>
+  );
+}
+
+
+function Tile({ href, icon: Icon, label }: { href: string; icon: LucideIcon; label: string }) {
+  return (
+    <Link href={href} className="home-card flex min-h-24 flex-col items-center justify-center gap-2 !p-3 text-center active:scale-[0.98]">
+      <Icon className="h-8 w-8 text-gold" aria-hidden />
+      <span className="text-lg font-bold text-ink">{label}</span>
+    </Link>
+  );
+}
+
+function Earned({ label, amount }: { label: string; amount: number }) {
+  return (
+    <section className="home-card !bg-black-700 text-white dark:!bg-black">
+      <p className="text-base text-white/70">{label}</p>
+      <p className="text-4xl font-black tabular-nums">{ugx(amount)}</p>
+    </section>
   );
 }
 
@@ -52,10 +73,10 @@ function DriverHome() {
         <ApplyCard mode="driver" />
         <KycCard mode="driver" />
         {me?.driverStatus === "pending" && me.needsVehicle && (
-          <p className="home-card text-xs text-ink-500">You told us you don&apos;t have a car. Once you&apos;re approved you can ask owners to drive theirs, or Peebee can assign you one.</p>
+          <p className="home-card text-base text-ink-500">You told us you don&apos;t have a car. Once you&apos;re approved you can ask owners to drive theirs, or Peebee can assign you one.</p>
         )}
         {me?.driverStatus === "pending" && !me.needsVehicle && (
-          <Link href="/vehicles" className="home-card block text-sm font-semibold text-ink">Add your car now →</Link>
+          <Link href="/vehicles" className="home-card flex min-h-16 items-center gap-3 text-xl font-bold text-ink"><CarFront className="h-7 w-7 text-gold" aria-hidden /> Add your car</Link>
         )}
       </>
     );
@@ -81,102 +102,62 @@ function DriverHome() {
     <>
       <CarPracticeDemo mode="driver" />
       <KycCard mode="driver" />
-      <header>
-        <h1 className="text-2xl font-black text-ink">Driver</h1>
-        <p className="text-sm text-ink-500">{vehicle ? `${vehicle.plate} · ${vehicle.category_name}` : "No vehicle assigned yet — Peebee will assign one."}</p>
-      </header>
-      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-base text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       {data?.active && <ActiveRide ride={data.active} onChange={load} />}
-      {!me.online && me.assignedVehicles.length > 1 && (
-        <Select value={vehicleChoice} onValueChange={(value) => setVehicleChoice(value)} aria-label="Which car" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3">
-          <option value="">Pick the car you&apos;re driving…</option>
-          {me.assignedVehicles.map((v) => <option key={v.id} value={v.id}>{v.plate} · {v.category_name}</option>)}
-        </Select>
+
+      {!data?.active && (
+        <section className="home-card space-y-4 text-center">
+          <p className="flex items-center justify-center gap-2 text-xl font-bold text-ink">
+            <CarFront className="h-6 w-6 text-gold" aria-hidden />
+            {vehicle ? `${vehicle.plate} · ${vehicle.category_name}` : "No car yet"}
+          </p>
+          {!me.online && me.assignedVehicles.length > 1 && (
+            <Select value={vehicleChoice} onValueChange={(value) => setVehicleChoice(value)} aria-label="Which car" className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-3 text-lg">
+              <option value="">Which car?</option>
+              {me.assignedVehicles.map((v) => <option key={v.id} value={v.id}>{v.plate} · {v.category_name}</option>)}
+            </Select>
+          )}
+          <button
+            disabled={busy || !vehicle}
+            onClick={toggle}
+            className={`flex min-h-20 w-full items-center justify-center gap-3 rounded-full text-2xl font-extrabold disabled:opacity-50 ${me.online ? "bg-green/15 text-green" : "bg-gold text-ink-gold shadow-[0_6px_16px_rgba(201,162,39,0.35)]"}`}
+          >
+            <Power className="h-7 w-7" aria-hidden />
+            {busy ? "Please wait…" : me.online ? "Online · tap to stop" : "Go online"}
+          </button>
+          {me.online && (
+            <Link href="/jobs" className="flex min-h-14 items-center justify-center gap-2 text-xl font-bold text-gold">
+              <Search className="h-6 w-6" aria-hidden /> Ride requests
+            </Link>
+          )}
+        </section>
       )}
-      <button
-        disabled={busy || !vehicle}
-        onClick={toggle}
-        className={`min-h-14 w-full rounded-full text-base font-bold disabled:opacity-50 ${me.online ? "bg-gold/15 text-ink" : "bg-gold text-ink-gold"}`}
-      >
-        {busy ? "Please wait…" : me.online ? "You're online — tap to go offline" : "Go online"}
-      </button>
-      {me.online && !data?.active && (
-        <Link href="/jobs" className="home-card block text-sm font-semibold text-ink">See ride requests →</Link>
-      )}
+
+      <Earned label="Earned" amount={data?.totalEarned ?? 0} />
+
+      <div className="grid grid-cols-2 gap-3">
+        <Tile href="/fuel" icon={Fuel} label="Fuel" />
+        <Tile href="/taxipress" icon={Bus} label="Taxipress" />
+        <Tile href="/relay" icon={Package} label="Parcels" />
+        <Tile href="/find-car" icon={Search} label={vehicle ? "Other car" : "Find a car"} />
+      </div>
+      <Link href="/vehicles" className="home-card flex min-h-16 items-center gap-3 text-xl font-bold text-ink">
+        <CarFront className="h-7 w-7 text-gold" aria-hidden /> My cars
+      </Link>
+
       <DriverConnections />
 
-      {/* Peebee Gas Quick Shortcut */}
-      <Link
-        href="/fuel"
-        className="home-card flex items-center justify-between !py-3 !px-4 hover:border-gold/50"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold">
-            <Fuel className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-ink">Peebee Gas</span>
-              <span className="rounded-full bg-gold/20 px-1.5 py-0.2 text-[9px] font-bold text-ink-gold">
-                Fuel PIN
-              </span>
-            </div>
-            <p className="truncate text-[11px] text-ink-500">
-              Pump fuel for your car at partner stations with 6-digit PIN
-            </p>
-          </div>
-        </div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
-      </Link>
-
-      <Link
-        href="/taxipress"
-        className="home-card flex items-center justify-between !py-3 !px-4 hover:border-gold/50"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold">
-            <Bus className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <span className="text-xs font-black text-ink">Taxipress</span>
-            <p className="truncate text-[11px] text-ink-500">Join the line and take seats on your taxi</p>
-          </div>
-        </div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
-      </Link>
-
-      <Link
-        href="/relay"
-        className="home-card flex items-center justify-between !py-3 !px-4 hover:border-gold/50"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold">
-            <Bus className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <span className="text-xs font-black text-ink">Relay parcels</span>
-            <p className="truncate text-[11px] text-ink-500">Carry parcels on your matatu route</p>
-          </div>
-        </div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
-      </Link>
-
-      <Link href="/find-car" className="home-card block text-sm font-semibold text-ink">{vehicle ? "Find another car to drive →" : "Find a car to drive →"}</Link>
-      <Link href="/vehicles" className="home-card block text-sm font-semibold text-ink">My cars →</Link>
-      <section className="home-card">
-        <p className="text-xs text-ink-500">Earned from rides</p>
-        <p className="text-2xl font-black text-ink">{ugx(data?.totalEarned ?? 0)}</p>
-      </section>
       {data && data.recent.length > 0 && (
-        <section className="home-card space-y-3">
-          <h2 className="font-bold">Recent rides</h2>
-          {data.recent.slice(0, 5).map((r) => (
-            <div key={r.order_id} className="flex justify-between border-t border-[var(--border-faint)] pt-3 text-sm">
-              <span className="min-w-0 pr-3"><span className="block truncate">{r.destination_address ?? "Ride"}</span></span>
-              <strong>{ugx(r.driver_amount)}</strong>
-            </div>
-          ))}
-        </section>
+        <Accordion title="Recent rides" icon={Clock} summary={data.recent.length}>
+          <div className="divide-y divide-[var(--border-faint)]">
+            {data.recent.slice(0, 5).map((r) => (
+              <div key={r.order_id} className="flex items-center justify-between gap-3 py-3">
+                <span className="min-w-0 flex-1 truncate text-lg text-ink">{r.destination_address ?? "Ride"}</span>
+                <strong className="shrink-0 text-lg tabular-nums">{ugx(r.driver_amount)}</strong>
+              </div>
+            ))}
+          </div>
+        </Accordion>
       )}
     </>
   );
@@ -212,7 +193,7 @@ function OwnerHome() {
         <CarPracticeDemo mode="owner" />
         <ApplyCard mode="owner" />
         <KycCard mode="owner" />
-        {me?.ownerStatus === "pending" && <Link href="/vehicles" className="home-card block text-sm font-semibold text-ink">Add your car now →</Link>}
+        {me?.ownerStatus === "pending" && <Link href="/vehicles" className="home-card flex min-h-16 items-center gap-3 text-xl font-bold text-ink"><CarFront className="h-7 w-7 text-gold" aria-hidden /> Add your car</Link>}
       </>
     );
   }
@@ -223,76 +204,55 @@ function OwnerHome() {
     <>
       <CarPracticeDemo mode="owner" />
       <KycCard mode="owner" />
-      <header>
-        <h1 className="text-2xl font-black text-ink">Owner</h1>
-        <p className="text-sm text-ink-500">{me.vehicles.length} vehicle{me.vehicles.length === 1 ? "" : "s"} with Peebee</p>
-      </header>
-      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
-      <section className="home-card">
-        <p className="text-xs text-ink-500">Your earnings from rides</p>
-        <p className="text-2xl font-black text-ink">{ugx(data?.totalEarned ?? 0)}</p>
-      </section>
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-base text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
+      <Earned label={`Earned · ${me.vehicles.length} car${me.vehicles.length === 1 ? "" : "s"}`} amount={data?.totalEarned ?? 0} />
+
+      <div className="grid grid-cols-2 gap-3">
+        <Tile href="/vehicles" icon={CarFront} label="My cars" />
+        <Tile href="/fuel" icon={Fuel} label="Fuel" />
+      </div>
+
       <OwnerDealsPanel />
 
-      {/* Peebee Gas Quick Shortcut */}
-      <Link
-        href="/fuel"
-        className="home-card flex items-center justify-between !py-3 !px-4 hover:border-gold/50"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold">
-            <Fuel className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-ink">Peebee Gas</span>
-              <span className="rounded-full bg-gold/20 px-1.5 py-0.2 text-[9px] font-bold text-ink-gold">
-                Fuel PIN
-              </span>
+      <Accordion title="Rides now" icon={Search} summary={live.length} defaultOpen={live.length > 0}>
+        {live.length === 0 && <p className="py-2 text-lg text-ink-500">None right now</p>}
+        <div className="divide-y divide-[var(--border-faint)]">
+          {live.map((r) => (
+            <div key={r.id} className="py-3">
+              <p className="text-lg font-bold text-ink">{r.plate ?? "Waiting for a driver"} · {r.stage}</p>
+              <p className="text-base text-ink-500">{r.driver_name ? `${r.driver_name} · ` : ""}{r.pickup_address ?? "—"} → {r.destination_address ?? "—"}</p>
             </div>
-            <p className="truncate text-[11px] text-ink-500">
-              Pump fuel for fleet cars at partner stations with 6-digit PIN
-            </p>
-          </div>
+          ))}
         </div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
-      </Link>
+      </Accordion>
+
       {data?.drivers && data.drivers.length > 0 && (
-        <section className="home-card space-y-3">
-          <h2 className="font-bold">What your drivers earn</h2>
-          {data.drivers.map((d) => (
-            <div key={d.driverId} className="flex items-center justify-between gap-3 border-t border-[var(--border-faint)] pt-3 text-sm first:border-t-0 first:pt-0">
-              <span className="min-w-0"><span className="block truncate font-semibold">{d.name}</span><span className="text-xs text-ink-500">{d.rides} ride{d.rides === 1 ? "" : "s"} · you received {ugx(d.ownerEarned)}</span></span>
-              <strong>{ugx(d.driverEarned)}</strong>
-            </div>
-          ))}
-        </section>
-      )}
-      <section className="home-card space-y-3">
-        <h2 className="font-bold">Rides being taken now</h2>
-        {live.length === 0 && <p className="text-sm text-ink-500">None right now.</p>}
-        {live.map((r) => (
-          <div key={r.id} className="border-t border-[var(--border-faint)] pt-3 text-sm">
-            <p className="font-semibold">{r.plate ?? "Awaiting driver"} · {r.stage}</p>
-            <p className="text-xs text-ink-500">{r.driver_name ? `Driver ${r.driver_name} · ` : ""}{r.pickup_address ?? "—"} → {r.destination_address ?? "—"}</p>
-          </div>
-        ))}
-      </section>
-      {past.length > 0 && (
-        <section className="home-card space-y-3">
-          <h2 className="font-bold">Past rides</h2>
-          {past.slice(0, 10).map((r) => (
-            <div key={r.id} className="border-t border-[var(--border-faint)] pt-3 text-sm">
-              <div className="flex justify-between">
-                <span className="min-w-0 pr-3"><span className="block truncate">{r.plate} · {r.destination_address ?? "Ride"}</span></span>
-                <strong>{ugx(r.owner_amount ?? 0)}</strong>
+        <Accordion title="Drivers" icon={Users} summary={data.drivers.length}>
+          <div className="divide-y divide-[var(--border-faint)]">
+            {data.drivers.map((d) => (
+              <div key={d.driverId} className="flex items-center justify-between gap-3 py-3">
+                <span className="min-w-0"><span className="block truncate text-lg font-bold text-ink">{d.name}</span><span className="text-base text-ink-500">{d.rides} ride{d.rides === 1 ? "" : "s"} · you {ugx(d.ownerEarned)}</span></span>
+                <strong className="shrink-0 text-lg tabular-nums">{ugx(d.driverEarned)}</strong>
               </div>
-              <p className="text-xs text-ink-500">
-                {r.driver_name ? `${r.driver_name} earned ${ugx(r.driver_amount ?? 0)} · ` : ""}Peebee {ugx(r.platform_amount ?? 0)} · ride total {ugx(r.pool_amount ?? 0)}
-              </p>
-            </div>
-          ))}
-        </section>
+            ))}
+          </div>
+        </Accordion>
+      )}
+
+      {past.length > 0 && (
+        <Accordion title="Past rides" icon={Clock} summary={past.length}>
+          <div className="divide-y divide-[var(--border-faint)]">
+            {past.slice(0, 8).map((r) => (
+              <div key={r.id} className="py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 flex-1 truncate text-lg text-ink">{r.plate} · {r.destination_address ?? "Ride"}</span>
+                  <strong className="shrink-0 text-lg tabular-nums">{ugx(r.owner_amount ?? 0)}</strong>
+                </div>
+                <p className="text-base text-ink-500">{r.driver_name ? `${r.driver_name} ${ugx(r.driver_amount ?? 0)} · ` : ""}Peebee {ugx(r.platform_amount ?? 0)}</p>
+              </div>
+            ))}
+          </div>
+        </Accordion>
       )}
     </>
   );

@@ -3,6 +3,7 @@
 import { observeNotificationSnapshot } from "@peebee/shared";
 
 import type { CarDriverJob } from "@peebee/shared";
+import { MapPin, Power, Route } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
@@ -44,29 +45,42 @@ export default function JobsPage() {
   }
 
   if (mode !== "driver") {
-    return <p className="px-4 py-5 text-sm text-ink-500">Switch to Driver (top right) to see ride requests.</p>;
+    return <p className="px-4 py-5 text-lg text-ink-500">Switch to Driver to see ride requests.</p>;
   }
   return (
     <div className="space-y-4 px-4 py-5">
-      <h1 className="text-2xl font-black text-ink">Ride requests</h1>
-      {!me?.online && <p className="home-card text-sm text-ink-500">You&apos;re offline. <Link href="/" className="font-bold text-gold">Go online</Link> to receive requests.</p>}
-      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
-      {me?.online && jobs.length === 0 && <p className="text-sm text-ink-500">No eligible car requests nearby right now.</p>}
+      <h1 className="flex items-center gap-2 text-2xl font-black text-ink"><Route className="h-7 w-7 text-gold" aria-hidden /> Requests</h1>
+      {!me?.online && (
+        <Link href="/" className="home-card flex min-h-16 items-center gap-3 text-xl font-bold text-gold">
+          <Power className="h-6 w-6" aria-hidden /> You&apos;re offline. Go online
+        </Link>
+      )}
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-base text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
+      {me?.online && jobs.length === 0 && (
+        <div className="home-card space-y-2 py-10 text-center">
+          <Route className="mx-auto h-10 w-10 text-ink-500/40" aria-hidden />
+          <p className="text-lg text-ink-500">Nothing nearby yet</p>
+        </div>
+      )}
       {jobs.map((job) => (
-        <section key={job.id} className="home-card space-y-2">
+        <section key={job.id} className="home-card space-y-3">
           <div className="flex items-start justify-between gap-3">
-            <p className="text-sm font-bold text-ink">{job.pickupAddress ?? "Pickup"} → {job.destinationAddress ?? "Destination"}</p>
-            <strong className="shrink-0 text-sm">{ugx(job.fare)}</strong>
+            <p className="min-w-0 break-words text-xl font-bold text-ink">{job.destinationAddress ?? "Destination"}</p>
+            <strong className="shrink-0 text-2xl font-black tabular-nums text-ink">{ugx(job.fare)}</strong>
           </div>
-          {job.categoryKind === "ambulance" && <p className="rounded-xl bg-red-50 p-2.5 text-xs font-bold text-red-700 dark:bg-red-950/40 dark:text-red-300">Emergency ambulance request</p>}
-          {job.categoryKind === "luxury" && <p className="text-xs font-bold text-gold">Luxury booking{job.hireHours ? ` · hired for ${job.hireHours} hour${job.hireHours === 1 ? "" : "s"} after the trip` : ""}</p>}
-          {job.tripNote && <p className="text-xs text-ink"><span className="font-bold">{job.categoryKind === "ambulance" ? "Reported: " : "Occasion: "}</span>{job.tripNote}</p>}
-          {job.serviceTier && <p className="text-xs font-bold text-gold">{job.serviceTier === "xl" ? "XL" : job.serviceTier === "comfort" ? "Comfort" : "Convenient"} ride</p>}
-          {job.scheduledFor && <p className="text-xs font-semibold text-ink">Pickup {new Date(job.scheduledFor).toLocaleString("en-UG", { dateStyle: "medium", timeStyle: "short" })}</p>}
-          <p className="text-xs text-ink-500">
-            {job.distanceKm != null ? `${job.distanceKm.toFixed(1)} km trip` : ""}
-            {job.pickupDistanceKm != null ? ` · ${job.pickupDistanceKm} km to pickup` : ""}
+          <p className="text-lg text-ink-500">
+            <MapPin className="mr-1 inline h-5 w-5 text-gold" aria-hidden />
+            {job.pickupAddress ?? "Pickup"}
           </p>
+          <p className="text-lg text-ink-500">
+            {job.distanceKm != null ? `${job.distanceKm.toFixed(1)} km` : ""}
+            {job.pickupDistanceKm != null ? ` · ${job.pickupDistanceKm} km away` : ""}
+            {job.scheduledFor ? ` · ${new Date(job.scheduledFor).toLocaleString("en-UG", { dateStyle: "medium", timeStyle: "short" })}` : ""}
+          </p>
+          {job.categoryKind === "ambulance" && <p role="alert" className="rounded-xl bg-red-50 p-3 text-base font-bold text-red-700 dark:bg-red-950/40 dark:text-red-300">Emergency ambulance</p>}
+          {job.categoryKind === "luxury" && <p className="text-base font-bold text-gold">Luxury{job.hireHours ? ` · hired ${job.hireHours} h` : ""}</p>}
+          {job.serviceTier && <p className="text-base font-bold text-gold">{job.serviceTier === "xl" ? "XL" : job.serviceTier === "comfort" ? "Comfort" : "Convenient"}</p>}
+          {job.tripNote && <p className="text-lg text-ink">{job.tripNote}</p>}
           {job.matchingMode === "customer_selects" ? (
             <>
               {job.bidding && !job.applied && (
@@ -74,20 +88,21 @@ export default function JobsPage() {
                   inputMode="numeric"
                   value={bids[job.id] ?? ""}
                   onChange={(e) => setBids((b) => ({ ...b, [job.id]: e.target.value.replace(/\D/g, "") }))}
-                  placeholder={`Your price (${ugx(job.bidding.min ?? 0)} – ${ugx(job.bidding.max ?? 0)}), or leave empty`}
-                  className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3 text-sm"
+                  placeholder={`Your price (${Math.round((job.bidding.min ?? 0) / 1000)}k–${Math.round((job.bidding.max ?? 0) / 1000)}k)`}
+                  aria-label="Your price"
+                  className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-3 text-lg"
                 />
               )}
               <button
                 disabled={busyId === job.id || job.applied}
                 onClick={() => apply(job)}
-                className="min-h-11 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-50"
+                className="min-h-16 w-full rounded-full bg-gold text-xl font-extrabold text-ink-gold disabled:opacity-50"
               >
-                {job.applied ? "Applied — waiting for the customer" : busyId === job.id ? "Please wait…" : bids[job.id] ? "Apply with my price" : "Apply at the app price"}
+                {job.applied ? "Applied · waiting" : busyId === job.id ? "Please wait…" : bids[job.id] ? "Apply with my price" : "Apply"}
               </button>
             </>
           ) : (
-            <p className="text-xs text-ink-500">This ride is assigned automatically to the nearest driver.</p>
+            <p className="text-lg text-ink-500">Goes to the nearest driver automatically.</p>
           )}
         </section>
       ))}
