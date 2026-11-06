@@ -49,11 +49,11 @@ export default function PharmacyWalletPage() {
         </div>
       )}
 
-      <section className="space-y-4 rounded-3xl border border-gold/40 bg-gradient-to-br from-gold/20 via-[rgb(var(--surface-card))] to-gold/5 p-5">
+      <section className="home-card !p-5 space-y-4 !bg-black-700 text-white dark:!bg-black">
         <div>
-          <span className="text-base font-bold text-gold">Balance</span>
-          <p className="mt-1 text-4xl font-black tabular-nums text-ink">{ugx(balance)}</p>
-          <p className="mt-1 text-lg text-ink-500">Pending: {ugx(pending)}</p>
+          <span className="text-base font-semibold text-white/70">Balance</span>
+          <p className="mt-1 text-4xl font-black tabular-nums text-white">{ugx(balance)}</p>
+          <p className="mt-1 text-lg text-white/70">Pending: {ugx(pending)}</p>
         </div>
         <button type="button" onClick={() => setCashoutModalOpen(true)} className="flex min-h-16 w-full items-center justify-center gap-2 rounded-2xl bg-gold text-xl font-extrabold text-ink-gold active:scale-[0.98]">
           <ArrowUpRight className="h-6 w-6" aria-hidden />
@@ -64,7 +64,7 @@ export default function PharmacyWalletPage() {
       <TabBar label="Wallet" active={tab} onChange={setTab} tabs={[{ id: "activity", label: "Activity", icon: Wallet }, { id: "account", label: "Payout", icon: Smartphone }]} />
 
       {tab === "account" && (
-        <section className="space-y-3 rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4">
+        <section className="space-y-3 home-card !p-4">
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-[rgb(var(--surface-muted))] p-4">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gold/20 font-black text-gold">MTN</div>
@@ -79,7 +79,7 @@ export default function PharmacyWalletPage() {
       )}
 
       {tab === "activity" && (
-        <section className="divide-y divide-[var(--border-faint)] rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4">
+        <section className="divide-y divide-[var(--border-faint)] home-card px-4">
           {[
             { title: "Prescription dispensed", amt: 34500, time: "Today 11:20 AM", type: "credit" },
             { title: "OTC medicine cart", amt: 48500, time: "Today 09:45 AM", type: "credit" },
@@ -88,7 +88,7 @@ export default function PharmacyWalletPage() {
           ].map((tx, idx) => (
             <div key={idx} className="flex items-center justify-between gap-3 py-3">
               <div className="min-w-0">
-                <p className="truncate text-lg font-bold text-ink">{tx.title}</p>
+                <p className="text-lg font-bold text-ink">{tx.title}</p>
                 <p className="text-base text-ink-500">{tx.time}</p>
               </div>
               <span className={`shrink-0 font-mono text-lg font-black ${tx.type === "credit" ? "text-green-600" : "text-ink-500"}`}>
@@ -103,7 +103,7 @@ export default function PharmacyWalletPage() {
       {/* Cashout Drawer Modal */}
       {cashoutModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-6 shadow-2xl space-y-4">
+          <div className="w-full max-w-lg rounded-t-3xl sm:home-card !p-6 shadow-2xl space-y-4">
             <h3 className="text-base font-black text-ink">Cash out</h3>
 
             <form onSubmit={handleCashout} className="space-y-3.5">

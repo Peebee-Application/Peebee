@@ -68,7 +68,7 @@ export default function PharmacyLicensePage() {
       )}
 
       {/* NDA Premises Certificate Card */}
-      <section className="rounded-3xl border border-gold/40 bg-gradient-to-br from-gold/15 via-[rgb(var(--surface-card))] to-gold/5 p-5 shadow-sm space-y-4">
+      <section className="home-card !p-5 !border-gold/40 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold text-ink-gold shadow-md">
@@ -103,7 +103,7 @@ export default function PharmacyLicensePage() {
       </section>
 
       {/* Supervising pharmacist Practicing Certificate */}
-      <section className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm space-y-3">
+      <section className="home-card !p-4 shadow-sm space-y-3">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
             <UserCheck className="h-5 w-5" />
@@ -131,7 +131,7 @@ export default function PharmacyLicensePage() {
       </section>
 
       {/* Cold Chain & Vaccine Refrigerator Log */}
-      <section className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm space-y-3">
+      <section className="home-card !p-4 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/15 text-blue-500">

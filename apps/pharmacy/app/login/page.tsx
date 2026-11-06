@@ -49,7 +49,7 @@ export default function PharmacyLoginPage() {
         </p>
       </div>
 
-      <div className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-6 shadow-sm space-y-4">
+      <div className="home-card !p-6 shadow-sm space-y-4">
         {error && (
           <div className="rounded-2xl bg-red-500/10 p-3 text-xs font-bold text-red-600">
             {error}

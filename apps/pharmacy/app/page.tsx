@@ -84,33 +84,34 @@ export default function PharmacyDashboardPage() {
 
   return (
     <div className="space-y-4">
-      <section className="flex items-center gap-3 rounded-3xl border border-gold/30 bg-gradient-to-r from-gold/15 via-[rgb(var(--surface-card))] to-gold/5 p-4">
+      <section className="home-card !p-4 flex items-center gap-3 !bg-black-700 text-white dark:!bg-black">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gold text-ink-gold">
           <UserCheck className="h-7 w-7" aria-hidden />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-xl font-black text-ink">{pharmacist?.name}</h1>
-          <p className="truncate text-base text-ink-500">{pharmacist?.role === "owner" ? "Owner" : "Manager"} · {pharmacy?.ndaLicenseNumber}</p>
+          <h1 className="truncate text-xl font-black text-white">{pharmacist?.name}</h1>
+          <p className="truncate text-base text-white/70">{pharmacy?.name}</p>
+          <p className="truncate text-sm text-white/60">{pharmacist?.role === "owner" ? "Owner" : "Manager"} · {pharmacy?.ndaLicenseNumber}</p>
         </div>
       </section>
 
       <section className="grid grid-cols-2 gap-3">
-        <Link href="/prescriptions" className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 active:scale-[0.98]">
+        <Link href="/prescriptions" className="home-card !p-4 active:scale-[0.98]">
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/15 text-gold"><FileText className="h-6 w-6" aria-hidden /></span>
           <p className="mt-3 text-3xl font-black text-ink">{prescriptions.length}</p>
           <p className="text-lg font-bold text-ink-500">To review</p>
         </Link>
-        <Link href="/inventory" className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 active:scale-[0.98]">
+        <Link href="/inventory" className="home-card !p-4 active:scale-[0.98]">
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/15 text-gold"><Pill className="h-6 w-6" aria-hidden /></span>
           <p className="mt-3 text-3xl font-black text-ink">45</p>
           <p className="text-lg font-bold text-ink-500">Medicines</p>
         </Link>
-        <Link href="/wallet" className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 active:scale-[0.98]">
+        <Link href="/wallet" className="home-card !p-4 active:scale-[0.98]">
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-600/15 text-green-600"><TrendingUp className="h-6 w-6" aria-hidden /></span>
           <p className="mt-3 text-xl font-black text-ink">{ugx(485000)}</p>
           <p className="text-lg font-bold text-ink-500">Today (sample)</p>
         </Link>
-        <Link href="/license" className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 active:scale-[0.98]">
+        <Link href="/license" className="home-card !p-4 active:scale-[0.98]">
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-500"><Thermometer className="h-6 w-6" aria-hidden /></span>
           <p className="mt-3 text-3xl font-black text-ink">4.2°C</p>
           <p className="text-lg font-bold text-ink-500">Fridge · normal</p>
@@ -123,10 +124,10 @@ export default function PharmacyDashboardPage() {
           <Link href="/prescriptions" className="flex min-h-12 items-center text-lg font-black text-gold">See all</Link>
         </div>
         {rxLoaded && prescriptions.length === 0 && (
-          <p className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 text-center text-lg text-ink-500">None waiting</p>
+          <p className="home-card !p-5 text-center text-lg text-ink-500">None waiting</p>
         )}
         {shownRx.map((rx) => (
-          <article key={rx.id} className="space-y-3 rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4">
+          <article key={rx.id} className="space-y-3 home-card !p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-black/5 text-gold"><FileText className="h-6 w-6" aria-hidden /></div>
               <div className="min-w-0 flex-1">
@@ -159,7 +160,7 @@ export default function PharmacyDashboardPage() {
         </div>
       </Accordion>
 
-      <Link href="/help" className="flex min-h-16 items-center gap-3 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 text-xl font-bold text-ink">
+      <Link href="/help" className="flex min-h-16 items-center gap-3 home-card !p-4 text-xl font-bold text-ink">
         <LifeBuoy className="h-7 w-7 text-gold" strokeWidth={1.75} aria-hidden />
         <span className="flex-1">Help &amp; support</span>
         <ChevronRight className="h-5 w-5 text-ink-500" aria-hidden />

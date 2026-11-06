@@ -177,7 +177,7 @@ export default function PrescriptionsWorkbenchPage() {
         <div className="rounded-2xl bg-red-500/10 p-3 text-base font-bold text-red-600">{loadError}</div>
       )}
       {!loading && !loadError && visible.length === 0 && (
-        <div className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-6 text-center text-base text-ink-500">
+        <div className="home-card !p-6 text-center text-base text-ink-500">
           {filter === "open" ? "None waiting" : "None finished yet"}
         </div>
       )}
@@ -205,7 +205,7 @@ export default function PrescriptionsWorkbenchPage() {
       )}
 
       {active && (
-        <div className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm space-y-4">
+        <div className="home-card !p-4 shadow-sm space-y-4">
           <div className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--border-faint)]">
             <div>
               <span className="text-sm font-black uppercase tracking-wider text-gold">Case #{active.id.slice(-4).toUpperCase()}</span>

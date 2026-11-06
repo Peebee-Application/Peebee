@@ -270,7 +270,7 @@ export default function PharmacyInventoryPage() {
         {(showAll ? filtered : filtered.slice(0, 8)).map((m) => (
           <article
             key={m.id}
-            className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm space-y-2.5"
+            className="home-card !p-4 shadow-sm space-y-2.5"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -338,7 +338,7 @@ export default function PharmacyInventoryPage() {
       {/* Add Medicine Modal */}
       {addModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 animate-fade-in backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-lg rounded-t-3xl sm:home-card !p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-[var(--border-faint)]">
               <div className="flex items-center gap-2">
                 <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gold/20 text-gold">

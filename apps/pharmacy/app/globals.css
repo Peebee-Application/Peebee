@@ -53,70 +53,268 @@
   --shadow-glow-gold: 0 6px 20px -2px rgba(201, 162, 39, 0.40);
   --pad-card: 24px;
   --transition-raise: 200ms ease;
+
+  --customer-nav-content-gap: calc(88px + env(safe-area-inset-bottom));
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --color-cream: 10 10 10;
-    --color-cream-50: 10 10 10;
-    --color-cream-100: 20 20 20;
-    --color-ink: 247 243 238;
-    --color-ink-500: 160 160 160;
-    --color-ink-900: 255 255 255;
-    --color-ink-gold: 10 10 10;
-    --surface-card: 20 20 20;
-    --surface-muted: 32 32 32;
-    --surface-input: 20 20 20;
-    --border-faint: rgba(247, 243, 238, 0.12);
+    --color-black: 0 0 0;
+    --color-black-700: 26 26 26;
+    --color-black-900: 0 0 0;
+    --color-ink: 245 245 245;
+    --color-ink-500: 170 170 170;
+    --color-ink-900: 245 245 245;
+    --color-green: 47 168 106;
+    --color-green-400: 62 196 128;
+    --color-cream: 14 14 14;
+    --color-cream-50: 14 14 14;
+    --color-cream-100: 26 26 26;
+    --color-navy: 220 220 220;
+    --color-navy-400: 230 230 230;
+    --color-navy-700: 200 200 200;
+    --surface-card: 30 30 30;
+    --surface-muted: 39 39 39;
+    --surface-input: 36 36 36;
+    --border-faint: rgba(247, 243, 238, 0.1);
   }
 }
 
-[data-theme="dark"] {
+:root[data-theme="dark"] {
   color-scheme: dark;
-  --color-cream: 10 10 10;
-  --color-cream-50: 10 10 10;
-  --color-cream-100: 20 20 20;
-  --color-ink: 247 243 238;
-  --color-ink-500: 160 160 160;
-  --color-ink-900: 255 255 255;
-  --color-ink-gold: 10 10 10;
-  --surface-card: 20 20 20;
-  --surface-muted: 32 32 32;
-  --surface-input: 20 20 20;
-  --border-faint: rgba(247, 243, 238, 0.12);
+  --color-black: 0 0 0;
+  --color-black-700: 26 26 26;
+  --color-black-900: 0 0 0;
+  --color-ink: 245 245 245;
+  --color-ink-500: 170 170 170;
+  --color-ink-900: 245 245 245;
+  --color-green: 47 168 106;
+  --color-green-400: 62 196 128;
+  --color-cream: 14 14 14;
+  --color-cream-50: 14 14 14;
+  --color-cream-100: 26 26 26;
+  --color-navy: 220 220 220;
+  --color-navy-400: 230 230 230;
+  --color-navy-700: 200 200 200;
+  --surface-card: 30 30 30;
+  --surface-muted: 39 39 39;
+  --surface-input: 36 36 36;
+  --border-faint: rgba(247, 243, 238, 0.1);
 }
 
-[data-theme="light"] {
-  color-scheme: light;
-  --color-cream: 255 255 255;
-  --color-cream-50: 255 255 255;
-  --color-cream-100: 245 245 245;
-  --color-ink: 10 10 10;
-  --color-ink-500: 92 102 112;
-  --color-ink-900: 10 10 10;
-  --color-ink-gold: 10 10 10;
-  --surface-card: 255 255 255;
-  --surface-muted: 242 242 242;
-  --surface-input: 255 255 255;
-  --border-faint: rgba(10, 10, 10, 0.08);
+html {
+  font-size: 16px;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background-color: rgb(var(--color-cream));
   color: rgb(var(--color-ink));
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  margin: 0;
-  padding: 0;
+  line-height: 1.5;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Google Sans", Inter, sans-serif;
+  min-height: 100dvh;
 }
 
-/* Single-fill field-box rule: wrapper owns the fill and border, inputs inside stay transparent */
-.field-box {
+/* Home and dashboard cards */
+.home-card {
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border-faint);
+  box-shadow: var(--shadow-card);
+  padding: var(--pad-card);
+  background: rgb(var(--surface-card));
+  transition: background-color var(--transition-raise), transform var(--transition-raise);
+}
+
+/* Form fields: default fill */
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]),
+textarea,
+select {
   background-color: rgb(var(--surface-input));
 }
 
-.field-box input,
-.field-box textarea,
-.field-box select {
-  background-color: transparent !important;
+/* Field-box wrapper rule: one solid colour edge-to-edge */
+.field-box {
+  background-color: rgb(var(--surface-input));
+  border: 1px solid var(--border-faint);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
 }
+
+.field-box :is(input, select, textarea):not([type="checkbox"], [type="radio"]) {
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Customer-style Brand Header */
+.customer-header {
+  background: rgb(var(--color-black-700));
+  color: white;
+  border-bottom: 1px solid rgb(255 255 255 / .08);
+}
+
+.customer-header-toggle {
+  color: white;
+  border: 1px solid rgb(255 255 255 / .18);
+  background: rgb(255 255 255 / .06);
+  transition: background 180ms ease;
+}
+
+.customer-header-toggle:hover {
+  background: rgb(255 255 255 / .12);
+}
+
+.customer-profile-reveal {
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 280ms ease, opacity 220ms ease;
+  opacity: 0;
+}
+
+.customer-profile-reveal.is-expanded {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.customer-profile-card {
+  background: rgb(255 255 255 / .06);
+  border: 1px solid rgb(255 255 255 / .12);
+  color: white;
+}
+
+.customer-profile-avatar {
+  background: rgb(255 255 255 / .1);
+  color: white;
+}
+
+.customer-profile-muted {
+  color: rgb(255 255 255 / .65);
+}
+
+.customer-profile-chevron {
+  color: rgb(255 255 255 / .7);
+}
+
+.customer-profile-appearance {
+  border: 1px solid rgb(255 255 255 / .12);
+  background: rgb(255 255 255 / .04);
+}
+
+.customer-profile-segmented {
+  background: rgb(0 0 0 / .2);
+  border: 1px solid rgb(255 255 255 / .1);
+}
+
+.customer-profile-theme-option {
+  color: rgb(255 255 255 / .7);
+}
+
+.customer-profile-theme-option:hover,
+.customer-profile-theme-option.is-selected {
+  color: white;
+  background: rgb(255 255 255 / .15);
+}
+
+/* In dark mode, customer header switches to the iconic Peebee gold brand header */
+:root[data-theme="dark"] .customer-header {
+  background: rgb(var(--color-gold));
+  color: #111;
+  border-bottom-color: rgb(0 0 0 / .14);
+}
+
+:root[data-theme="dark"] .customer-header-toggle {
+  color: #111;
+  border: 1px solid rgb(0 0 0 / .18);
+  background: rgb(0 0 0 / .05);
+}
+
+:root[data-theme="dark"] .customer-header-toggle:hover {
+  background: rgb(0 0 0 / .1);
+}
+
+:root[data-theme="dark"] .customer-profile-card {
+  color: #111;
+  background: rgb(0 0 0 / .06);
+  border-color: rgb(0 0 0 / .14);
+}
+
+:root[data-theme="dark"] .customer-profile-avatar {
+  color: #111;
+  background: rgb(0 0 0 / .08);
+}
+
+:root[data-theme="dark"] .customer-profile-muted {
+  color: rgb(0 0 0 / .65);
+}
+
+:root[data-theme="dark"] .customer-profile-chevron {
+  color: #111;
+}
+
+:root[data-theme="dark"] .customer-profile-appearance {
+  border: 1px solid rgb(0 0 0 / .14);
+  background: rgb(0 0 0 / .04);
+}
+
+:root[data-theme="dark"] .customer-profile-segmented {
+  background: rgb(0 0 0 / .06);
+  border: 1px solid rgb(0 0 0 / .12);
+}
+
+:root[data-theme="dark"] .customer-profile-theme-option {
+  color: rgb(0 0 0 / .7);
+}
+
+:root[data-theme="dark"] .customer-profile-theme-option:hover,
+:root[data-theme="dark"] .customer-profile-theme-option.is-selected {
+  color: #111;
+  background: rgb(0 0 0 / .12);
+}
+
+/* Customer Floating Bottom Navigation Capsule */
+.customer-nav-content-clearance {
+  padding-bottom: var(--customer-nav-content-gap);
+}
+
+.customer-nav-capsule {
+  background: linear-gradient(135deg, rgb(var(--color-black-700)), rgb(var(--color-black-900)));
+  border: 1px solid rgb(255 255 255 / .14);
+  box-shadow: 0 12px 32px rgb(0 0 0 / .35);
+}
+
+:root[data-theme="dark"] .customer-nav-capsule {
+  background: #000;
+  border-color: rgb(255 255 255 / .16);
+}
+
+.customer-nav-item {
+  color: rgb(255 255 255 / .7);
+  transition: all 180ms ease;
+}
+
+.customer-nav-item:hover {
+  color: white;
+  background: rgb(255 255 255 / .08);
+}
+
+.customer-nav-item.is-active {
+  color: rgb(var(--color-ink-gold));
+  background: rgb(var(--color-gold));
+  font-weight: 700;
+}
+
+.customer-nav-item.is-active .customer-nav-indicator {
+  background: rgb(var(--color-ink-gold));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-profile-reveal,
+  .customer-header svg {
+    transition: none;
+  }
+}
+
+/* Sign-in artwork specific to this app (replace public/brand/auth-art.svg to change it). */
+.auth-art > img { content:url("/brand/auth-art.svg"); }
