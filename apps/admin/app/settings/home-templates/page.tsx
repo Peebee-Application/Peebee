@@ -97,6 +97,18 @@ export default function HomeTemplatesPage() {
           </section>
           <section className="home-card space-y-4">
             <h2 className="font-bold">Timing and frequency</h2>
+            <label className="flex min-h-11 items-center gap-3"><Switch checked={config.rotateOnReturn} onChange={(e) => change({ rotateOnReturn: e.target.checked })} /><span>Change template when returning home</span></label>
+            <p className="text-xs text-ink-500">Choose another active template whenever a customer navigates back to the homepage. Timed rotation also continues. With only one active template, its shortcuts refresh instead.</p>
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-semibold">Explore animated lines</legend>
+              <p className="text-xs text-ink-500">Lines play in this order for enabled modules. The module also selects the photograph.</p>
+              {config.exploreLines.map((entry, index) => <div key={index} className="flex flex-wrap items-end gap-2">
+                <label className="text-xs font-semibold">Module<select className={field} value={entry.module} onChange={(e) => change({ exploreLines: config.exploreLines.map((line, i) => i === index ? { ...line, module: e.target.value as typeof entry.module } : line) })}>{["ride", "eat", "buy", "work", "learn"].map((module) => <option key={module} value={module}>{module}</option>)}</select></label>
+                <label className="min-w-[180px] flex-1 text-xs font-semibold">Line {index + 1}<input required maxLength={120} className={field} value={entry.text} onChange={(e) => change({ exploreLines: config.exploreLines.map((line, i) => i === index ? { ...line, text: e.target.value } : line) })} /></label>
+                <button type="button" className="min-h-11 px-3 text-sm font-semibold" disabled={config.exploreLines.length === 1} onClick={() => change({ exploreLines: config.exploreLines.filter((_, i) => i !== index) })}>Remove line {index + 1}</button>
+              </div>)}
+              <button type="button" disabled={config.exploreLines.length >= 30} className="min-h-11 px-3 text-sm font-semibold" onClick={() => change({ exploreLines: [...config.exploreLines, { module: "ride", text: "" }] })}>Add line</button>
+            </fieldset>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold">Explore typing speed (milliseconds per letter)<input required type="number" min={20} max={300} step={1} className={field} value={config.exploreTypeMs} onChange={(e) => change({ exploreTypeMs: Number(e.target.value) })} /></label>
               <label className="text-sm font-semibold">Explore completed text hold (seconds)<input required type="number" min={2} max={30} step={1} className={field} value={config.exploreHoldSeconds} onChange={(e) => change({ exploreHoldSeconds: Number(e.target.value) })} /></label>

@@ -473,7 +473,12 @@ html.peebee-practice .hs-top {
   transition: opacity 220ms ease;
 }
 .hs-home-explore__sub.is-leaving { opacity: 0; }
-.hs-home-explore__cursor { display: inline-block; height: 1em; margin-left: 2px; border-left: 2px solid rgb(var(--color-gold)); vertical-align: -.1em; }
+.hs-home-explore__cursor { display: inline-block; height: 1em; margin-left: 2px; border-left: 2px solid rgb(var(--color-gold)); vertical-align: -.1em; animation: hs-cursor-blink 1s step-end infinite; }
+.hs-home-explore__badge { display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; margin-bottom: 8px; border-radius: 999px; background: rgb(var(--color-gold) / .18); color: rgb(var(--color-ink-gold)); font-size: 10px; font-weight: 700; line-height: 1.3; }
+:root[data-theme="dark"] .hs-home-explore__badge { background: rgb(var(--color-gold)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hs-home-explore__badge { background: rgb(var(--color-gold)); } }
+.hs-home-explore__badge svg { flex-shrink: 0; }
+@keyframes hs-cursor-blink { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .hs-home-explore__sub { transition: none; } }
 
 .hs-sr {

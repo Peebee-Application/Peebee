@@ -1,6 +1,10 @@
 import { nextHomeTemplate, pickHomeShortcuts, type HomeShortcut, type HomeTemplateId, type HomeTemplatesSettings } from "@peebee/shared";
 
 export type HomeSelection = { template: HomeTemplateId; shortcuts: string[] };
+export function initialHomeSelection(raw: string | null, config: HomeTemplatesSettings, available: readonly HomeShortcut[], random = Math.random): HomeSelection {
+  const previous = restoreHomeSelection(raw, config, available);
+  return config.rotateOnReturn ? chooseHomeSelection(config, available, previous?.template, random) : previous ?? chooseHomeSelection(config, available, undefined, random);
+}
 export function chooseHomeSelection(config: HomeTemplatesSettings, available: readonly HomeShortcut[], previous?: HomeTemplateId, random = Math.random): HomeSelection {
   return { template: nextHomeTemplate(config.templates, previous, random), shortcuts: pickHomeShortcuts(available, config, random).map((s) => s.id) };
 }

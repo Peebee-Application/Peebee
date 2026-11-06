@@ -1,10 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DEFAULT_HOME_MENU, DEFAULT_HOME_TEMPLATES, HOME_SHORTCUTS, HOME_TEMPLATE_IDS, availableHomeShortcuts, nextHomeTemplate, pickHomeShortcuts, randomHomeInterval, resolveHomeTemplates, type HomeAvailability } from "@peebee/shared";
-import { canRotateHome, chooseHomeSelection, restoreHomeSelection, type HomeRotationSafety } from "./home-rotation";
+import { canRotateHome, chooseHomeSelection, initialHomeSelection, restoreHomeSelection, type HomeRotationSafety } from "./home-rotation";
 
 const config = () => structuredClone(DEFAULT_HOME_TEMPLATES);
 const availability = (): HomeAvailability => ({ on: () => true, special: { luxury: true, ambulance: true }, taxipress: true, hire: { hire: true, workers: true }, hive: DEFAULT_HOME_MENU.hive.shortcuts });
+
+test("returning home restores the saved design unless Admin enables return rotation", () => {
+  const c = config(), options = availableHomeShortcuts(c, availability());
+  const previous = chooseHomeSelection(c, options, undefined, () => 0);
+  assert.deepEqual(initialHomeSelection(JSON.stringify(previous), c, options, () => .9), previous);
+  c.rotateOnReturn = true;
+  const next = initialHomeSelection(JSON.stringify(previous), c, options, () => 0);
+  assert.notEqual(next.template, previous.template);
+  c.templates = [previous.template];
+  assert.equal(initialHomeSelection(JSON.stringify(previous), c, options).template, previous.template);
+});
 
 test("all ten approved templates can be drawn and a change does not repeat the current one", () => {
   assert.deepEqual(HOME_TEMPLATE_IDS, ["04", "07", "08", "09", "11", "12", "16", "17", "18", "20"]);

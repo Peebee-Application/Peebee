@@ -22,6 +22,8 @@ test("template schema rejects unknown IDs, duplicate entries, reversed intervals
     { minIntervalSeconds: 120, maxIntervalSeconds: 30 }, { minIntervalSeconds: 0 },
     { preferredWeight: 0 }, { shortcutCount: 7 }, { interactionPauseSeconds: 0 },
     { exploreTypeMs: 0 }, { exploreTypeMs: 301 }, { exploreHoldSeconds: 1 }, { exploreHoldSeconds: 31 },
+    { exploreLines: [] }, { exploreLines: [{ module: "ride", text: "" }] }, { exploreLines: [{ module: "invalid", text: "Hello" }] },
+    { rotateOnReturn: "yes" },
   ]) assert.equal(homeTemplatesSchema.safeParse({ ...DEFAULT_HOME_TEMPLATES, ...patch }).success, false, JSON.stringify(patch));
 });
 
@@ -29,10 +31,12 @@ test("older home settings keep their selections and acquire Explore timing defau
   const legacy: Record<string, unknown> = { ...DEFAULT_HOME_TEMPLATES, templates: ["07"], minIntervalSeconds: 240, maxIntervalSeconds: 240 };
   delete legacy.exploreTypeMs;
   delete legacy.exploreHoldSeconds;
-  const expected = { ...legacy, exploreTypeMs: 65, exploreHoldSeconds: 5 };
+  delete legacy.exploreLines;
+  delete legacy.rotateOnReturn;
+  const expected = { ...legacy, rotateOnReturn: false, exploreTypeMs: 65, exploreHoldSeconds: 4, exploreLines: DEFAULT_HOME_TEMPLATES.exploreLines };
   assert.deepEqual(resolveHomeTemplates(legacy), expected);
   assert.deepEqual(homeTemplatesSchema.parse(legacy), expected);
-  const custom = { ...expected, exploreTypeMs: 90, exploreHoldSeconds: 8 };
+  const custom = { ...expected, rotateOnReturn: true, exploreTypeMs: 90, exploreHoldSeconds: 8, exploreLines: [{ module: "ride", text: "Admin edited line" }] };
   assert.deepEqual(resolveHomeTemplates(homeTemplatesSchema.parse(custom)), custom);
 });
 

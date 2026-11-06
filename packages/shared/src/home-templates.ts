@@ -61,6 +61,7 @@ export const HOME_SHORTCUT_IDS = HOME_SHORTCUTS.map((s) => s.id) as [HomeShortcu
 export const HOME_TEMPLATE_LIMITS = { minSeconds: 10, maxSeconds: 86400, maxShortcuts: 6, maxWeight: 20, maxInteractionSeconds: 120 } as const;
 export type HomeTemplatesSettings = {
   enabled: boolean;
+  rotateOnReturn: boolean;
   templates: HomeTemplateId[];
   eligibleShortcuts: HomeShortcutId[];
   preferredShortcuts: HomeShortcutId[];
@@ -71,9 +72,11 @@ export type HomeTemplatesSettings = {
   interactionPauseSeconds: number;
   exploreTypeMs: number;
   exploreHoldSeconds: number;
+  exploreLines: { module: "ride" | "eat" | "buy" | "work" | "learn"; text: string }[];
 };
 export const DEFAULT_HOME_TEMPLATES: HomeTemplatesSettings = {
   enabled: true,
+  rotateOnReturn: false,
   templates: [...HOME_TEMPLATE_IDS],
   eligibleShortcuts: [...HOME_SHORTCUT_IDS],
   preferredShortcuts: [],
@@ -83,7 +86,15 @@ export const DEFAULT_HOME_TEMPLATES: HomeTemplatesSettings = {
   maxIntervalSeconds: 180,
   interactionPauseSeconds: 15,
   exploreTypeMs: 65,
-  exploreHoldSeconds: 5,
+  exploreHoldSeconds: 4,
+  exploreLines: [
+    { module: "ride", text: "Your next stop starts here." },
+    { module: "eat", text: "Find your next favourite bite." },
+    { module: "buy", text: "Big finds. Little effort." },
+    { module: "work", text: "Less to do. More living." },
+    { module: "learn", text: "Feed your curiosity." },
+    { module: "ride", text: "Verified riders in your area." },
+  ],
 };
 
 /** Reject malformed persisted data as a whole; never make a broken timer or dead-end home. */
@@ -101,9 +112,12 @@ export function resolveHomeTemplates(value: unknown): HomeTemplatesSettings {
     || !integer(v.minIntervalSeconds, limits.minSeconds, limits.maxSeconds) || !integer(v.maxIntervalSeconds, limits.minSeconds, limits.maxSeconds)
     || v.minIntervalSeconds > v.maxIntervalSeconds || !integer(v.interactionPauseSeconds, 1, limits.maxInteractionSeconds)) return fallback();
   if (v.exploreTypeMs !== undefined && !integer(v.exploreTypeMs, 20, 300)) return fallback();
+  if (v.rotateOnReturn !== undefined && typeof v.rotateOnReturn !== "boolean") return fallback();
   if (v.exploreHoldSeconds !== undefined && !integer(v.exploreHoldSeconds, 2, 30)) return fallback();
-  return structuredClone({ ...v, exploreTypeMs: v.exploreTypeMs ?? DEFAULT_HOME_TEMPLATES.exploreTypeMs,
-    exploreHoldSeconds: v.exploreHoldSeconds ?? DEFAULT_HOME_TEMPLATES.exploreHoldSeconds }) as HomeTemplatesSettings;
+  if (v.exploreLines !== undefined && (!Array.isArray(v.exploreLines) || v.exploreLines.length < 1 || v.exploreLines.length > 30 || !v.exploreLines.every((entry) => entry && typeof entry === "object" && ["ride", "eat", "buy", "work", "learn"].includes(entry.module) && typeof entry.text === "string" && entry.text.trim().length > 0 && entry.text.length <= 120))) return fallback();
+  return structuredClone({ ...v, rotateOnReturn: v.rotateOnReturn ?? false, exploreTypeMs: v.exploreTypeMs ?? DEFAULT_HOME_TEMPLATES.exploreTypeMs,
+    exploreHoldSeconds: v.exploreHoldSeconds ?? DEFAULT_HOME_TEMPLATES.exploreHoldSeconds,
+    exploreLines: v.exploreLines ?? DEFAULT_HOME_TEMPLATES.exploreLines }) as HomeTemplatesSettings;
 }
 
 export type HomeAvailability = {
