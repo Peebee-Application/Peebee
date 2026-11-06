@@ -64,6 +64,8 @@ export function RideTripCard({ order, car, rider, stops = [] }: { order: OrderRo
     ? `Scheduled · ${whenLabel(toLocalInput(new Date(scheduled)))}`
     : awaitingPayment
       ? `${firstName ?? "Your rider"} is matched · pay to start`
+      : order.rider_id && order.stage === "Shop"
+        ? `${firstName ?? "Your rider"} is confirmed · getting ready`
       : order.rider_id && order.eta_minutes != null && order.stage === "Deliver"
         ? `${firstName ?? "Your rider"} · ${order.eta_minutes} min away`
         : order.rider_id && firstName && order.stage === "Arrived"

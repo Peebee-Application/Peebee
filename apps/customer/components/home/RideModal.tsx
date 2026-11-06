@@ -338,7 +338,8 @@ export function RideModal({
         ...(initialStops?.length ? { stops: initialStops } : {}),
       });
       onClose();
-      router.push(`/orders/${order.id}/pay`);
+      // Riders apply and the customer picks: show them as they come in. First come, first served goes straight to payment.
+      router.push(order.matching_mode === "customer_selects" ? `/orders/${order.id}` : `/orders/${order.id}/pay`);
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);

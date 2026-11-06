@@ -93,6 +93,11 @@ export default function PaymentPage() {
         await api.matchOrder(id).catch(() => {});
         current = await api.getOrder(id);
       }
+      // A ride where the customer picks has nobody to pay yet: its riders are listed on the ride screen, and paying follows the pick.
+      if (current.order.is_ride && current.order.matching_mode === "customer_selects" && !current.order.rider_id && ["Create", "Match"].includes(current.order.stage)) {
+        router.replace(`/orders/${id}`);
+        return;
+      }
       const pending = current.payments.find((p) => p.type === "collection" && ["pending", "unknown"].includes(p.status));
       if (pending) await api.refreshPayment(pending.id).catch(() => {});
       const nextQuote = await api.getOrderCheckout(id, appliedCodeRef.current);
@@ -233,7 +238,7 @@ export default function PaymentPage() {
         <p className="text-sm text-ink-500">How would you like to pay?</p>
       </div>
       {detail && !detail.order.rider_id && payFirst && (
-        <p className="rounded-xl bg-gold/10 p-3 text-sm leading-6 text-ink">Pay now. We&apos;ll assign your riders and matatu for same-day delivery.</p>
+        <p className="rounded-xl bg-gold/10 p-3 text-sm leading-6 text-ink">{detail.order.is_ride ? "Pay now. Your money is held safely, and the first rider to take your ride heads to you. If nobody does, you are refunded." : "Pay now. We\u2019ll assign your riders and matatu for same-day delivery."}</p>
       )}
       <fieldset disabled={busy || pending} className={`grid gap-2 ${methods.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
         <legend className="sr-only">Payment method</legend>

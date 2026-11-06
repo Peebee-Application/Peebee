@@ -859,6 +859,8 @@ export type DeliverySettings = {
   oneActiveRideEnabled: boolean;
   /** Minutes a rider waits on an unpaid ride before they may close it; 0 = at once. */
   riderCloseUnpaidMinutes: number;
+  /** First-come rides are paid before a rider is found (held safely, refunded if nobody takes the ride) instead of after one is matched. */
+  ridePayFirstEnabled: boolean;
   paymentsActiveProviders: PaymentProviderIdentity[];
   /** Demo/sandbox mode — every payment runs through the mock adapters
    * regardless of saved credentials. See PaymentProviderInfo/IntegrationsStatus. */
