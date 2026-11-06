@@ -190,9 +190,9 @@ function useSlides(): Slide[] {
   }));
 }
 
-export function HomeLaunch({ children }: { children: React.ReactNode }) {
+export function HomeLaunch({ children, startClosed = false }: { children: React.ReactNode; startClosed?: boolean }) {
   const slides = useSlides();
-  const [closed, setClosed] = useState(launch.closed);
+  const [closed, setClosed] = useState(launch.closed || startClosed);
   useEffect(() => subscribeLaunch(() => setClosed(launch.closed)), []);
   const show = !closed && slides.length > 0;
   return (

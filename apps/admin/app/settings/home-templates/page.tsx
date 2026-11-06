@@ -97,7 +97,7 @@ export default function HomeTemplatesPage() {
           </section>
           <section className="home-card space-y-4">
             <h2 className="font-bold">Timing and frequency</h2>
-            <p className="text-sm text-ink-500">A new random interval is drawn between these values for each change. Use the same minimum and maximum for a fixed interval. Customers can pause changes; touching, focusing, scrolling, opening a sheet or leaving the app postpones changes.</p>
+            <p className="text-sm text-ink-500">A new random interval is drawn between these values for each change. Use the same minimum and maximum for a fixed interval. Touching, focusing, scrolling, opening a sheet or leaving the app postpones changes.</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold">Minimum interval (seconds)<input required type="number" min={HOME_TEMPLATE_LIMITS.minSeconds} max={HOME_TEMPLATE_LIMITS.maxSeconds} step={1} className={field} value={config.minIntervalSeconds} onChange={(e) => change({ minIntervalSeconds: Number(e.target.value) })} /></label>
               <label className="text-sm font-semibold">Maximum interval (seconds)<input required type="number" min={config.minIntervalSeconds} max={HOME_TEMPLATE_LIMITS.maxSeconds} step={1} className={field} value={config.maxIntervalSeconds} onChange={(e) => change({ maxIntervalSeconds: Number(e.target.value) })} /></label>

@@ -20,7 +20,7 @@ export function HomeTemplatePreview({ templateId, config }: { templateId: HomeTe
     <p className="text-xs text-ink-500">{config.templates.includes(templateId) ? "Selected as active" : "Inactive — preview only"}{!config.enabled ? ". Dynamic home is off." : "."} Sample content from your eligible list; customer availability rules still apply.</p>
     <div className="dh mx-auto w-full max-w-[390px] rounded-[28px] border border-[var(--border-faint)] bg-cream p-4">
       <div className="dh-greeting mb-5"><h1 className="text-2xl font-bold tracking-tight">Hello, Sarah</h1><p className="mt-1 text-sm text-ink-500">Ntinda, Kampala</p></div>
-      <HomeTemplateArtwork templateId={templateId} shortcuts={shortcuts} footer={config.eligibleShortcuts.includes("shopping") ? <span>Recent lists →</span> : undefined} />
+      <HomeTemplateArtwork templateId={templateId} shortcuts={shortcuts} />
     </div>
     <p className="text-xs text-ink-500">Home content preview. The customer’s existing header and bottom navigation stay unchanged. Previewing and shuffling do not save settings.</p>
   </div>;
