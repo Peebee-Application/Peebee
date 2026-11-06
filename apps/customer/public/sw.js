@@ -20,6 +20,7 @@ const NEW_ORIGIN = "https://app.peebee.online";
 const ON_OLD_HOST = self.location.hostname === OLD_HOST;
 const SHELL_URLS = ["/", "/login"];
 const STATIC_ASSETS = ["/brand/peebee-logo-light.svg?v=logo-6", "/brand/peebee-logo-dark.svg?v=logo-6", "/sounds/notification.mp3", "/manifest.json", "/icons/icon-192.png?v=logo-6", "/icons/icon-512.png?v=logo-6", OFFLINE_URL];
+const HOME_PHOTOS = ["bakeries", "boda", "buy-hero", "car", "clean", "discover", "eat-hero", "fix", "groceries", "hire", "laundry", "learn-hero", "list", "live", "move", "parcel", "pharmacy", "restaurants", "ride-hero", "stores", "street-food", "tv", "work-hero", "workers"].map((name) => `/home-screensaver/${name}.webp`);
 
 // Every build-output URL (/_next/static/...) a page's HTML refers to. Next
 // embeds them both plainly and inside escaped JSON ("\/_next\/static\/...").
@@ -32,21 +33,40 @@ function buildAssetUrls(html) {
 
 async function precacheAssets(urls) {
   const cache = await caches.open(ASSET_CACHE);
-  await Promise.all(urls.map(async (u) => {
-    if (await cache.match(u)) return;
-    try {
-      const r = await fetch(u);
-      if (r.ok) await cache.put(u, r);
-    } catch {}
+  const queue = [...new Set(urls)];
+  const seen = new Set(queue);
+  // Warm caches without flooding the connection on a customer's first visit.
+  await Promise.all(Array.from({ length: Math.min(4, queue.length) }, async () => {
+    while (queue.length) {
+      const u = queue.shift();
+      try {
+        let response = await cache.match(u);
+        if (!response) {
+          response = await fetch(u);
+          if (!response.ok) continue;
+          await cache.put(u, response.clone());
+        }
+        // Home artwork URLs are referenced by CSS, not directly by page HTML.
+        if ((response.headers.get("content-type") || "").includes("text/css")) {
+          const css = await response.text();
+          const images = [...css.matchAll(/url\(\s*["']?([^"')\s]+)["']?\s*\)/g)].map((match) => new URL(match[1], new URL(u, self.location.origin))).filter((url) => url.origin === self.location.origin && /\.(webp|png|jpe?g|avif)(\?|$)/i.test(url.pathname));
+          for (const url of images) if (!seen.has(url.href)) { seen.add(url.href); queue.push(url.href); }
+        }
+      } catch { /* Offline or full storage must never block the app. */ }
+    }
   }));
 }
 
 // Store a page and pull in the code it needs, so it also opens with no signal.
-async function storePage(request, response) {
+async function storePage(request, response, event) {
   const cache = await caches.open(PAGE_CACHE);
   await cache.put(request, response.clone());
   if ((response.headers.get("content-type") || "").includes("text/html")) {
-    try { await precacheAssets(buildAssetUrls(await response.clone().text())); } catch {}
+    try {
+      const warming = precacheAssets(buildAssetUrls(await response.clone().text())).catch(() => {});
+      if (event) event.waitUntil(warming);
+      else await warming;
+    } catch {}
   }
 }
 
@@ -61,6 +81,7 @@ self.addEventListener("install", (event) => {
         if (r.ok && !r.redirected) await storePage(new Request(u), r);
       } catch {}
     }));
+    await precacheAssets(HOME_PHOTOS);
   })());
   self.skipWaiting();
 });
@@ -228,7 +249,7 @@ self.addEventListener("fetch", (event) => {
       const cache = await caches.open(PAGE_CACHE);
       const refresh = fetch(request)
         .then(async (response) => {
-          if (response.ok && !response.redirected) await storePage(request, response);
+          if (response.ok && !response.redirected) await storePage(request, response, event);
           return response;
         })
         .catch(() => null);
