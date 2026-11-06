@@ -3,13 +3,14 @@
 import { Select } from "@peebee/shared/select";
 
 import type { CarWallet, SavedMobileNumber } from "@peebee/shared";
-import { ChevronRight, Fuel } from "lucide-react";
+import { Clock, Fuel, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { TabBar } from "../../components/TabBar";
 import { api, errorMessage } from "../../lib/api";
 
 const ugx = (n: number) => `UGX ${Number(n).toLocaleString("en-UG")}`;
-const field = "min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3";
+const field = "min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-3 text-lg";
 
 export default function WalletPage() {
   const [wallet, setWallet] = useState<CarWallet | null>(null);
@@ -21,6 +22,7 @@ export default function WalletPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [tab, setTab] = useState<"cash" | "history">("cash");
 
   const load = useCallback(async () => {
     const [w, n] = await Promise.all([api.carWallet(), api.getMobileNumbers("withdrawal")]);
@@ -80,85 +82,73 @@ export default function WalletPage() {
   };
 
   return (
-    <div className="space-y-5 px-4 py-5">
-      <h1 className="text-2xl font-black text-ink">Earnings</h1>
-      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
-      {notice && <p className="text-sm font-medium text-green">{notice}</p>}
+    <div className="space-y-4 px-4 py-5">
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-base text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
+      {notice && <p className="text-lg font-medium text-green">{notice}</p>}
       <section className="rounded-[24px] border border-white/10 bg-black-900 p-5 text-white dark:bg-black-900">
-        <p className="text-xs text-white/70">Wallet balance</p>
-        <p className="mt-2 text-3xl font-black">{ugx(wallet?.balance ?? 0)}</p>
-        <p className="mt-3 text-xs text-white/70">
-          Ready to cash out: <strong>{ugx(wallet?.withdrawable ?? 0)}</strong> (your ride earnings)
+        <p className="text-base text-white/70">Wallet</p>
+        <p className="mt-1 text-4xl font-black tabular-nums">{ugx(wallet?.balance ?? 0)}</p>
+        <p className="mt-2 text-lg text-white/80">
+          Cash out: <strong>{ugx(wallet?.withdrawable ?? 0)}</strong>
         </p>
       </section>
 
-      {/* Peebee Gas Voucher Quick Card */}
-      <Link
-        href="/fuel"
-        className="home-card flex items-center justify-between !p-4 transition hover:border-gold/50"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gold/15 text-gold">
-            <Fuel className="h-6 w-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-black text-ink">Peebee Gas Voucher</h2>
-              <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-bold text-ink-gold">
-                New
-              </span>
-            </div>
-            <p className="mt-0.5 text-xs text-ink-500">
-              Pump fuel for your car with a 6-digit PIN or QR code at partner stations
-            </p>
-          </div>
-        </div>
-        <ChevronRight className="h-4 w-4 text-ink-500" />
-      </Link>
+      <TabBar label="Earnings" active={tab} onChange={setTab} tabs={[{ id: "cash", label: "Cash out", icon: Wallet }, { id: "history", label: "History", icon: Clock, count: wallet?.history.length }]} />
 
-      {wallet && !wallet.withdrawalsEnabled && (
-        <p className="home-card text-sm text-ink-500">Cash-out to mobile money isn&apos;t open yet. Your earnings stay safe in your wallet.</p>
-      )}
-
-      {wallet?.withdrawalsEnabled && numbers.length === 0 && (
-        <form onSubmit={saveNumber} className="home-card space-y-3">
-          <h2 className="font-bold">Mobile money number</h2>
-          <input required value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="Number to receive withdrawals" className={field} />
-          <button disabled={busy || phone.trim().length < 6} className="min-h-12 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-50">Save number</button>
-        </form>
-      )}
-
-      {wallet?.withdrawalsEnabled && numbers.length > 0 && (
-        <form onSubmit={withdraw} className="home-card space-y-3">
-          <h2 className="font-bold">Cash out</h2>
-          {numbers.length > 1 && (
-            <Select value={numberId} onValueChange={(value) => setNumberId(value)} className={field} aria-label="Mobile money number">
-              {numbers.map((n) => <option key={n.id} value={n.id}>{n.phone}</option>)}
-            </Select>
+      {tab === "cash" && (
+        <>
+          {wallet && !wallet.withdrawalsEnabled && (
+            <p className="home-card text-lg text-ink-500">Cash-out isn&apos;t open yet. Your money is safe in your wallet.</p>
           )}
-          {numbers.length === 1 && <p className="text-xs text-ink-500">To {numbers[0].phone}</p>}
-          <input
-            required
-            inputMode="numeric"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
-            placeholder={wallet.minAmount > 0 ? `Amount (at least ${ugx(wallet.minAmount)})` : "Amount in UGX"}
-            className={field}
-          />
-          <button disabled={busy || !amount || !!pendingId} className="min-h-12 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-50">{busy ? "Please wait…" : "Withdraw"}</button>
-        </form>
+
+          {wallet?.withdrawalsEnabled && numbers.length === 0 && (
+            <form onSubmit={saveNumber} className="home-card space-y-3">
+              <h2 className="text-xl font-bold">Mobile money number</h2>
+              <input required value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="Number to receive money" className={field} />
+              <button disabled={busy || phone.trim().length < 6} className="min-h-16 w-full rounded-full bg-gold text-xl font-extrabold text-ink-gold disabled:opacity-50">Save number</button>
+            </form>
+          )}
+
+          {wallet?.withdrawalsEnabled && numbers.length > 0 && (
+            <form onSubmit={withdraw} className="home-card space-y-3">
+              {numbers.length > 1 && (
+                <Select value={numberId} onValueChange={(value) => setNumberId(value)} className={field} aria-label="Mobile money number">
+                  {numbers.map((n) => <option key={n.id} value={n.id}>{n.phone}</option>)}
+                </Select>
+              )}
+              {numbers.length === 1 && <p className="text-lg text-ink-500">To {numbers[0].phone}</p>}
+              <input
+                required
+                inputMode="numeric"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
+                placeholder={wallet.minAmount > 0 ? `Amount (min ${ugx(wallet.minAmount)})` : "Amount in UGX"}
+                aria-label="Amount"
+                className={field}
+              />
+              <button disabled={busy || !amount || !!pendingId} className="min-h-16 w-full rounded-full bg-gold text-xl font-extrabold text-ink-gold disabled:opacity-50">{busy ? "Please wait…" : "Withdraw"}</button>
+            </form>
+          )}
+
+          <Link href="/fuel" className="home-card flex min-h-16 items-center gap-3 text-xl font-bold text-ink">
+            <Fuel className="h-7 w-7 text-gold" aria-hidden /> Fuel voucher
+          </Link>
+        </>
       )}
 
-      {wallet && wallet.history.length > 0 && (
-        <section className="home-card space-y-3">
-          <h2 className="font-bold">Withdrawals</h2>
-          {wallet.history.map((w) => (
-            <div key={w.id} className="flex justify-between border-t border-[var(--border-faint)] pt-3 text-sm">
-              <span><span className="block">{w.status}</span><span className="text-xs text-ink-500">{w.created_at}</span></span>
-              <strong>{ugx(w.amount)}</strong>
-            </div>
-          ))}
-        </section>
+      {tab === "history" && (
+        wallet && wallet.history.length > 0 ? (
+          <section className="home-card divide-y divide-[var(--border-faint)]">
+            {wallet.history.slice(0, 10).map((w) => (
+              <div key={w.id} className="flex items-center justify-between gap-3 py-3">
+                <span><span className="block text-lg font-bold capitalize text-ink">{w.status}</span><span className="text-base text-ink-500">{w.created_at}</span></span>
+                <strong className="text-xl tabular-nums">{ugx(w.amount)}</strong>
+              </div>
+            ))}
+          </section>
+        ) : (
+          <p className="home-card py-8 text-center text-lg text-ink-500">None yet</p>
+        )
       )}
     </div>
   );

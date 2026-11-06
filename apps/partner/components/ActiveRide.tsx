@@ -1,7 +1,7 @@
 "use client";
 
 import type { CarDriverActive } from "@peebee/shared";
-import { MessageCircle, Navigation } from "lucide-react";
+import { MessageCircle, Navigation, Phone } from "lucide-react";
 import { useState } from "react";
 import { api, errorMessage } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
@@ -34,70 +34,57 @@ export function ActiveRide({ ride, onChange }: { ride: NonNullable<CarDriverActi
   const stage = ride.stage;
   let hint = "";
   let action: { label: string; go: () => Promise<unknown> } | null = null;
-  if (stage === "Create" || stage === "Match") hint = "Waiting for the customer to pay. You'll be able to start once they have.";
-  else if (["Shop", "Substitute", "Approve"].includes(stage)) action = { label: "Start trip to pickup", go: () => api.deliverOrder(ride.id) };
-  else if (stage === "Deliver") action = { label: "I've arrived", go: () => api.arrivedOrder(ride.id) };
-  else if (stage === "Arrived") action = { label: "Passenger / cargo on board", go: () => api.pickedUpOrder(ride.id) };
-  else if (stage === "PickedUp") hint = "On the way. At the destination, the customer confirms with their PIN.";
-  else if (stage === "Handover") action = { label: "Complete ride and get paid", go: () => api.settleOrder(ride.id) };
+  if (stage === "Create" || stage === "Match") hint = "Waiting for the customer to pay.";
+  else if (["Shop", "Substitute", "Approve"].includes(stage)) action = { label: "Start", go: () => api.deliverOrder(ride.id) };
+  else if (stage === "Deliver") action = { label: "I'm here", go: () => api.arrivedOrder(ride.id) };
+  else if (stage === "Arrived") action = { label: "On board", go: () => api.pickedUpOrder(ride.id) };
+  else if (stage === "PickedUp") hint = "At the destination the customer confirms with their PIN.";
+  else if (stage === "Handover") action = { label: "Get paid", go: () => api.settleOrder(ride.id) };
 
+  const toDestination = stage === "PickedUp" || stage === "Handover";
+  const navLat = toDestination ? ride.destination_lat : ride.pickup_lat;
+  const navLng = toDestination ? ride.destination_lng : ride.pickup_lng;
+  const who = ride.passenger_name ?? ride.customer_name;
+  const place = (toDestination ? ride.destination_address : ride.pickup_address) ?? "—";
   return (
-    <section className="home-card space-y-3 border-l-4 border-l-gold">
-      <div className="flex items-center justify-between">
-        <p className="font-bold text-ink">Ride in progress</p>
-        <span className="rounded-full bg-gold/15 px-2 py-1 text-[10px] font-black uppercase text-ink">{stage}</span>
+    <section className="home-card space-y-4 border-l-4 border-l-gold">
+      <div className="flex items-center justify-between gap-3">
+        <span className="inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-gold/15 px-4 text-base font-bold text-ink">
+          <Navigation className="h-5 w-5 text-gold" aria-hidden /> {toDestination ? "To destination" : stage === "Arrived" ? "At pickup" : "To pickup"}
+        </span>
+        <strong className="min-w-0 text-right text-xl font-black tabular-nums text-ink">{ugx(ride.estimated_total)}</strong>
       </div>
-      {ride.passenger_name ? (
-        <p className="text-sm text-ink">
-          Passenger: <span className="font-bold">{ride.passenger_name}</span>
-          {ride.passenger_phone && (
-            <>
-              {" · "}
-              <a href={`tel:${ride.passenger_phone}`} className="font-bold text-gold underline">{ride.passenger_phone}</a>
-            </>
-          )}
-          <span className="block text-xs text-ink-500">Booked by {ride.customer_name}</span>
-        </p>
-      ) : (
-        <p className="text-sm text-ink">{ride.customer_name}</p>
-      )}
-      {ride.category_kind === "ambulance" && <p className="rounded-xl bg-red-50 p-2.5 text-xs font-bold text-red-700 dark:bg-red-950/40 dark:text-red-300">Emergency ambulance request. Go straight to the patient.</p>}
-      {ride.trip_note && (
-        <p className="text-sm text-ink">
-          <span className="font-bold">{ride.category_kind === "ambulance" ? "What the customer reported: " : "Occasion: "}</span>{ride.trip_note}
-        </p>
-      )}
-      {ride.hire_hours ? <p className="text-xs font-bold text-gold">Hired for {ride.hire_hours} hour{ride.hire_hours === 1 ? "" : "s"} after the trip. Stay with the customer.</p> : null}
-      <p className="text-xs text-ink-500">From: {ride.pickup_address ?? "—"}</p>
-      <p className="text-xs text-ink-500">To: {ride.destination_address ?? "—"}</p>
-      <p className="text-sm font-bold text-ink">{ugx(ride.estimated_total)}</p>
-      {hint && <p className="text-xs text-ink-500">{hint}</p>}
-      {(() => {
-        // Heading to the passenger until they're aboard, then to the destination.
-        const toDestination = stage === "PickedUp" || stage === "Handover";
-        const lat = toDestination ? ride.destination_lat : ride.pickup_lat;
-        const lng = toDestination ? ride.destination_lng : ride.pickup_lng;
-        if (lat == null || lng == null) return null;
-        return (
+      <p className="break-words text-3xl font-extrabold leading-tight text-ink">{place}</p>
+      {ride.category_kind === "ambulance" && <p role="alert" className="rounded-xl bg-red-50 p-3 text-base font-bold text-red-700 dark:bg-red-950/40 dark:text-red-300">Emergency. Go straight to the patient.</p>}
+      {ride.trip_note && <p className="text-lg text-ink">{ride.trip_note}</p>}
+      {ride.hire_hours ? <p className="text-lg font-bold text-gold">Hired {ride.hire_hours} h after the trip</p> : null}
+      <div className="flex items-center gap-3">
+        <p className="min-w-0 flex-1 truncate text-xl font-bold text-ink">{who}</p>
+        {ride.passenger_phone && (
+          <a href={`tel:${ride.passenger_phone}`} aria-label={`Call ${who}`} className="flex h-14 w-14 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink">
+            <Phone className="h-6 w-6" aria-hidden />
+          </a>
+        )}
+        {navLat != null && navLng != null && (
           <a
-            href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`}
+            href={`https://www.google.com/maps/dir/?api=1&destination=${navLat},${navLng}&travelmode=driving`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-h-11 items-center justify-center gap-2 rounded-full bg-gold/15 text-sm font-bold text-ink"
+            aria-label={`Navigate to ${toDestination ? "destination" : "pickup"}`}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink"
           >
-            <Navigation className="h-4 w-4" />
-            Navigate to {toDestination ? "destination" : "pickup"}
+            <Navigation className="h-6 w-6" aria-hidden />
           </a>
-        );
-      })()}
-      <button type="button" onClick={() => setChatOpen((v) => !v)} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-gold/15 text-sm font-bold text-ink">
-        <MessageCircle className="h-4 w-4" />
-        {chatOpen ? "Hide chat" : `Chat with ${ride.customer_name}`}
-      </button>
+        )}
+        <button type="button" onClick={() => setChatOpen((v) => !v)} aria-label={chatOpen ? "Hide chat" : "Chat"} className="flex h-14 w-14 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink">
+          <MessageCircle className="h-6 w-6" aria-hidden />
+        </button>
+      </div>
       {chatOpen && user && <RideChat orderId={ride.id} myId={user.id} />}
-      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
+      {hint && <p className="text-lg text-ink-500">{hint}</p>}
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-base text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       {action && (
-        <button disabled={busy} onClick={() => run(action!.go)} className="min-h-12 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-50">
+        <button disabled={busy} onClick={() => run(action!.go)} className="min-h-16 w-full rounded-full bg-gold text-xl font-extrabold text-ink-gold shadow-[0_6px_16px_rgba(201,162,39,0.35)] disabled:opacity-50">
           {busy ? "Please wait…" : action.label}
         </button>
       )}
