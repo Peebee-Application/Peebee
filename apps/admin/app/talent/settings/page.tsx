@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../../components/Fold";
 
 import { Select } from "../../../components/ui/Select";
 import type { TalentAdminCategory, TalentAdminSettings, TalentJobType } from "@peebee/shared";
@@ -93,8 +94,7 @@ export default function TalentSettingsPage() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {ro && <p className="text-xs text-ink-500">You can view these settings but not change them.</p>}
-      <section className="home-card space-y-3 !p-3.5">
-        <h2 className="text-sm font-bold text-ink">Availability</h2>
+      <Fold title="Availability">
         <Toggle managed label="Peebee Hire is on" hint="Master switch for customers. Staff keep access to finish open work." checked={form.enabled} disabled={ro} onChange={(v) => set("enabled", v)} />
         <div className="space-y-1.5"><p className="text-xs font-semibold text-ink-500">Kinds of job people can post</p><div className="flex flex-wrap gap-1.5">{TYPES.map((t) => <Chip key={t} on={form.jobTypes.includes(t)} disabled={ro} onClick={() => set("jobTypes", form.jobTypes.includes(t) ? form.jobTypes.filter((x) => x !== t) : TYPES.filter((x) => x === t || form.jobTypes.includes(x)))}>{label(t)}</Chip>)}</div></div>
         <Toggle managed label="Find-a-worker search" hint="The directory where anyone can search for workers." checked={form.workerSearchEnabled} disabled={ro} onChange={(v) => set("workerSearchEnabled", v)} />
@@ -102,41 +102,36 @@ export default function TalentSettingsPage() {
         <Toggle managed label="Ratings" checked={form.reviewsEnabled} disabled={ro} onChange={(v) => set("reviewsEnabled", v)} />
         <Toggle managed label="Messaging between employer and applicant" checked={form.chatEnabled} disabled={ro} onChange={(v) => set("chatEnabled", v)} />
         <Toggle label="Hide phone numbers until hired" hint="Otherwise numbers are shown to employers straight away." checked={form.hideContacts} disabled={ro} onChange={(v) => set("hideContacts", v)} />
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3 !p-3.5">
-        <h2 className="text-sm font-bold text-ink">Repeating jobs</h2>
+      <Fold title="Repeating jobs">
         <Toggle managed label="Employers can repeat jobs" hint="Rebook the same worker, or put the job up again, every day, week or month." checked={form.recurringEnabled} disabled={ro} onChange={(v) => set("recurringEnabled", v)} />
         <div className="space-y-1.5"><p className="text-xs font-semibold text-ink-500">Repeat intervals offered</p><div className="flex flex-wrap gap-1.5">{(["daily", "weekly", "biweekly", "monthly"] as const).map((f) => <Chip key={f} on={form.recurringFrequencies.includes(f)} disabled={ro} onClick={() => set("recurringFrequencies", form.recurringFrequencies.includes(f) ? form.recurringFrequencies.filter((x) => x !== f) : (["daily", "weekly", "biweekly", "monthly"] as const).filter((x) => x === f || form.recurringFrequencies.includes(x)))}>{label(f)}</Chip>)}</div></div>
         <p className="text-xs text-ink-500">To make repeating a Pro feature, mark &ldquo;Recurring jobs&rdquo; as Pro in the Money tab. The limits are further down.</p>
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3 !p-3.5">
-        <h2 className="text-sm font-bold text-ink">How gigs and projects are paid</h2>
+      <Fold title="How gigs and projects are paid">
         <div className="flex flex-wrap gap-1.5">
           {(["escrow", "direct"] as const).map((m) => <Chip key={m} on={form.paymentModes.includes(m)} disabled={ro} onClick={() => set("paymentModes", form.paymentModes.includes(m) ? form.paymentModes.filter((x) => x !== m) : (["escrow", "direct"] as const).filter((x) => x === m || form.paymentModes.includes(x)))}>{m === "escrow" ? "Protected (escrow)" : "Direct to worker"}</Chip>)}
         </div>
         <p className="text-xs text-ink-500">Escrow holds the employer&apos;s money and releases it when the work is approved. Direct lets the two sides settle between themselves; Peebee collects its fee from each wallet. If both are on, the employer chooses.</p>
         <Field label="Default when only one choice is shown"><Select disabled={ro} value={form.defaultPaymentMode} onValueChange={(next) => set("defaultPaymentMode", next as "escrow" | "direct")} className={inputCls}><option value="escrow">Protected (escrow)</option><option value="direct">Direct to worker</option></Select></Field>
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3 !p-3.5">
-        <h2 className="text-sm font-bold text-ink">Approval and safety</h2>
+      <Fold title="Approval and safety">
         <Field label="New worker profiles"><Select disabled={ro} value={form.workerApproval} onValueChange={(next) => set("workerApproval", next as "review" | "auto")} className={inputCls}><option value="review">Staff approve each one</option><option value="auto">Go live automatically</option></Select></Field>
         <Toggle label="Review every job before it goes live" hint="Off: jobs go live at once unless the safety screening flags them." checked={form.jobReview} disabled={ro} onChange={(v) => set("jobReview", v)} />
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3 !p-3.5">
-        <h2 className="text-sm font-bold text-ink">Charging</h2>
+      <Fold title="Charging">
         <Toggle label="All free access" hint="Overrides every fee and plan. Set the fees in the Money tab." checked={form.freeAccess} disabled={ro} onChange={(v) => set("freeAccess", v)} />
         <Toggle label="Free onboarding" checked={form.freeOnboarding} disabled={ro} onChange={(v) => set("freeOnboarding", v)} />
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3 !p-3.5">
-        <h2 className="text-sm font-bold text-ink">Late-cancel fee type</h2>
+      <Fold title="Late-cancel fee type">
         <div className="flex flex-wrap gap-1.5">{(["flat", "percent"] as const).map((m) => <Chip key={m} on={form.lateCancelFeeMode === m} disabled={ro} onClick={() => set("lateCancelFeeMode", m)}>{m === "flat" ? "Flat amount" : "Percentage"}</Chip>)}</div>
         <p className="text-xs text-ink-500">Flat is the default (UGX 5,000). The amounts are set under Cancellation below. The fee is never more than the work still to be paid for.</p>
-      </section>
+      </Fold>
 
       {SECTIONS.map((sec) => (
         <section key={sec.title} className="home-card space-y-3 !p-3.5">
@@ -153,8 +148,7 @@ export default function TalentSettingsPage() {
       {saved && <p className="rounded-xl bg-gold/10 px-3 py-2 text-sm text-ink">Saved.</p>}
       {!ro && <button type="submit" disabled={busy} className="min-h-11 w-full rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-50">{busy ? "Saving…" : "Save settings"}</button>}
 
-      <section className="home-card space-y-3 !p-3.5">
-        <h2 className="text-sm font-bold text-ink">Sample data (sandbox only)</h2>
+      <Fold title="Sample data (sandbox only)">
         <p className="text-xs text-ink-500">Adds sample workers, employers and jobs of every kind so you can see Jobs working. They only appear while the platform is in sandbox and can be removed any time. Customers can also explore the same samples in practice mode, which needs no setup.</p>
         {sample && <p className="rounded-xl bg-gold/10 px-3 py-2 text-sm text-ink">{sample}</p>}
         {!ro && (
@@ -163,10 +157,9 @@ export default function TalentSettingsPage() {
             <button type="button" onClick={async () => { setError(null); setSample(null); try { const r = await api.talentAdminClearSandbox(); setSample(`Removed ${r.removed} sample accounts and their jobs.`); } catch (err) { setError(errorMessage(err)); } }} className="min-h-11 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink">Remove samples</button>
           </div>
         )}
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3 !p-3.5">
-        <h2 className="text-sm font-bold text-ink">Kinds of work</h2>
+      <Fold title="Kinds of work">
         <p className="text-xs text-ink-500">Workers and employers pick from this list. Turning one off hides it from new choices.</p>
         <ul className="divide-y divide-[var(--border-faint)] rounded-xl border border-[var(--border-faint)]">
           {categories.map((c) => (
@@ -183,7 +176,7 @@ export default function TalentSettingsPage() {
             <button type="button" disabled={newCat.trim().length < 2} onClick={async () => { try { await api.talentAdminCreateCategory({ name: newCat.trim(), segment: newSeg }); setNewCat(""); loadCats(); } catch (err) { setError(errorMessage(err)); } }} className="col-span-2 min-h-11 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink disabled:opacity-50">Add kind of work</button>
           </div>
         )}
-      </section>
+      </Fold>
     </form>
   );
 }

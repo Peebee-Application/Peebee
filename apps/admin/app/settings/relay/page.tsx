@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../../components/Fold";
 import { ModuleState } from "../../../components/ModuleState";
 import { Switch } from "../../../components/ui/Switch";
 import { ApiError, hasPermission, type RelayAdminOrder, type RelayDropMode, type RelayOperator, type RelayRoute, type RelayRouteStage, type RelaySettings, type RelayStation } from "@peebee/shared";
@@ -202,11 +203,10 @@ function SettingsTab() {
       {!ready && <MigrationNotice />}
       {ready && !stationsReady && <StationsNotice />}
       {ready && !stagesReady && <StagesNotice />}
-      <section className="home-card space-y-3">
-        <label className="flex items-center gap-2 text-sm font-bold text-ink">
+      <Fold head={<label className="flex items-center gap-2 text-sm font-bold text-ink">
           <ModuleState on={enabled} />
           Relay delivery is on
-        </label>
+        </label>}>
         <p className="text-xs text-ink-500">Off means every parcel goes the whole way by boda, however long.</p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Relay parcels longer than (km)">
@@ -221,9 +221,8 @@ function SettingsTab() {
             </Field>
           </div>
         </div>
-      </section>
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">Relay and Direct at checkout</p>
+      </Fold>
+      <Fold title="Relay and Direct at checkout">
         <p className="text-xs text-ink-500">
           Customers choose Relay (same day delivery) or Direct (instant delivery).
         </p>
@@ -237,9 +236,8 @@ function SettingsTab() {
         <Field label="Direct delivery promised in under (hours)" hint={"Customers see \u201cInstant delivery \u00b7 under N hours\u201d. Whole hours, 1 to 24."}>
           <input inputMode="numeric" required value={directHours} onChange={(e) => setDirectHours(digits(e.target.value))} className={inputCls} />
         </Field>
-      </section>
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">When each leg is paid</p>
+      </Fold>
+      <Fold title="When each leg is paid">
         <div className="grid gap-2">
           {([
             [true, "Pay each leg at its handoff", "A rider or operator is paid as soon as the next one confirms they received the parcel."],
@@ -257,9 +255,8 @@ function SettingsTab() {
             </button>
           ))}
         </div>
-      </section>
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">Petrol-station drops</p>
+      </Fold>
+      <Fold title="Petrol-station drops">
         <p className="text-xs text-ink-500">For routes that drop at a station: the matatu leaves the parcel there, then a rider brings it or the customer collects it.</p>
         <Field label="Drop station within (km) of the customer">
           <input inputMode="decimal" required value={stationKm} onChange={(e) => setStationKm(decimal(e.target.value))} className={inputCls} />
@@ -281,9 +278,8 @@ function SettingsTab() {
             </button>
           ))}
         </div>
-      </section>
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">Meeting the matatu</p>
+      </Fold>
+      <Fold title="Meeting the matatu">
         <label className="flex items-center gap-2 text-sm font-bold text-ink">
           <Switch checked={stagePickup} onChange={(e) => setStagePickup(e.target.checked)} />
           Customers can meet the matatu at a stage
@@ -301,9 +297,8 @@ function SettingsTab() {
             <input inputMode="numeric" required value={noticeMin} onChange={(e) => setNoticeMin(digits(e.target.value))} className={inputCls} />
           </Field>
         </div>
-      </section>
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">Sandbox demo</p>
+      </Fold>
+      <Fold title="Sandbox demo">
         <label className="flex items-center gap-2 text-sm font-bold text-ink">
           <Switch checked={sandboxDemo} onChange={(e) => setSandboxDemo(e.target.checked)} />
           Demo riders, matatu and petrol stations run sandbox parcels
@@ -314,7 +309,7 @@ function SettingsTab() {
         <Field label="Each demo step waits (seconds)">
           <input inputMode="numeric" required value={demoStep} onChange={(e) => setDemoStep(digits(e.target.value))} className={inputCls} />
         </Field>
-      </section>
+      </Fold>
       <SettingsSaveBar busy={busy} error={error} saved={saved} />
     </form>
   );

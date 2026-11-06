@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../components/Fold";
 import { MODULES, MODULE_CLUSTERS, PRACTICE_MODULES, resolveModuleAvailability, type ModuleFlags, type PracticeWorldStatus } from "@peebee/shared";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -55,14 +56,13 @@ export default function PracticePage() {
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       {flags && available && (
         <div className="space-y-5">
-          <section className="home-card space-y-4">
-            <label className="flex items-start gap-3">
+          <Fold head={<label className="flex items-start gap-3">
               <Switch aria-label="Practice mode" checked={practiceMode} disabled={busy === "mode"} onChange={(e) => save("mode", { practiceModeEnabled: e.target.checked })} className="mt-0.5 shrink-0" />
               <span className="min-w-0">
                 <span className="block text-sm font-bold text-ink">Practice mode {practiceMode ? "is available" : "is off"}</span>
                 <span className="block text-xs text-ink-500">Lets customers, riders, restaurants, merchants, fuel attendants and learners open the simulated world from their account. Nothing in it creates a real order, moves a balance, notifies a person or reaches a payment provider.</span>
               </span>
-            </label>
+            </label>}>
             <label className="flex items-start gap-3">
               <Switch aria-label="Shared practice world" checked={sharedWorld} disabled={busy === "shared"} onChange={(e) => save("shared", { practiceSharedWorld: e.target.checked })} className="mt-0.5 shrink-0" />
               <span className="min-w-0">
@@ -71,16 +71,15 @@ export default function PracticePage() {
               </span>
             </label>
             <p className="text-xs text-ink-500">Which modules exist in the practice world is set on <Link href="/settings/services" className="font-bold text-ink underline">Services</Link> (Practice tab). A module can be on there while it is still off in Live.</p>
-          </section>
+          </Fold>
 
-          <section className="home-card space-y-3">
-            <div>
+          <Fold head={<div>
               <h2 className="text-base font-bold text-ink">The shared practice world</h2>
               <p className="text-xs text-ink-500">
                 One set of demo people, shops, menus and orders, the same data the platform-wide Sandbox shows. Practising users act as a demo persona inside it, so a demo customer&rsquo;s order reaches practising riders, merchants and restaurants.
                 {world?.platformEnvironment === "sandbox" ? " The whole platform is in sandbox right now, so everyone sees it." : " The platform is live, so only people who start practice see it."} Switch the whole platform on <Link href="/settings/platform" className="font-bold text-ink underline">Platform state</Link>.
               </p>
-            </div>
+            </div>}>
             {world && (
               <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {([["Customers", world.counts.customers], ["Riders", world.counts.riders], ["Merchants", world.counts.merchants], ["Restaurants", world.counts.restaurants], ["Stores", world.counts.stores], ["Products", world.counts.products], ["Dishes", world.counts.menuItems], ["Orders", world.counts.orders]] as const).map(([label, n]) => (
@@ -93,14 +92,13 @@ export default function PracticePage() {
               <button type="button" disabled={!!busy || !world?.seeded} onClick={() => worldAction("orders", () => api.adminPracticeOrders())} className="min-h-10 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink disabled:opacity-50">{busy === "orders" ? "Working…" : "Demo customers place orders now"}</button>
               <button type="button" disabled={!!busy || !world?.seeded} onClick={() => { if (window.confirm("Clear every practice order and put demo balances back? Real data is not touched.")) void worldAction("reset", () => api.adminResetPractice()); }} className="min-h-10 rounded-full border border-red-300 px-4 text-sm font-bold text-red-700 disabled:opacity-50">{busy === "reset" ? "Working…" : "Reset practice orders and money"}</button>
             </div>
-          </section>
+          </Fold>
 
-          <section className="home-card space-y-2">
-            <h2 className="text-base font-bold text-ink">What the practice world holds</h2>
+          <Fold title="What the practice world holds">
             <p className="text-xs text-ink-500">
               {totals.known ? `${totals.filled} of ${PRACTICE_MODULES.length} modules have demo data${totals.empty ? `; ${totals.empty} are empty and listed below` : ""}.` : "Lay the practice world down to see what each module holds."} The number beside each module is how many demo records it has right now.
             </p>
-          </section>
+          </Fold>
 
           {MODULE_CLUSTERS.filter((c) => PRACTICE_MODULES.some((m) => m.cluster === c.id)).map((cluster) => (
             <section key={cluster.id} className="home-card space-y-3">

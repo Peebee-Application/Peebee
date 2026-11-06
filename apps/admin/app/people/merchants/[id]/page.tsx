@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../../../components/Fold";
 import {
   hasPermission,
   type AdminMerchantProfileResponse,
@@ -234,8 +235,7 @@ export default function MerchantDetailPage() {
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
 
       {canManage && (
-        <section className="home-card space-y-3">
-          <h2 className="text-sm font-bold text-ink">Review decision</h2>
+        <Fold title="Review decision">
           <div className="grid grid-cols-2 gap-2">
             {merchant.status !== "active" && (
               <button
@@ -278,14 +278,13 @@ export default function MerchantDetailPage() {
               </button>
             )}
           </div>
-        </section>
+        </Fold>
       )}
 
-      <section className="home-card">
-        <div className="mb-2 flex items-center gap-2">
+      <Fold head={<div className="mb-2 flex items-center gap-2">
           <Building2 className="h-4 w-4 text-gold" strokeWidth={1.8} aria-hidden />
           <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">Business data</h2>
-        </div>
+        </div>}>
         <Row label="Legal name" value={merchant.legal_name} />
         <Row label="Trading name" value={merchant.display_name} />
         <Row label="Business type" value={titleCase(merchant.business_kind)} />
@@ -296,13 +295,12 @@ export default function MerchantDetailPage() {
         <Row label="Registered" value={dateTime(merchant.created_at)} />
         <Row label="Approved" value={dateTime(merchant.approved_at)} />
         <Row label="Approved by" value={merchant.approved_by_name ?? "—"} />
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <div className="flex items-center gap-2">
+      <Fold head={<div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-gold" strokeWidth={1.8} aria-hidden />
           <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">KYC and attached files</h2>
-        </div>
+        </div>}>
         <div className="grid grid-cols-3 gap-2 text-center">
           {[
             ["Phone", merchant.phone_verified],
@@ -327,13 +325,12 @@ export default function MerchantDetailPage() {
           present={Boolean(merchant.has_business_document)}
           preview={businessDocument}
         />
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <div className="flex items-center gap-2">
+      <Fold head={<div className="flex items-center gap-2">
           <Store className="h-4 w-4 text-gold" strokeWidth={1.8} aria-hidden />
           <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">Outlets ({outlets.length})</h2>
-        </div>
+        </div>}>
         {outlets.length === 0 && <p className="break-words text-sm text-ink-500">No outlets registered.</p>}
         {outlets.map((outlet) => (
           <article key={outlet.id} className="rounded-2xl border border-[var(--border-faint)] p-3">
@@ -358,13 +355,12 @@ export default function MerchantDetailPage() {
             )}
           </article>
         ))}
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <div className="flex items-center gap-2">
+      <Fold head={<div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-gold" strokeWidth={1.8} aria-hidden />
           <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">Owners and staff ({members.length})</h2>
-        </div>
+        </div>}>
         {members.length === 0 && <p className="break-words text-sm text-ink-500">No merchant members found.</p>}
         {members.map((member) => {
           const assignedOutlet = outlets.find((outlet) => outlet.id === member.outlet_id);
@@ -382,13 +378,12 @@ export default function MerchantDetailPage() {
             </article>
           );
         })}
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <div className="flex items-center gap-2">
+      <Fold head={<div className="flex items-center gap-2">
           <WalletCards className="h-4 w-4 text-gold" strokeWidth={1.8} aria-hidden />
           <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">Wallet and settlement</h2>
-        </div>
+        </div>}>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-xl bg-[rgb(var(--surface-muted))] p-2">
             <p className="text-[11px] text-ink-500">Held</p><p className="mt-1 text-xs font-bold text-ink">{money(merchant.held)}</p>
@@ -412,7 +407,7 @@ export default function MerchantDetailPage() {
             </p>
           </article>
         ))}
-      </section>
+      </Fold>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">

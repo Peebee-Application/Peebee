@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../../components/Fold";
 import {
   hasPermission,
   type AdCampaignReport, type AdsConfig, type VideoAdminProvider, type VideoConfig, type VideoProviderKey,
@@ -286,8 +287,7 @@ export default function VideoAdsSettingsPage() {
               <div className="flex items-center gap-3 rounded-2xl bg-green/10 p-4 text-sm font-semibold text-green"><CheckCircle2 className="h-5 w-5 shrink-0" /><p>Video and ad settings saved.</p></div>
             )}
 
-            <section className={CARD}>
-              <SectionHead icon={<Video className="h-5 w-5" />} title="Creator video" hint="Uploads, bring-your-own accounts and limits" />
+            <Fold head={<SectionHead icon={<Video className="h-5 w-5" />} title="Creator video" hint="Uploads, bring-your-own accounts and limits" />}>
               <SwitchRow title="Creator video" hint="When off, nobody can add or upload a video. Videos already added stay." on={video.enabled} disabled={!canManage} onChange={(v) => patchVideo("enabled", v)} />
               <SwitchRow title="Let creators bring their own" hint="Creators can connect their own Cloudinary, Mux, Bunny or Cloudflare account, or paste a link to a video file. Peebee takes only the video, never the provider's own ads or earnings." on={video.byoEnabled} disabled={!canManage} onChange={(v) => patchVideo("byoEnabled", v)} />
               <NumberField id="maxDuration" label="Longest video (seconds)" hint="Longer videos are refused" value={video.maxDurationSeconds} min={5} max={14400} disabled={!canManage} onChange={(v) => patchVideo("maxDurationSeconds", v)} />
@@ -312,10 +312,9 @@ export default function VideoAdsSettingsPage() {
                   })}
                 </div>
               </div>
-            </section>
+            </Fold>
 
-            <section className={CARD}>
-              <SectionHead icon={<Megaphone className="h-5 w-5" />} title="Ads over videos" hint="Peebee decides every ad, whichever provider holds the video" />
+            <Fold head={<SectionHead icon={<Megaphone className="h-5 w-5" />} title="Ads over videos" hint="Peebee decides every ad, whichever provider holds the video" />}>
               <SwitchRow title="Ads" hint="When off, no ad plays anywhere" on={ads.enabled} disabled={!canManage} onChange={(v) => patchAds("enabled", v)} />
               <SwitchRow title="Before the video" hint="Pre-roll ad" on={ads.prerollEnabled} disabled={!canManage} onChange={(v) => patchAds("prerollEnabled", v)} />
               <SwitchRow title="During the video" hint="Mid-roll ads at regular intervals, on videos with a known length" on={ads.midrollEnabled} disabled={!canManage} onChange={(v) => patchAds("midrollEnabled", v)} />
@@ -328,13 +327,12 @@ export default function VideoAdsSettingsPage() {
               <NumberField id="perHour" label="Ads per viewer per hour" hint="Across all videos" value={ads.viewerCapPerHour} min={1} max={200} disabled={!canManage} onChange={(v) => patchAds("viewerCapPerHour", v)} />
               <NumberField id="maxAd" label="Longest ad (seconds)" hint="Longer ads are never played" value={ads.maxAdSeconds} min={5} max={180} disabled={!canManage} onChange={(v) => patchAds("maxAdSeconds", v)} />
               <NumberField id="skip" label="Skip button appears after (seconds)" hint="0 means skippable at once" value={ads.skipAfterSeconds} min={0} max={60} disabled={!canManage} onChange={(v) => patchAds("skipAfterSeconds", v)} />
-            </section>
+            </Fold>
 
             {canManage && <SettingsSaveBar busy={saving} error={null} saved={saved} />}
           </form>
 
-          <section className={CARD}>
-            <SectionHead icon={<Megaphone className="h-5 w-5" />} title="Campaigns" hint="Advertisers and Peebee's own promotions" />
+          <Fold head={<SectionHead icon={<Megaphone className="h-5 w-5" />} title="Campaigns" hint="Advertisers and Peebee's own promotions" />}>
             {campaigns.length === 0 && <p className="text-sm text-ink-500">No campaigns yet.</p>}
             <div className="space-y-3">
               {campaigns.map((c) => <CampaignRow key={c.id} c={c} canManage={canManage} onChanged={load} onError={setError} />)}
@@ -367,7 +365,7 @@ export default function VideoAdsSettingsPage() {
                 <p className="text-xs text-ink-500">A new campaign is a draft. Add an ad to it, then start it.</p>
               </form>
             )}
-          </section>
+          </Fold>
         </>
       )}
     </SettingsPageShell>

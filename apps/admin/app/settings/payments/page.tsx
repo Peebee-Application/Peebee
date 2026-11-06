@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../../components/Fold";
 import { Switch } from "../../../components/ui/Switch";
 import {
   hasPermission,
@@ -244,15 +245,14 @@ export default function PaymentsSettingsPage() {
             })}
           </div>
         </section>
-        <section className="home-card space-y-3">
-          <div>
+        <Fold head={<div>
             <h2 className="text-sm font-semibold text-ink">Flutterwave checkout</h2>
             <p className="mt-0.5 text-xs text-ink-500">
               How customers pay through Flutterwave. Each switch picks between Peebee&apos;s own in-app screen and
               Flutterwave&apos;s hosted payment page. Switching off is instant and safe: payments simply go to the
               hosted page instead.
             </p>
-          </div>
+          </div>}>
           <label
             className={`flex items-start gap-2.5 rounded-xl border p-3 ${directMobileMoney ? "border-gold/40 bg-gold/5" : "border-[var(--border-faint)]"}`}
           >
@@ -284,16 +284,15 @@ export default function PaymentsSettingsPage() {
               )}
             </span>
           </label>
-        </section>
-        <section className="home-card space-y-3">
-          <div>
+        </Fold>
+        <Fold head={<div>
             <h2 className="text-sm font-semibold text-ink">Pending payments</h2>
             <p className="mt-0.5 text-xs text-ink-500">
               If a customer&apos;s mobile money or card payment is still unconfirmed after this many minutes, Peebee
               stops waiting and marks it failed so they can try again and the order isn&apos;t held. Payouts never time
               out. 0 waits indefinitely.
             </p>
-          </div>
+          </div>}>
           <label className="block space-y-1">
             <span className="text-xs font-semibold text-ink-500">Minutes before a pending payment fails</span>
             <input
@@ -323,9 +322,8 @@ export default function PaymentsSettingsPage() {
               0 stops watching the moment a payment times out.
             </span>
           </label>
-        </section>
-        <section className="home-card space-y-3">
-          <div>
+        </Fold>
+        <Fold head={<div>
             <h2 className="text-sm font-semibold text-ink">Withdrawal numbers</h2>
             <p className="mt-0.5 text-xs text-ink-500">
               Cash-outs by riders, car drivers and customers can only go to a mobile money number the owner has proved
@@ -333,7 +331,7 @@ export default function PaymentsSettingsPage() {
               numbers. Needs the SMS provider to be set up and the number-verification database update applied; until
               then this can&apos;t be switched on.
             </p>
-          </div>
+          </div>}>
           <label
             className={`flex items-start gap-2.5 rounded-xl border p-3 ${verifyNumbers ? "border-gold/40 bg-gold/5" : "border-[var(--border-faint)]"}`}
           >
@@ -346,7 +344,7 @@ export default function PaymentsSettingsPage() {
               </span>
             </span>
           </label>
-        </section>
+        </Fold>
         <SettingsSaveBar busy={busy} error={error} saved={saved} />
       </form>
     </SettingsPageShell>

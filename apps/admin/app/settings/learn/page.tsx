@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../../components/Fold";
 import { ModuleState } from "../../../components/ModuleState";
 import { EDUCATION_STREAMS, hasPermission, type EducationStream, type LearnSettings, type SchoolStatus, type StudioSchool } from "@peebee/shared";
 import { AlertCircle, CheckCircle2, GraduationCap, Layers, ShieldAlert, Wallet } from "lucide-react";
@@ -187,8 +188,7 @@ export default function LearnSettingsPage() {
             </div>
           )}
 
-          <section className="space-y-4 rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm">
-            <div className="flex items-center gap-3">
+          <Fold head={<div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
                 <GraduationCap className="h-5 w-5" />
               </div>
@@ -196,7 +196,7 @@ export default function LearnSettingsPage() {
                 <h2 className="text-base font-bold text-ink">Learn Studio</h2>
                 <p className="text-xs text-ink-500">Educators build schools, classes, courses and lessons here</p>
               </div>
-            </div>
+            </div>}>
             <SwitchRow managed title="Studio open" hint="When off, educators can't create or edit anything. Published courses stay visible." on={settings.enabled} disabled={!canManage} onChange={(v) => patch("enabled", v)} />
             <SwitchRow managed title="Masterclasses" hint="Short open programmes next to ordinary classes" on={settings.masterclassesEnabled} disabled={!canManage} onChange={(v) => patch("masterclassesEnabled", v)} />
             <SwitchRow managed title="Enrolment" hint="Learners can join published courses, free or paid from their wallet" on={settings.enrolmentsEnabled} disabled={!canManage} onChange={(v) => patch("enrolmentsEnabled", v)} />
@@ -235,10 +235,9 @@ export default function LearnSettingsPage() {
             <SwitchRow title="Show quiz answers" hint="After a quiz, learners see which answers were right and why" on={settings.revealQuizAnswers} disabled={!canManage} onChange={(v) => patch("revealQuizAnswers", v)} />
             <SwitchRow title="Show exam answers" hint="After an exam, learners see which answers were right. Off keeps the paper reusable." on={settings.revealExamAnswers} disabled={!canManage} onChange={(v) => patch("revealExamAnswers", v)} />
             <SwitchRow title="Publish automatically" hint="A course goes live as soon as it has its first lesson. When off, the educator publishes it themselves." on={settings.publishByDefault} disabled={!canManage} onChange={(v) => patch("publishByDefault", v)} />
-          </section>
+          </Fold>
 
-          <section className="space-y-4 rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm">
-            <div className="flex items-center gap-3">
+          <Fold head={<div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
                 <Layers className="h-5 w-5" />
               </div>
@@ -246,7 +245,7 @@ export default function LearnSettingsPage() {
                 <h2 className="text-base font-bold text-ink">Open streams</h2>
                 <p className="text-xs text-ink-500">Which kinds of learning educators can create content for</p>
               </div>
-            </div>
+            </div>}>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {EDUCATION_STREAMS.map((stream) => {
                 const on = settings.streams.includes(stream.id);
@@ -270,13 +269,12 @@ export default function LearnSettingsPage() {
                 );
               })}
             </div>
-          </section>
+          </Fold>
 
-          <section className="space-y-4 rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm">
-            <div>
+          <Fold head={<div>
               <h2 className="text-base font-bold text-ink">Trial classes and demo content</h2>
               <p className="text-xs text-ink-500">Two practice live classes that run themselves, opened with a code, and the visibility of demo courses</p>
-            </div>
+            </div>}>
             <SwitchRow managed title="Trial live classes" hint="Anyone signed in can join a practice class with its code and see a class in progress with no tutor online" on={settings.trialClassesEnabled} disabled={!canManage} onChange={(v) => patch("trialClassesEnabled", v)} />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {(["trialCodeA", "trialCodeB"] as const).map((key, i) => (
@@ -300,10 +298,9 @@ export default function LearnSettingsPage() {
             <SwitchRow title="Learn home: tools grid" hint="Tiles for TV, certificates, fees and practice class on the learner home" on={settings.homeToolsEnabled} disabled={!canManage} onChange={(v) => patch("homeToolsEnabled", v)} />
             <SwitchRow title="Learn home: Free to start row" hint="A row of free courses on the learner home" on={settings.homeFreeRailEnabled} disabled={!canManage} onChange={(v) => patch("homeFreeRailEnabled", v)} />
             <SwitchRow title="Show demo courses" hint="Demo schools and courses appear in the catalogue after real ones, marked Demo. Turn off to hide them without removing them." on={settings.demoContentVisible} disabled={!canManage} onChange={(v) => patch("demoContentVisible", v)} />
-          </section>
+          </Fold>
 
-          <section className="space-y-4 rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm">
-            <div className="flex items-center gap-3">
+          <Fold head={<div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
                 <Wallet className="h-5 w-5" />
               </div>
@@ -311,7 +308,7 @@ export default function LearnSettingsPage() {
                 <h2 className="text-base font-bold text-ink">Pricing</h2>
                 <p className="text-xs text-ink-500">Whether courses can cost money, and how much</p>
               </div>
-            </div>
+            </div>}>
             <SwitchRow managed title="Paid courses" hint="When off, every course is free" on={settings.paidCoursesEnabled} disabled={!canManage} onChange={(v) => patch("paidCoursesEnabled", v)} />
             <div className="field-box flex flex-col rounded-2xl bg-[rgb(var(--surface-muted))] p-3 sm:max-w-xs">
               <label htmlFor="max-price" className="mb-1 text-xs font-bold text-ink-500">Highest course price (UGX)</label>
@@ -326,13 +323,12 @@ export default function LearnSettingsPage() {
                 className="w-full text-base font-bold text-ink outline-none"
               />
             </div>
-          </section>
+          </Fold>
 
-          <section className="space-y-4 rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm">
-            <div>
+          <Fold head={<div>
               <h2 className="text-base font-bold text-ink">Limits</h2>
               <p className="text-xs text-ink-500">How much one educator can build</p>
-            </div>
+            </div>}>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {LIMITS.map((limit) => (
                 <div key={limit.key} className="field-box flex flex-col rounded-2xl bg-[rgb(var(--surface-muted))] p-3">
@@ -352,7 +348,7 @@ export default function LearnSettingsPage() {
                 </div>
               ))}
             </div>
-          </section>
+          </Fold>
 
           <div className="sticky bottom-4 z-20 flex gap-3">
             <button
@@ -379,8 +375,7 @@ export default function LearnSettingsPage() {
       )}
 
       {settings && (
-        <section className="mb-12 space-y-3 rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm">
-          <div className="flex items-center gap-3">
+        <Fold head={<div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
               <ShieldAlert className="h-5 w-5" />
             </div>
@@ -388,7 +383,7 @@ export default function LearnSettingsPage() {
               <h2 className="text-base font-bold text-ink">Schools</h2>
               <p className="text-xs text-ink-500">Suspend a school that breaks the rules; its courses leave the catalogue</p>
             </div>
-          </div>
+          </div>}>
           {schools.length === 0 ? (
             <p className="rounded-2xl bg-[rgb(var(--surface-muted))] p-4 text-sm text-ink-500">No schools have been created yet.</p>
           ) : (
@@ -416,7 +411,7 @@ export default function LearnSettingsPage() {
               ))}
             </ul>
           )}
-        </section>
+        </Fold>
       )}
     </SettingsPageShell>
   );

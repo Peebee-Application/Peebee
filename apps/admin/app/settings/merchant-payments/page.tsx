@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../../components/Fold";
 import {
   hasPermission,
   type AdminMerchant,
@@ -141,11 +142,10 @@ export default function MerchantPaymentsSettingsPage() {
           )}
         </section>
 
-        <section className="home-card space-y-3">
-          <div>
+        <Fold head={<div>
             <h2 className="text-sm font-bold text-ink">Merchant approvals</h2>
             <p className="mt-1 text-xs text-ink-500">Formal businesses remain unable to receive {environment} allocations until their KYC and merchant status are approved.</p>
-          </div>
+          </div>}>
           {merchants.length === 0 && <p className="text-xs text-ink-500">No merchant applications yet.</p>}
           {merchants.map((merchant) => (
             <div key={merchant.id} className="rounded-xl border border-[var(--border-faint)] p-3 text-sm">
@@ -164,13 +164,12 @@ export default function MerchantPaymentsSettingsPage() {
               )}
             </div>
           ))}
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <div>
+        <Fold head={<div>
             <h2 className="text-sm font-bold text-ink">Regulated custody approval</h2>
             <p className="mt-1 text-xs text-ink-500">Record the signed provider arrangement; this is an operational gate, not legal advice.</p>
-          </div>
+          </div>}>
           {activeApproval ? (
             <div className="rounded-xl border border-green/30 bg-green/5 p-3 text-sm">
               <p className="font-semibold text-ink">{activeApproval.custody_provider} custody · {activeApproval.payout_provider} payouts</p>
@@ -210,10 +209,9 @@ export default function MerchantPaymentsSettingsPage() {
               </button>
             </form>
           )}
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <div className="flex items-start justify-between gap-3">
+        <Fold head={<div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold text-ink">Reconciliation circuit breaker</h2>
               <p className="mt-1 text-xs text-ink-500">{reconciled ? "All cached balances match the ledger." : "Mismatch detected. Withdrawals must remain frozen."}</p>
@@ -226,7 +224,7 @@ export default function MerchantPaymentsSettingsPage() {
             >
               {busy === "freeze" ? "Saving…" : frozen ? "Withdrawals frozen" : "Withdrawals open"}
             </button>
-          </div>
+          </div>}>
           {balances.slice(0, 20).map((row) => (
             <div key={`${row.merchant_id}-${row.environment}`} className="flex items-center justify-between border-t border-[var(--border-faint)] pt-2 text-xs">
               <span><span className="font-semibold text-ink">{row.display_name}</span><span className="block text-ink-500">{money(row.available)} available · {money(row.settling)} settling</span></span>
@@ -234,13 +232,12 @@ export default function MerchantPaymentsSettingsPage() {
             </div>
           ))}
           {operations.length > 0 && <p className="text-xs text-ink-500">{operations.length} provider operation{operations.length === 1 ? "" : "s"} awaiting a final status. The poller checks these without blindly resending money.</p>}
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <div>
+        <Fold head={<div>
             <h2 className="text-sm font-bold text-ink">Settlement destinations</h2>
             <p className="mt-1 text-xs text-ink-500">Verify ownership before a merchant can withdraw. New destinations also have a 24-hour cooling period.</p>
-          </div>
+          </div>}>
           {accounts.length === 0 && <p className="text-xs text-ink-500">No settlement destinations submitted yet.</p>}
           {accounts.map((account) => (
             <div key={account.id} className="rounded-xl border border-[var(--border-faint)] p-3 text-sm">
@@ -260,7 +257,7 @@ export default function MerchantPaymentsSettingsPage() {
               </div>
             </div>
           ))}
-        </section>
+        </Fold>
       </div>
     </SettingsPageShell>
   );
