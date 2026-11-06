@@ -75,14 +75,14 @@ export default function OnboardPage() {
     <form onSubmit={submit} className="space-y-5">
       <div>
         <h1 className="text-xl font-black text-ink">Set up your provider account</h1>
-        <p className="mt-1 text-xs font-medium text-ink-500">Tell us who you are and what you do. Peebee reviews every account before it can take jobs.</p>
+        <p className="mt-1 text-base font-medium text-ink-500">Tell us who you are and what you do. Peebee reviews every account before it can take jobs.</p>
       </div>
 
-      {loadError && <div className="rounded-2xl bg-red-500/10 p-3 text-xs font-bold text-red-600" role="alert">{loadError}</div>}
-      {error && <div className="rounded-2xl bg-red-500/10 p-3 text-xs font-bold text-red-600" role="alert">{error}</div>}
+      {loadError && <div className="rounded-2xl bg-red-500/10 p-3 text-base font-bold text-red-600" role="alert">{loadError}</div>}
+      {error && <div className="rounded-2xl bg-red-500/10 p-3 text-base font-bold text-red-600" role="alert">{error}</div>}
 
       <section className="space-y-2">
-        <h2 className="text-xs font-black uppercase tracking-wider text-ink-500">I work as</h2>
+        <h2 className="text-base font-black uppercase tracking-wider text-ink-500">I work as</h2>
         <div className="grid grid-cols-2 gap-2">
           {([
             { id: "individual", label: "An individual", hint: "Just me", icon: User },
@@ -95,8 +95,8 @@ export default function OnboardPage() {
               className={`flex flex-col items-start gap-1 rounded-2xl border p-3 text-left transition active:scale-[0.98] ${kind === k.id ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"}`}
             >
               <k.icon className={`h-5 w-5 ${kind === k.id ? "text-gold" : "text-ink-500"}`} aria-hidden />
-              <span className="text-sm font-black text-ink">{k.label}</span>
-              <span className="text-[11px] font-medium text-ink-500">{k.hint}</span>
+              <span className="text-lg font-black text-ink">{k.label}</span>
+              <span className="text-sm font-medium text-ink-500">{k.hint}</span>
             </button>
           ))}
         </div>
@@ -104,31 +104,31 @@ export default function OnboardPage() {
 
       <section className="home-card space-y-4 p-4">
         <label className="block space-y-1">
-          <span className="text-xs font-bold text-ink-500">{kind === "company" ? "Contact person" : "Your name"}</span>
-          <input required minLength={2} maxLength={80} value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full text-sm font-medium text-ink outline-none" />
+          <span className="text-base font-bold text-ink-500">{kind === "company" ? "Contact person" : "Your name"}</span>
+          <input required minLength={2} maxLength={80} value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full text-lg font-medium text-ink outline-none" />
         </label>
         {kind === "company" && (
           <label className="block space-y-1">
-            <span className="text-xs font-bold text-ink-500">Company name</span>
-            <input required minLength={2} maxLength={100} value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full text-sm font-medium text-ink outline-none" />
+            <span className="text-base font-bold text-ink-500">Company name</span>
+            <input required minLength={2} maxLength={100} value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full text-lg font-medium text-ink outline-none" />
           </label>
         )}
         <label className="block space-y-1">
-          <span className="text-xs font-bold text-ink-500">Phone customers can reach you on</span>
-          <input type="tel" value={phone ?? ""} onChange={(e) => setPhone(e.target.value)} className="w-full text-sm font-medium text-ink outline-none" />
+          <span className="text-base font-bold text-ink-500">Phone customers can reach you on</span>
+          <input type="tel" value={phone ?? ""} onChange={(e) => setPhone(e.target.value)} className="w-full text-lg font-medium text-ink outline-none" />
         </label>
         <label className="block space-y-1">
-          <span className="text-xs font-bold text-ink-500">About you (optional)</span>
-          <textarea rows={3} maxLength={500} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Experience, equipment, areas you cover…" className="w-full resize-none text-sm font-medium text-ink outline-none" />
+          <span className="text-base font-bold text-ink-500">About you (optional)</span>
+          <textarea rows={3} maxLength={500} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Experience, equipment, areas you cover…" className="w-full resize-none text-lg font-medium text-ink outline-none" />
         </label>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xs font-black uppercase tracking-wider text-ink-500">What you offer</h2>
-        {services.length === 0 && !loadError && <p className="text-xs text-ink-500">Loading services…</p>}
+        <h2 className="text-base font-black uppercase tracking-wider text-ink-500">What you offer</h2>
+        {services.length === 0 && !loadError && <p className="text-base text-ink-500">Loading services…</p>}
         {grouped.map(([category, items]) => (
           <div key={category} className="space-y-1.5">
-            <p className="text-xs font-black text-ink">{CATEGORY_LABEL[category] ?? category}</p>
+            <p className="text-base font-black text-ink">{CATEGORY_LABEL[category] ?? category}</p>
             <div className="flex flex-wrap gap-2">
               {items.map((s) => {
                 const on = selected.has(s.id);
@@ -138,7 +138,7 @@ export default function OnboardPage() {
                     type="button"
                     aria-pressed={on}
                     onClick={() => toggle(s.id)}
-                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition active:scale-95 ${on ? "border-gold bg-gold text-ink-gold" : "border-[var(--border-faint)] text-ink"}`}
+                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-base font-bold transition active:scale-95 ${on ? "border-gold bg-gold text-ink-gold" : "border-[var(--border-faint)] text-ink"}`}
                   >
                     {on && <Check className="h-3 w-3" aria-hidden />}
                     {s.name}
@@ -150,7 +150,7 @@ export default function OnboardPage() {
         ))}
       </section>
 
-      <button type="submit" disabled={busy || services.length === 0} className="w-full rounded-2xl bg-gold py-3 text-sm font-black text-ink-gold shadow transition active:scale-[0.98] disabled:opacity-50">
+      <button type="submit" disabled={busy || services.length === 0} className="w-full min-h-16 rounded-2xl bg-gold text-xl font-black text-ink-gold shadow transition active:scale-[0.98] disabled:opacity-50">
         {busy ? "Submitting…" : "Submit for approval"}
       </button>
     </form>

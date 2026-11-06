@@ -29,7 +29,7 @@ function Thumb({ photo }: { photo: WorkPhoto }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {src ? <img src={src} alt={photo.note || PHASE_LABEL[photo.phase]} className="h-full w-full object-cover" /> : null}
       </div>
-      <figcaption className="text-[10px] font-bold text-ink-500">{PHASE_LABEL[photo.phase]}{photo.note ? ` · ${photo.note}` : ""}</figcaption>
+      <figcaption className="text-sm font-bold text-ink-500">{PHASE_LABEL[photo.phase]}{photo.note ? ` · ${photo.note}` : ""}</figcaption>
     </figure>
   );
 }
@@ -63,16 +63,16 @@ export function JobPhotos({ jobId, canAdd, maxPhotos }: { jobId: string; canAdd:
   if (photos.length === 0 && !canAdd) return null;
   return (
     <section className="home-card space-y-3 p-4">
-      <h2 className="text-xs font-black uppercase tracking-wider text-ink-500">Photos</h2>
-      {error && <div className="rounded-2xl bg-red-500/10 p-3 text-xs font-bold text-red-600" role="alert">{error}</div>}
+      <h2 className="text-base font-black uppercase tracking-wider text-ink-500">Photos</h2>
+      {error && <div className="rounded-2xl bg-red-500/10 p-3 text-base font-bold text-red-600" role="alert">{error}</div>}
       {photos.length > 0 && <div className="grid grid-cols-3 gap-2">{photos.map((p) => <Thumb key={p.id} photo={p} />)}</div>}
       {canAdd && (!maxPhotos || photos.length < maxPhotos) && (
         <div className="flex items-center gap-2">
-          <select value={phase} onChange={(e) => setPhase(e.target.value as "before" | "after")} aria-label="Photo type" className="rounded-full border border-[var(--border-faint)] px-3 py-2 text-xs font-bold text-ink outline-none">
+          <select value={phase} onChange={(e) => setPhase(e.target.value as "before" | "after")} aria-label="Photo type" className="rounded-full border border-[var(--border-faint)] px-3 py-2 text-base font-bold text-ink outline-none">
             <option value="before">Before</option>
             <option value="after">After</option>
           </select>
-          <button type="button" disabled={busy} onClick={() => input.current?.click()} className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gold py-2.5 text-sm font-black text-ink-gold transition active:scale-[0.98] disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={() => input.current?.click()} className="flex flex-1 items-center justify-center gap-2 min-h-14 rounded-2xl bg-gold text-lg font-black text-ink-gold transition active:scale-[0.98] disabled:opacity-50">
             <Camera className="h-4 w-4" aria-hidden />{busy ? "Uploading…" : "Add a photo"}
           </button>
           <input ref={input} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />

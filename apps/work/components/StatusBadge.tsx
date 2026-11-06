@@ -14,7 +14,7 @@ const TONE: Partial<Record<WorkJobStatus, string>> = {
 
 export function StatusBadge({ status }: { status: WorkJobStatus }) {
   return (
-    <span className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[10px] font-black ${TONE[status] ?? "bg-black/5 text-ink-500"}`}>
+    <span className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-sm font-black ${TONE[status] ?? "bg-black/5 text-ink-500"}`}>
       {STATUS_LABEL[status]}
     </span>
   );

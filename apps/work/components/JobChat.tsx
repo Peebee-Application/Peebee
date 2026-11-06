@@ -51,21 +51,21 @@ export function JobChat({ jobId, canSend }: { jobId: string; canSend: boolean })
   if (messages.length === 0 && !canSend) return null;
   return (
     <section className="home-card space-y-3 p-4">
-      <h2 className="text-xs font-black uppercase tracking-wider text-ink-500">Messages</h2>
+      <h2 className="text-base font-black uppercase tracking-wider text-ink-500">Messages</h2>
       {messages.length > 0 && (
         <div className="max-h-64 space-y-2 overflow-y-auto" aria-live="polite">
           {messages.map((m) => (
             <div key={m.id} className={`flex ${m.from === "provider" ? "justify-end" : "justify-start"}`}>
-              <p className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm font-medium ${m.from === "provider" ? "bg-gold text-ink-gold" : "bg-black/5 text-ink"}`}>{m.body}</p>
+              <p className={`max-w-[80%] rounded-2xl px-3 py-2 text-lg font-medium ${m.from === "provider" ? "bg-gold text-ink-gold" : "bg-black/5 text-ink"}`}>{m.body}</p>
             </div>
           ))}
           <div ref={end} />
         </div>
       )}
-      {error && <div className="rounded-2xl bg-red-500/10 p-3 text-xs font-bold text-red-600" role="alert">{error}</div>}
+      {error && <div className="rounded-2xl bg-red-500/10 p-3 text-base font-bold text-red-600" role="alert">{error}</div>}
       {canSend && (
         <form onSubmit={send} className="field-box flex items-center gap-2 px-3 py-2">
-          <input value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} placeholder="Message the customer…" aria-label="Message" className="w-full text-sm font-medium text-ink outline-none" />
+          <input value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} placeholder="Message the customer…" aria-label="Message" className="w-full text-lg font-medium text-ink outline-none" />
           <button type="submit" disabled={busy || !text.trim()} aria-label="Send" className="shrink-0 text-gold disabled:opacity-40"><Send className="h-5 w-5" aria-hidden /></button>
         </form>
       )}
