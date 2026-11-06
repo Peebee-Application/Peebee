@@ -6,7 +6,6 @@ import { ExplorePeebeeCard, HomeLaunch } from "../components/home/HomeScreensave
 import { LocationOnboarding } from "../components/home/LocationOnboarding";
 import { OrderTypeCards } from "../components/home/OrderTypeCards";
 import { RecentLists } from "../components/home/RecentLists";
-import { TrustBanner } from "../components/home/TrustBanner";
 import { WalletCard } from "../components/home/WalletCard";
 import { HomeExperience } from "../components/home/HomeTemplates";
 
@@ -21,7 +20,6 @@ export default function HomePage() {
         <ActiveOrderCard />
         <ModuleOnly any={["buy.shopping"]}><RecentLists /></ModuleOnly>
         <WalletCard />
-        <TrustBanner />
         <LocationOnboarding />
       </div>
     </HomeLaunch>}>
@@ -34,7 +32,6 @@ export default function HomePage() {
         </details>
       </ModuleOnly>
       <WalletCard />
-      <TrustBanner />
       <LocationOnboarding />
     </HomeExperience>
   );

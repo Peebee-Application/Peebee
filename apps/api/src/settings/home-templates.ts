@@ -16,6 +16,7 @@ export const homeTemplatesSchema = z.object({
   interactionPauseSeconds: z.number().int().min(1).max(limits.maxInteractionSeconds),
   exploreTypeMs: z.number().int().min(20).max(300).default(DEFAULT_HOME_TEMPLATES.exploreTypeMs),
   exploreHoldSeconds: z.number().int().min(2).max(30).default(DEFAULT_HOME_TEMPLATES.exploreHoldSeconds),
+  exploreLines: z.array(z.object({ module: z.enum(["ride", "eat", "buy", "work", "learn"]), text: z.string().trim().min(1).max(120) })).min(1).max(30).default(DEFAULT_HOME_TEMPLATES.exploreLines),
 }).superRefine((config, ctx) => {
   for (const key of ["templates", "eligibleShortcuts", "preferredShortcuts"] as const) {
     if (new Set(config[key]).size !== config[key].length) ctx.addIssue({ code: "custom", path: [key], message: "Each item can appear only once." });

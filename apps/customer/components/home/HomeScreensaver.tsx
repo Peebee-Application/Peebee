@@ -19,6 +19,7 @@ import {
   Radio,
   ShoppingBag,
   ShoppingBasket,
+  ShieldCheck,
   Sparkles,
   Store,
   Truck,
@@ -213,14 +214,6 @@ export function HomeLaunch({ children, startClosed = false }: { children: React.
   );
 }
 
-const EXPLORE_LINES: Record<string, string> = {
-  ride: "Your next stop starts here.",
-  eat: "Find your next favourite bite.",
-  buy: "Big finds. Little effort.",
-  work: "Less to do. More living.",
-  learn: "Feed your curiosity.",
-};
-
 function ExploreTypewriter({ lines, timing, onIndexChange }: { lines: string[]; timing: HomeTemplatesSettings; onIndexChange: (index: number) => void }) {
   const [frame, setFrame] = useState({ index: 0, letters: 0, leaving: false });
   const [reduced, setReduced] = useState(false);
@@ -261,13 +254,18 @@ export function ExplorePeebeeCard({ timing }: { timing?: HomeTemplatesSettings }
     return () => { active = false; };
   }, [timing]);
   if (slides.length === 0) return null;
-  const lines = slides.map((slide) => EXPLORE_LINES[slide.id] ?? `Discover ${slide.title.toLowerCase()}.`);
+  const config = timing ?? savedTiming;
+  const eligibleLines = config.exploreLines.filter((entry) => slides.some((slide) => slide.id === entry.module));
+  const entries = eligibleLines.length ? eligibleLines : DEFAULT_HOME_TEMPLATES.exploreLines.filter((entry) => slides.some((slide) => slide.id === entry.module));
+  const lines = entries.map((entry) => entry.text);
+  const photo = slides.find((slide) => slide.id === entries[photoIndex % entries.length].module) ?? slides[0];
   return (
     <button type="button" className="hs-home-explore" onClick={openHomeScreensaver} aria-label="Explore Peebee — open screensaver">
-      <span className="hs-home-explore__media" aria-hidden style={{ backgroundImage: `url("${slides[photoIndex % slides.length].cover}")`, backgroundPosition: slides[photoIndex % slides.length].coverPosition ?? "center" }} />
+      <span className="hs-home-explore__media" aria-hidden style={{ backgroundImage: `url("${photo.cover}")`, backgroundPosition: photo.coverPosition ?? "center" }} />
       <span className="hs-home-explore__copy">
+        <span className="hs-home-explore__badge"><ShieldCheck size={14} aria-hidden />Fast. Reliable. Trusted.</span>
         <span className="hs-home-explore__title">Explore Peebee</span>
-        <ExploreTypewriter key={slides.map((slide) => slide.id).join("|")} lines={lines} timing={timing ?? savedTiming} onIndexChange={setPhotoIndex} />
+        <ExploreTypewriter key={JSON.stringify(entries)} lines={lines} timing={config} onIndexChange={setPhotoIndex} />
       </span>
       <ChevronRight size={20} strokeWidth={2.2} aria-hidden />
     </button>
