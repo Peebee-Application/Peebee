@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { HOME_TEMPLATE_IDS, HOME_SHORTCUT_IDS, HOME_TEMPLATE_LIMITS, resolveHomeTemplates, type HomeTemplatesSettings } from "@peebee/shared";
+import { DEFAULT_HOME_TEMPLATES, HOME_TEMPLATE_IDS, HOME_SHORTCUT_IDS, HOME_TEMPLATE_LIMITS, resolveHomeTemplates, type HomeTemplatesSettings } from "@peebee/shared";
 import { getSetting } from "../lib/settings.js";
 
 const limits = HOME_TEMPLATE_LIMITS;
@@ -14,6 +14,8 @@ export const homeTemplatesSchema = z.object({
   minIntervalSeconds: seconds,
   maxIntervalSeconds: seconds,
   interactionPauseSeconds: z.number().int().min(1).max(limits.maxInteractionSeconds),
+  exploreTypeMs: z.number().int().min(20).max(300).default(DEFAULT_HOME_TEMPLATES.exploreTypeMs),
+  exploreHoldSeconds: z.number().int().min(2).max(30).default(DEFAULT_HOME_TEMPLATES.exploreHoldSeconds),
 }).superRefine((config, ctx) => {
   for (const key of ["templates", "eligibleShortcuts", "preferredShortcuts"] as const) {
     if (new Set(config[key]).size !== config[key].length) ctx.addIssue({ code: "custom", path: [key], message: "Each item can appear only once." });

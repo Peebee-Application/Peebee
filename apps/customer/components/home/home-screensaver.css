@@ -432,8 +432,8 @@ html.peebee-practice .hs-top {
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 64px;
-  padding: 8px 14px 8px 8px;
+  min-height: 164px;
+  padding: 12px;
   border: 1px solid var(--border-faint);
   border-radius: 20px;
   background-color: rgb(var(--surface-card));
@@ -448,26 +448,33 @@ html.peebee-practice .hs-top {
 }
 
 .hs-home-explore__media {
-  width: 64px;
-  height: 48px;
+  width: clamp(104px, 31vw, 132px);
+  height: 132px;
   flex: none;
   border-radius: 14px;
   background-color: rgb(var(--color-ink));
-  background-image: linear-gradient(145deg, rgb(var(--color-ink)) 0%, rgb(var(--color-black-700)) 52%, rgb(var(--color-gold)) 145%);
+  background-image: url('/home-screensaver/ride-hero.webp');
+  background-size: cover;
+  background-position: center;
 }
 
 .hs-home-explore__copy { min-width: 0; flex: 1; }
-.hs-home-explore__title { display: block; font-size: 15px; font-weight: 700; line-height: 1.2; }
+.hs-home-explore__title { display: block; font-size: 23px; font-weight: 750; line-height: 1.2; }
 .hs-home-explore__sub {
   display: block;
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
+  margin-top: 8px;
+  min-height: 2.8em;
+  white-space: normal;
+  font-size: 17px;
+  line-height: 1.4;
   font-weight: 500;
   color: rgb(var(--color-ink-500));
+  opacity: 1;
+  transition: opacity 220ms ease;
 }
+.hs-home-explore__sub.is-leaving { opacity: 0; }
+.hs-home-explore__cursor { display: inline-block; height: 1em; margin-left: 2px; border-left: 2px solid rgb(var(--color-gold)); vertical-align: -.1em; }
+@media (prefers-reduced-motion: reduce) { .hs-home-explore__sub { transition: none; } }
 
 .hs-sr {
   position: absolute;

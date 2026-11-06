@@ -27,14 +27,14 @@ export default function HomePage() {
     </HomeLaunch>}>
       <FeeProposalCard />
       <ActiveOrderCard />
-      <details className="home-card space-y-4">
-        <summary className="min-h-11 cursor-pointer py-2 text-sm font-bold">Your lists &amp; wallet</summary>
-        <div className="space-y-5 pt-3">
-          <ModuleOnly any={["buy.shopping"]}><RecentLists /></ModuleOnly>
-          <WalletCard />
-          <TrustBanner />
-        </div>
-      </details>
+      <ModuleOnly any={["buy.shopping"]}>
+        <details className="space-y-4">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-bold">Your lists</summary>
+          <RecentLists />
+        </details>
+      </ModuleOnly>
+      <WalletCard />
+      <TrustBanner />
       <LocationOnboarding />
     </HomeExperience>
   );

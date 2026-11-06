@@ -69,6 +69,8 @@ export type HomeTemplatesSettings = {
   minIntervalSeconds: number;
   maxIntervalSeconds: number;
   interactionPauseSeconds: number;
+  exploreTypeMs: number;
+  exploreHoldSeconds: number;
 };
 export const DEFAULT_HOME_TEMPLATES: HomeTemplatesSettings = {
   enabled: true,
@@ -80,6 +82,8 @@ export const DEFAULT_HOME_TEMPLATES: HomeTemplatesSettings = {
   minIntervalSeconds: 90,
   maxIntervalSeconds: 180,
   interactionPauseSeconds: 15,
+  exploreTypeMs: 65,
+  exploreHoldSeconds: 5,
 };
 
 /** Reject malformed persisted data as a whole; never make a broken timer or dead-end home. */
@@ -96,7 +100,10 @@ export function resolveHomeTemplates(value: unknown): HomeTemplatesSettings {
     || !integer(v.preferredWeight, 1, limits.maxWeight) || !integer(v.shortcutCount, 1, limits.maxShortcuts)
     || !integer(v.minIntervalSeconds, limits.minSeconds, limits.maxSeconds) || !integer(v.maxIntervalSeconds, limits.minSeconds, limits.maxSeconds)
     || v.minIntervalSeconds > v.maxIntervalSeconds || !integer(v.interactionPauseSeconds, 1, limits.maxInteractionSeconds)) return fallback();
-  return structuredClone(v) as HomeTemplatesSettings;
+  if (v.exploreTypeMs !== undefined && !integer(v.exploreTypeMs, 20, 300)) return fallback();
+  if (v.exploreHoldSeconds !== undefined && !integer(v.exploreHoldSeconds, 2, 30)) return fallback();
+  return structuredClone({ ...v, exploreTypeMs: v.exploreTypeMs ?? DEFAULT_HOME_TEMPLATES.exploreTypeMs,
+    exploreHoldSeconds: v.exploreHoldSeconds ?? DEFAULT_HOME_TEMPLATES.exploreHoldSeconds }) as HomeTemplatesSettings;
 }
 
 export type HomeAvailability = {
