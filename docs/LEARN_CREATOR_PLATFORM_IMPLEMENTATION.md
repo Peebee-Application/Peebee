@@ -33,9 +33,11 @@ Immutable snapshots pin the authored text, resources and practice to the learner
 
 **Manual D1 migration:** `apps/api/src/db/migrations/0158_learn_creator.sql`.
 
+**Live status — 6 November 2026:** Applied to the configured production D1 database `peebee-api` using Wrangler remote execution. All 15 new tables, four named indexes and the version/job/invitation/permission columns were verified. Recorded as `0158_learn_creator.sql` in `d1_migrations` (row 107). The prerequisite LMS schema was present; no earlier migrations were replayed. Creator settings remain unset, so their safe defaults still apply. The application code has not been deployed by this operation.
+
 Apply it after the existing Learn/LMS, ledger and AI key migrations, through the repository's normal manual D1 workflow. Deployment does not apply SQL. The new endpoints check schema readiness and the feature switches default off; old LMS paths check table availability before touching new data. Do not enable creator switches before the whole migration is applied.
 
-After code review/merge, deploy only from clean `main` exactly matching `origin/main`, using the normal deploy commands and `scripts/preflight-deploy.mjs`. This branch does not change live D1, live switches, keys or deployed applications.
+After code review/merge, deploy only from clean `main` exactly matching `origin/main`, using the normal deploy commands and `scripts/preflight-deploy.mjs`. The schema migration has been applied as recorded above. Live feature switches, Google AI keys and deployed applications were not changed.
 
 Configure the existing Admin → AI Features key manager for `learn_generation` and `learn_tutor`, using shared or separate pools. No provider key is sent to browsers. Models are admin-controlled Gemini identifiers, initially the repository's existing `gemini-2.5-flash`. Generation uses `generateContent` with JSON Schema and validates all returned drafts again on the server. The provider contract follows [Google's structured-output documentation](https://ai.google.dev/gemini-api/docs/generate-content/structured-output).
 
