@@ -1,10 +1,13 @@
 import type { RiderApplicantProfile } from "@peebee/shared";
 import { db } from "../db/client.js";
+import { hasColumn } from "../lib/schema.js";
 
 export async function getApplicantProfile(riderId: string, environment: string, offset: number): Promise<RiderApplicantProfile | null> {
-  const [rider, totals, reviews] = await Promise.all([
+  // The bio column arrives with a hand-applied migration; until then the profile just has none.
+  const hasBio = await hasColumn("riders", "bio");
+  const [rider, totals, reviews, rated] = await Promise.all([
     db.execute({
-      sql: `SELECT u.name, r.created_at, r.verified, r.vehicle_info, r.area
+      sql: `SELECT u.name, r.created_at, r.verified, r.vehicle_info, r.area${hasBio ? ", r.bio" : ""}
             FROM riders r JOIN users u ON u.id = r.user_id WHERE r.user_id = ?`,
       args: [riderId],
     }),
@@ -12,7 +15,8 @@ export async function getApplicantProfile(riderId: string, environment: string, 
       sql: `SELECT COUNT(*) AS total, SUM(is_ride = 1) AS rides,
                    SUM(type = 'parcel' AND is_ride = 0) AS parcels,
                    SUM(type = 'shopping' AND restaurant_id IS NOT NULL) AS food,
-                   SUM(type = 'shopping' AND restaurant_id IS NULL) AS shopping
+                   SUM(type = 'shopping' AND restaurant_id IS NULL) AS shopping,
+                   COALESCE(SUM(distance_km), 0) AS km
             FROM orders WHERE rider_id = ? AND environment = ? AND stage = 'Settle'`,
       args: [riderId, environment],
     }),
@@ -23,6 +27,12 @@ export async function getApplicantProfile(riderId: string, environment: string, 
             ORDER BY r.created_at DESC, r.id DESC LIMIT 21 OFFSET ?`,
       args: [riderId, environment, offset],
     }),
+    // Every rating, not just the page of reviews being shown.
+    db.execute({
+      sql: `SELECT COUNT(*) AS n, AVG(r.rating) AS avg, SUM(r.recommended) AS rec
+            FROM order_ratings r JOIN orders o ON o.id = r.order_id WHERE r.rider_id = ? AND o.environment = ?`,
+      args: [riderId, environment],
+    }),
   ]);
   const person = rider.rows[0];
   if (!person) return null;
@@ -30,6 +40,12 @@ export async function getApplicantProfile(riderId: string, environment: string, 
   return {
     riderId, riderName: String(person.name), joinedAt: String(person.created_at),
     verified: Boolean(person.verified), vehicleInfo: person.vehicle_info as string | null, area: person.area as string | null,
+    bio: hasBio && typeof person.bio === "string" && person.bio.trim() ? person.bio.trim() : null,
+    // The route distance of every finished job, added up.
+    totalKm: Math.round(Number(counts.km ?? 0)),
+    avgRating: rated.rows[0]?.avg == null ? null : Math.round(Number(rated.rows[0].avg) * 10) / 10,
+    reviewCount: Number(rated.rows[0]?.n ?? 0),
+    recommendCount: Number(rated.rows[0]?.rec ?? 0),
     completed: {
       total: Number(counts.total ?? 0), rides: Number(counts.rides ?? 0), parcels: Number(counts.parcels ?? 0),
       food: Number(counts.food ?? 0), shopping: Number(counts.shopping ?? 0),

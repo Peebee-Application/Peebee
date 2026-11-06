@@ -101,6 +101,7 @@ export default function AccountPage() {
   const [email, setEmail] = useState("");
   const [altPhone, setAltPhone] = useState("");
   const [vehicleInfo, setVehicleInfo] = useState("");
+  const [bio, setBio] = useState("");
   const [stageAddress, setStageAddress] = useState("");
   const [stageArea, setStageArea] = useState("");
   const [stageCoords, setStageCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -185,6 +186,7 @@ export default function AccountPage() {
     setLastName(r.last_name ?? "");
     setAltPhone(r.alt_phone ?? "");
     setVehicleInfo(r.vehicle_info ?? "");
+    setBio(r.bio ?? "");
     setStageAddress(r.stage_address ?? "");
     setStageArea(r.area ?? "");
     setStageCoords(r.stage_lat != null && r.stage_lng != null ? { lat: r.stage_lat, lng: r.stage_lng } : null);
@@ -210,6 +212,7 @@ export default function AccountPage() {
       const res = await api.applyAsRider({
         area: stageArea || undefined,
         vehicleInfo: vehicleInfo || undefined,
+        bio: bio.trim(),
         firstName: firstName || undefined,
         lastName: lastName || undefined,
         email: email || undefined,
@@ -413,6 +416,11 @@ export default function AccountPage() {
             placeholder="UBG 123X"
             required
           />
+          <div className="space-y-1">
+            <label htmlFor="rider-bio" className="text-xs font-semibold text-ink-500">{t("acc_bio")}</label>
+            <textarea id="rider-bio" value={bio} onChange={(e) => setBio(e.target.value.slice(0, 300))} maxLength={300} rows={3} className="w-full rounded-xl px-3 py-2.5 text-[15px]" />
+            <p className="text-xs text-ink-500">{t("acc_bio_hint")} {bio.length}/300</p>
+          </div>
         </section>
 
         <section className="home-card space-y-3">

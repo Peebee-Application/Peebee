@@ -1615,7 +1615,8 @@ orderRoutes.get("/orders/:id/applicants/:riderId/profile", async (c) => {
     sql: "SELECT 1 FROM order_applications WHERE order_id = ? AND rider_id = ?",
     args: [String(order.id), riderId],
   });
-  if (!application.rows.length) return c.json({ error: "not_found" }, 404);
+  // A rider who applied, or the rider already matched (who may have claimed the ride without applying).
+  if (!application.rows.length && order.rider_id !== riderId) return c.json({ error: "not_found" }, 404);
   const offset = Number(c.req.query("offset") ?? 0);
   if (!Number.isSafeInteger(offset) || offset < 0) return c.json({ error: "invalid_offset" }, 400);
   const profile = await getApplicantProfile(riderId, String(order.environment), offset);

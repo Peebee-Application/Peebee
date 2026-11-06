@@ -1293,6 +1293,8 @@ export type Rider = {
   area: string | null;
   created_at: string;
   vehicle_info: string | null;
+  /** What the rider says about themselves, shown to customers. */
+  bio?: string | null;
   rating: number;
   momo_msisdn: string | null;
   first_name: string | null;
@@ -2069,6 +2071,14 @@ export type RiderApplicantProfile = {
   verified: boolean;
   vehicleInfo: string | null;
   area: string | null;
+  /** A few words the rider wrote about themselves; null until they do. */
+  bio: string | null;
+  /** Kilometres covered across every finished job. */
+  totalKm: number;
+  /** Across every rating, not just the reviews on this page. */
+  avgRating: number | null;
+  reviewCount: number;
+  recommendCount: number;
   completed: { total: number; rides: number; parcels: number; food: number; shopping: number };
   reviews: { id: string; rating: number; comment: string | null; recommended: boolean; createdAt: string }[];
   nextOffset: number | null;

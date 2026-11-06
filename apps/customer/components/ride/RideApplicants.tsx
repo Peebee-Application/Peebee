@@ -1,7 +1,7 @@
 "use client";
 
 import type { RiderApplicant } from "@peebee/shared";
-import { Phone, Star, UserRound } from "lucide-react";
+import { Phone, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { RiderProfileModal } from "../RiderProfileModal";
@@ -68,7 +68,16 @@ export function RideApplicants({ orderId, kind, onSelected }: { orderId: string;
             : null,
         ].filter(Boolean).join(" · ");
         return (
-          <article key={a.riderId} className="ride-trip-card relative overflow-hidden rounded-[22px] p-3.5">
+          <article
+            key={a.riderId}
+            role="button"
+            tabIndex={0}
+            aria-haspopup="dialog"
+            aria-label={`${a.riderName}: ${t("rider_view_profile")}`}
+            onClick={() => setProfile(a)}
+            onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setProfile(a); } }}
+            className="ride-trip-card relative cursor-pointer overflow-hidden rounded-[22px] p-3.5"
+          >
             <div className="flex items-center gap-3">
               <span className="ride-trip-card__avatar flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-extrabold" aria-hidden>{initials(a.riderName)}</span>
               <span className="min-w-0 flex-1">
@@ -89,14 +98,13 @@ export function RideApplicants({ orderId, kind, onSelected }: { orderId: string;
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
-                onClick={() => void choose(a.riderId)}
+                onClick={(e) => { e.stopPropagation(); void choose(a.riderId); }}
                 disabled={busyId !== null}
                 className="flex min-h-11 flex-[2] items-center justify-center rounded-xl bg-gold px-3 text-sm font-extrabold text-ink-gold disabled:opacity-60"
               >
                 {busyId === a.riderId ? t("order_choosing") : `${t("order_choose_this_rider")}`}
               </button>
-              <button type="button" onClick={() => startCall({ calleeId: a.riderId, orderId })} aria-label={`Call ${first}`} className={btn}><Phone className="h-4 w-4" aria-hidden /></button>
-              <button type="button" onClick={() => setProfile(a)} aria-haspopup="dialog" aria-label={t("rider_view_profile")} className={btn}><UserRound className="h-4 w-4" aria-hidden /></button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); startCall({ calleeId: a.riderId, orderId }); }} aria-label={`Call ${first}`} className={btn}><Phone className="h-4 w-4" aria-hidden /></button>
             </div>
           </article>
         );
@@ -111,6 +119,7 @@ export function RideApplicants({ orderId, kind, onSelected }: { orderId: string;
           busy={busyId !== null}
           selectionError={error}
           onChoose={() => void choose(profile.riderId)}
+          onCall={() => startCall({ calleeId: profile.riderId, orderId })}
           onClose={() => setProfile(null)}
         />
       )}
