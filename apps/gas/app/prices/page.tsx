@@ -1,7 +1,7 @@
 "use client";
 
 import type { FuelOutletPrice } from "@peebee/shared";
-import { AlertCircle, CheckCircle2, Fuel, Info, Save } from "lucide-react";
+import { AlertCircle, CheckCircle2, Fuel, Pencil, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
@@ -54,115 +54,69 @@ export default function PricesPage() {
 
   return (
     <div className="space-y-4 pb-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-black text-ink">Station Pump Prices</h1>
-          <p className="text-xs text-ink-500">
-            {outlet?.name ?? "Petrol Station"} · Live Board
-          </p>
-        </div>
+      <header className="flex items-center justify-between gap-3">
+        <h1 className="flex items-center gap-2 text-2xl font-black text-ink">
+          <Fuel className="h-7 w-7 text-gold" aria-hidden /> Prices
+        </h1>
         {!editing ? (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="rounded-xl bg-gold px-3.5 py-1.5 text-xs font-bold text-ink-gold shadow-[var(--shadow-glow-gold)] transition active:scale-95"
-          >
-            Edit Prices
+          <button type="button" onClick={() => setEditing(true)} className="flex min-h-14 items-center gap-2 rounded-2xl bg-gold px-5 text-lg font-bold text-ink-gold active:scale-95">
+            <Pencil className="h-5 w-5" aria-hidden /> Edit
           </button>
         ) : (
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              className="rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3 py-1.5 text-xs font-bold text-ink active:scale-95 transition"
-            >
+            <button type="button" onClick={() => setEditing(false)} className="min-h-14 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-4 text-lg font-bold text-ink active:scale-95">
               Cancel
             </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={handleSave}
-              className="flex items-center gap-1.5 rounded-xl bg-gold px-3.5 py-1.5 text-xs font-bold text-ink-gold shadow-[var(--shadow-glow-gold)] active:scale-95 transition"
-            >
-              <Save className="h-3.5 w-3.5" />
-              <span>{saving ? "Saving…" : "Save"}</span>
+            <button type="button" disabled={saving} onClick={handleSave} className="flex min-h-14 items-center gap-2 rounded-2xl bg-gold px-5 text-lg font-bold text-ink-gold disabled:opacity-60 active:scale-95">
+              <Save className="h-5 w-5" aria-hidden /> {saving ? "Saving…" : "Save"}
             </button>
           </div>
         )}
       </header>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-2xl border border-red-500/20 bg-red-50 p-3 text-xs font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          <AlertCircle className="h-4 w-4 shrink-0" />
+        <div role="alert" className="flex items-center gap-2 rounded-2xl border border-red-500/20 bg-red-50 p-3 text-base font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          <AlertCircle className="h-5 w-5 shrink-0" aria-hidden />
           <span>{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="flex items-center gap-2 rounded-2xl border border-green/30 bg-green/10 p-3 text-xs font-semibold text-green dark:bg-green/20">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>Pump price board updated successfully. Live for all riders.</span>
+        <div className="flex items-center gap-2 rounded-2xl border border-green/30 bg-green/10 p-3 text-base font-semibold text-green dark:bg-green/20">
+          <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden />
+          <span>Saved. Live for riders.</span>
         </div>
       )}
 
-      {/* Pump Price Cards */}
-      <section className="space-y-2.5">
+      <section className="space-y-3">
         {prices.map((item) => (
-          <div
-            key={item.product_id}
-            className="home-card flex items-center justify-between p-4"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gold/15 text-gold">
-                <Fuel className="h-5 w-5" />
+          <div key={item.product_id} className="home-card flex min-h-20 items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold/15 text-gold">
+                <Fuel className="h-6 w-6" aria-hidden />
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-ink">{item.product_name}</h3>
-                <span className="text-[11px] font-semibold text-ink-500 uppercase">
-                  Category: {item.category}
-                </span>
+              <h3 className="truncate text-xl font-bold text-ink">{item.product_name}</h3>
+            </div>
+            {editing ? (
+              <div className="field-box flex items-center gap-1 px-3 py-2">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  aria-label={`${item.product_name} price per litre`}
+                  value={editedPrices[item.product_id] ?? ""}
+                  onChange={(e) => setEditedPrices((prev) => ({ ...prev, [item.product_id]: e.target.value }))}
+                  className="w-28 text-right text-xl font-black text-ink outline-none"
+                />
+                <span className="text-base text-ink-500">/L</span>
               </div>
-            </div>
-
-            <div>
-              {editing ? (
-                <div className="field-box flex items-center gap-1 px-2.5 py-1">
-                  <span className="text-xs font-bold text-ink-500">UGX</span>
-                  <input
-                    type="number"
-                    value={editedPrices[item.product_id] ?? ""}
-                    onChange={(e) =>
-                      setEditedPrices((prev) => ({
-                        ...prev,
-                        [item.product_id]: e.target.value,
-                      }))
-                    }
-                    className="w-24 text-right text-sm font-black text-ink outline-none"
-                  />
-                  <span className="text-[11px] text-ink-500">/L</span>
-                </div>
-              ) : (
-                <div className="text-right">
-                  <strong className="text-base font-black text-ink">
-                    {ugx(item.price_per_unit)}
-                  </strong>
-                  <span className="block text-[10px] text-ink-500">per litre</span>
-                </div>
-              )}
-            </div>
+            ) : (
+              <div className="shrink-0 text-right">
+                <strong className="text-2xl font-black tabular-nums text-ink">{Number(item.price_per_unit).toLocaleString()}</strong>
+                <span className="block text-base text-ink-500">UGX /L</span>
+              </div>
+            )}
           </div>
         ))}
-      </section>
-
-      {/* Regional Regulatory Benchmark Notice */}
-      <section className="home-card space-y-1.5 p-4 text-xs text-ink-500">
-        <div className="flex items-center gap-2 font-bold text-ink">
-          <Info className="h-4 w-4 text-gold" />
-          <span>Uganda Fuel Price Benchmark (Kampala Metropolitan)</span>
-        </div>
-        <p>
-          Pump rates sync with the live Peebee Rider app so riders can see transparent, real-time rates before navigating to your petrol station pump lane.
-        </p>
       </section>
     </div>
   );

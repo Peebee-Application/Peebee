@@ -11,6 +11,7 @@ export default function ShiftPage() {
   const [dispenses, setDispenses] = useState<FuelReceipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const [closedNotice, setClosedNotice] = useState(false);
 
   const ugx = (amount: number) => `UGX ${Number(amount).toLocaleString()}`;
@@ -37,119 +38,89 @@ export default function ShiftPage() {
     setTimeout(() => setClosedNotice(false), 5000);
   }
 
+  const shown = showAll ? dispenses : dispenses.slice(0, 8);
   return (
     <div className="space-y-4 pb-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-black text-ink">Shift & Pump Log</h1>
-          <p className="text-xs text-ink-500">
-            {outlet?.name ?? "Petrol Station"} · {attendant?.name ?? "Attendant"}
-          </p>
-        </div>
+      <header className="flex items-center justify-between gap-3">
+        <h1 className="flex items-center gap-2 text-2xl font-black text-ink">
+          <Clock className="h-7 w-7 text-gold" aria-hidden /> Shift
+        </h1>
         <button
           type="button"
           onClick={() => {
             void refreshShift();
             void loadDispenses();
           }}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] text-ink shadow-sm transition hover:border-gold active:scale-95"
-          title="Refresh shift log"
+          className="flex h-14 w-14 items-center justify-center rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] text-ink active:scale-95"
+          aria-label="Refresh"
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className="h-6 w-6" aria-hidden />
         </button>
       </header>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-2xl border border-red-500/20 bg-red-50 p-3 text-xs font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          <AlertCircle className="h-4 w-4 shrink-0" />
+        <div role="alert" className="flex items-center gap-2 rounded-2xl border border-red-500/20 bg-red-50 p-3 text-base font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          <AlertCircle className="h-5 w-5 shrink-0" aria-hidden />
           <span>{error}</span>
         </div>
       )}
 
       {closedNotice && (
-        <div className="flex items-center gap-2 rounded-2xl border border-green/30 bg-green/10 p-3 text-xs font-semibold text-green dark:bg-green/20">
-          <CheckCircle className="h-4 w-4 shrink-0" />
-          <span>Shift summary balanced and reconciled. Digital log saved.</span>
+        <div className="flex items-center gap-2 rounded-2xl border border-green/30 bg-green/10 p-3 text-base font-semibold text-green dark:bg-green/20">
+          <CheckCircle className="h-5 w-5 shrink-0" aria-hidden />
+          <span>Shift saved.</span>
         </div>
       )}
 
-      {/* Shift Metrics Card */}
-      <section className="home-card space-y-3 !bg-black-700 text-white dark:!bg-black border border-white/10 shadow-[var(--shadow-card)]">
-        <div className="flex items-center justify-between text-xs text-white/70">
-          <span className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5 text-gold" />
-            <span>Active Shift</span>
-          </span>
-          <span className="rounded-full bg-green/25 px-2.5 py-0.5 font-bold text-green-300">
-            Open
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 border-y border-white/15 py-3">
-          <div>
-            <span className="text-xs text-white/70">Total Revenue</span>
-            <div className="mt-0.5 text-2xl font-black text-white">
-              {ugx(shiftSummary?.total_ugx ?? 0)}
-            </div>
-          </div>
-          <div>
-            <span className="text-xs text-white/70">Volume Dispensed</span>
-            <div className="mt-0.5 text-2xl font-black text-white">
-              {(shiftSummary?.total_litres ?? 0).toFixed(2)} L
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between pt-1 text-xs text-white/80">
-          <span>Refuel count: <strong>{shiftSummary?.total_dispenses ?? 0} jobs</strong></span>
-          <button
-            type="button"
-            onClick={handleCloseShift}
-            className="rounded-xl bg-gold px-3.5 py-1.5 text-xs font-bold text-ink-gold shadow-[var(--shadow-glow-gold)] transition active:scale-95"
-          >
-            Reconcile Shift
-          </button>
-        </div>
+      <section className="home-card space-y-3 !bg-black-700 text-white dark:!bg-black">
+        <p className="text-4xl font-black tabular-nums">{ugx(shiftSummary?.total_ugx ?? 0)}</p>
+        <p className="text-lg text-white/80">
+          {(shiftSummary?.total_litres ?? 0).toFixed(1)} L · {shiftSummary?.total_dispenses ?? 0} refuels
+        </p>
+        <button
+          type="button"
+          onClick={handleCloseShift}
+          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gold text-lg font-bold text-ink-gold active:scale-95"
+        >
+          <CheckCircle className="h-6 w-6" aria-hidden /> Close shift
+        </button>
       </section>
 
-      {/* Recent Dispenses Table/List */}
-      <section className="home-card space-y-3">
+      <section className="home-card space-y-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-ink">Today's Refuel Transactions</h2>
-          <span className="text-xs font-semibold text-ink-500">
-            {dispenses.length} entries
-          </span>
+          <h2 className="flex items-center gap-2 text-xl font-bold text-ink"><Fuel className="h-6 w-6 text-gold" aria-hidden /> Refuels</h2>
+          <span className="text-lg font-semibold text-ink-500">{dispenses.length}</span>
         </div>
 
         {dispenses.length === 0 ? (
-          <div className="py-8 text-center text-xs text-ink-500">
-            <Fuel className="mx-auto mb-2 h-8 w-8 text-ink-500/40" />
-            <p>No fuel dispenses recorded for this shift yet.</p>
+          <div className="py-8 text-center text-lg text-ink-500">
+            <Fuel className="mx-auto mb-2 h-10 w-10 text-ink-500/40" aria-hidden />
+            <p>None yet</p>
           </div>
         ) : (
           <div className="divide-y divide-[var(--border-faint)]">
-            {dispenses.map((d) => (
-              <div key={d.id} className="flex items-center justify-between py-3 text-xs">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-md border border-black/40 bg-[#FFD700] px-1.5 py-0.5 font-mono text-[10px] font-black text-black shadow-sm">
-                      {d.vehicle_plate}
-                    </span>
-                    <strong className="font-bold text-ink">{d.rider_name}</strong>
-                  </div>
-                  <p className="mt-1 text-[11px] text-ink-500">
-                    {d.product_name} · {d.litres_dispensed} L · Pump {d.pump_number}
-                  </p>
+            {shown.map((d) => (
+              <div key={d.id} className="flex items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <span className="rounded-md border border-black/40 bg-[#FFD700] px-2 py-0.5 font-mono text-base font-black text-black">
+                    {d.vehicle_plate}
+                  </span>
+                  <p className="mt-1 truncate text-base text-ink-500">{d.product_name} · {d.litres_dispensed} L</p>
                 </div>
-                <div className="text-right">
-                  <strong className="text-sm font-black text-ink">{ugx(d.total_ugx)}</strong>
-                  <span className="block font-mono text-[10px] text-ink-500">
+                <div className="shrink-0 text-right">
+                  <strong className="text-xl font-black text-ink">{ugx(d.total_ugx)}</strong>
+                  <span className="block text-base text-ink-500">
                     {new Date(d.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
               </div>
             ))}
           </div>
+        )}
+        {dispenses.length > 8 && !showAll && (
+          <button type="button" onClick={() => setShowAll(true)} className="flex min-h-14 w-full items-center justify-center text-lg font-bold text-gold">
+            Show all {dispenses.length}
+          </button>
         )}
       </section>
     </div>

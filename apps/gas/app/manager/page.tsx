@@ -37,6 +37,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { BrandLogo } from "../../components/BrandLogo";
+import { TabBar } from "../../components/TabBar";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 
@@ -372,65 +373,23 @@ export default function StationManagerPage() {
         </div>
       )}
 
-      {/* Station Manager Header Banner */}
-      <section className="home-card !bg-black-700 text-white dark:!bg-black border border-white/10 shadow-[var(--shadow-card)]">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="rounded-md bg-gold/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gold">
-                Station Manager
-              </span>
-              <span className="font-mono text-xs text-white/60">
-                {manager?.manager_code ?? "MGR-TOT-01"}
-              </span>
-            </div>
-            <h1 className="text-xl font-black text-white">
-              {outlet?.name ?? "Petrol Station Outlet"}
-            </h1>
-            <p className="text-xs text-white/70">
-              {manager?.full_name ?? "Station Manager"} · {manager?.role === "dealer" ? "Station Dealer" : "Manager"}
-            </p>
-          </div>
-
-          <BrandLogo wordmark={false} className="!h-8 !w-8 shrink-0" />
-        </div>
-
-        {/* Manager-to-Attendant Mode Toggle Banner */}
-        <div className="mt-4 flex items-center justify-between rounded-2xl bg-white/10 p-3 border border-white/10">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold/20 text-gold">
-              <Fuel className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-white">Need to pump fuel yourself?</p>
-              <p className="text-[11px] text-white/70">Switch to Pump Terminal to sell fuel at will</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              switchToPumpMode();
-              router.push("/");
-            }}
-            className="flex items-center gap-1.5 rounded-xl bg-gold px-3 py-2 text-xs font-bold text-ink-gold shadow-[var(--shadow-glow-gold)] transition active:scale-95"
-          >
-            <span>Pump Terminal</span>
-            <ArrowUpRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </section>
-
-      {/* Relay parcels kept in the station shop */}
-      <Link href="/parcels" className="home-card flex items-center gap-3 active:scale-[0.99] transition">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gold/15 text-gold">
-          <Package className="h-5 w-5" />
-        </div>
+      <section className="home-card flex items-center gap-3 !bg-black-700 text-white dark:!bg-black">
+        <BrandLogo wordmark={false} className="!h-10 !w-10 shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-ink">Parcels</p>
-          <p className="text-xs text-ink-500">Relay parcels at this station.</p>
+          <h1 className="line-clamp-2 text-xl font-black leading-tight text-white">{outlet?.name ?? "Station"}</h1>
+          <p className="truncate text-base text-white/70">{manager?.full_name ?? "Manager"}</p>
         </div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
-      </Link>
+        <button
+          type="button"
+          onClick={() => {
+            switchToPumpMode();
+            router.push("/");
+          }}
+          className="flex min-h-14 shrink-0 items-center gap-2 rounded-2xl bg-gold px-4 text-lg font-bold text-ink-gold active:scale-95"
+        >
+          <Fuel className="h-6 w-6" aria-hidden /> Pump
+        </button>
+      </section>
 
       {/* Station Selector dropdown if multiple outlets */}
       {outlets.length > 1 && (
@@ -455,52 +414,16 @@ export default function StationManagerPage() {
         </div>
       )}
 
-      {/* Main Section Tabs */}
-      <div className="flex rounded-2xl bg-[var(--surface-muted)] p-1 border border-[var(--border-faint)]">
-        <button
-          type="button"
-          onClick={() => setActiveTab("attendants")}
-          className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition relative ${
-            activeTab === "attendants"
-              ? "bg-[var(--surface-raised)] text-ink shadow-sm"
-              : "text-ink-500 hover:text-ink"
-          }`}
-        >
-          <Users className="h-3.5 w-3.5" />
-          <span>Attendants</span>
-          {pendingCount > 0 && (
-            <span className="h-4 w-4 rounded-full bg-gold text-ink-gold font-black text-[10px] flex items-center justify-center">
-              {pendingCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("sales")}
-          className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition ${
-            activeTab === "sales"
-              ? "bg-[var(--surface-raised)] text-ink shadow-sm"
-              : "text-ink-500 hover:text-ink"
-          }`}
-        >
-          <Banknote className="h-3.5 w-3.5" />
-          <span>Sales & Stats</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("withdrawals")}
-          className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition ${
-            activeTab === "withdrawals"
-              ? "bg-[var(--surface-raised)] text-ink shadow-sm"
-              : "text-ink-500 hover:text-ink"
-          }`}
-        >
-          <Wallet className="h-3.5 w-3.5" />
-          <span>Withdrawals</span>
-        </button>
-      </div>
+      <TabBar
+        label="Manager sections"
+        active={activeTab}
+        onChange={setActiveTab}
+        tabs={[
+          { id: "attendants", label: "Staff", icon: Users, count: pendingCount },
+          { id: "sales", label: "Sales", icon: Banknote },
+          { id: "withdrawals", label: "Cash out", icon: Wallet },
+        ]}
+      />
 
       {/* ============================================================== */}
       {/* TAB 1: ATTENDANTS & COMMISSIONING */}
