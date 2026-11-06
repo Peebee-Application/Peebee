@@ -73,6 +73,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "People",
     items: [
       { href: "/people", label: "Users", icon: UsersRound, hint: "Customers, riders, merchants", visible: (r) => hasPermission(r, "customers.view") || hasPermission(r, "riders.view"), keywords: "customers riders merchants restaurants" },
+      { href: "/people/types", label: "All user types", icon: Users, hint: "Every kind of person, with counts and who is waiting", keywords: "owners drivers educators learners providers workers creators agents stations attendants pharmacies taxipress relay approvals" , visible: can("stats.view") },
       { href: "/staff", label: "Staff accounts", icon: ShieldCheck, hint: "Team access", visible: superOnly },
       { href: "/onboarding", label: "Sales onboarding", icon: Store, hint: "Agents and policy", visible: superOnly },
     ],
@@ -83,6 +84,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/settings/payments", label: "Payments", icon: CreditCard, hint: "MTN / Airtel aggregators", visible: can("payments.manage") },
       { href: "/pricing", label: "Pricing", icon: Calculator, hint: "Fares, distance bands, fuel and rush-hour multipliers, fees", keywords: "price fare per km minimum fuel surge peak night traffic weather cancel waiting delay", visible: can("payments.manage") },
+      { href: "/income", label: "Income streams", icon: Banknote, hint: "Every way Peebee earns, by area", keywords: "revenue commission subscription fees ads plans earn", visible: can("stats.view") },
       { href: "/money-flow", label: "Money flow", icon: Banknote, hint: "Commission, gateway fees, tax, who gets what", keywords: "commission transaction fee tax vat maintenance aggregator flutterwave yo pesapal split", visible: can("payments.manage") },
       { href: "/settings/monetization", label: "Monetization", icon: Banknote, hint: "Commissions, fees, Pro", visible: can("payments.manage"), keywords: "commission subscription pro" },
       { href: "/settings/merchant-payments", label: "Merchant payments", icon: Store, hint: "Custody gate", visible: can("merchant_finance.manage") },
