@@ -19,11 +19,10 @@ export function LanguageSettings() {
             key={opt.code}
             type="button"
             onClick={() => setLanguage(opt.code)}
-            className={`rounded-xl border p-2.5 text-center text-sm font-bold ${
-              language === opt.code ? "border-gold bg-gold/10 text-ink" : "border-[var(--border-faint)] text-ink-500"
-            }`}
+            aria-pressed={language === opt.code}
+            className="select-card items-center text-center"
           >
-            {opt.label}
+            <span className="select-card__title text-sm text-ink">{opt.label}</span>
           </button>
         ))}
       </div>

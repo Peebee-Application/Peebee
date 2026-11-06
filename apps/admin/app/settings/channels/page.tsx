@@ -57,8 +57,8 @@ function FieldControl({ field, value, disabled, onChange }: { field: ChannelsFie
               const on = list.includes(o.value);
               return (
                 <button key={o.value} type="button" disabled={disabled} aria-pressed={on} onClick={() => onChange(on ? list.filter((v) => v !== o.value) : [...list, o.value])}
-                  className={`rounded-2xl border px-3 py-2.5 text-left text-sm font-bold text-ink transition disabled:opacity-60 ${on ? "border-gold bg-gold/10" : "border-[var(--border-faint)] bg-[rgb(var(--surface-muted))]"}`}>
-                  {o.label}
+                  className="select-card text-left">
+                  <span className="select-card__title text-sm text-ink">{o.label}</span>
                 </button>
               );
             })}

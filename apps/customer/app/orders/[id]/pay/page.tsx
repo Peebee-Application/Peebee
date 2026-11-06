@@ -243,10 +243,10 @@ export default function PaymentPage() {
       <fieldset disabled={busy || pending} className={`grid gap-2 ${methods.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
         <legend className="sr-only">Payment method</legend>
         {methods.map(({ id: value, label, icon: Icon }) => (
-          <label key={value} className={`flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border-2 p-2 text-center text-sm font-bold ${value === "cash" && cashBlocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"} ${method === value ? "border-gold bg-gold/10 text-ink" : "border-[var(--border-faint)] text-ink-500"}`}>
+          <label key={value} className={`select-card relative min-h-24 items-center !px-1.5 justify-center gap-2 text-center ${value === "cash" && cashBlocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"} ${method === value ? "is-on" : ""}`}>
             <input type="radio" name="payment-method" value={value} checked={method === value} disabled={value === "cash" && !!cashBlocked} aria-describedby={value === "cash" && cashBlocked ? "cash-blocked" : undefined} onChange={() => setMethod(value)} className="sr-only peer" />
-            <Icon className="h-6 w-6 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-gold" aria-hidden />
-            {label}
+            <Icon className="select-card__icon h-6 w-6" aria-hidden />
+            <span className="select-card__title text-sm text-ink">{label}</span>
           </label>
         ))}
       </fieldset>

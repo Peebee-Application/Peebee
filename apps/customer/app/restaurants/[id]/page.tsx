@@ -1382,9 +1382,9 @@ export default function RestaurantPage() {
               const d = placeFields(delivery);
               const sameDestination = d.lat != null && d.lng != null && haversineKm(candidate.destination_lat,candidate.destination_lng,d.lat,d.lng) <= 0.2;
               const chosen = selectedBundleOrderId === candidate.id;
-              return <button type="button" key={candidate.id} disabled={!sameDestination || restaurant.lat == null || restaurant.lng == null} onClick={() => setSelectedBundleOrderId(chosen ? null : candidate.id)} className={`w-full rounded-2xl border p-3 text-left ${chosen ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"} disabled:opacity-50`}>
-                <span className="flex items-center justify-between gap-3"><span className="font-semibold">{chosen ? "✓ " : "＋ "}{candidate.restaurant_name ?? "Your existing pickup"}</span><span className="shrink-0 text-sm font-bold text-gold">{sameDestination ? (chosen ? "Added" : "Add") : "Choose same address"}</span></span>
-                <span className="mt-1 block text-xs text-ink-500">{candidate.pickup_address ?? "Pickup location saved"}</span>
+              return <button type="button" key={candidate.id} disabled={!sameDestination || restaurant.lat == null || restaurant.lng == null} onClick={() => setSelectedBundleOrderId(chosen ? null : candidate.id)} aria-pressed={chosen} className="select-card text-left">
+                <span className="flex w-full min-w-0 items-center justify-between gap-3"><span className="select-card__title min-w-0 flex-1 text-sm text-ink">{chosen ? "✓ " : "＋ "}{candidate.restaurant_name ?? "Your existing pickup"}</span><span className="shrink-0 text-sm font-bold text-gold">{sameDestination ? (chosen ? "Added" : "Add") : "Choose same address"}</span></span>
+                <span className="select-card__sub">{candidate.pickup_address ?? "Pickup location saved"}</span>
               </button>;
             })}
           </section>

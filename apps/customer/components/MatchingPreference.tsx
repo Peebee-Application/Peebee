@@ -47,18 +47,17 @@ export function MatchingPreference() {
           type="button"
           disabled={busy}
           onClick={() => choose(mode)}
-          className={`flex w-full items-start gap-2.5 rounded-xl border p-2.5 text-left disabled:opacity-60 ${
-            current === mode ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"
-          }`}
+          aria-pressed={current === mode}
+          className="select-card !flex-row items-start gap-2.5 text-left"
         >
           <span
             className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 ${
               current === mode ? "border-gold bg-gold" : "border-[var(--border-faint)]"
             }`}
           />
-          <span>
-            <span className="block text-sm font-semibold text-ink">{MATCHING_MODE_LABELS[mode]}</span>
-            <span className="block text-xs text-ink-500">{MATCHING_MODE_DESCRIPTIONS[mode]}</span>
+          <span className="min-w-0 flex-1">
+            <span className="select-card__title text-sm text-ink">{MATCHING_MODE_LABELS[mode]}</span>
+            <span className="block text-xs leading-snug text-ink-500">{MATCHING_MODE_DESCRIPTIONS[mode]}</span>
           </span>
         </button>
       ))}
