@@ -44,7 +44,7 @@ export default function LoginPage() {
         <form onSubmit={onSubmit} className="card space-y-4 !p-5">
           {mode === "login" ? (
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-ink-500" htmlFor="identifier">
+              <label className="text-base font-semibold text-ink-500" htmlFor="identifier">
                 Phone or email
               </label>
               <input
@@ -59,7 +59,7 @@ export default function LoginPage() {
           ) : (
             <>
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-ink-500" htmlFor="name">
+                <label className="text-base font-semibold text-ink-500" htmlFor="name">
                   Name
                 </label>
                 <input
@@ -78,7 +78,7 @@ export default function LoginPage() {
                     key={t}
                     type="button"
                     onClick={() => setIdentifierType(t)}
-                    className={`flex-1 rounded-full py-2 text-xs font-bold capitalize transition-colors ${
+                    className={`flex-1 rounded-full py-2 text-base font-bold capitalize transition-colors ${
                       identifierType === t ? "bg-[rgb(var(--surface-card))] text-ink shadow-sm" : "text-ink-500"
                     }`}
                   >
@@ -89,7 +89,7 @@ export default function LoginPage() {
 
               {identifierType === "email" ? (
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-ink-500" htmlFor="email">
+                  <label className="text-base font-semibold text-ink-500" htmlFor="email">
                     Email
                   </label>
                   <input
@@ -104,7 +104,7 @@ export default function LoginPage() {
                 </div>
               ) : (
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-ink-500" htmlFor="phone">
+                  <label className="text-base font-semibold text-ink-500" htmlFor="phone">
                     Phone
                   </label>
                   <input
@@ -121,7 +121,7 @@ export default function LoginPage() {
             </>
           )}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-ink-500" htmlFor="password">
+            <label className="text-base font-semibold text-ink-500" htmlFor="password">
               Password
             </label>
             <PasswordInput
@@ -135,19 +135,19 @@ export default function LoginPage() {
             />
           </div>
 
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-lg text-red-700">{error}</p>}
 
           <GoogleSignInButton />
 <button
             type="submit"
             disabled={busy}
-            className="flex min-h-12 w-full items-center justify-center rounded-full bg-gold px-4 py-3 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
+            className="flex min-h-14 w-full items-center justify-center rounded-full bg-gold px-4 py-3 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
           >
             {busy ? "Please wait…" : mode === "login" ? "Log in" : "Create account"}
           </button>
 
           {mode === "login" && (
-            <Link href="/forgot-password" className="block text-center text-sm font-semibold text-gold">
+            <Link href="/forgot-password" className="block text-center text-lg font-semibold text-gold">
               Forgot password?
             </Link>
           )}
@@ -156,7 +156,7 @@ export default function LoginPage() {
 
 
         {mode === "register" && (
-          <p className="text-center text-xs text-ink-500">
+          <p className="text-center text-base text-ink-500">
             Next you’ll set up your first school or class.
           </p>
         )}

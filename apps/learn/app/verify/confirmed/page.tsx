@@ -44,19 +44,19 @@ function ConfirmedContent() {
             <>
               <CheckCircle2 className="mx-auto h-12 w-12 text-green" strokeWidth={1.5} aria-hidden />
               <h1 className="text-xl font-bold text-ink">Email verified</h1>
-              <p className="text-sm text-ink-500">You&apos;re all set — you can head back into Peebee.</p>
+              <p className="text-lg text-ink-500">You&apos;re all set — you can head back into Peebee.</p>
             </>
           ) : (
             <>
               <XCircle className="mx-auto h-12 w-12 text-red-600" strokeWidth={1.5} aria-hidden />
               <h1 className="text-xl font-bold text-ink">Couldn&apos;t verify that</h1>
-              <p className="text-sm text-ink-500">{REASON_MESSAGES[reason] ?? REASON_MESSAGES.invalid}</p>
+              <p className="text-lg text-ink-500">{REASON_MESSAGES[reason] ?? REASON_MESSAGES.invalid}</p>
             </>
           )}
 
           <Link
             href="/"
-            className="flex min-h-12 w-full items-center justify-center rounded-full bg-gold px-4 py-3 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] transition-opacity hover:opacity-95"
+            className="flex min-h-14 w-full items-center justify-center rounded-full bg-gold px-4 py-3 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] transition-opacity hover:opacity-95"
           >
             Continue to Peebee
           </Link>

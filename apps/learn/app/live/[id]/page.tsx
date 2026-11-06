@@ -153,7 +153,7 @@ export default function LiveMeetingRoomPage() {
         <div className="flex items-center gap-3 min-w-0">
           <Link
             href="/live"
-            className="flex items-center gap-1 rounded-xl bg-white/10 px-2.5 py-1 text-xs font-bold text-white/80 transition hover:bg-white/20 hover:text-white"
+            className="flex items-center gap-1 rounded-xl bg-white/10 px-2.5 py-1 text-base font-bold text-white/80 transition hover:bg-white/20 hover:text-white"
           >
             <ChevronLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Exit</span>
@@ -165,18 +165,18 @@ export default function LiveMeetingRoomPage() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
               </span>
-              <span className="rounded bg-red-500/20 px-1.5 py-0.2 text-[10px] font-black uppercase text-red-400">
+              <span className="rounded bg-red-500/20 px-1.5 py-0.2 text-sm font-black uppercase text-red-400">
                 REC
               </span>
-              <span className="font-mono text-xs font-bold text-white/70">
+              <span className="font-mono text-base font-bold text-white/70">
                 {formatTimer(elapsedSecs)}
               </span>
-              <span className="hidden text-xs text-white/40 sm:inline">•</span>
-              <span className="hidden rounded bg-white/10 px-2 py-0.5 text-[11px] font-mono text-white/80 sm:inline">
+              <span className="hidden text-base text-white/40 sm:inline">•</span>
+              <span className="hidden rounded bg-white/10 px-2 py-0.5 text-sm font-mono text-white/80 sm:inline">
                 {meeting.roomCode}
               </span>
             </div>
-            <h1 className="truncate text-xs font-bold text-white sm:text-sm">
+            <h1 className="truncate text-base font-bold text-white sm:text-lg">
               {meeting.title}
             </h1>
           </div>
@@ -186,7 +186,7 @@ export default function LiveMeetingRoomPage() {
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => setActiveView("video")}
-            className={`rounded-xl px-2.5 py-1 text-xs font-bold transition ${
+            className={`rounded-xl px-2.5 py-1 text-base font-bold transition ${
               activeView === "video"
                 ? "bg-gold text-black font-black"
                 : "bg-white/10 text-white/70 hover:bg-white/15 hover:text-white"
@@ -196,7 +196,7 @@ export default function LiveMeetingRoomPage() {
           </button>
           <button
             onClick={() => setActiveView("whiteboard")}
-            className={`flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-bold transition ${
+            className={`flex items-center gap-1 rounded-xl px-2.5 py-1 text-base font-bold transition ${
               activeView === "whiteboard"
                 ? "bg-gold text-black font-black"
                 : "bg-white/10 text-white/70 hover:bg-white/15 hover:text-white"
@@ -207,7 +207,7 @@ export default function LiveMeetingRoomPage() {
           </button>
           <button
             onClick={() => setActiveView("screen")}
-            className={`hidden sm:flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-bold transition ${
+            className={`hidden sm:flex items-center gap-1 rounded-xl px-2.5 py-1 text-base font-bold transition ${
               activeView === "screen"
                 ? "bg-gold text-black font-black"
                 : "bg-white/10 text-white/70 hover:bg-white/15 hover:text-white"
@@ -221,7 +221,7 @@ export default function LiveMeetingRoomPage() {
 
       {/* Hand Raise Notice Notification */}
       {handRaiseNotice && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-2xl bg-gold px-4 py-2 text-xs font-black text-black shadow-lg animate-bounce">
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-2xl bg-gold px-4 py-2 text-base font-black text-black shadow-lg animate-bounce">
           <Hand className="h-4 w-4" />
           <span>{handRaiseNotice}</span>
         </div>
@@ -248,14 +248,14 @@ export default function LiveMeetingRoomPage() {
                 />
 
                 {/* Speaker Audio Waves Overlay */}
-                <div className="absolute top-3 right-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs font-bold backdrop-blur">
+                <div className="absolute top-3 right-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-base font-bold backdrop-blur">
                   <Volume2 className="h-3.5 w-3.5 text-gold animate-pulse" />
-                  <span className="text-[11px] text-white/90">Speaking</span>
+                  <span className="text-sm text-white/90">Speaking</span>
                 </div>
 
                 {/* Host Info Label */}
-                <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-xl bg-black/75 px-3 py-1.5 text-xs font-bold backdrop-blur">
-                  <span className="rounded bg-gold px-1.5 py-0.5 text-[10px] font-black text-black uppercase">
+                <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-xl bg-black/75 px-3 py-1.5 text-base font-bold backdrop-blur">
+                  <span className="rounded bg-gold px-1.5 py-0.5 text-sm font-black text-black uppercase">
                     HOST
                   </span>
                   <span>{meeting.hostTutorName}</span>
@@ -283,16 +283,16 @@ export default function LiveMeetingRoomPage() {
                           />
                         ) : (
                           <div className="flex flex-col items-center justify-center gap-1">
-                            <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center font-bold text-sm">
+                            <div className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center font-bold text-lg">
                               {p.name.charAt(0)}
                             </div>
-                            <span className="text-[10px] text-white/50">Camera Off</span>
+                            <span className="text-sm text-white/50">Camera Off</span>
                           </div>
                         )}
 
                         {/* Hand Raised Floating Badge */}
                         {p.hasHandRaised && (
-                          <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-gold px-2 py-0.5 text-[10px] font-black text-black animate-pulse">
+                          <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-gold px-2 py-0.5 text-sm font-black text-black animate-pulse">
                             <Hand className="h-3 w-3" />
                             <span>Hand Raised</span>
                           </div>
@@ -308,7 +308,7 @@ export default function LiveMeetingRoomPage() {
                         </div>
 
                         {/* Name label */}
-                        <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded-lg bg-black/70 px-2 py-0.5 text-[10px] font-bold">
+                        <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded-lg bg-black/70 px-2 py-0.5 text-sm font-bold">
                           <span>{p.name}</span>
                           {isSelf && <span className="text-gold">(You)</span>}
                         </div>
@@ -372,7 +372,7 @@ export default function LiveMeetingRoomPage() {
                 </div>
 
                 {/* Slide Switcher */}
-                <div className="flex items-center gap-2 text-xs font-bold text-white/70">
+                <div className="flex items-center gap-2 text-base font-bold text-white/70">
                   <button
                     onClick={() => setWhiteboardSlideIndex((s) => Math.max(1, s - 1))}
                     className="rounded-lg bg-white/10 px-2 py-1 hover:bg-white/20"
@@ -389,7 +389,7 @@ export default function LiveMeetingRoomPage() {
 
                   <button
                     onClick={() => setCanvasStrokes([])}
-                    className="flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 text-[11px] hover:bg-white/20"
+                    className="flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 text-sm hover:bg-white/20"
                   >
                     <RotateCcw className="h-3 w-3" /> Clear
                   </button>
@@ -401,34 +401,34 @@ export default function LiveMeetingRoomPage() {
                 {/* Pre-drawn Classroom Diagram */}
                 <div className="max-w-xl w-full rounded-2xl border-2 border-dashed border-white/20 bg-black/60 p-6 text-center">
                   <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                    <span className="text-xs font-black uppercase tracking-wider text-gold">
+                    <span className="text-base font-black uppercase tracking-wider text-gold">
                       Tutor Board: Mobile Wallet Double-Entry Reconciliation
                     </span>
-                    <span className="rounded bg-green-500/20 px-2 py-0.5 text-[10px] font-bold text-green-400">
+                    <span className="rounded bg-green-500/20 px-2 py-0.5 text-sm font-bold text-green-400">
                       Live Synced
                     </span>
                   </div>
 
-                  <div className="mt-6 grid grid-cols-3 gap-3 text-xs">
+                  <div className="mt-6 grid grid-cols-3 gap-3 text-base">
                     <div className="rounded-xl border border-gold/40 bg-gold/10 p-3">
                       <p className="font-black text-gold">Peebee Core Ledger</p>
-                      <p className="mt-1 font-mono text-[11px] text-white/70">
+                      <p className="mt-1 font-mono text-sm text-white/70">
                         DEBIT User Float<br />
                         CREDIT Escrow Account
                       </p>
                     </div>
 
                     <div className="flex flex-col items-center justify-center">
-                      <span className="text-[10px] font-mono text-gold animate-pulse">
+                      <span className="text-sm font-mono text-gold animate-pulse">
                         3-Way Handshake ➔
                       </span>
                       <div className="h-0.5 w-full bg-gold/50 my-1" />
-                      <span className="text-[10px] text-white/50">Idempotency Key</span>
+                      <span className="text-sm text-white/50">Idempotency Key</span>
                     </div>
 
                     <div className="rounded-xl border border-gold/40 bg-gold/10 p-3">
                       <p className="font-black text-gold">Telecom Switch</p>
-                      <p className="mt-1 font-mono text-[11px] text-white/70">
+                      <p className="mt-1 font-mono text-sm text-white/70">
                         MTN / Airtel MoMo<br />
                         Instant SMS Push
                       </p>
@@ -437,11 +437,11 @@ export default function LiveMeetingRoomPage() {
 
                   {/* Tutor Note */}
                   <div className="mt-6 rounded-xl bg-white/5 p-3 text-left">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-gold">
+                    <div className="flex items-center gap-1.5 text-base font-bold text-gold">
                       <Sparkles className="h-3.5 w-3.5" />
                       <span>Dr. Kenneth's Whiteboard Annotation:</span>
                     </div>
-                    <p className="mt-1 text-xs text-white/80">
+                    <p className="mt-1 text-base text-white/80">
                       &quot;Notice how network timeouts are isolated. If the telecom webhook fails, the reversal worker polls the transaction inquiry endpoint without double debiting.&quot;
                     </p>
                   </div>
@@ -455,15 +455,15 @@ export default function LiveMeetingRoomPage() {
             <div className="flex flex-1 flex-col rounded-2xl border border-white/10 bg-zinc-950 p-6 items-center justify-center">
               <div className="text-center max-w-md">
                 <Share2 className="mx-auto h-12 w-12 text-gold animate-bounce" />
-                <h3 className="mt-3 text-sm font-black text-white">
+                <h3 className="mt-3 text-lg font-black text-white">
                   Dr. Kenneth is Sharing His Screen
                 </h3>
-                <p className="mt-1 text-xs text-white/60">
+                <p className="mt-1 text-base text-white/60">
                   Slide deck: &quot;Bank of Uganda National Payment Systems Regulatory Sandbox 2026&quot;
                 </p>
                 <button
                   onClick={() => setActiveView("whiteboard")}
-                  className="mt-4 rounded-xl bg-gold px-4 py-2 text-xs font-black text-black"
+                  className="mt-4 rounded-xl bg-gold px-4 py-2 text-base font-black text-black"
                 >
                   Switch to Whiteboard View
                 </button>
@@ -480,7 +480,7 @@ export default function LiveMeetingRoomPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setActiveDrawer("chat")}
-                  className={`text-xs font-black px-2 py-1 rounded-lg transition ${
+                  className={`text-base font-black px-2 py-1 rounded-lg transition ${
                     activeDrawer === "chat"
                       ? "bg-gold text-black"
                       : "text-white/60 hover:text-white"
@@ -490,7 +490,7 @@ export default function LiveMeetingRoomPage() {
                 </button>
                 <button
                   onClick={() => setActiveDrawer("participants")}
-                  className={`text-xs font-black px-2 py-1 rounded-lg transition ${
+                  className={`text-base font-black px-2 py-1 rounded-lg transition ${
                     activeDrawer === "participants"
                       ? "bg-gold text-black"
                       : "text-white/60 hover:text-white"
@@ -514,7 +514,7 @@ export default function LiveMeetingRoomPage() {
                 <div className="flex border-b border-white/10 p-2 gap-1 bg-zinc-900/50">
                   <button
                     onClick={() => setChatFilter("all")}
-                    className={`flex-1 rounded-lg py-1 text-[11px] font-bold transition ${
+                    className={`flex-1 rounded-lg py-1 text-sm font-bold transition ${
                       chatFilter === "all" ? "bg-white/20 text-white" : "text-white/50 hover:text-white"
                     }`}
                   >
@@ -522,7 +522,7 @@ export default function LiveMeetingRoomPage() {
                   </button>
                   <button
                     onClick={() => setChatFilter("questions")}
-                    className={`flex-1 rounded-lg py-1 text-[11px] font-bold transition ${
+                    className={`flex-1 rounded-lg py-1 text-sm font-bold transition ${
                       chatFilter === "questions" ? "bg-gold text-black font-black" : "text-white/50 hover:text-white"
                     }`}
                   >
@@ -537,7 +537,7 @@ export default function LiveMeetingRoomPage() {
                     return (
                       <div
                         key={msg.id}
-                        className={`rounded-xl p-2.5 text-xs ${
+                        className={`rounded-xl p-2.5 text-base ${
                           msg.isQuestion
                             ? "border border-gold/40 bg-gold/10"
                             : isTutor
@@ -553,7 +553,7 @@ export default function LiveMeetingRoomPage() {
                           >
                             {msg.senderName}
                           </span>
-                          <span className="text-[10px] text-white/40">{msg.timestamp}</span>
+                          <span className="text-sm text-white/40">{msg.timestamp}</span>
                         </div>
 
                         <p className="mt-1 text-white/80 leading-relaxed">{msg.text}</p>
@@ -561,10 +561,10 @@ export default function LiveMeetingRoomPage() {
                         {/* Q&A Upvote Button */}
                         {msg.isQuestion && (
                           <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-1.5">
-                            <span className="text-[10px] font-black uppercase text-gold">Question</span>
+                            <span className="text-sm font-black uppercase text-gold">Question</span>
                             <button
                               onClick={() => handleUpvoteMessage(msg.id)}
-                              className="flex items-center gap-1 rounded bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-gold hover:text-black transition"
+                              className="flex items-center gap-1 rounded bg-white/10 px-2 py-0.5 text-sm font-bold text-white hover:bg-gold hover:text-black transition"
                             >
                               <ThumbsUp className="h-3 w-3" />
                               <span>{msg.upvotes || 0}</span>
@@ -578,7 +578,7 @@ export default function LiveMeetingRoomPage() {
 
                 {/* Chat Composer */}
                 <div className="border-t border-white/10 p-2.5 bg-zinc-900 space-y-2">
-                  <div className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center justify-between text-sm">
                     <label className="flex items-center gap-1.5 cursor-pointer text-white/70">
                       <input
                         type="checkbox"
@@ -597,7 +597,7 @@ export default function LiveMeetingRoomPage() {
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                      className="w-full text-xs text-white placeholder:text-white/40 bg-transparent border-none outline-none"
+                      className="w-full text-base text-white placeholder:text-white/40 bg-transparent border-none outline-none"
                     />
                     <button
                       onClick={handleSendMessage}
@@ -622,7 +622,7 @@ export default function LiveMeetingRoomPage() {
                       placeholder="Search participants..."
                       value={participantSearch}
                       onChange={(e) => setParticipantSearch(e.target.value)}
-                      className="w-full text-xs text-white placeholder:text-white/40 bg-transparent border-none outline-none"
+                      className="w-full text-base text-white placeholder:text-white/40 bg-transparent border-none outline-none"
                     />
                   </div>
                 </div>
@@ -640,8 +640,8 @@ export default function LiveMeetingRoomPage() {
                           className="h-8 w-8 rounded-full object-cover"
                         />
                         <div className="min-w-0">
-                          <p className="truncate text-xs font-bold text-white">{p.name}</p>
-                          <span className="text-[10px] font-bold text-gold uppercase">
+                          <p className="truncate text-base font-bold text-white">{p.name}</p>
+                          <span className="text-sm font-bold text-gold uppercase">
                             {p.role}
                           </span>
                         </div>
@@ -679,7 +679,7 @@ export default function LiveMeetingRoomPage() {
             }`}
           >
             {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            <span className="text-[10px]">{isMuted ? "Unmute" : "Mute"}</span>
+            <span className="text-sm">{isMuted ? "Unmute" : "Mute"}</span>
           </button>
 
           {/* Video toggle */}
@@ -690,7 +690,7 @@ export default function LiveMeetingRoomPage() {
             }`}
           >
             {!isVideoOn ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
-            <span className="text-[10px]">{!isVideoOn ? "Start Video" : "Stop Video"}</span>
+            <span className="text-sm">{!isVideoOn ? "Start Video" : "Stop Video"}</span>
           </button>
 
           {/* Raise Hand Toggle */}
@@ -703,7 +703,7 @@ export default function LiveMeetingRoomPage() {
             }`}
           >
             <Hand className="h-5 w-5" />
-            <span className="text-[10px]">{hasHandRaised ? "Lower Hand" : "Raise Hand"}</span>
+            <span className="text-sm">{hasHandRaised ? "Lower Hand" : "Raise Hand"}</span>
           </button>
 
           {/* Screen Share toggle */}
@@ -714,7 +714,7 @@ export default function LiveMeetingRoomPage() {
             }`}
           >
             <Share2 className="h-5 w-5" />
-            <span className="text-[10px]">Share</span>
+            <span className="text-sm">Share</span>
           </button>
 
           {/* Chat toggle */}
@@ -725,7 +725,7 @@ export default function LiveMeetingRoomPage() {
             }`}
           >
             <MessageSquare className="h-5 w-5" />
-            <span className="text-[10px]">Chat</span>
+            <span className="text-sm">Chat</span>
             {messages.length > 0 && activeDrawer !== "chat" && (
               <span className="absolute top-1 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-gold text-[9px] font-black text-black">
                 {messages.length}
@@ -741,7 +741,7 @@ export default function LiveMeetingRoomPage() {
             }`}
           >
             <Users className="h-5 w-5" />
-            <span className="text-[10px]">Roster</span>
+            <span className="text-sm">Roster</span>
             <span className="absolute top-1 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-[9px] font-black text-white">
               {participants.length}
             </span>
@@ -750,7 +750,7 @@ export default function LiveMeetingRoomPage() {
           {/* Leave Meeting Button */}
           <Link
             href="/live"
-            className="flex items-center gap-1.5 rounded-2xl bg-red-600 px-4 py-2.5 text-xs font-black text-white shadow-md transition hover:bg-red-700 active:scale-95"
+            className="flex items-center gap-1.5 rounded-2xl bg-red-600 px-4 py-2.5 text-base font-black text-white shadow-md transition hover:bg-red-700 active:scale-95"
           >
             <PhoneOff className="h-4 w-4" />
             <span>Leave</span>

@@ -44,7 +44,7 @@ export async function getLearnSettings(): Promise<LearnSettings> {
     "learn_live_lessons_enabled", "learn_live_lesson_hosts", "learn_live_lesson_early_minutes",
     "learn_certificates_enabled", "learn_badges_enabled", "learn_drip_enabled", "learn_prerequisites_enabled", "learn_badge_courses_threshold", "learn_assignments_enabled", "learn_max_submission_chars",
     "learn_coupons_enabled", "learn_max_coupon_percent", "learn_bundles_enabled", "learn_max_bundle_courses", "learn_subscriptions_enabled", "learn_max_plans_per_school", "learn_max_plan_days",
-    "learn_reviews_enabled", "learn_review_min_progress", "learn_qa_enabled", "learn_max_qa_chars", "learn_qa_posts_per_hour", "learn_announcements_enabled", "learn_cohorts_enabled", "learn_instructors_enabled", "learn_max_instructors",
+    "learn_reviews_enabled", "learn_review_min_progress", "learn_qa_enabled", "learn_max_qa_chars", "learn_qa_posts_per_hour", "learn_messaging_enabled", "learn_calls_enabled", "learn_max_message_chars", "learn_messages_per_hour", "learn_announcements_enabled", "learn_cohorts_enabled", "learn_instructors_enabled", "learn_max_instructors",
     "learn_home_progress", "learn_home_tools", "learn_home_free_rail", "learn_home_rail_size",
   ] as const;
   const v = Object.fromEntries(await Promise.all(keys.map(async (k) => [k, await getSetting(k)]))) as Record<(typeof keys)[number], string>;
@@ -117,6 +117,10 @@ export async function getLearnSettings(): Promise<LearnSettings> {
     qaEnabled: v.learn_qa_enabled !== "0",
     maxQaChars: int(v.learn_max_qa_chars, 1500, 100, 10000),
     qaPostsPerHour: int(v.learn_qa_posts_per_hour, 20, 1, 500),
+    messagingEnabled: v.learn_messaging_enabled !== "0",
+    callsEnabled: v.learn_calls_enabled !== "0",
+    maxMessageChars: int(v.learn_max_message_chars, 1000, 50, 5000),
+    messagesPerHour: int(v.learn_messages_per_hour, 120, 1, 2000),
     announcementsEnabled: v.learn_announcements_enabled !== "0",
     cohortsEnabled: v.learn_cohorts_enabled !== "0",
     instructorsEnabled: v.learn_instructors_enabled !== "0",
@@ -197,6 +201,10 @@ export async function setLearnSettings(next: Partial<LearnSettings>): Promise<vo
   if (next.qaEnabled != null) put("learn_qa_enabled", next.qaEnabled ? "1" : "0");
   if (next.maxQaChars != null) put("learn_max_qa_chars", String(next.maxQaChars));
   if (next.qaPostsPerHour != null) put("learn_qa_posts_per_hour", String(next.qaPostsPerHour));
+  if (next.messagingEnabled != null) put("learn_messaging_enabled", next.messagingEnabled ? "1" : "0");
+  if (next.callsEnabled != null) put("learn_calls_enabled", next.callsEnabled ? "1" : "0");
+  if (next.maxMessageChars != null) put("learn_max_message_chars", String(next.maxMessageChars));
+  if (next.messagesPerHour != null) put("learn_messages_per_hour", String(next.messagesPerHour));
   if (next.announcementsEnabled != null) put("learn_announcements_enabled", next.announcementsEnabled ? "1" : "0");
   if (next.cohortsEnabled != null) put("learn_cohorts_enabled", next.cohortsEnabled ? "1" : "0");
   if (next.instructorsEnabled != null) put("learn_instructors_enabled", next.instructorsEnabled ? "1" : "0");

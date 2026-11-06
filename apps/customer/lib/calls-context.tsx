@@ -11,7 +11,7 @@ const IDLE_POLL_MS = 4000;
 
 type CallsContextValue = {
   state: CallEngineState;
-  startCall: (input: { calleeId: string; orderId?: string; restaurantId?: string }) => void;
+  startCall: (input: { calleeId: string; orderId?: string; restaurantId?: string; schoolId?: string }) => void;
   accept: () => void;
   decline: () => void;
   hangUp: () => void;
@@ -57,7 +57,7 @@ export function CallsProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [user, state.phase]);
 
-  const startCall = useCallback((input: { calleeId: string; orderId?: string; restaurantId?: string }) => {
+  const startCall = useCallback((input: { calleeId: string; orderId?: string; restaurantId?: string; schoolId?: string }) => {
     engineRef.current?.startCall(input);
   }, []);
   const accept = useCallback(() => engineRef.current?.accept(), []);

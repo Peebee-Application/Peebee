@@ -191,7 +191,7 @@ export default function CoursePage() {
               <Chip tone="gold">{STREAM_UI[course.stream].title}</Chip>
             </div>
             <h2 className="font-display text-2xl font-semibold text-ink">{course.title}</h2>
-            <p className="text-xs text-ink-500">
+            <p className="text-base text-ink-500">
               {framework} · {formatUgx(course.priceUgx)}
             </p>
           </div>
@@ -211,21 +211,21 @@ export default function CoursePage() {
             </div>
           )}
         </div>
-        {course.summary && <p className="text-sm text-ink-500">{course.summary}</p>}
+        {course.summary && <p className="text-lg text-ink-500">{course.summary}</p>}
         {course.outcomes.length > 0 && (
           <div className="space-y-1 border-t border-[var(--border-faint)] pt-3">
-            <p className="text-xs font-semibold text-ink-500">After this course, a learner can:</p>
-            <ul className="list-disc space-y-0.5 pl-5 text-sm text-ink">
+            <p className="text-base font-semibold text-ink-500">After this course, a learner can:</p>
+            <ul className="list-disc space-y-0.5 pl-5 text-lg text-ink">
               {course.outcomes.map((o) => (
                 <li key={o}>{o}</li>
               ))}
             </ul>
           </div>
         )}
-        <p className="border-t border-[var(--border-faint)] pt-3 text-xs text-ink-500">
+        <p className="border-t border-[var(--border-faint)] pt-3 text-base text-ink-500">
           {plural(course.modules.length, "section")} · {plural(totals.lessons, "item")} · {formatMinutes(totals.minutes)} · {plural(totals.quizzes, "quiz or exam", "quizzes and exams")}
         </p>
-        {!published && totals.lessons === 0 && canBuild && <p className="text-xs text-ink-500">Add at least one item to be able to publish.</p>}
+        {!published && totals.lessons === 0 && canBuild && <p className="text-base text-ink-500">Add at least one item to be able to publish.</p>}
       </header>
 
       {suspended && <Notice tone="error">This school has been suspended by Peebee, so it can&apos;t be edited and its courses are hidden.</Notice>}
@@ -255,11 +255,11 @@ export default function CoursePage() {
 
       {canBuild && editing.kind === "none" && (
         <section aria-labelledby="rules-heading" className={`${cardCls} space-y-3 p-4`}>
-          <h3 id="rules-heading" className="text-sm font-semibold text-ink">
+          <h3 id="rules-heading" className="text-lg font-semibold text-ink">
             Class rules
           </h3>
           {settings.prerequisitesEnabled && (
-            <label className="flex items-start gap-2 text-sm text-ink">
+            <label className="flex items-start gap-2 text-lg text-ink">
               <input
                 type="checkbox"
                 checked={course.rules.sequential}
@@ -269,13 +269,13 @@ export default function CoursePage() {
               />
               <span>
                 Learners go in order
-                <span className="block text-xs text-ink-500">Each item opens when the ones before it are done. Live lessons never hold anyone back.</span>
+                <span className="block text-base text-ink-500">Each item opens when the ones before it are done. Live lessons never hold anyone back.</span>
               </span>
             </label>
           )}
           {settings.prerequisitesEnabled && (
             <div className="space-y-1">
-              <label htmlFor="prereq" className="block text-xs font-semibold text-ink-500">
+              <label htmlFor="prereq" className="block text-base font-semibold text-ink-500">
                 Learners must finish this course first
               </label>
               <select
@@ -283,7 +283,7 @@ export default function CoursePage() {
                 value={course.rules.prerequisiteCourseId ?? ""}
                 disabled={busy}
                 onChange={(e) => void run(() => api.studioSetCourseRules(id, { ...course.rules, prerequisiteCourseId: e.target.value || null }), "Rules saved.")}
-                className="w-full rounded-xl border border-[var(--border-faint)] text-sm text-ink"
+                className="w-full rounded-xl border border-[var(--border-faint)] text-lg text-ink"
               >
                 <option value="">None</option>
                 {course.prerequisiteOptions.map((o) => (
@@ -295,7 +295,7 @@ export default function CoursePage() {
             </div>
           )}
           {settings.certificatesEnabled && (
-            <label className="flex items-start gap-2 text-sm text-ink">
+            <label className="flex items-start gap-2 text-lg text-ink">
               <input
                 type="checkbox"
                 checked={course.rules.certificateEnabled}
@@ -305,7 +305,7 @@ export default function CoursePage() {
               />
               <span>
                 Give a certificate when a learner finishes
-                <span className="block text-xs text-ink-500">Every item done, including quizzes and exams.</span>
+                <span className="block text-base text-ink-500">Every item done, including quizzes and exams.</span>
               </span>
             </label>
           )}
@@ -366,11 +366,11 @@ export default function CoursePage() {
               ) : (
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-gold">Section {mi + 1}</p>
-                    <h4 className="text-sm font-semibold text-ink">{mod.title}</h4>
-                    {mod.description && <p className="text-xs text-ink-500">{mod.description}</p>}
+                    <p className="text-sm font-bold uppercase tracking-wider text-gold">Section {mi + 1}</p>
+                    <h4 className="text-lg font-semibold text-ink">{mod.title}</h4>
+                    {mod.description && <p className="text-base text-ink-500">{mod.description}</p>}
                     {settings.dripEnabled && canBuild && (
-                      <label className="mt-1 flex items-center gap-2 text-xs text-ink-500">
+                      <label className="mt-1 flex items-center gap-2 text-base text-ink-500">
                         Opens
                         <input
                           type="number"
@@ -384,7 +384,7 @@ export default function CoursePage() {
                             const days = Number(e.target.value);
                             if (Number.isInteger(days) && days >= 0 && days !== (mod.dripDays ?? 0)) void run(() => api.studioSetModuleDrip(mod.id, days), "Release saved.");
                           }}
-                          className="w-16 rounded-lg border border-[var(--border-faint)] px-2 py-1 text-xs text-ink"
+                          className="w-16 rounded-lg border border-[var(--border-faint)] px-2 py-1 text-base text-ink"
                         />
                         days after a learner enrols (0 = straight away)
                       </label>
@@ -435,14 +435,14 @@ export default function CoursePage() {
                   ) : (
                     <li key={lesson.id} className="flex items-start justify-between gap-3 rounded-xl border border-[var(--border-faint)] px-3.5 py-3">
                       <div className="min-w-0 space-y-0.5">
-                        <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+                        <p className="flex items-center gap-2 text-lg font-semibold text-ink">
                           {(() => {
                             const Icon = TYPE_ICON[lesson.contentType];
                             return <Icon className={`h-4 w-4 shrink-0 ${isAssessment(lesson.contentType) ? "text-gold" : "text-ink-500"}`} aria-hidden />;
                           })()}
                           <span className="min-w-0">{lesson.title}</span>
                         </p>
-                        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">
+                        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base text-ink-500">
                           <span>{TYPE_LABEL[lesson.contentType] ?? lesson.contentType}</span>
                           <span aria-hidden>·</span>
                           <span>{formatMinutes(lesson.durationMinutes)}</span>
@@ -476,7 +476,7 @@ export default function CoursePage() {
                             </>
                           )}
                         </p>
-                        {lesson.summary && <p className="line-clamp-2 text-xs text-ink-500">{lesson.summary}</p>}
+                        {lesson.summary && <p className="line-clamp-2 text-base text-ink-500">{lesson.summary}</p>}
                         {marking === lesson.id && (
                           <div className="pt-2">
                             <Marking lessonId={lesson.id} onChanged={() => setGradeKey((k) => k + 1)} />
@@ -485,14 +485,14 @@ export default function CoursePage() {
                         {settings.videoUploadsEnabled && (lesson.contentType === "video" || lesson.contentType === "audio") && (lesson.media || (canBuild && editing.kind === "none")) && (
                           <div className="flex flex-wrap items-center gap-2 pt-1">
                             {lesson.media && (
-                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-green">
+                              <span className="inline-flex items-center gap-1 text-base font-semibold text-green">
                                 <Video className="h-3.5 w-3.5" aria-hidden /> {lesson.media.contentType.startsWith("audio") ? "Audio" : "Video"} uploaded · {lesson.media.sizeBytes < 1024 * 1024 ? `${Math.max(1, Math.round(lesson.media.sizeBytes / 1024))} KB` : `${(lesson.media.sizeBytes / 1024 / 1024).toFixed(1)} MB`}
                               </span>
                             )}
                             {canBuild && editing.kind === "none" && (
                               <>
                                 <label
-                                  className={`inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] px-3 text-xs font-semibold text-ink hover:border-gold/50 focus-within:border-gold ${uploading === lesson.id ? "pointer-events-none opacity-60" : ""}`}
+                                  className={`inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] px-3 text-base font-semibold text-ink hover:border-gold/50 focus-within:border-gold ${uploading === lesson.id ? "pointer-events-none opacity-60" : ""}`}
                                 >
                                   <Upload className="h-3.5 w-3.5" aria-hidden />
                                   {uploading === lesson.id ? "Uploading…" : lesson.media ? "Replace file" : "Upload video or audio"}
@@ -514,7 +514,7 @@ export default function CoursePage() {
                                     onClick={() => {
                                       if (window.confirm("Remove the uploaded file from this lesson?")) void run(() => api.studioDeleteLessonMedia(lesson.id), "File removed.");
                                     }}
-                                    className="text-xs font-semibold text-ink-500 underline hover:text-red-600"
+                                    className="text-base font-semibold text-ink-500 underline hover:text-red-600"
                                   >
                                     Remove
                                   </button>
@@ -532,7 +532,7 @@ export default function CoursePage() {
                               value=""
                               disabled={busy}
                               onChange={(e) => e.target.value && moveToSection(mod.id, lesson.id, e.target.value)}
-                              className="max-w-[7rem] rounded-lg border border-[var(--border-faint)] px-2 py-1 text-xs text-ink-500"
+                              className="max-w-[7rem] rounded-lg border border-[var(--border-faint)] px-2 py-1 text-base text-ink-500"
                             >
                               <option value="">Move to…</option>
                               {course.modules.filter((m) => m.id !== mod.id).map((m) => (
@@ -583,12 +583,12 @@ export default function CoursePage() {
                 canBuild &&
                 editing.kind === "none" && (
                   <div className="space-y-1.5 border-t border-[var(--border-faint)] pt-3">
-                    <p className="text-xs font-semibold text-ink-500">Add to this section</p>
+                    <p className="text-base font-semibold text-ink-500">Add to this section</p>
                     <div className="flex flex-wrap gap-2">
                       {LESSON_CONTENT_TYPES.filter((t) => (t.id !== "live" || settings.liveLessonsEnabled) && (!isAssessment(t.id) || settings.maxQuizQuestionsPerLesson > 0)).map((t) => {
                         const Icon = TYPE_ICON[t.id];
                         return (
-                          <Button key={t.id} variant="secondary" className="!min-h-9 !px-3 !text-xs" disabled={!lessonRoomLeft(mod.id)} onClick={() => setEditing({ kind: "lesson-new", moduleId: mod.id, type: t.id })}>
+                          <Button key={t.id} variant="secondary" className="!min-h-14 !px-3 !text-base" disabled={!lessonRoomLeft(mod.id)} onClick={() => setEditing({ kind: "lesson-new", moduleId: mod.id, type: t.id })}>
                             <Icon className="h-3.5 w-3.5" aria-hidden /> {t.label}
                           </Button>
                         );
@@ -597,7 +597,7 @@ export default function CoursePage() {
                   </div>
                 )
               )}
-              {!lessonRoomLeft(mod.id) && <p className="text-xs text-ink-500">A section can have up to {settings.maxLessonsPerModule} items.</p>}
+              {!lessonRoomLeft(mod.id) && <p className="text-base text-ink-500">A section can have up to {settings.maxLessonsPerModule} items.</p>}
             </article>
           ))
         )}
@@ -611,18 +611,18 @@ export default function CoursePage() {
         <section aria-labelledby="students-heading" className={`${cardCls} space-y-3 p-4`}>
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-gold" aria-hidden />
-            <h3 id="students-heading" className="text-sm font-semibold text-ink">
+            <h3 id="students-heading" className="text-lg font-semibold text-ink">
               Learners ({students.length})
             </h3>
           </div>
           {students.length === 0 ? (
-            <p className="text-xs text-ink-500">Nobody has enrolled yet. Learners find published courses in the Peebee Learn catalogue.</p>
+            <p className="text-base text-ink-500">Nobody has enrolled yet. Learners find published courses in the Peebee Learn catalogue.</p>
           ) : (
             <ul className="divide-y divide-[var(--border-faint)]">
               {students.map((st) => (
-                <li key={st.userId} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <li key={st.userId} className="flex items-center justify-between gap-3 py-2 text-lg">
                   <span className="min-w-0 truncate font-semibold text-ink">{st.name}</span>
-                  <span className="shrink-0 text-xs text-ink-500">
+                  <span className="shrink-0 text-base text-ink-500">
                     {st.progressPercent}% done · {formatUgx(st.paidUgx)}
                   </span>
                 </li>
@@ -635,10 +635,10 @@ export default function CoursePage() {
       {canBuild && (
         <section aria-labelledby="danger-heading" className={`${cardCls} flex flex-wrap items-center justify-between gap-3 p-4`}>
           <div>
-            <h3 id="danger-heading" className="text-sm font-semibold text-ink">
+            <h3 id="danger-heading" className="text-lg font-semibold text-ink">
               Delete this course
             </h3>
-            <p className="text-xs text-ink-500">Removes the course with all of its modules and lessons.</p>
+            <p className="text-base text-ink-500">Removes the course with all of its modules and lessons.</p>
           </div>
           <Button
             variant="danger"

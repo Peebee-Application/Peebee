@@ -114,7 +114,7 @@ export default function ClassPage() {
               <Chip>{cls.kind === "masterclass" ? "Masterclass" : "Class"}</Chip>
             </div>
             <h2 className="font-display text-2xl font-semibold text-ink">{cls.name}</h2>
-            <p className="text-xs text-ink-500">{[cls.level, cls.academicYear, cls.term].filter(Boolean).join(" · ")}</p>
+            <p className="text-base text-ink-500">{[cls.level, cls.academicYear, cls.term].filter(Boolean).join(" · ")}</p>
           </div>
           {canBuild && mode === "none" && (
             <Button variant="secondary" onClick={() => setMode("edit")}>
@@ -122,8 +122,8 @@ export default function ClassPage() {
             </Button>
           )}
         </div>
-        {cls.summary && <p className="text-sm text-ink-500">{cls.summary}</p>}
-        <dl className="grid grid-cols-2 gap-3 border-t border-[var(--border-faint)] pt-3 text-xs sm:grid-cols-4">
+        {cls.summary && <p className="text-lg text-ink-500">{cls.summary}</p>}
+        <dl className="grid grid-cols-2 gap-3 border-t border-[var(--border-faint)] pt-3 text-base sm:grid-cols-4">
           <div>
             <dt className="text-ink-500">Syllabus</dt>
             <dd className="font-semibold text-ink">{framework}</dd>
@@ -217,11 +217,11 @@ export default function ClassPage() {
                   <LearnThumb src={api.learnArtUrl("course", course.id)} />
                   <div className="space-y-2 px-4 pb-4">
                   <div className="flex items-start justify-between gap-2">
-                    <h4 className="min-w-0 text-sm font-semibold text-ink">{course.title}</h4>
+                    <h4 className="min-w-0 text-lg font-semibold text-ink">{course.title}</h4>
                     <Chip tone={course.status === "published" ? "green" : "muted"}>{course.status === "published" ? "Live" : "Draft"}</Chip>
                   </div>
-                  {course.summary && <p className="line-clamp-2 text-xs text-ink-500">{course.summary}</p>}
-                  <p className="text-xs text-ink-500">
+                  {course.summary && <p className="line-clamp-2 text-base text-ink-500">{course.summary}</p>}
+                  <p className="text-base text-ink-500">
                     {plural(course.moduleCount, "module")} · {plural(course.lessonCount, "lesson")} · {formatUgx(course.priceUgx)}
                   </p>
                   </div>
@@ -235,10 +235,10 @@ export default function ClassPage() {
       {canBuild && (
         <section aria-labelledby="danger-heading" className={`${cardCls} flex flex-wrap items-center justify-between gap-3 p-4`}>
           <div>
-            <h3 id="danger-heading" className="text-sm font-semibold text-ink">
+            <h3 id="danger-heading" className="text-lg font-semibold text-ink">
               Delete this class
             </h3>
-            <p className="text-xs text-ink-500">Removes the class with its courses and lessons.</p>
+            <p className="text-base text-ink-500">Removes the class with its courses and lessons.</p>
           </div>
           <Button variant="danger" onClick={removeClass} disabled={busy}>
             <Trash2 className="h-4 w-4" aria-hidden /> Delete class

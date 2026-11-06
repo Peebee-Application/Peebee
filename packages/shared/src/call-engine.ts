@@ -92,7 +92,7 @@ export class CallEngine {
   }
 
   /** Starts an outbound call and begins polling for the callee's response. */
-  async startCall(input: { calleeId: string; orderId?: string; restaurantId?: string }) {
+  async startCall(input: { calleeId: string; orderId?: string; restaurantId?: string; schoolId?: string }) {
     this.setState({ phase: "ringing_outbound", call: null, error: null });
     try {
       const { call } = await this.api.startCall(input);

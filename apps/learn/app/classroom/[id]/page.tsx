@@ -98,17 +98,17 @@ export default function ClassroomConsolePage() {
             <h2 className="truncate font-display text-xl font-semibold text-ink">{session.title}</h2>
             <Chip tone={live ? "green" : "muted"}>{live ? "Live" : "Ended"}</Chip>
           </div>
-          <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-500">
+          <p className="mt-1 flex items-center gap-1.5 text-base text-ink-500">
             <Monitor className="h-3.5 w-3.5" aria-hidden />
             {screen ? `${screen.name} · ${screen.online ? "online" : "offline"}` : "Phones only (no TV)"}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">Students join with</p>
+          <p className="text-sm font-semibold uppercase tracking-wider text-ink-500">Students join with</p>
           <p className="font-mono text-3xl font-bold tracking-[0.2em] text-ink" aria-label={`Join code ${session.code.split("").join(" ")}`}>
             {session.code}
           </p>
-          <p className="max-w-[16rem] truncate text-[11px] text-ink-500">{session.joinUrl}</p>
+          <p className="max-w-[16rem] truncate text-sm text-ink-500">{session.joinUrl}</p>
         </div>
       </header>
 
@@ -146,7 +146,7 @@ export default function ClassroomConsolePage() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <section aria-labelledby="runsheet-h" className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 id="runsheet-h" className="text-sm font-semibold text-ink">
+            <h3 id="runsheet-h" className="text-lg font-semibold text-ink">
               Run sheet
             </h3>
             {live && !adding && (
@@ -169,7 +169,7 @@ export default function ClassroomConsolePage() {
           )}
 
           {cues.length === 0 ? (
-            <p className={`${cardCls} p-5 text-sm text-ink-500`}>Nothing here yet. Add slides, questions, a timer or an exam, then push each one to the TV, the phones or both.</p>
+            <p className={`${cardCls} p-5 text-lg text-ink-500`}>Nothing here yet. Add slides, questions, a timer or an exam, then push each one to the TV, the phones or both.</p>
           ) : (
             <ol className="space-y-2">
               {cues.map((cue) => {
@@ -187,10 +187,10 @@ export default function ClassroomConsolePage() {
                           {cue.onPhones && <Chip tone="green">On phones</Chip>}
                           {cue.status === "closed" && <Chip>Done</Chip>}
                         </div>
-                        <p className="mt-1.5 text-sm font-semibold text-ink">{cueSummary(cue, lessonTitles.get(String(cue.payload.lessonId ?? "")))}</p>
+                        <p className="mt-1.5 text-lg font-semibold text-ink">{cueSummary(cue, lessonTitles.get(String(cue.payload.lessonId ?? "")))}</p>
                       </div>
                       {cue.kind !== "attendance" && (cue.status !== "queued" || cue.responses > 0) && (
-                        <span className="shrink-0 text-xs text-ink-500">{cue.responses} answered</span>
+                        <span className="shrink-0 text-base text-ink-500">{cue.responses} answered</span>
                       )}
                     </div>
 
@@ -200,7 +200,7 @@ export default function ClassroomConsolePage() {
                           const total = cue.counts!.reduce((a, b) => a + b, 0) || 1;
                           const pct = Math.round(((cue.counts![i] ?? 0) / total) * 100);
                           return (
-                            <li key={i} className="text-xs text-ink">
+                            <li key={i} className="text-base text-ink">
                               <div className="flex justify-between">
                                 <span className="truncate">
                                   {opt}
@@ -262,18 +262,18 @@ export default function ClassroomConsolePage() {
         </section>
 
         <aside aria-labelledby="class-h" className="space-y-3">
-          <h3 id="class-h" className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+          <h3 id="class-h" className="flex items-center gap-1.5 text-lg font-semibold text-ink">
             <Users className="h-4 w-4" aria-hidden /> In the room · {presentCount}/{members.length}
           </h3>
           {hands.length > 0 && (
             <ul className={`${cardCls} divide-y divide-[var(--border-faint)]`} aria-label="Raised hands">
               {hands.map((m) => (
-                <li key={m.userId} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                <li key={m.userId} className="flex items-center justify-between gap-2 px-3 py-2 text-lg">
                   <span className="flex min-w-0 items-center gap-1.5 text-ink">
                     <Hand className="h-4 w-4 shrink-0 text-gold" aria-hidden />
                     <span className="truncate">{m.name}</span>
                   </span>
-                  <Button variant="secondary" className="!min-h-8 !px-3 !py-1 text-xs" onClick={() => act(m.userId, () => api.classroomLowerHand(id, m.userId))}>
+                  <Button variant="secondary" className="!min-h-8 !px-3 !py-1 text-base" onClick={() => act(m.userId, () => api.classroomLowerHand(id, m.userId))}>
                     Done
                   </Button>
                 </li>
@@ -281,16 +281,16 @@ export default function ClassroomConsolePage() {
             </ul>
           )}
           {members.length === 0 ? (
-            <p className={`${cardCls} p-4 text-sm text-ink-500`}>No one has joined yet. Share the code above.</p>
+            <p className={`${cardCls} p-4 text-lg text-ink-500`}>No one has joined yet. Share the code above.</p>
           ) : (
             <ul className={`${cardCls} divide-y divide-[var(--border-faint)]`}>
               {leaders.map((m) => (
-                <li key={m.userId} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                <li key={m.userId} className="flex items-center justify-between gap-2 px-3 py-2 text-lg">
                   <span className="flex min-w-0 items-center gap-2 text-ink">
                     <span className={`h-2 w-2 shrink-0 rounded-full ${m.present ? "bg-green" : "bg-ink-500/40"}`} aria-label={m.present ? "Present" : "Not marked present"} />
                     <span className="truncate">{m.name}</span>
                   </span>
-                  <span className="shrink-0 text-xs font-semibold text-ink-500">{m.points} pts</span>
+                  <span className="shrink-0 text-base font-semibold text-ink-500">{m.points} pts</span>
                 </li>
               ))}
             </ul>
@@ -413,7 +413,7 @@ function AddCue({ lessons, onAdd, onCancel }: { lessons: StudioLesson[]; onAdd: 
           </Field>
           {examQs.map((q, qi) => (
             <fieldset key={qi} className="space-y-2 rounded-xl border border-[var(--border-faint)] p-3">
-              <legend className="px-1 text-xs font-semibold text-ink-500">Question {qi + 1}</legend>
+              <legend className="px-1 text-base font-semibold text-ink-500">Question {qi + 1}</legend>
               <input
                 aria-label={`Question ${qi + 1}`}
                 required
@@ -436,7 +436,7 @@ function AddCue({ lessons, onAdd, onCancel }: { lessons: StudioLesson[]; onAdd: 
           </Button>
         </>
       )}
-      {kind === "attendance" && <p className="text-sm text-ink-500">Students tap “I&apos;m here” on their phones and are marked present.</p>}
+      {kind === "attendance" && <p className="text-lg text-ink-500">Students tap “I&apos;m here” on their phones and are marked present.</p>}
 
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex gap-2">
@@ -468,7 +468,7 @@ function OptionsEditor({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-ink-500">Options (tick the right one{allowPoll ? ", or none for a poll" : ""})</p>
+      <p className="text-base font-semibold text-ink-500">Options (tick the right one{allowPoll ? ", or none for a poll" : ""})</p>
       {options.map((opt, i) => (
         <div key={i} className="flex items-center gap-2">
           <input

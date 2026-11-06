@@ -477,6 +477,14 @@ export interface LearnSettings {
   maxQaChars: number;
   /** Questions and answers one person may post per hour. */
   qaPostsPerHour: number;
+  /** Learners, parents and others can message a school, and its teacher replies. */
+  messagingEnabled: boolean;
+  /** Learners, parents and teachers can call each other from a school conversation. */
+  callsEnabled: boolean;
+  /** Longest message in a school conversation, in characters. */
+  maxMessageChars: number;
+  /** School messages one person may send per hour. */
+  messagesPerHour: number;
   /** Educators can post announcements to a course. */
   announcementsEnabled: boolean;
   /** Educators can run cohorts: intakes with a start date and a seat limit. */
@@ -616,6 +624,10 @@ export const DEFAULT_LEARN_SETTINGS: LearnSettings = {
   qaEnabled: true,
   maxQaChars: 1500,
   qaPostsPerHour: 20,
+  messagingEnabled: true,
+  callsEnabled: true,
+  maxMessageChars: 1000,
+  messagesPerHour: 120,
   announcementsEnabled: true,
   cohortsEnabled: true,
   instructorsEnabled: true,
@@ -625,6 +637,46 @@ export const DEFAULT_LEARN_SETTINGS: LearnSettings = {
   homeFreeRailEnabled: true,
   homeRailSize: 8,
 };
+
+// ---------------------------------------------------------------------------
+// School messaging: learners, parents and others talking to a school, and its teachers replying
+// ---------------------------------------------------------------------------
+
+export interface SchoolChatMessage {
+  id: string;
+  /** "customer" is the learner or parent, "school" is the school's teacher. */
+  sender_role: "customer" | "school";
+  body: string | null;
+  /** "call" is a log line such as "Missed call". */
+  type: "text" | "call";
+  call_id: string | null;
+  call_status: string | null;
+  call_duration_seconds: number | null;
+  read: number;
+  created_at: string;
+}
+
+/** One school a learner or parent has written to. */
+export interface SchoolChatThread {
+  schoolId: string;
+  schoolName: string;
+  lastMessagePreview: string;
+  lastMessageAt: string;
+  unread: boolean;
+}
+
+/** One person who has written to one of the teacher's schools. */
+export interface StudioSchoolChatThread extends SchoolChatThread {
+  customerId: string;
+  customerName: string | null;
+}
+
+export interface SchoolChatConversation {
+  messages: SchoolChatMessage[];
+  /** Admin: calls from a conversation are on. */
+  callsEnabled: boolean;
+  maxMessageChars: number;
+}
 
 // ---------------------------------------------------------------------------
 // Learning: enrolment, progress, grading and school fees
@@ -753,6 +805,8 @@ export interface LearnerCourse {
   summary: string;
   stream: EducationStream;
   schoolName: string;
+  /** The school behind the course, so a learner can message it. */
+  schoolId?: string;
   progressPercent: number;
   /** The id of the certificate earned for this course, if any. */
   certificateId?: string | null;

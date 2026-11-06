@@ -52,6 +52,8 @@ const LIMITS: { key: NumberKey; label: string; hint: string; min: number; max: n
   { key: "reviewMinProgressPercent", label: "Progress needed to review (%)", hint: "How far through a course a learner must be before rating it", min: 0, max: 100 },
   { key: "maxQaChars", label: "Longest question or answer (characters)", hint: "Also the limit for announcements", min: 100, max: 10000, step: 100 },
   { key: "qaPostsPerHour", label: "Questions and answers per hour", hint: "Per person, to keep discussions calm", min: 1, max: 500 },
+  { key: "maxMessageChars", label: "Longest school message (characters)", hint: "Learner, parent and teacher conversations", min: 50, max: 5000, step: 50 },
+  { key: "messagesPerHour", label: "School messages per hour", hint: "Per person, to keep conversations calm", min: 1, max: 2000 },
   { key: "maxInstructorsPerCourse", label: "Extra teachers per course", hint: "Besides the school owner", min: 1, max: 50 },
   { key: "homeRailSize", label: "Courses per row on the Learn home", hint: "How many courses each row on the learner home screen shows", min: 3, max: 20 },
   { key: "createsPerHour", label: "Creations per hour", hint: "Schools, classes, courses, modules and lessons made by one educator per hour", min: 1, max: 1000 },
@@ -225,6 +227,8 @@ export default function LearnSettingsPage() {
             <SwitchRow managed title="School passes" hint="Educators can sell timed access to every course of a school" on={settings.subscriptionsEnabled} disabled={!canManage} onChange={(v) => patch("subscriptionsEnabled", v)} />
             <SwitchRow managed title="Reviews" hint="Learners can rate and review a course once they are part-way through it" on={settings.reviewsEnabled} disabled={!canManage} onChange={(v) => patch("reviewsEnabled", v)} />
             <SwitchRow managed title="Questions and answers" hint="Learners can ask questions on a course or lesson; teachers and classmates answer" on={settings.qaEnabled} disabled={!canManage} onChange={(v) => patch("qaEnabled", v)} />
+            <SwitchRow managed title="School messages" hint="Learners, parents and others can message a school, and its teacher replies" on={settings.messagingEnabled} disabled={!canManage} onChange={(v) => patch("messagingEnabled", v)} />
+            <SwitchRow managed title="School calls" hint="Learners, parents and teachers can call each other from a school conversation" on={settings.callsEnabled} disabled={!canManage} onChange={(v) => patch("callsEnabled", v)} />
             <SwitchRow managed title="Announcements" hint="Educators can post announcements that learners see on the course" on={settings.announcementsEnabled} disabled={!canManage} onChange={(v) => patch("announcementsEnabled", v)} />
             <SwitchRow managed title="Cohorts" hint="Educators can run intakes of a course with a start date and a seat limit" on={settings.cohortsEnabled} disabled={!canManage} onChange={(v) => patch("cohortsEnabled", v)} />
             <SwitchRow managed title="Extra teachers" hint="Educators can add other teachers who edit and mark a course with them" on={settings.instructorsEnabled} disabled={!canManage} onChange={(v) => patch("instructorsEnabled", v)} />

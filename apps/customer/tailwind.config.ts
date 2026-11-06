@@ -6,6 +6,8 @@ const config: Config = {
     "../../packages/shared/src/FoodCover.tsx",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    // The shared school conversation screen is styled with this app's Tailwind.
+    "../../packages/shared/src/SchoolChat.tsx",
   ],
   theme: {
     extend: {

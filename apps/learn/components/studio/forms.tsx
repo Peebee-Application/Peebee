@@ -125,7 +125,7 @@ export function SchoolForm({
       </div>
 
       <fieldset className="space-y-2">
-        <legend className="text-xs font-semibold text-ink-500">Who do you teach? Choose every stream you offer</legend>
+        <legend className="text-base font-semibold text-ink-500">Who do you teach? Choose every stream you offer</legend>
         <div className="grid gap-2 sm:grid-cols-2">
           {open.map((s) => {
             const ui = STREAM_UI[s.id];
@@ -143,9 +143,9 @@ export function SchoolForm({
               >
                 <Icon className="mt-0.5 h-5 w-5 shrink-0 text-gold" aria-hidden />
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-ink">{ui.title}</span>
-                  <span className="block text-xs text-ink-500">{ui.audience}</span>
-                  {locked && <span className="mt-1 block text-[11px] text-ink-500">Has classes, so it can&apos;t be removed</span>}
+                  <span className="block text-lg font-semibold text-ink">{ui.title}</span>
+                  <span className="block text-base text-ink-500">{ui.audience}</span>
+                  {locked && <span className="mt-1 block text-sm text-ink-500">Has classes, so it can&apos;t be removed</span>}
                 </span>
               </button>
             );
@@ -276,7 +276,7 @@ export function ClassForm({
             </select>
           </Field>
           <div className="space-y-1">
-            <span className="block text-xs font-semibold text-ink-500">Format</span>
+            <span className="block text-base font-semibold text-ink-500">Format</span>
             <Segmented
               label="Format"
               value={kind}
@@ -286,7 +286,7 @@ export function ClassForm({
                 { id: "masterclass", label: copy.masterclass, disabled: !settings.masterclassesEnabled },
               ]}
             />
-            <p className="text-[11px] text-ink-500">{kind === "class" ? "A fixed group that follows a term or year." : "A short, focused programme anyone can join."}</p>
+            <p className="text-sm text-ink-500">{kind === "class" ? "A fixed group that follows a term or year." : "A short, focused programme anyone can join."}</p>
           </div>
         </div>
       )}

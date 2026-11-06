@@ -1888,7 +1888,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     // Voice calls — see apps/api/src/calls/routes.ts. Provider-agnostic at
     // this layer; the client picks Cloudflare-specific negotiation calls
     // only once it sees call.provider === "cloudflare".
-    async startCall(input: { calleeId: string; orderId?: string; restaurantId?: string }) {
+    async startCall(input: { calleeId: string; orderId?: string; restaurantId?: string; schoolId?: string }) {
       return request<{ call: Call }>("/v1/calls", { method: "POST", body: JSON.stringify(input) });
     },
     async getIncomingCall() {

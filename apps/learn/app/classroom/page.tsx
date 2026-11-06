@@ -93,25 +93,21 @@ export default function ClassroomPage() {
   return (
     <div className="space-y-5 pb-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-gold">Live classroom</p>
-          <h2 className="font-display text-2xl font-semibold text-ink">Run a class</h2>
-          <p className="text-sm text-ink-500">Show lessons on a TV and have everyone answer on their phones. You decide what goes where.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+        <h1 className="flex items-center gap-2 text-2xl font-black text-ink"><Radio className="h-7 w-7 text-gold" aria-hidden /> Live</h1>
+        <div className="flex w-full flex-wrap gap-2">
           <LinkButton href="/screens" variant="secondary">
-            <Monitor className="h-4 w-4" aria-hidden /> Screens <ProChip status={pro} />
+            <Monitor className="h-6 w-6" aria-hidden /> Screens <ProChip status={pro} />
           </LinkButton>
           {!starting && (
-            <Button onClick={() => setStarting(true)} disabled={schools.length === 0 || !settings.liveEnabled}>
-              <Play className="h-4 w-4" aria-hidden /> Start a class
+            <Button className="flex-1" onClick={() => setStarting(true)} disabled={schools.length === 0 || !settings.liveEnabled}>
+              <Play className="h-6 w-6" aria-hidden /> Start a class
             </Button>
           )}
         </div>
       </header>
 
       {pro && <ProUpgrade status={pro} />}
-      {!settings.liveEnabled && <Notice tone="info">Live classroom is switched off right now.</Notice>}
+      {!settings.liveEnabled && <Notice tone="info">Live classes are off right now.</Notice>}
       {error && <Notice tone="error">{error}</Notice>}
       {sessions !== null && schools.length === 0 && (
         <Notice tone="info">
@@ -157,7 +153,7 @@ export default function ClassroomPage() {
               </select>
             </Field>
             {courseId && (
-              <label className="flex items-center gap-2 self-end pb-2 text-sm font-semibold text-ink">
+              <label className="flex items-center gap-2 self-end pb-2 text-lg font-semibold text-ink">
                 <input type="checkbox" checked={autoCues} onChange={(e) => setAutoCues(e.target.checked)} className="h-4 w-4 accent-[rgb(var(--color-gold))]" />
                 Build the run sheet from its lessons and quizzes
               </label>
@@ -178,12 +174,12 @@ export default function ClassroomPage() {
       {sessions === null ? (
         <Skeleton className="h-28" />
       ) : sessions.length === 0 ? (
-        !starting && <EmptyState icon={Radio} title="No classes yet" body="Start a class to get a join code for your students. Connect a TV in Screens to show the lesson on the big screen." />
+        !starting && <EmptyState icon={Radio} title="No classes yet" body="Start a class to get a join code." />
       ) : (
         <>
           {live.length > 0 && (
             <section aria-labelledby="live-h" className="space-y-2">
-              <h3 id="live-h" className="text-sm font-semibold text-ink">
+              <h3 id="live-h" className="text-lg font-semibold text-ink">
                 Live now
               </h3>
               <ul className="space-y-2">
@@ -191,8 +187,8 @@ export default function ClassroomPage() {
                   <li key={s.id}>
                     <Link href={`/classroom/${s.id}`} className={`${cardCls} flex items-center justify-between gap-3 p-4 transition hover:border-gold/50`}>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-ink">{s.title}</p>
-                        <p className="text-xs text-ink-500">
+                        <p className="truncate text-lg font-semibold text-ink">{s.title}</p>
+                        <p className="text-base text-ink-500">
                           Code <span className="font-mono font-bold text-ink">{s.code}</span>
                         </p>
                       </div>
@@ -205,14 +201,14 @@ export default function ClassroomPage() {
           )}
           {past.length > 0 && (
             <section aria-labelledby="past-h" className="space-y-2">
-              <h3 id="past-h" className="text-sm font-semibold text-ink">
+              <h3 id="past-h" className="text-lg font-semibold text-ink">
                 Earlier classes
               </h3>
               <ul className="space-y-2">
                 {past.map((s) => (
                   <li key={s.id} className={`${cardCls} flex items-center justify-between gap-3 p-4`}>
-                    <p className="truncate text-sm font-semibold text-ink">{s.title}</p>
-                    <span className="shrink-0 text-xs text-ink-500">{s.createdAt.slice(0, 10)}</span>
+                    <p className="truncate text-lg font-semibold text-ink">{s.title}</p>
+                    <span className="shrink-0 text-base text-ink-500">{s.createdAt.slice(0, 10)}</span>
                   </li>
                 ))}
               </ul>

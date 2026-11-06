@@ -2,7 +2,9 @@ import "@peebee/shared/auth.css";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "../components/AppShell";
+import { CallOverlay } from "../components/CallOverlay";
 import { AuthProvider } from "../lib/auth-context";
+import { CallsProvider } from "../lib/calls-context";
 import { ServiceWorkerRegister } from "../components/ServiceWorkerRegister";
 import { DataRefresh } from "@peebee/shared/data-refresh";
 
@@ -54,7 +56,10 @@ export default function RootLayout({ children }: { children: any }) {
       </head>
       <body><ServiceWorkerRegister />
         <AuthProvider>
-          <AppShell><DataRefresh>{children}</DataRefresh></AppShell>
+          <CallsProvider>
+            <AppShell><DataRefresh>{children}</DataRefresh></AppShell>
+            <CallOverlay />
+          </CallsProvider>
         </AuthProvider>
       </body>
     </html>

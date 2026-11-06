@@ -95,17 +95,17 @@ export default function LearnPracticePage() {
       {/* Sandbox Header Banner */}
       <div className="relative overflow-hidden rounded-3xl border-2 border-gold/40 bg-gradient-to-br from-gold/20 via-cream to-cream p-5 shadow-sm dark:from-gold/10 dark:via-black-700 dark:to-black-900">
         <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5 rounded-full bg-gold px-3 py-1 text-xs font-black uppercase text-black shadow-sm">
+          <span className="flex items-center gap-1.5 rounded-full bg-gold px-3 py-1 text-base font-black uppercase text-black shadow-sm">
             <Sparkles className="h-3.5 w-3.5" />
             Sandbox & Practice Environment
           </span>
-          <span className="text-xs font-bold text-ink-500">
+          <span className="text-base font-bold text-ink-500">
             Safe Mode • Zero Live Production Impact
           </span>
         </div>
 
         <h1 className="mt-2.5 text-xl font-black text-ink">{JOURNEY.heading}</h1>
-        <p className="mt-1 text-xs text-ink-500 leading-relaxed max-w-xl">
+        <p className="mt-1 text-base text-ink-500 leading-relaxed max-w-xl">
           {JOURNEY.introduction}
         </p>
 
@@ -113,7 +113,7 @@ export default function LearnPracticePage() {
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Link
             href="/live/live_fintech_101"
-            className="flex items-center gap-1.5 rounded-2xl bg-gold px-4 py-2 text-xs font-black text-black shadow-sm transition hover:opacity-90 active:scale-95"
+            className="flex items-center gap-1.5 rounded-2xl bg-gold px-4 py-2 text-base font-black text-black shadow-sm transition hover:opacity-90 active:scale-95"
           >
             <Video className="h-3.5 w-3.5" />
             Launch Zoom Classroom
@@ -121,7 +121,7 @@ export default function LearnPracticePage() {
 
           <Link
             href="/chat"
-            className="flex items-center gap-1.5 rounded-2xl border border-[var(--border-faint)] bg-cream px-3.5 py-2 text-xs font-bold text-ink hover:border-gold dark:bg-black/40"
+            className="flex items-center gap-1.5 rounded-2xl border border-[var(--border-faint)] bg-cream px-3.5 py-2 text-base font-bold text-ink hover:border-gold dark:bg-black/40"
           >
             <MessageSquare className="h-3.5 w-3.5 text-gold" />
             Live Tutor Chat
@@ -129,7 +129,7 @@ export default function LearnPracticePage() {
 
           <button
             onClick={handleResetSandbox}
-            className="flex items-center gap-1 text-xs font-bold text-ink-500 hover:text-ink ml-auto"
+            className="flex items-center gap-1 text-base font-bold text-ink-500 hover:text-ink ml-auto"
           >
             <RotateCcw className="h-3 w-3" /> Reset Demo
           </button>
@@ -141,7 +141,7 @@ export default function LearnPracticePage() {
         {/* Step List Sidebar */}
         <div className="home-card p-3 space-y-2">
           <div className="flex items-center justify-between px-1">
-            <h2 className="text-xs font-black uppercase tracking-wider text-ink-500">
+            <h2 className="text-base font-black uppercase tracking-wider text-ink-500">
               Learning Modules ({completedSteps.length}/{JOURNEY.steps.length})
             </h2>
           </div>
@@ -161,7 +161,7 @@ export default function LearnPracticePage() {
                   }`}
                 >
                   <span
-                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
+                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-sm font-black ${
                       isDone
                         ? "bg-green-500 text-white"
                         : isCurrent
@@ -173,7 +173,7 @@ export default function LearnPracticePage() {
                   </span>
 
                   <div className="min-w-0 flex-1">
-                    <p className={`text-xs ${isCurrent ? "font-black text-ink" : "font-bold text-ink-500"}`}>
+                    <p className={`text-base ${isCurrent ? "font-black text-ink" : "font-bold text-ink-500"}`}>
                       {step.title}
                     </p>
                   </div>
@@ -187,10 +187,10 @@ export default function LearnPracticePage() {
         <div className="home-card md:col-span-2 p-5 flex flex-col justify-between space-y-4">
           <div>
             <div className="flex items-center justify-between">
-              <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-[10px] font-black uppercase text-gold">
+              <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-sm font-black uppercase text-gold">
                 Module {activeStep + 1} of {JOURNEY.steps.length}
               </span>
-              <span className="text-xs font-bold text-green-600 dark:text-green-400">
+              <span className="text-base font-bold text-green-600 dark:text-green-400">
                 {completedSteps.includes(activeStep) ? "✓ Completed in Sandbox" : "Pending Sandbox Test"}
               </span>
             </div>
@@ -198,7 +198,7 @@ export default function LearnPracticePage() {
             <h3 className="mt-2 text-base font-black text-ink">
               {JOURNEY.steps[activeStep].title}
             </h3>
-            <p className="mt-1 text-xs text-ink-500 leading-relaxed">
+            <p className="mt-1 text-base text-ink-500 leading-relaxed">
               {JOURNEY.steps[activeStep].description}
             </p>
 
@@ -216,8 +216,8 @@ export default function LearnPracticePage() {
                         <Volume2 className="h-6 w-6" />
                       </button>
                       <div>
-                        <p className="text-xs font-black text-ink">Kigo the Crested Crane Phonics</p>
-                        <p className="text-[11px] text-gold font-bold">
+                        <p className="text-base font-black text-ink">Kigo the Crested Crane Phonics</p>
+                        <p className="text-sm text-gold font-bold">
                           {sproutsPlaying ? "Luganda Phonics Playing (Vowels: A, E, I, O, U)..." : "Tap to Play Narration"}
                         </p>
                       </div>
@@ -226,8 +226,8 @@ export default function LearnPracticePage() {
                   </div>
 
                   <div className="flex items-center justify-between border-t border-[var(--border-faint)] pt-2.5">
-                    <span className="text-xs font-bold text-ink">Reward Sticker Album:</span>
-                    <span className="rounded-xl border border-gold/40 bg-gold/10 px-3 py-1 text-xs font-bold text-gold">
+                    <span className="text-base font-bold text-ink">Reward Sticker Album:</span>
+                    <span className="rounded-xl border border-gold/40 bg-gold/10 px-3 py-1 text-base font-bold text-gold">
                       👑 Crowned Crane Unlocked!
                     </span>
                   </div>
@@ -237,28 +237,28 @@ export default function LearnPracticePage() {
               {/* Step 1: Foundations */}
               {activeStep === 1 && (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center justify-between text-base">
                     <span className="font-bold text-ink">Assignment: P.4 Fractions & Decimals</span>
                     <span className="rounded bg-gold/15 px-2 py-0.5 font-bold text-gold">+25 Merit Stars</span>
                   </div>
 
                   <div className="rounded-xl border-2 border-dashed border-[var(--border-faint)] p-4 text-center">
                     {homeworkScanned ? (
-                      <p className="text-xs font-bold text-green-600">✓ Handwritten Worksheet Photo Attached</p>
+                      <p className="text-base font-bold text-green-600">✓ Handwritten Worksheet Photo Attached</p>
                     ) : (
                       <button
                         onClick={() => setHomeworkScanned(true)}
-                        className="flex items-center gap-1.5 mx-auto rounded-xl bg-gold px-3.5 py-1.5 text-xs font-black text-black"
+                        className="flex items-center gap-1.5 mx-auto rounded-xl bg-gold px-3.5 py-1.5 text-base font-black text-black"
                       >
                         <Camera className="h-4 w-4" /> Simulate Homework Photo Scan
                       </button>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-[var(--border-faint)] pt-2.5 text-xs">
+                  <div className="flex items-center justify-between border-t border-[var(--border-faint)] pt-2.5 text-base">
                     <div>
                       <p className="font-bold text-ink">Parent Digital Sign-Off</p>
-                      <p className="text-[11px] text-ink-500">Guardian PIN: 1234</p>
+                      <p className="text-sm text-ink-500">Guardian PIN: 1234</p>
                     </div>
                     {parentSigned ? (
                       <span className="font-bold text-green-600">✓ Signed by Grace Mukasa</span>
@@ -279,7 +279,7 @@ export default function LearnPracticePage() {
 
               {/* Step 2: Academy */}
               {activeStep === 2 && (
-                <div className="space-y-3 text-xs">
+                <div className="space-y-3 text-base">
                   <div className="flex items-center justify-between">
                     <span className="font-black text-ink">UNEB S.4 Physics & Mechanics Exam</span>
                     <span className="font-mono font-bold text-gold">Time: 90 Mins</span>
@@ -297,7 +297,7 @@ export default function LearnPracticePage() {
                       <p className="font-black text-green-700 dark:text-green-400">
                         Exam Graded: 88% (Distinction 1 - D1)
                       </p>
-                      <p className="text-[11px] text-ink-500 mt-0.5">
+                      <p className="text-sm text-ink-500 mt-0.5">
                         Weighted report card generated: Homework (20%), Midterm (30%), Final Exam (50%).
                       </p>
                     </div>
@@ -317,7 +317,7 @@ export default function LearnPracticePage() {
 
               {/* Step 3: Zoom Classroom */}
               {activeStep === 3 && (
-                <div className="space-y-3 text-xs">
+                <div className="space-y-3 text-base">
                   <div className="flex items-center justify-between">
                     <span className="font-black text-ink">Room PB-FIN-101: FinTech Masterclass</span>
                     <span className="rounded bg-red-500/15 px-2 py-0.5 font-black text-red-600">
@@ -358,18 +358,18 @@ export default function LearnPracticePage() {
 
               {/* Step 4: Tutor Chat */}
               {activeStep === 4 && (
-                <div className="space-y-3 text-xs">
+                <div className="space-y-3 text-base">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="h-2 w-2 rounded-full bg-green-500" />
                       <span className="font-black text-ink">Dr. Kenneth Ochieng (Senior Fellow)</span>
                     </div>
-                    <span className="text-[10px] text-ink-500">Office Hours: 2:00 - 4:00 PM</span>
+                    <span className="text-sm text-ink-500">Office Hours: 2:00 - 4:00 PM</span>
                   </div>
 
                   <div className="rounded-xl border border-[var(--border-faint)] bg-cream p-2.5 dark:bg-black/40 space-y-1">
-                    <p className="font-bold text-gold text-[11px]">Tutor Voice Note (0:24):</p>
-                    <p className="text-ink-500 text-[11px]">
+                    <p className="font-bold text-gold text-sm">Tutor Voice Note (0:24):</p>
+                    <p className="text-ink-500 text-sm">
                       &quot;Here is the store-and-forward queue mechanism for the MoMo reversal webhook.&quot;
                     </p>
                   </div>
@@ -385,7 +385,7 @@ export default function LearnPracticePage() {
 
               {/* Step 5: Compass Credential */}
               {activeStep === 5 && (
-                <div className="space-y-3 text-xs">
+                <div className="space-y-3 text-base">
                   <div className="flex items-center justify-between">
                     <span className="font-black text-ink">Executive FinTech Product Management</span>
                     <span className="font-mono text-gold font-bold">12 Modules</span>
@@ -396,7 +396,7 @@ export default function LearnPracticePage() {
                       <span className="font-bold text-ink">Verifiable Certificate of Completion</span>
                       <QrCode className="h-5 w-5 text-gold" />
                     </div>
-                    <p className="font-mono text-[10px] text-ink-500 mt-1">
+                    <p className="font-mono text-sm text-ink-500 mt-1">
                       Hash: SHA-256 e4b8...c721 • Tamper-proof
                     </p>
                   </div>
@@ -415,7 +415,7 @@ export default function LearnPracticePage() {
 
               {/* Step 6: Skills Trade Logbook */}
               {activeStep === 6 && (
-                <div className="space-y-3 text-xs">
+                <div className="space-y-3 text-base">
                   <div className="flex items-center justify-between">
                     <span className="font-black text-ink">Master Barbering & Precision Fades</span>
                     <span className="font-bold text-gold">DIT UVQF Level 2</span>
@@ -423,10 +423,10 @@ export default function LearnPracticePage() {
 
                   <div className="rounded-xl border border-[var(--border-faint)] bg-cream p-3 dark:bg-black/40 space-y-1">
                     <p className="font-bold text-ink">Critique Pin at 01:28:</p>
-                    <p className="text-ink-500 text-[11px]">
+                    <p className="text-ink-500 text-sm">
                       &quot;Adjust your clipper blade angle here to prevent irritation on the neck.&quot;
                     </p>
-                    <p className="text-[10px] text-gold font-bold">By Master Alex Mukasa</p>
+                    <p className="text-sm text-gold font-bold">By Master Alex Mukasa</p>
                   </div>
 
                   <button
@@ -445,12 +445,12 @@ export default function LearnPracticePage() {
 
           {/* Action Footer */}
           <div className="flex items-center justify-between border-t border-[var(--border-faint)] pt-3">
-            <span className="text-xs font-bold text-gold">
+            <span className="text-base font-bold text-gold">
               Action: {JOURNEY.steps[activeStep].actionLabel}
             </span>
             <button
               onClick={() => markStepDone(activeStep)}
-              className="flex items-center gap-1.5 rounded-2xl bg-gold px-4 py-2 text-xs font-black text-black shadow-sm transition hover:opacity-90 active:scale-95"
+              className="flex items-center gap-1.5 rounded-2xl bg-gold px-4 py-2 text-base font-black text-black shadow-sm transition hover:opacity-90 active:scale-95"
             >
               <span>Advance Sandbox</span>
               <ArrowRight className="h-3.5 w-3.5" />

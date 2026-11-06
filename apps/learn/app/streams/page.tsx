@@ -68,20 +68,7 @@ export default function StreamsPage() {
   return (
     <div className="space-y-5">
       {/* Page Header */}
-      <div>
-        <div className="flex items-center gap-2">
-          <p className="text-[10px] font-black uppercase tracking-wider text-gold">
-            Creator Pedagogical Frameworks
-          </p>
-          <span className="rounded-full bg-gold/15 px-2 py-0.2 text-[10px] font-black text-gold">
-            Platform Modules
-          </span>
-        </div>
-        <h1 className="text-xl font-black text-ink">5-Tier Education Engines</h1>
-        <p className="mt-1 text-xs text-ink-500 max-w-xl leading-relaxed">
-          Peebee provides these 5 specialized teaching frameworks for creators and schools to adopt based on their student age groups and teaching models.
-        </p>
-      </div>
+      <h1 className="text-2xl font-black text-ink">Preview</h1>
 
       {/* Stream Tabs Bar */}
       <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -91,15 +78,15 @@ export default function StreamsPage() {
             <button
               key={st.id}
               onClick={() => setActiveStream(st.id as EducationStream)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-base font-bold transition-all ${
                 isSelected
                   ? "bg-gold text-black shadow-sm font-black"
                   : "border border-[var(--border-faint)] bg-cream/70 text-ink-500 hover:text-ink dark:bg-black/40"
               }`}
             >
-              <span className="text-sm">{st.icon}</span>
+              <span className="text-lg">{st.icon}</span>
               <span>{st.title}</span>
-              <span className="text-[10px] opacity-75">({st.ageBracket})</span>
+              <span className="text-sm opacity-75">({st.ageBracket})</span>
             </button>
           );
         })}
@@ -111,17 +98,17 @@ export default function StreamsPage() {
         <div className="space-y-4">
           <div className="home-card bg-gradient-to-br from-gold/10 via-cream to-cream p-5 dark:from-gold/10 dark:via-black-700">
             <div className="flex items-center justify-between">
-              <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-[10px] font-black uppercase text-gold">
+              <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-sm font-black uppercase text-gold">
                 Ages 3–6 • Tablet-First & Audio Nav
               </span>
-              <span className="flex items-center gap-1 text-xs font-bold text-ink-500">
+              <span className="flex items-center gap-1 text-base font-bold text-ink-500">
                 <Clock className="h-3.5 w-3.5" /> {sproutsTimerMins}m screen time left
               </span>
             </div>
             <h2 className="mt-2 text-base font-black text-ink">
               Sprouts Storybook & Audio Guide (Kigo the Crane)
             </h2>
-            <p className="mt-1 text-xs text-ink-500">
+            <p className="mt-1 text-base text-ink-500">
               Large interactive graphics with synchronized Luganda/English phonics narration.
             </p>
 
@@ -136,10 +123,10 @@ export default function StreamsPage() {
                     {isPlayingPhonics ? <Clock className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
                   </button>
                   <div>
-                    <h3 className="text-xs font-black text-ink">
+                    <h3 className="text-base font-black text-ink">
                       Story: &quot;Kigo the Crested Crane Visits Lake Victoria&quot;
                     </h3>
-                    <p className="text-[11px] text-gold font-bold">
+                    <p className="text-sm text-gold font-bold">
                       {isPlayingPhonics ? "Narration Playing in Luganda & English..." : "Tap to Listen"}
                     </p>
                   </div>
@@ -151,7 +138,7 @@ export default function StreamsPage() {
 
             {/* Sticker Collection */}
             <div className="mt-4 border-t border-[var(--border-faint)] pt-3">
-              <p className="text-xs font-black text-ink">Unlocked Digital Stickers</p>
+              <p className="text-base font-black text-ink">Unlocked Digital Stickers</p>
               <div className="mt-2 flex gap-3">
                 <span className="rounded-2xl border border-gold/40 bg-gold/10 p-2 text-2xl" title="Golden Lion">
                   🦁
@@ -173,10 +160,10 @@ export default function StreamsPage() {
         <div className="space-y-4">
           <div className="home-card p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-[10px] font-black uppercase text-gold">
+              <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-sm font-black uppercase text-gold">
                 Ages 6–12 • Primary School & Parent Monitored
               </span>
-              <span className="flex items-center gap-1 text-xs font-bold text-gold">
+              <span className="flex items-center gap-1 text-base font-bold text-gold">
                 <Award className="h-3.5 w-3.5" /> {DEMO_FOUNDATIONS_MERITS.totalMerits} Merits Earned
               </span>
             </div>
@@ -184,16 +171,16 @@ export default function StreamsPage() {
             <h2 className="text-base font-black text-ink">
               Worksheet Photo Submission & Parent Sign-Off Engine
             </h2>
-            <p className="text-xs text-ink-500">
+            <p className="text-base text-ink-500">
               Students take a mobile photo of handwritten homework; parent signs off with verified PIN.
             </p>
 
             <div className="rounded-2xl border border-[var(--border-faint)] p-4 bg-cream-50/50 dark:bg-black/30 space-y-3">
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between text-base">
                 <span className="font-bold text-ink">Current Assignment:</span>
                 <span className="rounded bg-gold/15 px-2 py-0.5 font-bold text-gold">Due Friday</span>
               </div>
-              <p className="text-xs font-black text-ink">
+              <p className="text-base font-black text-ink">
                 {DEMO_FOUNDATIONS_WORKSHEETS[0].title}
               </p>
 
@@ -202,14 +189,14 @@ export default function StreamsPage() {
                 {worksheetPhoto ? (
                   <div className="space-y-2">
                     <CheckCircle2 className="mx-auto h-8 w-8 text-green-500" />
-                    <p className="text-xs font-bold text-ink">Homework Photo Captured</p>
+                    <p className="text-base font-bold text-ink">Homework Photo Captured</p>
                   </div>
                 ) : (
                   <div>
                     <Camera className="mx-auto h-8 w-8 text-gold" />
                     <button
                       onClick={() => setWorksheetPhoto("captured_photo.jpg")}
-                      className="mt-2 rounded-xl bg-gold px-3 py-1.5 text-xs font-black text-black"
+                      className="mt-2 rounded-xl bg-gold px-3 py-1.5 text-base font-black text-black"
                     >
                       Scan Handwritten Worksheet
                     </button>
@@ -220,17 +207,17 @@ export default function StreamsPage() {
               {/* Parent PIN Sign-off */}
               <div className="border-t border-[var(--border-faint)] pt-3 flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-bold text-ink">Parent Digital Sign-Off</p>
-                  <p className="text-[11px] text-ink-500">Guardian: Grace Mukasa</p>
+                  <p className="text-base font-bold text-ink">Parent Digital Sign-Off</p>
+                  <p className="text-sm text-ink-500">Guardian: Grace Mukasa</p>
                 </div>
                 {parentSignDone ? (
-                  <span className="flex items-center gap-1 text-xs font-bold text-green-600">
+                  <span className="flex items-center gap-1 text-base font-bold text-green-600">
                     <CheckCircle2 className="h-4 w-4" /> Signed & Verified
                   </span>
                 ) : (
                   <button
                     onClick={() => setParentSignDone(true)}
-                    className="rounded-xl border border-gold px-3 py-1.5 text-xs font-bold text-gold hover:bg-gold hover:text-black transition"
+                    className="rounded-xl border border-gold px-3 py-1.5 text-base font-bold text-gold hover:bg-gold hover:text-black transition"
                   >
                     Sign with Parent PIN
                   </button>
@@ -246,10 +233,10 @@ export default function StreamsPage() {
         <div className="space-y-4">
           <div className="home-card p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-[10px] font-black uppercase text-gold">
+              <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-sm font-black uppercase text-gold">
                 Ages 12–18 • High School & UNEB Revision
               </span>
-              <span className="rounded bg-red-500/10 px-2 py-0.5 text-[10px] font-black uppercase text-red-600 dark:text-red-400">
+              <span className="rounded bg-red-500/10 px-2 py-0.5 text-sm font-black uppercase text-red-600 dark:text-red-400">
                 Anti-Cheat Enabled
               </span>
             </div>
@@ -257,19 +244,19 @@ export default function StreamsPage() {
             <h2 className="text-base font-black text-ink">
               UNEB Examination Simulator & Automated Gradebook
             </h2>
-            <p className="text-xs text-ink-500">
+            <p className="text-base text-ink-500">
               Timed examination interface with tab-switch detection and terminal weighted report cards.
             </p>
 
             <div className="rounded-2xl border border-[var(--border-faint)] p-4 bg-cream-50/50 dark:bg-black/30 space-y-3">
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between text-base">
                 <span className="font-black text-ink">Active Mock Exam:</span>
-                <span className="font-mono text-xs font-bold text-gold">Time: 90 Mins</span>
+                <span className="font-mono text-base font-bold text-gold">Time: 90 Mins</span>
               </div>
-              <p className="text-xs font-bold text-ink">{DEMO_ACADEMY_EXAM.title}</p>
+              <p className="text-base font-bold text-ink">{DEMO_ACADEMY_EXAM.title}</p>
 
               {/* Anti-cheat tab alert */}
-              <div className="flex items-center justify-between rounded-xl bg-gold/10 p-2.5 text-xs">
+              <div className="flex items-center justify-between rounded-xl bg-gold/10 p-2.5 text-base">
                 <span className="text-ink-500">Integrity Monitor:</span>
                 <span className="font-bold text-gold">
                   {examTabSwitches} Tab-Switch Violations Detected
@@ -278,18 +265,18 @@ export default function StreamsPage() {
 
               {/* Terminal Report Card Preview */}
               <div className="border-t border-[var(--border-faint)] pt-3">
-                <p className="text-xs font-black text-ink">Terminal Report Card Summary</p>
-                <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+                <p className="text-base font-black text-ink">Terminal Report Card Summary</p>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-center text-base">
                   <div className="rounded-xl border border-[var(--border-faint)] p-2">
-                    <p className="text-ink-500 text-[10px]">Weighted Avg</p>
+                    <p className="text-ink-500 text-sm">Weighted Avg</p>
                     <p className="font-black text-ink">{DEMO_ACADEMY_REPORT_CARD.overallWeightedAverage}%</p>
                   </div>
                   <div className="rounded-xl border border-[var(--border-faint)] p-2">
-                    <p className="text-ink-500 text-[10px]">Rank in Class</p>
+                    <p className="text-ink-500 text-sm">Rank in Class</p>
                     <p className="font-black text-gold">{DEMO_ACADEMY_REPORT_CARD.classRank}</p>
                   </div>
                   <div className="rounded-xl border border-[var(--border-faint)] p-2">
-                    <p className="text-ink-500 text-[10px]">Attendance</p>
+                    <p className="text-ink-500 text-sm">Attendance</p>
                     <p className="font-black text-green-600">
                       {DEMO_ACADEMY_REPORT_CARD.attendancePercent}%
                     </p>
@@ -306,10 +293,10 @@ export default function StreamsPage() {
         <div className="space-y-4">
           <div className="home-card p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-[10px] font-black uppercase text-gold">
+              <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-sm font-black uppercase text-gold">
                 Higher Ed & Professional Degrees
               </span>
-              <span className="flex items-center gap-1 text-xs font-bold text-ink-500">
+              <span className="flex items-center gap-1 text-base font-bold text-ink-500">
                 <QrCode className="h-3.5 w-3.5 text-gold" /> Verifiable Credential
               </span>
             </div>
@@ -317,21 +304,21 @@ export default function StreamsPage() {
             <h2 className="text-base font-black text-ink">
               Modular Syllabus, Peer Review & Verifiable Credentials
             </h2>
-            <p className="text-xs text-ink-500">
+            <p className="text-base text-ink-500">
               Multi-tier modular curriculum with double-blind peer assessment and LinkedIn-ready certificates.
             </p>
 
             {/* Course Syllabus Preview */}
             <div className="rounded-2xl border border-[var(--border-faint)] p-4 bg-cream-50/50 dark:bg-black/30 space-y-2">
-              <p className="text-xs font-black text-ink">{DEMO_COMPASS_COURSE.title}</p>
-              <div className="space-y-1.5 text-xs text-ink-500">
+              <p className="text-base font-black text-ink">{DEMO_COMPASS_COURSE.title}</p>
+              <div className="space-y-1.5 text-base text-ink-500">
                 {DEMO_COMPASS_COURSE.syllabus.map((mod) => (
                   <div
                     key={mod.id}
                     className="flex items-center justify-between rounded-xl border border-[var(--border-faint)] bg-cream p-2.5 dark:bg-black/40"
                   >
                     <span>{mod.title}</span>
-                    <span className="text-[10px] font-bold text-gold">{mod.sections.length} Sections</span>
+                    <span className="text-sm font-bold text-gold">{mod.sections.length} Sections</span>
                   </div>
                 ))}
               </div>
@@ -340,14 +327,14 @@ export default function StreamsPage() {
             {/* Verifiable Certificate Card */}
             <div className="rounded-2xl border border-gold/40 bg-gold/5 p-4 flex items-center justify-between">
               <div>
-                <p className="text-xs font-black text-ink">
+                <p className="text-base font-black text-ink">
                   {DEMO_COMPASS_CREDENTIAL.courseTitle}
                 </p>
-                <p className="font-mono text-[10px] text-ink-500">
+                <p className="font-mono text-sm text-ink-500">
                   Verification Hash: {DEMO_COMPASS_CREDENTIAL.verificationHash}
                 </p>
               </div>
-              <button className="rounded-xl bg-gold px-3 py-1.5 text-xs font-black text-black">
+              <button className="rounded-xl bg-gold px-3 py-1.5 text-base font-black text-black">
                 Verify
               </button>
             </div>
@@ -360,45 +347,45 @@ export default function StreamsPage() {
         <div className="space-y-4">
           <div className="home-card p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-[10px] font-black uppercase text-gold">
+              <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-sm font-black uppercase text-gold">
                 Vocational, Trades & Practical Training
               </span>
-              <span className="text-xs font-bold text-gold">DIT Accredited</span>
+              <span className="text-base font-bold text-gold">DIT Accredited</span>
             </div>
 
             <h2 className="text-base font-black text-ink">
               Video Timestamp Critique & Digital Apprentice Logbook
             </h2>
-            <p className="text-xs text-ink-500">
+            <p className="text-base text-ink-500">
               Students record physical skill demonstrations; master artisans pin critiques onto specific video timestamps.
             </p>
 
             {/* Critique Pins Interface */}
             <div className="rounded-2xl border border-[var(--border-faint)] p-4 bg-cream-50/50 dark:bg-black/30 space-y-3">
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between text-base">
                 <span className="font-bold text-ink">Practical Video Submission:</span>
                 <span className="rounded bg-gold/15 px-2 py-0.5 font-bold text-gold">
                   {DEMO_SKILLS_SUBMISSION.trade}
                 </span>
               </div>
-              <p className="text-xs font-black text-ink">{DEMO_SKILLS_SUBMISSION.taskTitle}</p>
+              <p className="text-base font-black text-ink">{DEMO_SKILLS_SUBMISSION.taskTitle}</p>
 
               {/* Timestamp critique markers */}
               <div className="space-y-2">
-                <p className="text-[11px] font-bold text-ink-500">Instructor Timestamp Pins:</p>
+                <p className="text-sm font-bold text-ink-500">Instructor Timestamp Pins:</p>
                 {DEMO_SKILLS_SUBMISSION.critiques.map((crit) => (
                   <div
                     key={crit.id}
-                    className="flex items-start justify-between rounded-xl border border-[var(--border-faint)] bg-cream p-2.5 text-xs dark:bg-black/40"
+                    className="flex items-start justify-between rounded-xl border border-[var(--border-faint)] bg-cream p-2.5 text-base dark:bg-black/40"
                   >
                     <div>
-                      <span className="font-mono text-[10px] font-black text-gold">
+                      <span className="font-mono text-sm font-black text-gold">
                         At 01:28
                       </span>
                       <p className="text-ink font-bold mt-0.5">{crit.critiqueText}</p>
-                      <p className="text-[10px] text-ink-500">By {crit.instructorName}</p>
+                      <p className="text-sm text-ink-500">By {crit.instructorName}</p>
                     </div>
-                    <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-bold text-green-600">
+                    <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-sm font-bold text-green-600">
                       Resolved
                     </span>
                   </div>
@@ -407,8 +394,8 @@ export default function StreamsPage() {
 
               {/* Apprentice Logbook tracker */}
               <div className="border-t border-[var(--border-faint)] pt-3">
-                <p className="text-xs font-black text-ink">Apprentice Practical Logbook</p>
-                <div className="mt-2 space-y-1.5 text-xs text-ink-500">
+                <p className="text-base font-black text-ink">Apprentice Practical Logbook</p>
+                <div className="mt-2 space-y-1.5 text-base text-ink-500">
                   {DEMO_SKILLS_LOGBOOK.map((log) => (
                     <div
                       key={log.id}
@@ -416,7 +403,7 @@ export default function StreamsPage() {
                     >
                       <div>
                         <p className="font-bold text-ink">{log.taskPerformed}</p>
-                        <p className="text-[10px]">{log.workshopLocation} • {log.date}</p>
+                        <p className="text-sm">{log.workshopLocation} • {log.date}</p>
                       </div>
                       <span className="font-black text-gold">{log.practicalHours} hrs</span>
                     </div>

@@ -6,6 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { ChatInbox } from "../components/chat/ChatInbox";
 import { RestaurantChatView } from "../components/chat/RestaurantChatView";
 import { RiderChatView } from "../components/chat/RiderChatView";
+import { SchoolChatView } from "../components/chat/SchoolChatView";
 import { useTranslate } from "./i18n";
 
 /** Matches the CSS transition on .app-stage / .chat-drawer. */
@@ -16,7 +17,8 @@ const SWIPE_BACK_PX = 70;
 export type ChatLayer =
   | { type: "list" }
   | { type: "rider"; id: string }
-  | { type: "restaurant"; id: string; item?: { id: string; name: string } };
+  | { type: "restaurant"; id: string; item?: { id: string; name: string } }
+  | { type: "school"; id: string };
 type ThreadLayer = Exclude<ChatLayer, { type: "list" }>;
 type Slot = "list" | "thread";
 
@@ -52,6 +54,8 @@ export function chatLayerFromHref(href: string | null): ChatLayer | null {
   if (path === "/chat") return { type: "list" };
   const rider = /^\/chat\/([^/]+)$/.exec(path);
   if (rider) return { type: "rider", id: decodeURIComponent(rider[1]!) };
+  const school = /^\/learn\/messages\/([^/]+)$/.exec(path);
+  if (school) return { type: "school", id: decodeURIComponent(school[1]!) };
   const restaurant = /^\/restaurants\/([^/]+)\/chat$/.exec(path);
   if (restaurant) {
     const item = url.searchParams.get("item");
@@ -281,6 +285,7 @@ export function ChatDrawerShell({ children }: { children: ReactNode }) {
         {...swipe}
       >
         {thread?.type === "rider" && <RiderChatView key={`rider-${thread.id}`} counterpartId={thread.id} onBack={back} />}
+        {thread?.type === "school" && <SchoolChatView key={`school-${thread.id}`} schoolId={thread.id} onBack={back} />}
         {thread?.type === "restaurant" && <RestaurantChatView key={`restaurant-${thread.id}`} id={thread.id} item={thread.item} onBack={back} />}
       </section>
       <button type="button" aria-label="Close chat" tabIndex={-1} onClick={close} className="chat-drawer__slice" data-shown={listOn && !threadOn} />

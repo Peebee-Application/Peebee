@@ -62,6 +62,9 @@ import type {
   LearnProEducator,
   LearnProStatus,
   LearnSettings,
+  SchoolChatConversation,
+  SchoolChatThread,
+  StudioSchoolChatThread,
   SchoolKind,
   SchoolStatus,
   StudioClass,
@@ -340,7 +343,7 @@ export function educationMethods(request: RequestFn) {
         ok: true;
         course: {
           id: string; stream: EducationStream; title: string; summary: string; priceUgx: number; framework: CurriculumFramework; outcomes: string[];
-          schoolName: string; className: string;
+          schoolId?: string; schoolName: string; className: string;
           prerequisite?: { id: string; title: string } | null;
           rating?: { average: number | null; count: number };
           reviews?: CourseReview[];
@@ -355,6 +358,33 @@ export function educationMethods(request: RequestFn) {
     // ----------------------------------------------------
     // Studio: school → class → course → module → lesson (all scoped to the signed-in educator)
     // ----------------------------------------------------
+    // ----------------------------------------------------
+    // School messages (learner or parent side, and teacher side). Calls reuse /v1/calls with a schoolId.
+    // ----------------------------------------------------
+    async schoolChat(schoolId: string) {
+      return request<{ ok: true; schoolName: string; schoolOwnerId: string } & SchoolChatConversation>(`/v1/education/messages/schools/${encodeURIComponent(schoolId)}`);
+    },
+    async sendSchoolChat(schoolId: string, body: string) {
+      return request<{ ok: true; id: string }>(`/v1/education/messages/schools/${encodeURIComponent(schoolId)}`, { method: "POST", body: JSON.stringify({ body }) });
+    },
+    async markSchoolChatRead(schoolId: string) {
+      return request<{ ok: true }>(`/v1/education/messages/schools/${encodeURIComponent(schoolId)}/read`, { method: "POST", body: "{}" });
+    },
+    async mySchoolChats() {
+      return request<{ ok: true; threads: SchoolChatThread[] }>("/v1/education/messages/mine");
+    },
+    async studioSchoolChats() {
+      return request<{ ok: true; threads: StudioSchoolChatThread[] }>("/v1/education/messages/studio");
+    },
+    async studioSchoolChat(schoolId: string, customerId: string) {
+      return request<{ ok: true; schoolName: string; customerName: string | null } & SchoolChatConversation>(`/v1/education/messages/studio/${encodeURIComponent(schoolId)}/${encodeURIComponent(customerId)}`);
+    },
+    async replySchoolChat(schoolId: string, customerId: string, body: string) {
+      return request<{ ok: true; id: string }>(`/v1/education/messages/studio/${encodeURIComponent(schoolId)}/${encodeURIComponent(customerId)}`, { method: "POST", body: JSON.stringify({ body }) });
+    },
+    async markStudioSchoolChatRead(schoolId: string, customerId: string) {
+      return request<{ ok: true }>(`/v1/education/messages/studio/${encodeURIComponent(schoolId)}/${encodeURIComponent(customerId)}/read`, { method: "POST", body: "{}" });
+    },
     async studioConfig() {
       return request<{ ok: true; settings: LearnSettings; usage: { schools: number } }>("/v1/education/studio/config");
     },

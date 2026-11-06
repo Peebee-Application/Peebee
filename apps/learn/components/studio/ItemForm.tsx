@@ -139,7 +139,7 @@ function QuestionEditor({ id, n, d, onChange, onRemove, canRemove }: { id: strin
 
   return (
     <fieldset className="space-y-2.5 rounded-xl border border-[var(--border-faint)] p-3">
-      <legend className="px-1 text-xs font-semibold text-gold">Question {n}</legend>
+      <legend className="px-1 text-base font-semibold text-gold">Question {n}</legend>
       <div className="grid gap-2 sm:grid-cols-3">
         <Field label="Type" htmlFor={`${id}-t`} className="sm:col-span-2">
           <select id={`${id}-t`} value={d.type} onChange={(e) => onChange({ ...blank(e.target.value as QuestionType), id: d.id, question: d.question, explanation: d.explanation, points: d.points })} className={controlCls}>
@@ -160,7 +160,7 @@ function QuestionEditor({ id, n, d, onChange, onRemove, canRemove }: { id: strin
 
       {(d.type === "single" || d.type === "multiple") && (
         <>
-          <p className="text-[11px] text-ink-500">{d.type === "single" ? "Choose the circle next to the correct answer." : "Tick every correct answer."}</p>
+          <p className="text-sm text-ink-500">{d.type === "single" ? "Choose the circle next to the correct answer." : "Tick every correct answer."}</p>
           {d.options.map((o, i) => (
             <Row key={i}>
               {d.type === "single" ? (
@@ -177,7 +177,7 @@ function QuestionEditor({ id, n, d, onChange, onRemove, canRemove }: { id: strin
             </Row>
           ))}
           {d.options.length < 8 && (
-            <Button variant="secondary" className="!min-h-8 !px-3 !text-xs" onClick={addOption}>
+            <Button variant="secondary" className="!min-h-8 !px-3 !text-base" onClick={addOption}>
               <Plus className="h-3.5 w-3.5" /> Add choice
             </Button>
           )}
@@ -185,7 +185,7 @@ function QuestionEditor({ id, n, d, onChange, onRemove, canRemove }: { id: strin
       )}
 
       {d.type === "true_false" && (
-        <div className="flex gap-4 text-sm text-ink">
+        <div className="flex gap-4 text-lg text-ink">
           {[true, false].map((b) => (
             <label key={String(b)} className="flex items-center gap-2">
               <input type="radio" name={`${id}-tf`} checked={d.bool === b} onChange={() => onChange({ bool: b })} className="h-4 w-4 accent-[rgb(var(--color-gold))]" />
@@ -203,10 +203,10 @@ function QuestionEditor({ id, n, d, onChange, onRemove, canRemove }: { id: strin
 
       {d.type === "ordering" && (
         <>
-          <p className="text-[11px] text-ink-500">Write the items in the correct order. Learners see them shuffled.</p>
+          <p className="text-sm text-ink-500">Write the items in the correct order. Learners see them shuffled.</p>
           {d.options.map((o, i) => (
             <Row key={i}>
-              <span className="w-5 shrink-0 text-center text-xs font-bold text-gold">{i + 1}</span>
+              <span className="w-5 shrink-0 text-center text-base font-bold text-gold">{i + 1}</span>
               <input aria-label={`Item ${i + 1}`} maxLength={200} value={o} onChange={(e) => setOption(i, e.target.value)} className={controlCls} placeholder={`Item ${i + 1}`} />
               <button type="button" aria-label="Move up" disabled={i === 0} onClick={() => moveOption(i, -1)} className={iconBtn}><ArrowUp className="h-4 w-4" /></button>
               <button type="button" aria-label="Move down" disabled={i === d.options.length - 1} onClick={() => moveOption(i, 1)} className={iconBtn}><ArrowDown className="h-4 w-4" /></button>
@@ -216,7 +216,7 @@ function QuestionEditor({ id, n, d, onChange, onRemove, canRemove }: { id: strin
             </Row>
           ))}
           {d.options.length < 8 && (
-            <Button variant="secondary" className="!min-h-8 !px-3 !text-xs" onClick={addOption}>
+            <Button variant="secondary" className="!min-h-8 !px-3 !text-base" onClick={addOption}>
               <Plus className="h-3.5 w-3.5" /> Add item
             </Button>
           )}
@@ -225,7 +225,7 @@ function QuestionEditor({ id, n, d, onChange, onRemove, canRemove }: { id: strin
 
       {d.type === "matching" && (
         <>
-          <p className="text-[11px] text-ink-500">Write each item with its partner. Learners see the partners shuffled.</p>
+          <p className="text-sm text-ink-500">Write each item with its partner. Learners see the partners shuffled.</p>
           {d.pairs.map((p, i) => (
             <Row key={i}>
               <input aria-label={`Item ${i + 1}`} maxLength={200} value={p.left} onChange={(e) => onChange({ pairs: d.pairs.map((x, xi) => (xi === i ? { ...x, left: e.target.value } : x)) })} className={controlCls} placeholder="Item" />
@@ -237,7 +237,7 @@ function QuestionEditor({ id, n, d, onChange, onRemove, canRemove }: { id: strin
             </Row>
           ))}
           {d.pairs.length < 8 && (
-            <Button variant="secondary" className="!min-h-8 !px-3 !text-xs" onClick={() => onChange({ pairs: [...d.pairs, { left: "", right: "" }] })}>
+            <Button variant="secondary" className="!min-h-8 !px-3 !text-base" onClick={() => onChange({ pairs: [...d.pairs, { left: "", right: "" }] })}>
               <Plus className="h-3.5 w-3.5" /> Add pair
             </Button>
           )}
@@ -248,7 +248,7 @@ function QuestionEditor({ id, n, d, onChange, onRemove, canRemove }: { id: strin
         <input id={`${id}-e`} maxLength={500} value={d.explanation} onChange={(e) => onChange({ explanation: e.target.value })} className={controlCls} />
       </Field>
       {canRemove && (
-        <Button variant="danger" className="!min-h-8 !px-3 !text-xs" onClick={onRemove}>
+        <Button variant="danger" className="!min-h-8 !px-3 !text-base" onClick={onRemove}>
           Remove question
         </Button>
       )}
@@ -422,7 +422,7 @@ export function ItemForm({
         <div className="space-y-3">
           {slides.map((s, i) => (
             <fieldset key={i} className="space-y-2 rounded-xl border border-[var(--border-faint)] p-3">
-              <legend className="px-1 text-xs font-semibold text-gold">Slide {i + 1}</legend>
+              <legend className="px-1 text-base font-semibold text-gold">Slide {i + 1}</legend>
               <Field label="Title" htmlFor={`${id}-st${i}`}>
                 <input id={`${id}-st${i}`} maxLength={120} value={s.title} onChange={(e) => patchSlide(i, { title: e.target.value })} className={controlCls} />
               </Field>
@@ -433,9 +433,9 @@ export function ItemForm({
                 <input id={`${id}-si${i}`} type="url" inputMode="url" maxLength={500} value={s.imageUrl} onChange={(e) => patchSlide(i, { imageUrl: e.target.value })} className={controlCls} placeholder="https://…" />
               </Field>
               <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" className="!min-h-8 !px-3 !text-xs" disabled={i === 0} onClick={() => moveSlide(i, -1)}><ArrowUp className="h-3.5 w-3.5" /> Up</Button>
-                <Button variant="secondary" className="!min-h-8 !px-3 !text-xs" disabled={i === slides.length - 1} onClick={() => moveSlide(i, 1)}><ArrowDown className="h-3.5 w-3.5" /> Down</Button>
-                {slides.length > 1 && <Button variant="danger" className="!min-h-8 !px-3 !text-xs" onClick={() => setSlides((prev) => prev.filter((_, xi) => xi !== i))}>Remove slide</Button>}
+                <Button variant="secondary" className="!min-h-8 !px-3 !text-base" disabled={i === 0} onClick={() => moveSlide(i, -1)}><ArrowUp className="h-3.5 w-3.5" /> Up</Button>
+                <Button variant="secondary" className="!min-h-8 !px-3 !text-base" disabled={i === slides.length - 1} onClick={() => moveSlide(i, 1)}><ArrowDown className="h-3.5 w-3.5" /> Down</Button>
+                {slides.length > 1 && <Button variant="danger" className="!min-h-8 !px-3 !text-base" onClick={() => setSlides((prev) => prev.filter((_, xi) => xi !== i))}>Remove slide</Button>}
               </div>
             </fieldset>
           ))}
@@ -479,7 +479,7 @@ export function ItemForm({
               <input id={`${id}-due`} type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} className={controlCls} />
             </Field>
           </div>
-          <label className="flex items-center gap-2 text-sm text-ink">
+          <label className="flex items-center gap-2 text-lg text-ink">
             <input type="checkbox" checked={allowResubmit} onChange={(e) => setAllowResubmit(e.target.checked)} className="h-4 w-4 accent-[rgb(var(--color-gold))]" />
             Let learners hand in again until they pass
           </label>
@@ -505,7 +505,7 @@ export function ItemForm({
               <input id={`${id}-dr`} type="number" min={0} max={200} inputMode="numeric" value={draw} onChange={(e) => setDraw(e.target.value)} className={controlCls} />
             </Field>
           </div>
-          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink">
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-lg text-ink">
             <label className="flex items-center gap-2"><input type="checkbox" checked={shuffleQ} onChange={(e) => setShuffleQ(e.target.checked)} className="h-4 w-4 accent-[rgb(var(--color-gold))]" /> Shuffle the questions</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={shuffleO} onChange={(e) => setShuffleO(e.target.checked)} className="h-4 w-4 accent-[rgb(var(--color-gold))]" /> Shuffle the choices</label>
           </div>

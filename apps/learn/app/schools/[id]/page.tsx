@@ -120,32 +120,32 @@ export default function SchoolPage() {
               {suspended && <Chip>Suspended</Chip>}
             </div>
             <h2 className="font-display text-2xl font-semibold text-ink">{school.name}</h2>
-            {school.tagline && <p className="text-sm text-ink-500">{school.tagline}</p>}
-            <p className="text-xs text-ink-500">{[school.location, school.badge].filter(Boolean).join(" · ")}</p>
+            {school.tagline && <p className="text-lg text-ink-500">{school.tagline}</p>}
+            <p className="text-base text-ink-500">{[school.location, school.badge].filter(Boolean).join(" · ")}</p>
           </div>
           {mode === "none" && (
-            <div className="flex flex-wrap gap-2">
-              <LinkButton href={`/schools/${school.id}/sales`} variant="secondary">
-                <Ticket className="h-4 w-4" aria-hidden /> Sales tools
+            <div className="grid w-full grid-cols-3 gap-2">
+              <LinkButton href={`/schools/${school.id}/sales`} variant="secondary" className="!min-h-16 flex-col !gap-0.5 !px-1 !text-base">
+                <Ticket className="h-6 w-6 text-gold" aria-hidden /> Sales
               </LinkButton>
-              <LinkButton href={`/schools/${school.id}/fees`} variant="secondary">
-                <Receipt className="h-4 w-4" aria-hidden /> School fees
+              <LinkButton href={`/schools/${school.id}/fees`} variant="secondary" className="!min-h-16 flex-col !gap-0.5 !px-1 !text-base">
+                <Receipt className="h-6 w-6 text-gold" aria-hidden /> Fees
               </LinkButton>
               {canBuild && (
-                <Button variant="secondary" onClick={() => setMode("edit")}>
-                  <Pencil className="h-4 w-4" aria-hidden /> Edit details
+                <Button variant="secondary" className="!min-h-16 flex-col !gap-0.5 !px-1 !text-base" onClick={() => setMode("edit")}>
+                  <Pencil className="h-6 w-6 text-gold" aria-hidden /> Edit
                 </Button>
               )}
             </div>
           )}
         </div>
-        <p className="text-xs text-ink-500">
+        <p className="text-base text-ink-500">
           {plural(school.classCount, "class", "classes")} · {plural(school.courseCount, "course")} ({school.publishedCourseCount} live) · {plural(school.lessonCount, "lesson")}
         </p>
       </header>
 
-      {suspended && <Notice tone="error">This school has been suspended by Peebee, so it can&apos;t be edited and its courses are hidden. Contact support to have it restored.</Notice>}
-      {!settings.enabled && !suspended && <Notice tone="info">The Studio is switched off right now, so nothing can be created or edited.</Notice>}
+      {suspended && <Notice tone="error">Suspended by Peebee. Contact support.</Notice>}
+      {!settings.enabled && !suspended && <Notice tone="info">The Studio is off right now.</Notice>}
       {error && <Notice tone="error">{error}</Notice>}
 
       {mode === "edit" && (
@@ -216,7 +216,7 @@ export default function SchoolPage() {
             const Icon = ui.icon;
             return (
               <div key={stream} className="space-y-2">
-                <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-ink-500">
+                <h4 className="flex items-center gap-2 text-base font-bold uppercase tracking-wider text-ink-500">
                   <Icon className="h-4 w-4 text-gold" aria-hidden /> {ui.title} · {ui.audience}
                 </h4>
                 <ul className="grid gap-3 sm:grid-cols-2">
@@ -224,11 +224,11 @@ export default function SchoolPage() {
                     <li key={cls.id}>
                       <Link href={`/classes/${cls.id}`} className={`${cardCls} block space-y-2 p-4 transition hover:border-gold/50 hover:shadow-[var(--shadow-card-hover)]`}>
                         <div className="flex items-start justify-between gap-2">
-                          <h5 className="min-w-0 text-sm font-semibold text-ink">{cls.name}</h5>
+                          <h5 className="min-w-0 text-lg font-semibold text-ink">{cls.name}</h5>
                           <Chip tone={cls.kind === "masterclass" ? "gold" : "muted"}>{cls.kind === "masterclass" ? "Masterclass" : "Class"}</Chip>
                         </div>
-                        <p className="text-xs text-ink-500">{[cls.level, cls.academicYear, cls.term].filter(Boolean).join(" · ")}</p>
-                        <p className="text-xs text-ink-500">
+                        <p className="text-base text-ink-500">{[cls.level, cls.academicYear, cls.term].filter(Boolean).join(" · ")}</p>
+                        <p className="text-base text-ink-500">
                           {cls.courseCount} {cls.courseCount === 1 ? "course" : "courses"}
                           {cls.teacherName ? ` · ${cls.teacherName}` : ""}
                         </p>
@@ -245,10 +245,10 @@ export default function SchoolPage() {
       {canBuild && (
         <section aria-labelledby="danger-heading" className={`${cardCls} flex flex-wrap items-center justify-between gap-3 p-4`}>
           <div>
-            <h3 id="danger-heading" className="text-sm font-semibold text-ink">
+            <h3 id="danger-heading" className="text-lg font-semibold text-ink">
               Delete this school
             </h3>
-            <p className="text-xs text-ink-500">Removes the school with all of its classes, courses and lessons.</p>
+            <p className="text-base text-ink-500">Removes the school with all of its classes, courses and lessons.</p>
           </div>
           <Button variant="danger" onClick={removeSchool} disabled={busy}>
             <Trash2 className="h-4 w-4" aria-hidden /> Delete school
