@@ -34,6 +34,7 @@ export default function PharmacyLicensePage() {
   const [logs, setLogs] = useState<TempLog[]>(INITIAL_LOGS);
   const [newTemp, setNewTemp] = useState("");
   const [logNotice, setLogNotice] = useState<string | null>(null);
+  const [showAllLogs, setShowAllLogs] = useState(false);
 
   const handleAddTemp = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,97 +58,92 @@ export default function PharmacyLicensePage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-black text-ink">NDA Regulatory & Licences</h1>
-        <p className="text-xs text-ink-500 font-medium">
-          National Drug Authority premises accreditation and cold chain logs
-        </p>
-      </div>
+      <h1 className="flex items-center gap-2 text-2xl font-black text-ink"><ShieldCheck className="h-7 w-7 text-gold" aria-hidden /> Licence</h1>
 
       {logNotice && (
-        <div className="rounded-2xl bg-gold/15 p-3 text-xs font-bold text-ink flex items-center gap-2 animate-fade-in">
+        <div className="rounded-2xl bg-gold/15 p-3 text-base font-bold text-ink flex items-center gap-2 animate-fade-in">
           <CheckCircle2 className="h-4 w-4 text-gold shrink-0" />
           <span>{logNotice}</span>
         </div>
       )}
 
       {/* NDA Premises Certificate Card */}
-      <section className="rounded-3xl border border-gold/40 bg-gradient-to-br from-gold/15 via-[rgb(var(--surface-card))] to-gold/5 p-5 shadow-sm space-y-4">
+      <section className="home-card !p-5 !border-gold/40 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold text-ink-gold shadow-md">
               <ShieldCheck className="h-6 w-6" />
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-gold">
-                Official NDA Accreditation
+              <span className="text-sm font-black uppercase tracking-wider text-gold">
+                NDA
               </span>
-              <h2 className="text-sm font-black text-ink">Premises License Certified</h2>
-              <p className="text-xs text-ink-500 font-mono font-bold">
+              <h2 className="text-lg font-black text-ink">Premises licence</h2>
+              <p className="text-base text-ink-500 font-mono font-bold">
                 {pharmacy?.ndaLicenseNumber}
               </p>
             </div>
           </div>
 
-          <span className="rounded-full bg-green-600/15 px-2.5 py-1 text-[10px] font-black text-green-600">
+          <span className="rounded-full bg-green-600/15 px-2.5 py-1 text-sm font-black text-green-600">
             Active · 2026
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--border-faint)] text-xs">
+        <div className="grid grid-cols-1 gap-2 pt-2 border-t border-[var(--border-faint)] text-base">
           <div className="rounded-2xl bg-[rgb(var(--surface-muted))] p-2.5">
-            <span className="text-[10px] font-bold text-ink-500">Classification</span>
+            <span className="text-sm font-bold text-ink-500">Classification</span>
             <p className="font-bold text-ink mt-0.5">Class B Community Pharmacy</p>
           </div>
           <div className="rounded-2xl bg-[rgb(var(--surface-muted))] p-2.5">
-            <span className="text-[10px] font-bold text-ink-500">Inspection Status</span>
+            <span className="text-sm font-bold text-ink-500">Inspection Status</span>
             <p className="font-bold text-green-600 mt-0.5">Passed & Compliant</p>
           </div>
         </div>
       </section>
 
-      {/* Supervising Pharmacist Practicing Certificate */}
-      <section className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm space-y-3">
+      {/* Supervising pharmacist Practicing Certificate */}
+      <section className="home-card !p-4 shadow-sm space-y-3">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
             <UserCheck className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="text-xs font-black text-ink">Supervising Pharmacist</h3>
-            <p className="text-xs font-bold text-gold">{pharmacist?.name}</p>
+            <h3 className="text-base font-black text-ink">Supervising pharmacist</h3>
+            <p className="text-base font-bold text-gold">{pharmacist?.name}</p>
           </div>
         </div>
 
-        <div className="rounded-2xl bg-[rgb(var(--surface-muted))] p-3 space-y-1.5 text-xs">
-          <div className="flex justify-between">
-            <span className="text-ink-500">Annual Practicing Licence (APL):</span>
+        <div className="rounded-2xl bg-[rgb(var(--surface-muted))] p-3 space-y-1.5 text-base">
+          <div className="flex flex-col">
+            <span className="text-ink-500">Practising licence (APL)</span>
             <strong className="text-ink font-mono">Not on file</strong>
           </div>
-          <div className="flex justify-between">
-            <span className="text-ink-500">PSU Membership Number:</span>
+          <div className="flex flex-col">
+            <span className="text-ink-500">PSU membership</span>
             <strong className="text-ink font-mono">Not on file</strong>
           </div>
-          <div className="flex justify-between">
-            <span className="text-ink-500">Validity:</span>
+          <div className="flex flex-col">
+            <span className="text-ink-500">Valid</span>
             <strong className="text-green-600">Through 31 December 2026</strong>
           </div>
         </div>
       </section>
 
       {/* Cold Chain & Vaccine Refrigerator Log */}
-      <section className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm space-y-3">
+      <section className="home-card !p-4 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/15 text-blue-500">
               <Thermometer className="h-4 w-4" />
             </span>
             <div>
-              <h3 className="text-xs font-black text-ink">Cold Chain Temperature Log</h3>
-              <p className="text-[10px] text-ink-500">Target Range: 2°C – 8°C (Insulin, Vaccines)</p>
+              <h3 className="text-base font-black text-ink">Fridge log</h3>
+              <p className="text-sm text-ink-500">Target 2°C – 8°C</p>
             </div>
           </div>
 
-          <span className="font-mono text-sm font-black text-blue-500">
+          <span className="font-mono text-lg font-black text-blue-500">
             {logs[0]?.temp}°C
           </span>
         </div>
@@ -159,30 +155,30 @@ export default function PharmacyLicensePage() {
               type="number"
               step="0.1"
               required
-              placeholder="Record °C reading..."
+              placeholder="°C"
               value={newTemp}
               onChange={(e) => setNewTemp(e.target.value)}
-              className="w-full bg-transparent px-3 py-2 text-xs text-ink focus:outline-none"
+              className="w-full bg-transparent px-3 py-2 text-base text-ink focus:outline-none"
             />
           </div>
           <button
             type="submit"
-            className="rounded-2xl bg-gold px-4 py-2 text-xs font-black text-ink-gold shadow transition hover:opacity-95 active:scale-95"
+            className="min-h-14 rounded-2xl bg-gold px-5 text-lg font-black text-ink-gold shadow transition hover:opacity-95 active:scale-95"
           >
-            Log Reading
+            Log
           </button>
         </form>
 
         {/* History table */}
         <div className="space-y-1.5 pt-1">
-          {logs.map((log) => (
+          {(showAllLogs ? logs : logs.slice(0, 5)).map((log) => (
             <div
               key={log.id}
-              className="flex items-center justify-between rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] px-3 py-2 text-xs"
+              className="flex items-center justify-between rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] px-3 py-2 text-base"
             >
               <div>
                 <span className="font-medium text-ink-500">{log.time}</span>
-                <span className="text-[10px] text-ink-500 ml-2">by {log.recordedBy}</span>
+                <span className="text-sm text-ink-500 ml-2">by {log.recordedBy}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-mono font-black text-ink">{log.temp}°C</span>
@@ -195,6 +191,9 @@ export default function PharmacyLicensePage() {
             </div>
           ))}
         </div>
+        {logs.length > 5 && !showAllLogs && (
+          <button type="button" onClick={() => setShowAllLogs(true)} className="flex min-h-14 w-full items-center justify-center text-lg font-bold text-gold">Show all {logs.length}</button>
+        )}
       </section>
     </div>
   );

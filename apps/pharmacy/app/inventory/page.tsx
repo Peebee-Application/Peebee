@@ -148,6 +148,7 @@ export default function PharmacyInventoryPage() {
   const [medicines, setMedicines] = useState<MedicineItem[]>(INITIAL_MEDICINES);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [search, setSearch] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
 
   // New Medicine form states
@@ -214,20 +215,15 @@ export default function PharmacyInventoryPage() {
     <div className="space-y-4">
       {/* Header & Add Button */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-black text-ink">Medicine Inventory</h1>
-          <p className="text-xs text-ink-500 font-medium">
-            Manage catalogue, stock counts and Rx-only prescription flags
-          </p>
-        </div>
+        <h1 className="flex items-center gap-2 text-2xl font-black text-ink"><Pill className="h-7 w-7 text-gold" aria-hidden /> Medicines</h1>
 
         <button
           type="button"
           onClick={() => setAddModalOpen(true)}
-          className="flex items-center gap-1.5 rounded-2xl bg-gold px-3.5 py-2 text-xs font-black text-ink-gold shadow-sm transition hover:opacity-95 active:scale-95"
+          className="flex items-center gap-1.5 min-h-14 rounded-2xl bg-gold px-4 text-lg font-black text-ink-gold shadow-sm transition hover:opacity-95 active:scale-95"
         >
           <Plus className="h-4 w-4" />
-          <span>Add Medicine</span>
+          <span>Add</span>
         </button>
       </div>
 
@@ -238,8 +234,8 @@ export default function PharmacyInventoryPage() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by drug name or active ingredient..."
-          className="w-full bg-transparent px-2.5 text-xs text-ink placeholder:text-ink-500/60 focus:outline-none"
+          placeholder="Search medicines"
+          className="w-full bg-transparent px-2.5 text-base text-ink placeholder:text-ink-500/60 focus:outline-none"
         />
         {search && (
           <button type="button" onClick={() => setSearch("")}>
@@ -257,7 +253,7 @@ export default function PharmacyInventoryPage() {
               key={c}
               type="button"
               onClick={() => setSelectedCategory(c)}
-              className={`shrink-0 rounded-2xl px-3.5 py-1.5 text-xs font-bold transition active:scale-95 ${
+              className={`shrink-0 rounded-2xl px-3.5 py-1.5 text-base font-bold transition active:scale-95 ${
                 active
                   ? "bg-gold text-ink-gold font-black shadow-sm"
                   : "border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-ink-500"
@@ -271,38 +267,38 @@ export default function PharmacyInventoryPage() {
 
       {/* Medicines List */}
       <div className="space-y-2.5">
-        {filtered.map((m) => (
+        {(showAll ? filtered : filtered.slice(0, 8)).map((m) => (
           <article
             key={m.id}
-            className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm space-y-2.5"
+            className="home-card !p-4 shadow-sm space-y-2.5"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-black text-ink">{m.name}</h2>
-                  <span className="rounded-md bg-gold/15 px-1.5 py-0.5 text-[10px] font-black text-gold">
+                  <h2 className="text-lg font-black text-ink">{m.name}</h2>
+                  <span className="rounded-md bg-gold/15 px-1.5 py-0.5 text-sm font-black text-gold">
                     {m.dosageForm}
                   </span>
                 </div>
-                <p className="text-xs font-semibold text-gold mt-0.5">
+                <p className="text-base font-semibold text-gold mt-0.5">
                   {m.activeIngredient}
                 </p>
-                <p className="text-[11px] text-ink-500 mt-0.5">
+                <p className="text-sm text-ink-500 mt-0.5">
                   Strength: {m.strength} · {m.packSize}
                 </p>
               </div>
 
               <div className="text-right shrink-0">
-                <span className="font-mono text-sm font-black text-ink">
+                <span className="font-mono text-lg font-black text-ink">
                   {ugx(m.price)}
                 </span>
-                <p className="text-[11px] text-ink-500 font-semibold mt-0.5">
+                <p className="text-sm text-ink-500 font-semibold mt-0.5">
                   {m.stock} in stock
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center justify-between rounded-2xl bg-[rgb(var(--surface-muted))] px-3 py-2 text-[11px]">
+            <div className="flex flex-col gap-2 rounded-2xl bg-[rgb(var(--surface-muted))] px-3 py-3 text-sm">
               <span className="text-ink-500">
                 Batch: <strong className="text-ink">{m.batchNumber}</strong> · Exp:{" "}
                 <strong className="text-ink">{m.expiryDate}</strong>
@@ -312,7 +308,7 @@ export default function PharmacyInventoryPage() {
               <button
                 type="button"
                 onClick={() => toggleRxRequired(m.id)}
-                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black transition active:scale-95 ${
+                className={`flex min-h-12 items-center justify-center gap-1.5 rounded-full px-4 text-base font-black transition active:scale-95 ${
                   m.rxRequired
                     ? "bg-red-500/15 text-red-600"
                     : "bg-green-600/15 text-green-600"
@@ -321,12 +317,12 @@ export default function PharmacyInventoryPage() {
                 {m.rxRequired ? (
                   <>
                     <ShieldAlert className="h-3 w-3" />
-                    <span>Rx Only (Prescription Required)</span>
+                    <span>Rx only</span>
                   </>
                 ) : (
                   <>
                     <Check className="h-3 w-3" />
-                    <span>OTC (Over the Counter)</span>
+                    <span>OTC</span>
                   </>
                 )}
               </button>
@@ -335,10 +331,14 @@ export default function PharmacyInventoryPage() {
         ))}
       </div>
 
+      {filtered.length > 8 && !showAll && (
+        <button type="button" onClick={() => setShowAll(true)} className="flex min-h-14 w-full items-center justify-center text-lg font-bold text-gold">Show all {filtered.length}</button>
+      )}
+
       {/* Add Medicine Modal */}
       {addModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 animate-fade-in backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-lg rounded-t-3xl sm:home-card !p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-[var(--border-faint)]">
               <div className="flex items-center gap-2">
                 <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gold/20 text-gold">
@@ -357,7 +357,7 @@ export default function PharmacyInventoryPage() {
 
             <form onSubmit={handleAddMedicine} className="space-y-3.5">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-ink-500">Brand / Medicine Name</label>
+                <label className="text-base font-bold text-ink-500">Brand / Medicine Name</label>
                 <div className="field-box rounded-2xl border border-[var(--border-faint)]">
                   <input
                     type="text"
@@ -365,32 +365,32 @@ export default function PharmacyInventoryPage() {
                     placeholder="e.g. Panadol Extra"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="w-full bg-transparent px-3 py-2 text-xs text-ink focus:outline-none"
+                    className="w-full bg-transparent px-3 py-2 text-base text-ink focus:outline-none"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-ink-500">Active Chemical / Ingredient</label>
+                <label className="text-base font-bold text-ink-500">Active Chemical / Ingredient</label>
                 <div className="field-box rounded-2xl border border-[var(--border-faint)]">
                   <input
                     type="text"
                     placeholder="e.g. Paracetamol 500mg, Caffeine 65mg"
                     value={newIngredient}
                     onChange={(e) => setNewIngredient(e.target.value)}
-                    className="w-full bg-transparent px-3 py-2 text-xs text-ink focus:outline-none"
+                    className="w-full bg-transparent px-3 py-2 text-base text-ink focus:outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-500">Therapeutic Category</label>
+                  <label className="text-base font-bold text-ink-500">Therapeutic Category</label>
                   <div className="field-box rounded-2xl border border-[var(--border-faint)]">
                     <select
                       value={newCategory}
                       onChange={(e) => setNewCategory(e.target.value)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-ink focus:outline-none"
+                      className="w-full bg-transparent px-3 py-2 text-base text-ink focus:outline-none"
                     >
                       {CATEGORIES.filter((c) => c !== "All").map((c) => (
                         <option key={c} value={c}>{c}</option>
@@ -400,12 +400,12 @@ export default function PharmacyInventoryPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-500">Dosage Form</label>
+                  <label className="text-base font-bold text-ink-500">Dosage Form</label>
                   <div className="field-box rounded-2xl border border-[var(--border-faint)]">
                     <select
                       value={newForm}
                       onChange={(e) => setNewForm(e.target.value)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-ink focus:outline-none"
+                      className="w-full bg-transparent px-3 py-2 text-base text-ink focus:outline-none"
                     >
                       <option value="Tablets">Tablets</option>
                       <option value="Capsules">Capsules</option>
@@ -420,7 +420,7 @@ export default function PharmacyInventoryPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-500">Retail Price (UGX)</label>
+                  <label className="text-base font-bold text-ink-500">Retail Price (UGX)</label>
                   <div className="field-box rounded-2xl border border-[var(--border-faint)]">
                     <input
                       type="number"
@@ -428,20 +428,20 @@ export default function PharmacyInventoryPage() {
                       placeholder="e.g. 6500"
                       value={newPrice}
                       onChange={(e) => setNewPrice(e.target.value)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-ink focus:outline-none"
+                      className="w-full bg-transparent px-3 py-2 text-base text-ink focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-500">Stock Quantity</label>
+                  <label className="text-base font-bold text-ink-500">Stock Quantity</label>
                   <div className="field-box rounded-2xl border border-[var(--border-faint)]">
                     <input
                       type="number"
                       placeholder="e.g. 100"
                       value={newStock}
                       onChange={(e) => setNewStock(e.target.value)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-ink focus:outline-none"
+                      className="w-full bg-transparent px-3 py-2 text-base text-ink focus:outline-none"
                     />
                   </div>
                 </div>
@@ -449,27 +449,27 @@ export default function PharmacyInventoryPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-500">Batch Number</label>
+                  <label className="text-base font-bold text-ink-500">Batch Number</label>
                   <div className="field-box rounded-2xl border border-[var(--border-faint)]">
                     <input
                       type="text"
                       placeholder="e.g. BATCH-2026-X"
                       value={newBatch}
                       onChange={(e) => setNewBatch(e.target.value)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-ink focus:outline-none"
+                      className="w-full bg-transparent px-3 py-2 text-base text-ink focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-500">Expiry Date (MM/YYYY)</label>
+                  <label className="text-base font-bold text-ink-500">Expiry Date (MM/YYYY)</label>
                   <div className="field-box rounded-2xl border border-[var(--border-faint)]">
                     <input
                       type="text"
                       placeholder="e.g. 11/2027"
                       value={newExpiry}
                       onChange={(e) => setNewExpiry(e.target.value)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-ink focus:outline-none"
+                      className="w-full bg-transparent px-3 py-2 text-base text-ink focus:outline-none"
                     />
                   </div>
                 </div>
@@ -478,8 +478,8 @@ export default function PharmacyInventoryPage() {
               {/* Rx Required Switch */}
               <div className="flex items-center justify-between rounded-2xl bg-[rgb(var(--surface-muted))] p-3">
                 <div>
-                  <span className="text-xs font-bold text-ink">Prescription Required (Rx Only)</span>
-                  <p className="text-[10px] text-ink-500">
+                  <span className="text-base font-bold text-ink">Prescription Required (Rx Only)</span>
+                  <p className="text-sm text-ink-500">
                     If enabled, customer must upload doctor slip before dispensing
                   </p>
                 </div>
@@ -493,7 +493,7 @@ export default function PharmacyInventoryPage() {
 
               <button
                 type="submit"
-                className="w-full rounded-2xl bg-gold py-3 text-xs font-black text-ink-gold shadow transition hover:opacity-95 active:scale-98"
+                className="w-full rounded-2xl bg-gold py-3 text-base font-black text-ink-gold shadow transition hover:opacity-95 active:scale-98"
               >
                 Save to Pharmacy Inventory
               </button>

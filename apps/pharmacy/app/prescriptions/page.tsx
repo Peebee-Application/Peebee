@@ -1,6 +1,8 @@
 "use client";
 
 import type { PharmacyPrescription, PharmacyQuoteItem } from "@peebee/shared";
+import { RefreshCw } from "lucide-react";
+import { TabBar } from "../../components/TabBar";
 import {
   CheckCircle2,
   Clock,
@@ -144,53 +146,39 @@ export default function PrescriptionsWorkbenchPage() {
     }
   }
 
-  const input = "w-full bg-transparent px-3 py-2 text-xs text-ink focus:outline-none";
+  const input = "w-full bg-transparent px-3 py-2 text-base text-ink focus:outline-none";
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-black text-ink">Prescription Triage Console</h1>
-          <p className="text-xs text-ink-500 font-medium">Review the patient's slip, build the quote and send it</p>
-        </div>
-        <span className="rounded-full bg-gold/15 px-3 py-1 text-xs font-black text-gold">
-          {cases.filter((c) => c.status === "pending_review").length} Awaiting Review
-        </span>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="flex items-center gap-2 text-2xl font-black text-ink"><FileText className="h-7 w-7 text-gold" aria-hidden /> Prescriptions</h1>
+        <button type="button" onClick={() => void load()} aria-label="Refresh" className="flex h-14 w-14 items-center justify-center rounded-full border border-[var(--border-faint)] text-ink"><RefreshCw className="h-6 w-6" aria-hidden /></button>
       </div>
 
       {notice && (
-        <div className={`rounded-2xl p-3 text-xs font-bold flex items-center gap-2 ${notice.kind === "ok" ? "bg-gold/15 text-ink" : "bg-red-500/10 text-red-600"}`}>
+        <div className={`rounded-2xl p-3 text-base font-bold flex items-center gap-2 ${notice.kind === "ok" ? "bg-gold/15 text-ink" : "bg-red-500/10 text-red-600"}`}>
           <CheckCircle2 className={`h-4 w-4 shrink-0 ${notice.kind === "ok" ? "text-gold" : "text-red-600"}`} />
           <span>{notice.text}</span>
         </div>
       )}
 
-      <div className="flex gap-2">
-        {(["open", "done"] as const).map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => {
-              setFilter(f);
-              setActiveId(null);
-            }}
-            className={`rounded-2xl px-3.5 py-2 text-xs font-bold ${filter === f ? "border border-gold bg-gold/10 text-ink font-black" : "border border-[var(--border-faint)] text-ink-500"}`}
-          >
-            {f === "open" ? "Open" : "Finished"}
-          </button>
-        ))}
-        <button type="button" onClick={() => void load()} className="ml-auto text-xs font-bold text-gold hover:underline">
-          Refresh
-        </button>
-      </div>
+      <TabBar
+        label="Prescriptions"
+        active={filter}
+        onChange={(f) => { setFilter(f); setActiveId(null); }}
+        tabs={[
+          { id: "open", label: "Open", icon: Clock, count: cases.filter((c) => c.status === "pending_review").length },
+          { id: "done", label: "Finished", icon: CheckCircle2 },
+        ]}
+      />
 
-      {loading && <p className="text-xs text-ink-500">Loading prescriptions…</p>}
+      {loading && <p className="text-base text-ink-500">Loading prescriptions…</p>}
       {loadError && (
-        <div className="rounded-2xl bg-red-500/10 p-3 text-xs font-bold text-red-600">{loadError}</div>
+        <div className="rounded-2xl bg-red-500/10 p-3 text-base font-bold text-red-600">{loadError}</div>
       )}
       {!loading && !loadError && visible.length === 0 && (
-        <div className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-6 text-center text-xs text-ink-500">
-          {filter === "open" ? "No prescriptions are waiting. New ones from patients will appear here." : "Nothing finished yet."}
+        <div className="home-card !p-6 text-center text-base text-ink-500">
+          {filter === "open" ? "None waiting" : "None finished yet"}
         </div>
       )}
 
@@ -203,13 +191,13 @@ export default function PrescriptionsWorkbenchPage() {
                 key={c.id}
                 type="button"
                 onClick={() => setActiveId(c.id)}
-                className={`flex items-center gap-2 shrink-0 rounded-2xl px-3.5 py-2 text-xs font-bold transition active:scale-95 ${
+                className={`flex items-center gap-2 shrink-0 rounded-2xl px-3.5 py-2 text-base font-bold transition active:scale-95 ${
                   selected ? "border border-gold bg-gold/10 text-ink shadow-sm font-black" : "border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-ink-500"
                 }`}
               >
                 <FileText className={`h-3.5 w-3.5 ${selected ? "text-gold" : "text-ink-500"}`} />
                 <span>{c.customerName}</span>
-                <span className="text-[10px] text-ink-500">({timeAgo(c.createdAt)})</span>
+                <span className="text-sm text-ink-500">({timeAgo(c.createdAt)})</span>
               </button>
             );
           })}
@@ -217,31 +205,26 @@ export default function PrescriptionsWorkbenchPage() {
       )}
 
       {active && (
-        <div className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm space-y-4">
+        <div className="home-card !p-4 shadow-sm space-y-4">
           <div className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--border-faint)]">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-gold">Case #{active.id.slice(-4).toUpperCase()}</span>
-              <h2 className="text-base font-black text-ink mt-0.5">{active.customerName}</h2>
-              <p className="text-xs text-ink-500 mt-0.5">
+              <span className="text-sm font-black uppercase tracking-wider text-gold">Case #{active.id.slice(-4).toUpperCase()}</span>
+              <h2 className="mt-0.5 text-2xl font-black text-ink">{active.customerName}</h2>
+              <p className="text-base text-ink-500 mt-0.5">
                 {[active.patientAge != null ? `${active.patientAge} years` : null, active.patientGender, active.customerPhone].filter(Boolean).join(" · ")}
               </p>
-              {active.deliveryAddress && <p className="text-[11px] text-ink-500 mt-0.5 font-medium">Deliver to: {active.deliveryAddress}</p>}
+              {active.deliveryAddress && <p className="text-sm text-ink-500 mt-0.5 font-medium">Deliver to: {active.deliveryAddress}</p>}
             </div>
-            <div className="text-right">
-              <span className="inline-flex items-center gap-1 rounded-full bg-gold/15 px-2.5 py-0.5 text-[10px] font-black text-gold">
-                <Clock className="h-3 w-3" /> {timeAgo(active.createdAt)}
-              </span>
-              <p className="text-[10px] font-bold text-ink-500 mt-1.5">{STATUS_LABEL[active.status]}</p>
-            </div>
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gold/15 px-3 py-1 text-sm font-black text-gold"><Clock className="h-4 w-4" aria-hidden /> {timeAgo(active.createdAt)}</span>
           </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-ink-500 flex items-center gap-1.5">
-                <Eye className="h-3.5 w-3.5 text-gold" /> Doctor slip uploaded by the patient
+              <span className="text-base font-bold text-ink-500 flex items-center gap-1.5">
+                <Eye className="h-3.5 w-3.5 text-gold" /> Doctor slip
               </span>
               {slipUrl && (
-                <button type="button" onClick={() => setShowImageZoom(true)} className="text-[11px] font-bold text-gold flex items-center gap-1 hover:underline">
+                <button type="button" onClick={() => setShowImageZoom(true)} className="text-sm font-bold text-gold flex items-center gap-1 hover:underline">
                   <Maximize2 className="h-3 w-3" /> Full screen
                 </button>
               )}
@@ -251,7 +234,7 @@ export default function PrescriptionsWorkbenchPage() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={slipUrl} alt="Prescription slip" onClick={() => setShowImageZoom(true)} className="h-full w-full cursor-pointer object-cover" />
               ) : (
-                <div className="flex h-full items-center justify-center text-xs text-ink-500">
+                <div className="flex h-full items-center justify-center text-base text-ink-500">
                   {slipError ? "The slip couldn't be loaded." : active.hasImage ? "Loading slip…" : "No slip attached."}
                 </div>
               )}
@@ -259,28 +242,28 @@ export default function PrescriptionsWorkbenchPage() {
           </div>
 
           {active.patientNotes && (
-            <div className="rounded-2xl bg-[rgb(var(--surface-muted))] p-3 text-xs space-y-1">
+            <div className="rounded-2xl bg-[rgb(var(--surface-muted))] p-3 text-base space-y-1">
               <span className="font-bold text-ink flex items-center gap-1">
-                <Info className="h-3.5 w-3.5 text-gold" /> Patient symptoms &amp; allergies
+                <Info className="h-3.5 w-3.5 text-gold" /> Symptoms &amp; allergies
               </span>
               <p className="text-ink-500 leading-relaxed">{active.patientNotes}</p>
             </div>
           )}
 
           <div className="space-y-2 pt-2 border-t border-[var(--border-faint)]">
-            <h3 className="text-xs font-black text-ink uppercase tracking-wider">Quote ({items.length} {items.length === 1 ? "medicine" : "medicines"})</h3>
+            <h3 className="text-base font-black text-ink uppercase tracking-wider">Quote ({items.length} {items.length === 1 ? "medicine" : "medicines"})</h3>
 
             {items.map((item, idx) => (
               <div key={`${item.name}-${idx}`} className="rounded-2xl border border-[var(--border-faint)] p-3 space-y-1">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h4 className="text-xs font-black text-ink">
+                    <h4 className="text-base font-black text-ink">
                       {idx + 1}. {item.name} {item.quantity > 1 ? `× ${item.quantity}` : ""}
                     </h4>
-                    {item.strength && <p className="text-[11px] text-gold font-bold">{item.strength}</p>}
+                    {item.strength && <p className="text-sm text-gold font-bold">{item.strength}</p>}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-black text-ink">{ugx(item.unitPrice * item.quantity)}</span>
+                    <span className="font-mono text-base font-black text-ink">{ugx(item.unitPrice * item.quantity)}</span>
                     {editable && (
                       <button type="button" aria-label="Remove medicine" onClick={() => setItems((prev) => prev.filter((_, i) => i !== idx))} className="text-ink-500 hover:text-red-500">
                         <Trash2 className="h-3.5 w-3.5" />
@@ -289,7 +272,7 @@ export default function PrescriptionsWorkbenchPage() {
                   </div>
                 </div>
                 {item.dosage && (
-                  <div className="rounded-xl bg-[rgb(var(--surface-muted))] px-2.5 py-1.5 text-[11px] text-ink-500">
+                  <div className="rounded-xl bg-[rgb(var(--surface-muted))] px-2.5 py-1.5 text-sm text-ink-500">
                     <span className="font-bold text-ink">Dosage: </span>
                     {item.dosage}
                   </div>
@@ -316,7 +299,7 @@ export default function PrescriptionsWorkbenchPage() {
                     <input className={input} placeholder="Price per unit (UGX)" inputMode="numeric" value={draft.unitPrice} onChange={(e) => setDraft({ ...draft, unitPrice: e.target.value.replace(/\D/g, "") })} />
                   </div>
                 </div>
-                <button type="button" onClick={addLine} className="flex items-center gap-1.5 text-xs font-bold text-gold hover:underline">
+                <button type="button" onClick={addLine} className="flex items-center gap-1.5 text-base font-bold text-gold hover:underline">
                   <Plus className="h-3.5 w-3.5" /> Add medicine
                 </button>
               </div>
@@ -324,8 +307,8 @@ export default function PrescriptionsWorkbenchPage() {
 
             <div className="flex items-center justify-between rounded-2xl bg-gold/10 p-3 pt-2">
               <div>
-                <span className="text-xs font-bold text-ink-500">Quote total</span>
-                <p className="text-[10px] text-ink-500">Delivery of {ugx(active.deliveryFeeUgx)} is added at checkout</p>
+                <span className="text-base font-bold text-ink-500">Quote total</span>
+                <p className="text-sm text-ink-500">Delivery of {ugx(active.deliveryFeeUgx)} is added at checkout</p>
               </div>
               <span className="font-mono text-base font-black text-ink">{ugx(subtotal)}</span>
             </div>
@@ -333,7 +316,7 @@ export default function PrescriptionsWorkbenchPage() {
 
           {editable && (
             <div className="space-y-1">
-              <label className="text-xs font-bold text-ink-500">Instructions to the patient</label>
+              <label className="text-base font-bold text-ink-500">Instructions to the patient</label>
               <div className="field-box rounded-2xl border border-[var(--border-faint)]">
                 <textarea
                   rows={2}
@@ -341,7 +324,7 @@ export default function PrescriptionsWorkbenchPage() {
                   maxLength={1000}
                   onChange={(e) => setAdvice(e.target.value)}
                   placeholder="e.g. Take after food. Complete all 5 days."
-                  className="w-full bg-transparent p-3 text-xs text-ink focus:outline-none resize-none"
+                  className="w-full bg-transparent p-3 text-base text-ink focus:outline-none resize-none"
                 />
               </div>
             </div>
@@ -353,7 +336,7 @@ export default function PrescriptionsWorkbenchPage() {
                 type="button"
                 disabled={busy || items.length === 0}
                 onClick={() => void decide("priced_ready")}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gold py-3 text-xs font-black text-ink-gold shadow transition hover:opacity-95 active:scale-98 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 min-h-16 rounded-2xl bg-gold text-xl font-black text-ink-gold shadow transition hover:opacity-95 active:scale-98 disabled:opacity-50"
               >
                 <FileCheck className="h-4 w-4" />
                 {active.status === "priced_ready" ? "Update quote" : "Send quote"} ({ugx(subtotal)})
@@ -363,7 +346,7 @@ export default function PrescriptionsWorkbenchPage() {
                   type="button"
                   disabled={busy}
                   onClick={() => void decide("dispensed")}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--border-faint)] py-2.5 text-xs font-bold text-ink hover:bg-gold/10 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--border-faint)] py-2.5 text-base font-bold text-ink hover:bg-gold/10 disabled:opacity-50"
                 >
                   <PackageCheck className="h-4 w-4 text-gold" /> Mark as dispensed
                 </button>
@@ -373,7 +356,7 @@ export default function PrescriptionsWorkbenchPage() {
                   type="button"
                   disabled={busy}
                   onClick={() => void decide("declined", "Doctor slip illegible — please send a clearer photo")}
-                  className="flex-1 rounded-2xl border border-[var(--border-faint)] py-2 text-[11px] font-bold text-ink-500 hover:text-ink disabled:opacity-50"
+                  className="flex-1 rounded-2xl border border-[var(--border-faint)] py-2 text-sm font-bold text-ink-500 hover:text-ink disabled:opacity-50"
                 >
                   Slip unclear
                 </button>
@@ -381,7 +364,7 @@ export default function PrescriptionsWorkbenchPage() {
                   type="button"
                   disabled={busy}
                   onClick={() => void decide("declined", "This medicine needs the original paper prescription")}
-                  className="flex-1 rounded-2xl border border-red-500/30 py-2 text-[11px] font-bold text-red-500 hover:bg-red-500/5 disabled:opacity-50"
+                  className="flex-1 rounded-2xl border border-red-500/30 py-2 text-sm font-bold text-red-500 hover:bg-red-500/5 disabled:opacity-50"
                 >
                   Controlled drug
                 </button>
@@ -390,7 +373,7 @@ export default function PrescriptionsWorkbenchPage() {
           )}
 
           {!editable && active.pharmacistNotes && (
-            <p className="rounded-2xl bg-[rgb(var(--surface-muted))] p-3 text-xs text-ink-500">Note: {active.pharmacistNotes}</p>
+            <p className="rounded-2xl bg-[rgb(var(--surface-muted))] p-3 text-base text-ink-500">Note: {active.pharmacistNotes}</p>
           )}
         </div>
       )}

@@ -24,6 +24,7 @@ import {
 import Link from "next/link";
 import type { PharmacyPrescription } from "@peebee/shared";
 import { useEffect, useState } from "react";
+import { Accordion } from "../components/Accordion";
 import { useAuth } from "../lib/auth-context";
 import { api } from "../lib/api";
 
@@ -78,219 +79,91 @@ export default function PharmacyDashboardPage() {
       .finally(() => setRxLoaded(true));
   }, []);
 
+  const [showAllRx, setShowAllRx] = useState(false);
+  const shownRx = showAllRx ? prescriptions : prescriptions.slice(0, 3);
+
   return (
-    <div className="space-y-5">
-      {/* Supervising Pharmacist Banner */}
-      <section className="flex items-center justify-between rounded-3xl border border-gold/30 bg-gradient-to-r from-gold/15 via-[rgb(var(--surface-card))] to-gold/5 p-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold text-ink-gold shadow-md">
-            <UserCheck className="h-6 w-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-gold">
-              <ShieldCheck className="h-3 w-3" />
-              <span>{pharmacist?.role === "owner" ? "Pharmacy Owner" : "Pharmacy Manager"}</span>
-            </div>
-            <h2 className="text-sm font-black text-ink">{pharmacist?.name}</h2>
-            <p className="text-[11px] text-ink-500 font-medium">
-              Premises licence: {pharmacy?.ndaLicenseNumber}
-            </p>
-          </div>
+    <div className="space-y-4">
+      <section className="home-card !p-4 flex items-center gap-3 !bg-black-700 text-white dark:!bg-black">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gold text-ink-gold">
+          <UserCheck className="h-7 w-7" aria-hidden />
         </div>
-
-        <Link
-          href="/license"
-          className="rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] px-3 py-1.5 text-xs font-bold text-ink-500 hover:text-ink"
-        >
-          NDA File →
-        </Link>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-xl font-black text-white">{pharmacist?.name}</h1>
+          <p className="truncate text-base text-white/70">{pharmacy?.name}</p>
+          <p className="truncate text-sm text-white/60">{pharmacist?.role === "owner" ? "Owner" : "Manager"} · {pharmacy?.ndaLicenseNumber}</p>
+        </div>
       </section>
 
-      {/* KPI Cards Grid */}
       <section className="grid grid-cols-2 gap-3">
-        <Link
-          href="/prescriptions"
-          className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm transition hover:border-gold/50 active:scale-98"
-        >
-          <div className="flex items-center justify-between">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold/15 text-gold">
-              <FileText className="h-4 w-4" />
-            </span>
-            <span className="flex h-2 w-2 rounded-full bg-gold animate-pulse" />
-          </div>
-          <div className="mt-3">
-            <p className="text-2xl font-black text-ink">{prescriptions.length}</p>
-            <p className="text-xs font-bold text-ink-500">Rx Review Queue</p>
-          </div>
-          <span className="mt-2 block text-[10px] font-black text-gold">
-            Review prescriptions →
-          </span>
+        <Link href="/prescriptions" className="home-card !p-4 active:scale-[0.98]">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/15 text-gold"><FileText className="h-6 w-6" aria-hidden /></span>
+          <p className="mt-3 text-3xl font-black text-ink">{prescriptions.length}</p>
+          <p className="text-lg font-bold text-ink-500">To review</p>
         </Link>
-
-        <div className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-600/15 text-green-600">
-              <TrendingUp className="h-4 w-4" />
-            </span>
-            <span className="text-[10px] font-bold text-green-600">+18% today</span>
-          </div>
-          <div className="mt-3">
-            <p className="text-xl font-black text-ink">{ugx(485000)}</p>
-            <p className="text-xs font-bold text-ink-500">Today's Sales (sample figure)</p>
-          </div>
-          <span className="mt-2 block text-[10px] font-bold text-ink-500">
-            14 dispensed orders
-          </span>
-        </div>
-
-        <Link
-          href="/inventory"
-          className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm transition hover:border-gold/50 active:scale-98"
-        >
-          <div className="flex items-center justify-between">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold/15 text-gold">
-              <Pill className="h-4 w-4" />
-            </span>
-            <span className="text-[10px] font-bold text-gold">148 in stock</span>
-          </div>
-          <div className="mt-3">
-            <p className="text-2xl font-black text-ink">45</p>
-            <p className="text-xs font-bold text-ink-500">Rx Medicines</p>
-          </div>
-          <span className="mt-2 block text-[10px] font-black text-gold">
-            Manage catalogue →
-          </span>
+        <Link href="/inventory" className="home-card !p-4 active:scale-[0.98]">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/15 text-gold"><Pill className="h-6 w-6" aria-hidden /></span>
+          <p className="mt-3 text-3xl font-black text-ink">45</p>
+          <p className="text-lg font-bold text-ink-500">Medicines</p>
         </Link>
-
-        <Link
-          href="/license"
-          className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm transition hover:border-gold/50 active:scale-98"
-        >
-          <div className="flex items-center justify-between">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/15 text-blue-500">
-              <Thermometer className="h-4 w-4" />
-            </span>
-            <span className="rounded-full bg-green-600/15 px-2 py-0.5 text-[9px] font-black text-green-600">
-              Normal
-            </span>
-          </div>
-          <div className="mt-3">
-            <p className="text-2xl font-black text-ink">4.2°C</p>
-            <p className="text-xs font-bold text-ink-500">Fridge Storage</p>
-          </div>
-          <span className="mt-2 block text-[10px] font-bold text-ink-500">
-            Target 2°C – 8°C cold chain
-          </span>
+        <Link href="/wallet" className="home-card !p-4 active:scale-[0.98]">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-600/15 text-green-600"><TrendingUp className="h-6 w-6" aria-hidden /></span>
+          <p className="mt-3 text-xl font-black text-ink">{ugx(485000)}</p>
+          <p className="text-lg font-bold text-ink-500">Today (sample)</p>
+        </Link>
+        <Link href="/license" className="home-card !p-4 active:scale-[0.98]">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-500"><Thermometer className="h-6 w-6" aria-hidden /></span>
+          <p className="mt-3 text-3xl font-black text-ink">4.2°C</p>
+          <p className="text-lg font-bold text-ink-500">Fridge · normal</p>
         </Link>
       </section>
 
-      {/* Prescription Triage Queue */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-black text-ink">Incoming Doctor Prescriptions</h2>
-            <span className="rounded-full bg-gold px-2 py-0.5 text-[10px] font-black text-ink-gold">
-              {prescriptions.length} Pending
-            </span>
-          </div>
-          <Link href="/prescriptions" className="text-xs font-black text-gold hover:underline">
-            View All →
-          </Link>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl font-black text-ink">Prescriptions</h2>
+          <Link href="/prescriptions" className="flex min-h-12 items-center text-lg font-black text-gold">See all</Link>
         </div>
-
-        <div className="space-y-2.5">
-          {rxLoaded && prescriptions.length === 0 && (
-            <p className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 text-center text-xs text-ink-500">
-              No prescriptions are waiting.
-            </p>
-          )}
-          {prescriptions.map((rx) => (
-            <article
-              key={rx.id}
-              className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-sm space-y-3"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--border-faint)] bg-black/5 text-gold">
-                    <FileText className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-black text-ink">{rx.customerName}</h3>
-                    <p className="text-[11px] text-ink-500 font-medium">
-                      {[rx.patientAge != null ? `${rx.patientAge} yrs` : null, rx.patientGender, timeAgo(rx.createdAt)].filter(Boolean).join(" · ")}
-                    </p>
-                  </div>
-                </div>
-
-                <span className="inline-flex items-center gap-1 rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-black text-gold">
-                  <Clock className="h-3 w-3" /> Waiting
-                </span>
+        {rxLoaded && prescriptions.length === 0 && (
+          <p className="home-card !p-5 text-center text-lg text-ink-500">None waiting</p>
+        )}
+        {shownRx.map((rx) => (
+          <article key={rx.id} className="space-y-3 home-card !p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-black/5 text-gold"><FileText className="h-6 w-6" aria-hidden /></div>
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-xl font-black text-ink">{rx.customerName}</h3>
+                <p className="truncate text-base text-ink-500">{[rx.patientAge != null ? `${rx.patientAge} yrs` : null, rx.patientGender, timeAgo(rx.createdAt)].filter(Boolean).join(" · ")}</p>
               </div>
-
-              <div className="rounded-2xl bg-[rgb(var(--surface-muted))] p-2.5 text-xs text-ink-500 leading-relaxed">
-                <span className="font-bold text-ink">Patient Note: </span>
-                {rx.patientNotes || "None"}
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-[11px] font-medium text-ink-500">
-                  NDA Doctor verification required
-                </span>
-                <Link
-                  href={`/prescriptions?id=${rx.id}`}
-                  className="flex items-center gap-1 rounded-xl bg-gold px-3 py-1.5 text-xs font-black text-ink-gold shadow-sm hover:opacity-90 active:scale-95"
-                >
-                  <span>Review & Dispense</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-            </article>
-          ))}
-        </div>
+            </div>
+            <Link href={`/prescriptions?id=${rx.id}`} className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-gold text-lg font-black text-ink-gold active:scale-95">
+              Review <ArrowRight className="h-5 w-5" aria-hidden />
+            </Link>
+          </article>
+        ))}
+        {prescriptions.length > 3 && !showAllRx && (
+          <button type="button" onClick={() => setShowAllRx(true)} className="flex min-h-14 w-full items-center justify-center text-lg font-bold text-gold">Show all {prescriptions.length}</button>
+        )}
       </section>
 
-      {/* Recent Dispensed & Dispatched Orders */}
-      <section className="space-y-3 pt-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-black text-ink">Recent Dispensed Orders</h2>
-          <span className="text-xs text-ink-500">Sample data · not connected yet</span>
-        </div>
-
-        <div className="space-y-2">
+      <Accordion title="Recent orders" icon={PackageCheck} summary="sample">
+        <p className="text-base text-ink-500">Sample data, not connected yet.</p>
+        <div className="divide-y divide-[var(--border-faint)]">
           {RECENT_DISPENSED_ORDERS.map((ord) => (
-            <div
-              key={ord.id}
-              className="flex items-center justify-between rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3.5 shadow-sm"
-            >
-              <div className="space-y-0.5 min-w-0 pr-3">
-                <div className="flex items-center gap-2">
-                  <p className="truncate text-xs font-black text-ink">{ord.customer}</p>
-                  <span className="text-[10px] font-bold text-ink-500">#{ord.id.slice(-4)}</span>
-                </div>
-                <p className="truncate text-[11px] text-ink-500">{ord.items}</p>
-                <p className="text-[10px] font-semibold text-ink-500">{ord.time}</p>
+            <div key={ord.id} className="flex items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-lg font-bold text-ink">{ord.customer}</p>
+                <p className="text-base text-ink-500">{ord.status} · {ord.time}</p>
               </div>
-
-              <div className="text-right shrink-0 space-y-1">
-                <span className="font-mono text-xs font-black text-ink">
-                  {ugx(ord.amount)}
-                </span>
-                <span className="block rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold">
-                  {ord.status}
-                </span>
-              </div>
+              <span className="shrink-0 font-mono text-lg font-black text-ink">{ugx(ord.amount)}</span>
             </div>
           ))}
         </div>
-      </section>
+      </Accordion>
 
-      <Link
-        href="/help"
-        className="flex items-center gap-3 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3.5 text-sm font-bold text-ink shadow-sm"
-      >
-        <LifeBuoy className="h-5 w-5 text-gold" strokeWidth={1.75} aria-hidden />
+      <Link href="/help" className="flex min-h-16 items-center gap-3 home-card !p-4 text-xl font-bold text-ink">
+        <LifeBuoy className="h-7 w-7 text-gold" strokeWidth={1.75} aria-hidden />
         <span className="flex-1">Help &amp; support</span>
-        <ChevronRight className="h-4 w-4 text-ink-500" aria-hidden />
+        <ChevronRight className="h-5 w-5 text-ink-500" aria-hidden />
       </Link>
     </div>
   );
