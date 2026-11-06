@@ -65,6 +65,8 @@ Provide an outline, selected lesson editor, resource panel, AI assistance, learn
 
 Creators can edit objectives, text, examples, quizzes, assessments, prerequisites, titles, descriptions, covers, and path steps. Regenerate a paragraph or lesson without replacing unrelated work. Preview mobile and desktop learner layouts.
 
+All creators, including schools and teachers, can edit everything within their authorized course and add, replace, caption, reorder, or remove videos, images, animated GIFs, and supporting resources. Support inline lesson media blocks as well as resource attachments, with accessible descriptions and learner previews.
+
 ### AI-assisted creation for schools and teachers
 
 Provide Create with AI from a school's class/course area and Assist with AI inside an existing course or lesson. A teacher working independently can author under their personal creator identity; a teacher working for a school chooses the authorized school/class context before generating anything. Clearly show who owns the draft and which budget will fund generation.
@@ -77,7 +79,7 @@ The institutional creation flow is:
 4. Generate a proposed curriculum coverage map, course outline, and scheme of work. Map each objective and module to supplied curriculum references and distinguish uncovered outcomes, unsupported claims, and optional enrichment. Without an approved source, label curriculum alignment as unverified rather than official compliance.
 5. Let the teacher revise and approve the outline, then generate selected modules or the full draft through checkpointed jobs.
 6. Generate lesson explanations, teacher lesson plans, class activities, worked examples, homework, quizzes, assessment drafts, answer keys, and marking rubrics as selected. Separate teacher-only guidance and answers from learner-visible content.
-7. Add or replace media/materials, preview as a learner, and submit for school review where required. Authorized reviewers can approve or return work with comments. Publication always requires an explicit authorized action.
+7. Edit all course content and add or replace videos, images, animated GIFs, and supporting resources. Preview as a learner, and submit for school review where required. Authorized reviewers can approve or return work with comments. Publication always requires an explicit authorized action.
 8. Publish to the intended class/cohort or school library. Assignment and learner notifications are explicit actions with a recipient preview. Public sharing or sales require separate school authorization and platform policy checks.
 
 Teachers can use AI on existing content: improve an explanation, propose missing objectives, create practice aligned to a lesson, translate or simplify selected material, and propose differentiated activities. Maintain a teacher-reviewed base course; level/language variants and learner-specific remediation must not silently change its published version or official assessment. Variants retain source links and require review because translation or simplification can change meaning.
@@ -129,7 +131,7 @@ The tutor should diagnose, give hints and examples, explain, and check transfer 
 
 Keep confidential exam answers out of tutor context when doing so would undermine the assessment. Automated tutoring does not independently award official school grades or credentials. Never fabricate sources, page numbers, timestamps, or extraction success.
 
-## 6. Videos, documents, and other materials
+## 6. Videos, images, GIFs, documents, and other materials
 
 Support multiple resources per lesson and per path step. Every resource records its owner, original name, media type, byte size, checksum, title, description, order, required/optional state, preview/download permissions, tutor-use permission, and processing state.
 
@@ -142,6 +144,7 @@ Support multiple resources per lesson and per path step. Every resource records 
 | Legacy `.doc` | Conversion workflow or clear unsupported-conversion state | Only after successful conversion; never claim it was read merely because it uploaded |
 | Presentations | Slide preview and download | Slide text and supported notes |
 | Images | Accessible image preview | OCR/vision when enabled and successful |
+| Animated GIFs | Inline or resource preview with accessible description and pause/static alternative for reduced motion | Use supported frame analysis or creator-provided descriptions; do not assume animation is understood from a single frame |
 | Audio | Player, transcript, download permission | Transcript with available timestamps |
 | Worksheets and other files | Attachment/download with clear file type | Download-only unless a supported processor exists |
 
@@ -268,7 +271,7 @@ Each phase is a bounded implementation milestone, with separate reviewable PRs w
 | 0. Foundation | Ownership audit, school/teacher role and review matrix, schema/API contracts, admin controls, job/runtime design, payment recovery design | Existing school workflows remain compatible; personal and school ownership, budget attribution, and policy assumptions documented |
 | 1. Personal authoring | Private manual courses/paths, creator identity, learner dashboard, outline editor, autosave | User creates and resumes a course without creating a school; another user cannot access its draft |
 | 2. AI generation | Personal generation plus school/teacher syllabus import, objectives, coverage maps, schemes of work, staged lesson/assessment generation, scoped budgets, recoverable jobs | Personal and school drafts survive refresh/retry/failure; school generation maps to supplied sources, respects roles, and preserves teacher edits |
-| 3. Materials | Multiple resources, video/PDF/DOCX support, preview/download, processing and provenance | Authorized learner can use materials; failed extraction remains honest and recoverable; private assets remain private |
+| 3. Materials | Multiple resources and inline media, video/image/animated GIF/PDF/DOCX support, preview/download, processing and provenance | Authorized learner can use materials; GIF playback respects motion controls; failed extraction remains honest and recoverable; private assets remain private |
 | 4. Tutor and adaptation | Persistent sessions, grounded answers, objective evidence, private plan adjustments | Two learners on the same course have separate sessions/progress; real references; existing grading rules preserved |
 | 5. Publishing and sharing | Immutable versions, school review/approval, class/cohort assignment, storefront/sample, direct links, messages, free enrollments/invites | School review gates and class access enforced; friend opens link/card, authenticates, obtains correct access, and begins their own study; revoked invites are rejected |
 | 6. Commerce | Paid offers, entitlements, retry-safe wallet settlement, earnings and refunds | Duplicate requests and simulated interruptions cannot duplicate debit/payout or strand money without recovery |
@@ -315,6 +318,6 @@ School and teacher authoring is core release scope, using the shared generation 
 
 Foundation work must resolve: exact personal ownership schema, existing messaging capabilities, durable job infrastructure, document/video processing providers, payment recovery primitives, and how creator eligibility/refund/update policies appear in Admin. These are bounded implementation decisions, not reasons to omit the create/share/sell journey.
 
-The release is complete when a user can generate a bookkeeping course from a goal, edit objectives and lessons, add a video and PDF/Word material, publish a version, send it to a friend by message or link, sell access to another learner, have each learner study privately with a grounded tutor, and see reconciled earnings while retaining the existing school-based Learn experience.
+The release is complete when a user can generate a bookkeeping course from a goal, edit objectives and lessons, add videos, images, animated GIFs, and supporting PDF/Word material, publish a version, send it to a friend by message or link, sell access to another learner, have each learner study privately with a grounded tutor, and see reconciled earnings while retaining the existing school-based Learn experience.
 
 It must also support a school teacher generating a source-mapped course from an approved syllabus, editing and enriching it, obtaining any required school approval, assigning it to the correct class, and optionally publishing/selling under institutional authorization, with school ownership, budgets, private assessment material, and learner access preserved throughout.
