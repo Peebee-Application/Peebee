@@ -45,12 +45,12 @@ export function BottomNav({ onSettingsClick }: { onSettingsClick?: () => void })
                     type="button"
                     onClick={onSettingsClick}
                     aria-current={active ? "page" : undefined}
-                    className={`customer-nav-item relative flex w-full h-[58px] flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-[11px] font-bold transition-all duration-200 active:scale-95 ${
+                    className={`customer-nav-item relative flex w-full h-16 flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-xs font-bold transition-all duration-200 active:scale-95 ${
                       active ? "is-active" : ""
                     }`}
                   >
-                    <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 1.8} aria-hidden />
-                    <span className="leading-none truncate max-w-[58px]">{tab.label}</span>
+                    <Icon className="h-6 w-6" strokeWidth={active ? 2.4 : 1.8} aria-hidden />
+                    <span className="leading-none truncate max-w-[64px]">{tab.label}</span>
                     {active && (
                       <span
                         className="customer-nav-indicator absolute bottom-1.5 h-1 w-3.5 rounded-full"
@@ -62,12 +62,12 @@ export function BottomNav({ onSettingsClick }: { onSettingsClick?: () => void })
                   <Link
                     href={tab.href}
                     aria-current={active ? "page" : undefined}
-                    className={`customer-nav-item relative flex h-[58px] flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-[11px] font-bold transition-all duration-200 active:scale-95 ${
+                    className={`customer-nav-item relative flex h-16 flex-col items-center justify-center gap-1 rounded-[18px] px-1 py-1 text-xs font-bold transition-all duration-200 active:scale-95 ${
                       active ? "is-active" : ""
                     }`}
                   >
-                    <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 1.8} aria-hidden />
-                    <span className="leading-none truncate max-w-[58px]">{tab.label}</span>
+                    <Icon className="h-6 w-6" strokeWidth={active ? 2.4 : 1.8} aria-hidden />
+                    <span className="leading-none truncate max-w-[64px]">{tab.label}</span>
                     {active && (
                       <span
                         className="customer-nav-indicator absolute bottom-1.5 h-1 w-3.5 rounded-full"
