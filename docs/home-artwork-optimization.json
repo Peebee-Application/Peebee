@@ -1,0 +1,134 @@
+[
+  {
+    "name": "address-book-tinted",
+    "sourceWidth": 1024,
+    "sourceHeight": 1536,
+    "width": 1024,
+    "height": 1536,
+    "pngBytes": 1602063,
+    "webpBytes": 85710,
+    "alphaPreserved": true,
+    "quality": 90
+  },
+  {
+    "name": "book",
+    "sourceWidth": 931,
+    "sourceHeight": 1690,
+    "width": 931,
+    "height": 1690,
+    "pngBytes": 1863527,
+    "webpBytes": 86696,
+    "alphaPreserved": true,
+    "quality": 90
+  },
+  {
+    "name": "clipboard",
+    "sourceWidth": 1067,
+    "sourceHeight": 1475,
+    "width": 1067,
+    "height": 1475,
+    "pngBytes": 1773797,
+    "webpBytes": 87650,
+    "alphaPreserved": true,
+    "quality": 90
+  },
+  {
+    "name": "connector-full-v2",
+    "sourceWidth": 931,
+    "sourceHeight": 1690,
+    "width": 931,
+    "height": 1690,
+    "pngBytes": 548081,
+    "webpBytes": 110720,
+    "alphaPreserved": true,
+    "quality": 90
+  },
+  {
+    "name": "diary",
+    "sourceWidth": 1074,
+    "sourceHeight": 1465,
+    "width": 1074,
+    "height": 1465,
+    "pngBytes": 2006989,
+    "webpBytes": 115478,
+    "alphaPreserved": true,
+    "quality": 90
+  },
+  {
+    "name": "fold-bands-only",
+    "sourceWidth": 1040,
+    "sourceHeight": 1512,
+    "width": 1040,
+    "height": 1512,
+    "pngBytes": 1756977,
+    "webpBytes": 101008,
+    "alphaPreserved": true,
+    "quality": 90
+  },
+  {
+    "name": "note-gold",
+    "sourceWidth": 1122,
+    "sourceHeight": 1402,
+    "width": 780,
+    "height": 975,
+    "pngBytes": 2027906,
+    "webpBytes": 100682,
+    "alphaPreserved": true,
+    "quality": 90
+  },
+  {
+    "name": "note-white",
+    "sourceWidth": 1536,
+    "sourceHeight": 1024,
+    "width": 780,
+    "height": 520,
+    "pngBytes": 1884295,
+    "webpBytes": 46090,
+    "alphaPreserved": true,
+    "quality": 90
+  },
+  {
+    "name": "poster-bands-only",
+    "sourceWidth": 1536,
+    "sourceHeight": 1024,
+    "width": 1170,
+    "height": 780,
+    "pngBytes": 1717545,
+    "webpBytes": 51786,
+    "alphaPreserved": true,
+    "quality": 90
+  },
+  {
+    "name": "sorter-full",
+    "sourceWidth": 1072,
+    "sourceHeight": 1467,
+    "width": 1072,
+    "height": 1467,
+    "pngBytes": 1622991,
+    "webpBytes": 108786,
+    "alphaPreserved": true,
+    "quality": 90
+  },
+  {
+    "name": "ticket-route",
+    "sourceWidth": 1774,
+    "sourceHeight": 887,
+    "width": 780,
+    "height": 390,
+    "pngBytes": 179468,
+    "webpBytes": 22634,
+    "alphaPreserved": true,
+    "quality": 90
+  },
+  {
+    "name": "ticket",
+    "sourceWidth": 931,
+    "sourceHeight": 1690,
+    "width": 931,
+    "height": 1690,
+    "pngBytes": 1841400,
+    "webpBytes": 82830,
+    "alphaPreserved": true,
+    "quality": 90
+  }
+]
