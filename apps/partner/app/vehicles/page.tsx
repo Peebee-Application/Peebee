@@ -3,17 +3,19 @@
 import { Select } from "@peebee/shared/select";
 
 import { CAR_MODEL_CATALOG, getCarBodyType, getCarDefaults, isVipRate, type CarCategory, type OwnerDeals } from "@peebee/shared";
-import { Camera, Crown, Fuel, Sparkles, X } from "lucide-react";
+import { Camera, CarFront, Crown, Fuel, Plus, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Accordion } from "../../components/Accordion";
 import { ApplyCard } from "../../components/ApplyCard";
+import { TabBar } from "../../components/TabBar";
 import { AuthImage } from "../../components/AuthImage";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { compressImage } from "../../lib/image-compress";
 import { TermsEditor } from "../../components/TermsEditor";
 
-const field = "min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3";
+const field = "min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-3 text-lg";
 
 type Picked = { id: string; file: File; preview: string };
 
@@ -56,6 +58,8 @@ export default function VehiclesPage() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
+  const [tab, setTab] = useState<"cars" | "add">("cars");
+  const [step, setStep] = useState(1);
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const addInput = useRef<HTMLInputElement>(null);
 
@@ -193,6 +197,8 @@ export default function VehiclesPage() {
       setYear(""); setColour(""); setLastServiceDate("");
       setModelCatalogId(""); setServiceClass("convenient"); setAcceptsConvenient(false); setConditionGrade("good"); setSeatCapacity(""); setFeatures([]);
       await refreshMe();
+      setStep(1);
+      setTab("cars");
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -237,76 +243,92 @@ export default function VehiclesPage() {
     }
   }
 
+  const step1Ok = Boolean(categoryId && plate && (make === "Other" ? customMake && model : modelCatalogId || model) && year);
+  const step2Ok = Boolean(seatCapacity && lastServiceDate);
+  const pill = (on: boolean) => `min-h-12 rounded-full px-4 text-base font-bold ${on ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`;
   return (
-    <div className="space-y-5 px-4 py-5">
-      <h1 className="text-2xl font-black text-ink">My vehicles</h1>
-      {me.ownerStatus !== "approved" && <p className="text-xs text-ink-500">Your owner profile is being reviewed; your car is checked separately.</p>}
-      {me.vehicles.length === 0 && <p className="text-sm text-ink-500">No vehicles yet — add your first below.</p>}
-      {me.vehicles.map((v) => (
-        <section key={v.id} className="home-card space-y-2">
-          <p className="font-bold text-ink">{v.plate} <span className="font-normal text-ink-500">· {v.category_name}</span></p>
-          <p className="text-xs text-ink-500">{[v.make, v.model].filter(Boolean).join(" ")}</p>
-          <p className="text-xs text-ink-500">{v.service_class === "comfort" ? "Comfort" : "Convenient"}{v.condition_grade ? ` · ${v.condition_grade} condition` : ""}{v.seat_capacity ? ` · ${v.seat_capacity} seats` : ""}{v.last_service_date ? ` · last serviced ${v.last_service_date}` : ""}</p>
-          {tiersEnabled && <div className="flex flex-wrap gap-2 text-xs">
-            <button type="button" disabled={busy} onClick={() => act(() => api.carUpdateRideService(v.id, "convenient", false))} className={`rounded-full px-3 py-2 ${v.service_class !== "comfort" ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>Convenient first</button>
-            <button type="button" disabled={busy} onClick={() => act(() => api.carUpdateRideService(v.id, "comfort", false))} className={`rounded-full px-3 py-2 ${v.service_class === "comfort" && !v.accepts_convenient ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>Comfort only</button>
-            <button type="button" disabled={busy} onClick={() => act(() => api.carUpdateRideService(v.id, "comfort", true))} className={`rounded-full px-3 py-2 ${v.service_class === "comfort" && !!v.accepts_convenient ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>Comfort first · also Convenient</button>
-          </div>}
-          <p className="text-xs text-ink-500">
-            {v.status === "approved" ? (v.driver_name ? `Driver: ${v.driver_name}` : "Approved — waiting for Peebee to assign a driver") : `Status: ${v.status}`}
+    <div className="space-y-4 px-4 py-5">
+      <TabBar label="Vehicles" active={tab} onChange={setTab} tabs={[{ id: "cars", label: "My cars", icon: CarFront, count: me.vehicles.length }, { id: "add", label: "Add a car", icon: Plus }]} />
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-base text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
+      {tab === "cars" && me.ownerStatus !== "approved" && <p className="text-base text-ink-500">Your owner profile is being checked.</p>}
+      {tab === "cars" && me.vehicles.length === 0 && (
+        <button type="button" onClick={() => setTab("add")} className="home-card flex min-h-20 w-full items-center justify-center gap-3 text-xl font-bold text-gold"><Plus className="h-7 w-7" aria-hidden /> Add your first car</button>
+      )}
+      {tab === "cars" && me.vehicles.map((v) => (
+        <section key={v.id} className="home-card space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-2xl font-black text-ink">{v.plate}</p>
+              <p className="text-lg text-ink-500">{[v.make, v.model].filter(Boolean).join(" ") || v.category_name}</p>
+            </div>
+            <span className={`shrink-0 rounded-full px-3 py-1 text-sm font-bold capitalize ${v.status === "approved" ? "bg-green/15 text-green" : "bg-amber-500/15 text-amber-600"}`}>{v.status}</span>
+          </div>
+          <p className="text-lg text-ink">
+            {v.status === "approved" ? (v.driver_name ? `Driver: ${v.driver_name}` : "Waiting for a driver") : "Being checked"}
           </p>
           {v.status === "approved" && approvedDriver && (!v.driver_id || v.driver_id === user?.id) && (
             <button
               type="button"
               disabled={busy}
               onClick={() => act(() => (v.driver_id === user?.id ? api.carReleaseVehicle(v.id) : api.carDriveVehicle(v.id)))}
-              className="min-h-10 rounded-full bg-gold/15 px-4 text-sm font-bold text-ink disabled:opacity-50"
+              className="min-h-14 w-full rounded-full bg-gold/15 px-4 text-lg font-bold text-ink disabled:opacity-50"
             >
-              {v.driver_id === user?.id ? "Stop driving this car" : "Drive this car myself"}
+              {v.driver_id === user?.id ? "Stop driving" : "Drive it myself"}
             </button>
-          )}
-          <Link
-            href="/fuel"
-            className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] px-3 text-xs font-bold text-ink hover:bg-gold/15"
-          >
-            <Fuel className="h-3.5 w-3.5 text-gold" />
-            <span>Fuel at partner stations (Peebee Gas) →</span>
-          </Link>
-          {dealLimits && dealVehicles.find((d) => d.id === v.id) && (
-            <TermsEditor
-              key={`${v.id}-${dealVehicles.find((d) => d.id === v.id)?.terms?.open}`}
-              vehicle={dealVehicles.find((d) => d.id === v.id)!}
-              limits={dealLimits}
-              onSaved={() => api.dealsOwner().then((d) => setDealVehicles(d.vehicles)).catch(() => undefined)}
-            />
           )}
           {v.photos.length > 0 && (
             <div className="grid grid-cols-3 gap-2">
-              {v.photos.map((photoId) => (
-                <div key={photoId} className="relative">
-                  <AuthImage vehicleId={v.id} photoId={photoId} className="block aspect-[4/3] w-full rounded-lg object-cover" />
-                  <button type="button" onClick={() => remove(v.id, photoId)} aria-label="Remove photo" className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-ink/70 text-white">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+              {v.photos.slice(0, 3).map((photoId) => (
+                <AuthImage key={photoId} vehicleId={v.id} photoId={photoId} className="block aspect-[4/3] w-full rounded-lg object-cover" />
               ))}
             </div>
           )}
-          {v.photos.length < limits.max && (
-            <>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => { setAddingTo(v.id); addInput.current?.click(); }}
-                className="flex min-h-10 items-center gap-2 text-sm font-bold text-gold disabled:opacity-50"
-              >
-                <Camera className="h-4 w-4" />Add photos ({v.photos.length}/{limits.max})
-              </button>
-              {limits.minRequired > v.photos.length && v.status === "pending" && (
-                <p className="text-xs text-ink-500">Add at least {limits.minRequired - v.photos.length} more photo{limits.minRequired - v.photos.length === 1 ? "" : "s"} so Peebee can approve it.</p>
-              )}
-            </>
-          )}
+          <Accordion title="Details" summary={`${v.photos.length} photo${v.photos.length === 1 ? "" : "s"}`}>
+            <p className="text-lg text-ink-500">{v.service_class === "comfort" ? "Comfort" : "Convenient"}{v.condition_grade ? ` · ${v.condition_grade}` : ""}{v.seat_capacity ? ` · ${v.seat_capacity} seats` : ""}{v.last_service_date ? ` · serviced ${v.last_service_date}` : ""}</p>
+            {tiersEnabled && <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={busy} onClick={() => act(() => api.carUpdateRideService(v.id, "convenient", false))} className={pill(v.service_class !== "comfort")}>Convenient first</button>
+              <button type="button" disabled={busy} onClick={() => act(() => api.carUpdateRideService(v.id, "comfort", false))} className={pill(v.service_class === "comfort" && !v.accepts_convenient)}>Comfort only</button>
+              <button type="button" disabled={busy} onClick={() => act(() => api.carUpdateRideService(v.id, "comfort", true))} className={pill(v.service_class === "comfort" && !!v.accepts_convenient)}>Comfort + Convenient</button>
+            </div>}
+            {dealLimits && dealVehicles.find((d) => d.id === v.id) && (
+              <TermsEditor
+                key={`${v.id}-${dealVehicles.find((d) => d.id === v.id)?.terms?.open}`}
+                vehicle={dealVehicles.find((d) => d.id === v.id)!}
+                limits={dealLimits}
+                onSaved={() => api.dealsOwner().then((d) => setDealVehicles(d.vehicles)).catch(() => undefined)}
+              />
+            )}
+            {v.photos.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {v.photos.map((photoId) => (
+                  <div key={photoId} className="relative">
+                    <AuthImage vehicleId={v.id} photoId={photoId} className="block aspect-[4/3] w-full rounded-lg object-cover" />
+                    <button type="button" onClick={() => remove(v.id, photoId)} aria-label="Remove photo" className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full bg-ink/70 text-white">
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {v.photos.length < limits.max && (
+              <>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => { setAddingTo(v.id); addInput.current?.click(); }}
+                  className="flex min-h-14 items-center gap-2 text-lg font-bold text-gold disabled:opacity-50"
+                >
+                  <Camera className="h-6 w-6" aria-hidden />Add photos ({v.photos.length}/{limits.max})
+                </button>
+                {limits.minRequired > v.photos.length && v.status === "pending" && (
+                  <p className="text-base text-ink-500">Add {limits.minRequired - v.photos.length} more photo{limits.minRequired - v.photos.length === 1 ? "" : "s"} for approval.</p>
+                )}
+              </>
+            )}
+          </Accordion>
+          <Link href="/fuel" className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-[rgb(var(--surface-muted))] text-lg font-bold text-ink">
+            <Fuel className="h-5 w-5 text-gold" aria-hidden /> Fuel
+          </Link>
         </section>
       ))}
       <input
@@ -322,11 +344,11 @@ export default function VehiclesPage() {
         }}
       />
 
-      <form onSubmit={add} className="home-card space-y-3">
-        <h2 className="font-bold">Add a vehicle</h2>
-        <p className="text-xs text-ink-500">Follow the steps to create a complete vehicle profile. Your details help us review the car and help customers choose the right fit.</p>
-        <h3 className="pt-1 text-sm font-bold text-ink">1 · Vehicle details</h3>
-        <Select required value={categoryId} onValueChange={(value) => setCategoryId(value)} className={field} aria-label="Vehicle type">
+      {tab === "add" && <form onSubmit={add} className="home-card space-y-3">
+        <p className="text-lg font-bold text-ink">Step {step} of 3 · {step === 1 ? "The car" : step === 2 ? "Condition" : "Photos"}</p>
+        <div className="flex gap-1.5" aria-hidden>{[1, 2, 3].map((n) => <span key={n} className={`h-1.5 flex-1 rounded-full ${n <= step ? "bg-gold" : "bg-[rgb(var(--surface-muted))]"}`} />)}</div>
+        {step === 1 && <>
+        <Select sizing="stretch" required value={categoryId} onValueChange={(value) => setCategoryId(value)} className={field} aria-label="Vehicle type">
           <option value="">Choose vehicle type…</option>
           {[...categories].sort((a, b) => groupRank(a) - groupRank(b)).map((c) => (
             <option key={c.id} value={c.id}>{c.name}{c.kind === "passenger" && c.seats ? ` (${c.seats} seats)` : ""}{c.service_group === "luxury" ? " · Luxury" : c.service_group === "ambulance" ? " · Ambulance" : ""}</option>
@@ -335,14 +357,14 @@ export default function VehiclesPage() {
         {specialSelected?.service_group === "luxury" && <p className="rounded-xl bg-gold/10 p-3 text-xs text-ink">Luxury cars get weddings, parties, red carpet and VIP bookings. Peebee checks the car and its condition before it can take them.</p>}
         {specialSelected?.service_group === "ambulance" && <p className="rounded-xl bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">Ambulances get emergency requests and are sent at once. Peebee checks the vehicle, its medical equipment and the crew&apos;s qualifications before it can take any. Add clear photos and keep your documents ready.</p>}
         <input required value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="Number plate" className={field} />
-        <div className="grid grid-cols-2 gap-3">
-          <Select required value={make} onValueChange={handleMakeChange} className={field} aria-label="Vehicle make">
+        <div className="grid grid-cols-1 gap-3">
+          <Select sizing="stretch" required value={make} onValueChange={handleMakeChange} className={field} aria-label="Vehicle make">
             <option value="">Choose make…</option>
             {[...new Set(CAR_MODEL_CATALOG.map((m) => m.make))].sort().map((name) => <option key={name} value={name}>{name}</option>)}
             <option value="Other">Other / not listed</option>
           </Select>
           {make && make !== "Other" ? (
-            <Select required value={modelCatalogId} onValueChange={handleModelSelect} className={field} aria-label="Vehicle model">
+            <Select sizing="stretch" required value={modelCatalogId} onValueChange={handleModelSelect} className={field} aria-label="Vehicle model">
               <option value="">Choose model…</option>
               {CAR_MODEL_CATALOG.filter((m) => m.make === make && (bodyTypeFilter === "All" || getCarBodyType(m) === bodyTypeFilter)).map((m) => {
                 const isVip = m.isVip ?? isVipRate(m.townDailyUgx ?? m.standardDailyUgx);
@@ -418,24 +440,28 @@ export default function VehiclesPage() {
             </p>
           </div>
         )}
-        <div className="grid grid-cols-2 gap-3">
-          <Select required value={year} onValueChange={setYear} className={field} aria-label="Vehicle model year"><option value="">Choose model year…</option>{Array.from({ length: new Date().getFullYear() - 1989 }, (_, i) => new Date().getFullYear() - i).map((y) => <option key={y} value={String(y)}>{y}</option>)}</Select>
-          <Select value={colour} onValueChange={setColour} className={field} aria-label="Vehicle colour"><option value="">Choose colour…</option>{["White","Black","Silver","Grey","Blue","Red","Green","Brown","Gold","Other"].map((x) => <option key={x}>{x}</option>)}</Select>
+        <div className="grid grid-cols-1 gap-3">
+          <Select sizing="stretch" required value={year} onValueChange={setYear} className={field} aria-label="Vehicle model year"><option value="">Choose model year…</option>{Array.from({ length: new Date().getFullYear() - 1989 }, (_, i) => new Date().getFullYear() - i).map((y) => <option key={y} value={String(y)}>{y}</option>)}</Select>
+          <Select sizing="stretch" value={colour} onValueChange={setColour} className={field} aria-label="Vehicle colour"><option value="">Choose colour…</option>{["White","Black","Silver","Grey","Blue","Red","Green","Brown","Gold","Other"].map((x) => <option key={x}>{x}</option>)}</Select>
         </div>
         {modelCatalogId && <p className="text-xs text-ink-500">Reference profile: {CAR_MODEL_CATALOG.find((m) => m.id === modelCatalogId)?.seats} seats · {Math.round((CAR_MODEL_CATALOG.find((m) => m.id === modelCatalogId)?.fuelLitresPerKm ?? 0) * 1000)} L/100 km. Actual fuel use varies by year, trim and condition.</p>}
-        <h3 className="pt-1 text-sm font-bold text-ink">2 · Condition and care</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {!specialSelected && <Select value={serviceClass} onValueChange={(v) => setServiceClass(v as typeof serviceClass)} className={field} aria-label="Vehicle class"><option value="convenient">Convenient · ordinary</option><option value="comfort">Comfort · newer or extra features</option></Select>}
-          <Select value={conditionGrade} onValueChange={(v) => setConditionGrade(v as typeof conditionGrade)} className={field} aria-label="Vehicle condition"><option value="excellent">Excellent condition</option><option value="good">Good condition</option><option value="fair">Fair condition</option></Select>
+        <button type="button" disabled={!step1Ok} onClick={() => setStep(2)} className="min-h-16 w-full rounded-full bg-gold text-xl font-extrabold text-ink-gold disabled:opacity-50">Next</button>
+        </>}
+        {step === 2 && <>
+        <div className="grid grid-cols-1 gap-3">
+          {!specialSelected && <Select sizing="stretch" value={serviceClass} onValueChange={(v) => setServiceClass(v as typeof serviceClass)} className={field} aria-label="Vehicle class"><option value="convenient">Convenient · ordinary</option><option value="comfort">Comfort · newer or extra features</option></Select>}
+          <Select sizing="stretch" value={conditionGrade} onValueChange={(v) => setConditionGrade(v as typeof conditionGrade)} className={field} aria-label="Vehicle condition"><option value="excellent">Excellent condition</option><option value="good">Good condition</option><option value="fair">Fair condition</option></Select>
         </div>
-        {serviceClass === "comfort" && <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={acceptsConvenient} onChange={(e) => setAcceptsConvenient(e.target.checked)} />Also accept Convenient fares when no Comfort ride is available</label>}
-        <Select required value={seatCapacity} onValueChange={setSeatCapacity} className={field} aria-label="Total seat capacity"><option value="">Choose total seats…</option>{Array.from({ length: 50 }, (_, i) => i + 1).map((n) => <option key={n} value={String(n)}>{n} seats</option>)}</Select>
-        <label className="block space-y-1 text-xs font-semibold text-ink-500">Most recent service date<input required type="date" max={new Date().toISOString().slice(0, 10)} value={lastServiceDate} onChange={(e) => setLastServiceDate(e.target.value)} className={field} /></label>
-        <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-ink-500">{["Air conditioning", "Bluetooth", "USB charging", "Child seat", "Automatic", "4WD"].map((feature) => <label key={feature} className="flex items-center gap-1.5"><input type="checkbox" checked={features.includes(feature)} onChange={(e) => setFeatures((prev) => e.target.checked ? [...prev, feature] : prev.filter((x) => x !== feature))} />{feature}</label>)}</div>
+        {serviceClass === "comfort" && <label className="flex items-center gap-2 text-lg text-ink"><input type="checkbox" checked={acceptsConvenient} onChange={(e) => setAcceptsConvenient(e.target.checked)} />Also accept Convenient fares when no Comfort ride is available</label>}
+        <Select sizing="stretch" required value={seatCapacity} onValueChange={setSeatCapacity} className={field} aria-label="Total seat capacity"><option value="">Choose total seats…</option>{Array.from({ length: 50 }, (_, i) => i + 1).map((n) => <option key={n} value={String(n)}>{n} seats</option>)}</Select>
+        <label className="block space-y-1 text-base font-semibold text-ink-500">Most recent service date<input required type="date" max={new Date().toISOString().slice(0, 10)} value={lastServiceDate} onChange={(e) => setLastServiceDate(e.target.value)} className={field} /></label>
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-lg text-ink-500">{["Air conditioning", "Bluetooth", "USB charging", "Child seat", "Automatic", "4WD"].map((feature) => <label key={feature} className="flex items-center gap-1.5"><input type="checkbox" checked={features.includes(feature)} onChange={(e) => setFeatures((prev) => e.target.checked ? [...prev, feature] : prev.filter((x) => x !== feature))} />{feature}</label>)}</div>
 
-        <h3 className="pt-1 text-sm font-bold text-ink">3 · Vehicle photos</h3>
+        <div className="flex gap-2"><button type="button" onClick={() => setStep(1)} className="min-h-16 rounded-full bg-gold/15 px-6 text-xl font-bold text-ink">Back</button><button type="button" disabled={!step2Ok} onClick={() => setStep(3)} className="min-h-16 flex-1 rounded-full bg-gold text-xl font-extrabold text-ink-gold disabled:opacity-50">Next</button></div>
+        </>}
+        {step === 3 && <>
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-ink-500">
+          <p className="text-base font-semibold text-ink-500">
             Photos ({picked.length}/{limits.max}){limits.minRequired > 0 ? ` — at least ${limits.minRequired} needed` : ""}. Show the front, back, sides, inside and number plate.
           </p>
           <div className="grid grid-cols-3 gap-2">
@@ -449,7 +475,7 @@ export default function VehiclesPage() {
               </div>
             ))}
             {picked.length < limits.max && (
-              <label className="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[var(--border-faint)] text-xs font-semibold text-ink-500">
+              <label className="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[var(--border-faint)] text-base font-semibold text-ink-500">
                 <Camera className="h-5 w-5" />
                 Add
                 <input type="file" accept="image/*" multiple hidden onChange={(e) => { pick(e.target.files); e.target.value = ""; }} />
@@ -458,9 +484,9 @@ export default function VehiclesPage() {
           </div>
         </div>
 
-        {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
-        <button disabled={busy} className="min-h-12 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-50">{busy ? progress || "Please wait…" : "Submit for approval"}</button>
-      </form>
+        <div className="flex gap-2"><button type="button" onClick={() => setStep(2)} className="min-h-16 rounded-full bg-gold/15 px-6 text-xl font-bold text-ink">Back</button><button disabled={busy} className="min-h-16 flex-1 rounded-full bg-gold text-xl font-extrabold text-ink-gold disabled:opacity-50">{busy ? progress || "Please wait…" : "Submit"}</button></div>
+        </>}
+      </form>}
     </div>
   );
 }

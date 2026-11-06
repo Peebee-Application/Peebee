@@ -9,16 +9,18 @@ import {
   Clock,
   Copy,
   Fuel,
-  Info,
   MapPin,
   QrCode,
   Receipt,
   RotateCcw,
   ShieldCheck,
   Sparkles,
+  Ticket,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { Accordion } from "../../components/Accordion";
+import { TabBar } from "../../components/TabBar";
 import { FuelQrCode } from "../../components/FuelQrCode";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
@@ -32,12 +34,13 @@ export default function PartnerFuelPage() {
   const [products, setProducts] = useState<FuelProduct[]>([]);
   const [dispenses, setDispenses] = useState<FuelReceipt[]>([]);
   const [copied, setCopied] = useState(false);
+  const [tab, setTab] = useState<"voucher" | "stations" | "receipts">("voucher");
 
   // Available vehicles for this driver / partner
   const allVehicles = [
     ...(me?.vehicles ?? []),
     ...(me?.assignedVehicles ?? []),
-  ];
+  ].filter((v, i, all) => all.findIndex((x) => x.id === v.id) === i);
   const [selectedVehiclePlate, setSelectedVehiclePlate] = useState<string>(
     allVehicles[0]?.plate ?? "UBK 902F"
   );
@@ -136,52 +139,31 @@ export default function PartnerFuelPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4 px-4 py-4 pb-20">
-      {/* Top Header */}
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface))] text-ink"
-            aria-label="Back to Home"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="flex h-5 items-center gap-1 rounded-md bg-gold/15 px-1.5 text-[10px] font-black uppercase text-gold">
-                <Fuel className="h-3 w-3" />
-                Peebee Gas
-              </span>
-              <span className="text-xs text-ink-500">Driver Fuel Network</span>
-            </div>
-            <h1 className="text-lg font-black text-ink">Car Fuel Voucher & Stations</h1>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={loadData}
-          disabled={loading}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface))] text-ink hover:bg-[rgb(var(--surface-muted))]"
-          title="Refresh fuel status"
-        >
-          <RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+      <header className="flex items-center gap-3">
+        <Link href="/" className="flex h-14 w-14 items-center justify-center rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface))] text-ink" aria-label="Back to Home">
+          <ArrowLeft className="h-6 w-6" aria-hidden />
+        </Link>
+        <h1 className="flex min-w-0 flex-1 items-center gap-2 text-2xl font-black text-ink"><Fuel className="h-7 w-7 text-gold" aria-hidden /> Fuel</h1>
+        <button type="button" onClick={loadData} disabled={loading} className="flex h-14 w-14 items-center justify-center rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface))] text-ink" aria-label="Refresh">
+          <RotateCcw className={`h-6 w-6 ${loading ? "animate-spin" : ""}`} aria-hidden />
         </button>
       </header>
 
+      <TabBar label="Fuel" active={tab} onChange={setTab} tabs={[{ id: "voucher", label: "Voucher", icon: Ticket }, { id: "stations", label: "Stations", icon: Building2, count: stations.length }, { id: "receipts", label: "Receipts", icon: Receipt, count: dispenses.length }]} />
+
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-3.5 text-base text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
           {error}
         </div>
       )}
 
       {/* ACTIVE FUEL VOUCHER SECTION */}
-      {activeCode && remainingTime !== "Expired" ? (
+      {tab === "voucher" && (activeCode && remainingTime !== "Expired" ? (
         <section className="home-card space-y-4 border-2 border-gold/40 bg-[rgb(var(--surface))] text-center">
-          <div className="flex items-center justify-between border-b border-[var(--border-faint)] pb-3 text-xs">
+          <div className="flex items-center justify-between border-b border-[var(--border-faint)] pb-3 text-base">
             <span className="flex items-center gap-1.5 font-bold text-green">
               <ShieldCheck className="h-4 w-4" />
-              Active Car Fuel Voucher
+              Active voucher
             </span>
             <span className="flex items-center gap-1 font-mono font-bold text-ink-500">
               <Clock className="h-3.5 w-3.5 text-gold" />
@@ -190,11 +172,11 @@ export default function PartnerFuelPage() {
           </div>
 
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">
-              6-Digit Pump Attendant PIN
+            <span className="text-sm font-bold uppercase tracking-wider text-ink-500">
+              Pump PIN
             </span>
             <div className="mt-1 flex items-center justify-center gap-3">
-              <span className="font-mono text-3xl font-black tracking-widest text-ink">
+              <span className="font-mono text-5xl font-black tracking-widest text-ink">
                 {cleanDisplayPin}
               </span>
               <button
@@ -206,21 +188,21 @@ export default function PartnerFuelPage() {
                 {copied ? <Check className="h-4 w-4 text-green" /> : <Copy className="h-4 w-4" />}
               </button>
             </div>
-            <p className="mt-1 text-xs text-ink-500">
-              Show or read this PIN to the petrol station attendant at the pump
+            <p className="mt-1 text-base text-ink-500">
+              Show this to the attendant
             </p>
           </div>
 
           {/* QR Code Presentation */}
           <div className="flex flex-col items-center justify-center pt-2">
-            <FuelQrCode value={activeCode.code} size={180} />
-            <span className="mt-2 text-[11px] font-bold text-ink-500">
-              or let the attendant scan this QR code
+            <FuelQrCode value={activeCode.code} size={220} />
+            <span className="mt-2 text-sm font-bold text-ink-500">
+              or let them scan this
             </span>
           </div>
 
           {/* Authorized Details Box */}
-          <div className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] p-3 text-left text-xs space-y-1.5">
+          <div className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] p-3 text-left text-base space-y-1.5">
             <div className="flex justify-between">
               <span className="text-ink-500">Vehicle Plate:</span>
               <strong className="font-mono text-ink">{activeCode.vehicle_plate}</strong>
@@ -249,23 +231,23 @@ export default function PartnerFuelPage() {
               <CarFront className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-sm font-black text-ink">Get Car Fuel Voucher</h2>
-              <p className="text-xs text-ink-500">
-                Pump fuel for your registered car at partner stations without cash
+              <h2 className="text-xl font-black text-ink">Fuel voucher</h2>
+              <p className="text-base text-ink-500">
+                Pump without cash
               </p>
             </div>
           </div>
 
           {/* Vehicle Selector */}
           <div>
-            <label className="mb-1.5 block text-xs font-bold text-ink-500">
-              Select Registered Car
+            <label className="mb-1.5 block text-base font-bold text-ink-500">
+              Car
             </label>
             {allVehicles.length > 0 ? (
               <select
                 value={selectedVehiclePlate}
                 onChange={(e) => setSelectedVehiclePlate(e.target.value)}
-                className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3 text-xs font-bold text-ink outline-none"
+                className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3 text-lg font-bold text-ink outline-none"
               >
                 {allVehicles.map((v) => (
                   <option key={v.id} value={v.plate}>
@@ -281,7 +263,7 @@ export default function PartnerFuelPage() {
                   value={selectedVehiclePlate}
                   onChange={(e) => setSelectedVehiclePlate(e.target.value.toUpperCase())}
                   placeholder="e.g. UBK 902F"
-                  className="w-full font-mono text-xs font-bold text-ink"
+                  className="w-full font-mono text-base font-bold text-ink"
                 />
               </div>
             )}
@@ -289,8 +271,8 @@ export default function PartnerFuelPage() {
 
           {/* Amount selector chips (tuned for cars) */}
           <div>
-            <label className="mb-1.5 block text-xs font-bold text-ink-500">
-              Fuel Allowance (UGX)
+            <label className="mb-1.5 block text-base font-bold text-ink-500">
+              Amount (UGX)
             </label>
             <div className="grid grid-cols-4 gap-2">
               {[30_000, 50_000, 100_000, 150_000].map((amt) => (
@@ -298,7 +280,7 @@ export default function PartnerFuelPage() {
                   key={amt}
                   type="button"
                   onClick={() => setAmountUgx(amt)}
-                  className={`rounded-xl border py-2 text-xs font-bold transition ${
+                  className={`min-h-14 rounded-xl border py-2 text-lg font-bold transition ${
                     amountUgx === amt
                       ? "border-gold bg-gold text-ink-gold font-black"
                       : "border-[var(--border-faint)] bg-[rgb(var(--surface-input))] text-ink"
@@ -312,33 +294,33 @@ export default function PartnerFuelPage() {
 
           {/* Fuel Product Selector */}
           <div>
-            <label className="mb-1.5 block text-xs font-bold text-ink-500">
-              Fuel Grade
+            <label className="mb-1.5 block text-base font-bold text-ink-500">
+              Fuel
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setSelectedProductId("prod_petrol")}
-                className={`flex items-center justify-center gap-2 rounded-xl border p-2.5 text-xs transition ${
+                className={`flex items-center justify-center min-h-14 gap-2 rounded-xl border p-2.5 text-lg transition ${
                   selectedProductId === "prod_petrol"
                     ? "border-gold bg-gold/10 font-black text-ink"
                     : "border-[var(--border-faint)] bg-[rgb(var(--surface-input))] font-bold text-ink-500"
                 }`}
               >
                 <Fuel className="h-4 w-4 text-gold" />
-                <span>Petrol (UGX 5,450/L)</span>
+                <span>Petrol</span>
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedProductId("prod_diesel")}
-                className={`flex items-center justify-center gap-2 rounded-xl border p-2.5 text-xs transition ${
+                className={`flex items-center justify-center min-h-14 gap-2 rounded-xl border p-2.5 text-lg transition ${
                   selectedProductId === "prod_diesel"
                     ? "border-navy bg-navy/10 font-black text-ink"
                     : "border-[var(--border-faint)] bg-[rgb(var(--surface-input))] font-bold text-ink-500"
                 }`}
               >
                 <Fuel className="h-4 w-4 text-navy" />
-                <span>Diesel (UGX 5,200/L)</span>
+                <span>Diesel</span>
               </button>
             </div>
           </div>
@@ -347,36 +329,33 @@ export default function PartnerFuelPage() {
             type="button"
             onClick={handleGenerateCode}
             disabled={generating}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gold font-bold text-ink-gold shadow-sm hover:opacity-95 disabled:opacity-50"
+            className="flex min-h-16 w-full items-center justify-center gap-2 rounded-2xl bg-gold text-xl font-extrabold text-ink-gold shadow-sm hover:opacity-95 disabled:opacity-50"
           >
             <Sparkles className="h-4 w-4" />
-            <span>{generating ? "Generating..." : "Generate Car Fuel Voucher"}</span>
+            <span>{generating ? "Please wait…" : "Get voucher"}</span>
           </button>
         </section>
-      )}
+      ))}
 
       {/* HOW IT WORKS / GUIDE */}
-      <section className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] p-4 space-y-2 text-xs">
-        <div className="flex items-center gap-2 font-black text-ink">
-          <Info className="h-4 w-4 text-gold" />
-          <span>How Car Drivers Fuel at Partner Stations</span>
-        </div>
-        <ol className="list-decimal space-y-1 pl-4 leading-relaxed text-ink-500">
-          <li>Drive into any partner petrol station lane below.</li>
-          <li>Tell the pump attendant you are paying with Peebee Gas.</li>
-          <li>Give them your 6-digit PIN or show the QR code on your phone.</li>
-          <li>Attendant confirms your number plate and dispenses the fuel.</li>
-        </ol>
-      </section>
+      {tab === "voucher" && (
+        <Accordion title="How it works" icon={ShieldCheck}>
+          <ol className="list-decimal space-y-2 pl-5 text-lg text-ink-500">
+            <li>Drive into a partner station.</li>
+            <li>Say you pay with Peebee Gas.</li>
+            <li>Give the PIN or show the QR.</li>
+          </ol>
+        </Accordion>
+      )}
 
       {/* NEARBY PARTNER PETROL STATIONS */}
-      <section className="space-y-3">
+      {tab === "stations" && <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-gold" />
-            <h2 className="text-sm font-black text-ink">Partner Stations (Shell, Total, Rubis)</h2>
+            <h2 className="text-xl font-black text-ink">Stations</h2>
           </div>
-          <span className="text-xs font-bold text-ink-500">{stations.length} stations</span>
+          <span className="text-base font-bold text-ink-500">{stations.length} stations</span>
         </div>
 
         <div className="space-y-2.5">
@@ -387,16 +366,16 @@ export default function PartnerFuelPage() {
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="rounded-md bg-gold/15 px-2 py-0.5 text-[10px] font-black uppercase text-gold">
+                  <span className="rounded-md bg-gold/15 px-2 py-0.5 text-sm font-black uppercase text-gold">
                     {st.station_name}
                   </span>
-                  <h3 className="text-xs font-black text-ink">{st.name}</h3>
+                  <h3 className="text-base font-black text-ink">{st.name}</h3>
                 </div>
-                <p className="flex items-center gap-1 text-[11px] text-ink-500">
+                <p className="flex items-center gap-1 text-sm text-ink-500">
                   <MapPin className="h-3 w-3 shrink-0 text-ink-500" />
                   <span>{st.address}</span>
                 </p>
-                <div className="flex items-center gap-3 pt-1 text-[11px]">
+                <div className="flex items-center gap-3 pt-1 text-sm">
                   <span className="font-bold text-ink">
                     Petrol: <strong className="text-gold">UGX 5,450/L</strong>
                   </span>
@@ -407,40 +386,41 @@ export default function PartnerFuelPage() {
               </div>
 
               <div className="flex flex-col items-end justify-between">
-                <span className="rounded-full bg-green/15 px-2 py-0.5 text-[10px] font-bold text-green">
+                <span className="rounded-full bg-green/15 px-2 py-0.5 text-sm font-bold text-green">
                   Open 24/7
                 </span>
-                <span className="mt-4 font-mono text-[11px] text-ink-500">
+                <span className="mt-4 font-mono text-sm text-ink-500">
                   {st.code}
                 </span>
               </div>
             </article>
           ))}
         </div>
-      </section>
+      </section>}
 
       {/* RECENT FUEL DISPENSES */}
-      {dispenses.length > 0 && (
+      {tab === "receipts" && dispenses.length === 0 && <p className="home-card py-8 text-center text-lg text-ink-500">None yet</p>}
+      {tab === "receipts" && dispenses.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-center gap-2">
             <Receipt className="h-4 w-4 text-gold" />
-            <h2 className="text-sm font-black text-ink">Recent Fuel Receipts</h2>
+            <h2 className="text-xl font-black text-ink">Receipts</h2>
           </div>
 
           <div className="space-y-2">
             {dispenses.slice(0, 5).map((d) => (
               <div
                 key={d.id}
-                className="home-card flex items-center justify-between p-3 text-xs"
+                className="home-card flex items-center justify-between p-3 text-base"
               >
                 <div className="space-y-0.5">
-                  <span className="font-mono text-[11px] font-bold text-gold">
+                  <span className="font-mono text-sm font-bold text-gold">
                     {d.receipt_ref}
                   </span>
                   <div className="font-bold text-ink">
                     {d.litres_dispensed}L {d.product_name}
                   </div>
-                  <p className="text-[10px] text-ink-500">
+                  <p className="text-sm text-ink-500">
                     {new Date(d.created_at).toLocaleDateString()} · {d.outlet_name}
                   </p>
                 </div>
@@ -448,7 +428,7 @@ export default function PartnerFuelPage() {
                   <div className="font-black text-green">
                     UGX {d.total_ugx.toLocaleString()}
                   </div>
-                  <span className="text-[10px] text-ink-500 font-mono">
+                  <span className="text-sm text-ink-500 font-mono">
                     Pump #{d.pump_number}
                   </span>
                 </div>

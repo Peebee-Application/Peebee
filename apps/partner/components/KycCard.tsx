@@ -44,20 +44,20 @@ export function KycCard({ mode }: { mode: PartnerMode }) {
   return (
     <section className="home-card space-y-3">
       <div>
-        <p className="font-bold text-ink">Verify your identity</p>
-        <p className="text-xs text-ink-500">Peebee needs a clear photo of {needed.map((k) => LABEL[k]).join(" and ")} before approving your {mode} profile. Only you and Peebee staff can see it.</p>
+        <p className="text-xl font-bold text-ink">Verify your identity</p>
+        <p className="text-base text-ink-500">Photo of your {needed.map((k) => LABEL[k]).join(" and ")}. Only Peebee staff see it.</p>
       </div>
       {needed.map((kind) => (
         <label key={kind} className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[var(--border-faint)] p-3">
           <span>
-            <span className="block text-sm font-semibold text-ink">{LABEL[kind]}</span>
-            <span className={`block text-xs ${me.documents[kind] ? "text-green" : "text-ink-500"}`}>{busy === kind ? "Uploading…" : me.documents[kind] ? "Uploaded ✓ — tap to replace" : "Not uploaded yet"}</span>
+            <span className="block text-xl font-bold text-ink">{LABEL[kind]}</span>
+            <span className={`block text-base ${me.documents[kind] ? "text-green" : "text-ink-500"}`}>{busy === kind ? "Uploading…" : me.documents[kind] ? "Uploaded ✓" : "Not uploaded yet"}</span>
           </span>
-          <span className="rounded-full bg-gold/15 px-3 py-2 text-xs font-bold text-ink">{me.documents[kind] ? "Replace" : "Take / choose photo"}</span>
+          <span className="flex min-h-12 items-center rounded-full bg-gold/15 px-4 text-lg font-bold text-ink">{me.documents[kind] ? "Replace" : "Photo"}</span>
           <input type="file" accept="image/*" hidden disabled={busy !== null} onChange={(e) => { void upload(kind, e.target.files?.[0]); e.target.value = ""; }} />
         </label>
       ))}
-      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
+      {error && <p className="rounded-xl bg-red-50 p-3 text-lg text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
     </section>
   );
 }

@@ -4,6 +4,7 @@ import { Select } from "@peebee/shared/select";
 import { ApiError, type RelayLegStatus, type RelayOperator, type RelayOperatorParcels, type RelayRoute, type RelayTrack } from "@peebee/shared";
 import { ArrowLeft, ArrowRight, Bus, ChevronDown, ChevronRight, Clock, MapPin, Package, Phone, PhoneCall, QrCode, RotateCcw } from "lucide-react";
 import Link from "next/link";
+import { Accordion } from "../../components/Accordion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QrCodeImage } from "../../components/QrCodeImage";
 import { QrScanner } from "../../components/QrScanner";
@@ -26,7 +27,7 @@ const statusLabel: Record<RelayLegStatus, string> = {
   done: "Collected",
 };
 
-const errorBox = "rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300";
+const errorBox = "rounded-xl bg-red-50 p-3 text-lg text-red-700 dark:bg-red-950/40 dark:text-red-300";
 
 export default function RelayPage() {
   const [loaded, setLoaded] = useState(false);
@@ -59,13 +60,13 @@ export default function RelayPage() {
         <Link
           href="/"
           aria-label="Back to home"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface))] text-ink"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface))] text-ink"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div className="min-w-0">
-          <h1 className="text-2xl font-black text-ink">Relay parcels</h1>
-          <p className="truncate text-sm text-ink-500">
+          <h1 className="text-2xl font-black text-ink">Parcels</h1>
+          <p className="truncate text-lg text-ink-500">
             {operator?.status === "approved" ? `${operator.vehicle_plate} · ${operator.route_code ?? operator.route_name ?? "Your route"}` : "Carry parcels on your matatu"}
           </p>
         </div>
@@ -80,18 +81,18 @@ export default function RelayPage() {
           <h2 className="flex items-center gap-2 font-bold text-ink">
             <Clock className="h-4 w-4 text-gold" /> Waiting for approval
           </h2>
-          <p className="text-sm text-ink-500">
+          <p className="text-lg text-ink-500">
             {operator.vehicle_plate} · {operator.route_code ?? operator.route_name ?? "Route"}. We&apos;ll notify you once you&apos;re approved.
           </p>
         </section>
       ) : operator?.status === "suspended" ? (
         <section className="home-card space-y-1">
           <h2 className="font-bold text-ink">Account suspended</h2>
-          <p className="text-sm text-ink-500">You can&apos;t carry relay parcels right now. Contact Peebee support.</p>
+          <p className="text-lg text-ink-500">You can&apos;t carry relay parcels right now. Contact Peebee support.</p>
         </section>
       ) : !enabled ? (
         <section className="home-card">
-          <p className="text-sm text-ink-500">Relay parcels aren&apos;t available yet.</p>
+          <p className="text-lg text-ink-500">Relay parcels aren&apos;t available yet.</p>
         </section>
       ) : (
         <ApplyForm routes={routes} onDone={loadMe} />
@@ -128,7 +129,7 @@ function ApplyForm({ routes, onDone }: { routes: RouteOption[]; onDone: () => Pr
   if (!routes.length) {
     return (
       <section className="home-card">
-        <p className="text-sm text-ink-500">No matatu routes are open yet.</p>
+        <p className="text-lg text-ink-500">No matatu routes are open yet.</p>
       </section>
     );
   }
@@ -137,11 +138,11 @@ function ApplyForm({ routes, onDone }: { routes: RouteOption[]; onDone: () => Pr
     <form onSubmit={submit} className="home-card space-y-4">
       <div>
         <h2 className="font-bold text-ink">Carry parcels on your matatu</h2>
-        <p className="text-sm text-ink-500">Riders bring parcels to your stage. You carry them and get paid per parcel.</p>
+        <p className="text-lg text-ink-500">Riders bring parcels to your stage. You carry them and get paid per parcel.</p>
       </div>
       <label className="block space-y-1.5">
-        <span className="text-xs font-bold text-ink-500">Route</span>
-        <Select value={routeId} onValueChange={setRouteId} aria-label="Route" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3">
+        <span className="text-base font-bold text-ink-500">Route</span>
+        <Select value={routeId} onValueChange={setRouteId} aria-label="Route" className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-3">
           <option value="">Choose your route…</option>
           {routes.map((r) => (
             <option key={r.id} value={r.id}>
@@ -151,27 +152,27 @@ function ApplyForm({ routes, onDone }: { routes: RouteOption[]; onDone: () => Pr
         </Select>
       </label>
       <label className="block space-y-1.5">
-        <span className="text-xs font-bold text-ink-500">Number plate</span>
+        <span className="text-base font-bold text-ink-500">Number plate</span>
         <input
           value={plate}
           onChange={(e) => setPlate(e.target.value.toUpperCase())}
           placeholder="e.g. UAX 123K"
           autoCapitalize="characters"
-          className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] font-mono font-bold text-ink outline-none focus:ring-2 focus:ring-gold"
+          className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] font-mono font-bold text-ink outline-none focus:ring-2 focus:ring-gold"
         />
       </label>
       <label className="block space-y-1.5">
-        <span className="text-xs font-bold text-ink-500">Phone (optional)</span>
+        <span className="text-base font-bold text-ink-500">Phone (optional)</span>
         <input
           type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="Number riders can call"
-          className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] text-ink outline-none focus:ring-2 focus:ring-gold"
+          className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] text-ink outline-none focus:ring-2 focus:ring-gold"
         />
       </label>
       {error && <p className={errorBox}>{error}</p>}
-      <button type="submit" disabled={busy} className="min-h-12 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-50">
+      <button type="submit" disabled={busy} className="min-h-14 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-50">
         {busy ? "Sending…" : "Apply"}
       </button>
     </form>
@@ -211,52 +212,50 @@ function OperatorBoard() {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-bold text-ink">On board</h2>
+          <h2 className="text-xl font-black text-ink">On board</h2>
           <button
             type="button"
             onClick={() => void load()}
             aria-label="Refresh"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface))] text-ink"
+            className="flex h-14 w-14 items-center justify-center rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface))] text-ink"
           >
             <RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
-        {data && data.carrying.length === 0 && <p className="home-card text-sm text-ink-500">No parcels on board.</p>}
+        {data && data.carrying.length === 0 && <p className="home-card text-lg text-ink-500">None on board</p>}
         {data?.carrying.map((leg) => <CarryingCard key={leg.id} leg={leg} onChange={load} />)}
-        {carryingIds.length > 0 && <p className="text-xs text-ink-500">Your location is shared with the customer while this page is open.</p>}
+        {carryingIds.length > 0 && <p className="text-base text-ink-500">Your location is shared while this page is open.</p>}
       </section>
 
       {data && data.incoming.length > 0 && (
-        <section className="home-card space-y-3">
-          <h2 className="font-bold text-ink">Coming to you</h2>
+        <Accordion title="Coming to you" icon={Package} summary={data.incoming.length}>
           {data.incoming.map((p) => (
-            <div key={p.order_id} className="flex items-center justify-between gap-3 border-t border-[var(--border-faint)] pt-3 text-sm first:border-t-0 first:pt-0">
+            <div key={p.order_id} className="flex items-center justify-between gap-3 border-t border-[var(--border-faint)] pt-3 text-lg first:border-t-0 first:pt-0">
               <span className="min-w-0">
                 <span className="block truncate font-semibold text-ink">To {p.stage_name}</span>
-                <span className="text-xs text-ink-500">{p.rider_name ? `Rider: ${p.rider_name}` : "Finding a rider"}</span>
+                <span className="text-base text-ink-500">{p.rider_name ? `Rider: ${p.rider_name}` : "Finding a rider"}</span>
               </span>
-              <Package className="h-4 w-4 shrink-0 text-gold" />
+              <Package className="h-5 w-5 shrink-0 text-gold" />
             </div>
           ))}
-        </section>
+        </Accordion>
       )}
 
       {data && data.recent.length > 0 && (
-        <section className="home-card space-y-3">
-          <h2 className="font-bold text-ink">Recent</h2>
-          {data.recent.map((r) => (
-            <div key={r.id} className="flex items-center justify-between gap-3 border-t border-[var(--border-faint)] pt-3 text-sm first:border-t-0 first:pt-0">
+        <Accordion title="Recent" icon={RotateCcw} summary={data.recent.length}>
+          {data.recent.slice(0, 8).map((r) => (
+            <div key={r.id} className="flex items-center justify-between gap-3 border-t border-[var(--border-faint)] pt-3 text-lg first:border-t-0 first:pt-0">
               <span className="min-w-0">
                 <span className="block truncate text-ink">
                   {r.direction ? <strong className="mr-1.5">{r.direction}</strong> : null}
                   {r.from_name} → {r.to_name}
                 </span>
-                <span className="text-xs text-ink-500">{formatWhen(r.handed_over_at)}</span>
+                <span className="text-base text-ink-500">{formatWhen(r.handed_over_at)}</span>
               </span>
               <strong className="shrink-0 text-ink">{r.paid_amount != null ? ugx(r.paid_amount) : "Pending"}</strong>
             </div>
           ))}
-        </section>
+        </Accordion>
       )}
     </>
   );
@@ -307,8 +306,8 @@ function ReceiveCard({ onReceived }: { onReceived: () => Promise<void> }) {
   return (
     <section className="home-card space-y-3">
       <div>
-        <h2 className="font-bold text-ink">Receive parcel</h2>
-        <p className="text-sm text-ink-500">Scan the rider&apos;s QR or type their code.</p>
+        <h2 className="text-xl font-black text-ink">Receive parcel</h2>
+        <p className="text-lg text-ink-500">Scan the rider&apos;s QR or type their code.</p>
       </div>
       <form
         onSubmit={(e) => {
@@ -324,20 +323,20 @@ function ReceiveCard({ onReceived }: { onReceived: () => Promise<void> }) {
           autoComplete="one-time-code"
           placeholder="000000"
           aria-label="Rider's code"
-          className="min-h-12 min-w-0 flex-1 rounded-xl border border-[var(--border-faint)] text-center font-mono text-lg font-bold tracking-[0.3em] text-ink outline-none focus:ring-2 focus:ring-gold"
+          className="min-h-14 min-w-0 flex-1 rounded-xl border border-[var(--border-faint)] text-center font-mono text-lg font-bold tracking-[0.3em] text-ink outline-none focus:ring-2 focus:ring-gold"
         />
-        <button type="submit" disabled={busy || code.length !== 6} className="min-h-12 rounded-xl bg-gold px-5 font-bold text-ink-gold disabled:opacity-50">
+        <button type="submit" disabled={busy || code.length !== 6} className="min-h-14 rounded-xl bg-gold px-5 font-bold text-ink-gold disabled:opacity-50">
           {busy ? "…" : "Receive"}
         </button>
       </form>
       <button
         type="button"
         onClick={() => setScanning(true)}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] font-bold text-ink"
+        className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] font-bold text-ink"
       >
         <QrCode className="h-4 w-4 text-gold" /> Scan QR
       </button>
-      {message && <p className={message.ok ? "text-sm font-semibold text-green" : errorBox}>{message.text}</p>}
+      {message && <p className={message.ok ? "text-lg font-semibold text-green" : errorBox}>{message.text}</p>}
       {scanning && <QrScanner title="Scan rider's QR" onScan={onScan} onClose={closeScanner} />}
     </section>
   );
@@ -366,14 +365,14 @@ function CarryingCard({ leg, onChange }: { leg: RelayOperatorParcels["carrying"]
 
   return (
     <article className="home-card space-y-4">
-      <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+      <div className="flex items-center gap-2 text-lg font-semibold text-ink">
         <Bus className="h-4 w-4 shrink-0 text-gold" />
         {leg.direction && <span className="shrink-0 font-bold">{leg.direction}</span>}
         <span className="truncate">{leg.from_name}</span>
         <ArrowRight className="h-3.5 w-3.5 shrink-0 text-ink-500" />
         <span className="truncate">{leg.to_name}</span>
       </div>
-      <p className="text-xs text-ink-500">
+      <p className="text-base text-ink-500">
         Last rider: {leg.last_rider_name ?? "not yet assigned"}
         {leg.last_mile_status ? ` · ${statusLabel[leg.last_mile_status]}` : ""}
       </p>
@@ -381,20 +380,20 @@ function CarryingCard({ leg, onChange }: { leg: RelayOperatorParcels["carrying"]
         <MeetCustomer leg={leg} onChange={onChange} onMissed={setMissedStation} />
       ) : (
         <div className="flex flex-col items-center gap-2 text-center">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">Handoff code</span>
+          <span className="text-sm font-bold uppercase tracking-wider text-ink-500">Handoff code</span>
           <span className="font-mono text-4xl font-black tracking-widest text-ink">{spaced}</span>
           <QrCodeImage value={leg.handoff_code} size={168} label="Handoff QR code" />
-          <span className="text-xs text-ink-500">Show this code to the rider or pump attendant at {leg.to_name}.</span>
+          <span className="text-base text-ink-500">Show this code to the rider or pump attendant at {leg.to_name}.</span>
         </div>
       )}
-      {missedStation && <p className="text-center text-sm font-semibold text-green">Leave it at {missedStation} instead.</p>}
+      {missedStation && <p className="text-center text-lg font-semibold text-green">Leave it at {missedStation} instead.</p>}
       {error && <p className={errorBox}>{error}</p>}
       {arrived ? (
-        <p className="text-center text-sm font-semibold text-green">
+        <p className="text-center text-lg font-semibold text-green">
           Arrived at {leg.to_name} — {leg.meet_stage_name ? "waiting for the customer." : "waiting for the rider."}
         </p>
       ) : (
-        <button type="button" onClick={markArrived} disabled={busy} className="min-h-12 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-50">
+        <button type="button" onClick={markArrived} disabled={busy} className="min-h-14 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-50">
           {busy ? "Please wait…" : `Arrived at ${leg.to_name}`}
         </button>
       )}
@@ -476,14 +475,14 @@ function MeetCustomer({ leg, onChange, onMissed }: { leg: RelayOperatorParcels["
         <p className="flex items-center gap-2 font-bold text-ink">
           <MapPin className="h-4 w-4 shrink-0 text-gold" /> Customer meets you at {leg.meet_stage_name}
         </p>
-        <p className="truncate text-sm text-ink-500">{leg.customer_name ?? "Customer"}</p>
+        <p className="truncate text-lg text-ink-500">{leg.customer_name ?? "Customer"}</p>
       </div>
       {(leg.customer_phone || leg.customer_id) && (
         <div className="flex flex-wrap gap-2">
           {leg.customer_phone && (
             <a
               href={`tel:${leg.customer_phone}`}
-              className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-gold px-3 text-sm font-bold text-ink-gold"
+              className="flex min-h-14 flex-1 items-center justify-center gap-1.5 rounded-xl bg-gold px-3 text-lg font-bold text-ink-gold"
             >
               <Phone className="h-4 w-4 shrink-0" /> Call {leg.customer_phone}
             </a>
@@ -492,7 +491,7 @@ function MeetCustomer({ leg, onChange, onMissed }: { leg: RelayOperatorParcels["
             <button
               type="button"
               onClick={() => startCall({ calleeId: leg.customer_id!, orderId: leg.order_id })}
-              className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-gold px-3 text-sm font-bold text-gold"
+              className="flex min-h-14 flex-1 items-center justify-center gap-1.5 rounded-xl border border-gold px-3 text-lg font-bold text-gold"
             >
               <PhoneCall className="h-4 w-4 shrink-0" /> Call in app
             </button>
@@ -513,27 +512,27 @@ function MeetCustomer({ leg, onChange, onMissed }: { leg: RelayOperatorParcels["
           autoComplete="one-time-code"
           placeholder="000000"
           aria-label="Customer's code"
-          className="min-h-12 min-w-0 flex-1 rounded-xl border border-[var(--border-faint)] text-center font-mono text-lg font-bold tracking-[0.3em] text-ink outline-none focus:ring-2 focus:ring-gold"
+          className="min-h-14 min-w-0 flex-1 rounded-xl border border-[var(--border-faint)] text-center font-mono text-lg font-bold tracking-[0.3em] text-ink outline-none focus:ring-2 focus:ring-gold"
         />
-        <button type="submit" disabled={busy || code.length !== 6} className="min-h-12 rounded-xl bg-gold px-4 font-bold text-ink-gold disabled:opacity-50">
+        <button type="submit" disabled={busy || code.length !== 6} className="min-h-14 rounded-xl bg-gold px-4 font-bold text-ink-gold disabled:opacity-50">
           {busy ? "…" : "Hand to customer"}
         </button>
       </form>
       <button
         type="button"
         onClick={() => setScanning(true)}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] font-bold text-ink"
+        className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] font-bold text-ink"
       >
         <QrCode className="h-4 w-4 text-gold" /> Scan QR
       </button>
       {confirmMissed ? (
         <div className="space-y-2 rounded-2xl border border-[var(--border-faint)] p-3">
-          <p className="text-sm text-ink">Customer not here? The parcel goes on to the petrol station.</p>
+          <p className="text-lg text-ink">Customer not here? The parcel goes on to the petrol station.</p>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setConfirmMissed(false)} disabled={busy} className="min-h-11 flex-1 rounded-full border border-[var(--border-faint)] text-sm font-bold text-ink">
+            <button type="button" onClick={() => setConfirmMissed(false)} disabled={busy} className="min-h-14 flex-1 rounded-full border border-[var(--border-faint)] text-lg font-bold text-ink">
               Cancel
             </button>
-            <button type="button" onClick={missed} disabled={busy} className="min-h-11 flex-1 rounded-full bg-gold text-sm font-bold text-ink-gold disabled:opacity-50">
+            <button type="button" onClick={missed} disabled={busy} className="min-h-14 flex-1 rounded-full bg-gold text-lg font-bold text-ink-gold disabled:opacity-50">
               {busy ? "Please wait…" : "Confirm"}
             </button>
           </div>
@@ -543,12 +542,12 @@ function MeetCustomer({ leg, onChange, onMissed }: { leg: RelayOperatorParcels["
           type="button"
           onClick={() => setConfirmMissed(true)}
           disabled={busy}
-          className="min-h-11 w-full rounded-full border border-[var(--border-faint)] text-sm font-bold text-ink disabled:opacity-50"
+          className="min-h-14 w-full rounded-full border border-[var(--border-faint)] text-lg font-bold text-ink disabled:opacity-50"
         >
           Customer not here
         </button>
       )}
-      {message && <p className={message.ok ? "text-sm font-semibold text-green" : errorBox}>{message.text}</p>}
+      {message && <p className={message.ok ? "text-lg font-semibold text-green" : errorBox}>{message.text}</p>}
       {scanning && <QrScanner title="Scan customer's QR" onScan={onScan} onClose={closeScanner} />}
     </div>
   );
@@ -584,14 +583,14 @@ function FollowParcel({ orderId }: { orderId: string }) {
 
   return (
     <div className="border-t border-[var(--border-faint)] pt-3">
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center justify-between text-sm font-bold text-gold">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center justify-between text-lg font-bold text-gold">
         Follow
         {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
       </button>
       {open && (
         <div className="pt-3">
           {error && <p className={errorBox}>{error}</p>}
-          {!track && !error && <p className="text-sm text-ink-500">Loading…</p>}
+          {!track && !error && <p className="text-lg text-ink-500">Loading…</p>}
           {track && <RelayTimeline track={track} />}
         </div>
       )}
