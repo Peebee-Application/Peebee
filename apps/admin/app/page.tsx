@@ -1,7 +1,8 @@
 "use client";
 
 import type { AdminStats, FailedPayment, IntegrationsStatus, OrderModuleKey, OrderOverview, OrderOverviewRange } from "@peebee/shared";
-import { Activity, AlertTriangle, CheckCircle2, Package, ShoppingBag, Store, Truck, Wallet, XCircle } from "lucide-react";
+import Link from "next/link";
+import { Activity, AlertTriangle, ChevronRight, UsersRound, CheckCircle2, Package, ShoppingBag, Store, Truck, Wallet, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../lib/api";
 import { formatUgx, formatDate } from "../lib/order-display";
@@ -213,6 +214,11 @@ export default function OverviewPage() {
             <StatCard label="Verified riders" value={stats.verifiedRiders} />
             <StatCard label="Restaurants" value={stats.totalRestaurants} />
           </section>
+          <Link href="/people/types" className="home-card flex min-h-16 items-center gap-3">
+            <UsersRound className="h-6 w-6 shrink-0 text-gold" aria-hidden />
+            <span className="min-w-0 flex-1 text-lg font-bold text-ink">Every kind of user</span>
+            <ChevronRight className="h-5 w-5 text-ink-500/60" aria-hidden />
+          </Link>
           <OrdersByModule />
         </>
       )}
@@ -223,6 +229,11 @@ export default function OverviewPage() {
             <p className="text-sm font-semibold text-white/70">Settled GMV, all time</p>
             <p className="mt-1 text-4xl font-extrabold text-gold">{formatUgx(stats.settledGmv)}</p>
           </section>
+          <Link href="/income" className="home-card flex min-h-16 items-center gap-3">
+            <Wallet className="h-6 w-6 shrink-0 text-gold" aria-hidden />
+            <span className="min-w-0 flex-1 text-lg font-bold text-ink">Every income stream</span>
+            <ChevronRight className="h-5 w-5 text-ink-500/60" aria-hidden />
+          </Link>
           <section className="grid grid-cols-3 gap-3">
             <StatCard label="Pending" value={stats.paymentsByStatus.pending ?? 0} />
             <StatCard label="Paid" value={stats.paymentsByStatus.successful ?? 0} />
