@@ -51,10 +51,10 @@ export default function JobPage() {
     }
   }
 
-  if (!job) return error ? <div className="rounded-2xl bg-red-500/10 p-3 text-xs font-bold text-red-600" role="alert">{error}</div> : <p className="text-xs text-ink-500">Loading…</p>;
+  if (!job) return error ? <div className="rounded-2xl bg-red-500/10 p-3 text-base font-bold text-red-600" role="alert">{error}</div> : <p className="text-base text-ink-500">Loading…</p>;
 
   const owner = role === "owner";
-  const btn = "w-full rounded-2xl bg-gold py-3 text-sm font-black text-ink-gold shadow transition active:scale-[0.98] disabled:opacity-50";
+  const btn = "w-full min-h-16 rounded-2xl bg-gold text-xl font-black text-ink-gold shadow transition active:scale-[0.98] disabled:opacity-50";
   const quoteNum = Number(quote);
 
   return (
@@ -64,9 +64,9 @@ export default function JobPage() {
         <StatusBadge status={job.status} />
       </div>
 
-      {error && <div className="rounded-2xl bg-red-500/10 p-3 text-xs font-bold text-red-600" role="alert">{error}</div>}
+      {error && <div className="rounded-2xl bg-red-500/10 p-3 text-base font-bold text-red-600" role="alert">{error}</div>}
 
-      <section className="home-card space-y-2 p-4 text-xs font-medium text-ink-500">
+      <section className="home-card space-y-2 p-4 text-base font-medium text-ink-500">
         <p><span className="font-black text-ink">Where: </span>{job.address}{job.area ? ` (${job.area})` : ""}</p>
         <p><span className="font-black text-ink">When: </span>{whenLabel(job.scheduledFor)}</p>
         {job.details && <p><span className="font-black text-ink">Details: </span>{job.details}</p>}
@@ -86,8 +86,8 @@ export default function JobPage() {
       {owner && staff.length > 0 && ["assigned", "booked"].includes(job.status) && (
         <section className="home-card space-y-2 p-4">
           <label className="block space-y-1">
-            <span className="text-xs font-bold text-ink-500">Assign to a team member</span>
-            <select defaultValue="" disabled={busy} onChange={(e) => e.target.value && run(() => api.workAssignWorker(job.id, e.target.value))} className="w-full text-sm font-medium text-ink outline-none">
+            <span className="text-base font-bold text-ink-500">Assign to a team member</span>
+            <select defaultValue="" disabled={busy} onChange={(e) => e.target.value && run(() => api.workAssignWorker(job.id, e.target.value))} className="w-full text-lg font-medium text-ink outline-none">
               <option value="" disabled>Choose…</option>
               {staff.map((m) => <option key={m.user_id} value={m.user_id}>{m.name}</option>)}
             </select>
@@ -98,31 +98,31 @@ export default function JobPage() {
       {owner && job.status === "assigned" && job.pricingMode === "quote" && (
         <section className="home-card space-y-3 p-4">
           <label className="block space-y-1">
-            <span className="text-xs font-bold text-ink-500">Your quote for the whole job (UGX)</span>
-            <input inputMode="numeric" value={quote} onChange={(e) => setQuote(e.target.value.replace(/\D/g, ""))} className="w-full text-sm font-medium text-ink outline-none" />
+            <span className="text-base font-bold text-ink-500">Your quote for the whole job (UGX)</span>
+            <input inputMode="numeric" value={quote} onChange={(e) => setQuote(e.target.value.replace(/\D/g, ""))} className="w-full text-lg font-medium text-ink outline-none" />
           </label>
           <button type="button" disabled={busy || !quoteNum} onClick={() => run(() => api.workQuote(job.id, quoteNum))} className={btn}>Send quote</button>
         </section>
       )}
 
       {job.status === "booked" && flags?.trackingEnabled && !job.arrivedAt && (
-        <button type="button" disabled={busy} onClick={() => run(() => api.workArrived(job.id))} className="w-full rounded-2xl border border-[var(--border-faint)] py-3 text-sm font-black text-ink transition active:scale-[0.98] disabled:opacity-50">I&apos;ve arrived</button>
+        <button type="button" disabled={busy} onClick={() => run(() => api.workArrived(job.id))} className="w-full min-h-14 rounded-2xl border border-[var(--border-faint)] text-lg font-black text-ink transition active:scale-[0.98] disabled:opacity-50">I&apos;ve arrived</button>
       )}
-      {job.status === "booked" && job.arrivedAt && <p className="text-xs font-black text-green">You marked yourself as arrived. The customer has been told.</p>}
+      {job.status === "booked" && job.arrivedAt && <p className="text-base font-black text-green">Arrived. The customer knows.</p>}
       {job.status === "booked" && <button type="button" disabled={busy} onClick={() => run(() => api.workStartJob(job.id))} className={btn}>Start job</button>}
 
       {job.status === "in_progress" && (
         <section className="home-card space-y-3 p-4">
           <label className="block space-y-1">
-            <span className="text-xs font-bold text-ink-500">Note for the customer (optional)</span>
-            <textarea rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} className="w-full resize-none text-sm font-medium text-ink outline-none" />
+            <span className="text-base font-bold text-ink-500">Note for the customer (optional)</span>
+            <textarea rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} className="w-full resize-none text-lg font-medium text-ink outline-none" />
           </label>
           <button type="button" disabled={busy} onClick={() => run(() => api.workCompleteJob(job.id, note.trim() || undefined))} className={btn}>Mark as finished</button>
         </section>
       )}
 
-      {job.status === "completed" && <p className="text-xs font-medium text-ink-500">Finished. You are paid when the customer confirms{job.confirmBy ? `, or automatically ${whenLabel(job.confirmBy)}` : ""}.</p>}
-      {job.status === "settled" && <p className="text-xs font-black text-green">Paid out to your wallet.</p>}
+      {job.status === "completed" && <p className="text-base font-medium text-ink-500">Finished. Paid when the customer confirms{job.confirmBy ? `, or automatically ${whenLabel(job.confirmBy)}` : ""}.</p>}
+      {job.status === "settled" && <p className="text-base font-black text-green">Paid out to your wallet.</p>}
 
       {flags?.trackingEnabled && <ShareLocation jobId={job.id} active={["booked", "in_progress"].includes(job.status)} />}
       {flags?.photosEnabled && <JobPhotos jobId={job.id} canAdd={["booked", "in_progress", "completed"].includes(job.status)} maxPhotos={flags.maxPhotosPerJob} />}
@@ -146,7 +146,7 @@ export default function JobPage() {
               await load();
             }
           }}
-          className="w-full rounded-2xl border border-red-500/40 py-3 text-sm font-black text-red-600 transition active:scale-[0.98] disabled:opacity-50"
+          className="w-full min-h-14 rounded-2xl border border-red-500/40 text-lg font-black text-red-600 transition active:scale-[0.98] disabled:opacity-50"
         >
           Cancel job
         </button>

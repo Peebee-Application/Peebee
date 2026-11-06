@@ -1,7 +1,7 @@
 "use client";
 
 import type { WorkStaffMember } from "@peebee/shared";
-import { Trash2 } from "lucide-react";
+import { Trash2, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
@@ -16,7 +16,7 @@ export default function TeamPage() {
   const load = useCallback(() => api.workStaff().then((r) => setStaff(r.staff)).catch((e) => setError(errorMessage(e))), []);
   useEffect(() => { if (isOwner) load(); }, [isOwner, load]);
 
-  if (provider?.kind !== "company" || !isOwner) return <p className="text-xs font-medium text-ink-500">Teams are for company accounts.</p>;
+  if (provider?.kind !== "company" || !isOwner) return <p className="text-base font-medium text-ink-500">Teams are for company accounts.</p>;
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -45,27 +45,27 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-black text-ink">Your team</h1>
-      <p className="text-xs font-medium text-ink-500">Staff sign in with their own Peebee account and only see the jobs you assign to them. Payouts always go to you.</p>
-      {error && <div className="rounded-2xl bg-red-500/10 p-3 text-xs font-bold text-red-600" role="alert">{error}</div>}
+      <h1 className="flex items-center gap-2 text-2xl font-black text-ink"><Users className="h-7 w-7 text-gold" aria-hidden /> Team</h1>
+      <p className="text-base font-medium text-ink-500">Staff see only the jobs you assign. Payouts go to you.</p>
+      {error && <div className="rounded-2xl bg-red-500/10 p-3 text-base font-bold text-red-600" role="alert">{error}</div>}
 
       <form onSubmit={add} className="home-card space-y-3 p-4">
         <label className="block space-y-1">
-          <span className="text-xs font-bold text-ink-500">Add by phone number or email</span>
-          <input required value={identifier} onChange={(e) => setIdentifier(e.target.value)} className="w-full text-sm font-medium text-ink outline-none" />
+          <span className="text-base font-bold text-ink-500">Phone or email</span>
+          <input required value={identifier} onChange={(e) => setIdentifier(e.target.value)} className="w-full text-lg font-medium text-ink outline-none" />
         </label>
-        <button type="submit" disabled={busy} className="w-full rounded-2xl bg-gold py-2.5 text-sm font-black text-ink-gold transition active:scale-[0.98] disabled:opacity-50">Add team member</button>
+        <button type="submit" disabled={busy} className="w-full min-h-14 rounded-2xl bg-gold text-lg font-black text-ink-gold transition active:scale-[0.98] disabled:opacity-50">Add team member</button>
       </form>
 
       {staff.filter((m) => m.status === "active").map((m) => (
         <div key={m.user_id} className="home-card flex items-center justify-between gap-3 p-4">
           <div className="min-w-0">
-            <p className="truncate text-sm font-black text-ink">{m.name}</p>
-            <p className="text-xs font-medium text-ink-500">{m.role === "owner" ? "Owner" : m.phone || "Staff"}</p>
+            <p className="truncate text-lg font-black text-ink">{m.name}</p>
+            <p className="text-base font-medium text-ink-500">{m.role === "owner" ? "Owner" : m.phone || "Staff"}</p>
           </div>
           {m.role !== "owner" && (
-            <button type="button" aria-label={`Remove ${m.name}`} onClick={() => remove(m.user_id)} className="rounded-full p-2 text-red-600 transition active:scale-90">
-              <Trash2 className="h-4 w-4" aria-hidden />
+            <button type="button" aria-label={`Remove ${m.name}`} onClick={() => remove(m.user_id)} className="flex h-14 w-14 items-center justify-center rounded-full text-red-600 transition active:scale-90">
+              <Trash2 className="h-6 w-6" aria-hidden />
             </button>
           )}
         </div>

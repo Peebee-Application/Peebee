@@ -62,14 +62,14 @@ export function ShareLocation({ jobId, active }: { jobId: string; active: boolea
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <MapPin className={`h-5 w-5 shrink-0 ${state === "sharing" && !quiet ? "text-green" : "text-ink-500"}`} aria-hidden />
-          <p className="text-xs font-medium text-ink-500">
+          <p className="text-base font-medium text-ink-500">
             {state === "sharing" ? "The customer can see where you are. Your location is recorded during the job, and cancelling after a long stay at the address can be reviewed by Peebee." : state === "denied" ? "Location is blocked. Allow it in your browser settings so the customer can follow you." : state === "unavailable" ? "Your location isn't available right now." : "Location sharing is off."}
           </p>
         </div>
-        <button type="button" onClick={() => setOn((v) => !v)} className="shrink-0 rounded-full border border-[var(--border-faint)] px-3 py-1.5 text-xs font-black text-ink">{on ? "Stop" : "Share"}</button>
+        <button type="button" onClick={() => setOn((v) => !v)} className="shrink-0 rounded-full border border-[var(--border-faint)] px-3 py-1.5 text-base font-black text-ink">{on ? "Stop" : "Share"}</button>
       </div>
       {state === "sharing" && quiet && (
-        <p className="rounded-xl bg-gold/15 p-2.5 text-xs font-bold text-ink" role="status">
+        <p className="rounded-xl bg-gold/15 p-2.5 text-base font-bold text-ink" role="status">
           Location updates have stopped. Keep this page open with the screen on, and make sure location is allowed.
         </p>
       )}
