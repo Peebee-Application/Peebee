@@ -10,7 +10,9 @@ import {
   type Merchant,
   type RestaurantStatus,
 } from "@peebee/shared";
-import { Filter, Search, Store, Users as UsersIcon } from "lucide-react";
+import { ChevronRight, Clock, Filter, Search, Store, Users as UsersIcon } from "lucide-react";
+import Link from "next/link";
+import { adminRequest } from "../../lib/admin-request";
 import { PersonCard } from "../../components/PersonPreview";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
@@ -422,6 +424,29 @@ function SummaryStrip() {
   );
 }
 
+/** The way into approving and suspending every kind of person, with how many are waiting. */
+function ReviewEntry() {
+  const [waiting, setWaiting] = useState<number | null>(null);
+  useEffect(() => {
+    adminRequest<{ people: { pending: number | null }[] }>("/admin/platform/people")
+      .then((d) => setWaiting(d.people.reduce((n, p) => n + (p.pending ?? 0), 0)))
+      .catch(() => setWaiting(null));
+  }, []);
+  return (
+    <Link href="/people/types" className="home-card !bg-black-700 flex min-h-20 items-center gap-3 text-white dark:!bg-black">
+      <UsersIcon className="h-7 w-7 shrink-0 text-gold" aria-hidden />
+      <span className="min-w-0 flex-1">
+        <span className="block text-lg font-extrabold">Approve & suspend</span>
+        <span className="block text-sm text-white/70">All 30 kinds of user</span>
+      </span>
+      {waiting != null && waiting > 0 && (
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gold px-3 py-1 text-base font-extrabold text-ink-gold"><Clock className="h-4 w-4" aria-hidden />{waiting}</span>
+      )}
+      <ChevronRight className="h-5 w-5 shrink-0 text-white/60" aria-hidden />
+    </Link>
+  );
+}
+
 export default function UsersPage() {
   const [tab, setTab] = useState<Tab>("riders");
   useEffect(()=>{const saved=new URLSearchParams(window.location.search).get("tab");if(saved==="riders"||saved==="customers"||saved==="restaurants"||saved==="merchants")setTab(saved);},[]);
@@ -430,6 +455,8 @@ export default function UsersPage() {
   return (
     <div className="space-y-5 px-4 pb-6 pt-4">
       <h1 className="text-xl font-bold text-ink">Users</h1>
+
+      <ReviewEntry />
 
       <SummaryStrip />
 
