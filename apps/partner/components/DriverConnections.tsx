@@ -39,23 +39,23 @@ export function DriverConnections() {
 
   return (
     <section className="home-card space-y-3">
-      <h2 className="font-bold">Cars you drive for owners</h2>
-      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
+      <h2 className="text-xl font-bold">Owners&apos; cars</h2>
+      {error && <p className="rounded-xl bg-red-50 p-3 text-lg text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       {rows.map((c) => (
         <div key={c.assignmentId} className="space-y-1 border-t border-[var(--border-faint)] pt-3 first:border-t-0 first:pt-0">
-          <p className="text-sm font-semibold text-ink">{c.car} <span className="font-normal text-ink-500">· {c.plate} · owner {c.ownerName}</span></p>
-          <p className="text-xs text-ink-500">{describeTerms(c.terms)}</p>
+          <p className="text-xl font-bold text-ink">{c.car} <span className="font-normal text-ink-500">· {c.plate} · owner {c.ownerName}</span></p>
+          <p className="text-base text-ink-500">{describeTerms(c.terms)}</p>
           {c.terms?.feeType === "rent" && (
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-ink">Rent owed: <strong>{ugx(c.rentOwed)}</strong></p>
+              <p className="text-base text-ink">Rent owed: <strong>{ugx(c.rentOwed)}</strong></p>
               {c.rentOwed > 0 && (
-                <button type="button" disabled={busy === c.assignmentId} onClick={() => pay(c.assignmentId)} className="min-h-9 rounded-full bg-gold px-3 text-xs font-bold text-ink-gold disabled:opacity-50">
+                <button type="button" disabled={busy === c.assignmentId} onClick={() => pay(c.assignmentId)} className="min-h-14 rounded-full bg-gold px-3 text-base font-bold text-ink-gold disabled:opacity-50">
                   {busy === c.assignmentId ? "Paying…" : "Pay from wallet"}
                 </button>
               )}
             </div>
           )}
-          {c.terms?.feeType === "rent" && <p className="text-xs text-ink-500">Rent is also taken from your next ride earnings.</p>}
+          {c.terms?.feeType === "rent" && <p className="text-base text-ink-500">Also taken from your next rides.</p>}
         </div>
       ))}
     </section>
