@@ -97,6 +97,8 @@ export default function HomeTemplatesPage() {
           </section>
           <section className="home-card space-y-4">
             <h2 className="font-bold">Timing and frequency</h2>
+            <label className="flex min-h-11 items-center gap-3"><Switch checked={config.rotateOnReturn} onChange={(e) => change({ rotateOnReturn: e.target.checked })} /><span>Change template when returning home</span></label>
+            <p className="text-xs text-ink-500">Choose another active template whenever a customer navigates back to the homepage. Timed rotation also continues. With only one active template, its shortcuts refresh instead.</p>
             <fieldset className="space-y-3">
               <legend className="text-sm font-semibold">Explore animated lines</legend>
               <p className="text-xs text-ink-500">Lines play in this order for enabled modules. The module also selects the photograph.</p>

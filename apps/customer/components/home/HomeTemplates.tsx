@@ -13,7 +13,7 @@ import { useHireAvailability } from "../../lib/home-menu";
 import { useChatDrawer } from "../../lib/chat-drawer";
 import { useCalls } from "../../lib/calls-context";
 import { isNavigationOverlayOpen } from "../../lib/location-flow-state";
-import { canRotateHome, chooseHomeSelection, restoreHomeSelection, type HomeSelection } from "../../lib/home-rotation";
+import { canRotateHome, chooseHomeSelection, initialHomeSelection, type HomeSelection } from "../../lib/home-rotation";
 import { Greeting } from "./Greeting";
 import { ExplorePeebeeCard, HomeLaunch } from "./HomeScreensaver";
 import "@peebee/shared/home-artwork.css";
@@ -57,7 +57,7 @@ function DynamicHome({ config, settings, children }: { config: HomeTemplatesSett
   const blocked = chat.open || !["idle", "ended", "error"].includes(calls.state.phase);
   return <HomeLaunch startClosed><div className="dh space-y-5 px-4 pb-6 pt-4">
     <Greeting compact />
-    <HomeArtwork key={`${storageKey}:${availableKey}:${config.shortcutCount}:${config.templates.join("|")}`} config={config} available={available} storageKey={storageKey} blocked={blocked} />
+    <HomeArtwork key={`${storageKey}:${availableKey}:${config.shortcutCount}:${config.templates.join("|")}:${config.rotateOnReturn}`} config={config} available={available} storageKey={storageKey} blocked={blocked} />
     {children}
     <ExplorePeebeeCard timing={config} />
   </div></HomeLaunch>;
@@ -69,7 +69,7 @@ function HomeArtwork({ config, available, storageKey, blocked }: { config: HomeT
   const [selection, setSelection] = useState<HomeSelection>(() => {
     let raw: string | null = null;
     try { raw = sessionStorage.getItem(storageKey); } catch { /* Storage is optional. */ }
-    return restoreHomeSelection(raw, config, available) ?? chooseHomeSelection(config, available);
+    return initialHomeSelection(raw, config, available);
   });
   const lastInteraction = useRef(0);
   const pointerDown = useRef(false);

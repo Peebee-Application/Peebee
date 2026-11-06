@@ -6,6 +6,7 @@ const limits = HOME_TEMPLATE_LIMITS;
 const seconds = z.number().int().min(limits.minSeconds).max(limits.maxSeconds);
 export const homeTemplatesSchema = z.object({
   enabled: z.boolean(),
+  rotateOnReturn: z.boolean().default(DEFAULT_HOME_TEMPLATES.rotateOnReturn),
   templates: z.array(z.enum(HOME_TEMPLATE_IDS)).min(1).max(HOME_TEMPLATE_IDS.length),
   eligibleShortcuts: z.array(z.enum(HOME_SHORTCUT_IDS)).min(1).max(HOME_SHORTCUT_IDS.length),
   preferredShortcuts: z.array(z.enum(HOME_SHORTCUT_IDS)).max(HOME_SHORTCUT_IDS.length),
