@@ -17,20 +17,17 @@ export function Pairing({ code, linkUrl }: { code: string | null; linkUrl: strin
           <h1 className="text-[3.4rem] font-black leading-[1.05] text-ink">Link this TV to your account</h1>
           <ol className="space-y-[0.6rem] text-[1.5rem] leading-snug text-ink-500">
             <li>
-              <strong className="text-ink">1.</strong> On your phone, open the <strong className="text-ink">Peebee</strong> app and go to <strong className="text-ink">Learn</strong>, then <strong className="text-ink">Watch on your TV</strong>
+              <strong className="text-ink">1.</strong> Open <strong className="text-ink">Peebee</strong> on your phone: <strong className="text-ink">Learn</strong> › <strong className="text-ink">Watch on your TV</strong>
             </li>
             <li>
-              <strong className="text-ink">2.</strong> Type this code, or scan the picture with your phone&apos;s camera
-            </li>
-            <li>
-              <strong className="text-ink">3.</strong> Your courses, lessons and quizzes appear here
+              <strong className="text-ink">2.</strong> Type this code, or scan the picture
             </li>
           </ol>
           <p className="font-mono text-[6.2rem] font-black leading-none tracking-[0.18em] text-ink" aria-label={code ? `Code ${code.split("").join(" ")}` : "Getting a code"}>
             {code ?? "······"}
           </p>
           <p className="text-[1.05rem] text-ink-500">
-            The code changes every few minutes, and this screen connects by itself the moment you enter it. Teachers: to use this screen in a live class, add it in Peebee Learn under Screens.
+            The code changes every few minutes. Teachers: add this screen in Peebee Learn › Screens.
           </p>
         </section>
         <Qr value={url} label="QR code that opens the page to link this TV in the Peebee app" className="aspect-square w-full" />

@@ -56,7 +56,7 @@ export function TrialPicker({ heading = "Just looking? Watch a practice class" }
               className="flex w-[34rem] flex-col rounded-[1.4rem] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-[1.3rem] text-left focus:bg-gold focus:text-ink-gold disabled:opacity-60"
             >
               <span className="text-[1.5rem] font-black leading-tight">{c.title.replace(/^Trial class: /, "")}</span>
-              <span className="mt-[0.3rem] text-[1.05rem] opacity-80">with {c.hostName}. Plays by itself; phones join with a code.</span>
+              <span className="mt-[0.3rem] text-[1.05rem] opacity-80">with {c.hostName}</span>
             </button>
           </li>
         ))}

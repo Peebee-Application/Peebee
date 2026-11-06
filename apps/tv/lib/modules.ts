@@ -11,7 +11,7 @@ export const MODULES: TvModule[] = [
   {
     id: "my-courses",
     title: "My courses",
-    description: "Pick up where you left off: lessons, videos and quizzes from the courses you've joined.",
+    description: "Your lessons, videos and quizzes",
     href: "/courses",
     icon: BookOpen,
     needs: "learn",
@@ -19,7 +19,7 @@ export const MODULES: TvModule[] = [
   {
     id: "browse",
     title: "Browse courses",
-    description: "Find something new to learn, from kindergarten to university and practical skills.",
+    description: "Find something new to learn",
     href: "/browse",
     icon: LayoutGrid,
     needs: "learn",
@@ -27,7 +27,7 @@ export const MODULES: TvModule[] = [
   {
     id: "live",
     title: "Live class",
-    description: "Show a live class on this screen. Tutors choose it in Peebee Learn; students answer on their phones.",
+    description: "Your tutor's class, on this screen",
     href: "/learn",
     icon: Radio,
     needs: "live",
