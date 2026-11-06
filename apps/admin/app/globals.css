@@ -396,3 +396,23 @@ label:has(> .pb-switch:disabled) { cursor: not-allowed; }
 .pb-combo-option { padding-right: 14px; }
 .pb-combo-option[data-active] { background-color: rgb(var(--surface-muted)); }
 .pb-combo-option[aria-selected="true"] { font-weight: 700; }
+
+/* ---- Phone: bigger type and touch targets on every admin screen ----
+   Most admin pages use Tailwind's small text sizes (12 to 15px). On a phone each steps up one size, fields and the
+   save button get a comfortable height, and switches get a bigger thumb. Phones only: tablets and desktop keep the
+   compact layout. */
+@media (max-width: 639px) {
+  .admin-main .text-xs { font-size: 0.875rem; line-height: 1.25rem; }
+  .admin-main .text-sm { font-size: 1rem; line-height: 1.5rem; }
+  .admin-main .text-\[15px\] { font-size: 1.0625rem; line-height: 1.5rem; }
+  .admin-main .text-\[13px\], .admin-main .text-\[13\.5px\] { font-size: 0.9375rem; }
+  .admin-main .text-\[11px\] { font-size: 0.8125rem; }
+  .admin-main :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]), select) { min-height: 3.25rem; font-size: 1rem; }
+  .admin-main textarea { min-height: 6rem; font-size: 1rem; }
+  .admin-main .peebee-select-trigger { min-height: 3.25rem; font-size: 1rem; }
+  .admin-main .admin-btn-gold { min-height: 3.5rem; font-size: 1.0625rem; }
+  .admin-main .pb-switch { width: 56px; height: 32px; }
+  .admin-main .pb-switch::after { top: 4px; left: 4px; width: 24px; height: 24px; }
+  .admin-main .pb-switch:checked::after { transform: translateX(24px); }
+  .admin-title { font-size: 1.625rem; }
+}
