@@ -92,11 +92,12 @@ export default function OnboardPage() {
               key={k.id}
               type="button"
               onClick={() => setKind(k.id)}
-              className={`flex flex-col items-start gap-1 rounded-2xl border p-3 text-left transition active:scale-[0.98] ${kind === k.id ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"}`}
+              aria-pressed={kind === k.id}
+              className="select-card items-start gap-1 text-left"
             >
-              <k.icon className={`h-5 w-5 ${kind === k.id ? "text-gold" : "text-ink-500"}`} aria-hidden />
-              <span className="text-lg font-black text-ink">{k.label}</span>
-              <span className="text-sm font-medium text-ink-500">{k.hint}</span>
+              <k.icon className="select-card__icon h-5 w-5 text-ink-500" aria-hidden />
+              <span className="select-card__title text-lg text-ink">{k.label}</span>
+              <span className="select-card__sub !text-sm">{k.hint}</span>
             </button>
           ))}
         </div>

@@ -6,11 +6,13 @@ import { RiderProfileModal } from "./RiderProfileModal";
 import { api, errorMessage } from "../lib/api";
 import { useTranslate } from "../lib/i18n";
 import { formatUgx } from "../lib/order-display";
+import { useCalls } from "../lib/calls-context";
 import { useLivePolling } from "../lib/use-live-polling";
 
 /** For a "customer_selects" order still unmatched — each applicant's distance and track record, and a pick button. */
 export function ApplicantPicker({ orderId, onSelected }: { orderId: string; onSelected: () => void }) {
   const t = useTranslate();
+  const { startCall } = useCalls();
   const [applicants, setApplicants] = useState<RiderApplicant[]>([]);
   const [profileApplicant, setProfileApplicant] = useState<RiderApplicant | null>(null);
   const selecting = useRef(false);
@@ -113,6 +115,7 @@ export function ApplicantPicker({ orderId, onSelected }: { orderId: string; onSe
         busy={busyId !== null}
         selectionError={error}
         onChoose={() => choose(profileApplicant.riderId)}
+        onCall={() => startCall({ calleeId: profileApplicant.riderId, orderId })}
         onClose={() => setProfileApplicant(null)}
       />}
     </div>

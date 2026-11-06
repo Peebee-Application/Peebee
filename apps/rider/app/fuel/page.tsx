@@ -293,26 +293,20 @@ export default function RiderFuelPage() {
               <button
                 type="button"
                 onClick={() => setSelectedProductId("prod_petrol")}
-                className={`flex items-center justify-center gap-2 rounded-xl border p-2.5 text-xs transition ${
-                  selectedProductId === "prod_petrol"
-                    ? "border-gold bg-gold/10 font-black text-ink"
-                    : "border-[var(--border-faint)] bg-[rgb(var(--surface-input))] font-bold text-ink-500"
-                }`}
+                aria-pressed={selectedProductId === "prod_petrol"}
+                className="select-card !flex-row items-center justify-center gap-2"
               >
                 <Fuel className="h-4 w-4 text-gold" />
-                <span>Petrol</span>
+                <span className="select-card__title text-sm text-ink">Petrol</span>
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedProductId("prod_diesel")}
-                className={`flex items-center justify-center gap-2 rounded-xl border p-2.5 text-xs transition ${
-                  selectedProductId === "prod_diesel"
-                    ? "border-navy bg-navy/10 font-black text-ink"
-                    : "border-[var(--border-faint)] bg-[rgb(var(--surface-input))] font-bold text-ink-500"
-                }`}
+                aria-pressed={selectedProductId === "prod_diesel"}
+                className="select-card !flex-row items-center justify-center gap-2"
               >
                 <Fuel className="h-4 w-4 text-navy" />
-                <span>Diesel</span>
+                <span className="select-card__title text-sm text-ink">Diesel</span>
               </button>
             </div>
           </div>

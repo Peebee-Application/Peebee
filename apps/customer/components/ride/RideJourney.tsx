@@ -3,7 +3,7 @@
 import type { OrderDetail, OrderRating } from "@peebee/shared";
 import { Bike, Car, CheckCircle2, MapPin, Navigation, Wallet } from "lucide-react";
 import Link from "next/link";
-import { ApplicantPicker } from "../ApplicantPicker";
+import { RideApplicants } from "./RideApplicants";
 import { LiveTrackingMap } from "../LiveTrackingMap";
 import { RateDeliveryCard } from "../RateDeliveryCard";
 import { SwipeToConfirm } from "../SwipeToConfirm";
@@ -12,10 +12,12 @@ import { RideStopsList } from "./RideStopsList";
 import { RideTripCard, useRideTripDetails } from "./RideTripCard";
 
 /** The four things a rider-passenger cares about, in order. Everything before the rider is moving is "finding". */
-export type RideMoment = "finding" | "onway" | "here" | "riding" | "arrived";
+export type RideMoment = "finding" | "ready" | "onway" | "here" | "riding" | "arrived";
 
-export function rideMoment(stage: string): RideMoment {
+export function rideMoment(stage: string, hasRider = false): RideMoment {
   switch (stage) {
+    // Paid and matched, the rider has not set off yet: the ride is confirmed, nobody is being searched for any more.
+    case "Shop": return hasRider ? "ready" : "finding";
     case "Deliver": return "onway";
     case "Arrived": return "here";
     case "PickedUp": return "riding";
@@ -25,7 +27,7 @@ export function rideMoment(stage: string): RideMoment {
   }
 }
 
-const STEPS: RideMoment[] = ["onway", "here", "riding", "arrived"];
+const STEPS: RideMoment[] = ["ready", "onway", "here", "riding", "arrived"];
 
 /**
  * A ride is not a shopping order: no timeline, no item lists, no breakdown.
@@ -53,7 +55,7 @@ export function RideJourney({
 }) {
   const { order } = detail;
   const trip = useRideTripDetails(order);
-  const moment = rideMoment(order.stage);
+  const moment = rideMoment(order.stage, !!order.rider_id);
   const kind = trip.car?.categoryName || trip.car?.vehicleName ? "car" : "boda";
   const Kind = kind === "car" ? "Car" : "Boda";
   const KindIcon = kind === "car" ? Car : Bike;
@@ -69,7 +71,10 @@ export function RideJourney({
 
   let title: string;
   let sub: string | null;
-  if (moment === "onway") {
+  if (moment === "ready") {
+    title = `Your ${Kind} is confirmed`;
+    sub = `${firstName ?? "Your rider"} is getting ready to come to you`;
+  } else if (moment === "onway") {
     title = `Your ${Kind} is on the way`;
     sub = [firstName, order.eta_minutes ? `~${order.eta_minutes} min away` : null].filter(Boolean).join(" · ") || null;
   } else if (moment === "here") {
@@ -86,7 +91,7 @@ export function RideJourney({
     sub = firstName ? `${firstName} is matched` : "Your rider is matched";
   } else {
     title = scheduled ? "Ride booked" : `Finding your ${Kind}…`;
-    sub = scheduled ? new Date(scheduled).toLocaleString("en-UG", { dateStyle: "medium", timeStyle: "short" }) : "This usually takes a minute";
+    sub = scheduled ? new Date(scheduled).toLocaleString("en-UG", { dateStyle: "medium", timeStyle: "short" }) : paid && !order.rider_id ? "Paid. Waiting for a rider to take it" : "This usually takes a minute";
   }
 
   const at = STEPS.indexOf(moment);
@@ -115,7 +120,7 @@ export function RideJourney({
       </header>
 
       {moment === "finding" && !order.rider_id && order.matching_mode === "customer_selects" && (
-        <section className="home-card"><ApplicantPicker orderId={order.id} onSelected={onChanged} /></section>
+        <RideApplicants orderId={order.id} kind={Kind} onSelected={onChanged} />
       )}
 
       {awaitingPay && (

@@ -128,9 +128,7 @@ export function MobileNumberPicker({
           {numbers.map((n) => (
             <div
               key={n.id}
-              className={`space-y-2 rounded-xl border px-3 py-2.5 ${
-                selectedId === n.id ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"
-              }`}
+              className={`select-card gap-2 ${selectedId === n.id ? "is-on" : ""}`}
             >
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => choose(n)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
@@ -195,9 +193,7 @@ export function MobileNumberPicker({
       )}
 
       <div
-        className={`space-y-1.5 rounded-xl border px-3 py-2.5 ${
-          selectedId === "custom" ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"
-        }`}
+        className={`select-card gap-1.5 ${selectedId === "custom" ? "is-on" : ""}`}
       >
         <button type="button" onClick={chooseCustom} className="flex w-full items-center gap-2 text-left">
           <span

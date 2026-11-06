@@ -416,3 +416,42 @@ label:has(> .pb-switch:disabled) { cursor: not-allowed; }
   .admin-main .pb-switch:checked::after { transform: translateX(24px); }
   .admin-title { font-size: 1.625rem; }
 }
+
+/* ---- Selectable cards: one look everywhere --------------------------------------------------------------------
+   Normal: a grey card. Selected: a white card with a golden border and a soft golden glow, and a gold icon. Dark mode:
+   a warm dark card with the same golden border and glow. It reads whichever selected signal the markup already has
+   (.is-on, aria-pressed, aria-checked, or a checked radio inside), so no card needs extra state.
+   Text never wraps or overlaps: titles and descriptions stay on one line and shorten with an ellipsis. */
+.select-card {
+  position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: space-between; gap: 6px;
+  border: 0; border-radius: 18px; padding: 12px; text-align: left; color: rgb(var(--color-ink));
+  background: rgb(var(--surface-muted)); cursor: pointer;
+  transition: box-shadow .2s, background-color .2s, transform .15s;
+}
+.select-card:active:not(:disabled) { transform: scale(.97); }
+.select-card:is(.is-on, [aria-pressed="true"], [aria-checked="true"], [aria-selected="true"]),
+.select-card:has(input:checked) {
+  background: rgb(var(--surface-card));
+  box-shadow: 0 0 0 2px rgb(var(--color-gold)), 0 8px 20px -8px rgb(var(--color-gold) / .7);
+}
+.select-card__icon { flex-shrink: 0; }
+.select-card:is(.is-on, [aria-pressed="true"], [aria-checked="true"], [aria-selected="true"]) .select-card__icon,
+.select-card:has(input:checked) .select-card__icon { color: #a8851a; }
+.select-card:focus-visible, .select-card:has(input:focus-visible) { outline: 2px solid rgb(var(--color-gold)); outline-offset: 2px; }
+.select-card:is(:disabled, [aria-disabled="true"]) { opacity: .45; cursor: not-allowed; }
+.select-card input[type="radio"], .select-card input[type="checkbox"] { position: absolute; opacity: 0; pointer-events: none; }
+.select-card__title, .select-card__sub { display: block; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-card__title { font-weight: 700; line-height: 1.25; text-align: inherit; }
+.select-card__sub { text-align: inherit; }
+.select-card__sub { font-size: .8125rem; line-height: 1.25; color: rgb(var(--color-ink-500)); }
+:root[data-theme="dark"] .select-card:is(.is-on, [aria-pressed="true"], [aria-checked="true"], [aria-selected="true"]),
+:root[data-theme="dark"] .select-card:has(input:checked) { background: #221d10; }
+:root[data-theme="dark"] .select-card:is(.is-on, [aria-pressed="true"], [aria-checked="true"], [aria-selected="true"]) .select-card__icon,
+:root[data-theme="dark"] .select-card:has(input:checked) .select-card__icon { color: rgb(var(--color-gold-400)); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .select-card:is(.is-on, [aria-pressed="true"], [aria-checked="true"], [aria-selected="true"]),
+  :root:not([data-theme="light"]) .select-card:has(input:checked) { background: #221d10; }
+  :root:not([data-theme="light"]) .select-card:is(.is-on, [aria-pressed="true"], [aria-checked="true"], [aria-selected="true"]) .select-card__icon,
+  :root:not([data-theme="light"]) .select-card:has(input:checked) .select-card__icon { color: rgb(var(--color-gold-400)); }
+}
+@media (prefers-reduced-motion: reduce) { .select-card { transition: none; } }

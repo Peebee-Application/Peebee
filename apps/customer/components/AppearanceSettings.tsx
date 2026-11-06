@@ -45,11 +45,10 @@ function MapStyleSetting() {
             key={opt.pref}
             type="button"
             onClick={() => setPref(opt.pref)}
-            className={`rounded-xl border px-2 py-2 text-xs font-bold text-ink ${
-              pref === opt.pref ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"
-            }`}
+            aria-pressed={pref === opt.pref}
+            className="select-card items-center !px-1 text-center"
           >
-            {opt.label}
+            <span className="select-card__title text-xs text-ink">{opt.label}</span>
           </button>
         ))}
       </div>
@@ -74,12 +73,10 @@ export function AppearanceSettings() {
               type="button"
               aria-pressed={active}
               onClick={() => setMode(opt.mode)}
-              className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center ${
-                active ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"
-              }`}
+              className="select-card items-center gap-1.5 text-center"
             >
-              <Icon className={`h-5 w-5 ${active ? "text-gold" : "text-ink-500"}`} strokeWidth={1.75} aria-hidden />
-              <span className="text-xs font-bold text-ink">{opt.label}</span>
+              <Icon className="select-card__icon h-5 w-5 text-ink-500" strokeWidth={1.75} aria-hidden />
+              <span className="select-card__title text-xs text-ink">{opt.label}</span>
             </button>
           );
         })}

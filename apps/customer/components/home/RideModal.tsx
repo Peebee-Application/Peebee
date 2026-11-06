@@ -338,7 +338,8 @@ export function RideModal({
         ...(initialStops?.length ? { stops: initialStops } : {}),
       });
       onClose();
-      router.push(`/orders/${order.id}/pay`);
+      // Riders apply and the customer picks: show them as they come in. First come, first served goes straight to payment.
+      router.push(order.matching_mode === "customer_selects" ? `/orders/${order.id}` : `/orders/${order.id}/pay`);
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -515,15 +516,11 @@ export function RideModal({
                       type="button"
                       aria-pressed={selected}
                       onClick={() => setSelectedCargoCatId(cat.id)}
-                      className={`rounded-2xl border p-3 text-left transition-all ${
-                        selected
-                          ? "border-gold bg-gold/10 shadow-[0_3px_12px_rgba(201,162,39,.14)]"
-                          : "border-[var(--border-faint)] bg-[rgb(var(--surface-card))]"
-                      }`}
+                      className="select-card text-left"
                     >
-                      <span className="block text-sm font-bold text-ink truncate">{cat.name}</span>
-                      <span className="mt-0.5 block text-[11px] text-ink-500">{cat.size_label ?? "Cargo transport"}</span>
-                      <span className="mt-2 block text-xs font-bold text-gold">
+                      <span className="select-card__title text-sm text-ink">{cat.name}</span>
+                      <span className="select-card__sub">{cat.size_label ?? "Cargo transport"}</span>
+                      <span className="select-card__title mt-2 text-sm text-ink">
                         UGX {catFare.toLocaleString("en-UG")}
                       </span>
                     </button>
@@ -575,12 +572,12 @@ export function RideModal({
                   const selected = vehicleSize === size;
                   const image = size === "normal" ? "/images/ride-types/normal-saloon.png" : "/images/ride-types/large-minivan.png";
                   return <button key={size} type="button" aria-pressed={selected} onClick={() => setVehicleSize(size)}
-                    className={`overflow-hidden rounded-2xl border text-left transition-all active:scale-[.98] ${selected ? "border-gold bg-gold/10 shadow-[0_3px_12px_rgba(201,162,39,.14)]" : "border-[var(--border-faint)] bg-[rgb(var(--surface-card))]"}`}>
-                    <span className="block h-[94px] bg-gradient-to-b from-[rgb(var(--surface-muted))] to-[rgb(var(--surface-card))] px-2 pt-1">
+                    className="select-card overflow-hidden !p-0 text-left">
+                    <span className="block h-[94px] w-full px-2 pt-1">
                       <Image src={image} alt="" aria-hidden="true" width={768} height={768} sizes="(max-width: 640px) 50vw, 240px" className="h-full w-full object-contain" />
                     </span>
-                    <span className="block px-3 pb-3 pt-1"><span className="block text-sm font-bold text-ink">{size === "normal" ? "Normal" : "Large"}</span>
-                      <span className="mt-0.5 block text-[11px] text-ink-500">{size === "normal" ? "Saloon · 3–4 seats" : "Minivan · 5–7 seats"}</span></span>
+                    <span className="block w-full min-w-0 px-3 pb-3 pt-1"><span className="select-card__title text-sm text-ink">{size === "normal" ? "Normal" : "Large"}</span>
+                      <span className="select-card__sub">{size === "normal" ? "Saloon · 3–4 seats" : "Minivan · 5–7 seats"}</span></span>
                   </button>;
                 })}
               </div>

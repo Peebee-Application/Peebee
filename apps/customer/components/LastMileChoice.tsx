@@ -67,16 +67,14 @@ export function LastMileChoice({
               aria-checked={selected}
               disabled={disabled}
               onClick={() => choose(option.value)}
-              className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs disabled:opacity-60 ${
-                selected ? "border-gold bg-gold/10 font-bold text-ink" : "border-[var(--border-faint)] text-ink-500"
-              }`}
+              className="select-card !flex-row items-center gap-2 text-left"
             >
               <span
                 className={`h-3.5 w-3.5 shrink-0 rounded-full border-2 ${selected ? "border-gold bg-gold" : "border-[var(--border-faint)]"}`}
                 aria-hidden
               />
-              <span className="min-w-0 flex-1">{option.label}</span>
-              <span className="shrink-0 font-semibold text-ink">UGX {option.total.toLocaleString("en-UG")}</span>
+              <span className="select-card__title min-w-0 flex-1 text-sm text-ink">{option.label}</span>
+              <span className="shrink-0 whitespace-nowrap text-sm font-bold text-ink">UGX {option.total.toLocaleString("en-UG")}</span>
             </button>
             {option.value === "meet" && (
               <p className="px-1 text-[11px] text-ink-500">The matatu can&apos;t wait. If you miss it, collect at {stationName}.</p>
@@ -93,19 +91,17 @@ export function LastMileChoice({
                       aria-checked={on}
                       disabled={disabled}
                       onClick={() => onMeetStageChange?.(stage.id)}
-                      className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[11px] disabled:opacity-60 ${
-                        on ? "border-gold bg-gold/10 font-bold text-ink" : "border-[var(--border-faint)] text-ink-500"
-                      }`}
+                      className="select-card !flex-row items-center gap-2 !p-2.5 text-left"
                     >
                       <span
                         className={`h-3 w-3 shrink-0 rounded-full border-2 ${on ? "border-gold bg-gold" : "border-[var(--border-faint)]"}`}
                         aria-hidden
                       />
-                      <span className="min-w-0 flex-1">
+                      <span className="min-w-0 flex-1 truncate text-xs text-ink">
                         {stage.name}
                         {stage.isStation && <span className="font-normal text-ink-500"> · petrol station</span>}
                       </span>
-                      <span className="shrink-0 font-normal text-ink-500">{formatKm(stage.distanceKm)} away</span>
+                      <span className="shrink-0 whitespace-nowrap text-xs font-normal text-ink-500">{formatKm(stage.distanceKm)} away</span>
                     </button>
                   );
                 })}

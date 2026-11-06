@@ -1,20 +1,24 @@
 "use client";
 
 import type { RiderApplicant, RiderApplicantProfile } from "@peebee/shared";
-import { BadgeCheck, Star, ThumbsUp, User } from "lucide-react";
+import { BadgeCheck, MapPin, MessageCircle, Phone, Star, ThumbsUp, User } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../lib/api";
 import { useLanguage, useTranslate } from "../lib/i18n";
 import { Modal } from "./Modal";
 
-export function RiderProfileModal({ orderId, applicant, available, busy, selectionError, onChoose, onClose }: {
+export function RiderProfileModal({ orderId, applicant, available = true, busy = false, selectionError = null, onChoose, onCall, onChat, onClose }: {
   orderId: string;
   applicant: RiderApplicant;
-  available: boolean;
-  busy: boolean;
-  selectionError: string | null;
-  onChoose: () => void;
+  /** An applicant can be chosen; a rider who is already matched can only be called or chatted with. */
+  available?: boolean;
+  busy?: boolean;
+  selectionError?: string | null;
+  onChoose?: () => void;
+  onCall: () => void;
+  /** Only for the rider already matched: chat opens once a rider is chosen. */
+  onChat?: () => void;
   onClose: () => void;
 }) {
   const t = useTranslate();
@@ -81,27 +85,42 @@ export function RiderProfileModal({ orderId, applicant, available, busy, selecti
   return (
     <Modal title={t("rider_profile")} onClose={onClose}>
       <div className="space-y-5">
-        <div className="flex items-center gap-3">
-          {photoUrl ? <Image src={photoUrl} alt={applicant.riderName} width={72} height={72} className="h-[72px] w-[72px] shrink-0 rounded-full object-cover" /> : (
-            <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold"><User className="h-8 w-8" aria-hidden /></span>
+        <div className="flex flex-col items-center gap-1.5 text-center">
+          {photoUrl ? <Image src={photoUrl} alt={applicant.riderName} width={128} height={128} className="h-32 w-32 shrink-0 rounded-full object-cover ring-4 ring-gold/40" /> : (
+            <span className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold ring-4 ring-gold/30"><User className="h-14 w-14" aria-hidden /></span>
           )}
-          <div className="min-w-0">
-            <h3 className="break-words text-lg font-bold text-ink">{applicant.riderName}</h3>
-            {profile?.verified && <p className="flex items-center gap-1 text-xs text-green"><BadgeCheck className="h-4 w-4" aria-hidden />{t("rider_verified")}</p>}
-            {profile?.vehicleInfo && <p className="break-words text-sm text-ink-500">{profile.vehicleInfo}</p>}
-            {profile?.area && <p className="text-xs text-ink-500">{profile.area}</p>}
-          </div>
+          <h3 className="break-words text-2xl font-extrabold text-ink">{applicant.riderName}</h3>
+          {profile?.verified && <p className="flex items-center gap-1 text-sm font-semibold text-green"><BadgeCheck className="h-4 w-4" aria-hidden />{t("rider_verified")}</p>}
+          {(profile?.vehicleInfo || profile?.area) && <p className="break-words text-sm text-ink-500">{[profile?.vehicleInfo, profile?.area].filter(Boolean).join(" · ")}</p>}
+          {profile?.stage && (
+            <p className="flex max-w-full items-center gap-1.5 rounded-full bg-[rgb(var(--surface-muted))] px-3 py-1 text-sm font-semibold text-ink">
+              <MapPin className="h-4 w-4 shrink-0 text-gold" aria-hidden />
+              <span className="truncate">{t("rider_stage")}: {profile.stage.name}{profile.stage.area ? ` · ${profile.stage.area}` : ""}</span>
+            </p>
+          )}
         </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-ink-500">
-          <span className="flex items-center gap-1"><Star className="h-4 w-4 fill-gold text-gold" aria-hidden />{applicant.avgRating ?? "—"} · {t("rider_reviews_count", { count: applicant.reviewCount })}</span>
-          <span className="flex items-center gap-1 text-green"><ThumbsUp className="h-4 w-4" aria-hidden />{applicant.recommendCount} {t("order_recommends")}</span>
-          <span>{t("rider_comments_count", { count: applicant.commentCount })}</span>
-        </div>
+        <dl className="grid grid-cols-3 gap-2 text-center">
+          {([
+            [t("rider_total_rides"), profile ? profile.completed.total.toLocaleString(locale) : "—"],
+            [t("rider_distance"), profile ? profile.totalKm.toLocaleString(locale) : "—"],
+            [t("rider_rating"), (profile?.avgRating ?? applicant.avgRating) != null ? String(profile?.avgRating ?? applicant.avgRating) : "—"],
+            [t("rider_reviews_short"), (profile?.reviewCount ?? applicant.reviewCount).toLocaleString(locale)],
+            [t("order_recommends"), (profile?.recommendCount ?? applicant.recommendCount).toLocaleString(locale)],
+            [t("rider_days_short"), profile ? days.toLocaleString(locale) : "—"],
+          ] as const).map(([label, value]) => (
+            <div key={label} className="rounded-2xl bg-[rgb(var(--surface-muted))] px-1 py-3">
+              <dd className="text-xl font-extrabold tabular-nums text-ink">{value}</dd>
+              <dt className="mt-0.5 text-xs text-ink-500">{label}</dt>
+            </div>
+          ))}
+        </dl>
+        {profile?.bio && (
+          <section>
+            <h3 className="mb-1 text-sm font-bold text-ink">{t("rider_about")}</h3>
+            <p className="whitespace-pre-wrap break-words text-[15px] leading-6 text-ink">{profile.bio}</p>
+          </section>
+        )}
         {profile && <>
-          <div className="rounded-2xl bg-gold/10 p-3">
-            <p className="text-sm font-semibold text-ink">{t("rider_days_on_app", { count: days.toLocaleString(locale) })}</p>
-            <p className="text-xs text-ink-500">{t("rider_joined", { date: joined!.toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" }) })}</p>
-          </div>
           <section>
             <h3 className="mb-3 text-sm font-bold text-ink">{t("rider_completed")} <span className="text-gold">{profile.completed.total}</span></h3>
             <dl className="grid grid-cols-2 gap-2">
@@ -130,9 +149,14 @@ export function RiderProfileModal({ orderId, applicant, available, busy, selecti
         {error && <div role="alert" className="text-sm text-red-600"><p>{error}</p><button type="button" className="min-h-11 font-semibold underline" onClick={() => profile ? void loadMore() : setAttempt((value) => value + 1)}>{t("rider_retry")}</button></div>}
         {profile?.nextOffset != null && <button type="button" disabled={loading} onClick={loadMore} className="min-h-11 w-full rounded-full border border-[var(--border-faint)] text-sm font-semibold disabled:opacity-60">{t("rider_more_reviews")}</button>}
         <div className="sticky -bottom-4 space-y-2 border-t border-[var(--border-faint)] bg-cream py-3">
-          {!available && <p role="status" className="text-sm text-ink-500">{t("rider_unavailable")}</p>}
+          {onChoose && !available && <p role="status" className="text-sm text-ink-500">{t("rider_unavailable")}</p>}
           {selectionError && <p role="alert" className="text-sm text-red-600">{selectionError}</p>}
-          <button type="button" onClick={onChoose} disabled={!available || busy} className="min-h-11 w-full rounded-full bg-gold px-3 text-sm font-bold text-ink-gold disabled:opacity-60">{busy ? t("order_choosing") : t("order_choose_this_rider")}</button>
+          <div className="flex gap-2">
+            <button type="button" onClick={onCall} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[rgb(var(--surface-muted))] text-base font-bold text-ink"><Phone className="h-5 w-5" aria-hidden />{t("rider_call")}</button>
+            {onChat && <button type="button" onClick={onChat} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[rgb(var(--surface-muted))] text-base font-bold text-ink"><MessageCircle className="h-5 w-5" aria-hidden />{t("rider_chat")}</button>}
+            {onChoose && <button type="button" onClick={onChoose} disabled={!available || busy} className="min-h-12 flex-[2] rounded-xl bg-gold px-3 text-base font-extrabold text-ink-gold disabled:opacity-60">{busy ? t("order_choosing") : t("order_choose_this_rider")}</button>}
+          </div>
+          {onChoose && <p className="text-center text-xs text-ink-500">{t("rider_chat_after_choose")}</p>}
         </div>
       </div>
     </Modal>

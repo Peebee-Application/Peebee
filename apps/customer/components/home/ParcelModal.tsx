@@ -200,13 +200,11 @@ export function ParcelModal({ onClose }: { onClose: () => void }) {
                       aria-checked={selected}
                       disabled={busy}
                       onClick={() => quoteKey && setModeChoice({ key: quoteKey, mode: option.value })}
-                      className={`flex min-w-0 flex-col gap-0.5 rounded-xl border px-3 py-2.5 text-left disabled:opacity-60 ${
-                        selected ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"
-                      }`}
+                      className="select-card gap-0.5 text-left"
                     >
-                      <span className={`text-sm ${selected ? "font-bold text-ink" : "font-semibold text-ink-500"}`}>{option.label}</span>
-                      <span className="text-[11px] text-ink-500">{option.note}</span>
-                      <span className="mt-1 text-sm font-bold text-ink">UGX {option.total.toLocaleString("en-UG")}</span>
+                      <span className="select-card__title text-sm text-ink">{option.label}</span>
+                      <span className="select-card__sub">{option.note}</span>
+                      <span className="select-card__title mt-1 text-sm text-ink">UGX {option.total.toLocaleString("en-UG")}</span>
                     </button>
                   );
                 })}

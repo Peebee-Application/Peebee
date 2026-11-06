@@ -256,14 +256,12 @@ export default function LearnSettingsPage() {
                     disabled={!canManage}
                     aria-pressed={on}
                     onClick={() => toggleStream(stream.id)}
-                    className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition disabled:opacity-60 ${
-                      on ? "border-gold bg-gold/10" : "border-[var(--border-faint)] bg-[rgb(var(--surface-muted))]"
-                    }`}
+                    className="select-card !flex-row items-center gap-3 text-left"
                   >
                     <span className="text-xl" aria-hidden>{stream.icon}</span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-bold text-ink">{stream.title}</span>
-                      <span className="block truncate text-xs text-ink-500">{stream.tagline} · {stream.ageBracket}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="select-card__title text-sm text-ink">{stream.title}</span>
+                      <span className="select-card__sub text-xs">{stream.tagline} · {stream.ageBracket}</span>
                     </span>
                   </button>
                 );

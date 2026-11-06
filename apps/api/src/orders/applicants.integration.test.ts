@@ -103,6 +103,22 @@ test("applicant profiles and assignment lifecycle", async (t) => {
       assert.equal(response.status, 200);
       const profile = await response.json();
       assert.deepEqual(profile.completed, { total: 26, rides: 1, parcels: 1, food: 1, shopping: 23 });
+      // New for the profile popup: distance covered, the rider's own words, and totals across every rating.
+      assert.equal(profile.totalKm, 0, "no route distance recorded on these test jobs");
+      assert.equal(profile.bio, null, "no bio written yet");
+      assert.equal(profile.reviewCount, 25, "all 25 live ratings, not the 20 on this page");
+      assert.equal(profile.recommendCount, 25);
+      assert.equal(profile.avgRating, 5);
+      await client.execute("UPDATE orders SET distance_km = 3.6 WHERE id IN ('history-0', 'history-1')");
+      await client.execute("UPDATE riders SET bio = '  Ten years on a boda. Careful and on time.  ' WHERE user_id = 'rider'");
+      const detailed = await (await request("b/applicants/rider/profile")).json();
+      assert.equal(detailed.totalKm, 7, "3.6 + 3.6 km, rounded");
+      assert.equal(detailed.bio, "Ten years on a boda. Careful and on time.");
+      assert.equal(detailed.stage, null, "not in a stage yet");
+      await client.execute("INSERT INTO stages (id, name, area) VALUES ('stg1', 'Kisementi Stage', 'Kololo')");
+      await client.execute("INSERT INTO stage_members (id, stage_id, rider_id, role) VALUES ('sm1', 'stg1', 'rider', 'chairman')");
+      const staged = await (await request("b/applicants/rider/profile")).json();
+      assert.deepEqual(staged.stage, { name: "Kisementi Stage", area: "Kololo", role: "chairman" });
       assert.equal(profile.joinedAt, "2024-01-01 00:00:00");
       assert.equal(profile.reviews.length, 20);
       assert.equal(profile.nextOffset, 20);
@@ -113,6 +129,10 @@ test("applicant profiles and assignment lifecycle", async (t) => {
       assert.equal((await request("b/applicants/rider/profile?offset=-1")).status, 400);
       assert.equal((await request("b/applicants/rider/profile", "GET", await signToken({ sub: "other", role: "customer" }))).status, 403);
       assert.equal((await request("c/applicants/second/profile")).status, 404);
+      // A rider who is already matched can be looked at even if they claimed the ride without applying.
+      await client.execute("UPDATE orders SET rider_id = 'second' WHERE id = 'c'");
+      assert.equal((await request("c/applicants/second/profile")).status, 200);
+      await client.execute("UPDATE orders SET rider_id = NULL WHERE id = 'c'");
       await client.execute("UPDATE orders SET rider_id = NULL, stage = 'Create' WHERE id = 'a'");
       await client.execute("UPDATE order_applications SET status = 'pending' WHERE id = 'a'");
       const list = await (await request("a/applicants")).json();

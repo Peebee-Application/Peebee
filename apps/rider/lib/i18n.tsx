@@ -115,6 +115,8 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   acc_alt_phone: { en: "Alt. phone (optional)", lg: "Essimu endala (si kyetaagisa)" },
   acc_vehicle: { en: "Vehicle", lg: "Ekidduka" },
   acc_moto_reg: { en: "Motorcycle registration number", lg: "Nampuulu ya pikipiki" },
+  acc_bio: { en: "About me (customers read this)", lg: "Ebinkwatako (bakasitoma babisoma)" },
+  acc_bio_hint: { en: "A few words: how long you have ridden, how you look after passengers.", lg: "Ebigambo ebitonotono: ebbanga ly'omaze ng'ovuga, engeri gy'olabiriramu abasaabaze." },
   acc_locations: { en: "Locations", lg: "Ebifo" },
   acc_stage_location: { en: "Stage location", lg: "Ekifo ky'esitendi" },
   acc_set_stage_map: { en: "Set your stage location on the map", lg: "Teekawo ekifo ky'esitendi yo ku mabu" },

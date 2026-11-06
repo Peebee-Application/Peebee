@@ -69,10 +69,10 @@ export function ApplyCard({ mode }: { mode: PartnerMode }) {
               role="radio"
               aria-checked={hasCar === value}
               onClick={() => setHasCar(value as boolean)}
-              className={`block min-h-16 w-full rounded-xl border p-3 text-left ${hasCar === value ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"}`}
+              className="select-card min-h-16 text-left"
             >
-              <span className="block text-lg font-bold text-ink">{label as string}</span>
-              <span className="block text-base text-ink-500">{hint as string}</span>
+              <span className="select-card__title text-lg text-ink">{label as string}</span>
+              <span className="select-card__sub !text-base">{hint as string}</span>
             </button>
           ))}
         </div>

@@ -42,6 +42,7 @@ type Row = Record<string, unknown>;
 const applySchema = z.object({
   area: z.string().max(120).optional(),
   vehicleInfo: z.string().max(120).optional(),
+  bio: z.string().max(300).optional(),
   momoMsisdn: z.string().min(6).max(20).optional(),
   firstName: z.string().min(1).max(60).optional(),
   lastName: z.string().min(1).max(60).optional(),
@@ -121,6 +122,10 @@ riderRoutes.post("/riders/apply", requireAuth, requireRole("rider"), async (c) =
       d.emergencyContactPhone ?? null,
     ],
   });
+  // The rider's own words for customers; saved only once the bio migration is in.
+  if (d.bio !== undefined && (await hasColumn("riders", "bio"))) {
+    await db.execute({ sql: "UPDATE riders SET bio = ? WHERE user_id = ?", args: [d.bio.trim() || null, user.sub] });
+  }
   await ensureRiderCode(user.sub);
 
   const res = await db.execute({ sql: "SELECT * FROM riders WHERE user_id = ?", args: [user.sub] });

@@ -66,10 +66,10 @@ export function SpecialCarServices(p: Props) {
           <div role="group" aria-label="Choose an ambulance" className="grid grid-cols-1 gap-2">
             {p.categories.map((cat) => (
               <button key={cat.id} type="button" aria-pressed={cat.id === selected.id} onClick={() => p.onSelect(cat.id)}
-                className={`rounded-2xl border p-3 text-left ${cat.id === selected.id ? "border-gold bg-gold/10" : "border-[var(--border-faint)] bg-[rgb(var(--surface-card))]"}`}>
-                <span className="block text-sm font-bold text-ink">{cat.name}</span>
-                {cat.description && <span className="mt-0.5 block text-[11px] text-ink-500">{cat.description}</span>}
-                <span className="mt-1 block text-xs font-bold text-gold">{money(specialFare(cat, p.distanceKm))}</span>
+                className="select-card text-left">
+                <span className="select-card__title text-sm text-ink">{cat.name}</span>
+                {cat.description && <span className="select-card__sub">{cat.description}</span>}
+                <span className="select-card__title mt-1 text-sm text-ink">{money(specialFare(cat, p.distanceKm))}</span>
               </button>
             ))}
           </div>
@@ -96,13 +96,13 @@ export function SpecialCarServices(p: Props) {
       <div role="group" aria-label="Choose a luxury car" className="grid grid-cols-1 gap-2">
         {p.categories.map((cat) => (
           <button key={cat.id} type="button" aria-pressed={cat.id === selected.id} onClick={() => p.onSelect(cat.id)}
-            className={`rounded-2xl border p-3 text-left ${cat.id === selected.id ? "border-gold bg-gold/10 shadow-[0_3px_12px_rgba(201,162,39,.14)]" : "border-[var(--border-faint)] bg-[rgb(var(--surface-card))]"}`}>
-            <span className="flex items-center justify-between gap-2">
-              <span className="text-sm font-bold text-ink">{cat.name}</span>
-              <span className="shrink-0 text-xs font-bold text-gold">{money(specialFare(cat, p.distanceKm, cat.id === selected.id ? p.hireHours : 0))}</span>
+            className="select-card text-left">
+            <span className="flex w-full min-w-0 items-center justify-between gap-2">
+              <span className="select-card__title min-w-0 flex-1 text-sm text-ink">{cat.name}</span>
+              <span className="shrink-0 whitespace-nowrap text-sm font-bold text-ink">{money(specialFare(cat, p.distanceKm, cat.id === selected.id ? p.hireHours : 0))}</span>
             </span>
-            {cat.description && <span className="mt-0.5 block text-[11px] text-ink-500">{cat.description}</span>}
-            <span className="mt-1 block text-[11px] text-ink-500">{cat.seats ? `${cat.seats} seats · ` : ""}{cat.size_label ?? "Chauffeur driven"}</span>
+            {cat.description && <span className="select-card__sub">{cat.description}</span>}
+            <span className="select-card__sub">{cat.seats ? `${cat.seats} seats · ` : ""}{cat.size_label ?? "Chauffeur driven"}</span>
           </button>
         ))}
       </div>
