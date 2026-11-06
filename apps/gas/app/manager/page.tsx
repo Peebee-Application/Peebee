@@ -36,7 +36,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { BrandLogo } from "../../components/BrandLogo";
+import { Accordion } from "../../components/Accordion";
 import { TabBar } from "../../components/TabBar";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
@@ -58,6 +58,7 @@ export default function StationManagerPage() {
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<TabMode>("attendants");
+  const [showAllStaff, setShowAllStaff] = useState(false);
   const [salesPeriod, setSalesPeriod] = useState<"today" | "week" | "month" | "all">("today");
 
   // Attendants State
@@ -374,9 +375,8 @@ export default function StationManagerPage() {
       )}
 
       <section className="home-card flex items-center gap-3 !bg-black-700 text-white dark:!bg-black">
-        <BrandLogo wordmark={false} className="!h-10 !w-10 shrink-0" />
         <div className="min-w-0 flex-1">
-          <h1 className="line-clamp-2 text-xl font-black leading-tight text-white">{outlet?.name ?? "Station"}</h1>
+          <h1 className="line-clamp-2 text-2xl font-black leading-tight text-white">{outlet?.name ?? "Station"}</h1>
           <p className="truncate text-base text-white/70">{manager?.full_name ?? "Manager"}</p>
         </div>
         <button
@@ -393,16 +393,16 @@ export default function StationManagerPage() {
 
       {/* Station Selector dropdown if multiple outlets */}
       {outlets.length > 1 && (
-        <div className="home-card py-2.5 px-3.5 flex items-center justify-between text-xs">
+        <div className="home-card min-h-16 flex items-center justify-between gap-3 text-base">
           <div className="flex items-center gap-2 text-ink-500 font-bold">
             <Building2 className="h-4 w-4 text-gold" />
-            <span>Switch Outlet:</span>
+            <span>Station</span>
           </div>
           <div className="field-box px-2 py-1 max-w-[220px]">
             <select
               value={outlet?.id ?? ""}
               onChange={(e) => selectOutlet(e.target.value)}
-              className="text-xs font-bold text-ink bg-transparent outline-none cursor-pointer w-full"
+              className="min-h-10 w-full cursor-pointer bg-transparent text-base font-bold text-ink outline-none"
             >
               {outlets.map((o) => (
                 <option key={o.id} value={o.id} className="text-black bg-white">
@@ -430,157 +430,93 @@ export default function StationManagerPage() {
       {/* ============================================================== */}
       {activeTab === "attendants" && (
         <div className="space-y-4">
-          {/* Pending Approval Banner */}
-          {pendingCount > 0 && (
-            <div className="home-card !bg-gold/10 border-gold/30 p-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <ShieldAlert className="h-5 w-5 text-gold shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-ink">
-                    {pendingCount} pump attendant{pendingCount > 1 ? "s" : ""} awaiting commission approval
-                  </p>
-                  <p className="text-[11px] text-ink-500">
-                    Review and approve below to enable their terminal login
-                  </p>
-                </div>
-              </div>
+          <button
+            type="button"
+            onClick={() => setCommissionModalOpen(true)}
+            className="flex min-h-16 w-full items-center justify-center gap-2 rounded-2xl bg-gold text-xl font-bold text-ink-gold shadow-[var(--shadow-glow-gold)] transition active:scale-[0.98]"
+          >
+            <Plus className="h-6 w-6" aria-hidden />
+            <span>Add attendant</span>
+          </button>
+
+          <div className="grid grid-cols-4 gap-1.5" role="group" aria-label="Filter attendants">
+            {(["all", "approved", "pending", "suspended"] as const).map((mode) => (
               <button
+                key={mode}
                 type="button"
-                onClick={() => setAttendantFilter("pending")}
-                className="rounded-lg bg-gold px-2.5 py-1 text-[11px] font-bold text-ink-gold"
+                onClick={() => setAttendantFilter(mode)}
+                aria-pressed={attendantFilter === mode}
+                className={`flex min-h-12 items-center justify-center rounded-full px-1 text-base font-bold capitalize transition ${
+                  attendantFilter === mode
+                    ? "bg-gold text-ink-gold"
+                    : "border border-[var(--border-faint)] bg-[var(--surface-raised)] text-ink-500"
+                }`}
               >
-                Review
+                {mode === "all" ? "All" : mode === "approved" ? "Active" : mode === "pending" ? `New${pendingCount ? ` ${pendingCount}` : ""}` : "Off"}
               </button>
-            </div>
-          )}
-
-          {/* Attendant Filter Header */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 overflow-x-auto">
-              {(["all", "approved", "pending", "suspended"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setAttendantFilter(mode)}
-                  className={`rounded-full px-3 py-1 text-xs font-bold capitalize transition ${
-                    attendantFilter === mode
-                      ? "bg-gold text-ink-gold"
-                      : "bg-[var(--surface-raised)] text-ink-500 border border-[var(--border-faint)]"
-                  }`}
-                >
-                  {mode === "all" ? `All (${attendants.length})` : mode}
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setCommissionModalOpen(true)}
-              className="flex items-center gap-1 rounded-xl bg-gold px-3 py-2 text-xs font-bold text-ink-gold shadow-[var(--shadow-glow-gold)] transition active:scale-95 shrink-0"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Commission New</span>
-            </button>
+            ))}
           </div>
 
-          {/* Attendants List */}
           {loadingAttendants ? (
-            <div className="home-card p-8 text-center text-xs font-bold text-ink-500">
-              Loading pump attendants…
-            </div>
+            <div className="home-card p-8 text-center text-lg font-bold text-ink-500">Loading…</div>
           ) : filteredAttendants.length === 0 ? (
-            <div className="home-card p-8 text-center space-y-2">
-              <Users className="mx-auto h-8 w-8 text-ink-500/50" />
-              <p className="text-xs font-bold text-ink">No pump attendants found</p>
-              <p className="text-[11px] text-ink-500">
-                Click Commission New to sign up an attendant for this station
-              </p>
+            <div className="home-card space-y-2 p-8 text-center">
+              <Users className="mx-auto h-10 w-10 text-ink-500/50" aria-hidden />
+              <p className="text-lg font-bold text-ink">No attendants</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredAttendants.map((att) => {
+              {(showAllStaff ? filteredAttendants : filteredAttendants.slice(0, 6)).map((att) => {
                 const isPending = att.commission_status === "pending";
                 const isSuspended = att.commission_status === "suspended" || att.status === "suspended";
 
                 return (
-                  <div key={att.id} className="home-card space-y-3 p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2.5">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gold/15 text-gold font-bold shrink-0">
-                          <UserCheck className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-black text-ink">{att.full_name}</h3>
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                                isPending
-                                  ? "bg-amber-500/15 text-amber-600"
-                                  : isSuspended
-                                    ? "bg-red-500/15 text-red-600"
-                                    : "bg-green/15 text-green"
-                              }`}
-                            >
-                              {isPending ? "Pending Approval" : isSuspended ? "Suspended" : "On Duty / Active"}
-                            </span>
-                          </div>
-                          <p className="text-xs text-ink-500 font-mono mt-0.5">
-                            {att.attendant_code} · {att.pump_lane ?? "Pump 1"} · {att.phone}
-                          </p>
-                        </div>
+                  <div key={att.id} className="home-card space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold/15 text-gold">
+                        <UserCheck className="h-6 w-6" aria-hidden />
                       </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate text-xl font-black text-ink">{att.full_name}</h3>
+                        <p className="truncate text-base text-ink-500">{att.pump_lane ?? "Pump 1"} · {att.phone}</p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-3 py-1 text-sm font-bold ${
+                          isPending ? "bg-amber-500/15 text-amber-600" : isSuspended ? "bg-red-500/15 text-red-600" : "bg-green/15 text-green"
+                        }`}
+                      >
+                        {isPending ? "New" : isSuspended ? "Off" : "Active"}
+                      </span>
                     </div>
 
-                    {/* Today's Stats for Attendant */}
-                    <div className="grid grid-cols-3 gap-2 rounded-xl bg-[var(--surface-muted)] p-2 text-center text-[11px]">
-                      <div>
-                        <span className="text-ink-500 block">Dispenses</span>
-                        <strong className="text-ink font-mono font-bold">
-                          {att.total_dispenses_today ?? 0}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-ink-500 block">Litres</span>
-                        <strong className="text-ink font-mono font-bold">
-                          {Number(att.total_litres_today ?? 0).toFixed(1)} L
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-ink-500 block">Sales Today</span>
-                        <strong className="text-ink font-mono font-bold">
-                          {ugx(att.total_ugx_today ?? 0)}
-                        </strong>
-                      </div>
-                    </div>
+                    <p className="text-lg text-ink-500">
+                      <strong className="text-2xl font-black tabular-nums text-ink">{ugx(att.total_ugx_today ?? 0)}</strong>
+                      <span> · {Number(att.total_litres_today ?? 0).toFixed(1)} L · {att.total_dispenses_today ?? 0}×</span>
+                    </p>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center justify-end gap-2 border-t border-[var(--border-faint)] pt-2.5">
+                    <div className="flex gap-2">
                       {isPending ? (
                         <button
                           type="button"
                           onClick={() => handleApproveAttendant(att.id)}
-                          className="flex items-center gap-1.5 rounded-xl bg-gold px-3.5 py-1.5 text-xs font-bold text-ink-gold shadow-[var(--shadow-glow-gold)] transition active:scale-95"
+                          className="flex min-h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-gold text-lg font-bold text-ink-gold active:scale-95"
                         >
-                          <Check className="h-3.5 w-3.5" />
-                          <span>Approve & Commission</span>
+                          <Check className="h-6 w-6" aria-hidden /> Approve
                         </button>
                       ) : (
                         <>
                           <button
                             type="button"
                             onClick={() => handleResetPin(att.id)}
-                            className="flex items-center gap-1 rounded-xl bg-[var(--surface-muted)] px-2.5 py-1 text-xs font-bold text-ink hover:text-gold transition"
-                            title="Reset attendant PIN"
+                            className="flex min-h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-[var(--surface-muted)] text-lg font-bold text-ink active:scale-95"
                           >
-                            <KeyRound className="h-3.5 w-3.5" />
-                            <span>Reset PIN</span>
+                            <KeyRound className="h-5 w-5" aria-hidden /> PIN
                           </button>
-
                           {isSuspended ? (
                             <button
                               type="button"
                               onClick={() => handleReactivateAttendant(att.id)}
-                              className="rounded-xl bg-green/15 px-3 py-1 text-xs font-bold text-green transition active:scale-95"
+                              className="min-h-14 flex-1 rounded-2xl bg-green/15 text-lg font-bold text-green active:scale-95"
                             >
                               Reactivate
                             </button>
@@ -588,7 +524,7 @@ export default function StationManagerPage() {
                             <button
                               type="button"
                               onClick={() => handleSuspendAttendant(att.id)}
-                              className="rounded-xl bg-red-500/10 px-3 py-1 text-xs font-bold text-red-500 transition active:scale-95 hover:bg-red-500/20"
+                              className="min-h-14 flex-1 rounded-2xl bg-red-500/10 text-lg font-bold text-red-600 active:scale-95"
                             >
                               Suspend
                             </button>
@@ -599,149 +535,100 @@ export default function StationManagerPage() {
                   </div>
                 );
               })}
+              {filteredAttendants.length > 6 && !showAllStaff && (
+                <button type="button" onClick={() => setShowAllStaff(true)} className="flex min-h-14 w-full items-center justify-center text-lg font-bold text-gold">
+                  Show all {filteredAttendants.length}
+                </button>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* ============================================================== */}
-      {/* TAB 2: SALES REPORTS & STATISTICS */}
-      {/* ============================================================== */}
       {activeTab === "sales" && (
         <div className="space-y-4">
-          {/* Period Selector */}
-          <div className="flex rounded-2xl bg-[var(--surface-muted)] p-1 border border-[var(--border-faint)]">
+          <div role="group" aria-label="Period" className="grid grid-cols-4 gap-1 rounded-2xl bg-[var(--surface-muted)] p-1">
             {(["today", "week", "month", "all"] as const).map((p) => (
               <button
                 key={p}
                 type="button"
                 onClick={() => setSalesPeriod(p)}
-                className={`flex-1 rounded-xl py-1.5 text-xs font-bold capitalize transition ${
-                  salesPeriod === p
-                    ? "bg-[var(--surface-raised)] text-ink shadow-sm"
-                    : "text-ink-500 hover:text-ink"
+                aria-pressed={salesPeriod === p}
+                className={`min-h-12 rounded-xl text-base font-bold transition ${
+                  salesPeriod === p ? "bg-gold text-ink-gold shadow-sm" : "text-ink-500"
                 }`}
               >
-                {p === "today" ? "Today" : p === "week" ? "7 Days" : p === "month" ? "30 Days" : "All Time"}
+                {p === "today" ? "Today" : p === "week" ? "7d" : p === "month" ? "30d" : "All"}
               </button>
             ))}
           </div>
 
-          {/* Overview Metrics Cards */}
+          <section className="home-card !bg-black-700 text-white dark:!bg-black">
+            <p className="text-4xl font-black tabular-nums">{ugx(salesSummary?.totalRevenueUgx ?? 0)}</p>
+            <p className="mt-1 text-lg text-white/70">
+              {(salesSummary?.totalLitres ?? 0).toFixed(1)} L · {salesSummary?.totalTransactions ?? 0} refuels
+            </p>
+          </section>
+
           <div className="grid grid-cols-2 gap-3">
-            <div className="home-card space-y-1 p-3.5">
-              <span className="text-[11px] font-bold text-ink-500 uppercase tracking-wider">
-                Total Revenue
-              </span>
-              <h3 className="text-lg font-black text-ink">
-                {ugx(salesSummary?.totalRevenueUgx ?? 0)}
-              </h3>
-              <p className="text-[10px] text-ink-500">Gross sales for {salesPeriod}</p>
+            <div className="home-card !bg-green/10 border-green/20">
+              <span className="flex items-center gap-1.5 text-base font-bold text-green"><Wallet className="h-5 w-5" aria-hidden /> Balance</span>
+              <p className="mt-1 text-xl font-black tabular-nums text-green">{ugx(salesSummary?.availableBalanceUgx ?? 0)}</p>
             </div>
-
-            <div className="home-card space-y-1 p-3.5">
-              <span className="text-[11px] font-bold text-ink-500 uppercase tracking-wider">
-                Total Volume
-              </span>
-              <h3 className="text-lg font-black text-ink">
-                {(salesSummary?.totalLitres ?? 0).toFixed(1)} L
-              </h3>
-              <p className="text-[10px] text-ink-500">
-                {salesSummary?.totalTransactions ?? 0} refuel transactions
-              </p>
-            </div>
-
-            <div className="home-card space-y-1 p-3.5 !bg-green/10 border-green/20">
-              <span className="text-[11px] font-bold text-green uppercase tracking-wider">
-                Available Balance
-              </span>
-              <h3 className="text-lg font-black text-green">
-                {ugx(salesSummary?.availableBalanceUgx ?? 0)}
-              </h3>
-              <p className="text-[10px] text-ink-500">Ready for instant payout</p>
-            </div>
-
-            <div className="home-card space-y-1 p-3.5">
-              <span className="text-[11px] font-bold text-ink-500 uppercase tracking-wider">
-                Total Withdrawn
-              </span>
-              <h3 className="text-lg font-black text-ink">
-                {ugx(salesSummary?.withdrawnTotalUgx ?? 0)}
-              </h3>
-              <p className="text-[10px] text-ink-500">Settled to station accounts</p>
+            <div className="home-card">
+              <span className="flex items-center gap-1.5 text-base font-bold text-ink-500"><ArrowDownToLine className="h-5 w-5" aria-hidden /> Paid out</span>
+              <p className="mt-1 text-xl font-black tabular-nums text-ink">{ugx(salesSummary?.withdrawnTotalUgx ?? 0)}</p>
             </div>
           </div>
 
-          {/* Product Breakdown */}
-          <div className="home-card space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-ink">Sales by Fuel Product</h3>
-              <Fuel className="h-4 w-4 text-gold" />
-            </div>
-
+          <Accordion title="By fuel" icon={Fuel} summary={salesSummary?.productBreakdown?.length ?? 0}>
             {salesSummary?.productBreakdown && salesSummary.productBreakdown.length > 0 ? (
-              <div className="divide-y divide-[var(--border-faint)] text-xs">
+              <div className="divide-y divide-[var(--border-faint)]">
                 {salesSummary.productBreakdown.map((item) => (
-                  <div key={item.product_id} className="flex items-center justify-between py-2.5">
-                    <div>
-                      <span className="font-bold text-ink block">{item.product_name}</span>
-                      <span className="text-[11px] text-ink-500">{item.total_litres.toFixed(1)} Litres</span>
+                  <div key={item.product_id} className="flex items-center justify-between gap-3 py-3">
+                    <div className="min-w-0">
+                      <span className="block truncate text-lg font-bold text-ink">{item.product_name}</span>
+                      <span className="text-base text-ink-500">{item.total_litres.toFixed(1)} L</span>
                     </div>
-                    <span className="font-mono font-bold text-ink">{ugx(item.total_ugx)}</span>
+                    <span className="shrink-0 text-lg font-bold tabular-nums text-ink">{ugx(item.total_ugx)}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-ink-500 italic py-2">No product transactions recorded for this period.</p>
+              <p className="py-2 text-lg text-ink-500">None yet</p>
             )}
-          </div>
+          </Accordion>
 
-          {/* Attendant Breakdown */}
-          <div className="home-card space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-ink">Sales by Pump Attendant</h3>
-              <Users className="h-4 w-4 text-gold" />
-            </div>
-
+          <Accordion title="By attendant" icon={Users} summary={salesSummary?.attendantBreakdown?.length ?? 0}>
             {salesSummary?.attendantBreakdown && salesSummary.attendantBreakdown.length > 0 ? (
-              <div className="divide-y divide-[var(--border-faint)] text-xs">
+              <div className="divide-y divide-[var(--border-faint)]">
                 {salesSummary.attendantBreakdown.map((item) => (
-                  <div key={item.attendant_id} className="flex items-center justify-between py-2.5">
-                    <div>
-                      <span className="font-bold text-ink block">
-                        {item.attendant_name} ({item.attendant_code})
-                      </span>
-                      <span className="text-[11px] text-ink-500">
-                        {item.total_dispenses} dispenses · {item.total_litres.toFixed(1)} L
-                      </span>
+                  <div key={item.attendant_id} className="flex items-center justify-between gap-3 py-3">
+                    <div className="min-w-0">
+                      <span className="block truncate text-lg font-bold text-ink">{item.attendant_name}</span>
+                      <span className="text-base text-ink-500">{item.total_dispenses}× · {item.total_litres.toFixed(1)} L</span>
                     </div>
-                    <span className="font-mono font-bold text-ink">{ugx(item.total_ugx)}</span>
+                    <span className="shrink-0 text-lg font-bold tabular-nums text-ink">{ugx(item.total_ugx)}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-ink-500 italic py-2">No attendant activity in this window.</p>
+              <p className="py-2 text-lg text-ink-500">None yet</p>
             )}
-          </div>
+          </Accordion>
 
-          {/* Recent Transactions */}
-          <div className="home-card space-y-3">
-            <h3 className="text-sm font-bold text-ink">Recent Dispense Transactions</h3>
+          <Accordion title="Recent refuels" icon={Clock} summary={transactions.length}>
             {transactions.length > 0 ? (
-              <div className="divide-y divide-[var(--border-faint)] text-xs">
-                {transactions.slice(0, 10).map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between py-2.5">
-                    <div>
-                      <span className="font-bold text-ink block">
-                        {tx.vehicle_plate} · {tx.product_name}
-                      </span>
-                      <span className="text-[11px] text-ink-500 font-mono">
-                        {tx.receipt_ref} · {tx.litres_dispensed} L
-                      </span>
+              <div className="divide-y divide-[var(--border-faint)]">
+                {transactions.slice(0, 8).map((tx) => (
+                  <div key={tx.id} className="flex items-center justify-between gap-3 py-3">
+                    <div className="min-w-0">
+                      <span className="block truncate text-lg font-bold text-ink">{tx.vehicle_plate}</span>
+                      <span className="text-base text-ink-500">{tx.product_name} · {tx.litres_dispensed} L</span>
                     </div>
-                    <div className="text-right">
-                      <span className="font-mono font-bold text-ink block">{ugx(tx.total_ugx)}</span>
-                      <span className="text-[10px] text-ink-500">
+                    <div className="shrink-0 text-right">
+                      <span className="block text-lg font-bold tabular-nums text-ink">{ugx(tx.total_ugx)}</span>
+                      <span className="text-base text-ink-500">
                         {new Date(tx.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
@@ -749,29 +636,19 @@ export default function StationManagerPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-ink-500 italic py-2">No transactions recorded yet.</p>
+              <p className="py-2 text-lg text-ink-500">None yet</p>
             )}
-          </div>
+          </Accordion>
         </div>
       )}
 
-      {/* ============================================================== */}
-      {/* TAB 3: WALLET & FUND WITHDRAWALS */}
-      {/* ============================================================== */}
       {activeTab === "withdrawals" && (
         <div className="space-y-4">
-          {/* Station Balance Card */}
-          <div className="home-card !bg-black-700 text-white dark:!bg-black border border-white/10 shadow-[var(--shadow-card)] space-y-4">
+          <div className="home-card space-y-4 !bg-black-700 text-white dark:!bg-black">
             <div>
-              <span className="text-xs font-semibold text-white/70">Station Settlement Balance</span>
-              <h2 className="mt-1 text-3xl font-black text-white">
-                {ugx(salesSummary?.availableBalanceUgx ?? 0)}
-              </h2>
-              <p className="text-xs text-white/60 mt-0.5">
-                Total Accumulated Revenue: {ugx(salesSummary?.totalRevenueUgx ?? 0)}
-              </p>
+              <span className="text-base font-semibold text-white/70">Available</span>
+              <h2 className="mt-1 text-4xl font-black tabular-nums text-white">{ugx(salesSummary?.availableBalanceUgx ?? 0)}</h2>
             </div>
-
             <button
               type="button"
               onClick={() => {
@@ -779,94 +656,57 @@ export default function StationManagerPage() {
                 setWithdrawAmount(String(salesSummary?.availableBalanceUgx ?? 50000));
               }}
               disabled={(salesSummary?.availableBalanceUgx ?? 0) < 5000}
-              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gold py-3 text-sm font-bold text-ink-gold shadow-[var(--shadow-glow-gold)] transition active:scale-[0.98] disabled:opacity-50"
+              className="flex min-h-16 w-full items-center justify-center gap-2 rounded-2xl bg-gold text-xl font-bold text-ink-gold shadow-[var(--shadow-glow-gold)] transition active:scale-[0.98] disabled:opacity-50"
             >
-              <ArrowDownToLine className="h-4 w-4" />
-              <span>Withdraw Funds to MoMo / Bank</span>
+              <ArrowDownToLine className="h-6 w-6" aria-hidden />
+              <span>Withdraw</span>
             </button>
           </div>
 
-          {/* Saved Station Payout Accounts */}
-          <div className="home-card space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-gold" />
-                <h3 className="text-sm font-bold text-ink">Designated Station Payout Accounts</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAddAccountModalOpen(true)}
-                className="text-xs font-bold text-gold hover:underline"
-              >
-                + Add New
-              </button>
-            </div>
-
+          <Accordion title="Payout accounts" icon={CreditCard} summary={payoutAccounts.length}>
             {payoutAccounts.length > 0 ? (
               <div className="space-y-2">
                 {payoutAccounts.map((acc) => (
-                  <div
-                    key={acc.id}
-                    className="flex items-center justify-between rounded-xl bg-[var(--surface-muted)] p-3 text-xs"
-                  >
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-ink">{acc.account_name}</span>
-                        {acc.is_primary && (
-                          <span className="rounded-md bg-gold/20 px-1.5 py-0.5 text-[10px] font-bold text-gold">
-                            Primary
-                          </span>
-                        )}
-                      </div>
-                      <span className="font-mono text-ink-500 text-[11px]">
-                        {acc.network_or_bank} · {acc.account_ref}
+                  <div key={acc.id} className="flex items-center justify-between gap-3 rounded-xl bg-[var(--surface-muted)] p-3">
+                    <div className="min-w-0">
+                      <span className="block truncate text-lg font-bold text-ink">
+                        {acc.account_name}{acc.is_primary ? " ★" : ""}
                       </span>
+                      <span className="block truncate text-base text-ink-500">{acc.network_or_bank} · {acc.account_ref}</span>
                     </div>
-                    <span className="rounded-lg bg-[var(--surface-raised)] px-2 py-1 text-[11px] font-bold uppercase text-ink">
-                      {acc.type}
-                    </span>
+                    <span className="shrink-0 text-base font-bold uppercase text-ink-500">{acc.type}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-ink-500 italic py-2">No payout accounts saved yet.</p>
+              <p className="py-2 text-lg text-ink-500">None saved</p>
             )}
-          </div>
+            <button
+              type="button"
+              onClick={() => setAddAccountModalOpen(true)}
+              className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--surface-muted)] text-lg font-bold text-ink active:scale-95"
+            >
+              <Plus className="h-5 w-5" aria-hidden /> Add account
+            </button>
+          </Accordion>
 
-          {/* Withdrawal History */}
-          <div className="home-card space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-ink">Withdrawal History</h3>
-              <Clock className="h-4 w-4 text-ink-500" />
-            </div>
-
+          <Accordion title="History" icon={Clock} summary={withdrawals.length}>
             {withdrawals.length > 0 ? (
-              <div className="divide-y divide-[var(--border-faint)] text-xs">
-                {withdrawals.map((wd) => (
-                  <div key={wd.id} className="flex items-center justify-between py-2.5">
-                    <div>
-                      <span className="font-bold text-ink block font-mono">
-                        {ugx(wd.amount_ugx)}
-                      </span>
-                      <span className="text-[11px] text-ink-500">
-                        {wd.reference} · {wd.destination_type.toUpperCase()}
-                      </span>
+              <div className="divide-y divide-[var(--border-faint)]">
+                {withdrawals.slice(0, 8).map((wd) => (
+                  <div key={wd.id} className="flex items-center justify-between gap-3 py-3">
+                    <div className="min-w-0">
+                      <span className="block text-lg font-bold tabular-nums text-ink">{ugx(wd.amount_ugx)}</span>
+                      <span className="text-base text-ink-500">{wd.destination_type.toUpperCase()} · {new Date(wd.created_at).toLocaleDateString()}</span>
                     </div>
-                    <div className="text-right">
-                      <span className="rounded-full bg-green/15 px-2 py-0.5 text-[10px] font-bold text-green uppercase">
-                        {wd.status}
-                      </span>
-                      <span className="text-[10px] text-ink-500 block mt-0.5">
-                        {new Date(wd.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
+                    <span className="shrink-0 rounded-full bg-green/15 px-3 py-1 text-sm font-bold capitalize text-green">{wd.status}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-ink-500 italic py-2">No withdrawal history yet.</p>
+              <p className="py-2 text-lg text-ink-500">None yet</p>
             )}
-          </div>
+          </Accordion>
         </div>
       )}
 
