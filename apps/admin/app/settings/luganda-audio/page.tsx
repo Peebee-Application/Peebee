@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../../components/Fold";
 import { ModuleState } from "../../../components/ModuleState";
 import { Switch } from "../../../components/ui/Switch";
 import { Select } from "../../../components/ui/Select";
@@ -78,11 +79,10 @@ export default function LugandaAudioSettingsPage() {
   return (
     <SettingsPageShell title="Luganda list reading" loading={loading}>
       <form onSubmit={onSubmit} className="space-y-5">
-        <section className="home-card space-y-3">
-          <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+        <Fold head={<label className="flex items-center gap-2 text-sm font-semibold text-ink">
             <ModuleState on={enabled} />
             Let riders listen to their shopping lists in Luganda
-          </label>
+          </label>}>
           <p className="text-xs text-ink-500">
             Uses Google AI Studio. Needs at least one key — add them (and choose test or paid mode) under Settings → Google AI keys. The GEMINI_API_KEY secret still works until you add keys there.
           </p>
@@ -93,13 +93,12 @@ export default function LugandaAudioSettingsPage() {
           <p className="text-xs text-ink-500">
             Set the Pro price under Settings → Monetization. Off by default — nothing changes until you turn this on.
           </p>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <div>
+        <Fold head={<div>
             <h2 className="text-sm font-bold text-ink">How the list is translated</h2>
             <p className="mt-1 text-xs text-ink-500">Changes how the shopping list is turned into Luganda before it is read aloud.</p>
-          </div>
+          </div>}>
           <div role="tablist" aria-label="Translation mode" className="grid grid-cols-2 gap-2">
             {([
               ["per_item", "Item by item"],
@@ -122,16 +121,15 @@ export default function LugandaAudioSettingsPage() {
               ? "Each item is sent to Google as its own request. The original behaviour; uses one request per item, so a long list can use up a free key quickly."
               : "The whole list is sent to Google in one request, then read out item by item. Far fewer requests, so free daily limits last much longer. If Google's answer doesn't line up with the list, it quietly falls back to item by item."}
           </p>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <div>
+        <Fold head={<div>
             <h2 className="text-sm font-bold text-ink">Voice catalog</h2>
             <p className="mt-1 text-xs text-ink-500">
               Each rider picks one of these in their own account settings. Pick a Google AI Studio
               voice for each; the label is what the rider sees. Riders can preview a voice before choosing it.
             </p>
-          </div>
+          </div>}>
           <div className="space-y-2">
             {voices.map((voice) => (
               <div key={voice.id} className="flex items-center gap-2 rounded-xl border border-[var(--border-faint)] p-2.5">
@@ -180,12 +178,11 @@ export default function LugandaAudioSettingsPage() {
           >
             Add voice
           </button>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-1">
-          <label className="text-xs font-semibold text-ink-500" htmlFor="default-voice">
+        <Fold head={<label className="text-xs font-semibold text-ink-500" htmlFor="default-voice">
             Default voice
-          </label>
+          </label>}>
           <Select
             id="default-voice"
             value={defaultVoice}
@@ -199,7 +196,7 @@ export default function LugandaAudioSettingsPage() {
             ))}
           </Select>
           <p className="text-xs text-ink-500">Used for a rider who hasn&apos;t picked their own voice yet.</p>
-        </section>
+        </Fold>
 
         <SettingsSaveBar busy={busy} error={error} saved={saved} />
       </form>

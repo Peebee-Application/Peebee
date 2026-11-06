@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../../components/Fold";
 import { ModuleState } from "../../../components/ModuleState";
 import { Switch } from "../../../components/ui/Switch";
 import { Select } from "../../../components/ui/Select";
@@ -202,11 +203,10 @@ export default function CarSettingsPage() {
   return (
     <SettingsPageShell title="Peebee Car" loading={loading}>
       <form onSubmit={onSubmit} className="space-y-5">
-        <section className="home-card space-y-3">
-          <label className="flex items-center gap-2 text-sm font-bold text-ink">
+        <Fold head={<label className="flex items-center gap-2 text-sm font-bold text-ink">
             <ModuleState on={enabled} />
             Peebee Car is on
-          </label>
+          </label>}>
           <p className="text-xs text-ink-500">
             The master switch. Off hides everything car-related. It needs the car database tables (migration 0065) to be applied first.
           </p>
@@ -251,18 +251,16 @@ export default function CarSettingsPage() {
               <input id="car-demo-step" inputMode="numeric" value={sandboxStep} disabled={!sandboxDemo} onChange={(e) => setSandboxStep(digits(e.target.value).slice(0, 3))} className={input} />
             </label>
           </div>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <p className="text-sm font-bold text-ink">Peebee Car ride prices</p>
+        <Fold title="Peebee Car ride prices">
           <p className="text-xs text-ink-500">Vehicle make does not change the Convenient fare. Comfort and Large use this base fare plus their premium.</p>
           <div className="grid grid-cols-2 gap-3">
             {[["Convenient UGX per km", ratePerKm, setRatePerKm], ["Minimum fare UGX", minimumFare, setMinimumFare], ["Comfort premium %", comfortPremium, setComfortPremium], ["Large car premium %", xlPremium, setXlPremium], ["XL minimum seats", xlMinSeats, setXlMinSeats]].map(([label, value, setter]) => <label key={label as string} className="space-y-1 text-xs font-semibold text-ink-500">{label as string}<input required inputMode="numeric" value={value as string} onChange={(e) => (setter as (v: string) => void)(digits(e.target.value))} className={input} /></label>)}
           </div>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <p className="text-sm font-bold text-ink">Profit share of a finished ride</p>
+        <Fold title="Profit share of a finished ride">
           <div className="grid grid-cols-3 gap-3">
             {[
               ["Owner %", owner, setOwner],
@@ -278,13 +276,12 @@ export default function CarSettingsPage() {
           <p className={`text-xs ${total === 100 ? "text-ink-500" : "text-red-700 dark:text-red-300"}`}>
             Total {total}% — must be exactly 100%. Applies after payment fees; a category can set its own split on the fleet page.
           </p>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <label className="flex items-center gap-2 text-sm font-bold text-ink">
+        <Fold head={<label className="flex items-center gap-2 text-sm font-bold text-ink">
             <ModuleState on={schedEnabled} />
             Customers can schedule a car for later
-          </label>
+          </label>}>
           <div className="grid grid-cols-2 gap-3">
             {[
               ["How far ahead (hours) — required", schedMax, setSchedMax],
@@ -303,13 +300,12 @@ export default function CarSettingsPage() {
           <p className="text-xs text-ink-500">
             Scheduling stays off until &ldquo;how far ahead&rdquo; is set. A scheduled ride is only shown to drivers shortly before pickup (the customer pays after choosing a driver), so no driver is tied up for days. Within the watch time, the driver&apos;s distance to the pickup is checked every couple of minutes and the customer is warned once if they look late or can&apos;t be located. Needs migration 0067.
           </p>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <label className="flex items-center gap-2 text-sm font-bold text-ink">
+        <Fold head={<label className="flex items-center gap-2 text-sm font-bold text-ink">
             <ModuleState on={cpEnabled} />
             Carpool: drivers publish trips, passengers book seats
-          </label>
+          </label>}>
           <div className="grid grid-cols-2 gap-3">
             {[
               ["Most seats per booking", cpSeats, setCpSeats],
@@ -327,13 +323,12 @@ export default function CarSettingsPage() {
           <p className="text-xs text-ink-500">
             The seat price is set by the driver. Each booked seat is its own paid ride, split between owner, driver and Peebee like any car ride. No-show and late-cancel fees are not enabled yet. Needs migration 0068.
           </p>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <label className="flex items-center gap-2 text-sm font-bold text-ink">
+        <Fold head={<label className="flex items-center gap-2 text-sm font-bold text-ink">
             <ModuleState on={sdEnabled} />
             Self-drive hire: owners rent vehicles out by the day
-          </label>
+          </label>}>
           <div className="grid grid-cols-2 gap-3">
             {[
               ["Peebee's share of the rent (%) — required", sdPercent, setSdPercent],
@@ -351,13 +346,12 @@ export default function CarSettingsPage() {
           <p className="text-xs text-ink-500">
             Stays off until Peebee&apos;s share is set. Rent and deposit are held from the renter&apos;s wallet. After the configured grace period, started extra hours are charged at the listing&apos;s hourly rate from the held deposit. Damage claims are reviewed under Car fleet → Rentals. Needs migrations 0069 and 0083.
           </p>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <label className="flex items-center gap-2 text-sm font-bold text-ink">
+        <Fold head={<label className="flex items-center gap-2 text-sm font-bold text-ink">
             <ModuleState on={dealsOn} />
             Drivers can apply to owners&apos; cars
-          </label>
+          </label>}>
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm text-ink">
               <Switch checked={dealShare} disabled={!dealsOn} onChange={(e) => setDealShare(e.target.checked)} />
@@ -383,10 +377,9 @@ export default function CarSettingsPage() {
           <p className="text-xs text-ink-500">
             An owner opens a car to drivers on stated terms. A driver applies; when the owner accepts, they&apos;re connected straight away (both must already be approved). Peebee&apos;s own cut comes off every ride first; the owner&apos;s share is of what is left. With rent, the driver keeps the rest and rent is taken from their rides or paid from their wallet. Needs migration 0073.
           </p>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <p className="text-sm font-bold text-ink">Documents needed before approval</p>
+        <Fold title="Documents needed before approval">
           {[
             ["Owners: national ID", kycOwner, setKycOwner],
             ["Drivers: national ID", kycDriverId, setKycDriverId],
@@ -398,10 +391,9 @@ export default function CarSettingsPage() {
             </label>
           ))}
           <p className="text-xs text-ink-500">People upload a photo from the Peebee Car app. You can&apos;t approve an owner or driver whose required documents are missing. Needs migration 0072.</p>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <p className="text-sm font-bold text-ink">Vehicle photos</p>
+        <Fold title="Vehicle photos">
           <div className="grid grid-cols-2 gap-3">
             {[
               ["Most photos per vehicle (6–20)", photoMax, setPhotoMax],
@@ -414,13 +406,12 @@ export default function CarSettingsPage() {
             ))}
           </div>
           <p className="text-xs text-ink-500">Owners add photos when they submit a vehicle. You can&apos;t approve a vehicle that has fewer photos than the number needed. Needs migration 0070.</p>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <label className="flex items-center gap-2 text-sm font-bold text-ink">
+        <Fold head={<label className="flex items-center gap-2 text-sm font-bold text-ink">
             <Switch checked={withdrawals} onChange={(e) => setWithdrawals(e.target.checked)} />
             Owners and drivers can cash out to mobile money
-          </label>
+          </label>}>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-ink-500" htmlFor="car-wd-min">Smallest withdrawal (UGX, 0 = no minimum)</label>
             <input id="car-wd-min" inputMode="numeric" value={withdrawMin} disabled={!withdrawals} onChange={(e) => setWithdrawMin(digits(e.target.value))} className={`${input} disabled:opacity-50`} />
@@ -428,7 +419,7 @@ export default function CarSettingsPage() {
           <p className="text-xs text-ink-500">
             People can only cash out what they earned from car rides, never money they topped up themselves. Needs the withdrawals table (migration 0066).
           </p>
-        </section>
+        </Fold>
 
         <SettingsSaveBar busy={busy} error={error} saved={saved} />
       </form>

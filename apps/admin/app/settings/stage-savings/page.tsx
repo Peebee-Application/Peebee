@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../../components/Fold";
 import { Switch } from "../../../components/ui/Switch";
 import { Select } from "../../../components/ui/Select";
 
@@ -118,8 +119,7 @@ export default function StageSavingsSettingsPage() {
           queue before it can have an RSLA. There&apos;s no separate on/off switch for that anymore.
         </p>
 
-        <section className="home-card space-y-3">
-          <label className="flex items-start gap-2.5">
+        <Fold head={<label className="flex items-start gap-2.5">
             <Switch
               checked={loanInterestEnabled}
               onChange={(e) => setLoanInterestEnabled(e.target.checked)}
@@ -131,7 +131,7 @@ export default function StageSavingsSettingsPage() {
                 savings grow before share-out.
               </span>
             </span>
-          </label>
+          </label>}>
           {loanInterestEnabled && (
             <div className="space-y-1 pl-6.5">
               <label className="text-xs font-semibold text-ink-500" htmlFor="defaultInterestRate">
@@ -146,10 +146,9 @@ export default function StageSavingsSettingsPage() {
               />
             </div>
           )}
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <h2 className="text-sm font-semibold text-ink">Default cycle numbers</h2>
+        <Fold title="Default cycle numbers">
           <p className="text-xs text-ink-500">
             Applied when a stage starts a new cycle; its officers can adjust these for their own circle.
           </p>
@@ -205,10 +204,9 @@ export default function StageSavingsSettingsPage() {
               <p className="text-[11px] text-ink-500">Contributions are declared in shares × this price.</p>
             </div>
           </div>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <h2 className="text-sm font-semibold text-ink">Who can confirm cash received</h2>
+        <Fold title="Who can confirm cash received">
           <Select aria-label="Contribution recorder role"
             value={contributionRecorderRole}
             onValueChange={(value) => setContributionRecorderRole(value as VslaContributionRecorderRole)}
@@ -230,10 +228,9 @@ export default function StageSavingsSettingsPage() {
               </span>
             </span>
           </label>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <h2 className="text-sm font-semibold text-ink">Unconfirmed savings/repayment intents</h2>
+        <Fold title="Unconfirmed savings/repayment intents">
           <label className="text-xs font-semibold text-ink-500" htmlFor="escalationHours">
             Hours before the app prompts a member to call/message the treasurer
           </label>
@@ -244,10 +241,9 @@ export default function StageSavingsSettingsPage() {
             onChange={(e) => setUnconfirmedIntentEscalationHours(e.target.value.replace(/[^\d]/g, ""))}
             className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-[15px] outline-none focus:border-gold"
           />
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <h2 className="text-sm font-semibold text-ink">Admin visibility</h2>
+        <Fold title="Admin visibility">
           <Select aria-label="Administrator ledger visibility"
             value={adminLedgerVisibility}
             onValueChange={(value) => setAdminLedgerVisibility(value as VslaAdminLedgerVisibility)}
@@ -260,10 +256,9 @@ export default function StageSavingsSettingsPage() {
             Read-only visibility is for support and technical issues only — money disagreements between members
             stay inside the group.
           </p>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <h2 className="text-sm font-semibold text-ink">Where it shows up in the rider app</h2>
+        <Fold title="Where it shows up in the rider app">
           <Select aria-label="Feature placement"
             value={featurePlacement}
             onValueChange={(value) => setFeaturePlacement(value as VslaFeaturePlacement)}
@@ -274,10 +269,9 @@ export default function StageSavingsSettingsPage() {
             <option value="account_only">Tucked under Account</option>
             <option value="wallet_card">A card on Wallet, below the balance</option>
           </Select>
-        </section>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <label className="flex items-start gap-2.5">
+        <Fold head={<label className="flex items-start gap-2.5">
             <Switch
               checked={requiresPro}
               onChange={(e) => setRequiresPro(e.target.checked)}
@@ -289,11 +283,10 @@ export default function StageSavingsSettingsPage() {
                 keeps free access, forever. Set the Pro price under Settings → Monetization.
               </span>
             </span>
-          </label>
-        </section>
+          </label>}>
+        </Fold>
 
-        <section className="home-card space-y-3">
-          <h2 className="text-sm font-semibold text-ink">Fund handling</h2>
+        <Fold title="Fund handling">
           <label className="flex items-start gap-2.5">
             <Switch
               checked={custodialMode}
@@ -308,7 +301,7 @@ export default function StageSavingsSettingsPage() {
               </span>
             </span>
           </label>
-        </section>
+        </Fold>
 
         <SettingsSaveBar busy={busy} error={error} saved={saved} />
       </form>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../../components/Fold";
 import { ModuleState } from "../../../components/ModuleState";
 import { hasPermission, TAXIPRESS_LUGGAGE_LABELS, TAXIPRESS_LUGGAGE_TYPES, type TaxipressLuggageType, type TaxipressAdminQueueEntry, type TaxipressAdminRoute, type TaxipressRelayRoute, type TaxipressReport, type TaxipressSettings, type TaxipressTaxi } from "@peebee/shared";
 import Link from "next/link";
@@ -140,16 +141,14 @@ function SettingsTab() {
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       {!ready && <MigrationNotice />}
-      <section className="home-card space-y-3">
-        <label className="flex items-center gap-2 text-sm font-bold text-ink">
+      <Fold head={<label className="flex items-center gap-2 text-sm font-bold text-ink">
           <ModuleState on={s.enabled} />
           Taxipress is on
-        </label>
+        </label>}>
         <p className="text-xs text-ink-500">Off hides it from customers entirely. It also stays hidden while no route is running.</p>
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">When a taxi may leave</p>
+      <Fold title="When a taxi may leave">
         <div className="grid gap-2">
           {choice("full_only", s.departureRule, "Only when every seat is booked", "The driver can tap On Road only once the taxi is fully booked.", (v) => set("departureRule", v))}
           {choice("driver_choice", s.departureRule, "When the driver decides", "The driver may leave with free seats.", (v) => set("departureRule", v))}
@@ -163,10 +162,9 @@ function SettingsTab() {
           <Switch checked={s.sellFreeSeatsOnRoad} onChange={(e) => set("sellFreeSeatsOnRoad", e.target.checked)} />
           Sell free seats on a taxi that is already on the road
         </label>
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">Seats and fares</p>
+      <Fold title="Seats and fares">
         <p className="text-xs text-ink-500">The fare per seat is set on each route. Mid-route fares are a per-route switch.</p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Most seats in one booking">{field("maxSeatsPerBooking", true)}</Field>
@@ -178,10 +176,9 @@ function SettingsTab() {
           <Switch checked={s.cashEnabled} onChange={(e) => set("cashEnabled", e.target.checked)} />
           Passengers may pay cash to the driver
         </label>
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">Booking a taxi</p>
+      <Fold title="Booking a taxi">
         <p className="text-xs text-ink-500">The taxi Boarding Now is never bookable. Passengers pick from the next taxis waiting behind it.</p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Taxis open for booking">
@@ -220,10 +217,9 @@ function SettingsTab() {
           Show each route&apos;s stops to passengers
         </label>
         <p className="text-xs text-ink-500">Stops are the stages set on the route in <Link href="/settings/relay" className="font-semibold text-gold">Relay settings</Link>.</p>
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">Luggage and trip options</p>
+      <Fold title="Luggage and trip options">
         <label className="flex items-center gap-2 text-sm font-bold text-ink">
           <Switch checked={s.luggageEnabled} onChange={(e) => set("luggageEnabled", e.target.checked)} />
           Passengers may add luggage
@@ -270,10 +266,9 @@ function SettingsTab() {
             </div>
           </div>
         )}
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">Cancellations and no-shows</p>
+      <Fold title="Cancellations and no-shows">
         <p className="text-xs text-ink-500">Money only moves for seats paid in the app. Cash and unpaid seats are simply given back. Refunds go to the passenger&apos;s wallet.</p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Free cancellation (minutes)" hint="After booking, a passenger gets everything back inside this time.">{field("freeCancelMinutes", true)}</Field>
@@ -290,10 +285,9 @@ function SettingsTab() {
           When a taxi leaves the line, move its passengers to the next taxi with room
         </label>
         <p className="text-xs text-ink-500">If there is no room, or this is off, they are refunded in full with no fee.</p>
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">Peebee&apos;s commission on a seat</p>
+      <Fold title="Peebee&apos;s commission on a seat">
         <div className="grid grid-cols-2 gap-2">
           {choice("percent", s.commissionType, "A percentage", "Digital and cash can differ.", (v) => set("commissionType", v))}
           {choice("flat", s.commissionType, "A flat amount", "The same for every seat.", (v) => set("commissionType", v))}
@@ -312,10 +306,9 @@ function SettingsTab() {
           Block a driver from joining the line when they owe too much
         </label>
         <Field label="Owing more than (UGX)">{field("maxOwedUgx", true)}</Field>
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">Parcels in a taxi</p>
+      <Fold title="Parcels in a taxi">
         <p className="text-xs text-ink-500">A parcel is a parcel: if it fits, it goes. Taxipress taxis take no relay parcels until the numbers below are set.</p>
         <div className="grid gap-2">
           {choice("boarding_now", s.parcelAcceptRule, "Only the taxi that is boarding now", "Other taxis in the line do not take parcels yet.", (v) => set("parcelAcceptRule", v))}
@@ -331,7 +324,7 @@ function SettingsTab() {
         <Field label="Not allowed (one per line)">
           <textarea rows={4} value={notAllowed} onChange={(e) => setNotAllowed(e.target.value)} className={inputCls} />
         </Field>
-      </section>
+      </Fold>
       <SettingsSaveBar busy={busy} error={error} saved={saved} />
     </form>
   );
@@ -399,8 +392,7 @@ function RoutesTab() {
       ))}
 
       {ready && (
-        <section className="home-card space-y-3">
-          <p className="text-sm font-bold text-ink">Add a route</p>
+        <Fold title="Add a route">
           {relay.length === 0 ? (
             <p className="text-xs text-ink-500">Set up the route first in <Link href="/settings/relay" className="font-bold text-gold">Relay delivery → Matatu routes</Link>.</p>
           ) : (
@@ -430,7 +422,7 @@ function RoutesTab() {
               <button type="submit" disabled={busy === "add" || !adding.relayRouteId || !adding.fare} className={`${smallBtn} bg-gold text-ink-gold disabled:opacity-50`}>Add route (starts off)</button>
             </form>
           )}
-        </section>
+        </Fold>
       )}
     </div>
   );
@@ -577,8 +569,7 @@ function MoneyTab() {
         ))}
       </div>
       <ErrorNote message={error} />
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">Seats settled at boarding</p>
+      <Fold title="Seats settled at boarding">
         <div className="grid grid-cols-2 gap-2">
           {cell("Passengers boarded", `${t.bookings} bookings · ${t.seats} seats`)}
           {cell("Fares", ugx(t.fare))}
@@ -589,9 +580,8 @@ function MoneyTab() {
           {cell("Released to drivers", ugx(t.driverAmount))}
           {cell("Taken from drivers (cash)", ugx(t.takenFromDrivers))}
         </div>
-      </section>
-      <section className="home-card space-y-3">
-        <p className="text-sm font-bold text-ink">Cancellations, no-shows and refunds</p>
+      </Fold>
+      <Fold title="Cancellations, no-shows and refunds">
         <div className="grid grid-cols-2 gap-2">
           {cell("Refunded to passengers", ugx(report.refunds.refunded))}
           {cell("Kept as fees", ugx(report.refunds.fees))}
@@ -599,9 +589,8 @@ function MoneyTab() {
           {cell("No-shows", String(report.refunds.noShows))}
           {cell("Taxi left the line", String(report.refunds.taxiRemoved))}
         </div>
-      </section>
-      <section className="home-card space-y-2">
-        <p className="text-sm font-bold text-ink">Drivers who owe Peebee</p>
+      </Fold>
+      <Fold title="Drivers who owe Peebee">
         <p className="text-xs text-ink-500">Cash commission is taken from the driver&apos;s wallet and can take it below zero. The next payment into the wallet nets against it.</p>
         {report.owing.length === 0 && <p className="text-sm text-ink-500">No taxi driver owes anything.</p>}
         {report.owing.map((o) => (
@@ -610,9 +599,8 @@ function MoneyTab() {
             <span className="shrink-0 text-sm font-bold text-ink">{ugx(-o.balance)}</span>
           </div>
         ))}
-      </section>
-      <section className="home-card space-y-2">
-        <p className="text-sm font-bold text-ink">Latest settled seats</p>
+      </Fold>
+      <Fold title="Latest settled seats">
         {report.recent.length === 0 && <p className="text-sm text-ink-500">Nothing yet.</p>}
         {report.recent.map((r) => (
           <div key={r.id} className="flex items-center justify-between gap-3 text-xs">
@@ -620,7 +608,7 @@ function MoneyTab() {
             <span className="shrink-0 text-ink-500">{ugx(r.fare)} · commission {ugx(r.commission)}</span>
           </div>
         ))}
-      </section>
+      </Fold>
     </div>
   );
 }

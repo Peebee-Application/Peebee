@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../../components/Fold";
 import { ModuleState } from "../../../components/ModuleState";
 import { Select } from "../../../components/ui/Select";
 import { Switch } from "../../../components/ui/Switch";
@@ -194,8 +195,7 @@ export default function WorkSettingsPage() {
         </p>
       )}
 
-      <section className="home-card space-y-3">
-        <h2 className="text-sm font-bold text-ink">Availability</h2>
+      <Fold title="Availability">
         <Toggle managed label="Peebee Work is on" hint="Master switch for customers and providers. Staff keep access to finish open jobs." checked={form.enabled} disabled={ro} onChange={(v) => setBool("enabled", v)} />
         <div className="space-y-1.5">
           <p className="text-xs font-semibold text-ink-500">Kinds of work customers can book</p>
@@ -218,16 +218,15 @@ export default function WorkSettingsPage() {
             {MATCHING.map((m) => <option key={m} value={m}>{label(m)}</option>)}
           </Select>
         </Field>
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <h2 className="text-sm font-bold text-ink">Providers</h2>
+      <Fold title="Providers">
         <div className="space-y-1.5">
           <p className="text-xs font-semibold text-ink-500">Who may register</p>
           <Chips options={KINDS} value={form.providerKinds} disabled={ro} onChange={(v) => setList("providerKinds", v)} />
         </div>
         <Toggle label="Require staff approval" hint="Providers must be approved before they can go online or take jobs." checked={form.requireApproval} disabled={ro} onChange={(v) => setBool("requireApproval", v)} />
-      </section>
+      </Fold>
 
       {SECTIONS.map((s) => (
         <section key={s.title} className="home-card space-y-3">
@@ -236,8 +235,7 @@ export default function WorkSettingsPage() {
         </section>
       ))}
 
-      <section className="home-card space-y-3">
-        <h2 className="text-sm font-bold text-ink">Provider cancellations, photos, chat and tracking</h2>
+      <Fold title="Provider cancellations, photos, chat and tracking">
         <Toggle
           label="Re-match when a provider cancels"
           hint="Offer the job to other providers instead of refunding the customer."
@@ -253,10 +251,9 @@ export default function WorkSettingsPage() {
         </div>
         <Toggle managed label="Chat" hint="Customer and provider can message about a job." checked={form.chatEnabled} disabled={ro} onChange={(v) => setBool("chatEnabled", v)} />
         <Toggle managed label="Live tracking" hint="Customer sees the provider's location while the job is on." checked={form.trackingEnabled} disabled={ro} onChange={(v) => setBool("trackingEnabled", v)} />
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <h2 className="text-sm font-bold text-ink">Quick times when scheduling</h2>
+      <Fold title="Quick times when scheduling">
         <p className="text-xs text-ink-500">Choices a customer can tap when they book for later, on the Hive home and the booking page. Only times inside the minimum lead time and days ahead above are shown.</p>
         <Field label="Minutes from now" hint="Up to four durations in minutes, from 5 to 4320 (3 days), separated by commas. 60 shows as “In 1 hour”, 180 as “In 3 hours”. Leave empty for none.">
           <input disabled={ro} value={quick} onChange={(e) => { setSaved(false); setQuick(e.target.value.replace(/[^\d,\s]/g, "")); }} className={inputCls} inputMode="numeric" />
@@ -265,10 +262,9 @@ export default function WorkSettingsPage() {
         <Field label="Tomorrow at" hint="Shown to customers with the time, like “Tomorrow 9:00 am”.">
           <input type="time" disabled={ro} value={form.scheduleTomorrowTime} onChange={(e) => { setSaved(false); setForm({ ...form, scheduleTomorrowTime: e.target.value }); }} className={inputCls} />
         </Field>
-      </section>
+      </Fold>
 
-      <section className="home-card space-y-3">
-        <h2 className="text-sm font-bold text-ink">On-site checks</h2>
+      <Fold title="On-site checks">
         <p className="text-xs text-ink-500">
           Records where a provider is during a job, and flags a cancellation that comes after a long stay at the customer&apos;s address, so staff can look into possible off-app cash deals.
           A flag is a reason to look, not proof. Providers are told their location is recorded.
@@ -291,7 +287,7 @@ export default function WorkSettingsPage() {
         <Toggle label="Also flag jobs with no location at all" hint="The provider held the job that long, never shared a location, then it was cancelled." checked={form.onsiteFlagNoLocation} disabled={ro} onChange={(v) => setBool("onsiteFlagNoLocation", v)} />
         <Toggle label="Providers must share location to start a job" hint="They can only tap Start with a location update from the last few minutes. Location is only collected while a job is booked or in progress." checked={form.onsiteRequireLocation} disabled={ro} onChange={(v) => setBool("onsiteRequireLocation", v)} />
         {numField("locationRetentionDays")}
-      </section>
+      </Fold>
 
       <ErrorNote message={error} />
       {saved && <p className="text-sm font-medium text-green">Saved.</p>}

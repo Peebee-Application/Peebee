@@ -1,5 +1,6 @@
 "use client";
 
+import { Fold } from "../../../components/Fold";
 import { ModuleState } from "../../../components/ModuleState";
 import { hasPermission, type MarketplaceSettings } from "@peebee/shared";
 import { AlertCircle, CheckCircle2, Crown, Flame, Layers, Radio, ShoppingBag, Sparkles, Store, Tv, Video } from "lucide-react";
@@ -198,8 +199,7 @@ export default function MarketplaceSettingsPage() {
         )}
 
         {/* Master Switches */}
-        <section className="rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm space-y-4">
-          <div className="flex items-center gap-3">
+        <Fold head={<div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
               <Store className="h-5 w-5" />
             </div>
@@ -207,7 +207,7 @@ export default function MarketplaceSettingsPage() {
               <h2 className="text-base font-bold text-ink">Marketplace Service</h2>
               <p className="text-xs text-ink-500">Groceries & Stores customer channels and merchant storefronts</p>
             </div>
-          </div>
+          </div>}>
 
           <div className="flex items-center justify-between border-t border-[var(--border-faint)] pt-4">
             <div>
@@ -224,7 +224,7 @@ export default function MarketplaceSettingsPage() {
             </div>
             <ModuleState on={liveEnabled} />
           </div>
-        </section>
+        </Fold>
 
         {/* Pro & Elite Monetization & Paywall Gate */}
         <section className="rounded-[24px] border border-gold/30 bg-[rgb(var(--surface-card))] p-5 shadow-sm space-y-4">
@@ -817,8 +817,7 @@ export default function MarketplaceSettingsPage() {
         </section>
 
         {/* Commissions & Delivery Rules */}
-        <section className="rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm space-y-4">
-          <div className="flex items-center gap-3">
+        <Fold head={<div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
               <ShoppingBag className="h-5 w-5" />
             </div>
@@ -826,7 +825,7 @@ export default function MarketplaceSettingsPage() {
               <h2 className="text-base font-bold text-ink">Commissions & Order Rules</h2>
               <p className="text-xs text-ink-500">Platform take rates and checkout minimums</p>
             </div>
-          </div>
+          </div>}>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
             <div className="field-box flex flex-col p-3 rounded-2xl bg-[rgb(var(--surface-muted))]">
@@ -884,11 +883,10 @@ export default function MarketplaceSettingsPage() {
               </span>
             </div>
           </div>
-        </section>
+        </Fold>
 
         {/* Live Selling & Social Ads Engine Limits */}
-        <section className="rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm space-y-4">
-          <div className="flex items-center gap-3">
+        <Fold head={<div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
               <Tv className="h-5 w-5" />
             </div>
@@ -896,7 +894,7 @@ export default function MarketplaceSettingsPage() {
               <h2 className="text-base font-bold text-ink">Live Broadcasts & Social Ads</h2>
               <p className="text-xs text-ink-500">Stream session windows and 1-click social ads budgets</p>
             </div>
-          </div>
+          </div>}>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
             <div className="field-box flex flex-col p-3 rounded-2xl bg-[rgb(var(--surface-muted))]">
@@ -938,7 +936,7 @@ export default function MarketplaceSettingsPage() {
               <span className="text-[10px] text-ink-500 mt-1">Ad management markup</span>
             </div>
           </div>
-        </section>
+        </Fold>
 
         {/* Submit Actions */}
         <div className="sticky bottom-4 z-20 flex gap-3">
