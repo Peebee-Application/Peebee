@@ -8,6 +8,8 @@ Repository baseline inspected: origin/main at e1b2eaf4.
 
 Anyone can describe what they want to learn, generate a personal learning path or complete course, enrich it with videos and documents, study with a personalized AI tutor, and choose to share or sell the finished work. Creation must not require someone to establish a school first.
 
+Schools and teachers also receive AI-assisted course creation inside the existing Learn Studio. They can turn an approved syllabus, scheme of work, teaching notes, or learning outcomes into editable courses, teaching plans, lessons, and assessments for their classes. Personal creation and institutional authoring use the same generation services with different ownership, curriculum context, permissions, and publication workflows.
+
 The complete journey is: goal -> objectives -> editable roadmap -> lessons and materials -> private study or publication -> message/link sharing -> free enrollment or purchase -> individual tutoring and progress -> creator earnings.
 
 This is a native extension of Peebee, using its existing accounts, customer app, Learn Studio, education API, D1, R2, and wallet systems. Base44 is product inspiration, not a required dependency; its exact template internals have not been verified.
@@ -63,6 +65,31 @@ Provide an outline, selected lesson editor, resource panel, AI assistance, learn
 
 Creators can edit objectives, text, examples, quizzes, assessments, prerequisites, titles, descriptions, covers, and path steps. Regenerate a paragraph or lesson without replacing unrelated work. Preview mobile and desktop learner layouts.
 
+### AI-assisted creation for schools and teachers
+
+Provide Create with AI from a school's class/course area and Assist with AI inside an existing course or lesson. A teacher working independently can author under their personal creator identity; a teacher working for a school chooses the authorized school/class context before generating anything. Clearly show who owns the draft and which budget will fund generation.
+
+The institutional creation flow is:
+
+1. Choose the school, class/cohort, subject, grade/level, term, curriculum framework, teaching language, and delivery mode. Prefill known class details without assuming they are correct for every course.
+2. Upload or select authorized syllabus documents, schemes of work, textbook excerpts, teacher notes, PDFs, Word documents, slides, videos, and other resources. Identify which sources are approved curriculum references and which are supplementary material.
+3. Specify intended learning outcomes, teaching weeks, lesson duration, available teaching time, prerequisites, assessment approach, and classroom/resource constraints. These are editable course inputs validated against admin-configured limits, not fixed scheduling constants.
+4. Generate a proposed curriculum coverage map, course outline, and scheme of work. Map each objective and module to supplied curriculum references and distinguish uncovered outcomes, unsupported claims, and optional enrichment. Without an approved source, label curriculum alignment as unverified rather than official compliance.
+5. Let the teacher revise and approve the outline, then generate selected modules or the full draft through checkpointed jobs.
+6. Generate lesson explanations, teacher lesson plans, class activities, worked examples, homework, quizzes, assessment drafts, answer keys, and marking rubrics as selected. Separate teacher-only guidance and answers from learner-visible content.
+7. Add or replace media/materials, preview as a learner, and submit for school review where required. Authorized reviewers can approve or return work with comments. Publication always requires an explicit authorized action.
+8. Publish to the intended class/cohort or school library. Assignment and learner notifications are explicit actions with a recipient preview. Public sharing or sales require separate school authorization and platform policy checks.
+
+Teachers can use AI on existing content: improve an explanation, propose missing objectives, create practice aligned to a lesson, translate or simplify selected material, and propose differentiated activities. Maintain a teacher-reviewed base course; level/language variants and learner-specific remediation must not silently change its published version or official assessment. Variants retain source links and require review because translation or simplification can change meaning.
+
+School owners/admins manage teachers, course assignments, reviewers, and publishing/selling permissions within the platform's admin-controlled policy. A teacher's ability to edit a course does not automatically grant permission to change prices, publish publicly, move school assets into a personal workspace, or receive school sales proceeds. A departed teacher loses school access while school-owned drafts, publications, and audit history remain with the institution. Do not infer ownership from who clicked Generate.
+
+Provide a school resource library scoped by membership and explicit resource permissions. Reuse approved school-owned content across authorized classes; require permission to reuse another creator's material. School-owned sales settle to the configured school beneficiary using the existing account/wallet model, not automatically to the generating teacher. Personal teacher publications remain a separate context, and neither context implies permission to transfer material between them.
+
+School AI consumption is attributed to the school, teacher, job, and course. Support school budgets and per-teacher allowances within platform limits, with visible remaining allowance and admin-defined behavior on exhaustion. Teachers can save and continue manual editing when generation is unavailable. Do not include identifiable student records in generation prompts unless the feature needs them and the applicable permissions allow it; use aggregate learning evidence for class-wide revision suggestions.
+
+Example: a teacher selects an existing secondary class and uploads the school's approved mathematics syllabus and notes. AI proposes a term outline and objective-to-source map. After review, the teacher generates lessons, adds a recorded demonstration and worksheet, and sends the draft to an authorized reviewer. The reviewer publishes it to the class. Learners receive their own tutor sessions and progress; teacher-only marking guidance stays private.
+
 ### Publish and sell
 
 Review content completeness, audience, rights to materials, accessibility, visibility, sample lessons, price, tutor availability, and what purchase includes. Save the publication snapshot and display its version. Paid offers clearly disclose content access and any separate tutor allowance; a course purchase must not imply unlimited AI usage.
@@ -85,6 +112,8 @@ Treat these as separate operations with validated contracts:
 | Roadmap generation | Approved objectives, time budget, available content | Ordered steps, objective mappings, estimated effort, dependencies |
 | Lesson generation | Objective, source excerpts, level, language | Lesson blocks, examples, source references, practice |
 | Assessment generation | Objective and lesson scope | Questions, private answer/rubric data, difficulty metadata |
+| Institutional planning | Authorized school/class context, approved syllabus sources, teaching schedule | Coverage map, scheme of work, lesson plans, reviewable curriculum gaps |
+| Teacher assistance | Selected content, intended transformation, permitted resource library | Proposed edits, differentiated activities, translations, homework, teacher-only guidance |
 | Tutoring | Authorized lesson/version, relevant sources, session summary, learner evidence | Learner-facing response and proposed learning evidence |
 | Plan adjustment | Assessment history, remaining objectives, learner goal | Proposed revision activities or changes to the private plan |
 
@@ -167,6 +196,9 @@ Names below are proposed logical records, not migration filenames or a commitmen
 | Record group | Responsibility |
 | --- | --- |
 | Creator identities and content ownership | Personal/school ownership and authorized editors |
+| School memberships and scoped roles | Teacher/reviewer assignments and author/publish/sell permissions; extend existing instructor structures where suitable |
+| Curriculum mappings and teaching plans | Supplied framework/source versions, outcome coverage, term/week sequence, teacher-reviewed variants |
+| Review submissions and decisions | Draft version submitted, reviewer comments, approval/return state, actor and audit history |
 | Learning profiles | Goal-relevant preferences without duplicating account identity |
 | Objectives and content-objective mappings | Observable outcomes, prerequisites, evidence criteria |
 | Learning paths, versions, and ordered steps | Reusable authored roadmap and referenced content |
@@ -190,6 +222,8 @@ Proposed capabilities, fitted to existing route conventions during implementatio
 - Profile and dashboard reads/writes.
 - Create draft, edit outline/content, clone owned draft, inspect revisions.
 - Start/cancel/retry generation; get job progress; accept generated changes.
+- Generate school coverage maps, schemes of work, and lesson plans; propose selected teacher edits; submit/review institutional drafts.
+- Manage scoped school membership/resource permissions and class/cohort assignments within platform policy.
 - Authorize upload, complete upload, list/update resources, request processing, authorized preview/download.
 - Publish new version, inspect storefront, archive, list creator publications.
 - Create/accept/revoke invitations; resolve canonical links and shared-message cards.
@@ -207,6 +241,7 @@ All behavioral settings live in `settings`, are validated in settings routes, ap
 | --- | --- |
 | Availability | Personal creation, AI generation, tutoring, uploads, sharing, discovery, sales |
 | AI | Allowed provider/model, templates/teaching modes, budgets, quotas, context and output limits, concurrency, retries |
+| Schools and teachers | School AI eligibility/budgets, per-teacher allowance policy, allowed authoring modes, curriculum-source rules, review requirements, delegation limits, institutional sharing/selling permissions |
 | Learning | Mastery criteria, revision intervals, diagnostic behavior, progression rules |
 | Materials | Allowed types, sizes, counts, duration limits, OCR/transcription, embed hosts, downloads |
 | Publishing | Creator eligibility, review requirements, permitted visibility, samples, content limits |
@@ -230,12 +265,12 @@ Each phase is a bounded implementation milestone, with separate reviewable PRs w
 
 | Phase | Deliverable | Exit evidence |
 | --- | --- | --- |
-| 0. Foundation | Ownership audit, access matrix, schema/API contracts, admin controls, job/runtime design, payment recovery design | Existing school workflows remain compatible; personal creator route and policy assumptions documented |
+| 0. Foundation | Ownership audit, school/teacher role and review matrix, schema/API contracts, admin controls, job/runtime design, payment recovery design | Existing school workflows remain compatible; personal and school ownership, budget attribution, and policy assumptions documented |
 | 1. Personal authoring | Private manual courses/paths, creator identity, learner dashboard, outline editor, autosave | User creates and resumes a course without creating a school; another user cannot access its draft |
-| 2. AI generation | Profile, objectives, roadmap, staged lesson/assessment generation, budgets, recoverable jobs | Specific measurable objectives and editable content survive refresh, retry, cancellation, provider failure |
+| 2. AI generation | Personal generation plus school/teacher syllabus import, objectives, coverage maps, schemes of work, staged lesson/assessment generation, scoped budgets, recoverable jobs | Personal and school drafts survive refresh/retry/failure; school generation maps to supplied sources, respects roles, and preserves teacher edits |
 | 3. Materials | Multiple resources, video/PDF/DOCX support, preview/download, processing and provenance | Authorized learner can use materials; failed extraction remains honest and recoverable; private assets remain private |
 | 4. Tutor and adaptation | Persistent sessions, grounded answers, objective evidence, private plan adjustments | Two learners on the same course have separate sessions/progress; real references; existing grading rules preserved |
-| 5. Publishing and sharing | Immutable versions, storefront/sample, direct links, messages, free enrollments/invites | Friend opens link/card, authenticates, obtains correct access, and begins their own study; revoked invites are rejected |
+| 5. Publishing and sharing | Immutable versions, school review/approval, class/cohort assignment, storefront/sample, direct links, messages, free enrollments/invites | School review gates and class access enforced; friend opens link/card, authenticates, obtains correct access, and begins their own study; revoked invites are rejected |
 | 6. Commerce | Paid offers, entitlements, retry-safe wallet settlement, earnings and refunds | Duplicate requests and simulated interruptions cannot duplicate debit/payout or strand money without recovery |
 | 7. Public launch | Discovery, moderation, analytics, operational controls, rollout documentation | Full create-edit-share-buy-study-update-refund flow passes; monitoring and rollback exercised |
 
@@ -246,6 +281,11 @@ Phases 2 and 3 follow foundation authoring; phase 4 needs objectives and source 
 Use existing education integration test patterns and add meaningful tests for changed behavior:
 
 - Legacy school authoring/enrollment remains functional with and without new migrations.
+- School teachers can generate only within their assigned contexts; editing, approval, publishing, and selling permissions are independently enforced.
+- Curriculum maps cite actual supplied source versions, flag gaps, and do not label unverified alignment as official compliance.
+- School generation uses the correct budget; role removal blocks future school access and preserves institution-owned content.
+- Teacher-only answers/rubrics stay out of learner payloads and tutor retrieval; adaptations do not alter official grades or the published base course.
+- School-owned sales credit the configured institutional beneficiary; teachers cannot export school materials into personal sales without authorization.
 - Private drafts, published content, paid content, source files, and tutor sessions enforce the access matrix.
 - Invalid model output, cyclic paths, provider failures, exhausted budgets, retries, and cancellation preserve integrity.
 - Invalid file signatures, hostile document content, processing failures, source deletion, and unauthorized retrieval are handled.
@@ -271,6 +311,10 @@ For each code milestone: fetch origin, use an isolated `codex/<task>` worktree f
 
 Working assumptions: personal and school creators coexist; one-time UGX wallet purchases first; one seller per offer; third-party paid course access sold separately; private drafts by default; tutor usage disclosed separately from content ownership; no implicit resale/remix rights; no automatic publication or message delivery.
 
+School and teacher authoring is core release scope, using the shared generation engine rather than a later separate product. Institutional review, curriculum mappings, scoped resource access, school budget attribution, and authorized classroom delivery are included. Recommended school review defaults and delegation remain configurable in platform Admin; school-level choices operate within those constraints.
+
 Foundation work must resolve: exact personal ownership schema, existing messaging capabilities, durable job infrastructure, document/video processing providers, payment recovery primitives, and how creator eligibility/refund/update policies appear in Admin. These are bounded implementation decisions, not reasons to omit the create/share/sell journey.
 
 The release is complete when a user can generate a bookkeeping course from a goal, edit objectives and lessons, add a video and PDF/Word material, publish a version, send it to a friend by message or link, sell access to another learner, have each learner study privately with a grounded tutor, and see reconciled earnings while retaining the existing school-based Learn experience.
+
+It must also support a school teacher generating a source-mapped course from an approved syllabus, editing and enriching it, obtaining any required school approval, assigning it to the correct class, and optionally publishing/selling under institutional authorization, with school ownership, budgets, private assessment material, and learner access preserved throughout.
