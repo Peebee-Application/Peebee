@@ -5,7 +5,7 @@ import { isAssessment, normaliseContentType, type LearnSettings } from "@peebee/
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { consume, tooManyRequests } from "../lib/ratelimit.js";
-import { hasColumn } from "../lib/schema.js";
+import { hasColumn, hasTable } from "../lib/schema.js";
 import { getPlatformEnvironment, type PlatformEnvironment } from "../lib/settings.js";
 import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
 import { creditWallet, debitWallet, resolveCustomerByIdentifier } from "../wallet/service.js";
@@ -498,8 +498,14 @@ async function lessonState(userId: string, courseId: string): Promise<LessonStat
 /** The locks on a course for one learner. The educator previewing their own course sees nothing locked. */
 async function courseLocks(userId: string, access: Access, settings: LearnSettings, st: LessonState): Promise<{ locks: Map<string, Lock>; opens: Map<string, string>; modules: Row[]; lessons: Row[] }> {
   const id = String(access.course.id);
-  const modules = (await db.execute({ sql: "SELECT * FROM edu_modules WHERE course_id = ? ORDER BY position ASC, created_at ASC LIMIT 500", args: [id] })).rows as Row[];
-  const lessons = (await db.execute({ sql: "SELECT * FROM edu_lessons WHERE course_id = ? ORDER BY position ASC, created_at ASC LIMIT 5000", args: [id] })).rows as Row[];
+  let modules = (await db.execute({ sql: "SELECT * FROM edu_modules WHERE course_id = ? ORDER BY position ASC, created_at ASC LIMIT 500", args: [id] })).rows as Row[];
+  let lessons = (await db.execute({ sql: "SELECT * FROM edu_lessons WHERE course_id = ? ORDER BY position ASC, created_at ASC LIMIT 5000", args: [id] })).rows as Row[];
+  if(await hasTable("edu_course_drafts") && await one("SELECT course_id FROM edu_course_drafts WHERE course_id=?",[id])) {
+    const {publicationFor}=await import("./creator-study.js");
+    const snapshot=(await publicationFor(userId,id)).draft;
+    modules=snapshot.modules.map((m)=>({id:m.id,title:m.title,description:m.description}));
+    lessons=snapshot.modules.flatMap((m)=>m.lessons.map((l)=>({...lessons.find((old)=>old.id===l.id),id:l.id,module_id:m.id,course_id:id,title:l.title,duration_minutes:l.minutes,summary:"",content_type:l.nativeActivity||"text"})));
+  }
   if (access.owner) return { locks: new Map(), opens: new Map(), modules, lessons };
   const { locks, opens } = await computeLocks(userId, id, settings, modules, lessons, new Set(st.done.keys()));
   return { locks, opens, modules, lessons };
@@ -509,10 +515,14 @@ async function lessonAccess(c: Context, lessonId: string, message: string, opts:
   const lesson = await one("SELECT * FROM edu_lessons WHERE id = ?", [lessonId]);
   const access = lesson ? await courseAccess(c.get("user").sub, String(lesson.course_id)) : null;
   if (!lesson || !access) return fail(c, { status: 403, error: "not_enrolled", message });
+  if (lesson.content_type === "text" && await hasTable("edu_course_drafts") && await one("SELECT course_id FROM edu_course_drafts WHERE course_id=?",[lesson.course_id])) {
+    return c.json({error:"versioned_player_required",message:"Open this course in the shared study player to use your enrolled version and practice requirements."},409);
+  }
   if (!access.owner && !opts.ignoreLock) {
     const settings = await getLearnSettings();
     const st = await lessonState(c.get("user").sub, String(lesson.course_id));
-    const { locks } = await courseLocks(c.get("user").sub, access, settings, st);
+    const { locks,lessons } = await courseLocks(c.get("user").sub, access, settings, st);
+    if(!lessons.some((l)=>l.id===lesson.id))return c.json({error:"versioned_player_required",message:"This lesson is not part of your enrolled course version."},409);
     const lock = locks.get(String(lesson.id));
     if (lock) return fail(c, { status: 403, error: "locked", message: lock.reason === "drip" ? `This isn't open yet. ${lock.message}.` : "Finish the earlier items in this class first." });
   }
@@ -570,6 +580,10 @@ learnRoutes.post("/courses/:id/enroll", async (c) => {
   const course = await one("SELECT * FROM edu_courses WHERE id = ? AND status = 'published'", [c.req.param("id")]);
   const school = course ? await one("SELECT * FROM edu_schools WHERE id = ? AND status = 'active'", [course.school_id]) : null;
   if (!course || !school) return notFound(c, "course");
+  if (await hasTable("edu_course_drafts")) {
+    const creator = await one("SELECT published_version FROM edu_course_drafts WHERE course_id=?", [course.id]);
+    if (creator) return fail(c, { status: 409, error: "creator_checkout", message: "Open this course's learning page to accept an invitation, enroll or review its current purchase offer." });
+  }
   if (school.owner_id === user.sub) return fail(c, { status: 400, error: "own_course", message: "This is your own course. You can already open it." });
 
   if (settings.prerequisitesEnabled) {
@@ -666,11 +680,11 @@ learnRoutes.get("/courses/:id", async (c) => {
   if (!access) return fail(c, { status: 403, error: "not_enrolled", message: "Enrol in this course to open its lessons." });
   const settings = await getLearnSettings();
   const id = String(access.course.id);
-  const modules = (await db.execute({ sql: "SELECT * FROM edu_modules WHERE course_id = ? ORDER BY position ASC, created_at ASC LIMIT 500", args: [id] })).rows as Row[];
-  const lessons = (await db.execute({ sql: "SELECT * FROM edu_lessons WHERE course_id = ? ORDER BY position ASC, created_at ASC LIMIT 5000", args: [id] })).rows as Row[];
+
   const st = await lessonState(user.sub, id);
   const lock = await courseLocks(user.sub, access, settings, st);
   st.locks = lock.locks;
+  const {modules,lessons}=lock;
   const finished = !access.owner && (await proReady()) && (await courseFinished(user.sub, id));
   const certificate = finished
     ? ((await db.execute({ sql: "SELECT id FROM edu_certificates WHERE course_id = ? AND user_id = ?", args: [id, user.sub] })).rows[0] as Row | undefined)

@@ -3,6 +3,7 @@ import type { Config } from "tailwindcss";
 const config: Config = {
   darkMode: ["selector", '[data-theme="dark"]'],
   content: [
+    "../../packages/shared/src/Learning*.tsx",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     // The shared school conversation screen is styled with this app's Tailwind.

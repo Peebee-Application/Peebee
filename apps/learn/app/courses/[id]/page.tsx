@@ -11,6 +11,7 @@ import { Community } from "../../../components/studio/Community";
 import { GradebookTable, Marking } from "../../../components/studio/Marking";
 import { Button, Chip, Crumbs, EmptyState, Notice, Skeleton, cardCls } from "../../../components/ui";
 import { api, errorMessage } from "../../../lib/api";
+import { LearningCreatorLink } from "@peebee/shared/learning-creator-link";
 import { useStudioSettings } from "../../../lib/studio-config";
 import { STREAM_UI, formatMinutes, formatUgx, plural } from "../../../lib/streams";
 
@@ -313,6 +314,7 @@ export default function CoursePage() {
       )}
 
       <section aria-labelledby="syllabus-heading" className="space-y-3">
+        <LearningCreatorLink api={api} href={`/create?course=${encodeURIComponent(id)}`} label="Open shared authoring & AI assistance" />
         <div className="flex items-center justify-between gap-3">
           <h3 id="syllabus-heading" className="text-base font-semibold text-ink">
             Class outline

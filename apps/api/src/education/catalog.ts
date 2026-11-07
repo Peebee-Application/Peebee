@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { EDUCATION_STREAM_IDS, normaliseContentType } from "@peebee/shared";
+import { EDUCATION_STREAM_IDS, normaliseContentType, type LearningDraft } from "@peebee/shared";
 import { db } from "../db/client.js";
 import { clientIp, consume, tooManyRequests } from "../lib/ratelimit.js";
-import { hasColumn } from "../lib/schema.js";
+import { hasColumn, hasTable } from "../lib/schema.js";
 import { getLearnSettings } from "./settings.js";
 import { courseRules, proReady } from "./rewards.js";
 import { offersForCourse } from "./sales.js";
@@ -110,8 +110,14 @@ catalogRoutes.get("/courses/:id", async (c) => {
   ).rows[0] as Row | undefined;
   if (!course) return c.json({ error: "not_found", message: "That course wasn't found." }, 404);
 
-  const modules = (await db.execute({ sql: "SELECT * FROM edu_modules WHERE course_id = ? ORDER BY position ASC LIMIT 500", args: [course.id as string] })).rows as Row[];
-  const lessons = (await db.execute({ sql: "SELECT * FROM edu_lessons WHERE course_id = ? ORDER BY position ASC LIMIT 5000", args: [course.id as string] })).rows as Row[];
+  let snapshot:LearningDraft|null=null;
+  if(await hasTable("edu_course_drafts") && await hasTable("edu_course_publications")) {
+    const r=(await db.execute({sql:"SELECT p.body_json FROM edu_course_drafts d JOIN edu_course_publications p ON p.id=d.published_version WHERE d.course_id=?",args:[String(course.id)]})).rows[0];
+    if(r)snapshot=JSON.parse(String(r.body_json)) as LearningDraft;
+    if(snapshot?.visibility==="invite"||snapshot?.visibility==="private")return c.json({error:"not_found",message:"That course wasn't found."},404);
+  }
+  const modules:Row[] = snapshot ? snapshot.modules.map((m)=>({id:m.id,title:m.title,description:m.description})) : (await db.execute({ sql: "SELECT * FROM edu_modules WHERE course_id = ? ORDER BY position ASC LIMIT 500", args: [course.id as string] })).rows as Row[];
+  const lessons:Row[] = snapshot ? snapshot.modules.flatMap((m)=>m.lessons.map((l)=>({id:l.id,module_id:m.id,title:l.title,content_type:l.nativeActivity||"text",duration_minutes:l.minutes,summary:""}))) : (await db.execute({ sql: "SELECT * FROM edu_lessons WHERE course_id = ? ORDER BY position ASC LIMIT 5000", args: [course.id as string] })).rows as Row[];
   let prerequisite: { id: string; title: string } | null = null;
   if ((await getLearnSettings()).prerequisitesEnabled) {
     const need = (await courseRules(String(course.id))).prerequisiteCourseId;

@@ -98,6 +98,25 @@ studioRoutes.use("*", async (c, next) => {
   if (!(await studioReady())) {
     return c.json({ error: "learn_upgrade_pending", message: "Peebee Learn Studio is being set up. Try again shortly." }, 503);
   }
+  // Once adopted by shared authoring, mutate the draft/version contract rather than older partial lesson payloads.
+  if (!["GET", "HEAD"].includes(c.req.method) && await hasTable("edu_course_drafts")) {
+    const path = c.req.path;
+    if(c.req.method === "DELETE") {
+      const parent=/\/(schools|classes)\/([^/]+)$/.exec(path);
+      if(parent && await one(`SELECT d.course_id FROM edu_course_drafts d JOIN edu_courses c ON c.id=d.course_id WHERE c.${parent[1]==="schools"?"school_id":"class_id"}=? LIMIT 1`,[parent[2]])) {
+        return c.json({error:"version_history_exists",message:"This contains versioned learning content. Keep it to preserve learner access and review history."},409);
+      }
+    }
+    const courseMatch = /\/courses\/([^/]+)(?:\/(modules|order))?$/.exec(path);
+    const moduleMatch = /\/modules\/([^/]+)(?:\/lessons)?$/.exec(path);
+    const lessonMatch = /\/lessons\/([^/]+)(?:\/media)?$/.exec(path);
+    let courseId = courseMatch?.[1];
+    if (moduleMatch) courseId = String((await one("SELECT course_id FROM edu_modules WHERE id=?", [moduleMatch[1]]))?.course_id || "");
+    if (lessonMatch) courseId = String((await one("SELECT course_id FROM edu_lessons WHERE id=?", [lessonMatch[1]]))?.course_id || "");
+    if (courseId && await one("SELECT course_id FROM edu_course_drafts WHERE course_id=?", [courseId]) && await ownedCourse(c.get("user").sub, courseId)) {
+      return c.json({ error: "creator_editor_required", message: "Open shared course authoring to edit this versioned course without losing rich content or review history." }, 409);
+    }
+  }
   await next();
 });
 

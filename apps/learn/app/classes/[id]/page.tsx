@@ -4,6 +4,7 @@ import type { StudioClass, StudioCourse, StudioSchool } from "@peebee/shared";
 import { BookOpen, Pencil, Plus, Trash2 } from "lucide-react";
 import { LearnThumb } from "@peebee/shared/learn-thumb";
 import Link from "next/link";
+import { LearningCreatorLink } from "@peebee/shared/learning-creator-link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ClassForm, CourseForm, type ClassInput, type CourseInput } from "../../../components/studio/forms";
@@ -105,6 +106,7 @@ export default function ClassPage() {
   return (
     <div className="space-y-5 pb-6">
       <Crumbs items={[{ label: "Schools", href: "/schools" }, { label: school.name, href: `/schools/${school.id}` }, { label: cls.name }]} />
+      {canBuild && <LearningCreatorLink api={api} href={`/create?class=${encodeURIComponent(id)}`} label="Create with AI for this class" />}
 
       <header className={`${cardCls} space-y-3 p-4 sm:p-5`}>
         <div className="flex flex-wrap items-start justify-between gap-3">

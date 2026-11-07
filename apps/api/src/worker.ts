@@ -16,6 +16,7 @@ import { sweepWork } from "./work/scheduled.js";
 import { sweepTalent } from "./talent/scheduled.js";
 import { sweepChannels } from "./channels/scheduled.js";
 import { sweepSupportChats } from "./support-chat/alerts.js";
+import { sweepLearningJobs } from "./education/creator-ai.js";
 import { expireStaleVouchers } from "./gas/vouchers.js";
 import { applyRounding } from "./costing/config.js";
 import { sweepStaleReservations } from "./offers/service.js";
@@ -63,6 +64,7 @@ export default {
   async scheduled(event: { cron?: string }, env: WorkerEnv, ctx: CfExecutionContext): Promise<void> {
     bindEnv(env);
     await applyRounding().catch(() => undefined);
+    ctx.waitUntil(sweepLearningJobs().catch(() => console.error("Learning job recovery failed")));
     // Practice on each person's device (the default) and a live platform need none of the demo-world work below, which is
     // most of what this job reads from the database. It runs only while Admin switched on the shared practice world, or the
     // whole platform is in sandbox.

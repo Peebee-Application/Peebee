@@ -15,7 +15,7 @@ const ALWAYS_ALLOWED_PATHS = ["/verify"];
 // be signed out here (different device/browser than where they signed up).
 const UNGATED_PATHS = ["/verify/confirmed", "/activate"];
 // A shared product or dish link: signed out, the page shows a public preview itself.
-const SHARED_ITEM_PATH = /^\/(product\/[^/]+|restaurants\/[^/]+\/items\/[^/]+|c\/[^/]+|give\/[^/]+|post\/[^/]+)\/?$/;
+const SHARED_ITEM_PATH = /^\/(product\/[^/]+|restaurants\/[^/]+\/items\/[^/]+|c\/[^/]+|give\/[^/]+|post\/[^/]+|learn\/study\/[^/]+)\/?$/;
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, ready } = useAuth();
@@ -31,7 +31,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     if (isUngated || !ready) return;
     if (!user && !isPublic) {
       // Someone who scanned the code on their TV lands here signed out: bring them back to the page, with the code, after signing in.
-      if (pathname === "/learn/tv") rememberReturnTo(`${pathname}${window.location.search}`);
+      if (pathname === "/learn/tv" || pathname === "/learn/create" || pathname === "/learn/messages" || pathname.startsWith("/learn/study/")) rememberReturnTo(`${pathname}${window.location.search}`);
       router.replace("/login");
     }
     if (user && isPublic) router.replace(takeReturnTo() ?? "/");

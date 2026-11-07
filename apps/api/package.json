@@ -20,6 +20,7 @@
     "@libsql/client": "^0.14.0",
     "@peebee/shared": "workspace:*",
     "bcryptjs": "^2.4.3",
+    "fflate": "^0.8.2",
     "hono": "^4.13.14",
     "jose": "^5.9.6",
     "webpush-webcrypto": "^1.0.5",

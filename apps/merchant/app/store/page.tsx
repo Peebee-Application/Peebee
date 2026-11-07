@@ -1,6 +1,7 @@
 "use client";
 
 import { ExistingDigitalPurchases } from "../../components/store/ExistingDigitalPurchases";
+import { LearningCreatorLink } from "@peebee/shared/learning-creator-link";
 import { SectionContentEditor } from "../../components/SectionContentEditor";
 import { PlanLadder, type PlanInfo } from "../../components/store/PlanLadder";
 import { Accordion } from "../../components/Accordion";
@@ -2999,6 +3000,7 @@ export default function MerchantProStorePage() {
               </div>
 
               {/* LMS Metrics */}
+              <LearningCreatorLink api={api} href={`/store/learning?store=${encodeURIComponent(store.id)}`} label="Create a course with AI" />
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 shadow-xs">
                   <span className="text-[10px] font-bold uppercase text-ink-500">Active Courses</span>
@@ -3193,6 +3195,7 @@ export default function MerchantProStorePage() {
                       </div>
 
                       <div className="pt-3 border-t border-[var(--border-faint)] flex items-center justify-between text-xs">
+                        <a className="font-semibold text-gold underline" href={`/store/learning?store=${encodeURIComponent(store.id)}&course=${encodeURIComponent(c.id)}`}>Open authoring</a>
                         <div className="flex items-center gap-2 text-ink-400 text-[11px]">
                           <span>👥 {c.enrolled_students_count || 0} students</span>
                           {c.certificate_enabled ? <span>📜 Certificate</span> : <span>No certificate</span>}

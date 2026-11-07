@@ -154,7 +154,7 @@ app.use("*", (c, next) => {
       return undefined;
     },
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "X-Chat-Secret", "X-Merchant-Id", "X-File-Name", "X-Phone-Proof"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Chat-Secret", "X-Merchant-Id", "X-File-Name", "X-Phone-Proof", "X-Upload-Length"],
   })(c, next);
 });
 

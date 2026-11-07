@@ -18,6 +18,20 @@ type SetResult = { ok: true } | { ok: false; message: string };
 
 /** How each feature's on/off switch is read and written. Those switches already live where the admin expects them. */
 const FEATURE_HOOKS: Record<AiFeatureId, { isEnabled(): Promise<boolean>; setEnabled(on: boolean, actor: Actor, ip: string | null): Promise<SetResult> }> = {
+  learn_generation: {
+    isEnabled: async () => (await getOption("learn_creator_ai_enabled")) === true,
+    async setEnabled(on, actor, ip) {
+      const result = await setOptions({ learn_creator_ai_enabled: on }, actor, ip);
+      return result.ok ? { ok: true } : { ok: false, message: Object.values(result.errors)[0] ?? "Could not save" };
+    },
+  },
+  learn_tutor: {
+    isEnabled: async () => (await getOption("learn_creator_tutor_enabled")) === true,
+    async setEnabled(on, actor, ip) {
+      const result = await setOptions({ learn_creator_tutor_enabled: on }, actor, ip);
+      return result.ok ? { ok: true } : { ok: false, message: Object.values(result.errors)[0] ?? "Could not save" };
+    },
+  },
   translation: {
     isEnabled: async () => (await getLugandaAudioSettings()).enabled,
     async setEnabled(on, actor, ip) {

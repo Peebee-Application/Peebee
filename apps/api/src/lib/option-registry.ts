@@ -15,6 +15,7 @@
  */
 
 import { SUPPORT_APPS } from "@peebee/shared";
+import { LEARN_CREATOR_OPTIONS } from "../education/creator-options.js";
 
 export type OptionModule = "storefront" | "portal" | "plans" | "digital" | "lms" | "services" | "platform" | "support";
 
@@ -62,6 +63,7 @@ const ROLES: OptionChoice[] = [
 ];
 
 export const OPTION_SETTINGS: SettingDef[] = [
+  ...LEARN_CREATOR_OPTIONS,
   { key: "merchant_settlement_cooling_hours", module: "platform", kind: "int", label: "Merchant payout destination cooling period", description: "Minimum age in hours of a verified payout destination before live withdrawals. Applies when returning from sandbox too; sandbox withdrawals have no waiting period.", default: 24, min: 0, max: 720, unit: "hours" },
   // ------------------------------------------------------------------ Storefront
   {
