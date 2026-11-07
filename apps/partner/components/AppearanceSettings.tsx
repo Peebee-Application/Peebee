@@ -24,12 +24,11 @@ export function AppearanceSettings() {
               key={option.mode}
               type="button"
               onClick={() => setMode(option.mode)}
-              className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center ${
-                active ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"
-              }`}
+              aria-pressed={active}
+              className="select-card items-center gap-1.5 text-center"
             >
-              <Icon className={`h-5 w-5 ${active ? "text-gold" : "text-ink-500"}`} strokeWidth={1.75} aria-hidden />
-              <span className="text-xs font-bold text-ink">{option.label}</span>
+              <Icon className="select-card__icon h-5 w-5 text-ink-500" strokeWidth={1.75} aria-hidden />
+              <span className="select-card__title text-xs text-ink">{option.label}</span>
             </button>
           );
         })}

@@ -1615,7 +1615,8 @@ orderRoutes.get("/orders/:id/applicants/:riderId/profile", async (c) => {
     sql: "SELECT 1 FROM order_applications WHERE order_id = ? AND rider_id = ?",
     args: [String(order.id), riderId],
   });
-  if (!application.rows.length) return c.json({ error: "not_found" }, 404);
+  // A rider who applied, or the rider already matched (who may have claimed the ride without applying).
+  if (!application.rows.length && order.rider_id !== riderId) return c.json({ error: "not_found" }, 404);
   const offset = Number(c.req.query("offset") ?? 0);
   if (!Number.isSafeInteger(offset) || offset < 0) return c.json({ error: "invalid_offset" }, 400);
   const profile = await getApplicantProfile(riderId, String(order.environment), offset);
@@ -1880,6 +1881,22 @@ const fundSchema = z
     (data.paymentMethod === "wallet" ? data.useWallet === true : !data.useWallet && (data.paymentMethod === "card" || !!data.msisdn)),
     { message: "The payment details must match the selected method" });
 
+/**
+ * Whether this order is paid before any rider exists. A relay can be (see relayPaysBeforeRider); so can an ordinary
+ * first-come ride when the admin switch is on. The money is held in escrow, the first rider to take the ride starts it
+ * already paid, and an untaken ride is refunded by the job-expiry sweep or when the customer cancels. A ride where the customer
+ * picks the rider is paid after the pick, and cars and Taxipress seats keep their own booking flows.
+ */
+async function orderPaysBeforeRider(order: Row): Promise<boolean> {
+  if (await relayPaysBeforeRider(order)) return true;
+  if (!order.is_ride || order.rider_id || order.payment_rail !== "escrow" || !["Create", "Match"].includes(String(order.stage))) return false;
+  if (!["first_to_claim", "nearest_window"].includes(String(order.matching_mode))) return false;
+  if (!(await getMatchingSettings()).ridePayFirstEnabled) return false;
+  if (await isCarOrder(String(order.id))) return false;
+  if (await taxipressPayRules(String(order.id), String(order.customer_id))) return false;
+  return true;
+}
+
 orderRoutes.get("/orders/:id/checkout", async (c) => {
   const order = await getOrder(c.req.param("id"));
   if (!order) return c.json({ error: "not_found" }, 404);
@@ -1888,7 +1905,7 @@ orderRoutes.get("/orders/:id/checkout", async (c) => {
   // from the moment it's ordered (before a rider accepts it too).
   const bundleGroup = await unpaidBundleGroup(order);
   // A relay can be paid straight away, before any rider (admin switch): the pay screen shows Pay now.
-  const payBeforeRider = (await relayPaysBeforeRider(order)) &&
+  const payBeforeRider = (await orderPaysBeforeRider(order)) &&
     (await db.execute({ sql: "SELECT 1 FROM payments WHERE order_id = ? AND type = 'collection' AND status IN ('pending', 'unknown', 'successful') LIMIT 1", args: [String(order.id)] })).rows.length === 0 &&
     (await prepaidBundleGroup(order)) !== "not_ready";
   // Each quote also carries its breakdown (items, subtotal, delivery and its legs) over exactly
@@ -1941,7 +1958,7 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
   }
   // A relay order may be paid as soon as it is placed (admin switch), before any rider:
   // it is held in escrow and goes straight to Shop once the first-leg rider is assigned.
-  const payFirst = await relayPaysBeforeRider(order);
+  const payFirst = await orderPaysBeforeRider(order);
   if (order.stage !== "Match" && !payFirst) {
     return c.json({ error: "invalid_stage", message: `Cannot fund from stage ${order.stage}` }, 409);
   }
@@ -1960,7 +1977,9 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
     return c.json({ error: "guest_scope", message: "Pay with mobile money or card, or sign in to use your wallet." }, 403);
   }
   if (payFirst && parsed.data.paymentMethod === "cash") {
-    return c.json({ error: "relay_requires_prepay", message: "Relay deliveries are paid in the app, not in cash." }, 409);
+    return c.json(order.is_ride
+      ? { error: "ride_requires_prepay", message: "Pay in the app now. If you'd rather pay cash, choose a rider first." }
+      : { error: "relay_requires_prepay", message: "Relay deliveries are paid in the app, not in cash." }, 409);
   }
   // TaxiPress: the cash switch and the per-passenger cash-booking limit apply here too.
   const taxipress = await taxipressPayRules(id, String(order.customer_id));

@@ -21,6 +21,7 @@ export default function RiderMatchingPage() {
   const [unpaidRelease, setUnpaidRelease] = useState("15");
   const [stuckFunding, setStuckFunding] = useState("30");
   const [oneActiveRide, setOneActiveRide] = useState(true);
+  const [payFirst, setPayFirst] = useState(false);
   const [closeUnpaid, setCloseUnpaid] = useState("3");
   const [biddingEnabled, setBiddingEnabled] = useState(false);
   const [biddingMin, setBiddingMin] = useState("50");
@@ -46,6 +47,7 @@ export default function RiderMatchingPage() {
         setUnpaidRelease(String(settings.unpaidMatchReleaseMinutes ?? 15));
         setStuckFunding(String(settings.stuckFundingReleaseMinutes ?? 30));
         setOneActiveRide(settings.oneActiveRideEnabled ?? true);
+        setPayFirst(settings.ridePayFirstEnabled ?? false);
         setCloseUnpaid(String(settings.riderCloseUnpaidMinutes ?? 3));
         setBiddingEnabled(settings.bidding.enabled);
         setBiddingMin(String(settings.bidding.minPercent));
@@ -78,6 +80,7 @@ export default function RiderMatchingPage() {
         unpaidMatchReleaseMinutes: Math.min(1440, Math.max(0, Number(unpaidRelease) || 0)),
         stuckFundingReleaseMinutes: Math.min(1440, Math.max(0, Number(stuckFunding) || 0)),
         oneActiveRideEnabled: oneActiveRide,
+        ridePayFirstEnabled: payFirst,
         riderCloseUnpaidMinutes: Math.min(120, Math.max(0, Number(closeUnpaid) || 0)),
         bidding: {
           enabled: biddingEnabled,
@@ -95,6 +98,7 @@ export default function RiderMatchingPage() {
       setUnpaidRelease(String(res.settings.unpaidMatchReleaseMinutes ?? 15));
       setStuckFunding(String(res.settings.stuckFundingReleaseMinutes ?? 30));
       setOneActiveRide(res.settings.oneActiveRideEnabled ?? true);
+      setPayFirst(res.settings.ridePayFirstEnabled ?? false);
       setCloseUnpaid(String(res.settings.riderCloseUnpaidMinutes ?? 3));
       setBiddingEnabled(res.settings.bidding.enabled);
       setBiddingMin(String(res.settings.bidding.minPercent));
@@ -255,6 +259,19 @@ export default function RiderMatchingPage() {
               checked one last time and given up on; the order then goes back to unpaid (the customer can pay again, and the unpaid
               release above frees the rider). A payment that did go through moves the order on instead. Nothing extra is charged and
               nobody is penalised. 0 turns this off. Not applied to combined deliveries.
+            </p>
+          </div>
+
+          <div className="space-y-1 border-t border-[var(--border-faint)] pt-3">
+            <label className="flex items-center gap-2 text-sm font-bold text-ink">
+              <input type="checkbox" checked={payFirst} onChange={(e) => setPayFirst(e.target.checked)} />
+              Pay before a rider is found (first come, first served rides)
+            </label>
+            <p className="text-xs text-ink-500">
+              On: the customer goes straight to payment, the money is held safely, and the first rider to take the ride heads to them.
+              If nobody takes it, or the customer cancels, it is refunded in full. Off: the customer pays after a rider is matched.
+              Rides where the customer picks a rider always pay after picking. Keep Turn on &ldquo;Expire jobs nobody takes&rdquo; so anldquo;Expire jobs nobody servesTurn on &ldquo;Expire jobs nobody takes&rdquo; so anrdquo; on so an
+              untaken ride is refunded by itself.
             </p>
           </div>
 

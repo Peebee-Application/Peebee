@@ -8,6 +8,7 @@ import { api } from "../../lib/api";
 import { useCalls } from "../../lib/calls-context";
 import { stageLabel } from "../../lib/order-display";
 import { rideProgress, whenLabel, toLocalInput } from "../../lib/ride-home";
+import { RiderProfileModal } from "../RiderProfileModal";
 
 type CarInfo = { scheduledFor: string | null; categoryName?: string; plate?: string; vehicleName?: string; driverName?: string };
 type RiderFacts = { verified: boolean; vehicleInfo: string | null; rating: number | null };
@@ -50,6 +51,7 @@ export function RideTripCard({ order, car, rider, stops = [] }: { order: OrderRo
   const { openThread } = useChatDrawer();
   const { startCall } = useCalls();
   const [shared, setShared] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
   const extra = order as OrderRow & CarFields;
   const name = order.rider_name ?? car?.driverName ?? null;
   const firstName = name?.split(" ")[0] ?? null;
@@ -64,6 +66,8 @@ export function RideTripCard({ order, car, rider, stops = [] }: { order: OrderRo
     ? `Scheduled · ${whenLabel(toLocalInput(new Date(scheduled)))}`
     : awaitingPayment
       ? `${firstName ?? "Your rider"} is matched · pay to start`
+      : order.rider_id && order.stage === "Shop"
+        ? `${firstName ?? "Your rider"} is confirmed · getting ready`
       : order.rider_id && order.eta_minutes != null && order.stage === "Deliver"
         ? `${firstName ?? "Your rider"} · ${order.eta_minutes} min away`
         : order.rider_id && firstName && order.stage === "Arrived"
@@ -91,7 +95,8 @@ export function RideTripCard({ order, car, rider, stops = [] }: { order: OrderRo
   const btn = "ride-trip-card__btn flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl text-xs font-bold";
   return (
     <section aria-label="Your ride" aria-live="polite" className="ride-trip-card relative overflow-hidden rounded-[22px] p-3.5 pb-3">
-      <div className="relative flex items-center gap-3">
+      {/* Tapping who is coming opens their profile, with Call and Chat. */}
+      <button type="button" disabled={!order.rider_id} aria-haspopup="dialog" onClick={() => setProfileOpen(true)} className="relative flex w-full items-center gap-3 text-left">
         <span className="ride-trip-card__avatar flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-extrabold">
           {scheduled ? <CalendarClock className="h-5 w-5" aria-hidden /> : (name ?? "P").split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()}
         </span>
@@ -103,7 +108,7 @@ export function RideTripCard({ order, car, rider, stops = [] }: { order: OrderRo
           </span>
         </span>
         {order.pin_code && <span className="shrink-0 rounded-full bg-gold/15 px-2 py-1 text-[10px] font-bold tracking-wider text-ink" aria-label={`Trip PIN ${order.pin_code}`}>PIN {order.pin_code}</span>}
-      </div>
+      </button>
       {stops.length > 0 && (
         <ol className="relative mt-2.5 flex gap-1.5 overflow-x-auto pb-0.5" aria-label={`${stops.length} stop${stops.length === 1 ? "" : "s"} on the way`}>
           {stops.map((s) => (
@@ -131,6 +136,15 @@ export function RideTripCard({ order, car, rider, stops = [] }: { order: OrderRo
         <span className="block h-full ride-gold-fill" style={{ width: `${progress * 100}%` }} />
       </span>
       {shared && <p role="status" className="relative mt-2 text-xs font-semibold text-ink-500">{shared}</p>}
+      {profileOpen && order.rider_id && (
+        <RiderProfileModal
+          orderId={order.id}
+          applicant={{ riderId: order.rider_id, riderName: name ?? "Your rider", distanceKm: null, outOfServiceRange: false, avgRating: rider?.rating ?? null, reviewCount: 0, recommendCount: 0, commentCount: 0, recentComments: [] }}
+          onCall={() => startCall({ calleeId: order.rider_id!, orderId: order.id })}
+          onChat={() => { setProfileOpen(false); openThread({ type: "rider", id: order.rider_id! }); }}
+          onClose={() => setProfileOpen(false)}
+        />
+      )}
     </section>
   );
 }

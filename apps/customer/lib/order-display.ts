@@ -24,7 +24,8 @@ export function stageProgressPct(stage: string): number {
 }
 
 export function stageLabel(stage: string, type?: OrderRow["type"], isRide?: boolean): string {
-  if (type === "parcel" && stage === "Shop") return isRide ? "Finding your rider" : "Picking up";
+  // A ride at Shop is already paid and has its rider: they are getting ready to come, not being looked for.
+  if (type === "parcel" && stage === "Shop") return isRide ? "Getting ready" : "Picking up";
   if (isRide && stage === "Deliver") return "Rider heading to you";
   if (isRide && stage === "Arrived") return "Rider is here";
   if (isRide && stage === "Settle") return "Trip complete";

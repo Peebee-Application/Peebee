@@ -49,13 +49,11 @@ export function BagDeliveryModeChoice({
             aria-checked={selected}
             disabled={disabled}
             onClick={() => onChange(choice.value)}
-            className={`flex min-w-0 flex-col items-start gap-0.5 rounded-xl border px-3 py-2 text-left text-xs disabled:opacity-60 ${
-              selected ? "border-gold bg-gold/10 text-ink" : "border-[var(--border-faint)] text-ink-500"
-            }`}
+            className="select-card items-start gap-0.5 text-left"
           >
-            <span className="font-bold leading-tight">{choice.label}</span>
-            <span className={`text-[10px] leading-snug ${selected ? "text-ink-500" : ""}`}>{choice.note}</span>
-            <span className="font-semibold text-ink">{ugx(choice.fee)}</span>
+            <span className="select-card__title text-sm text-ink">{choice.label}</span>
+            <span className="select-card__sub">{choice.note}</span>
+            <span className="select-card__title text-sm text-ink">{ugx(choice.fee)}</span>
           </button>
         );
       })}

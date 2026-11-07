@@ -859,6 +859,8 @@ export type DeliverySettings = {
   oneActiveRideEnabled: boolean;
   /** Minutes a rider waits on an unpaid ride before they may close it; 0 = at once. */
   riderCloseUnpaidMinutes: number;
+  /** First-come rides are paid before a rider is found (held safely, refunded if nobody takes the ride) instead of after one is matched. */
+  ridePayFirstEnabled: boolean;
   paymentsActiveProviders: PaymentProviderIdentity[];
   /** Demo/sandbox mode — every payment runs through the mock adapters
    * regardless of saved credentials. See PaymentProviderInfo/IntegrationsStatus. */
@@ -1291,6 +1293,8 @@ export type Rider = {
   area: string | null;
   created_at: string;
   vehicle_info: string | null;
+  /** What the rider says about themselves, shown to customers. */
+  bio?: string | null;
   rating: number;
   momo_msisdn: string | null;
   first_name: string | null;
@@ -2067,6 +2071,16 @@ export type RiderApplicantProfile = {
   verified: boolean;
   vehicleInfo: string | null;
   area: string | null;
+  /** The boda stage they belong to; null when they are not in one. */
+  stage: { name: string; area: string | null; role: string } | null;
+  /** A few words the rider wrote about themselves; null until they do. */
+  bio: string | null;
+  /** Kilometres covered across every finished job. */
+  totalKm: number;
+  /** Across every rating, not just the reviews on this page. */
+  avgRating: number | null;
+  reviewCount: number;
+  recommendCount: number;
   completed: { total: number; rides: number; parcels: number; food: number; shopping: number };
   reviews: { id: string; rating: number; comment: string | null; recommended: boolean; createdAt: string }[];
   nextOffset: number | null;

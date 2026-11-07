@@ -262,11 +262,11 @@ export default function LearnCoursePage() {
               <fieldset className="space-y-1.5">
                 <legend className="text-xs font-bold uppercase tracking-wider text-ink-500">Choose your start date</legend>
                 {cohorts.map((h) => (
-                  <label key={h.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm ${cohortId === h.id ? "border-gold bg-gold/10" : "border-[var(--border-faint)]"}`}>
+                  <label key={h.id} className={`select-card relative cursor-pointer !flex-row items-center gap-3 ${cohortId === h.id ? "is-on" : ""}`}>
                     <input type="radio" name="cohort" checked={cohortId === h.id} onChange={() => setCohortId(h.id)} className="accent-[rgb(var(--color-gold))]" />
                     <span className="min-w-0 flex-1">
-                      <span className="block font-semibold text-ink">{h.name}</span>
-                      <span className="block text-xs text-ink-500">Starts {new Date(h.startsAt).toLocaleDateString("en-UG", { day: "numeric", month: "short", year: "numeric" })}{h.seatsLeft !== null ? ` · ${h.seatsLeft} seat${h.seatsLeft === 1 ? "" : "s"} left` : ""}</span>
+                      <span className="select-card__title text-sm text-ink">{h.name}</span>
+                      <span className="select-card__sub">Starts {new Date(h.startsAt).toLocaleDateString("en-UG", { day: "numeric", month: "short", year: "numeric" })}{h.seatsLeft !== null ? ` · ${h.seatsLeft} seat${h.seatsLeft === 1 ? "" : "s"} left` : ""}</span>
                     </span>
                   </label>
                 ))}

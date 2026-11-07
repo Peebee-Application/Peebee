@@ -72,11 +72,10 @@ export default function RepayLoanPage() {
               key={m}
               type="button"
               onClick={() => setMethod(m)}
-              className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold ${
-                method === m ? "border-gold bg-gold/10 text-ink" : "border-[var(--border-faint)] text-ink-500"
-              }`}
+              aria-pressed={method === m}
+              className="select-card flex-1 items-center text-center"
             >
-              {m === "cash" ? "Cash" : "Mobile money"}
+              <span className="select-card__title text-sm text-ink">{m === "cash" ? "Cash" : "Mobile money"}</span>
             </button>
           ))}
         </div>

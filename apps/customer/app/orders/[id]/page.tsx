@@ -483,7 +483,9 @@ export default function OrderDetailPage() {
   // capsule (white in light, grey in dark); the gold Pay is on the pay page.
   // A relay paid before its rider is already paid: it only waits for the rider now.
   const navPaid = !!detail?.payments.some((p) => p.type === "collection" && p.status === "successful") && detail?.order.stage !== "Fund";
-  const navAwaitingPayment = !!detail && ["Create", "Match", "Fund"].includes(detail.order.stage) && !navPaid;
+  // A ride where the customer picks has nothing to pay until they have picked: its riders are listed on this screen.
+  const navChoosing = !!detail && !!detail.order.is_ride && detail.order.matching_mode === "customer_selects" && !detail.order.rider_id;
+  const navAwaitingPayment = !!detail && ["Create", "Match", "Fund"].includes(detail.order.stage) && !navPaid && !navChoosing;
   const navPendingPayment = !!detail?.payments.find((p) => p.status === "pending");
   useRegisterNavPrimaryAction(navAwaitingPayment ? {
     tone: "step",

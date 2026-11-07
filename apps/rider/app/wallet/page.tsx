@@ -224,11 +224,10 @@ export default function WalletPage() {
                     type="button"
                     onClick={() => setSelectedNumberId(n.id)}
                     disabled={busy || hasPendingWithdrawal}
-                    className={`min-h-14 flex-1 rounded-xl border px-3 text-base font-bold disabled:opacity-50 ${
-                      selectedNumberId === n.id ? "border-gold bg-gold/10 text-ink" : "border-[var(--border-faint)] text-ink-500"
-                    }`}
+                    aria-pressed={selectedNumberId === n.id}
+                    className="select-card min-h-14 flex-1 items-center justify-center text-center"
                   >
-                    {n.phone}
+                    <span className="select-card__title text-base text-ink">{n.phone}</span>
                   </button>
                 ))}
               </div>

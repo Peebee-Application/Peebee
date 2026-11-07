@@ -132,6 +132,7 @@ const DEFAULTS = {
   one_active_ride_enabled: "1",
   /** Minutes a rider must have waited on a ride the customer has not paid for before the rider may close it. 0 = at once. */
   rider_close_unpaid_minutes: "3",
+  ride_pay_first: "0",
   /** How long an order in "nearest_window" mode waits to collect applicants
    * before the app auto-assigns whichever is nearest. */
   nearest_window_seconds: "90",
@@ -1365,8 +1366,9 @@ export async function getMatchingSettings(): Promise<{
   stuckFundingReleaseMinutes: number;
   oneActiveRideEnabled: boolean;
   riderCloseUnpaidMinutes: number;
+  ridePayFirstEnabled: boolean;
 }> {
-  const [modesRaw, windowRaw, maxRaw, autoRaw, unpaidRaw, stuckRaw, oneRideRaw, closeRaw] = await Promise.all([
+  const [modesRaw, windowRaw, maxRaw, autoRaw, unpaidRaw, stuckRaw, oneRideRaw, closeRaw, payFirstRaw] = await Promise.all([
     getSetting("matching_modes_enabled"),
     getSetting("nearest_window_seconds"),
     getSetting("max_assignment_minutes"),
@@ -1375,6 +1377,7 @@ export async function getMatchingSettings(): Promise<{
     getSetting("stuck_funding_release_minutes"),
     getSetting("one_active_ride_enabled"),
     getSetting("rider_close_unpaid_minutes"),
+    getSetting("ride_pay_first"),
   ]);
   return {
     enabledModes: parseEnabledModes(modesRaw),
@@ -1385,6 +1388,8 @@ export async function getMatchingSettings(): Promise<{
     stuckFundingReleaseMinutes: Math.min(1440, Math.max(0, Math.floor(Number(stuckRaw ?? DEFAULTS.stuck_funding_release_minutes)) || 0)),
     oneActiveRideEnabled: oneRideRaw !== "0",
     riderCloseUnpaidMinutes: Math.min(120, Math.max(0, Math.floor(Number(closeRaw ?? 3)) || 0)),
+    // Off until an admin switches it on: it changes when a customer's money is taken.
+    ridePayFirstEnabled: payFirstRaw === "1",
   };
 }
 

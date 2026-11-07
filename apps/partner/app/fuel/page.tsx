@@ -308,7 +308,7 @@ export default function PartnerFuelPage() {
                 }`}
               >
                 <Fuel className="h-4 w-4 text-gold" />
-                <span>Petrol</span>
+                <span className="select-card__title text-sm text-ink">Petrol</span>
               </button>
               <button
                 type="button"
@@ -320,7 +320,7 @@ export default function PartnerFuelPage() {
                 }`}
               >
                 <Fuel className="h-4 w-4 text-navy" />
-                <span>Diesel</span>
+                <span className="select-card__title text-sm text-ink">Diesel</span>
               </button>
             </div>
           </div>

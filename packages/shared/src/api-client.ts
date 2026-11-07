@@ -1256,6 +1256,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async applyAsRider(input: {
       area?: string;
       vehicleInfo?: string;
+      bio?: string;
       momoMsisdn?: string;
       firstName?: string;
       lastName?: string;

@@ -247,13 +247,11 @@ function BookingForm({ type, services, settings }: { type: WorkServiceType; serv
                     type="button"
                     aria-pressed={active}
                     onClick={() => pickService(s)}
-                    className={`flex min-h-[56px] w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition-all active:scale-[0.99] ${
-                      active ? "border-gold bg-gold/10" : "border-[var(--border-faint)] bg-[rgb(var(--surface-muted))]"
-                    }`}
+                    className="select-card !flex-row items-center justify-between gap-3 text-left"
                   >
-                    <span className="min-w-0">
-                      <span className="block text-sm font-bold">{s.name}</span>
-                      {s.description ? <span className="mt-0.5 line-clamp-2 block text-xs text-ink-500">{s.description}</span> : null}
+                    <span className="min-w-0 flex-1">
+                      <span className="select-card__title text-sm text-ink">{s.name}</span>
+                      {s.description ? <span className="line-clamp-2 block text-xs leading-snug text-ink-500">{s.description}</span> : null}
                     </span>
                     <span className="shrink-0 text-right text-xs font-bold text-gold">
                       {s.pricingMode === "fixed" ? (
@@ -443,12 +441,10 @@ function BookingForm({ type, services, settings }: { type: WorkServiceType; serv
                     type="button"
                     aria-pressed={effectiveMatching === m}
                     onClick={() => setMatching(m)}
-                    className={`min-h-[56px] w-full rounded-2xl border p-3 text-left ${
-                      effectiveMatching === m ? "border-gold bg-gold/10" : "border-[var(--border-faint)] bg-[rgb(var(--surface-muted))]"
-                    }`}
+                    className="select-card text-left"
                   >
-                    <span className="block text-sm font-bold">{MATCHING_COPY[m].title}</span>
-                    <span className="block text-xs text-ink-500">{MATCHING_COPY[m].body}</span>
+                    <span className="select-card__title text-sm text-ink">{MATCHING_COPY[m].title}</span>
+                    <span className="block text-xs leading-snug text-ink-500">{MATCHING_COPY[m].body}</span>
                   </button>
                 ))}
               </div>
