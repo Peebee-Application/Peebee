@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { LiveStreamChannel, LiveStreamViewer, PinnedProduct } from "../../components/LiveStreamViewer";
 import { CartDrawer, CartDrawerTrigger } from "../../components/CartDrawer";
+import { ShoppingExtras } from "../../components/shopping/ShoppingExtras";
 import { useCustomerLocation, formatDistanceKm, haversineKm } from "../../lib/location";
 import { useCart, addToCart as addMarketplaceCartItem } from "../../lib/cart";
 import {
@@ -272,6 +273,7 @@ export default function StoresPage() {
           <ShoppingBag className="h-3.5 w-3.5 text-gold" />
         </Link>
       </div>
+      <ShoppingExtras />
 
       <MarketSearchBar
         value={searchQuery}

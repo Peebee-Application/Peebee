@@ -24,6 +24,12 @@ const DEFAULTS = {
   app_updates_customer: '{"live":null,"versions":[]}',
   ride_tracking: JSON.stringify(DEFAULT_RIDE_TRACKING_SETTINGS),
   shopping_units_config: JSON.stringify(DEFAULT_SHOPPING_UNIT_SETTINGS),
+  /** Buy-home capabilities that are still waiting on a backend. JSON, Admin → Shopping features. Defaults off. */
+  shopping_features: JSON.stringify({
+    cameraSearchEnabled: false, memberBadgeEnabled: false, memberBadgeLabel: "Peebee member",
+    inStoreCodeEnabled: false, membershipBannerEnabled: false, membershipBannerTitle: "", membershipBannerBody: "",
+    membershipBannerHref: "/account", heroEnabled: false, heroSlides: [],
+  }),
   /** The customer app's main menu names, the Hive shortcuts and the Hire banner. */
   home_menu_config: JSON.stringify(DEFAULT_HOME_MENU),
   home_templates_config: JSON.stringify(DEFAULT_HOME_TEMPLATES),

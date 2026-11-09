@@ -118,6 +118,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/settings/video-ads", label: "Video & ads", icon: Video, hint: "Creator video providers and ads", keywords: "channels creators cloudinary mux bunny cloudflare advertising campaigns", visible: can("settings.manage") },
       { href: "/settings/guest", label: "Guest checkout", icon: UserRound, hint: "Shared links and alerts" },
       { href: "/settings/shopping-units", label: "Shopping units", icon: Ruler, hint: "Measures and matching", visible: can("settings.manage") },
+      { href: "/settings/shopping-features", label: "Shopping features", icon: Sparkles, hint: "Photo search, membership, in-store code and featured slides", visible: can("settings.manage") },
       { href: "/settings/luganda-audio", label: "Luganda reading", icon: Languages, hint: "Audio voices" },
     ],
   },

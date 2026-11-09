@@ -19,6 +19,7 @@ import { productPricing, type MarketVariant } from "../../lib/product-pricing";
 import { addSpotlightItemToCart } from "../../lib/spotlight-cart";
 import { useLocationLabel } from "../../lib/use-location-label";
 import { ShoppingListModal } from "../home/ShoppingListModal";
+import { ShoppingExtras } from "../shopping/ShoppingExtras";
 import type { Item } from "../home/ListItemLine";
 
 type MStore = {
@@ -491,6 +492,7 @@ export function BuyHome() {
 
       <h1 className="buy-hello">Hi{firstName ? `, ${firstName}` : ""}!</h1>
       <p className="buy-hello__sub">{greet}. What do you need today?</p>
+      <ShoppingExtras />
 
       {!loaded && <div className="buy-skel" aria-hidden="true"><i /><i /></div>}
 
