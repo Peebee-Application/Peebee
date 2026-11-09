@@ -18,6 +18,7 @@ import { prefersReducedMotion, sheetShouldClose } from "../lib/buy-motion";
 import { RollingCount, SwipeRow } from "./buy/motion";
 import { bagCheckoutHref } from "../lib/bag-checkout";
 import { EarlierCarts } from "./EarlierCarts";
+import { CartVariantPicker } from "./buy/CartVariantPicker";
 import { ProductImage } from "./ProductImage";
 
 export interface CartDrawerProps {
@@ -46,6 +47,8 @@ export function CartDrawer({
   } = useCart();
 
   const [portalReady, setPortalReady] = useState(false);
+  /** The product whose cart row has its options open (one at a time). */
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [dragY, setDragY] = useState(0);
@@ -284,11 +287,11 @@ export function CartDrawer({
                       <div className="flex items-start gap-2">
                         <div className="min-w-0 flex-1">
                           <h4 className="truncate text-sm font-semibold leading-tight text-ink">{line.title}</h4>
-                          {(line.variantTitle || line.storeName) && (
-                            <p className="mt-0.5 truncate text-[11px] text-ink-500">
-                              {[line.variantTitle, line.storeName].filter(Boolean).join(" · ")}
-                            </p>
-                          )}
+                          {line.variantId && line.variantTitle ? (
+                            <CartVariantPicker line={line} open={pickerFor === line.productId} onToggle={() => setPickerFor((cur) => (cur === line.productId ? null : line.productId))} />
+                          ) : line.storeName ? (
+                            <p className="mt-0.5 truncate text-[11px] text-ink-500">{line.storeName}</p>
+                          ) : null}
                         </div>
                         <button
                           type="button"

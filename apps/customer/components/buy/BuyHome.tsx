@@ -1,6 +1,6 @@
 "use client";
 
-import { DEFAULT_SHOPPING_UNIT_SETTINGS, type OrderRow, type ShoppingUnitSettings } from "@peebee/shared";
+import { DEFAULT_PRODUCT_VARIATIONS, DEFAULT_SHOPPING_UNIT_SETTINGS, resolveProductVariations, type OrderRow, type ProductOption, type ProductVariationSettings, type ShoppingUnitSettings } from "@peebee/shared";
 import {
   ArrowLeftRight, Camera, ChevronDown, ChevronRight, Flame, List, Loader2, MapPin, Mic, Play, Plus, Search, ShieldCheck, ShoppingBag, Square, Store, X,
 } from "lucide-react";
@@ -22,6 +22,7 @@ import { addSpotlightItemToCart } from "../../lib/spotlight-cart";
 import { useLocationLabel } from "../../lib/use-location-label";
 import { ShoppingListModal } from "../home/ShoppingListModal";
 import { ShoppingExtras } from "../shopping/ShoppingExtras";
+import { ProductQuickAdd } from "./ProductQuickAdd";
 import type { Item } from "../home/ListItemLine";
 
 type MStore = {
@@ -32,6 +33,7 @@ type MStore = {
 type MProduct = {
   id: string; store_id: string; store_name?: string; store_slug?: string; store_category?: string; title: string; price: number;
   compare_at_price?: number | null; image_url?: string | null; inventory_quantity?: number | null; variants?: MarketVariant[] | null;
+  options?: ProductOption[] | null;
   category_name?: string | null; badge?: string | null;
 };
 type Spot = {
@@ -167,6 +169,7 @@ export function BuyHome() {
   const [loaded, setLoaded] = useState(false);
   const [productLoadKey, setProductLoadKey] = useState("");
   const [unitSettings, setUnitSettings] = useState<ShoppingUnitSettings>(DEFAULT_SHOPPING_UNIT_SETTINGS);
+  const [variationSettings, setVariationSettings] = useState<ProductVariationSettings>(DEFAULT_PRODUCT_VARIATIONS);
   const [category, setCategory] = useState("All");
 
   useEffect(() => {
@@ -197,6 +200,7 @@ export function BuyHome() {
       setSpots(Array.isArray(spot.spotlight) ? spot.spotlight : []);
       if (act?.activeOrder && act.activeOrder.type === "shopping" && !act.activeOrder.restaurant_id) setActive(act.activeOrder);
       if (settings?.settings?.shoppingUnits) setUnitSettings(settings.settings.shoppingUnits);
+      if (settings?.settings?.productVariations) setVariationSettings(resolveProductVariations(settings.settings.productVariations));
       setLoaded(true);
       // Products for deals and price hints: the two nearest shops.
       try {
@@ -563,31 +567,7 @@ export function BuyHome() {
           ) : (
             <Crossfade id={activeCategory}>
             <div className="buy-deals">
-              {deals.map(({ p, pr }) => {
-                const tag = pr.discount > 0 ? "DEAL" : p.badge?.trim() || null;
-                return (
-                  <article key={p.id} data-product-source={p.id} className="buy-card buy-product">
-                    <PushLink href={`/product/${p.id}`} className="buy-thumb" aria-label={`View ${p.title}`}>
-                      {p.image_url && <img src={p.image_url} alt="" loading="lazy" />}
-                      {tag && <span className="buy-deal">{tag}</span>}
-                    </PushLink>
-                    <div className="buy-product__row">
-                      <PushLink href={`/product/${p.id}`} className="min-w-0 flex-1">
-                        <p className="buy-product__title">{p.title}</p>
-                        <p className="buy-product__price">
-                          <span className="buy-product__amt">{pr.from && <span className="buy-product__from">from </span>}{ugx(pr.price)}</span>
-                          {pr.compareAt != null && <s>{pr.compareAt.toLocaleString("en-UG")}</s>}
-                        </p>
-                        {p.inventory_quantity != null && p.inventory_quantity > 0 && p.inventory_quantity <= 10 && <p className="buy-product__low">Only {p.inventory_quantity} left</p>}
-                      </PushLink>
-                      <AddButton label={`Add ${p.title}`} onAdd={() => {
-                        const v = p.variants?.[0];
-                        addToCart({ productId: p.id, storeId: p.store_id, storeName: p.store_name, storeSlug: p.store_slug, title: p.title, variantId: v?.id, variantTitle: v?.title, price: v ? Number(v.price) : p.price, compareAtPrice: (v ? v.compare_at_price : p.compare_at_price) ?? undefined, imageUrl: p.image_url ?? undefined, category: p.store_category });
-                      }} />
-                    </div>
-                  </article>
-                );
-              })}
+              {deals.map(({ p, pr }) => <DealCard key={p.id} p={p} pr={pr} settings={variationSettings} />)}
             </div>
             </Crossfade>
           )}
@@ -731,6 +711,39 @@ function SectionHead({ title, href }: { title: string; href?: string }) {
       <h2>{title}</h2>
       {href && <PushLink href={href}>See all<ChevronRight className="h-4 w-4" aria-hidden /></PushLink>}
     </div>
+  );
+}
+
+/** One product card on the Buy home. Options the admin chose open in place; the price follows the chosen variant. */
+function DealCard({ p, pr, settings }: { p: MProduct; pr: ReturnType<typeof productPricing>; settings: ProductVariationSettings }) {
+  const [picked, setPicked] = useState<{ price: number; compareAt: number | null } | null>(null);
+  const tag = pr.discount > 0 ? "DEAL" : p.badge?.trim() || null;
+  const price = picked ? picked.price : pr.price;
+  const compareAt = picked ? (picked.compareAt != null && picked.compareAt > picked.price ? picked.compareAt : null) : pr.compareAt;
+  return (
+    <article data-product-source={p.id} className="buy-card buy-product">
+      <PushLink href={`/product/${p.id}`} className="buy-thumb" aria-label={`View ${p.title}`}>
+        {p.image_url && <img src={p.image_url} alt="" loading="lazy" />}
+        {tag && <span className="buy-deal">{tag}</span>}
+      </PushLink>
+      <div className="buy-product__row">
+        <PushLink href={`/product/${p.id}`} className="min-w-0 flex-1">
+          <p className="buy-product__title">{p.title}</p>
+          <p className="buy-product__price">
+            <span className="buy-product__amt">{!picked && pr.from && <span className="buy-product__from">from </span>}{ugx(price)}</span>
+            {compareAt != null && <s>{compareAt.toLocaleString("en-UG")}</s>}
+          </p>
+          {p.inventory_quantity != null && p.inventory_quantity > 0 && p.inventory_quantity <= 10 && <p className="buy-product__low">Only {p.inventory_quantity} left</p>}
+        </PushLink>
+        <ProductQuickAdd
+          product={{ id: p.id, price: p.price, variants: p.variants as never, options: p.options, inventory_quantity: p.inventory_quantity }}
+          settings={settings}
+          label={`Add ${p.title}`}
+          onPrice={(next, was) => setPicked(next == null ? null : { price: next, compareAt: was })}
+          onAdd={(v) => addToCart({ productId: p.id, storeId: p.store_id, storeName: p.store_name, storeSlug: p.store_slug, title: p.title, variantId: v?.id, variantTitle: v?.title, price: v ? Number(v.price) : p.price, compareAtPrice: (v ? v.compare_at_price : p.compare_at_price) ?? undefined, imageUrl: (v?.image_url || p.image_url) ?? undefined, category: p.store_category })}
+        />
+      </div>
+    </article>
   );
 }
 
