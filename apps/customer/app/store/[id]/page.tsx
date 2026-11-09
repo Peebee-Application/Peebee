@@ -30,6 +30,8 @@ interface StoreDetail {
   lng?: number | null;
   distance_km?: number | null;
   is_open?: number | boolean;
+  delivery_enabled?: number | boolean;
+  pickup_enabled?: number | boolean;
   min_order_amount?: number;
   is_live?: number | boolean;
   live_channel_title?: string | null;
@@ -219,11 +221,11 @@ export default function StoreDetailPage() {
     category: store.category,
     live_channel_title: store.live_channel_title ?? null,
     live_stream_url: store.live_stream_url ?? null,
-    live_viewer_count: store.live_viewer_count || 148,
+    live_viewer_count: store.live_viewer_count || 0,
   };
 
   return (
-    <div className="min-h-screen bg-[rgb(var(--color-bg))] pb-32 pt-2 px-4 max-w-md mx-auto text-ink">
+    <div className="min-h-screen bg-cream pb-32 pt-2 px-4 max-w-md mx-auto text-ink">
       {/* =========================================================================
           SCREEN 1: STOREFRONT HEADER (Inspiration Screen 1)
       ========================================================================= */}
@@ -232,7 +234,7 @@ export default function StoreDetailPage() {
         <button
           type="button"
           onClick={() => router.push("/stores")}
-          className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface-subtle border border-surface-border text-ink transition-transform active:scale-95"
+          className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgb(var(--surface-card))] border border-[var(--border-faint)] text-ink active:scale-95"
           aria-label="All Stores"
         >
           <LayoutGrid className="h-5 w-5" />
@@ -247,6 +249,12 @@ export default function StoreDetailPage() {
           <h1 className="text-base font-extrabold text-ink truncate leading-tight">
             {store.name}
           </h1>
+          <p className="truncate text-[12px] font-semibold text-ink-500">
+            <span className={store.is_open === 0 || store.is_open === false ? "" : "text-green"}>{store.is_open === 0 || store.is_open === false ? "Closed" : "Open"}</span>
+            {store.delivery_enabled === 0 || store.delivery_enabled === false ? "" : " · Delivery"}
+            {store.pickup_enabled ? " · Pickup" : ""}
+            {" · Escrow"}
+          </p>
         </div>
 
         {/* Right: Cart Drawer Trigger & Store Avatar */}

@@ -104,6 +104,37 @@ export function matchPrice(name: string, products: Array<{ title: string; price:
   return null;
 }
 
+/** How far a downward pull must travel before it opens Spotlight.
+ * A touch distance for this gesture, not a business limit. */
+export const BUY_SPOTLIGHT_PULL_THRESHOLD = 96;
+/** Cap so the reveal stays a peek instead of dragging the page away. */
+export const BUY_SPOTLIGHT_PULL_MAX = 168;
+
+/** `idle` at rest, `pulling` before the threshold, `commit` once it is met. */
+export function spotlightPullDecision(distancePx: number): "idle" | "pulling" | "commit" {
+  if (!(distancePx > 0)) return "idle";
+  return distancePx >= BUY_SPOTLIGHT_PULL_THRESHOLD ? "commit" : "pulling";
+}
+
+/** Category names that loaded products actually have, in first-seen order. */
+export function buyCategoryNames(products: Array<{ category_name?: string | null }>, limit = 12): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const product of products) {
+    const name = product.category_name?.trim();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    names.push(name);
+    if (names.length >= limit) break;
+  }
+  return names;
+}
+
+/** Live featured items first, then the rest, capped. Order is stable within a type. */
+export function buyFeaturedSpots<T extends { type: string }>(spots: T[], limit = 5): T[] {
+  return [...spots].sort((a, b) => Number(b.type === "live") - Number(a.type === "live")).slice(0, limit);
+}
+
 /** Customer-facing words for an active shopping order's stage. */
 export function shoppingStageLabel(stage: string): string {
   const map: Record<string, string> = {
