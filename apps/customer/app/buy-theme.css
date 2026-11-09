@@ -575,8 +575,65 @@ img.buy-fade[data-loaded] { opacity: 1; }
   pointer-events: none;
   animation: buy-fade-in 150ms ease both;
 }
+.buy-lens {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+  background: rgb(var(--color-ink));
+  color: rgb(var(--color-cream));
+}
+.buy-lens__video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.buy-lens__top, .buy-lens__cards, .buy-lens__note, .buy-lens__shutter, .buy-lens__fallback, .buy-lens__wait { position: relative; z-index: 1; }
+.buy-lens__top { position: absolute; top: 12px; left: 16px; right: 16px; display: flex; align-items: center; gap: 8px; }
+.buy-lens__close { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 999px; background: rgb(var(--surface-card)); color: rgb(var(--color-ink)); }
+.buy-lens__title { font-size: 17px; font-weight: 800; }
+.buy-lens__fallback, .buy-lens__wait, .buy-lens__note {
+  border-radius: 22px;
+  background: rgb(var(--surface-card));
+  color: rgb(var(--color-ink));
+  padding: 14px 16px;
+  font-size: 14px;
+  font-weight: 650;
+}
+.buy-lens__file, .buy-lens__shutter {
+  min-height: 44px;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(var(--color-gold));
+  color: rgb(var(--color-ink-gold));
+  font-weight: 800;
+}
+.buy-lens__shutter { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 18px; }
+.buy-lens__shutter:disabled { opacity: .55; }
+.buy-lens__cards { display: grid; gap: 8px; }
+.buy-lens__card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgb(var(--surface-card));
+  color: rgb(var(--color-ink));
+}
+.buy-lens__card b { font-size: 14px; }
+.buy-lens__card span { font-size: 12px; font-weight: 650; color: rgb(var(--color-ink-500)); }
+@media (prefers-reduced-motion: no-preference) {
+  .buy-lens { animation: buy-lens-in 300ms cubic-bezier(.34, 1.2, .64, 1) both; }
+  .buy-lens.is-closing { animation: buy-lens-out 240ms ease-in both; }
+  .buy-lens__card { animation: buy-lens-card 420ms cubic-bezier(.34, 1.4, .64, 1) both; }
+}
+@keyframes buy-lens-in { from { opacity: 0; transform: scale(.8); } }
+@keyframes buy-lens-out { to { opacity: 0; transform: scale(.8); } }
+@keyframes buy-lens-card { from { opacity: 0; transform: translateY(28px); } }
 @media (prefers-reduced-motion: reduce) {
-  .buy-pull, .buy-cap i, .buy-add, .buy-hero__track, .buy-listening span, .buy-live::before, .buy-collection, .buy-collection img, .buy-skel i, .shop-skel i, .buy-roll__old, .buy-roll__new, .buy-cross__out, .buy-cross__in, .buy-rise, .buy-card-follow > *, .buy-veil { animation: none; transition: none; scroll-behavior: auto; }
+  .buy-pull, .buy-cap i, .buy-add, .buy-hero__track, .buy-listening span, .buy-live::before, .buy-collection, .buy-collection img, .buy-skel i, .shop-skel i, .buy-roll__old, .buy-roll__new, .buy-cross__out, .buy-cross__in, .buy-rise, .buy-card-follow > *, .buy-veil, .buy-lens, .buy-lens__card { animation: none; transition: none; scroll-behavior: auto; }
   img.buy-fade { opacity: 1; transition: none; }
   .customer-nav-pill, .buy-dotpill, .buy-ind { transition: none; }
   html[data-buy-home] .customer-header { transform: none; opacity: 1; }

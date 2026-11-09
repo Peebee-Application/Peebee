@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { loadInStoreCode, loadMembership, searchCatalogueByPhoto } from "../../lib/shopping-capabilities";
 import { SnapDots, useSnapTrack } from "../buy/motion";
+import { BuyCamera } from "../buy/BuyCamera";
 
 /** Admin-gated shopping extras. Hidden switches stay off the screen. Unavailable backends say so instead of showing made-up results. */
 export function ShoppingExtras() {
@@ -15,6 +16,7 @@ export function ShoppingExtras() {
   const [photoNote, setPhotoNote] = useState<string | null>(null);
   const [codeNote, setCodeNote] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [lens, setLens] = useState<{ x: number; y: number } | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   const slides = features.heroEnabled ? features.heroSlides : [];
   const snap = useSnapTrack(heroRef, slides.length);
@@ -85,7 +87,10 @@ export function ShoppingExtras() {
         <div className="flex flex-wrap gap-2">
           {features.cameraSearchEnabled && (
             <>
-              <button type="button" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4 text-sm font-bold shadow-[var(--shadow-card)]" onClick={() => fileRef.current?.click()}>
+              <button type="button" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4 text-sm font-bold shadow-[var(--shadow-card)]" onClick={(event) => {
+                const box = event.currentTarget.getBoundingClientRect();
+                setLens({ x: box.left + box.width / 2, y: box.top + box.height / 2 });
+              }}>
                 <Camera className="h-4 w-4" aria-hidden />Search by photo
               </button>
               <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { void onPhoto(e.target.files?.[0]); e.target.value = ""; }} />
@@ -98,7 +103,16 @@ export function ShoppingExtras() {
           )}
         </div>
       )}
-      {photoNote && <p className="text-[13px] font-semibold text-ink-500" role="status">{photoNote}</p>}
+      {photoNote && !lens && <p className="text-[13px] font-semibold text-ink-500" role="status">{photoNote}</p>}
+      {lens && (
+        <BuyCamera
+          origin={lens}
+          note={photoNote}
+          onClose={() => setLens(null)}
+          onCapture={(file) => { void onPhoto(file); }}
+          onPickFile={() => fileRef.current?.click()}
+        />
+      )}
       {codeNote && <p className="rounded-[22px] bg-[rgb(var(--surface-card))] p-4 text-[14px] font-semibold text-ink-500" role="status">{codeNote}</p>}
     </div>
   );
