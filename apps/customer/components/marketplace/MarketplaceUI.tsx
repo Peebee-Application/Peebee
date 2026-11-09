@@ -12,6 +12,7 @@ import { useState, type ReactNode } from "react";
 import { useAuth } from "../../lib/auth-context";
 import { useLocationLabel } from "../../lib/use-location-label";
 import { ProductImage } from "../ProductImage";
+import "../../app/shopping-collection.css";
 import { defaultVariant, productPricing, type MarketVariant } from "../../lib/product-pricing";
 
 export { defaultVariant, productPricing, type MarketVariant };
@@ -70,24 +71,13 @@ export function MarketSearchBar({
   onToggleFilters: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <label className="relative flex-1">
+    <div className="flex items-center gap-2">
+      <label className="field-box shop-search relative min-w-0 flex-1">
         <span className="sr-only">Search</span>
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" aria-hidden />
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="h-12 w-full rounded-[20px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] pl-11 pr-10 text-sm text-ink shadow-[var(--shadow-card)] placeholder:text-ink-500/70 focus:border-gold focus:outline-none"
-        />
+        <Search className="h-4 w-4 shrink-0 text-ink-500" aria-hidden />
+        <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
         {value && (
-          <button
-            type="button"
-            onClick={() => onChange("")}
-            aria-label="Clear search"
-            className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-ink-500 hover:text-ink"
-          >
+          <button type="button" onClick={() => onChange("")} aria-label="Clear search" className="shop-iconbtn">
             <X className="h-4 w-4" />
           </button>
         )}
@@ -97,7 +87,7 @@ export function MarketSearchBar({
         onClick={onToggleFilters}
         aria-label={filtersOpen ? "Hide categories" : "Show categories"}
         aria-expanded={filtersOpen}
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-gold text-ink-gold shadow-[var(--shadow-glow-gold)] transition active:scale-95"
+        className={`shop-iconbtn border border-[var(--border-faint)] shadow-[var(--shadow-card)] ${filtersOpen ? "is-on" : "bg-[rgb(var(--surface-card))]"}`}
       >
         <SlidersHorizontal className="h-5 w-5" aria-hidden />
       </button>
@@ -131,22 +121,11 @@ export function PromoBanner({ eyebrow, title, body, icon }: { eyebrow: string; t
 /** Horizontal pill chips; the active one uses the brand accent. */
 export function CategoryChips({ items, active, onSelect }: { items: string[]; active: string; onSelect: (item: string) => void }) {
   return (
-    <div role="tablist" aria-label="Categories" className="no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4 py-1">
+    <div role="tablist" aria-label="Categories" className="shop-cats">
       {items.map((cat) => {
         const isActive = active === cat;
         return (
-          <button
-            key={cat}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            onClick={() => onSelect(cat)}
-            className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition active:scale-95 ${
-              isActive
-                ? "bg-gold text-ink-gold shadow-[var(--shadow-glow-gold)]"
-                : "bg-[rgb(var(--surface-muted))] text-ink-500 hover:text-ink"
-            }`}
-          >
+          <button key={cat} type="button" role="tab" aria-selected={isActive} onClick={() => onSelect(cat)} className="shop-cat">
             {cat}
           </button>
         );
@@ -219,7 +198,7 @@ export function MarketProductCard({ product, fallbackCategory, onAdd }: { produc
           type="button"
           onClick={handleAdd}
           aria-label={added ? `${product.title} added to cart` : `Add ${product.title} to cart`}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-90 ${
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-90 ${
             added ? "bg-ink text-cream" : "bg-gold text-ink-gold shadow-[var(--shadow-glow-gold)]"
           }`}
         >

@@ -18,6 +18,7 @@ import { useLivePolling } from "../../../../lib/use-live-polling";
 import { useNetworkStatus } from "../../../../lib/use-network-status";
 import { useRegisterNavPrimaryAction, useRegisterNavBack } from "../../../../lib/nav-primary-action";
 import { payReturnKey } from "../../../../lib/taxipress-draft";
+import { SwipeToPay } from "../../../../components/shopping/SwipeToPay";
 
 /** Where to go once this order is paid (or on Back): a flow that sent the customer here (TaxiPress) can ask to come back. */
 function afterPay(id: string, ticketId?: string | null) {
@@ -354,6 +355,7 @@ export default function PaymentPage() {
       )}
       {pending && <p role="status" className="rounded-xl bg-gold/10 p-4 text-sm">{method === "card" ? "We’re waiting for your bank to confirm the card payment. You will not be charged again." : "Approve the payment request on your phone. We’re waiting for confirmation. You will not be charged again."}</p>}
       {!pending && ready && detail?.payments.some((p) => p.type === "collection" && p.status === "failed") && <p role="status" className="text-sm text-ink-500">Your previous payment did not complete. You can try again or choose another payment option.</p>}
+      {!pending && <SwipeToPay label={method === "cash" ? "Continue with cash" : `Pay${amount == null ? "" : ` ${formatUgx(amount)}`}`} disabled={disabled} busy={busy} onConfirm={() => void pay()} />}
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {!online && <p role="alert" className="text-sm text-ink-500">Connect to the internet to continue.</p>}
     </div>
