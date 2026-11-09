@@ -17,6 +17,7 @@ import { productPricing, type MarketVariant } from "../../lib/product-pricing";
 import { addSpotlightItemToCart } from "../../lib/spotlight-cart";
 import { useLocationLabel } from "../../lib/use-location-label";
 import { ShoppingListModal } from "../home/ShoppingListModal";
+import { ShoppingExtras } from "../shopping/ShoppingExtras";
 import type { Item } from "../home/ListItemLine";
 
 type MStore = {
@@ -276,6 +277,7 @@ export function BuyHome() {
         <span className="block text-[13px] font-semibold tracking-normal text-ink-500">{greet}{firstName ? `, ${firstName}` : ""}</span>
         What do you need today?
       </h1>
+      <ShoppingExtras />
 
       {/* composer */}
       <section className="buy-card mt-3 p-3.5" aria-label="Shopping list">

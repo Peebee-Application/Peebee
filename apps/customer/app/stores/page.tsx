@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { LiveStreamChannel, LiveStreamViewer, PinnedProduct } from "../../components/LiveStreamViewer";
 import { CartDrawer, CartDrawerTrigger } from "../../components/CartDrawer";
+import { ShoppingExtras } from "../../components/shopping/ShoppingExtras";
 import { useCustomerLocation, formatDistanceKm, haversineKm } from "../../lib/location";
 import { useCart, addToCart as addMarketplaceCartItem } from "../../lib/cart";
 import {
@@ -243,6 +244,7 @@ export default function StoresPage() {
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-[22px] font-bold leading-tight tracking-tight text-ink">Boutiques & Stores</h1>
+          <ShoppingExtras />
           <p className="mt-0.5 text-sm text-ink-500">Fashion, gadgets and more from verified local stores.</p>
         </div>
         <Link

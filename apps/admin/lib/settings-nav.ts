@@ -40,6 +40,13 @@ export const SETTINGS_LINKS: SettingsLink[] = [
     show: (role) => hasPermission(role, "settings.manage"),
   },
   {
+    href: "/settings/shopping-features",
+    label: "Shopping features",
+    description: "Photo search, member badge, in-store code, membership banner and featured slides. Off until switched on.",
+    icon: Sparkles,
+    show: (role) => hasPermission(role, "settings.manage"),
+  },
+  {
     href: "/settings/email-keys",
     label: "Email API keys",
     description: "Resend live and testing keys, timed rotation, account budgets and usage.",
