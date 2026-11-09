@@ -14,6 +14,8 @@ import {
   X,
 } from "lucide-react";
 import { useCart, dismissEarlierCartNotice } from "../lib/cart";
+import { prefersReducedMotion, sheetShouldClose } from "../lib/buy-motion";
+import { RollingCount, SwipeRow } from "./buy/motion";
 import { bagCheckoutHref } from "../lib/bag-checkout";
 import { EarlierCarts } from "./EarlierCarts";
 import { ProductImage } from "./ProductImage";
@@ -44,6 +46,12 @@ export function CartDrawer({
   } = useCart();
 
   const [portalReady, setPortalReady] = useState(false);
+  const drawerRef = useRef<HTMLElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [dragY, setDragY] = useState(0);
+  const [sheetH, setSheetH] = useState(640);
+  const [dragPhase, setDragPhase] = useState<"idle" | "drag" | "settle">("idle");
+  const drag = useRef({ y: 0, t: 0, vy: 0, origin: 0, active: false });
 
   useEffect(() => {
     setPortalReady(true);
@@ -107,10 +115,54 @@ export function CartDrawer({
 
   if (!portalReady || typeof document === "undefined") return null;
 
+  const dim = !isOpen || dragPhase === "idle" ? 1 : Math.max(0, 1 - dragY / Math.max(1, sheetH));
+  function pointerDown(event: React.PointerEvent, fromBody: boolean) {
+    if ((event.target as HTMLElement).closest("button, a, input")) return;
+    if (fromBody && (bodyRef.current?.scrollTop ?? 0) > 0) return;
+    setSheetH(drawerRef.current?.offsetHeight || 640);
+    drag.current = { y: event.clientY, t: performance.now(), vy: 0, origin: dragY, active: true };
+    setDragPhase("drag");
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+  function pointerMove(event: React.PointerEvent) {
+    if (!drag.current.active) return;
+    const now = performance.now();
+    const step = event.clientY - drag.current.y;
+    drag.current.vy = step / Math.max(1, now - drag.current.t);
+    drag.current.t = now;
+    drag.current.y = event.clientY;
+    drag.current.origin = Math.max(0, drag.current.origin + step);
+    setDragY(drag.current.origin);
+  }
+  function pointerUp() {
+    if (!drag.current.active) return;
+    drag.current.active = false;
+    const close = sheetShouldClose(dragY, drag.current.vy);
+    if (prefersReducedMotion()) {
+      setDragY(0);
+      setDragPhase("idle");
+      if (close) onClose();
+      return;
+    }
+    setDragPhase("settle");
+    if (close) {
+      setDragY(sheetH || 640);
+      window.setTimeout(() => { setDragY(0); setDragPhase("idle"); onClose(); }, 300);
+    } else {
+      setDragY(0);
+      window.setTimeout(() => setDragPhase("idle"), 260);
+    }
+  }
+  const dragStyle = dragPhase === "idle" ? undefined : {
+    transform: `translateY(${dragY}px)`,
+    transition: dragPhase === "drag" ? "none" : dragY === 0 ? "transform 250ms cubic-bezier(.34,1.3,.64,1)" : "transform 300ms ease-out",
+  };
+
   return createPortal(
     <div
       className={`menu-item-cart-layer marketplace-cart-layer${isOpen ? " is-open" : ""}`}
       aria-hidden={!isOpen}
+      style={{ ["--cart-dim" as string]: String(isOpen ? dim : 0) }}
     >
       {/* Backdrop */}
       <button
@@ -123,17 +175,27 @@ export function CartDrawer({
 
       {/* Slide-in Drawer */}
       <aside
+        ref={drawerRef}
         className="menu-item-cart-drawer flex flex-col h-full bg-[rgb(var(--surface-card))] text-ink shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="marketplace-cart-drawer-title"
         inert={!isOpen}
+        style={dragStyle}
         onClick={(e) => e.stopPropagation()}
       >
         {/* =========================================================================
             HEADER
         ========================================================================= */}
-        <div className="menu-item-cart-drawer__header flex items-center justify-between px-5 py-4 border-b border-[var(--border-faint)]">
+        <div
+          className="menu-item-cart-drawer__header flex flex-col px-5 py-3 border-b border-[var(--border-faint)]"
+          onPointerDown={(event) => pointerDown(event, false)}
+          onPointerMove={pointerMove}
+          onPointerUp={pointerUp}
+          onPointerCancel={pointerUp}
+        >
+          <span className="buy-grabber" aria-hidden />
+          <div className="flex w-full items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gold/15 text-gold">
               <ShoppingBag className="h-5 w-5" />
@@ -161,12 +223,20 @@ export function CartDrawer({
           >
             <X size={20} aria-hidden="true" />
           </button>
+          </div>
         </div>
 
         {/* =========================================================================
             BODY CONTENT
         ========================================================================= */}
-        <div className="menu-item-cart-drawer__body flex-1 overflow-y-auto px-5 py-4 overscroll-contain">
+        <div
+          ref={bodyRef}
+          className="menu-item-cart-drawer__body flex-1 overflow-y-auto px-5 py-4 overscroll-contain"
+          onPointerDown={(event) => pointerDown(event, true)}
+          onPointerMove={pointerMove}
+          onPointerUp={pointerUp}
+          onPointerCancel={pointerUp}
+        >
           {items.length === 0 ? (
             /* Empty State */
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center space-y-4">
@@ -196,10 +266,8 @@ export function CartDrawer({
               {/* Items List */}
               <ul className="space-y-3">
                 {items.map((line) => (
-                  <li
-                    key={line.id}
-                    className="flex gap-3 rounded-[20px] border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] p-2.5"
-                  >
+                  <SwipeRow key={line.id} id={line.id} label={line.title} onRemove={() => removeItem(line.id)}>
+                  <div className="flex gap-3 rounded-[20px] border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] p-2.5">
                     {/* Thumbnail */}
                     <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-[14px] bg-[rgb(var(--surface-card))]">
                       <ProductImage
@@ -260,7 +328,8 @@ export function CartDrawer({
                         </span>
                       </div>
                     </div>
-                  </li>
+                  </div>
+                  </SwipeRow>
                 ))}
               </ul>
               <EarlierCarts showNotice={false} />
@@ -299,7 +368,7 @@ export function CartDrawer({
                 className="p-3.5 rounded-full border border-[var(--border-faint)] text-xs font-bold text-ink-500 hover:text-ink hover:bg-[rgb(var(--surface-muted))] transition"
                 title="View full cart screen"
               >
-                Full Cart
+                View full cart
               </Link>
             </div>
           </div>
@@ -332,7 +401,7 @@ export function CartDrawerTrigger({
       <ShoppingBag className="h-5 w-5" />
       {totalQuantity > 0 && (
         <span className="absolute -top-1 -right-1 flex min-w-[20px] h-5 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-black text-ink-gold shadow-sm">
-          {totalQuantity}
+          <RollingCount value={totalQuantity} />
         </span>
       )}
     </button>

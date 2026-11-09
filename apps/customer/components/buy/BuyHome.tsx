@@ -13,6 +13,8 @@ import {
   BUY_DEALS_HREF, BUY_NEARBY_HREF, BUY_SPOTLIGHT_PULL_MAX, buyCategoryNames, buyFeaturedSpots, matchPrice, parseListText, shoppingStageLabel, spotlightPullDecision, unitLabel,
 } from "../../lib/buy-home";
 import { addToCart, useCart, useEarlierCarts, type CartItem } from "../../lib/cart";
+import { CartDrawer } from "../CartDrawer";
+import { Crossfade, PushLink, RollingCount, SnapDots, useBuyHomeChrome, useFadeImages, usePillIndicator, useSnapTrack } from "./motion";
 import { formatDistanceKm, haversineKm, useCustomerLocation } from "../../lib/location";
 import { useRegisterNavBack, useRegisterNavPrimaryAction } from "../../lib/nav-primary-action";
 import { productPricing, type MarketVariant } from "../../lib/product-pricing";
@@ -225,7 +227,19 @@ export function BuyHome() {
   const [composerOpen, setComposerOpen] = useState(false);
   const recRef = useRef<{ stop(): void } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [bagOpen, setBagOpen] = useState(false);
+  const [searchStuck, setSearchStuck] = useState(false);
   const { rootRef, statusRef } = useSpotlightPull(listOpen);
+  useBuyHomeChrome();
+  useFadeImages(rootRef);
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node) return;
+    const watch = new IntersectionObserver(([entry]) => setSearchStuck(!entry?.isIntersecting), { rootMargin: "-64px 0px 0px 0px", threshold: 0 });
+    watch.observe(node);
+    return () => watch.disconnect();
+  }, []);
 
   useEffect(() => {
     const v = Number(window.localStorage.getItem("peebee_buy_cap"));
@@ -346,6 +360,8 @@ export function BuyHome() {
   }, [stores, spots]);
   const categories = useMemo(() => buyCategoryNames(products), [products]);
   const activeCategory = category !== "All" && categories.includes(category) ? category : "All";
+  const catNames = ["All", ...categories];
+  const catRef = usePillIndicator(Math.max(0, catNames.indexOf(activeCategory)));
   const scopedProducts = useMemo(
     () => (activeCategory === "All" ? products : products.filter((p) => p.category_name?.trim() === activeCategory)),
     [products, activeCategory],
@@ -417,14 +433,16 @@ export function BuyHome() {
 
       <div className="buy-loc">
         <p className="buy-pill"><MapPin className="h-4 w-4 shrink-0 buy-gold" aria-hidden /><span className="truncate">{placeLabel ?? "Your location"}</span></p>
-        <Link href="/cart" className="buy-iconbtn" aria-label={`Bag, ${cart.totalQuantity} item${cart.totalQuantity === 1 ? "" : "s"}`}>
+        <button type="button" className="buy-iconbtn" aria-label={`Bag, ${cart.totalQuantity} item${cart.totalQuantity === 1 ? "" : "s"}`} onClick={() => setBagOpen(true)}>
           <ShoppingBag className="h-[19px] w-[19px]" aria-hidden />
-          {cart.totalQuantity > 0 && <span className="buy-badge">{cart.totalQuantity}</span>}
-        </Link>
+          {cart.totalQuantity > 0 && <span className="buy-badge"><RollingCount value={cart.totalQuantity} /></span>}
+        </button>
       </div>
 
+      <div ref={sentinelRef} className="buy-stick-sentinel" aria-hidden />
       <section
-        className="buy-composer"
+        className={`buy-composer${!composerActive ? " is-sticky" : ""}`}
+        data-stuck={!composerActive && searchStuck ? "" : undefined}
         aria-label="Shopping list"
         onFocus={() => setComposerOpen(true)}
         onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setComposerOpen(false); }}
@@ -497,8 +515,9 @@ export function BuyHome() {
       {!loaded && <div className="buy-skel" aria-hidden="true"><i /><i /></div>}
 
       {categories.length > 0 && (
-        <div className="buy-cats" role="tablist" aria-label="Categories">
-          {["All", ...categories].map((name) => (
+        <div ref={catRef} className="buy-cats is-animated" role="tablist" aria-label="Categories">
+          <span data-pill-ind="" className="buy-ind" aria-hidden />
+          {catNames.map((name) => (
             <button key={name} type="button" role="tab" className="buy-cat" aria-selected={activeCategory === name} onClick={() => setCategory(name)}>{name}</button>
           ))}
         </div>
@@ -524,13 +543,13 @@ export function BuyHome() {
           <SectionHead title="Live now" />
           <div className="buy-scroll" role="list">
             {rings.map((r) => (
-              <Link key={r.id} href={r.href} role="listitem" className="buy-ring" aria-label={`${r.name}${r.live ? ", live now" : ""}`}>
+              <PushLink key={r.id} href={r.href} role="listitem" className="buy-ring" aria-label={`${r.name}${r.live ? ", live now" : ""}`}>
                 <span className={`buy-ring__o ${r.live ? "is-live" : ""}`}>
                   {r.logo ? <img src={r.logo} alt="" /> : <Store className="h-6 w-6" aria-hidden />}
                   {r.live && <span className="buy-live buy-ring__tag">LIVE{r.viewers ? ` ${r.viewers}` : ""}</span>}
                 </span>
                 <span className="buy-ring__name">{r.name.split(" ")[0]}</span>
-              </Link>
+              </PushLink>
             ))}
           </div>
         </>
@@ -542,24 +561,25 @@ export function BuyHome() {
           {deals.length === 0 ? (
             <p className="buy-note">Nothing in {activeCategory} from nearby shops right now.</p>
           ) : (
+            <Crossfade id={activeCategory}>
             <div className="buy-deals">
               {deals.map(({ p, pr }) => {
                 const tag = pr.discount > 0 ? "DEAL" : p.badge?.trim() || null;
                 return (
                   <article key={p.id} className="buy-card buy-product">
-                    <Link href={`/product/${p.id}`} className="buy-thumb" aria-label={`View ${p.title}`}>
+                    <PushLink href={`/product/${p.id}`} className="buy-thumb" aria-label={`View ${p.title}`}>
                       {p.image_url && <img src={p.image_url} alt="" loading="lazy" />}
                       {tag && <span className="buy-deal">{tag}</span>}
-                    </Link>
+                    </PushLink>
                     <div className="buy-product__row">
-                      <Link href={`/product/${p.id}`} className="min-w-0 flex-1">
+                      <PushLink href={`/product/${p.id}`} className="min-w-0 flex-1">
                         <p className="buy-product__title">{p.title}</p>
                         <p className="buy-product__price">
                           <span className="buy-product__amt">{pr.from && <span className="buy-product__from">from </span>}{ugx(pr.price)}</span>
                           {pr.compareAt != null && <s>{pr.compareAt.toLocaleString("en-UG")}</s>}
                         </p>
                         {p.inventory_quantity != null && p.inventory_quantity > 0 && p.inventory_quantity <= 10 && <p className="buy-product__low">Only {p.inventory_quantity} left</p>}
-                      </Link>
+                      </PushLink>
                       <AddButton label={`Add ${p.title}`} onAdd={() => {
                         const v = p.variants?.[0];
                         addToCart({ productId: p.id, storeId: p.store_id, storeName: p.store_name, storeSlug: p.store_slug, title: p.title, variantId: v?.id, variantTitle: v?.title, price: v ? Number(v.price) : p.price, compareAtPrice: (v ? v.compare_at_price : p.compare_at_price) ?? undefined, imageUrl: p.image_url ?? undefined, category: p.store_category });
@@ -569,6 +589,7 @@ export function BuyHome() {
                 );
               })}
             </div>
+            </Crossfade>
           )}
         </>
       )}
@@ -583,7 +604,7 @@ export function BuyHome() {
               const open = truthy(s.is_open ?? 1);
               const service = [truthy(s.delivery_enabled ?? 1) ? "Delivery" : null, truthy(s.pickup_enabled) ? "Pickup" : null, "Escrow"].filter(Boolean).join(" · ");
               return (
-                <Link key={s.id} href={`/store/${s.id}`} className="buy-card buy-near">
+                <PushLink key={s.id} href={`/store/${s.id}`} className="buy-card buy-near">
                   <span className="buy-near__img">{banner ? <img src={banner} alt="" loading="lazy" /> : <Store className="h-6 w-6" aria-hidden />}</span>
                   <span className="buy-near__body">
                     <b>{s.name}</b>
@@ -594,7 +615,7 @@ export function BuyHome() {
                     </span>
                     <span className="buy-near__sub">{service}</span>
                   </span>
-                </Link>
+                </PushLink>
               );
             })}
           </div>
@@ -624,11 +645,11 @@ export function BuyHome() {
           <SectionHead title="Reels, replays & picks" />
           <div className="buy-scroll" role="list">
             {reels.map((r) => (
-              <Link key={r.id} href={r.product?.id ? `/product/${r.product.id}` : `/store/${r.store_id}`} role="listitem" className="buy-reel" aria-label={`${r.title} from ${r.store_name}`}>
+              <PushLink key={r.id} href={r.product?.id ? `/product/${r.product.id}` : `/store/${r.store_id}`} reelFor={r.product?.id} chrome={r.product?.id ? "reel" : "none"} role="listitem" className="buy-reel" aria-label={`${r.title} from ${r.store_name}`}>
                 {spotImg(r) && <img src={spotImg(r)!} alt="" loading="lazy" />}
                 {r.type === "video" ? <span className="buy-reel__play"><Play className="h-3 w-3 fill-current" aria-hidden /></span> : <span className="buy-reel__price">{ugx(r.product.price)}</span>}
                 <span className="buy-reel__t"><b>{r.product.title}</b><small>{r.store_name}</small></span>
-              </Link>
+              </PushLink>
             ))}
           </div>
         </>
@@ -645,27 +666,15 @@ export function BuyHome() {
       <p className="buy-trustline"><ShieldCheck className="mr-1 inline h-3.5 w-3.5" aria-hidden />Shops are paid only after you receive your order</p>
 
       {listOpen && <ShoppingListModal initialItems={toModalItems()} onClose={() => setListOpen(false)} />}
+      <CartDrawer isOpen={bagOpen} onClose={() => setBagOpen(false)} />
       {!loaded && <p className="sr-only" role="status">Loading shops</p>}
     </div>
   );
 }
 
 function HeroCarousel({ slides, imageFor, onAdd }: { slides: Spot[]; imageFor: (sp: Spot) => string | null; onAdd: (sp: Spot) => Promise<unknown> }) {
-  const scroller = useRef<HTMLDivElement>(null);
-  const [index, setIndex] = useState(0);
-
-  function onScroll() {
-    const el = scroller.current;
-    if (!el || el.clientWidth <= 0) return;
-    const next = Math.min(slides.length - 1, Math.max(0, Math.round(el.scrollLeft / el.clientWidth)));
-    setIndex((i) => (i === next ? i : next));
-  }
-  function go(i: number) {
-    const el = scroller.current;
-    if (!el) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollTo({ left: i * el.clientWidth, behavior: reduce ? "auto" : "smooth" });
-  }
+  const ref = useRef<HTMLDivElement>(null);
+  const { index, moving, go } = useSnapTrack(ref, slides.length);
   function onKey(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     e.preventDefault();
@@ -674,7 +683,7 @@ function HeroCarousel({ slides, imageFor, onAdd }: { slides: Spot[]; imageFor: (
 
   return (
     <section className="buy-hero" aria-roledescription="carousel" aria-label="Featured from nearby shops">
-      <div ref={scroller} className="buy-hero__track" onScroll={onScroll} onKeyDown={onKey} tabIndex={0}>
+      <div ref={ref} className="buy-hero__track" onKeyDown={onKey} tabIndex={0}>
         {slides.map((sp, i) => {
           const copy = heroText(sp);
           const img = imageFor(sp);
@@ -687,25 +696,19 @@ function HeroCarousel({ slides, imageFor, onAdd }: { slides: Spot[]; imageFor: (
                 <p className="buy-hero__title">{copy.title}</p>
                 {copy.sub && <p className="buy-hero__sub">{copy.sub}</p>}
                 {productLine && <p className="buy-hero__price">{productLine}</p>}
-                <Link href={shopHref} className="buy-shop">Shop now</Link>
+                <PushLink href={shopHref} className="buy-shop">Shop now</PushLink>
               </div>
               <div className="buy-hero__media">
-                <Link href={shopHref} className="buy-hero__photo" tabIndex={-1} aria-label={`View ${sp.product?.title || sp.store_name}`}>
+                <PushLink href={shopHref} className="buy-hero__photo" tabIndex={-1} aria-label={`View ${sp.product?.title || sp.store_name}`}>
                   {img && <img src={img} alt="" loading={i === 0 ? "eager" : "lazy"} />}
-                </Link>
+                </PushLink>
                 {sp.product?.id && <AddButton label={`Add ${sp.product.title}`} className="buy-hero__add" onAdd={() => onAdd(sp)} />}
               </div>
             </article>
           );
         })}
       </div>
-      {slides.length > 1 && (
-        <div className="buy-dots">
-          {slides.map((sp, i) => (
-            <button key={sp.id} type="button" className="buy-dot" aria-label={`Show ${sp.store_name}`} aria-current={i === index ? "true" : undefined} onClick={() => go(i)} />
-          ))}
-        </div>
-      )}
+      <SnapDots count={slides.length} index={index} moving={moving} labels={slides.map((sp) => `Show ${sp.store_name}`)} onPick={go} />
     </section>
   );
 }
@@ -726,7 +729,7 @@ function SectionHead({ title, href }: { title: string; href?: string }) {
   return (
     <div className="buy-section">
       <h2>{title}</h2>
-      {href && <Link href={href}>See all<ChevronRight className="h-4 w-4" aria-hidden /></Link>}
+      {href && <PushLink href={href}>See all<ChevronRight className="h-4 w-4" aria-hidden /></PushLink>}
     </div>
   );
 }

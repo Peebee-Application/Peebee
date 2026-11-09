@@ -22,6 +22,7 @@ import { ProductImage } from "../../../components/ProductImage";
 import { addToCart, useCart } from "../../../lib/cart";
 import { CartDrawer, CartDrawerTrigger } from "../../../components/CartDrawer";
 import { ShareButton } from "../../../components/ShareButton";
+import { clearReel, navigateWithPush, reelArmedFor } from "../../../lib/buy-motion";
 
 interface ProductVariant {
   id: string;
@@ -191,7 +192,7 @@ export function ProductPageClient() {
             HERO IMAGE MEDIA CARD (Screen 2: Curved Bottom [40px] & Floating Buttons)
         ========================================================================= */}
         <div className="px-4 pt-4">
-        <div className="relative w-full aspect-[4/5] sm:aspect-[1/1] overflow-hidden rounded-[32px] bg-[rgb(var(--surface-muted))] shadow-[var(--shadow-card-hover)]">
+        <div className="relative w-full aspect-[4/5] sm:aspect-[1/1] overflow-hidden rounded-[32px] bg-[rgb(var(--surface-muted))] shadow-[var(--shadow-card-hover)]" data-reel-vt={reelArmedFor(product.id) ? "" : undefined}>
           <ProductImage
             src={product.image_url}
             alt={product.title}
@@ -201,10 +202,16 @@ export function ProductPageClient() {
           />
 
           {/* Floating Top Nav (Back Button & Favorite Button) */}
-          <div className="absolute top-4 inset-x-4 flex items-center justify-between z-20">
+          <div className="buy-rise absolute top-4 inset-x-4 flex items-center justify-between z-20">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => {
+                const reel = reelArmedFor(product.id);
+                if (reel) {
+                  clearReel();
+                  void navigateWithPush(router, "", "back", "reel");
+                } else router.back();
+              }}
               aria-label="Back"
               className="w-11 h-11 rounded-full flex items-center justify-center bg-[rgb(var(--surface-card)/.9)] backdrop-blur-md border border-[var(--border-faint)] text-ink shadow-[var(--shadow-card)] active:scale-95 transition-transform"
             >

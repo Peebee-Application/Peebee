@@ -56,8 +56,10 @@ export function ProductImage({
         alt={alt}
         loading={priority ? "eager" : "lazy"}
         decoding={priority ? "sync" : "async"}
+        className="buy-fade w-full h-full object-cover"
+        ref={(node) => { if (node?.complete && node.naturalWidth > 0) node.dataset.loaded = "true"; }}
+        onLoad={(event) => { event.currentTarget.dataset.loaded = "true"; }}
         onError={() => setHasError(true)}
-        className="w-full h-full object-cover"
       />
     </div>
   );

@@ -9,6 +9,7 @@ import { useCart, cartOwnerId, dismissEarlierCartNotice } from "../../lib/cart";
 import { EarlierCarts } from "../../components/EarlierCarts";
 import { ProductImage } from "../../components/ProductImage";
 import { RoundCheck } from "../../components/marketplace/MarketplaceUI";
+import { SwipeRow } from "../../components/buy/motion";
 import { api, errorMessage } from "../../lib/api";
 import { useBagQuote, type BagDeliveryMode, type BagQuote } from "../../lib/bag-quote";
 import { bagDestinationFields, useBagDeliveryPlace } from "../../lib/bag-place";
@@ -359,10 +360,8 @@ function CartCheckout() {
 
                 <ul className="space-y-3">
                   {items.map((item) => (
-                    <li
-                      key={item.id}
-                      className="rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3 shadow-[var(--shadow-card)] flex items-center gap-3.5"
-                    >
+                    <SwipeRow key={item.id} id={`bag-${item.id}`} label={item.title} onRemove={() => removeItem(item.id)}>
+                    <div className="rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3 shadow-[var(--shadow-card)] flex items-center gap-3.5">
                       <Link
                         href={`/product/${item.productId}`}
                         className="relative w-[84px] h-[84px] rounded-[18px] overflow-hidden shrink-0 bg-[rgb(var(--surface-muted))]"
@@ -439,7 +438,8 @@ function CartCheckout() {
                           </div>
                         </div>
                       </div>
-                    </li>
+                    </div>
+                    </SwipeRow>
                   ))}
                 </ul>
 

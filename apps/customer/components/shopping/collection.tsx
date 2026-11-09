@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import Link from "next/link";
+import { useEffect, useRef, type KeyboardEvent } from "react";
+import { PushLink, SnapDots, useSnapTrack } from "../buy/motion";
 import "../../app/shopping-collection.css";
 
 export type CollectionSlide = {
@@ -16,22 +16,10 @@ export type CollectionSlide = {
 
 /** Snap carousel for a collection. Slides come from live shops or catalogue rows already loaded. */
 export function CollectionHero({ slides, label }: { slides: CollectionSlide[]; label: string }) {
-  const scroller = useRef<HTMLDivElement>(null);
-  const [index, setIndex] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const { index, moving, go } = useSnapTrack(ref, slides.length);
   if (slides.length === 0) return null;
 
-  function onScroll() {
-    const el = scroller.current;
-    if (!el || el.clientWidth <= 0) return;
-    const next = Math.min(slides.length - 1, Math.max(0, Math.round(el.scrollLeft / el.clientWidth)));
-    setIndex((i) => (i === next ? i : next));
-  }
-  function go(i: number) {
-    const el = scroller.current;
-    if (!el) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollTo({ left: i * el.clientWidth, behavior: reduce ? "auto" : "smooth" });
-  }
   function onKey(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     e.preventDefault();
@@ -40,7 +28,7 @@ export function CollectionHero({ slides, label }: { slides: CollectionSlide[]; l
 
   return (
     <section className="shop-hero" aria-roledescription="carousel" aria-label={label}>
-      <div ref={scroller} className="shop-hero__track" onScroll={onScroll} onKeyDown={onKey} tabIndex={0}>
+      <div ref={ref} className="shop-hero__track" onKeyDown={onKey} tabIndex={0}>
         {slides.map((slide, i) => (
           <article key={slide.id} className="shop-hero__slide" aria-label={slide.title}>
             <div className="shop-hero__copy">
@@ -49,22 +37,16 @@ export function CollectionHero({ slides, label }: { slides: CollectionSlide[]; l
               {slide.onCta ? (
                 <button type="button" className="shop-hero__cta" onClick={slide.onCta}>{slide.cta ?? "Shop now"}</button>
               ) : slide.href ? (
-                <Link href={slide.href} className="shop-hero__cta">{slide.cta ?? "Shop now"}</Link>
+                <PushLink href={slide.href} className="shop-hero__cta">{slide.cta ?? "Shop now"}</PushLink>
               ) : null}
             </div>
             <div className="shop-hero__media">
-              {slide.imageUrl && <img src={slide.imageUrl} alt="" loading={i === 0 ? "eager" : "lazy"} />}
+              {slide.imageUrl && <img className="buy-fade" src={slide.imageUrl} alt="" loading={i === 0 ? "eager" : "lazy"} onLoad={(event) => { event.currentTarget.dataset.loaded = "true"; }} />}
             </div>
           </article>
         ))}
       </div>
-      {slides.length > 1 && (
-        <div className="shop-dots">
-          {slides.map((slide, i) => (
-            <button key={slide.id} type="button" className="shop-dot" aria-label={`Show ${slide.title}`} aria-current={i === index ? "true" : undefined} onClick={() => go(i)} />
-          ))}
-        </div>
-      )}
+      <SnapDots count={slides.length} index={index} moving={moving} labels={slides.map((slide) => `Show ${slide.title}`)} onPick={go} />
     </section>
   );
 }
