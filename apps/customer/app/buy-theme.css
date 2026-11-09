@@ -471,30 +471,13 @@ img.buy-fade[data-loaded] { opacity: 1; }
 .buy-extra__track::-webkit-scrollbar { display: none; }
 .buy-extra__slide { flex: 0 0 calc(100% - 24px); scroll-snap-align: start; scroll-snap-stop: always; }
 
-/* Header and nav motion. At rest (--buy-s: 0, pill sitting on the active tab) these rules change nothing visible. */
-.customer-nav-items { position: relative; }
-.customer-nav-pill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  z-index: 0;
-  margin: 0;
-  border-radius: 18px;
-  background: rgb(var(--color-gold, 201 162 39));
-  pointer-events: none;
-  list-style: none;
-}
-.customer-nav-items .customer-nav-item { position: relative; z-index: 1; }
-.customer-nav-items .customer-nav-item.is-active,
-.customer-nav-items .customer-nav-item.is-active:hover { background: transparent; }
+/* Header motion only. The bottom nav is left exactly as it is (the reference video never moves it). */
 @media (prefers-reduced-motion: no-preference) {
   html[data-buy-home] .customer-header {
     transform: translateY(calc(var(--buy-s, 0) * -40px));
     opacity: calc(1 - var(--buy-s, 0));
   }
   html.customer-menu-open[data-buy-home] .customer-header { transform: none; opacity: 1; }
-  .customer-nav-pill { transition: transform 300ms cubic-bezier(.34, 1.3, .64, 1), width 300ms cubic-bezier(.34, 1.3, .64, 1), height 300ms cubic-bezier(.34, 1.3, .64, 1); }
-  .customer-nav-items .customer-nav-item { transition: color 300ms cubic-bezier(.34, 1.3, .64, 1); }
   .buy-card, .buy-product, .buy-near, .buy-ring, .buy-again, .buy-reel, .buy-hero__slide, .shop-hero__slide, .buy-press {
     transition: transform 100ms cubic-bezier(.2, .8, .2, 1), opacity 100ms ease-out;
   }
@@ -526,8 +509,7 @@ img.buy-fade[data-loaded] { opacity: 1; }
   html[data-buy-motion="card"]::view-transition-image-pair(*) { animation: buy-card-radius 450ms cubic-bezier(.32, .72, 0, 1) both; overflow: hidden; }
   html[data-nav-dir="back"][data-buy-motion="card"]::view-transition-image-pair(*) { animation-direction: reverse; }
   html[data-buy-motion="card"]::view-transition-image-pair(root),
-  html[data-buy-motion="card"]::view-transition-image-pair(buy-chrome-header),
-  html[data-buy-motion="card"]::view-transition-image-pair(buy-chrome-nav) { animation: none; overflow: visible; }
+  html[data-buy-motion="card"]::view-transition-image-pair(buy-chrome-header) { animation: none; overflow: visible; }
   html[data-buy-motion="fade"]::view-transition-old(root) { animation: 150ms ease both buy-fade-out; }
   html[data-buy-motion="fade"]::view-transition-new(root) { animation: 150ms ease both buy-fade-in; }
   .buy-card-follow > * { animation: buy-rise 320ms cubic-bezier(.32, .72, 0, 1) both; }
@@ -540,11 +522,8 @@ img.buy-fade[data-loaded] { opacity: 1; }
   html[data-nav-dir="back"]::view-transition-old(root) { animation: 400ms cubic-bezier(.32, .72, 0, 1) both buy-pop-out; }
   html[data-nav-dir="back"]::view-transition-new(root) { animation: 400ms cubic-bezier(.32, .72, 0, 1) both buy-pop-in; }
   html[data-buy-chrome="reel"] .customer-header { view-transition-name: buy-chrome-header; }
-  html[data-buy-chrome="reel"] .customer-nav { view-transition-name: buy-chrome-nav; }
   ::view-transition-old(buy-chrome-header) { animation: buy-chrome-up 450ms cubic-bezier(.32, .72, 0, 1) both; }
   ::view-transition-new(buy-chrome-header) { animation: buy-chrome-up 450ms cubic-bezier(.32, .72, 0, 1) both reverse; }
-  ::view-transition-old(buy-chrome-nav) { animation: buy-chrome-down 450ms cubic-bezier(.32, .72, 0, 1) both; }
-  ::view-transition-new(buy-chrome-nav) { animation: buy-chrome-down 450ms cubic-bezier(.32, .72, 0, 1) both reverse; }
   ::view-transition-group(buy-reel) { animation-duration: 450ms; animation-timing-function: cubic-bezier(.32, .72, 0, 1); }
   ::view-transition-new(buy-reel) { animation: buy-reel-radius 450ms cubic-bezier(.32, .72, 0, 1) both; }
   [data-reel-vt] { view-transition-name: buy-reel; }
@@ -563,7 +542,6 @@ img.buy-fade[data-loaded] { opacity: 1; }
 @keyframes buy-pop-out { to { transform: translateX(100%); } }
 @keyframes buy-pop-in { from { transform: translateX(-20%); filter: brightness(.8); } }
 @keyframes buy-chrome-up { to { transform: translateY(-100%); opacity: 0; } }
-@keyframes buy-chrome-down { to { transform: translateY(100%); opacity: 0; } }
 @keyframes buy-reel-radius { from { border-radius: 22px; } to { border-radius: 0; } }
 @keyframes buy-rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
 @keyframes buy-card-radius { from { border-radius: 24px; } to { border-radius: 0; } }
@@ -578,6 +556,6 @@ img.buy-fade[data-loaded] { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .buy-pull, .buy-cap i, .buy-add, .buy-hero__track, .buy-listening span, .buy-live::before, .buy-collection, .buy-collection img, .buy-skel i, .shop-skel i, .buy-roll__old, .buy-roll__new, .buy-cross__out, .buy-cross__in, .buy-rise, .buy-card-follow > *, .buy-veil { animation: none; transition: none; scroll-behavior: auto; }
   img.buy-fade { opacity: 1; transition: none; }
-  .customer-nav-pill, .buy-dotpill, .buy-ind { transition: none; }
+  .buy-dotpill, .buy-ind { transition: none; }
   html[data-buy-home] .customer-header { transform: none; opacity: 1; }
 }
