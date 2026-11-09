@@ -56,7 +56,7 @@ type Props = {
 function RailButton({ label, count, onClick, active, children }: { label: string; count?: ReactNode; onClick: () => void; active?: boolean; children: ReactNode }) {
   return (
     <button type="button" onClick={onClick} aria-label={label} aria-pressed={active} className="flex flex-col items-center gap-1 transition active:scale-90">
-      <span className={`flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-md transition ${active ? "bg-red-600 text-white" : "bg-white/15 text-white"}`}>
+      <span className={`flex h-11 w-11 items-center justify-center rounded-full transition ${active ? "bg-gold text-ink-gold" : "bg-white/15 text-white"}`}>
         {children}
       </span>
       {count != null && <span className="text-[11px] font-semibold text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/.5)]">{count}</span>}
@@ -299,7 +299,7 @@ export function SpotlightCard(props: Props) {
                 type="button"
                 onClick={props.onQuickBuy}
                 aria-label={`Buy ${item.product.title}`}
-                className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-gold px-4 text-xs font-semibold text-ink-gold transition active:scale-95"
+                className="flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-gold px-4 text-xs font-semibold text-ink-gold active:scale-95"
               >
                 <ShoppingBag className="h-3.5 w-3.5" aria-hidden />
                 Buy

@@ -29,6 +29,7 @@ import {
   MarketSearchBar,
   PromoBanner,
 } from "../../components/marketplace/MarketplaceUI";
+import { CollectionHero, LiveRail, useCollectionTitleFocus } from "../../components/shopping/collection";
 
 interface MarketplaceStore {
   id: string;
@@ -234,17 +235,34 @@ export default function GroceriesPage() {
   });
 
   const cartItemCount = totalQuantity;
+  useCollectionTitleFocus("groceries-title");
+  const heroSlides = [
+    ...liveChannels.slice(0, 2).map((c) => ({
+      id: `live-${c.id}`,
+      title: c.live_channel_title || `Live from ${c.name}`,
+      subtitle: c.name,
+      imageUrl: c.banner_url || c.logo_url,
+      cta: "Watch",
+      onCta: () => handleOpenLive(c),
+    })),
+    ...featuredProducts.filter((p) => p.image_url).slice(0, 4).map((p) => ({
+      id: p.id,
+      title: p.title,
+      subtitle: p.store_name,
+      imageUrl: p.image_url,
+      href: `/product/${p.id}`,
+    })),
+  ];
 
   return (
-    <div className="mx-auto max-w-xl space-y-6 px-4 pb-28 pt-4">
+    <div className="shop-page mx-auto max-w-xl space-y-5 px-4 pb-28 pt-4">
       <MarketGreetingHeader
         trailing={<CartDrawerTrigger onClick={() => setCartDrawerOpen(true)} className="h-11 w-11" />}
       />
 
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[22px] font-bold leading-tight tracking-tight text-ink">Groceries & Supermarkets</h1>
-          <ShoppingExtras />
+          <h1 id="groceries-title" tabIndex={-1} className="shop-title text-ink outline-none">Groceries & Supermarkets</h1>
           <p className="mt-0.5 text-sm text-ink-500">Fresh produce and pantry staples, delivered fast.</p>
         </div>
         <Link
@@ -255,6 +273,7 @@ export default function GroceriesPage() {
           <Sparkles className="h-3.5 w-3.5 text-gold" />
         </Link>
       </div>
+      <ShoppingExtras />
 
       <MarketSearchBar
         value={searchQuery}
@@ -271,57 +290,8 @@ export default function GroceriesPage() {
         icon={<ShoppingBag className="h-8 w-8" aria-hidden />}
       />
 
-      {/* "LIVE NOW" Story Rail (TikTok Live Shopping) */}
-      {liveChannels.length > 0 && (
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-red-600">
-              <Radio className="h-3.5 w-3.5 animate-pulse" />
-              <span>Live Selling Now</span>
-            </span>
-            <span className="text-[11px] font-semibold text-ink-500">Tap to watch & shop</span>
-          </div>
-
-          <div className="flex items-center gap-3.5 overflow-x-auto no-scrollbar py-1">
-            {liveChannels.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => handleOpenLive(c)}
-                className="group flex flex-col items-center gap-1.5 shrink-0 transition active:scale-95"
-              >
-                <div className="relative rounded-full p-[2.5px] bg-gradient-to-tr from-amber-500 via-red-500 to-pink-500 shadow-md">
-                  <div className="relative h-[60px] w-[60px] overflow-hidden rounded-full border-2 border-[rgb(var(--color-cream))] bg-neutral-900">
-                    {c.logo_url ? (
-                      <img
-                        src={c.logo_url}
-                        alt={c.name}
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                          const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
-                          if (fb) fb.style.display = "flex";
-                        }}
-                      />
-                    ) : null}
-                    <div
-                      style={{ display: c.logo_url ? "none" : "flex" }}
-                      className="h-full w-full items-center justify-center font-bold text-gold text-xs"
-                    >
-                      {c.name.slice(0, 2).toUpperCase()}
-                    </div>
-                  </div>
-                  <span className="absolute -bottom-1 inset-x-0 mx-auto w-fit rounded-full bg-red-600 px-2 py-0.2 text-[8px] font-black uppercase tracking-wider text-white shadow">
-                    LIVE
-                  </span>
-                </div>
-                <span className="max-w-[72px] truncate text-center text-[11px] font-bold text-ink">
-                  {c.name}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+      <CollectionHero slides={heroSlides} label="Featured groceries" />
+      <LiveRail shops={liveChannels} onOpen={handleOpenLive} />
 
       {filtersOpen && (
         <CategoryChips items={GROCERY_CATEGORIES} active={selectedCategory} onSelect={setSelectedCategory} />
@@ -354,9 +324,7 @@ export default function GroceriesPage() {
             ))}
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="rounded-[24px] bg-[rgb(var(--surface-muted))] p-8 text-center text-sm text-ink-500">
-            No items matching your filter in this category.
-          </div>
+          <div className="shop-empty">Nothing matches this filter.</div>
         ) : (
           <div className="grid grid-cols-2 gap-x-4 gap-y-6">
             {filteredProducts.map((p) => (
