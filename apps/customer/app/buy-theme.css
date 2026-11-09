@@ -390,6 +390,17 @@ html.buy-pull-page { overscroll-behavior-y: none; }
 }
 .buy-home img { color: transparent; }
 @keyframes buy-pulse { 50% { opacity: .35; } }
+.buy-collection { animation: buy-collection-in 380ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.buy-collection__bar {
+  position: sticky;
+  top: 4rem;
+  z-index: 5;
+  margin-inline: -16px;
+  padding: 8px 0 10px;
+  background: rgb(var(--color-cream));
+}
+.buy-collection__bar .shop-cats { margin-inline: 0; }
+@keyframes buy-collection-in { from { transform: translateX(100%); } to { transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .buy-pull, .buy-cap i, .buy-add, .buy-hero__track, .buy-listening span, .buy-live::before { animation: none; transition: none; scroll-behavior: auto; }
+  .buy-pull, .buy-cap i, .buy-add, .buy-hero__track, .buy-listening span, .buy-live::before, .buy-collection, .buy-collection img { animation: none; transition: none; scroll-behavior: auto; }
 }

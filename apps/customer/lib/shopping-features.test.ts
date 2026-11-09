@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveShoppingFeatures } from "@peebee/shared";
+import { DEFAULT_SHOPPING_FEATURES, resolveShoppingFeatures } from "@peebee/shared";
 
 test("shopping features stay off and drop blank slides", () => {
   const features = resolveShoppingFeatures({
@@ -15,4 +15,9 @@ test("shopping features stay off and drop blank slides", () => {
   assert.equal(features.heroSlides.length, 1);
   assert.equal(features.heroSlides[0]?.href, "/groceries");
   assert.equal(resolveShoppingFeatures({ membershipBannerHref: "https://evil.example" }).membershipBannerHref, "/account");
+  const defaults = resolveShoppingFeatures(null);
+  assert.equal(defaults.membershipBannerHref, DEFAULT_SHOPPING_FEATURES.membershipBannerHref);
+  for (const href of [defaults.membershipBannerHref, "/shopping"]) {
+    assert.equal(["/groceries", "/stores", "/pharmacy"].includes(href), false);
+  }
 });

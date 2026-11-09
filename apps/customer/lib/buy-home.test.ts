@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DEFAULT_SHOPPING_UNIT_SETTINGS as S } from "@peebee/shared";
-import { buyCategoryNames, buyFeaturedSpots, matchPrice, parseListPhrase, parseListText, spotlightPullDecision, unitLabel } from "./buy-home";
+import { BUY_DEALS_HREF, BUY_NEARBY_HREF, buyCategoryNames, buyFeaturedSpots, matchPrice, parseListPhrase, parseListText, spotlightPullDecision, unitLabel } from "./buy-home";
 
 test("parses leading quantity with unit", () => {
   const it = parseListPhrase("2kg tomatoes", S)!;
@@ -37,6 +37,14 @@ test("spotlight pull commits only past the threshold", () => {
   assert.equal(spotlightPullDecision(-20), "idle");
   assert.equal(spotlightPullDecision(95), "pulling");
   assert.equal(spotlightPullDecision(96), "commit");
+});
+
+test("collection headers stay inside Buy", () => {
+  assert.equal(BUY_DEALS_HREF, "/shopping/deals");
+  assert.equal(BUY_NEARBY_HREF, "/shopping/nearby");
+  for (const href of [BUY_DEALS_HREF, BUY_NEARBY_HREF]) {
+    assert.equal(href.startsWith("/groceries") || href.startsWith("/stores") || href.startsWith("/pharmacy"), false);
+  }
 });
 
 test("category pills come from product data, live spots lead the hero", () => {
