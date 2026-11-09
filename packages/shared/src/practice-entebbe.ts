@@ -9,6 +9,7 @@ import {
 } from "./demo-marketplace.js";
 import { DEMO_FOOD_RESTAURANTS } from "./demo-food.js";
 import type { Restaurant } from "./domain.js";
+import { DEFAULT_PRODUCT_VARIATIONS, deriveProductOptions } from "./product-variations.js";
 
 const svg = (width: number, height: number, bg: string, emoji: string) =>
   `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${width} ${height}'><rect width='100%' height='100%' fill='${bg}'/><text x='50%' y='54%' font-size='${Math.round(Math.min(width, height) * 0.5)}' text-anchor='middle' dominant-baseline='middle'>${emoji}</text></svg>`)}`;
@@ -59,6 +60,24 @@ const MEDS = (storeId: string, prefix: string, items: Array<[string, number, str
     compare_at_price: null, inventory_quantity: 60, category_name: category, image_url: tile("#E0F7FA", "💊"), has_variants: 0, variants: [],
     rx_required: false, dosage_form: form, strength, pack_size: pack, active_ingredient: title.split(" ")[0],
   }));
+
+type OptionSpec = { name: string; values: Array<{ value: string; delta?: number }> };
+
+/** Gives a practice product real options (Colour, Size, ...) so the Buy card, product page and cart pickers have something to show. */
+function withOptions(product: DemoProduct, specs: OptionSpec[], soldOut: string[] = []): DemoProduct {
+  let combos: Array<Array<{ name: string; value: string; delta: number }>> = [[]];
+  for (const spec of specs) combos = combos.flatMap((c) => spec.values.map((v) => [...c, { name: spec.name, value: v.value, delta: v.delta ?? 0 }]));
+  const variants = combos.map((c, i) => {
+    const title = c.map((x) => x.value).join(" / ");
+    const row: Record<string, unknown> = {
+      id: `${product.id}_v${i + 1}`, title, price: product.price + c.reduce((n, x) => n + x.delta, 0), compare_at_price: null,
+      inventory_quantity: soldOut.includes(title) ? 0 : 12,
+    };
+    c.forEach((x, n) => { row[`option${n + 1}_name`] = x.name; row[`option${n + 1}_value`] = x.value; });
+    return row;
+  });
+  return Object.assign(product, { has_variants: 1, variants, options: deriveProductOptions(variants as never[], DEFAULT_PRODUCT_VARIATIONS) });
+}
 
 export const PRACTICE_ENTEBBE_PRODUCTS: Record<string, DemoProduct[]> = {
   pe_lakeside_mart: products("pe_lakeside_mart", "pe_lm", [
@@ -115,6 +134,16 @@ export const PRACTICE_STORES: DemoStore[] = [
   ...PRACTICE_ENTEBBE_STORES,
   ...DEMO_MARKETPLACE_STORES.filter((s) => KAMPALA_KEPT.includes(s.id)),
 ];
+const byId = (store: string, id: string) => PRACTICE_ENTEBBE_PRODUCTS[store]!.find((p) => p.id === id)!;
+const COLOURS = (list: string[]): OptionSpec => ({ name: "Colour", values: list.map((value) => ({ value })) });
+const SIZES = (list: string[]): OptionSpec => ({ name: "Size", values: list.map((value) => ({ value })) });
+withOptions(byId("pe_shoreline_fashion", "pe_sf_1"), [COLOURS(["Pink", "Blue", "Green"]), SIZES(["S", "M", "L"])], ["Green / L"]);
+withOptions(byId("pe_shoreline_fashion", "pe_sf_2"), [COLOURS(["White", "Blue", "Black"]), SIZES(["M", "L", "XL"])]);
+withOptions(byId("pe_shoreline_fashion", "pe_sf_5"), [SIZES(["38", "40", "42"])]);
+withOptions(byId("pe_phones_hub", "pe_ph_2"), [COLOURS(["Black", "White"])]);
+withOptions(byId("pe_phones_hub", "pe_ph_4"), [{ name: "Storage", values: [{ value: "64 GB" }, { value: "128 GB", delta: 60_000 }] }]);
+withOptions(byId("pe_lakeside_mart", "pe_lm_1"), [{ name: "Size", values: [{ value: "500 ml", delta: -1_500 }, { value: "1 litre" }, { value: "2 litres", delta: 3_000 }] }]);
+
 export const PRACTICE_PRODUCTS: Record<string, DemoProduct[]> = {
   ...PRACTICE_ENTEBBE_PRODUCTS,
   ...Object.fromEntries(Object.entries(DEMO_MARKETPLACE_PRODUCTS).filter(([id]) => KAMPALA_KEPT.includes(id))),

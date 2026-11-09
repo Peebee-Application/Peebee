@@ -827,6 +827,7 @@ export type DeliverySettings = {
   shoppingDeliveryFee: number;
   shoppingUnits?: import("./shopping-units.js").ShoppingUnitSettings;
   shoppingFeatures?: import("./shopping-features.js").ShoppingFeatureSettings;
+  productVariations?: import("./product-variations.js").ProductVariationSettings;
   /** What the customer app's main menu is called, and the Hive shortcuts (admin-edited). */
   homeMenu?: import("./home-menu.js").HomeMenuSettings;
   homeTemplates?: import("./home-templates.js").HomeTemplatesSettings;

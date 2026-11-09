@@ -30,6 +30,19 @@ const DEFAULTS = {
     inStoreCodeEnabled: false, membershipBannerEnabled: false, membershipBannerTitle: "", membershipBannerBody: "",
     membershipBannerHref: "/account", heroEnabled: false, heroSlides: [],
   }),
+  /** Which product options (Colour, Size, ...) merchants may use, how they display, and which expand on Buy-home cards.
+   * JSON, Admin → Product variations. See packages/shared/src/product-variations.ts. */
+  product_variations: JSON.stringify({
+    quickAddEnabled: true, maxCardOptions: 2, allowCustomOptions: true, maxOptionsPerProduct: 3, maxVariantsPerProduct: 100,
+    types: [
+      { key: "color", name: "Colour", display: "swatch", showOnBuyCard: true, suggestedValues: ["Black", "White", "Red", "Blue", "Green", "Yellow", "Brown", "Grey"] },
+      { key: "size", name: "Size", display: "chips", showOnBuyCard: true, suggestedValues: ["XS", "S", "M", "L", "XL", "XXL"] },
+      { key: "storage", name: "Storage", display: "chips", showOnBuyCard: false, suggestedValues: ["64GB", "128GB", "256GB", "512GB"] },
+      { key: "material", name: "Material", display: "chips", showOnBuyCard: false, suggestedValues: ["Cotton", "Leather", "Plastic", "Metal"] },
+      { key: "flavour", name: "Flavour", display: "chips", showOnBuyCard: false, suggestedValues: [] },
+      { key: "pack", name: "Pack size", display: "chips", showOnBuyCard: false, suggestedValues: ["Single", "6 pack", "12 pack"] },
+    ],
+  }),
   /** The customer app's main menu names, the Hive shortcuts and the Hire banner. */
   home_menu_config: JSON.stringify(DEFAULT_HOME_MENU),
   home_templates_config: JSON.stringify(DEFAULT_HOME_TEMPLATES),

@@ -5,6 +5,13 @@ export type MarketVariant = {
   title: string;
   price: number;
   compare_at_price?: number | null;
+  inventory_quantity?: number | null;
+  image_url?: string | null;
+  /** One value per option, in option order (from the API). */
+  values?: string[];
+  option1_name?: string | null; option1_value?: string | null;
+  option2_name?: string | null; option2_value?: string | null;
+  option3_name?: string | null; option3_value?: string | null;
 };
 
 /** The option added by default (store grid, product page): the first one. */

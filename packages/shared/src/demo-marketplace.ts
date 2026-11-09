@@ -1,3 +1,5 @@
+import { DEFAULT_PRODUCT_VARIATIONS, deriveProductOptions, type ProductOption, type StoredOptionMeta } from "./product-variations.js";
+
 export interface DemoStore {
   id: string;
   name: string;
@@ -38,6 +40,9 @@ export interface DemoProductVariant {
   compare_at_price?: number;
   sku?: string;
   inventory_quantity: number;
+  option1_name?: string; option1_value?: string;
+  option2_name?: string; option2_value?: string;
+  option3_name?: string; option3_value?: string;
 }
 
 export interface DemoProduct {
@@ -55,6 +60,8 @@ export interface DemoProduct {
   video_url?: string;
   has_variants: number;
   variants: DemoProductVariant[];
+  /** What the shopper picks (Colour, Size, ...), derived from the variants. */
+  options?: ProductOption[];
   rx_required?: boolean;
   dosage_form?: string;
   strength?: string;
@@ -357,9 +364,9 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, DemoProduct[]> = {
       image_url: "/products/farm-fresh-milk.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_milk_500ml", title: "500ml Pouch", price: 2000, inventory_quantity: 40 },
-        { id: "var_milk_1l", title: "1 Litre Bottle", price: 3500, inventory_quantity: 50 },
-        { id: "var_milk_2l", title: "2 Litre Family Jug", price: 6500, compare_at_price: 7000, inventory_quantity: 25 },
+        { id: "var_milk_500ml", title: "500ml Pouch", option1_name: "Size", option1_value: "500ml", price: 2000, inventory_quantity: 40 },
+        { id: "var_milk_1l", title: "1 Litre Bottle", option1_name: "Size", option1_value: "1 Litre", price: 3500, inventory_quantity: 50 },
+        { id: "var_milk_2l", title: "2 Litre Family Jug", option1_name: "Size", option1_value: "2 Litre", price: 6500, compare_at_price: 7000, inventory_quantity: 25 },
       ],
     },
     {
@@ -376,9 +383,9 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, DemoProduct[]> = {
       image_url: "/products/farm-fresh-eggs.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_eggs_6", title: "Pack of 6", price: 3200, inventory_quantity: 30 },
-        { id: "var_eggs_12", title: "Pack of 12", price: 6000, inventory_quantity: 20 },
-        { id: "var_eggs_30", title: "Full Tray (30)", price: 13500, compare_at_price: 15000, inventory_quantity: 45 },
+        { id: "var_eggs_6", title: "Pack of 6", option1_name: "Pack size", option1_value: "6 eggs", price: 3200, inventory_quantity: 30 },
+        { id: "var_eggs_12", title: "Pack of 12", option1_name: "Pack size", option1_value: "12 eggs", price: 6000, inventory_quantity: 20 },
+        { id: "var_eggs_30", title: "Full Tray (30)", option1_name: "Pack size", option1_value: "Tray of 30", price: 13500, compare_at_price: 15000, inventory_quantity: 45 },
       ],
     },
     {
@@ -395,8 +402,8 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, DemoProduct[]> = {
       image_url: "/products/honey-glazed-chicken.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_chicken_reg", title: "Regular Portion", price: 24000, inventory_quantity: 25 },
-        { id: "var_chicken_large", title: "Large Meal Box", price: 32000, compare_at_price: 36000, inventory_quantity: 15 },
+        { id: "var_chicken_reg", title: "Regular Portion", option1_name: "Portion", option1_value: "Regular", price: 24000, inventory_quantity: 25 },
+        { id: "var_chicken_large", title: "Large Meal Box", option1_name: "Portion", option1_value: "Large", price: 32000, compare_at_price: 36000, inventory_quantity: 15 },
       ],
     },
     {
@@ -444,8 +451,8 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, DemoProduct[]> = {
       image_url: "/products/croissant-bakery.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_croissant_2", title: "Pack of 2", price: 7500, inventory_quantity: 25 },
-        { id: "var_croissant_4", title: "Box of 4", price: 14000, compare_at_price: 16000, inventory_quantity: 15 },
+        { id: "var_croissant_2", title: "Pack of 2", option1_name: "Pack size", option1_value: "2 pack", price: 7500, inventory_quantity: 25 },
+        { id: "var_croissant_4", title: "Box of 4", option1_name: "Pack size", option1_value: "4 pack", price: 14000, compare_at_price: 16000, inventory_quantity: 15 },
       ],
     },
     {
@@ -478,10 +485,10 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, DemoProduct[]> = {
       image_url: "/products/pink-blazer.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_blazer_s_blossom", title: "Size S / Blossom Pink", price: 145000, inventory_quantity: 5 },
-        { id: "var_blazer_m_blossom", title: "Size M / Blossom Pink", price: 145000, inventory_quantity: 8 },
-        { id: "var_blazer_l_blossom", title: "Size L / Blossom Pink", price: 145000, inventory_quantity: 6 },
-        { id: "var_blazer_xl_blossom", title: "Size XL / Blossom Pink", price: 145000, inventory_quantity: 3 },
+        { id: "var_blazer_s_blossom", title: "Size S / Blossom Pink", option1_name: "Size", option1_value: "S", option2_name: "Colour", option2_value: "Blossom Pink", price: 145000, inventory_quantity: 5 },
+        { id: "var_blazer_m_blossom", title: "Size M / Blossom Pink", option1_name: "Size", option1_value: "M", option2_name: "Colour", option2_value: "Blossom Pink", price: 145000, inventory_quantity: 8 },
+        { id: "var_blazer_l_blossom", title: "Size L / Blossom Pink", option1_name: "Size", option1_value: "L", option2_name: "Colour", option2_value: "Blossom Pink", price: 145000, inventory_quantity: 6 },
+        { id: "var_blazer_xl_blossom", title: "Size XL / Blossom Pink", option1_name: "Size", option1_value: "XL", option2_name: "Colour", option2_value: "Blossom Pink", price: 145000, inventory_quantity: 3 },
       ],
     },
     {
@@ -498,10 +505,10 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, DemoProduct[]> = {
       image_url: "/products/cuban-linen-shirt.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_shirt_m_white", title: "Medium / Crisp White", price: 65000, inventory_quantity: 8 },
-        { id: "var_shirt_l_white", title: "Large / Crisp White", price: 65000, inventory_quantity: 10 },
-        { id: "var_shirt_m_sand", title: "Medium / Desert Sand", price: 65000, inventory_quantity: 7 },
-        { id: "var_shirt_l_sand", title: "Large / Desert Sand", price: 65000, inventory_quantity: 5 },
+        { id: "var_shirt_m_white", title: "Medium / Crisp White", option1_name: "Size", option1_value: "M", option2_name: "Colour", option2_value: "Crisp White", price: 65000, inventory_quantity: 8 },
+        { id: "var_shirt_l_white", title: "Large / Crisp White", option1_name: "Size", option1_value: "L", option2_name: "Colour", option2_value: "Crisp White", price: 65000, inventory_quantity: 10 },
+        { id: "var_shirt_m_sand", title: "Medium / Desert Sand", option1_name: "Size", option1_value: "M", option2_name: "Colour", option2_value: "Desert Sand", price: 65000, inventory_quantity: 7 },
+        { id: "var_shirt_l_sand", title: "Large / Desert Sand", option1_name: "Size", option1_value: "L", option2_name: "Colour", option2_value: "Desert Sand", price: 65000, inventory_quantity: 5 },
       ],
     },
     {
@@ -518,9 +525,9 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, DemoProduct[]> = {
       image_url: "/products/denim-jacket.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_jacket_m", title: "Size M (Chest 40)", price: 95000, inventory_quantity: 6 },
-        { id: "var_jacket_l", title: "Size L (Chest 42)", price: 95000, inventory_quantity: 6 },
-        { id: "var_jacket_xl", title: "Size XL (Chest 44)", price: 95000, inventory_quantity: 3 },
+        { id: "var_jacket_m", title: "Size M (Chest 40)", option1_name: "Size", option1_value: "M", price: 95000, inventory_quantity: 6 },
+        { id: "var_jacket_l", title: "Size L (Chest 42)", option1_name: "Size", option1_value: "L", price: 95000, inventory_quantity: 6 },
+        { id: "var_jacket_xl", title: "Size XL (Chest 44)", option1_name: "Size", option1_value: "XL", price: 95000, inventory_quantity: 3 },
       ],
     },
   ],
@@ -539,8 +546,8 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, DemoProduct[]> = {
       image_url: "/products/anc-earbuds.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_earbuds_black", title: "Midnight Black", price: 95000, inventory_quantity: 20 },
-        { id: "var_earbuds_white", title: "Frost White", price: 95000, inventory_quantity: 15 },
+        { id: "var_earbuds_black", title: "Midnight Black", option1_name: "Colour", option1_value: "Midnight Black", price: 95000, inventory_quantity: 20 },
+        { id: "var_earbuds_white", title: "Frost White", option1_name: "Colour", option1_value: "Frost White", price: 95000, inventory_quantity: 15 },
       ],
     },
   ],
@@ -558,8 +565,8 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, DemoProduct[]> = {
       image_url: "/products/shea-butter.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_shea_vanilla", title: "Madagascar Vanilla Scent (250g)", price: 28000, inventory_quantity: 25 },
-        { id: "var_shea_unscented", title: "Fragrance Free Pure (250g)", price: 28000, inventory_quantity: 20 },
+        { id: "var_shea_vanilla", title: "Madagascar Vanilla Scent (250g)", option1_name: "Scent", option1_value: "Vanilla", price: 28000, inventory_quantity: 25 },
+        { id: "var_shea_unscented", title: "Fragrance Free Pure (250g)", option1_name: "Scent", option1_value: "Fragrance free", price: 28000, inventory_quantity: 20 },
       ],
     },
   ],
@@ -578,10 +585,10 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, DemoProduct[]> = {
       image_url: "/products/retro-sneakers.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_kicks_41", title: "EU 41 / UK 7", price: 185000, inventory_quantity: 4 },
-        { id: "var_kicks_42", title: "EU 42 / UK 8", price: 185000, inventory_quantity: 6 },
-        { id: "var_kicks_43", title: "EU 43 / UK 9", price: 185000, inventory_quantity: 5 },
-        { id: "var_kicks_44", title: "EU 44 / UK 10", price: 185000, inventory_quantity: 3 },
+        { id: "var_kicks_41", title: "EU 41 / UK 7", option1_name: "Size", option1_value: "EU 41", price: 185000, inventory_quantity: 4 },
+        { id: "var_kicks_42", title: "EU 42 / UK 8", option1_name: "Size", option1_value: "EU 42", price: 185000, inventory_quantity: 6 },
+        { id: "var_kicks_43", title: "EU 43 / UK 9", option1_name: "Size", option1_value: "EU 43", price: 185000, inventory_quantity: 5 },
+        { id: "var_kicks_44", title: "EU 44 / UK 10", option1_name: "Size", option1_value: "EU 44", price: 185000, inventory_quantity: 3 },
       ],
     },
   ],
@@ -942,3 +949,15 @@ export const DEMO_MARKETPLACE_SPOTLIGHT: DemoSpotlightItem[] = [
     comments_count: 42,
   },
 ];
+
+/** Swatch colours for demo products whose colour names are not plain colour words. */
+const DEMO_OPTION_META: Record<string, StoredOptionMeta> = {
+  prod_linen_shirt: { color: { values: { "Crisp White": { hex: "#f4f4ef" }, "Desert Sand": { hex: "#d8c3a0" } } } },
+  prod_anc_earbuds: { color: { values: { "Midnight Black": { hex: "#15161a" }, "Frost White": { hex: "#eef2f6" } } } },
+  prod_pink_blazer: { color: { values: { "Blossom Pink": { hex: "#f2b8c6" } } } },
+};
+for (const list of Object.values(DEMO_MARKETPLACE_PRODUCTS)) {
+  for (const product of list) {
+    if (product.variants.length > 0) product.options = deriveProductOptions(product.variants, DEFAULT_PRODUCT_VARIATIONS, DEMO_OPTION_META[product.id]);
+  }
+}

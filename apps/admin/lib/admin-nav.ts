@@ -119,6 +119,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/settings/guest", label: "Guest checkout", icon: UserRound, hint: "Shared links and alerts" },
       { href: "/settings/shopping-units", label: "Shopping units", icon: Ruler, hint: "Measures and matching", visible: can("settings.manage") },
       { href: "/settings/shopping-features", label: "Shopping features", icon: Sparkles, hint: "Photo search, membership, in-store code and featured slides", visible: can("settings.manage") },
+      { href: "/settings/product-variations", label: "Product variations", icon: Ruler, hint: "Colour, size and other options, and which open on Buy cards", keywords: "variant option colour color size swatch merchant product", visible: can("settings.manage") },
       { href: "/settings/luganda-audio", label: "Luganda reading", icon: Languages, hint: "Audio voices" },
     ],
   },

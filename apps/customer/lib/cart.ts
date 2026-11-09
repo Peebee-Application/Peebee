@@ -312,6 +312,28 @@ export function removeItem(id: string): void {
   saveCart(current);
 }
 
+/** Switches a line to another variant of the same product. If the bag already has that variant, the quantities join. */
+export function swapVariant(
+  id: string,
+  next: { variantId: string; variantTitle: string; price: number; compareAtPrice?: number; imageUrl?: string },
+): void {
+  const current = loadCart();
+  const index = current.findIndex((i) => i.id === id);
+  if (index === -1) return;
+  const line = current[index];
+  const nextId = `${line.productId}:${next.variantId}`;
+  if (nextId === id) return;
+  const twin = current.findIndex((i, n) => n !== index && i.id === nextId);
+  const moved = { ...line, id: nextId, variantId: next.variantId, variantTitle: next.variantTitle, price: next.price, compareAtPrice: next.compareAtPrice, imageUrl: next.imageUrl || line.imageUrl };
+  if (twin >= 0) {
+    current[twin] = { ...current[twin], quantity: current[twin].quantity + line.quantity, price: next.price, variantTitle: next.variantTitle };
+    current.splice(index, 1);
+  } else {
+    current[index] = moved;
+  }
+  saveCart(current);
+}
+
 export function toggleItemSelection(id: string): void {
   const current = loadCart();
   const item = current.find((i) => i.id === id);

@@ -47,7 +47,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
@@ -175,8 +175,6 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
   const router = useRouter();
   const { user } = useAuth();
   const navRef = useRef<HTMLElement>(null);
-  const menuListRef = useRef<HTMLUListElement>(null);
-  const pillRef = useRef<HTMLLIElement>(null);
   const [activeOrder, setActiveOrder] = useState<OrderRow | null>(null);
   const [trackerDrawerOpen, setTrackerDrawerOpen] = useState(false);
   const [menuGroup, setMenuGroup] = useState<MenuGroup>(() => groupForPath(pathname));
@@ -296,32 +294,6 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
   // The Ride home shows an active ride in its own live-trip card, so the chip would repeat it.
   const isRideHomeWithRide = pathname === "/ride" && !!activeOrder?.is_ride;
   const showActiveDeliveryBadge = !overlay && !!activeOrder && !isOnActiveOrderPage && pathname !== "/" && !isRideHomeWithRide;
-
-  useLayoutEffect(() => {
-    const root = menuListRef.current;
-    const pill = pillRef.current;
-    if (!root || !pill) return;
-    const active = root.querySelector<HTMLElement>(".customer-nav-item.is-active");
-    const place = () => {
-      if (!active) {
-        pill.style.opacity = "0";
-        return;
-      }
-      pill.style.opacity = "1";
-      pill.style.width = `${active.offsetWidth}px`;
-      pill.style.height = `${active.offsetHeight}px`;
-      pill.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
-    };
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || pill.dataset.ready !== "1") {
-      pill.style.transition = "none";
-      place();
-      pill.dataset.ready = "1";
-      requestAnimationFrame(() => { pill.style.transition = ""; });
-      return;
-    }
-    place();
-  }, [selectedItem, menuGroup, spotlightFilter, pathname, scrolls]);
 
   useEffect(() => {
     const nav = navRef.current;
@@ -532,11 +504,9 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
             <div key="nav-links" className="customer-nav-swap customer-nav-capsule flex flex-1 min-w-0 items-center justify-around rounded-[24px] p-1.5 shadow-[var(--shadow-float-capsule)]">
               <ul
                 key={menuGroup}
-                ref={menuListRef}
                 className={`customer-nav-items flex h-full w-full items-stretch gap-1 ${scrolls ? "snap-x overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "justify-around"}`}
                 aria-label={menuGroup === "original" ? "Main menu" : `${menuGroup} menu`}
               >
-                <li ref={pillRef} className="customer-nav-pill" aria-hidden />
                 {menuItems.map((item) => {
                   const Icon = item.icon;
                   const active = item.spotlight ? item.spotlight === spotlightFilter : item.id === selectedItem;
