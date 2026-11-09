@@ -82,7 +82,7 @@ export function ProductCard({
   return (
     <Link
       href={`/product/${product.id}`}
-      className={`group relative flex flex-col rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 bg-surface-card border border-surface-border/50 text-left cursor-pointer transform hover:-translate-y-1 ${className}`}
+      className={`group relative flex flex-col rounded-3xl overflow-hidden shadow-sm bg-surface-card border border-surface-border/50 text-left cursor-pointer ${className}`}
     >
       {/* Visual Image Area */}
       <div className="relative w-full aspect-[4/5] overflow-hidden bg-surface-subtle">
@@ -90,7 +90,7 @@ export function ProductCard({
           src={product.image_url}
           alt={product.title}
           category={product.category_name || undefined}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="buy-zoom w-full h-full object-cover"
         />
 
         {/* Top Badges & Bookmark Controls */}

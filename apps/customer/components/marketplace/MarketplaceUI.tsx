@@ -14,6 +14,7 @@ import { useLocationLabel } from "../../lib/use-location-label";
 import { ProductImage } from "../ProductImage";
 import "../../app/shopping-collection.css";
 import { defaultVariant, productPricing, type MarketVariant } from "../../lib/product-pricing";
+import { PushLink, usePillIndicator } from "../buy/motion";
 
 export { defaultVariant, productPricing, type MarketVariant };
 
@@ -119,9 +120,14 @@ export function PromoBanner({ eyebrow, title, body, icon }: { eyebrow: string; t
 }
 
 /** Horizontal pill chips; the active one uses the brand accent. */
-export function CategoryChips({ items, active, onSelect }: { items: string[]; active: string; onSelect: (item: string) => void }) {
+export function CategoryChips({ items, active, onSelect, animatedIndicator = false }: {
+  items: string[]; active: string; onSelect: (item: string) => void; animatedIndicator?: boolean;
+}) {
+  const index = Math.max(0, items.indexOf(active));
+  const ref = usePillIndicator(animatedIndicator ? index : -1);
   return (
-    <div role="tablist" aria-label="Categories" className="shop-cats">
+    <div ref={animatedIndicator ? ref : undefined} role="tablist" aria-label="Categories" className={`shop-cats${animatedIndicator ? " is-animated" : ""}`}>
+      {animatedIndicator && <span data-pill-ind="" className="buy-ind" aria-hidden />}
       {items.map((cat) => {
         const isActive = active === cat;
         return (
@@ -165,14 +171,14 @@ export function MarketProductCard({ product, fallbackCategory, onAdd }: { produc
   }
 
   return (
-    <article className="flex min-w-0 flex-col">
-      <Link href={`/product/${product.id}`} className="group block">
+    <article data-product-source={product.id} className="buy-press flex min-w-0 flex-col">
+      <PushLink href={`/product/${product.id}`} className="group block">
         <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[22px] bg-[rgb(var(--surface-muted))] shadow-[var(--shadow-card)]">
           <ProductImage
             src={product.image_url}
             alt={product.title}
             category={product.category_name || fallbackCategory}
-            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+            className="buy-zoom h-full w-full object-cover"
           />
           {badge && (
             <span className="absolute left-2.5 top-2.5 z-10 max-w-[75%] truncate rounded-full bg-[rgb(var(--surface-card)/.92)] px-2.5 py-1 text-[10px] font-semibold text-ink shadow-sm">
@@ -180,9 +186,9 @@ export function MarketProductCard({ product, fallbackCategory, onAdd }: { produc
             </span>
           )}
         </div>
-      </Link>
+      </PushLink>
       <div className="mt-2.5 flex items-center justify-between gap-2 px-1">
-        <Link href={`/product/${product.id}`} className="min-w-0 flex-1">
+        <PushLink href={`/product/${product.id}`} className="min-w-0 flex-1">
           <h3 className="truncate text-sm font-semibold text-ink">{product.title}</h3>
           <p className="mt-0.5 flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
             {pricing.from && <span className="shrink-0 text-[11px] font-medium text-ink-500">from</span>}
@@ -193,7 +199,7 @@ export function MarketProductCard({ product, fallbackCategory, onAdd }: { produc
               </span>
             )}
           </p>
-        </Link>
+        </PushLink>
         <button
           type="button"
           onClick={handleAdd}

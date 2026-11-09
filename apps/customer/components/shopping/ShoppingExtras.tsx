@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { loadInStoreCode, loadMembership, searchCatalogueByPhoto } from "../../lib/shopping-capabilities";
+import { SnapDots, useSnapTrack } from "../buy/motion";
 
 /** Admin-gated shopping extras. Hidden switches stay off the screen. Unavailable backends say so instead of showing made-up results. */
 export function ShoppingExtras() {
@@ -15,6 +16,8 @@ export function ShoppingExtras() {
   const [codeNote, setCodeNote] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
+  const slides = features.heroEnabled ? features.heroSlides : [];
+  const snap = useSnapTrack(heroRef, slides.length);
 
   useEffect(() => {
     let live = true;
@@ -40,7 +43,6 @@ export function ShoppingExtras() {
   }
 
   const banner = features.membershipBannerEnabled && features.membershipBannerTitle;
-  const slides = features.heroEnabled ? features.heroSlides : [];
   const anything = features.cameraSearchEnabled || (features.memberBadgeEnabled && member) || features.inStoreCodeEnabled || banner || slides.length > 0;
   if (!anything && !photoNote && !codeNote) return null;
 
@@ -58,11 +60,11 @@ export function ShoppingExtras() {
         </Link>
       )}
       {slides.length > 0 && (
-        <div>
-          <div ref={heroRef} className="flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-none" aria-label="Featured">
+        <div className="buy-extra">
+          <div ref={heroRef} className="buy-extra__track" aria-label="Featured">
             {slides.map((slide) => (
-              <Link key={slide.id} href={slide.href} className="w-full shrink-0 snap-start overflow-hidden rounded-[28px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] shadow-[var(--shadow-card)]">
-                {slide.imageUrl && <img src={slide.imageUrl} alt="" className="h-36 w-full object-cover" />}
+              <Link key={slide.id} href={slide.href} className="buy-extra__slide overflow-hidden rounded-[28px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] shadow-[var(--shadow-card)]">
+                {slide.imageUrl && <img src={slide.imageUrl} alt="" className="buy-fade h-36 w-full object-cover" onLoad={(event) => { event.currentTarget.dataset.loaded = "true"; }} />}
                 <span className="block p-4">
                   <span className="block text-[18px] font-extrabold leading-tight">{slide.title}</span>
                   {slide.subtitle && <span className="mt-1 block text-[13px] font-semibold text-ink-500">{slide.subtitle}</span>}
@@ -70,10 +72,11 @@ export function ShoppingExtras() {
               </Link>
             ))}
           </div>
+          <SnapDots count={slides.length} index={snap.index} moving={snap.moving} labels={slides.map((slide) => `Show ${slide.title}`)} onPick={snap.go} />
           {slides.length > 1 && (
             <div className="mt-1 flex justify-end gap-1">
-              <button type="button" className="h-11 w-11" aria-label="Previous featured slide" onClick={() => heroRef.current?.scrollBy({ left: -320, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })}><ChevronLeft className="mx-auto h-5 w-5" /></button>
-              <button type="button" className="h-11 w-11" aria-label="Next featured slide" onClick={() => heroRef.current?.scrollBy({ left: 320, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })}><ChevronRight className="mx-auto h-5 w-5" /></button>
+              <button type="button" className="h-11 w-11" aria-label="Previous featured slide" onClick={() => snap.go(snap.index - 1)}><ChevronLeft className="mx-auto h-5 w-5" /></button>
+              <button type="button" className="h-11 w-11" aria-label="Next featured slide" onClick={() => snap.go(snap.index + 1)}><ChevronRight className="mx-auto h-5 w-5" /></button>
             </div>
           )}
         </div>

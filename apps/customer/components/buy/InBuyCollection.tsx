@@ -1,17 +1,18 @@
 "use client";
 
-import { Search, X } from "lucide-react";
-import Link from "next/link";
+import { ChevronLeft, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "../../lib/api";
 import { buyCategoryNames } from "../../lib/buy-home";
 import { addToCart } from "../../lib/cart";
+import { navigateWithPush } from "../../lib/buy-motion";
 import { formatDistanceKm, haversineKm, useCustomerLocation } from "../../lib/location";
 import { useRegisterNavBack } from "../../lib/nav-primary-action";
 import { defaultVariant, productPricing, type MarketVariant } from "../../lib/product-pricing";
 import { CategoryChips, MarketProductCard } from "../marketplace/MarketplaceUI";
 import { CollectionHero, type CollectionSlide } from "../shopping/collection";
+import { Crossfade, PushLink, useFadeImages, useScrollLink } from "./motion";
 
 type Shop = {
   id: string; name: string; slug?: string; category?: string; logo_url?: string | null; banner_url?: string | null;
@@ -67,11 +68,19 @@ function Shell({ title, id, query, onQuery, placeholder, filters, active, onSele
   filters: string[]; active: string; onSelect: (name: string) => void; children: ReactNode;
 }) {
   const router = useRouter();
-  useRegisterNavBack(true, () => router.push("/shopping"));
+  const pageRef = useRef<HTMLDivElement>(null);
+  const back = () => { void navigateWithPush(router, "/shopping", "back"); };
+  useRegisterNavBack(true, back);
+  useScrollLink("--c", 48, pageRef);
+  useFadeImages(pageRef);
   useEffect(() => { document.getElementById(id)?.focus({ preventScroll: true }); }, [id]);
   return (
-    <div className="buy-collection shop-page mx-auto max-w-lg px-4 pt-4">
-      <h1 id={id} tabIndex={-1} className="shop-title text-ink outline-none">{title}</h1>
+    <div ref={pageRef} className="buy-collection shop-page mx-auto max-w-lg px-4 pt-2">
+      <div className="buy-collection__pin">
+        <button type="button" className="buy-collection__back" aria-label="Back to Buy" onClick={back}><ChevronLeft className="h-5 w-5" aria-hidden /></button>
+        <span className="buy-collection__compact">{title}</span>
+      </div>
+      <h1 id={id} tabIndex={-1} className="shop-title buy-collection__hero-title text-ink outline-none">{title}</h1>
       <label className="field-box shop-search relative mt-4">
         <span className="sr-only">Search</span>
         <Search className="h-4 w-4 shrink-0 text-ink-500" aria-hidden />
@@ -84,10 +93,12 @@ function Shell({ title, id, query, onQuery, placeholder, filters, active, onSele
       </label>
       {filters.length > 0 && (
         <div className="buy-collection__bar">
-          <CategoryChips items={filters} active={active} onSelect={onSelect} />
+          <CategoryChips items={filters} active={active} onSelect={onSelect} animatedIndicator />
         </div>
       )}
-      <div className="mt-3 space-y-4">{children}</div>
+      <div className="mt-3 space-y-4">
+        <Crossfade id={active}>{children}</Crossfade>
+      </div>
     </div>
   );
 }
@@ -189,7 +200,7 @@ export function NearbyCollection() {
             const open = truthy(s.is_open ?? 1);
             const service = [truthy(s.delivery_enabled ?? 1) ? "Delivery" : null, truthy(s.pickup_enabled) ? "Pickup" : null, "Escrow"].filter(Boolean).join(" · ");
             return (
-              <Link key={s.id} href={`/store/${s.id}`} className="flex items-center gap-3.5 rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3.5 shadow-[var(--shadow-card)]">
+              <PushLink key={s.id} href={`/store/${s.id}`} className="buy-press flex items-center gap-3.5 rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3.5 shadow-[var(--shadow-card)]">
                 <span className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-[18px] bg-[rgb(var(--surface-muted))] text-sm font-bold text-ink">
                   {(s.banner_url || s.logo_url) ? <img src={(s.banner_url || s.logo_url)!} alt="" className="h-full w-full object-cover" /> : s.name.slice(0, 2).toUpperCase()}
                 </span>
@@ -202,7 +213,7 @@ export function NearbyCollection() {
                   </span>
                   <span className="mt-1 block text-[11px] font-semibold text-ink-500">{service}</span>
                 </span>
-              </Link>
+              </PushLink>
             );
           })}
         </div>

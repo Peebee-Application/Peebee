@@ -22,6 +22,9 @@ import { ProductImage } from "../../../components/ProductImage";
 import { addToCart, useCart } from "../../../lib/cart";
 import { CartDrawer, CartDrawerTrigger } from "../../../components/CartDrawer";
 import { ShareButton } from "../../../components/ShareButton";
+import { clearReel, navigateWithPush, productArmedFor, reelArmedFor } from "../../../lib/buy-motion";
+import { defaultSelection, findVariant, selectValue, type ProductOption, type Selection } from "@peebee/shared";
+import { OptionPicker } from "../../../components/buy/OptionPicker";
 
 interface ProductVariant {
   id: string;
@@ -29,6 +32,11 @@ interface ProductVariant {
   price: number;
   compare_at_price?: number;
   inventory_quantity?: number;
+  image_url?: string | null;
+  values?: string[];
+  option1_name?: string | null; option1_value?: string | null;
+  option2_name?: string | null; option2_value?: string | null;
+  option3_name?: string | null; option3_value?: string | null;
 }
 
 interface ProductData {
@@ -45,6 +53,7 @@ interface ProductData {
   inventory_quantity?: number;
   has_variants?: number | boolean;
   variants?: ProductVariant[];
+  options?: ProductOption[];
 }
 
 interface StoreData {
@@ -70,6 +79,7 @@ export function ProductPageClient() {
   const [error, setError] = useState<string | null>(null);
 
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  const [selection, setSelection] = useState<Selection>({});
   const [quantity, setQuantity] = useState(1);
   const [isFavorited, setIsFavorited] = useState(false);
   const [addedToast, setAddedToast] = useState(false);
@@ -96,7 +106,15 @@ export function ProductPageClient() {
 
           // Select first variant if available
           if (res.product.variants && res.product.variants.length > 0) {
-            setSelectedVariant(res.product.variants[0]);
+            const options: ProductOption[] = res.product.options ?? [];
+            const tracked = res.product.track_inventory == null || !!res.product.track_inventory;
+            if (options.length > 0) {
+              const start = defaultSelection(res.product.variants, options, tracked);
+              setSelection(start);
+              setSelectedVariant(findVariant(res.product.variants, options, start) ?? res.product.variants[0]);
+            } else {
+              setSelectedVariant(res.product.variants[0]);
+            }
           }
         } else {
           setError("Product not found");
@@ -138,7 +156,7 @@ export function ProductPageClient() {
       variantTitle: selectedVariant?.title,
       price: activePrice,
       compareAtPrice: activeCompareAt || undefined,
-      imageUrl: product.image_url || undefined,
+      imageUrl: selectedVariant?.image_url || product.image_url || undefined,
       category: product.category_name || undefined,
       quantity,
     });
@@ -191,9 +209,9 @@ export function ProductPageClient() {
             HERO IMAGE MEDIA CARD (Screen 2: Curved Bottom [40px] & Floating Buttons)
         ========================================================================= */}
         <div className="px-4 pt-4">
-        <div className="relative w-full aspect-[4/5] sm:aspect-[1/1] overflow-hidden rounded-[32px] bg-[rgb(var(--surface-muted))] shadow-[var(--shadow-card-hover)]">
+        <div data-product-hero="" className="relative w-full aspect-[4/5] sm:aspect-[1/1] overflow-hidden rounded-[32px] bg-[rgb(var(--surface-muted))] shadow-[var(--shadow-card-hover)]" data-reel-vt={reelArmedFor(product.id) ? "" : undefined}>
           <ProductImage
-            src={product.image_url}
+            src={selectedVariant?.image_url || product.image_url}
             alt={product.title}
             category={product.category_name || undefined}
             priority
@@ -201,10 +219,17 @@ export function ProductPageClient() {
           />
 
           {/* Floating Top Nav (Back Button & Favorite Button) */}
-          <div className="absolute top-4 inset-x-4 flex items-center justify-between z-20">
+          <div className="buy-rise absolute top-4 inset-x-4 flex items-center justify-between z-20">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => {
+                if (reelArmedFor(product.id)) {
+                  clearReel();
+                  void navigateWithPush(router, "", "back", "reel");
+                } else if (productArmedFor(product.id)) {
+                  void navigateWithPush(router, "", "back", "card");
+                } else router.back();
+              }}
               aria-label="Back"
               className="w-11 h-11 rounded-full flex items-center justify-center bg-[rgb(var(--surface-card)/.9)] backdrop-blur-md border border-[var(--border-faint)] text-ink shadow-[var(--shadow-card)] active:scale-95 transition-transform"
             >
@@ -252,7 +277,7 @@ export function ProductPageClient() {
         {/* =========================================================================
             PRODUCT DETAILS & PRICE (Screen 2: Title Left, Bold Price Right)
         ========================================================================= */}
-        <div className="px-6 pt-6 space-y-5">
+        <div className={`px-6 pt-6 space-y-5${productArmedFor(product.id) ? " buy-card-follow" : ""}`}>
           {/* Header Row: Title on Left, Price on Right */}
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
@@ -330,7 +355,23 @@ export function ProductPageClient() {
           {/* =========================================================================
               VARIANT SELECTOR (Screen 2: Sizes / Options Pills)
           ========================================================================= */}
-          {product.variants && product.variants.length > 0 && (
+          {product.variants && product.variants.length > 0 && (product.options?.length ?? 0) > 0 && (
+            <div className="pt-2">
+              <OptionPicker
+                options={product.options!}
+                variants={product.variants}
+                selection={selection}
+                idPrefix="pdp"
+                onSelect={(key, value) => {
+                  const next = selectValue(product.variants!, product.options!, selection, key, value);
+                  setSelection(next);
+                  setSelectedVariant(findVariant(product.variants!, product.options!, next));
+                }}
+              />
+              {!selectedVariant && <p className="mt-2 text-xs font-semibold text-ink-500">That combination is not available. Pick another option.</p>}
+            </div>
+          )}
+          {product.variants && product.variants.length > 0 && !(product.options?.length) && (
             <div className="pt-2 ">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-ink-500">

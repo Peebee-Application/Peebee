@@ -16,6 +16,7 @@ options on in Admin → Settings → Commerce options. The code keeps working wi
 | `apps/api/src/db/migrations/0148_costing.sql` | The costing mechanism: each order's fare breakdown, the payment-splits report (Admin → Money flow), top-up fee/bonus columns, and customer withdrawals. Fares, quotes and settlement all keep working without it; the report stays empty and withdrawals answer 503 until it is applied |
 | `apps/api/src/db/migrations/0149_demo_accounts.sql` | Test accounts that live only in the sandbox and practice: `users.is_demo`. A marked account is left out of live matching and live lists and stays available in the sandbox and in practice. Nothing changes until an account is marked (see below); without the migration, accounts are told apart by id prefix only |
 | `apps/api/src/db/migrations/0150_support_chat.sql` | Website support chat: chats and messages for the AI assistant and the hand-over to the support team (Admin → Support chat). Until it is applied the website chat keeps its built-in demo replies and the inbox shows "migration pending" |
+| `apps/api/src/db/migrations/0160_product_options.sql` | Product options: a third option per product, swatch colours and images for option values, and per-variant barcode and order. Until it is applied merchants can build products with up to two options and swatch colours come from named colours only |
 
 After applying 0149, mark the hand-made test accounts (check the list first, then run it):
 

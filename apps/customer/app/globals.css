@@ -535,7 +535,8 @@ select:focus {
   inset: auto 0 0 0;
   width: 100%;
   max-width: 32rem;
-  height: min(82dvh, 760px);
+  height: min(72dvh, 700px);
+  transition: transform 400ms cubic-bezier(.32, .72, 0, 1);
   margin-inline: auto;
   border-left: 0;
   border-radius: 28px 28px 0 0;
@@ -544,7 +545,8 @@ select:focus {
 .menu-item-cart-layer.marketplace-cart-layer:not(.is-open) .menu-item-cart-drawer { transform: translateY(110%); }
 .menu-item-cart-layer.marketplace-cart-layer.is-open .menu-item-cart-drawer { transform: translateY(0); }
 @media (prefers-reduced-motion: reduce) {
-  .menu-item-cart-layer.marketplace-cart-layer .menu-item-cart-drawer { transition: none; }
+  .menu-item-cart-layer.marketplace-cart-layer .menu-item-cart-drawer,
+  .menu-item-cart-layer.marketplace-cart-layer .menu-item-cart-layer__backdrop { transition: none; }
 }
 .menu-item-cart-layer__backdrop {
   position: absolute;
@@ -557,6 +559,15 @@ select:focus {
   transition: opacity 280ms ease, backdrop-filter 280ms ease;
 }
 .menu-item-cart-layer.is-open .menu-item-cart-layer__backdrop { opacity: 1; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+.menu-item-cart-layer.marketplace-cart-layer .menu-item-cart-layer__backdrop {
+  background: rgb(0 0 0 / .6);
+  transition: opacity 400ms ease-out, backdrop-filter 400ms ease-out;
+}
+.menu-item-cart-layer.marketplace-cart-layer.is-open .menu-item-cart-layer__backdrop {
+  opacity: var(--cart-dim, 1);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
 .menu-item-cart-drawer {
   position: absolute;
   inset: 0 0 0 auto;
