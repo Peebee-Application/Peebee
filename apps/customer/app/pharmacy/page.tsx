@@ -143,6 +143,7 @@ export default function PharmacyPage() {
   }
 
   const rxShown = showAllRx ? prescriptions : prescriptions.slice(0, 2);
+  useEffect(() => { document.getElementById("pharmacy-title")?.focus(); }, []);
 
   return (
     <div className="rx-page mx-auto max-w-lg space-y-7 px-4 pb-8 pt-5">
@@ -152,13 +153,13 @@ export default function PharmacyPage() {
           <p className="rx-eyebrow flex items-center gap-1.5 text-[11px] font-bold uppercase">
             <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden /> NDA-verified pharmacies
           </p>
-          <h1 className="mt-1.5 text-[28px] font-black leading-[1.1] tracking-tight text-ink">Pharmacy &amp; Health</h1>
+          <h1 id="pharmacy-title" tabIndex={-1} className="mt-1.5 text-[30px] font-extrabold leading-[1.1] tracking-tight text-ink outline-none">Pharmacy &amp; Health</h1>
           <p className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[13px] text-ink-500">
             <MapPin className="h-3.5 w-3.5 shrink-0 text-gold" aria-hidden />
             <span className="truncate">Delivering to {locationLabel || "Kampala"}</span>
           </p>
         </div>
-        <label className="rx-search field-box flex items-center gap-2.5 rounded-2xl px-4 py-3">
+        <label className="rx-search field-box flex min-h-[52px] items-center gap-2.5 rounded-full px-4">
           <Search className="h-[18px] w-[18px] shrink-0 text-ink-500" aria-hidden />
           <input
             type="search"
@@ -190,7 +191,7 @@ export default function PharmacyPage() {
       {prescriptions.length > 0 && (
         <section className="space-y-2.5" aria-labelledby="rx-mine">
           <div className="flex items-baseline justify-between">
-            <h2 id="rx-mine" className="text-[15px] font-extrabold text-ink">Your prescriptions</h2>
+            <h2 id="rx-mine" className="text-[20px] font-extrabold tracking-tight text-ink">Your prescriptions</h2>
             {prescriptions.length > 2 && (
               <button type="button" onClick={() => setShowAllRx((v) => !v)} className="text-xs font-bold text-ink-500">{showAllRx ? "Show less" : `All ${prescriptions.length}`}</button>
             )}
@@ -227,7 +228,7 @@ export default function PharmacyPage() {
       {/* Everyday health */}
       <section className="space-y-3.5" aria-labelledby="rx-everyday">
         <div className="flex items-baseline justify-between">
-          <h2 id="rx-everyday" className="text-[15px] font-extrabold text-ink">Everyday health</h2>
+          <h2 id="rx-everyday" className="text-[20px] font-extrabold tracking-tight text-ink">Everyday health</h2>
           {!loading && <span className="text-xs text-ink-500">{visible.length} item{visible.length === 1 ? "" : "s"}</span>}
         </div>
         {categories.length > 1 && (
@@ -299,7 +300,7 @@ export default function PharmacyPage() {
       {stores.length > 0 && (
         <section className="space-y-3" aria-labelledby="rx-stores">
           <div className="flex items-baseline justify-between">
-            <h2 id="rx-stores" className="text-[15px] font-extrabold text-ink">Licensed pharmacies</h2>
+            <h2 id="rx-stores" className="text-[20px] font-extrabold tracking-tight text-ink">Licensed pharmacies</h2>
             <span className="text-xs text-ink-500">{stores.length} near you</span>
           </div>
           <ul className="space-y-2.5">
