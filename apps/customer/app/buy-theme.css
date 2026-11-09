@@ -518,6 +518,23 @@ img.buy-fade[data-loaded] { opacity: 1; }
   .buy-roll__new { animation: buy-roll-in 250ms ease-out both; }
   .buy-roll.is-still .buy-roll__new { animation: none; }
   .buy-swipe[data-removing] { transition: grid-template-rows 300ms ease-out, opacity 300ms ease-out, margin 300ms ease-out, padding 300ms ease-out; }
+  html[data-nav-dir="forward"][data-buy-motion="card"]::view-transition-old(root),
+  html[data-nav-dir="back"][data-buy-motion="card"]::view-transition-old(root) { animation: 180ms ease both buy-fade-out; }
+  html[data-nav-dir="forward"][data-buy-motion="card"]::view-transition-new(root),
+  html[data-nav-dir="back"][data-buy-motion="card"]::view-transition-new(root) { animation: 180ms ease both buy-fade-in; box-shadow: none; }
+  html[data-buy-motion="card"]::view-transition-group(*) { animation-duration: 450ms; animation-timing-function: cubic-bezier(.32, .72, 0, 1); }
+  html[data-buy-motion="card"]::view-transition-image-pair(*) { animation: buy-card-radius 450ms cubic-bezier(.32, .72, 0, 1) both; overflow: hidden; }
+  html[data-nav-dir="back"][data-buy-motion="card"]::view-transition-image-pair(*) { animation-direction: reverse; }
+  html[data-buy-motion="card"]::view-transition-image-pair(root),
+  html[data-buy-motion="card"]::view-transition-image-pair(buy-chrome-header),
+  html[data-buy-motion="card"]::view-transition-image-pair(buy-chrome-nav) { animation: none; overflow: visible; }
+  html[data-buy-motion="fade"]::view-transition-old(root) { animation: 150ms ease both buy-fade-out; }
+  html[data-buy-motion="fade"]::view-transition-new(root) { animation: 150ms ease both buy-fade-in; }
+  .buy-card-follow > * { animation: buy-rise 320ms cubic-bezier(.32, .72, 0, 1) both; }
+  .buy-card-follow > *:nth-child(1) { animation-delay: 180ms; }
+  .buy-card-follow > *:nth-child(2) { animation-delay: 240ms; }
+  .buy-card-follow > *:nth-child(3) { animation-delay: 300ms; }
+  .buy-card-follow > *:nth-child(n + 4) { animation-delay: 360ms; }
   html[data-nav-dir="forward"]::view-transition-old(root) { animation: 400ms cubic-bezier(.32, .72, 0, 1) both buy-push-out; }
   html[data-nav-dir="forward"]::view-transition-new(root) { animation: 400ms cubic-bezier(.32, .72, 0, 1) both buy-push-in; box-shadow: -12px 0 32px rgb(0 0 0 / .18); }
   html[data-nav-dir="back"]::view-transition-old(root) { animation: 400ms cubic-bezier(.32, .72, 0, 1) both buy-pop-out; }
@@ -549,8 +566,17 @@ img.buy-fade[data-loaded] { opacity: 1; }
 @keyframes buy-chrome-down { to { transform: translateY(100%); opacity: 0; } }
 @keyframes buy-reel-radius { from { border-radius: 22px; } to { border-radius: 0; } }
 @keyframes buy-rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+@keyframes buy-card-radius { from { border-radius: 24px; } to { border-radius: 0; } }
+.buy-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  background: rgb(var(--color-cream));
+  pointer-events: none;
+  animation: buy-fade-in 150ms ease both;
+}
 @media (prefers-reduced-motion: reduce) {
-  .buy-pull, .buy-cap i, .buy-add, .buy-hero__track, .buy-listening span, .buy-live::before, .buy-collection, .buy-collection img, .buy-skel i, .shop-skel i, .buy-roll__old, .buy-roll__new, .buy-cross__out, .buy-cross__in, .buy-rise { animation: none; transition: none; scroll-behavior: auto; }
+  .buy-pull, .buy-cap i, .buy-add, .buy-hero__track, .buy-listening span, .buy-live::before, .buy-collection, .buy-collection img, .buy-skel i, .shop-skel i, .buy-roll__old, .buy-roll__new, .buy-cross__out, .buy-cross__in, .buy-rise, .buy-card-follow > *, .buy-veil { animation: none; transition: none; scroll-behavior: auto; }
   img.buy-fade { opacity: 1; transition: none; }
   .customer-nav-pill, .buy-dotpill, .buy-ind { transition: none; }
   html[data-buy-home] .customer-header { transform: none; opacity: 1; }

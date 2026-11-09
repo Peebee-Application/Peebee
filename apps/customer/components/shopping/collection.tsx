@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type KeyboardEvent } from "react";
+import { productIdFromHref } from "../../lib/buy-motion";
 import { PushLink, SnapDots, useSnapTrack } from "../buy/motion";
 import "../../app/shopping-collection.css";
 
@@ -30,7 +31,7 @@ export function CollectionHero({ slides, label }: { slides: CollectionSlide[]; l
     <section className="shop-hero" aria-roledescription="carousel" aria-label={label}>
       <div ref={ref} className="shop-hero__track" onKeyDown={onKey} tabIndex={0}>
         {slides.map((slide, i) => (
-          <article key={slide.id} className="shop-hero__slide" aria-label={slide.title}>
+          <article key={slide.id} data-product-source={slide.href ? productIdFromHref(slide.href) ?? undefined : undefined} className="shop-hero__slide" aria-label={slide.title}>
             <div className="shop-hero__copy">
               <p className="shop-hero__title">{slide.title}</p>
               {slide.subtitle && <p className="shop-hero__sub">{slide.subtitle}</p>}
