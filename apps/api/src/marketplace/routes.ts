@@ -3725,11 +3725,88 @@ marketplaceRoutes.get("/marketplace/live", async (c) => {
   return c.json({ liveChannels });
 });
 
+type SpotlightFeedItem = { type: string; store_category: string };
+
+/** How many real stores one spotlight response carries. A response-size rail, not a business limit. */
+const REAL_SPOTLIGHT_LIMIT = 24;
+
+/**
+ * Spotlight for a live platform: one card per active store in the current environment.
+ * A live store is a `live` card (banner, channel title, viewer count). Every card carries
+ * one active product, preferring a marked-down price or a badge.
+ */
+async function loadLiveMarketplaceSpotlight() {
+  const environment = await getPlatformEnvironment();
+  const listed = (await hasColumn("stores", "listed_in_app")) ? " AND s.listed_in_app = 1" : "";
+  const res = await db.execute({
+    sql: `SELECT s.id, s.name, s.slug, s.logo_url, s.banner_url, s.category, s.description,
+                 s.is_live, s.live_channel_title, s.live_stream_url, s.live_viewer_count,
+                 p.id AS product_id, p.title AS product_title, p.price AS product_price,
+                 p.compare_at_price AS product_compare_at_price, p.image_url AS product_image_url,
+                 p.badge AS product_badge
+          FROM stores s
+          JOIN store_products p ON p.id = (
+            SELECT p2.id FROM store_products p2
+            WHERE p2.store_id = s.id AND p2.status = 'active'
+            ORDER BY CASE
+              WHEN p2.compare_at_price IS NOT NULL AND p2.compare_at_price > p2.price THEN 0
+              WHEN p2.badge IS NOT NULL AND p2.badge != '' THEN 1
+              ELSE 2
+            END, p2.sort_order, p2.created_at DESC
+            LIMIT 1
+          )
+          WHERE s.status = 'active' AND s.environment = ?${listed}
+          ORDER BY s.is_live DESC, s.name
+          LIMIT ${REAL_SPOTLIGHT_LIMIT}`,
+    args: [environment],
+  });
+
+  return (res.rows as Row[]).map((row) => {
+    const live = Number(row.is_live) === 1;
+    const banner = row.banner_url ? String(row.banner_url) : "";
+    const image = row.product_image_url ? String(row.product_image_url) : "";
+    const price = Number(row.product_price) || 0;
+    const compare = row.product_compare_at_price == null || row.product_compare_at_price === "" ? null : Number(row.product_compare_at_price);
+    const badge = row.product_badge ? String(row.product_badge) : "";
+    const productTitle = String(row.product_title ?? "");
+    const storeName = String(row.name ?? "");
+    const title = live ? String(row.live_channel_title || productTitle || storeName) : (productTitle || storeName);
+    return {
+      id: `spot_${row.id}`,
+      store_id: String(row.id),
+      store_name: storeName,
+      store_slug: String(row.slug ?? ""),
+      store_logo: row.logo_url ? String(row.logo_url) : "",
+      store_category: String(row.category ?? ""),
+      type: live ? "live" : "image",
+      media_url: live ? String(row.live_stream_url || banner || image) : (banner || image),
+      poster_url: live ? banner : (banner || image),
+      title,
+      description: row.description ? String(row.description) : "",
+      product: {
+        id: String(row.product_id),
+        title: productTitle,
+        price,
+        ...(compare != null && Number.isFinite(compare) ? { compare_at_price: compare } : {}),
+        image_url: image,
+        ...(badge ? { badge } : {}),
+      },
+      ...(live ? { viewer_count: Number(row.live_viewer_count) || 0 } : {}),
+      likes_count: 0,
+      comments_count: 0,
+    };
+  });
+}
+
 // Spotlight Endless Feed (TikTok / Reels / Shorts style)
 marketplaceRoutes.get("/marketplace/spotlight", async (c) => {
   const category = c.req.query("category"); // 'all' | 'groceries' | 'stores' | 'live'
-  // The spotlight feed is built from the demo catalogue, so a live platform shows none of it.
-  let items = (await demoCatalogAllowed()) ? DEMO_MARKETPLACE_SPOTLIGHT : [];
+  // Sandbox keeps the demo catalogue. A live platform features real stores, unless admin switches that off.
+  let items: SpotlightFeedItem[] = (await demoCatalogAllowed())
+    ? DEMO_MARKETPLACE_SPOTLIGHT
+    : (await getOptions(["marketplace_spotlight_enabled"])).marketplace_spotlight_enabled === false
+      ? []
+      : await loadLiveMarketplaceSpotlight();
 
   if (category && category !== "all") {
     if (category === "live") {
