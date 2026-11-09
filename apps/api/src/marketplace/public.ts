@@ -30,7 +30,7 @@ export function toPublicStore(row: Row): Row {
 /** Public product fields: no cost price, no internal barcode. */
 const PUBLIC_PRODUCT_FIELDS = [
   "id", "store_id", "title", "slug", "description", "price", "compare_at_price", "category_name", "badge",
-  "image_url", "video_url", "has_variants", "inventory_quantity", "track_inventory", "sort_order", "status", "variants",
+  "image_url", "video_url", "has_variants", "inventory_quantity", "track_inventory", "sort_order", "status", "variants", "options",
 ] as const;
 
 export function toPublicProduct(row: Row): Row {

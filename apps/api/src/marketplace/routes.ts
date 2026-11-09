@@ -19,6 +19,7 @@ import { getRelaySettings } from "../relay/settings.js";
 
 import { digitalLmsRoutes } from "./digital-lms.js";
 import { priceCheckoutItems } from "./pricing.js";
+import { VariationError, getProductVariationSettings, variationsSchema, withOptions, writeProductVariations } from "./variations.js";
 import { demoCatalogAllowed, findPublicStore, isStoreUnavailable, toPublicProduct, toPublicStore } from "./public.js";
 import { checkDomain, normalizeHostname, verifyRecordName, verifyRecordValue } from "../lib/domains.js";
 import { getOption } from "../lib/option-settings.js";
@@ -308,9 +309,9 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, any[]> = {
       image_url: "/products/farm-fresh-milk.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_milk_500ml", title: "500ml Pouch", price: 2000, inventory_quantity: 40 },
-        { id: "var_milk_1l", title: "1 Litre Bottle", price: 3500, inventory_quantity: 50 },
-        { id: "var_milk_2l", title: "2 Litre Family Jug", price: 6500, compare_at_price: 7000, inventory_quantity: 25 },
+        { id: "var_milk_500ml", title: "500ml Pouch", option1_name: "Size", option1_value: "500ml", price: 2000, inventory_quantity: 40 },
+        { id: "var_milk_1l", title: "1 Litre Bottle", option1_name: "Size", option1_value: "1 Litre", price: 3500, inventory_quantity: 50 },
+        { id: "var_milk_2l", title: "2 Litre Family Jug", option1_name: "Size", option1_value: "2 Litre", price: 6500, compare_at_price: 7000, inventory_quantity: 25 },
       ],
     },
     {
@@ -327,9 +328,9 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, any[]> = {
       image_url: "/products/farm-fresh-eggs.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_eggs_6", title: "Pack of 6", price: 3200, inventory_quantity: 30 },
-        { id: "var_eggs_12", title: "Pack of 12", price: 6000, inventory_quantity: 20 },
-        { id: "var_eggs_30", title: "Full Tray (30)", price: 13500, compare_at_price: 15000, inventory_quantity: 45 },
+        { id: "var_eggs_6", title: "Pack of 6", option1_name: "Pack size", option1_value: "6 eggs", price: 3200, inventory_quantity: 30 },
+        { id: "var_eggs_12", title: "Pack of 12", option1_name: "Pack size", option1_value: "12 eggs", price: 6000, inventory_quantity: 20 },
+        { id: "var_eggs_30", title: "Full Tray (30)", option1_name: "Pack size", option1_value: "Tray of 30", price: 13500, compare_at_price: 15000, inventory_quantity: 45 },
       ],
     },
     {
@@ -346,8 +347,8 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, any[]> = {
       image_url: "/products/honey-glazed-chicken.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_chicken_reg", title: "Regular Portion", price: 24000, inventory_quantity: 25 },
-        { id: "var_chicken_large", title: "Large Meal Box", price: 32000, compare_at_price: 36000, inventory_quantity: 15 },
+        { id: "var_chicken_reg", title: "Regular Portion", option1_name: "Portion", option1_value: "Regular", price: 24000, inventory_quantity: 25 },
+        { id: "var_chicken_large", title: "Large Meal Box", option1_name: "Portion", option1_value: "Large", price: 32000, compare_at_price: 36000, inventory_quantity: 15 },
       ],
     },
     {
@@ -395,8 +396,8 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, any[]> = {
       image_url: "/products/croissant-bakery.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_croissant_2", title: "Pack of 2", price: 7500, inventory_quantity: 25 },
-        { id: "var_croissant_4", title: "Box of 4", price: 14000, compare_at_price: 16000, inventory_quantity: 15 },
+        { id: "var_croissant_2", title: "Pack of 2", option1_name: "Pack size", option1_value: "2 pack", price: 7500, inventory_quantity: 25 },
+        { id: "var_croissant_4", title: "Box of 4", option1_name: "Pack size", option1_value: "4 pack", price: 14000, compare_at_price: 16000, inventory_quantity: 15 },
       ],
     },
     {
@@ -434,6 +435,7 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, any[]> = {
       id: "prod_pink_blazer",
       store_id: "store_demo_urban_vogue",
       title: "Minimalist Oversized Pink Blazer",
+      options_json: '{"color":{"values":{"Blossom Pink":{"hex":"#f2b8c6"}}}}',
       slug: "minimalist-oversized-pink-blazer",
       description: "Modern minimalist single-breasted tailored blazer in soft blossom pink. Features structured shoulders, notch lapels, and full silk lining. Versatile for both power dressing and elevated casual evening looks.",
       price: 145000,
@@ -444,16 +446,17 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, any[]> = {
       image_url: "/products/pink-blazer.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_blazer_s_blossom", title: "Size S / Blossom Pink", price: 145000, inventory_quantity: 5 },
-        { id: "var_blazer_m_blossom", title: "Size M / Blossom Pink", price: 145000, inventory_quantity: 8 },
-        { id: "var_blazer_l_blossom", title: "Size L / Blossom Pink", price: 145000, inventory_quantity: 6 },
-        { id: "var_blazer_xl_blossom", title: "Size XL / Blossom Pink", price: 145000, inventory_quantity: 3 },
+        { id: "var_blazer_s_blossom", title: "Size S / Blossom Pink", option1_name: "Size", option1_value: "S", option2_name: "Colour", option2_value: "Blossom Pink", price: 145000, inventory_quantity: 5 },
+        { id: "var_blazer_m_blossom", title: "Size M / Blossom Pink", option1_name: "Size", option1_value: "M", option2_name: "Colour", option2_value: "Blossom Pink", price: 145000, inventory_quantity: 8 },
+        { id: "var_blazer_l_blossom", title: "Size L / Blossom Pink", option1_name: "Size", option1_value: "L", option2_name: "Colour", option2_value: "Blossom Pink", price: 145000, inventory_quantity: 6 },
+        { id: "var_blazer_xl_blossom", title: "Size XL / Blossom Pink", option1_name: "Size", option1_value: "XL", option2_name: "Colour", option2_value: "Blossom Pink", price: 145000, inventory_quantity: 3 },
       ],
     },
     {
       id: "prod_linen_shirt",
       store_id: "store_demo_urban_vogue",
       title: "Relaxed Fit Cuban Linen Shirt",
+      options_json: '{"color":{"values":{"Crisp White":{"hex":"#f4f4ef"},"Desert Sand":{"hex":"#d8c3a0"}}}}',
       slug: "relaxed-fit-cuban-linen-shirt",
       description: "Breathable 100% natural linen shirt with spread collar. Perfect for warm tropical days.",
       price: 65000,
@@ -464,10 +467,10 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, any[]> = {
       image_url: "/products/cuban-linen-shirt.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_shirt_m_white", title: "Medium / Crisp White", price: 65000, inventory_quantity: 8 },
-        { id: "var_shirt_l_white", title: "Large / Crisp White", price: 65000, inventory_quantity: 10 },
-        { id: "var_shirt_m_sand", title: "Medium / Desert Sand", price: 65000, inventory_quantity: 7 },
-        { id: "var_shirt_l_sand", title: "Large / Desert Sand", price: 65000, inventory_quantity: 5 },
+        { id: "var_shirt_m_white", title: "Medium / Crisp White", option1_name: "Size", option1_value: "M", option2_name: "Colour", option2_value: "Crisp White", price: 65000, inventory_quantity: 8 },
+        { id: "var_shirt_l_white", title: "Large / Crisp White", option1_name: "Size", option1_value: "L", option2_name: "Colour", option2_value: "Crisp White", price: 65000, inventory_quantity: 10 },
+        { id: "var_shirt_m_sand", title: "Medium / Desert Sand", option1_name: "Size", option1_value: "M", option2_name: "Colour", option2_value: "Desert Sand", price: 65000, inventory_quantity: 7 },
+        { id: "var_shirt_l_sand", title: "Large / Desert Sand", option1_name: "Size", option1_value: "L", option2_name: "Colour", option2_value: "Desert Sand", price: 65000, inventory_quantity: 5 },
       ],
     },
     {
@@ -484,9 +487,9 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, any[]> = {
       image_url: "/products/denim-jacket.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_jacket_m", title: "Size M (Chest 40)", price: 95000, inventory_quantity: 6 },
-        { id: "var_jacket_l", title: "Size L (Chest 42)", price: 95000, inventory_quantity: 6 },
-        { id: "var_jacket_xl", title: "Size XL (Chest 44)", price: 95000, inventory_quantity: 3 },
+        { id: "var_jacket_m", title: "Size M (Chest 40)", option1_name: "Size", option1_value: "M", price: 95000, inventory_quantity: 6 },
+        { id: "var_jacket_l", title: "Size L (Chest 42)", option1_name: "Size", option1_value: "L", price: 95000, inventory_quantity: 6 },
+        { id: "var_jacket_xl", title: "Size XL (Chest 44)", option1_name: "Size", option1_value: "XL", price: 95000, inventory_quantity: 3 },
       ],
     },
   ],
@@ -495,6 +498,7 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, any[]> = {
       id: "prod_anc_earbuds",
       store_id: "store_demo_tech_pulse",
       title: "PulsePro Wireless ANC Earbuds",
+      options_json: '{"color":{"values":{"Midnight Black":{"hex":"#15161a"},"Frost White":{"hex":"#eef2f6"}}}}',
       slug: "pulsepro-wireless-anc-earbuds",
       description: "Active noise cancelling with 40-hour battery life, wireless charging case and deep bass profile.",
       price: 95000,
@@ -505,8 +509,8 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, any[]> = {
       image_url: "/products/anc-earbuds.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_earbuds_black", title: "Midnight Black", price: 95000, inventory_quantity: 20 },
-        { id: "var_earbuds_white", title: "Frost White", price: 95000, inventory_quantity: 15 },
+        { id: "var_earbuds_black", title: "Midnight Black", option1_name: "Colour", option1_value: "Midnight Black", price: 95000, inventory_quantity: 20 },
+        { id: "var_earbuds_white", title: "Frost White", option1_name: "Colour", option1_value: "Frost White", price: 95000, inventory_quantity: 15 },
       ],
     },
     {
@@ -539,8 +543,8 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, any[]> = {
       image_url: "/products/shea-butter.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_shea_vanilla", title: "Madagascar Vanilla Scent (250g)", price: 28000, inventory_quantity: 25 },
-        { id: "var_shea_unscented", title: "Fragrance Free Pure (250g)", price: 28000, inventory_quantity: 20 },
+        { id: "var_shea_vanilla", title: "Madagascar Vanilla Scent (250g)", option1_name: "Scent", option1_value: "Vanilla", price: 28000, inventory_quantity: 25 },
+        { id: "var_shea_unscented", title: "Fragrance Free Pure (250g)", option1_name: "Scent", option1_value: "Fragrance free", price: 28000, inventory_quantity: 20 },
       ],
     },
     {
@@ -574,10 +578,10 @@ export const DEMO_MARKETPLACE_PRODUCTS: Record<string, any[]> = {
       image_url: "/products/retro-sneakers.jpg",
       has_variants: 1,
       variants: [
-        { id: "var_kicks_41", title: "EU 41 / UK 7", price: 185000, inventory_quantity: 4 },
-        { id: "var_kicks_42", title: "EU 42 / UK 8", price: 185000, inventory_quantity: 6 },
-        { id: "var_kicks_43", title: "EU 43 / UK 9", price: 185000, inventory_quantity: 5 },
-        { id: "var_kicks_44", title: "EU 44 / UK 10", price: 185000, inventory_quantity: 3 },
+        { id: "var_kicks_41", title: "EU 41 / UK 7", option1_name: "Size", option1_value: "EU 41", price: 185000, inventory_quantity: 4 },
+        { id: "var_kicks_42", title: "EU 42 / UK 8", option1_name: "Size", option1_value: "EU 42", price: 185000, inventory_quantity: 6 },
+        { id: "var_kicks_43", title: "EU 43 / UK 9", option1_name: "Size", option1_value: "EU 43", price: 185000, inventory_quantity: 5 },
+        { id: "var_kicks_44", title: "EU 44 / UK 10", option1_name: "Size", option1_value: "EU 44", price: 185000, inventory_quantity: 3 },
       ],
     },
     {
@@ -849,6 +853,7 @@ export const DEMO_MARKETPLACE_SPOTLIGHT = [
     product: {
       id: "prod_linen_shirt",
       title: "Relaxed Fit Cuban Linen Shirt",
+      options_json: '{"color":{"values":{"Crisp White":{"hex":"#f4f4ef"},"Desert Sand":{"hex":"#d8c3a0"}}}}',
       price: 65000,
       compare_at_price: 80000,
       image_url: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=400&q=80",
@@ -923,6 +928,7 @@ export const DEMO_MARKETPLACE_SPOTLIGHT = [
     product: {
       id: "prod_anc_earbuds",
       title: "PulsePro Wireless ANC Earbuds",
+      options_json: '{"color":{"values":{"Midnight Black":{"hex":"#15161a"},"Frost White":{"hex":"#eef2f6"}}}}',
       price: 95000,
       compare_at_price: 120000,
       image_url: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=400&q=80",
@@ -1394,12 +1400,10 @@ marketplaceRoutes.get("/merchants/me/products", requireAuth, async (c) => {
     variantsByProduct[pid].push(v);
   }
 
-  const products = productsRes.rows.map((p) => ({
-    ...p,
-    variants: variantsByProduct[String(p.id)] || [],
-  }));
+  const variationSettings = await getProductVariationSettings();
+  const products = productsRes.rows.map((p) => withOptions(p as Row, variantsByProduct[String(p.id)] || [], variationSettings));
 
-  return c.json({ products });
+  return c.json({ products, variationSettings });
 });
 
 const productSchema = z.object({
@@ -1417,16 +1421,23 @@ const productSchema = z.object({
   image_url: z.string().url().or(z.string().length(0)).optional(),
   video_url: z.string().url().or(z.string().length(0)).optional(),
   has_variants: z.boolean().default(false),
+  /** Shopify-style options (Colour, Size, ...). Variants then carry one value per option. */
+  options: variationsSchema.shape.options.optional(),
   variants: z
     .array(
       z.object({
-        title: z.string().min(1),
+        id: z.string().max(60).optional(),
+        title: z.string().max(120).optional(),
+        values: z.array(z.string().trim().min(1).max(40)).max(3).optional(),
         price: z.number().int().positive(),
-        compare_at_price: z.number().int().positive().optional(),
-        sku: z.string().optional(),
+        compare_at_price: z.number().int().positive().nullish(),
+        sku: z.string().max(40).nullish(),
+        barcode: z.string().max(40).nullish(),
+        image_url: z.string().url().or(z.literal("")).nullish(),
         inventory_quantity: z.number().int().nonnegative().default(100),
-      })
+      }).refine((v) => !!(v.title?.trim() || v.values?.length), "Give each variant a name or option values."),
     )
+    .max(200)
     .optional(),
 });
 
@@ -1491,25 +1502,49 @@ marketplaceRoutes.post("/merchants/me/products", requireAuth, async (c) => {
   });
 
   if (parsed.data.has_variants && parsed.data.variants && parsed.data.variants.length > 0) {
-    for (const v of parsed.data.variants) {
-      await db.execute({
-        sql: `INSERT INTO store_product_variants (
-          id, product_id, title, price, compare_at_price, sku, inventory_quantity
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        args: [
-          newId("var"),
-          productId,
-          v.title,
-          v.price,
-          v.compare_at_price || null,
-          v.sku || "",
-          v.inventory_quantity,
-        ],
-      });
+    try {
+      await writeProductVariations(productId, [], {
+        options: parsed.data.options ?? [],
+        variants: parsed.data.variants.map((v) => ({ ...v, values: v.values ?? [], title: v.title, inventory_quantity: v.inventory_quantity })),
+      }, await getProductVariationSettings());
+    } catch (err) {
+      // The product row is already saved; take it back so a rejected variation set does not leave a half-made product.
+      await db.execute({ sql: "DELETE FROM store_products WHERE id = ?", args: [productId] });
+      if (err instanceof VariationError) return c.json({ error: err.code, message: err.message }, 400);
+      throw err;
     }
   }
 
   return c.json({ ok: true, productId });
+});
+
+// Edit a product's options and variants (Shopify-style). Variants are matched by id, so carts and orders keep working.
+marketplaceRoutes.put("/merchants/me/products/:id/variations", requireAuth, async (c) => {
+  const user = c.get("user");
+  const memberRes = await db.execute({
+    sql: "SELECT merchant_id FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
+    args: [user.sub, c.req.header("X-Merchant-Id") ?? null, c.req.header("X-Merchant-Id") ?? null],
+  });
+  const merchantId = (memberRes.rows[0] as Row | undefined)?.merchant_id as string | undefined;
+  if (!merchantId) return c.json({ error: "no_merchant_membership" }, 403);
+  const store = await getMerchantStore(merchantId);
+  if (!store) return c.json({ error: "no_store" }, 404);
+
+  const productId = c.req.param("id")!;
+  const owned = await db.execute({ sql: "SELECT id FROM store_products WHERE id = ? AND store_id = ?", args: [productId, String(store.id)] });
+  if (!owned.rows[0]) return c.json({ error: "not_found" }, 404);
+
+  const parsed = variationsSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+
+  const existing = await db.execute({ sql: "SELECT id FROM store_product_variants WHERE product_id = ?", args: [productId] });
+  try {
+    await writeProductVariations(productId, existing.rows.map((r) => String((r as Row).id)), parsed.data, await getProductVariationSettings());
+  } catch (err) {
+    if (err instanceof VariationError) return c.json({ error: err.code, message: err.message }, 400);
+    throw err;
+  }
+  return c.json({ ok: true });
 });
 
 // 5. 1-Click Catalog Starter Pack (Snake-game chap-chap speed)
@@ -3612,10 +3647,8 @@ marketplaceRoutes.get("/marketplace/stores/:id/products", async (c) => {
     variantsByProduct[pid].push(v);
   }
 
-  const enriched = products.map((p) => toPublicProduct({
-    ...p,
-    variants: (p.variants as any[]) || variantsByProduct[String(p.id)] || [],
-  }));
+  const variationSettings = await getProductVariationSettings();
+  const enriched = products.map((p) => toPublicProduct(withOptions(p, (p.variants as Row[]) || variantsByProduct[String(p.id)] || [], variationSettings, true)));
 
   return c.json({ products: enriched });
 });
@@ -3640,6 +3673,7 @@ marketplaceRoutes.get("/marketplace/products/:id", async (c) => {
       args: [String(product.id)],
     });
     product.variants = variantsRes.rows;
+    Object.assign(product, withOptions(product, variantsRes.rows as Row[], await getProductVariationSettings(), true));
 
     const storeRes = await db.execute({
       sql: "SELECT id, name, slug, logo_url, banner_url, address, is_open, is_live, delivery_enabled, category FROM stores WHERE id = ?",
