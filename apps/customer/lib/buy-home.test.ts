@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DEFAULT_SHOPPING_UNIT_SETTINGS as S } from "@peebee/shared";
-import { matchPrice, parseListPhrase, parseListText, unitLabel } from "./buy-home";
+import { buyCategoryNames, buyFeaturedSpots, matchPrice, parseListPhrase, parseListText, spotlightPullDecision, unitLabel } from "./buy-home";
 
 test("parses leading quantity with unit", () => {
   const it = parseListPhrase("2kg tomatoes", S)!;
@@ -30,4 +30,27 @@ test("matches prices by name", () => {
   assert.equal(matchPrice("Eggs", p), 3200);
   assert.equal(matchPrice("Fresh milk", p), 3500);
   assert.equal(matchPrice("Tomatoes", p), null);
+});
+
+test("spotlight pull commits only past the threshold", () => {
+  assert.equal(spotlightPullDecision(0), "idle");
+  assert.equal(spotlightPullDecision(-20), "idle");
+  assert.equal(spotlightPullDecision(95), "pulling");
+  assert.equal(spotlightPullDecision(96), "commit");
+});
+
+test("category pills come from product data, live spots lead the hero", () => {
+  assert.deepEqual(buyCategoryNames([
+    { category_name: "Dairy & Eggs" },
+    { category_name: " Dairy & Eggs " },
+    { category_name: "  " },
+    { category_name: null },
+    { category_name: "Fresh Produce" },
+  ]), ["Dairy & Eggs", "Fresh Produce"]);
+  assert.deepEqual(buyFeaturedSpots([
+    { type: "video", id: "a" },
+    { type: "live", id: "b" },
+    { type: "image", id: "c" },
+  ]).map((s) => s.id), ["b", "a", "c"]);
+  assert.equal(buyFeaturedSpots([{ type: "image" }, { type: "video" }, { type: "carousel" }, { type: "live" }, { type: "image" }, { type: "video" }], 5).length, 5);
 });
