@@ -62,3 +62,20 @@ All brand names in the video (Amazon, Prime, Lens, Nike, Adidas, JBL) are sample
 ## Corrections to earlier internal write-ups
 
 Earlier summaries said the nav slides away when a reel opens, that the nav has a sliding highlight, that the cart count is 3, that the cart supports swipe-to-delete and drag-to-close, and that white dots scan across the Lens view. The frames above show none of these.
+
+## Build check (2026-11-09, `grok/buy-motion-video-match` plus the nav revert)
+
+Run locally in practice mode at 390×844 with Playwright (not a substitute for a real-device pass).
+
+| Item | Result |
+|---|---|
+| Bottom nav during a product-card navigation | Same position and full opacity, sampled every 50 ms for 1.5 s. Identical to `main`. |
+| Search pins and content scrolls under it | Pass |
+| Hero shows pagination dots | Pass (six dots); spring snap and sliding pill not measured |
+| Pull-down hint and visible Spotlight button | Present |
+| Quick-action pills, promo banner | Not shown. They are admin-controlled and nothing is entered, so this is by design. |
+| In-place card expand with quick-add and colour swatches (video 18 s) | **Not built.** #403 only has the card-to-product-page transition. |
+| Cart variant swatch picker (video 38–39 s) | **Not built.** Cart rows show variant text only. |
+| Cart sheet over blurred home | Not verified in this run (the test could not find the bag control). |
+| Product page | Full screen with no header or nav. This is how it already works on `main`. |
+| Migrations | The Shopping PRs add none. `0159_rider_bio.sql` is the only manual step (apply if `riders.bio` is missing). |
