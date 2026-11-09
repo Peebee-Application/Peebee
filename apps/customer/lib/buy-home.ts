@@ -104,6 +104,10 @@ export function matchPrice(name: string, products: Array<{ title: string; price:
   return null;
 }
 
+/** In-Buy collections opened from section headers. Groceries, Stores and Pharma stay on the bottom nav. */
+export const BUY_DEALS_HREF = "/shopping/deals";
+export const BUY_NEARBY_HREF = "/shopping/nearby";
+
 /** How far a downward pull must travel before it opens Spotlight.
  * A touch distance for this gesture, not a business limit. */
 export const BUY_SPOTLIGHT_PULL_THRESHOLD = 96;

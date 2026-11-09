@@ -2,7 +2,7 @@
 
 import { DEFAULT_SHOPPING_UNIT_SETTINGS, type OrderRow, type ShoppingUnitSettings } from "@peebee/shared";
 import {
-  ArrowLeftRight, Camera, ChevronDown, ChevronRight, FileText, Flame, List, Loader2, MapPin, Mic, Pill, Play, Plus, Search, ShieldCheck, ShoppingBag, Square, Store, X,
+  ArrowLeftRight, Camera, ChevronDown, ChevronRight, Flame, List, Loader2, MapPin, Mic, Play, Plus, Search, ShieldCheck, ShoppingBag, Square, Store, X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import {
-  BUY_SPOTLIGHT_PULL_MAX, buyCategoryNames, buyFeaturedSpots, matchPrice, parseListText, shoppingStageLabel, spotlightPullDecision, unitLabel,
+  BUY_DEALS_HREF, BUY_NEARBY_HREF, BUY_SPOTLIGHT_PULL_MAX, buyCategoryNames, buyFeaturedSpots, matchPrice, parseListText, shoppingStageLabel, spotlightPullDecision, unitLabel,
 } from "../../lib/buy-home";
 import { addToCart, useCart, useEarlierCarts, type CartItem } from "../../lib/cart";
 import { formatDistanceKm, haversineKm, useCustomerLocation } from "../../lib/location";
@@ -50,7 +50,7 @@ type SpeechCtor = new () => {
 };
 
 /** Pull down from the top of Buy home to open Spotlight. Released early, it springs back.
- * The Spotlight button and the Live / Reels "See all" links are the non-gesture paths. */
+ * The Spotlight button on this page is the non-gesture path. */
 function useSpotlightPull(blocked: boolean) {
   const rootRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLParagraphElement>(null);
@@ -410,10 +410,10 @@ export function BuyHome() {
           )}
         </div>
       </div>
-      <Link href="/spotlight" className="buy-pull-hint">
+      <p className="buy-pull-hint">
         <ChevronDown className="h-4 w-4" aria-hidden />
         <span>Pull down for Spotlight</span>
-      </Link>
+      </p>
 
       <div className="buy-loc">
         <p className="buy-pill"><MapPin className="h-4 w-4 shrink-0 buy-gold" aria-hidden /><span className="truncate">{placeLabel ?? "Your location"}</span></p>
@@ -521,7 +521,7 @@ export function BuyHome() {
 
       {rings.length > 0 && (
         <>
-          <SectionHead title="Live now" href="/spotlight" />
+          <SectionHead title="Live now" />
           <div className="buy-scroll" role="list">
             {rings.map((r) => (
               <Link key={r.id} href={r.href} role="listitem" className="buy-ring" aria-label={`${r.name}${r.live ? ", live now" : ""}`}>
@@ -538,7 +538,7 @@ export function BuyHome() {
 
       {(deals.length > 0 || (activeCategory !== "All" && productsLoaded)) && (
         <>
-          <SectionHead title={dealTitle} href="/groceries" />
+          <SectionHead title={dealTitle} href={BUY_DEALS_HREF} />
           {deals.length === 0 ? (
             <p className="buy-note">Nothing in {activeCategory} from nearby shops right now.</p>
           ) : (
@@ -576,7 +576,7 @@ export function BuyHome() {
 
       {stores.length > 0 && (
         <>
-          <SectionHead title="Open near you" href="/stores" />
+          <SectionHead title="Open near you" href={BUY_NEARBY_HREF} />
           <div className="buy-near-list">
             {stores.slice(0, 3).map((s) => {
               const banner = s.banner_url?.startsWith("/") ? s.banner_url : products.find((p) => p.store_id === s.id && p.image_url?.startsWith("/"))?.image_url ?? s.banner_url;
@@ -621,10 +621,10 @@ export function BuyHome() {
 
       {reels.length > 0 && (
         <>
-          <SectionHead title="Reels, replays & picks" href="/spotlight" />
+          <SectionHead title="Reels, replays & picks" />
           <div className="buy-scroll" role="list">
             {reels.map((r) => (
-              <Link key={r.id} href="/spotlight" role="listitem" className="buy-reel" aria-label={`${r.title} from ${r.store_name}`}>
+              <Link key={r.id} href={r.product?.id ? `/product/${r.product.id}` : `/store/${r.store_id}`} role="listitem" className="buy-reel" aria-label={`${r.title} from ${r.store_name}`}>
                 {spotImg(r) && <img src={spotImg(r)!} alt="" loading="lazy" />}
                 {r.type === "video" ? <span className="buy-reel__play"><Play className="h-3 w-3 fill-current" aria-hidden /></span> : <span className="buy-reel__price">{ugx(r.product.price)}</span>}
                 <span className="buy-reel__t"><b>{r.product.title}</b><small>{r.store_name}</small></span>
@@ -638,22 +638,10 @@ export function BuyHome() {
         <section className="buy-card buy-empty">
           <Store className="mx-auto h-6 w-6 buy-gold" aria-hidden />
           <p className="mt-2 text-[15px] font-bold">Shops will show here soon</p>
-          <p className="mt-1 text-[13px] font-semibold text-ink-500">You can still send a shopper with your list above, or browse groceries and stores.</p>
-          <div className="buy-empty-links"><Link href="/groceries">Groceries</Link><Link href="/stores">Stores</Link></div>
+          <p className="mt-1 text-[13px] font-semibold text-ink-500">You can still send a shopper with your list above.</p>
         </section>
       )}
 
-      <SectionHead title="Pharmacy" href="/pharmacy" />
-      <div className="rx-page">
-        <Link href="/pharmacy" className="rx-hero flex w-full items-center gap-4 rounded-[26px] p-4 text-left">
-          <span className="rx-hero-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"><FileText className="h-[22px] w-[22px]" strokeWidth={2} aria-hidden /></span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-bold">Send a prescription</span>
-            <span className="mt-0.5 block text-[12px] leading-snug text-ink-500">A pharmacist quotes first. You only pay if you accept.</span>
-          </span>
-          <span className="rx-hero-go flex h-11 w-11 shrink-0 items-center justify-center rounded-full"><Pill className="h-4 w-4" aria-hidden /></span>
-        </Link>
-      </div>
       <p className="buy-trustline"><ShieldCheck className="mr-1 inline h-3.5 w-3.5" aria-hidden />Shops are paid only after you receive your order</p>
 
       {listOpen && <ShoppingListModal initialItems={toModalItems()} onClose={() => setListOpen(false)} />}
@@ -692,16 +680,17 @@ function HeroCarousel({ slides, imageFor, onAdd }: { slides: Spot[]; imageFor: (
           const img = imageFor(sp);
           const price = sp.product?.price > 0 ? ugx(sp.product.price) : null;
           const productLine = sp.product?.title && sp.product.title !== copy.title ? `${sp.product.title}${price ? ` · ${price}` : ""}` : price;
+          const shopHref = sp.product?.id ? `/product/${sp.product.id}` : `/store/${sp.store_id}`;
           return (
             <article key={sp.id} className="buy-hero__slide" aria-label={copy.title}>
               <div className="buy-hero__copy">
                 <p className="buy-hero__title">{copy.title}</p>
                 {copy.sub && <p className="buy-hero__sub">{copy.sub}</p>}
                 {productLine && <p className="buy-hero__price">{productLine}</p>}
-                <Link href="/spotlight" className="buy-shop">Shop now</Link>
+                <Link href={shopHref} className="buy-shop">Shop now</Link>
               </div>
               <div className="buy-hero__media">
-                <Link href="/spotlight" className="buy-hero__photo" tabIndex={-1} aria-label={`Watch ${sp.store_name} on Spotlight`}>
+                <Link href={shopHref} className="buy-hero__photo" tabIndex={-1} aria-label={`View ${sp.product?.title || sp.store_name}`}>
                   {img && <img src={img} alt="" loading={i === 0 ? "eager" : "lazy"} />}
                 </Link>
                 {sp.product?.id && <AddButton label={`Add ${sp.product.title}`} className="buy-hero__add" onAdd={() => onAdd(sp)} />}
@@ -733,11 +722,11 @@ function removePhrase(text: string, index: number, settings: ShoppingUnitSetting
   return parts.filter((_, i) => i !== index).map((p) => p.trim()).join(", ");
 }
 
-function SectionHead({ title, href }: { title: string; href: string }) {
+function SectionHead({ title, href }: { title: string; href?: string }) {
   return (
     <div className="buy-section">
       <h2>{title}</h2>
-      <Link href={href}>See all<ChevronRight className="h-4 w-4" aria-hidden /></Link>
+      {href && <Link href={href}>See all<ChevronRight className="h-4 w-4" aria-hidden /></Link>}
     </div>
   );
 }
