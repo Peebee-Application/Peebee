@@ -116,7 +116,7 @@ export function VariationEditor({
     <div className="space-y-3 rounded-2xl border border-[var(--border-faint)] p-3">
       <div>
         <h3 className="text-xs font-bold text-ink">Options and variants</h3>
-        <p className="mt-0.5 text-[11px] text-ink-500">Add options like Colour or Size. Peebee builds one variant for every combination, and you set each one's price and stock.</p>
+        <p className="mt-0.5 text-[11px] text-ink-500">Add options like Colour or Size. Peebee builds one variant for every combination, and you set each one&apos;s price and stock.</p>
       </div>
 
       {value.options.map((option, index) => {

@@ -72,8 +72,8 @@ export function ProductQuickAdd({
         className={`buy-add ${open ? "is-open" : ""}`} onClick={toggle}>
         {open ? <X className="h-5 w-5" strokeWidth={2.6} aria-hidden /> : <Plus className="h-5 w-5" strokeWidth={2.6} aria-hidden />}
       </button>
-      <div id={panelId} className={`buy-quick${open ? " is-open" : ""}`} aria-hidden={!open} {...(!open ? { inert: true } : {})}>
-        <div className="buy-quick__in">
+      <div id={panelId} className={`buy-expand${open ? " is-open" : ""}`} aria-hidden={!open} {...(!open ? { inert: true } : {})}>
+        <div className="buy-expand__in">
           <OptionPicker
             options={onCard} variants={variants} selection={selection} idPrefix={panelId}
             onSelect={(key, value) => {
@@ -83,7 +83,7 @@ export function ProductQuickAdd({
               onPrice?.(v ? Number(v.price) : null, v?.compare_at_price != null ? Number(v.compare_at_price) : null);
             }}
           />
-          <button type="button" className={`buy-quick__go${state === "done" ? " is-done" : ""}`} disabled={!chosen || soldOut || state === "busy"}
+          <button type="button" className={`buy-expand__go${state === "done" ? " is-done" : ""}`} disabled={!chosen || soldOut || state === "busy"}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); void commit(chosen ?? undefined); }}>
             {state === "busy" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : state === "done" ? <><Check className="h-4 w-4" aria-hidden />Added</> : soldOut ? "Sold out" : chosen ? `Add · UGX ${Number(chosen.price).toLocaleString("en-UG")}` : "Choose options"}
           </button>

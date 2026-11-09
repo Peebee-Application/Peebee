@@ -74,8 +74,8 @@ Run locally in practice mode at 390×844 with Playwright (not a substitute for a
 | Hero shows pagination dots | Pass (six dots); spring snap and sliding pill not measured |
 | Pull-down hint and visible Spotlight button | Present |
 | Quick-action pills, promo banner | Not shown. They are admin-controlled and nothing is entered, so this is by design. |
-| In-place card expand with quick-add and colour swatches (video 18 s) | **Not built.** #403 only has the card-to-product-page transition. |
-| Cart variant swatch picker (video 38–39 s) | **Not built.** Cart rows show variant text only. |
-| Cart sheet over blurred home | Not verified in this run (the test could not find the bag control). |
+| In-place card expand with quick-add and colour swatches (video 18 s) | **Built** (this PR). The "+" on a card opens it in place for the options admin chose; see `docs/PRODUCT_VARIATIONS.md`. Checked in a browser in light and dark. |
+| Cart variant swatch picker (video 38–39 s) | **Built** (this PR). Tapping a cart row's variant label opens the same swatches or buttons and the row follows the choice. Checked in a browser. |
+| Cart sheet over blurred home | Pass: the home is blurred and darkened behind the sheet (seen in the cart recording). |
 | Product page | Full screen with no header or nav. This is how it already works on `main`. |
 | Migrations | The Shopping PRs add none. `0159_rider_bio.sql` is the only manual step (apply if `riders.bio` is missing). |
