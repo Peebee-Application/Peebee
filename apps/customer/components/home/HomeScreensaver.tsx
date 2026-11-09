@@ -37,7 +37,9 @@ import { useHomeMenu } from "../../lib/home-menu";
 import {
   SCREENSAVER_MODULES,
   circularOffset,
+  entityImagePose,
   entitySubtitle,
+  navigateLevel,
   selectScreensaver,
   thumbLabelOf,
   wrapIndex,
@@ -139,37 +141,44 @@ type Flight = {
 function layerStyle(role: "out" | "in", flight: Flight): React.CSSProperties {
   const { dir, progress, reduced } = flight;
   // Leave a clear handoff between text blocks, including during a dragged slide.
-  const copyOpacity = role === "out" ? Math.max(0, 1 - progress * 2.5) : Math.max(0, (progress - 0.5) * 2);
-  const copyDelay = `${(flight.commitOnEnd ? role === "in" : role === "out") ? 380 : 0}ms`;
-  if (reduced && flight.axis !== "entity") return { opacity: role === "out" ? 1 - progress : Math.max(progress, 0.001), zIndex: role === "out" ? 2 : 1, transform: "none", "--hs-copy-opacity": copyOpacity } as React.CSSProperties;
-  // Keep the entire cover opaque until it has cleared the screen, with the
-  // first detail page already in place underneath it.
-  if (flight.axis === "open") return {
-    zIndex: role === "out" ? 2 : 1,
-    transform: role === "out" ? `translate3d(0, ${-progress * 100}%, 0)` : "none",
-    opacity: 1,
-  };
+  const copyOpacity = role === "out" ? Math.max(0, 1 - progress * 2.5) : Math.max(0, (progress - 0.35) * 1.7);
+  const copyDelay = `${(flight.commitOnEnd ? role === "in" : role === "out") ? 180 : 0}ms`;
+  const copyY = `${role === "out" ? -progress * 18 : (1 - progress) * 28}px`;
+  if (flight.axis === "open") {
+    if (reduced) return { opacity: role === "out" ? 1 - progress : Math.max(progress, 0.001), zIndex: role === "out" ? 2 : 1, transform: "none" };
+    return {
+      zIndex: role === "out" ? 2 : 1,
+      transform: "none",
+      "--hs-cover-fade": role === "out" ? 1 - progress : 1,
+      "--hs-copy-opacity": role === "out" ? Math.max(0, 1 - progress * 1.35) : Math.min(1, Math.max(0, (progress - 0.15) * 1.3)),
+      "--hs-copy-y": copyY,
+      "--hs-copy-delay": "0ms",
+    } as React.CSSProperties;
+  }
+  if (reduced && flight.axis !== "entity") return { opacity: role === "out" ? 1 - progress : Math.max(progress, 0.001), zIndex: role === "out" ? 2 : 1, transform: "none", "--hs-copy-opacity": copyOpacity, "--hs-copy-y": "0px" } as React.CSSProperties;
   if (flight.axis === "cluster" && flight.incoming.mode === "cover") return {
     zIndex: role === "out" ? 2 : 1,
     "--hs-image-x": `${role === "out" ? -dir * progress * 100 : dir * (1 - progress) * 100}%`,
     "--hs-copy-opacity": copyOpacity,
     "--hs-copy-delay": copyDelay,
-    "--hs-copy-y": `${role === "out" ? -progress * 12 : (1 - progress) * 28}px`,
+    "--hs-copy-y": reduced ? "0px" : copyY,
   } as React.CSSProperties;
-  // Detail images share a stacking context so the moving sheet masks both.
-  if (flight.axis !== "cluster") return {
-    zIndex: "auto",
-    // The outgoing photo starts at its resting 10px overscan, never a new zoom.
-    "--hs-image-inset": `${reduced ? -10 : -(role === "out" ? 10 * (1 - progress) : 10 + 10 * (1 - progress))}px`,
-    "--hs-image-y": `${reduced ? 0 : dir * (role === "out" ? -3 * progress : 4) * (1 - progress)}px`,
-    "--hs-image-opacity": role === "out" ? 1 - progress : 1,
-    "--hs-copy-opacity": copyOpacity,
-    "--hs-copy-delay": copyDelay,
-    "--hs-copy-y": "0px",
-    "--hs-copy-x": `${reduced ? 0 : role === "out" ? progress * 20 : -(1 - progress) * 28}px`,
-    "--hs-roll": `${reduced ? 0 : role === "out" ? progress * 90 : -90 * (1 - progress)}deg`,
-  } as React.CSSProperties;
-  const copyStyle = { "--hs-copy-opacity": copyOpacity, "--hs-copy-delay": copyDelay } as React.CSSProperties;
+  // The current photo recedes. The next one rises from behind the white sheet.
+  if (flight.axis === "entity") {
+    const pose = entityImagePose(role, progress, reduced);
+    return {
+      zIndex: role === "out" ? 2 : 1,
+      "--hs-image-y": `${pose.yPercent}%`,
+      "--hs-image-scale": pose.scale,
+      "--hs-image-opacity": pose.opacity,
+      "--hs-copy-opacity": copyOpacity,
+      "--hs-copy-delay": copyDelay,
+      "--hs-copy-y": reduced ? "0px" : copyY,
+      "--hs-copy-x": "0px",
+      "--hs-roll": `${reduced ? 0 : role === "out" ? progress * 90 : -90 * (1 - progress)}deg`,
+    } as React.CSSProperties;
+  }
+  const copyStyle = { "--hs-copy-opacity": copyOpacity, "--hs-copy-delay": copyDelay, "--hs-copy-y": reduced ? "0px" : copyY } as React.CSSProperties;
   if (role === "out") return { ...copyStyle, transform: `translate3d(${-dir * progress * 100}%, 0, 0)`, opacity: 1, zIndex: 2 };
   // Cluster pages also stay full size while sliding across the frame.
   return { ...copyStyle, transform: `translate3d(${dir * (1 - progress) * 100}%, 0, 0)`, opacity: 1, zIndex: 1 };
@@ -281,7 +290,18 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
   const timer = useRef(0);
   const [flight, setFlight] = useState<Flight | null>(null);
   const flightRef = useRef<Flight | null>(null);
-  const actions = useRef({ view, openModule: () => {}, stepModule: (_dir: 1 | -1) => {}, stepEntity: (_dir: 1 | -1) => {}, autoplay: () => {} });
+  const [risenCopy, setRisenCopy] = useState<ReadonlySet<string>>(() => new Set());
+  const actions = useRef({
+    view,
+    moduleIndex: 0,
+    entityIndex: 0,
+    moduleCount: 0,
+    entityCount: 0,
+    openModule: () => {},
+    stepModule: (_dir: 1 | -1) => {},
+    stepEntity: (_dir: 1 | -1) => {},
+    autoplay: () => {},
+  });
 
   const mi = slides.length === 0 ? 0 : Math.min(moduleIndex, slides.length - 1);
   const slide = slides[mi]!;
@@ -301,6 +321,15 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
   function putFlight(next: Flight | null) {
     flightRef.current = next;
     setFlight(next);
+  }
+
+  function rememberCopy(id: string) {
+    setRisenCopy((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
   }
 
   function pageSnap(s: Slide, ent: ScreensaverEntity, mode: "cover" | "module"): PageSnap {
@@ -347,9 +376,12 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
       const current = flightRef.current;
       if (!current || current.id !== flight.id || current.settled) return;
       current.settled = true;
-      if (current.commitOnEnd && current.progress >= 1) current.apply();
+      if (current.commitOnEnd && current.progress >= 1) {
+        rememberCopy(current.incoming.id);
+        current.apply();
+      }
       putFlight(null);
-    }, flight.reduced ? 200 : 800);
+    }, flight.reduced ? 180 : flight.axis === "cluster" ? 1200 : 1520);
     return () => window.clearTimeout(timeout);
   }, [flight]);
 
@@ -397,7 +429,10 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
     const current = flightRef.current;
     if (!current || current.dragging || current.settled) return;
     current.settled = true;
-    if (current.commitOnEnd && current.progress >= 1) current.apply();
+    if (current.commitOnEnd && current.progress >= 1) {
+      rememberCopy(current.incoming.id);
+      current.apply();
+    }
     putFlight(null);
   }
 
@@ -414,7 +449,17 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
   }
 
   useEffect(() => {
-    actions.current = { view, openModule, stepModule, stepEntity, autoplay: () => stepModule(1, false) };
+    actions.current = {
+      view,
+      moduleIndex: mi,
+      entityIndex: ei,
+      moduleCount: slides.length,
+      entityCount: entities.length,
+      openModule,
+      stepModule,
+      stepEntity,
+      autoplay: () => stepModule(1, false),
+    };
   });
 
   useEffect(() => {
@@ -464,18 +509,22 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
       const now = Date.now();
       if (now < lockedUntil || flightRef.current) return;
       const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY);
+      const act = actions.current;
       if (horizontal) {
         wheelX += event.deltaX;
         if (Math.abs(wheelX) < 48) return;
-        actions.current.stepModule(wheelX > 0 ? 1 : -1);
+        const dir: 1 | -1 = wheelX > 0 ? 1 : -1;
         wheelX = 0;
+        const decision = navigateLevel(act.view, act.moduleIndex, act.entityIndex, act.moduleCount, act.entityCount, "x", dir);
+        if (decision !== "ignore" && decision !== "open") act.stepModule(dir);
       } else {
         wheelY += event.deltaY;
         if (Math.abs(wheelY) < 48) return;
-        const forward = wheelY > 0;
+        const dir: 1 | -1 = wheelY > 0 ? 1 : -1;
         wheelY = 0;
-        if (actions.current.view === "cover") { if (forward) actions.current.openModule(); }
-        else actions.current.stepEntity(forward ? 1 : -1);
+        const decision = navigateLevel(act.view, act.moduleIndex, act.entityIndex, act.moduleCount, act.entityCount, "y", dir);
+        if (decision === "open") act.openModule();
+        else if (decision !== "ignore") act.stepEntity(dir);
       }
       lockedUntil = now + 800;
     };
@@ -488,16 +537,14 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
       if (event.altKey || event.metaKey || event.ctrlKey) return;
       const act = actions.current;
       if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
-      if (event.key === "ArrowRight") { event.preventDefault(); act.stepModule(1); }
-      else if (event.key === "ArrowLeft") { event.preventDefault(); act.stepModule(-1); }
-      else if (event.key === "ArrowUp") {
-        event.preventDefault();
-        if (act.view === "cover") act.openModule();
-        else act.stepEntity(1);
-      } else if (event.key === "ArrowDown") {
-        event.preventDefault();
-        if (act.view === "module") act.stepEntity(-1);
-      }
+      const keyDir: 1 | -1 | null = event.key === "ArrowRight" || event.key === "ArrowUp" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowDown" ? -1 : null;
+      if (!keyDir) return;
+      event.preventDefault();
+      const axis = event.key === "ArrowLeft" || event.key === "ArrowRight" ? "x" : "y";
+      const decision = navigateLevel(act.view, act.moduleIndex, act.entityIndex, act.moduleCount, act.entityCount, axis, keyDir);
+      if (decision === "open") act.openModule();
+      else if (decision !== "ignore" && axis === "x") act.stepModule(keyDir);
+      else if (decision !== "ignore") act.stepEntity(keyDir);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -561,7 +608,7 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
             <PageLayer key={snap.id} snap={snap} motion={flight?.axis} phase={role}
               className={flight ? (flight.dragging ? "hs-layer is-flight is-drag" : "hs-layer is-flight") : "hs-layer"}
               style={flight && role ? layerStyle(role, flight) : undefined}
-              hidden={role === "out"} onOpen={openModule} onEnd={role === "out" ? onFlightEnd : undefined} />
+              hidden={role === "out"} rise={!role && !risenCopy.has(snap.id)} onEnd={role === "out" ? onFlightEnd : undefined} />
           ))}
         </div>
 
@@ -581,20 +628,30 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
         )}
 
         <p id="hs-help" className="hs-sr">
-          Arrow keys move between modules, and up or down through a module. Buttons do the same without gestures.
+          Left and right move between modules. Up opens a module, then up and down loop through it without leaving the module.
         </p>
 
-        {view === "module" && (
+        {(view === "cover" || flight?.axis === "open") && (
+          <DetailsReveal
+            title={slide.title}
+            entity={entities[0] ?? entity}
+            progress={flight?.axis === "open" && !flight.reduced ? flight.progress : 0}
+            dragging={!!flight?.dragging && flight.axis === "open"}
+            onOpen={openModule}
+          />
+        )}
+
+        {(view === "module" || flight?.axis === "open") && (
           <>
-            <div className="hs-mod-switch">
+            <div className="hs-mod-switch" style={flight?.axis === "open" ? { opacity: flight.progress, transition: flight.dragging ? "none" : "opacity 900ms ease" } : undefined}>
               <span className="hs-glass hs-name-pill">{thumbModule.title}</span>
               <Dots slides={slides} index={slides.indexOf(thumbModule)} onSelect={goModule} />
             </div>
             {thumbSets.map(({ module: mod, active, role }) => (
               <div key={mod.id} className={clusterFlight ? `hs-thumb-group is-flight${clusterFlight.dragging ? " is-drag" : ""}` : "hs-thumb-group"}
-                data-phase={role} style={clusterFlight && role ? thumbGroupStyle(role, clusterFlight) : undefined}
-                inert={!!clusterFlight} aria-hidden={role === "out" || undefined}>
-                <Thumbs entities={mod.entities} active={active} moduleId={mod.id} onSelect={goEntity} />
+                data-phase={role} style={flight?.axis === "open" ? { opacity: flight.reduced ? 1 : flight.progress, transition: flight.dragging ? "none" : "opacity 900ms ease" } : clusterFlight && role ? thumbGroupStyle(role, clusterFlight) : undefined}
+                inert={!!clusterFlight || flight?.axis === "open" || undefined} aria-hidden={role === "out" || flight?.axis === "open" || undefined}>
+                <Thumbs entities={mod.entities} active={active} moduleId={mod.id} onSelect={goEntity} hideCurrent={flight?.axis === "open"} />
               </div>
             ))}
           </>
@@ -643,7 +700,7 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
       if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
       start.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
     }
-    if (start.axis === "x") trackHorizontal(dx);
+    if (start.axis === "x") { if (view === "cover") trackHorizontal(dx); }
     else if (view === "cover" && (dy < 0 || flightRef.current?.axis === "open")) {
       const progress = Math.min(1, Math.max(0, -dy) / (frameRef.current?.clientHeight || 1));
       const existing = flightRef.current;
@@ -676,6 +733,7 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
     }
     const horizontal = start.axis === "x" || (start.axis !== "y" && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) >= 48);
     if (horizontal) {
+      if (view !== "cover") return;
       const dir: 1 | -1 = dx < 0 ? 1 : -1;
       const current = flightRef.current;
       if (Math.abs(dx) < 48) {
@@ -683,7 +741,12 @@ function HomeScreensaver({ slides, onClose }: { slides: Slide[]; onClose: () => 
         return;
       }
       if (current?.dragging && current.dir === dir) {
-        if (current.progress > 0.98) { current.apply(); putFlight(null); }
+        if (current.progress > 0.98) {
+          current.settled = true;
+          rememberCopy(current.incoming.id);
+          current.apply();
+          putFlight(null);
+        }
         else putFlight({ ...current, dragging: false, progress: 1, commitOnEnd: true });
         return;
       }
@@ -703,14 +766,14 @@ function nextFlightId(dir: number, incomingId: string) {
   return `${flightSerial}-${dir}-${incomingId}`;
 }
 
-function PageLayer({ motion, phase, snap, className, style, hidden, onOpen, onEnd }: {
+function PageLayer({ motion, phase, snap, className, style, hidden, rise, onEnd }: {
   motion?: Flight["axis"];
   phase?: "in" | "out";
   snap: PageSnap;
   className?: string;
   style?: React.CSSProperties;
   hidden?: boolean;
-  onOpen?: () => void;
+  rise?: boolean;
   onEnd?: (event: React.TransitionEvent<HTMLDivElement>) => void;
 }) {
   return (
@@ -723,24 +786,20 @@ function PageLayer({ motion, phase, snap, className, style, hidden, onOpen, onEn
       <div className="hs-scrim hs-scrim-top" />
       <div className="hs-scrim hs-scrim-bottom" />
       {snap.mode === "cover" ? (
-        <>
-          <div className="hs-cover-stack">
-            <h1 className="hs-cover-title">{snap.title}</h1>
-            <CoverSubtitle text={snap.sub} entering={phase === "in"} />
-          </div>
-          {onOpen && (
-            <button type="button" className="hs-glass hs-details" aria-label={`Show ${snap.title} details`} onClick={onOpen}>
-              <ChevronUp size={18} strokeWidth={2.2} aria-hidden />
-            </button>
-          )}
-        </>
+        <div className="hs-cover-stack" data-rise={rise ? "1" : undefined}>
+          <h1 className="hs-cover-title">{snap.title}</h1>
+          <CoverSubtitle text={snap.sub} entering={phase === "in" || !!rise} />
+        </div>
       ) : snap.entity && (
         <>
-          <svg className="hs-sheet-shape" viewBox="0 0 390 438" preserveAspectRatio="none" aria-hidden="true">
-            <path className="hs-sheet-fill" d="M0 6C150 4 210 36 390 38V438H0Z" />
-          </svg>
+          <div className="hs-sheet">
+            <div className="hs-sheet-bleed" />
+            <svg className="hs-sheet-shape" viewBox="0 0 390 438" preserveAspectRatio="none" aria-hidden="true">
+              <path className="hs-sheet-fill" d="M0 6C150 4 210 36 390 38V438H0Z" />
+            </svg>
+          </div>
           <div className="hs-sheet-body">
-            <div className="hs-copy">
+            <div className="hs-copy" data-rise={rise ? "1" : undefined}>
               <h1 className="hs-entity-title">{snap.entity.title}</h1>
               <p className="hs-meta"><span className="hs-meta-dot" aria-hidden />{snap.entity.meta}</p>
               <p className="hs-desc">{snap.entity.description}</p>
@@ -750,6 +809,36 @@ function PageLayer({ motion, phase, snap, className, style, hidden, onOpen, onEn
         </>
       )}
     </div>
+  );
+}
+
+function DetailsReveal({ title, entity, progress, dragging, onOpen }: {
+  title: string;
+  entity: ScreensaverEntity;
+  progress: number;
+  dragging: boolean;
+  onOpen: () => void;
+}) {
+  const [failed, setFailed] = useState(false);
+  const open = Math.min(1, Math.max(0, progress));
+  return (
+    <button
+      type="button"
+      className={dragging ? "hs-reveal is-drag" : open > 0 ? "hs-reveal" : "hs-reveal is-rest"}
+      style={{ "--hs-open": open } as React.CSSProperties}
+      aria-label={`Show ${title} details`}
+      onClick={onOpen}
+    >
+      <span className="hs-reveal-glass" aria-hidden />
+      <span className="hs-reveal-photo" aria-hidden style={{ background: entity.gradient }}>
+        {entity.image && !failed && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={entity.image} alt="" draggable={false} style={{ objectPosition: entity.imagePosition ?? "50% 40%" }} onError={() => setFailed(true)} />
+        )}
+      </span>
+      <ChevronUp className="hs-reveal-arrow" size={18} strokeWidth={2.2} aria-hidden />
+      <span className="hs-thumb-label hs-reveal-label" aria-hidden>{thumbLabelOf(entity)}</span>
+    </button>
   );
 }
 
@@ -799,7 +888,7 @@ function Cta({ entity }: { entity: ScreensaverEntity }) {
   );
 }
 
-function Thumbs({ entities, active, moduleId, onSelect }: { entities: ScreensaverEntity[]; active: number; moduleId: string; onSelect: (index: number) => void }) {
+function Thumbs({ entities, active, moduleId, onSelect, hideCurrent = false }: { entities: ScreensaverEntity[]; active: number; moduleId: string; onSelect: (index: number) => void; hideCurrent?: boolean }) {
   const [ghost, setGhost] = useState<{ id: string; d: number; entity: ScreensaverEntity } | null>(null);
   const previous = useRef<{ moduleId: string; items: { id: string; d: number; entity: ScreensaverEntity }[] }>({ moduleId: "", items: [] });
   const visible = entities
@@ -826,7 +915,9 @@ function Thumbs({ entities, active, moduleId, onSelect }: { entities: Screensave
     <>
       {ghost && <ThumbView key={`ghost-${ghost.id}`} entity={ghost.entity} d={ghost.d} ghost />}
       {visible.map((item) => (
-        <ThumbView key={item.id} entity={item.entity} d={item.d} current={item.d === 0} onSelect={() => onSelect(item.index)} />
+        item.d === 0 && hideCurrent ? null : (
+          <ThumbView key={item.id} entity={item.entity} d={item.d} current={item.d === 0} onSelect={() => onSelect(item.index)} />
+        )
       ))}
     </>
   );
