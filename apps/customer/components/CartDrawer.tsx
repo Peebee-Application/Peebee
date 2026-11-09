@@ -143,7 +143,7 @@ export function CartDrawer({
                 id="marketplace-cart-drawer-title"
                 className="text-lg font-extrabold tracking-tight text-ink leading-tight"
               >
-                Your Shopping Bag
+                My cart
               </h2>
               <p className="text-xs text-ink-500 font-medium" aria-live="polite">
                 {totalQuantity > 0
