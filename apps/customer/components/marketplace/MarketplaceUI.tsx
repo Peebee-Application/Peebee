@@ -171,7 +171,7 @@ export function MarketProductCard({ product, fallbackCategory, onAdd }: { produc
   }
 
   return (
-    <article className="buy-press flex min-w-0 flex-col">
+    <article data-product-source={product.id} className="buy-press flex min-w-0 flex-col">
       <PushLink href={`/product/${product.id}`} className="group block">
         <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[22px] bg-[rgb(var(--surface-muted))] shadow-[var(--shadow-card)]">
           <ProductImage

@@ -566,7 +566,7 @@ export function BuyHome() {
               {deals.map(({ p, pr }) => {
                 const tag = pr.discount > 0 ? "DEAL" : p.badge?.trim() || null;
                 return (
-                  <article key={p.id} className="buy-card buy-product">
+                  <article key={p.id} data-product-source={p.id} className="buy-card buy-product">
                     <PushLink href={`/product/${p.id}`} className="buy-thumb" aria-label={`View ${p.title}`}>
                       {p.image_url && <img src={p.image_url} alt="" loading="lazy" />}
                       {tag && <span className="buy-deal">{tag}</span>}
@@ -691,7 +691,7 @@ function HeroCarousel({ slides, imageFor, onAdd }: { slides: Spot[]; imageFor: (
           const productLine = sp.product?.title && sp.product.title !== copy.title ? `${sp.product.title}${price ? ` · ${price}` : ""}` : price;
           const shopHref = sp.product?.id ? `/product/${sp.product.id}` : `/store/${sp.store_id}`;
           return (
-            <article key={sp.id} className="buy-hero__slide" aria-label={copy.title}>
+            <article key={sp.id} data-product-source={sp.product?.id || undefined} className="buy-hero__slide" aria-label={copy.title}>
               <div className="buy-hero__copy">
                 <p className="buy-hero__title">{copy.title}</p>
                 {copy.sub && <p className="buy-hero__sub">{copy.sub}</p>}

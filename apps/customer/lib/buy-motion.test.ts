@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   SWIPE_OPEN,
+  cardMotionMode,
   clampSwipe,
   heroTargetIndex,
   isBuyPushHref,
   pathOf,
+  productIdFromHref,
+  productVtName,
   scrollLink,
   sheetShouldClose,
   swipeSnap,
@@ -40,6 +43,22 @@ test("sheet closes past 120px or when the flick is fast", () => {
   assert.equal(sheetShouldClose(120, 0), true);
   assert.equal(sheetShouldClose(10, 0.5), true);
   assert.equal(sheetShouldClose(10, 0.49), false);
+});
+
+test("product cards get a unique transition name", () => {
+  assert.equal(productIdFromHref("/product/pe_lm_1"), "pe_lm_1");
+  assert.equal(productIdFromHref("/product/milk%20loaf"), "milk loaf");
+  assert.equal(productIdFromHref("/store/fresh"), null);
+  assert.equal(productVtName("pe_lm_1"), "buy-card-pe_lm_1");
+  assert.equal(productVtName("a b"), "buy-card-a-b");
+  assert.notEqual(productVtName("one"), productVtName("two"));
+});
+
+test("card expand uses a crossfade only when motion is reduced", () => {
+  assert.equal(cardMotionMode(true, true), "fade");
+  assert.equal(cardMotionMode(true, false), "fade");
+  assert.equal(cardMotionMode(false, true), "view");
+  assert.equal(cardMotionMode(false, false), "flip");
 });
 
 test("push navigation stays inside Buy screens", () => {

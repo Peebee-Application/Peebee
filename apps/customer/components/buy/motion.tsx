@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
+  armProductCard,
   armReel,
   heroTargetIndex,
   isBuyPushHref,
   navigateWithPush,
   prefersReducedMotion,
+  productIdFromHref,
   scrollLink,
   slideStride,
   springTrackTo,
@@ -216,6 +218,15 @@ export function PushLink({ href, dir = "forward", chrome = "none", reelFor, chil
           document.querySelectorAll("[data-reel-vt]").forEach((node) => node.removeAttribute("data-reel-vt"));
           event.currentTarget.querySelector("img")?.setAttribute("data-reel-vt", "");
           armReel(reelFor);
+          void navigateWithPush(router, target, dir, chrome);
+          return;
+        }
+        const productId = productIdFromHref(target);
+        const surface = productId ? event.currentTarget.closest<HTMLElement>("[data-product-source]") : null;
+        if (productId && surface?.dataset.productSource === productId) {
+          armProductCard(productId, surface);
+          window.setTimeout(() => { void navigateWithPush(router, target, dir, "card"); }, prefersReducedMotion() ? 0 : 110);
+          return;
         }
         void navigateWithPush(router, target, dir, chrome);
       }}

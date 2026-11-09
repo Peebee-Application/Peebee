@@ -22,7 +22,7 @@ import { ProductImage } from "../../../components/ProductImage";
 import { addToCart, useCart } from "../../../lib/cart";
 import { CartDrawer, CartDrawerTrigger } from "../../../components/CartDrawer";
 import { ShareButton } from "../../../components/ShareButton";
-import { clearReel, navigateWithPush, reelArmedFor } from "../../../lib/buy-motion";
+import { clearReel, navigateWithPush, productArmedFor, reelArmedFor } from "../../../lib/buy-motion";
 
 interface ProductVariant {
   id: string;
@@ -192,7 +192,7 @@ export function ProductPageClient() {
             HERO IMAGE MEDIA CARD (Screen 2: Curved Bottom [40px] & Floating Buttons)
         ========================================================================= */}
         <div className="px-4 pt-4">
-        <div className="relative w-full aspect-[4/5] sm:aspect-[1/1] overflow-hidden rounded-[32px] bg-[rgb(var(--surface-muted))] shadow-[var(--shadow-card-hover)]" data-reel-vt={reelArmedFor(product.id) ? "" : undefined}>
+        <div data-product-hero="" className="relative w-full aspect-[4/5] sm:aspect-[1/1] overflow-hidden rounded-[32px] bg-[rgb(var(--surface-muted))] shadow-[var(--shadow-card-hover)]" data-reel-vt={reelArmedFor(product.id) ? "" : undefined}>
           <ProductImage
             src={product.image_url}
             alt={product.title}
@@ -206,10 +206,11 @@ export function ProductPageClient() {
             <button
               type="button"
               onClick={() => {
-                const reel = reelArmedFor(product.id);
-                if (reel) {
+                if (reelArmedFor(product.id)) {
                   clearReel();
                   void navigateWithPush(router, "", "back", "reel");
+                } else if (productArmedFor(product.id)) {
+                  void navigateWithPush(router, "", "back", "card");
                 } else router.back();
               }}
               aria-label="Back"
@@ -259,7 +260,7 @@ export function ProductPageClient() {
         {/* =========================================================================
             PRODUCT DETAILS & PRICE (Screen 2: Title Left, Bold Price Right)
         ========================================================================= */}
-        <div className="px-6 pt-6 space-y-5">
+        <div className={`px-6 pt-6 space-y-5${productArmedFor(product.id) ? " buy-card-follow" : ""}`}>
           {/* Header Row: Title on Left, Price on Right */}
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
