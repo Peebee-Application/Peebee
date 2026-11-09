@@ -420,10 +420,10 @@ function CartCheckout() {
                             <button
                               type="button"
                               onClick={() => updateQuantity(item.id, -1)}
-                              className="w-7 h-7 rounded-full flex items-center justify-center text-ink hover:bg-[rgb(var(--surface-card))] active:scale-90 transition"
+                              className="h-11 w-11 rounded-full flex items-center justify-center text-ink active:scale-95"
                               aria-label={`Decrease quantity of ${item.title}`}
                             >
-                              <Minus className="w-3.5 h-3.5" />
+                              <Minus className="w-4 h-4" />
                             </button>
                             <span className="text-sm font-semibold w-5 text-center" aria-live="polite">
                               {item.quantity}
@@ -431,10 +431,10 @@ function CartCheckout() {
                             <button
                               type="button"
                               onClick={() => updateQuantity(item.id, 1)}
-                              className="w-7 h-7 rounded-full flex items-center justify-center text-ink hover:bg-[rgb(var(--surface-card))] active:scale-90 transition"
+                              className="h-11 w-11 rounded-full flex items-center justify-center text-ink active:scale-95"
                               aria-label={`Increase quantity of ${item.title}`}
                             >
-                              <Plus className="w-3.5 h-3.5" />
+                              <Plus className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
@@ -514,6 +514,21 @@ function CartCheckout() {
                 <span className="shrink-0 text-[11px] font-bold text-gold">Change</span>
               </button>
             )}
+            <ul className="space-y-2" aria-label="Items in this order">
+              {selectedItems.map((item) => (
+                <li key={item.id} className="flex items-center gap-3 rounded-[22px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{item.title}</p>
+                    <p className="text-[12px] font-semibold text-ink-500">UGX {item.price.toLocaleString()} each</p>
+                  </div>
+                  <div className="field-box inline-flex items-center rounded-full px-1">
+                    <button type="button" className="h-11 w-11" aria-label={`Decrease quantity of ${item.title}`} onClick={() => updateQuantity(item.id, -1)}><Minus className="mx-auto h-4 w-4" /></button>
+                    <span className="w-5 text-center text-sm font-semibold" aria-live="polite">{item.quantity}</span>
+                    <button type="button" className="h-11 w-11" aria-label={`Increase quantity of ${item.title}`} onClick={() => updateQuantity(item.id, 1)}><Plus className="mx-auto h-4 w-4" /></button>
+                  </div>
+                </li>
+              ))}
+            </ul>
             <section className="home-card space-y-2" aria-live="polite" aria-label="Order summary">
               {quote ? (
                 <OrderBreakdown items={reviewItems} itemsSubtotal={quote.itemsTotal} delivery={reviewDelivery(quote, relayLastMile, relayMeetStageId)} total={quote.total} showDeliveryLines={false} />

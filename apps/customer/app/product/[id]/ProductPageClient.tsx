@@ -351,7 +351,7 @@ export function ProductPageClient() {
                       key={v.id}
                       type="button"
                       onClick={() => setSelectedVariant(v)}
-                      className={`px-4 py-2.5 rounded-full text-xs font-semibold transition-all border active:scale-95 ${
+                      className={`min-h-11 px-4 rounded-full text-xs font-semibold transition-all border active:scale-95 ${
                         isSelected
                           ? "bg-gold text-ink-gold border-gold shadow-[var(--shadow-glow-gold)]"
                           : "bg-[rgb(var(--surface-muted))] text-ink-500 border-transparent hover:text-ink"
@@ -371,33 +371,33 @@ export function ProductPageClient() {
               <span className="text-xs font-bold uppercase tracking-wider text-ink-500 block mb-1">
                 Quantity
               </span>
-              <div className="inline-flex items-center gap-3 rounded-full bg-[rgb(var(--surface-muted))] px-2 py-1.5">
+              <div className="field-box inline-flex items-center gap-1 rounded-full px-1">
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-ink hover:bg-[rgb(var(--surface-card))] active:scale-90 transition"
+                  className="h-11 w-11 rounded-full flex items-center justify-center text-ink active:scale-95"
                   aria-label="Decrease quantity"
                 >
-                  <Minus className="w-3.5 h-3.5" />
+                  <Minus className="w-4 h-4" />
                 </button>
-                <span className="text-sm font-black w-6 text-center">{quantity}</span>
+                <span className="text-sm font-black w-6 text-center" aria-live="polite">{quantity}</span>
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => q + 1)}
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-ink hover:bg-[rgb(var(--surface-card))] active:scale-90 transition"
+                  className="h-11 w-11 rounded-full flex items-center justify-center text-ink active:scale-95"
                   aria-label="Increase quantity"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             <div className="text-right">
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-full border border-emerald-500/20">
+              <div className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[rgb(var(--color-green)/.12)] px-3 text-xs font-bold text-green">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>In Stock & Ready</span>
+                <span>{(product.inventory_quantity ?? 1) > 0 ? "In stock" : "Out of stock"}</span>
               </div>
-              <p className="text-[10px] text-ink-500 mt-1">Delivery in 20-40 mins</p>
+              <p className="text-[11px] font-semibold text-ink-500 mt-1">Paid to the shop after you receive it</p>
             </div>
           </div>
         </div>
