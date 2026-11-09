@@ -83,6 +83,8 @@ import {
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
+import { DEFAULT_PRODUCT_VARIATIONS, resolveProductVariations, type ProductVariationSettings } from "@peebee/shared";
+import { EMPTY_EDITOR, VariationEditor, editorFromProduct, editorPayload, variationProblem, type EditorState } from "../../components/store/VariationEditor";
 import { useAuth } from "../../lib/auth-context";
 
 interface ProStore {
@@ -129,7 +131,9 @@ interface ProStore {
 }
 
 interface ProductVariant {
+  id?: string;
   title: string;
+  values?: string[];
   price: number;
   compare_at_price?: number;
   sku?: string;
@@ -151,6 +155,7 @@ interface StoreProduct {
   video_url: string | null;
   has_variants?: number | boolean;
   variants?: ProductVariant[];
+  options?: Array<{ key: string; name: string; values: Array<{ value: string; hex?: string }> }>;
   status: string;
 }
 
@@ -390,9 +395,11 @@ export default function MerchantProStorePage() {
   const [productCategory, setProductCategory] = useState("General");
   const [productBadge, setProductBadge] = useState("");
   const [productImage, setProductImage] = useState("");
-  const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
-  const [newVariantTitle, setNewVariantTitle] = useState("");
-  const [newVariantPrice, setNewVariantPrice] = useState("");
+  const [variationState, setVariationState] = useState<EditorState>(EMPTY_EDITOR);
+  const [variationSettings, setVariationSettings] = useState<ProductVariationSettings>(DEFAULT_PRODUCT_VARIATIONS);
+  const [variationProduct, setVariationProduct] = useState<StoreProduct | null>(null);
+  const [variationEdit, setVariationEdit] = useState<EditorState>(EMPTY_EDITOR);
+  const [savingVariations, setSavingVariations] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
 
   // Live broadcast studio state
@@ -454,7 +461,7 @@ export default function MerchantProStorePage() {
         if (s.loyalty_cashback_percent != null) setLoyaltyCashback(String(s.loyalty_cashback_percent));
 
         const [prodRes, colRes, discRes, invRes, drfRes, anaRes, posRes, trfRes, crmRes, secRes, smsRes, digRes, fulRes, crsRes, enrRes] = await Promise.all([
-          api.getMerchantProProducts().catch(() => { failed("Catalog"); return { products: previous ? products : [] }; }),
+          api.getMerchantProProducts().catch(() => { failed("Catalog"); return { products: previous ? products : [], variationSettings: undefined }; }),
           api.getMerchantCollections().catch(() => { failed("Collections"); return { collections: previous ? collections : [] }; }),
           api.getMerchantDiscounts().catch(() => { failed("Discounts"); return { discounts: previous ? discounts : [] }; }),
           (s.plan?.isElite ? api.getMerchantOutletInventory() : Promise.resolve({outlets: [], inventory: []})).catch(() => { failed("OutletInventory"); return { outlets: previous ? outlets : [], inventory: previous ? outletInventory : [] }; }),
@@ -482,6 +489,7 @@ export default function MerchantProStorePage() {
         setLmsEnrollments(enrRes.enrollments || []);
         const loadedProducts = prodRes.products || [];
         setProducts(loadedProducts);
+        setVariationSettings(resolveProductVariations(prodRes.variationSettings));
         setCollections(colRes.collections || []);
         setDiscounts(discRes.discounts || []);
         setOutlets(invRes.outlets || []);
@@ -1073,22 +1081,22 @@ export default function MerchantProStorePage() {
     }
   }
 
-  function handleAddVariant() {
-    if (!newVariantTitle.trim() || !newVariantPrice) return;
-    setProductVariants((prev) => [
-      ...prev,
-      {
-        title: newVariantTitle.trim(),
-        price: Number(newVariantPrice),
-        inventory_quantity: 50,
-      },
-    ]);
-    setNewVariantTitle("");
-    setNewVariantPrice("");
-  }
-
-  function handleRemoveVariant(idx: number) {
-    setProductVariants((prev) => prev.filter((_, i) => i !== idx));
+  async function handleSaveVariations() {
+    if (!variationProduct) return;
+    const problem = variationProblem(variationEdit);
+    if (problem) { setError(problem); return; }
+    setSavingVariations(true);
+    setError("");
+    try {
+      await api.updateMerchantProductVariations(variationProduct.id, editorPayload(variationEdit));
+      await refreshEliteData();
+      setNotice(`✅ Variations saved for "${variationProduct.title}".`);
+      setVariationProduct(null);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSavingVariations(false);
+    }
   }
 
   async function handleSaveProduct() {
@@ -1096,9 +1104,15 @@ export default function MerchantProStorePage() {
       setError("Please enter product title and price.");
       return;
     }
+    const variationIssue = variationProblem(variationState);
+    if (variationIssue) {
+      setError(variationIssue);
+      return;
+    }
     setSavingProduct(true);
     setError("");
     try {
+      const variationBody = editorPayload(variationState);
       await api.createMerchantProProduct({
         title: productTitle.trim(),
         description: productDesc.trim() || undefined,
@@ -1109,8 +1123,9 @@ export default function MerchantProStorePage() {
         category_name: productCategory.trim() || "General",
         badge: productBadge.trim() || undefined,
         image_url: productImage.trim() || undefined,
-        has_variants: productVariants.length > 0,
-        variants: productVariants.length ? productVariants : undefined,
+        has_variants: variationBody.variants.length > 0,
+        options: variationBody.options.length ? variationBody.options : undefined,
+        variants: variationBody.variants.length ? variationBody.variants : undefined,
       });
 
       await refreshEliteData();
@@ -1134,9 +1149,7 @@ export default function MerchantProStorePage() {
     setProductCategory("General");
     setProductBadge("");
     setProductImage("");
-    setProductVariants([]);
-    setNewVariantTitle("");
-    setNewVariantPrice("");
+    setVariationState(EMPTY_EDITOR);
   }
 
   async function handleStartLiveSession() {
@@ -4750,6 +4763,13 @@ export default function MerchantProStorePage() {
 
                       <div className="flex items-center gap-1.5">
                         <button
+                          type="button"
+                          onClick={() => { setVariationEdit(editorFromProduct(p)); setVariationProduct(p); }}
+                          className="min-h-8 rounded-full bg-[rgb(var(--surface-muted))] px-3 text-[11px] font-bold text-ink transition active:scale-95"
+                        >
+                          Variations
+                        </button>
+                        <button
                           onClick={() => {
                             setPinnedProductId(p.id);
                             setNotice(`📌 Pinned "${p.title}" for your live stream!`);
@@ -5126,6 +5146,27 @@ export default function MerchantProStorePage() {
         </div>
       )}
 
+      {/* EDIT VARIATIONS MODAL */}
+      {variationProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
+          <div className="my-8 w-full max-w-lg space-y-4 rounded-[28px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[var(--border-faint)] pb-3">
+              <h3 className="text-lg font-bold text-ink">Variations: {variationProduct.title}</h3>
+              <button type="button" aria-label="Close" onClick={() => setVariationProduct(null)} className="rounded-full p-1.5 text-ink-500 hover:text-ink"><X className="h-5 w-5" /></button>
+            </div>
+            <VariationEditor value={variationEdit} onChange={setVariationEdit} settings={variationSettings} basePrice={variationProduct.price} baseStock={variationProduct.inventory_quantity} />
+            <button
+              type="button"
+              onClick={handleSaveVariations}
+              disabled={savingVariations}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-gold py-3 text-sm font-bold text-ink-gold shadow transition active:scale-98 disabled:opacity-50"
+            >
+              {savingVariations ? "Saving…" : "Save variations"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ADD PRODUCT MODAL */}
       {showAddProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm overflow-y-auto">
@@ -5232,52 +5273,13 @@ export default function MerchantProStorePage() {
                 />
               </div>
 
-              {/* Variants Builder ("Shopify Power") */}
-              <div className="rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-ink">Product Variants (Size, Color, Weight)</label>
-                  <span className="text-[10px] text-ink-500">{productVariants.length} configured</span>
-                </div>
-
-                {productVariants.map((v, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between rounded-xl bg-[rgb(var(--surface-card))] p-2 text-xs"
-                  >
-                    <div>
-                      <span className="font-bold text-ink">{v.title}</span> —{" "}
-                      <span className="text-gold font-mono">{ugx(v.price)}</span>
-                    </div>
-                    <button onClick={() => handleRemoveVariant(i)} className="text-red-500 hover:text-red-700">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  <input
-                    type="text"
-                    value={newVariantTitle}
-                    onChange={(e) => setNewVariantTitle(e.target.value)}
-                    placeholder="Variant (e.g. Small / 1kg)"
-                    className="rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-2.5 py-1.5 text-xs text-ink"
-                  />
-                  <input
-                    type="number"
-                    value={newVariantPrice}
-                    onChange={(e) => setNewVariantPrice(e.target.value)}
-                    placeholder="Price (UGX)"
-                    className="rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-2.5 py-1.5 text-xs text-ink"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddVariant}
-                    className="rounded-xl bg-gold text-ink-gold text-xs font-bold py-1.5"
-                  >
-                    + Add
-                  </button>
-                </div>
-              </div>
+              <VariationEditor
+                value={variationState}
+                onChange={setVariationState}
+                settings={variationSettings}
+                basePrice={Number(productPrice) || 0}
+                baseStock={Number(productStock) || 0}
+              />
 
               <div>
                 <label htmlFor="store-field-82" className="text-xs font-semibold text-ink-500">Badge (Optional)</label>

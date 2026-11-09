@@ -2431,7 +2431,13 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       });
     },
     async getMerchantProProducts() {
-      return request<{ products: any[] }>("/v1/merchants/me/products");
+      return request<{ products: any[]; variationSettings?: import("./product-variations.js").ProductVariationSettings }>("/v1/merchants/me/products");
+    },
+    async updateMerchantProductVariations(productId: string, input: unknown) {
+      return request<{ ok: boolean }>(`/v1/merchants/me/products/${encodeURIComponent(productId)}/variations`, {
+        method: "PUT",
+        body: JSON.stringify(input),
+      });
     },
     async createMerchantProProduct(input: any) {
       return request<{ ok: boolean; productId: string }>("/v1/merchants/me/products", {
