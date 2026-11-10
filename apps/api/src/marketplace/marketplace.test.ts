@@ -10,7 +10,7 @@ import { splitSqlStatements } from "../db/split-sql.js";
 import { resetSchemaCache } from "../lib/schema.js";
 import { signToken } from "../auth/jwt.js";
 import { invalidateSettingsCache } from "../lib/settings.js";
-import { allowDemoCatalog } from "../test-support/db.js";
+import { allowDemoCatalog, freshDatabase } from "../test-support/db.js";
 
 function bindDatabase(client: Client) {
   const prepare = (sql: string) => ({
@@ -811,4 +811,79 @@ test("a store whose module is switched off is in no list, page, product, live ra
   assert.deepEqual((await json("/v1/marketplace/stores")).body.stores, []);
   assert.deepEqual((await json("/v1/marketplace/spotlight")).body.spotlight, []);
   assert.deepEqual((await json("/v1/marketplace/live")).body.liveChannels, []);
+});
+
+test("a live platform builds the spotlight from real stores, and admin can switch it off", async () => {
+  const client = await freshDatabase();
+  invalidateSettingsCache();
+  const json = async (path: string) => {
+    const res = await app.request(path);
+    return { status: res.status, body: (await res.json()) as any };
+  };
+  try {
+    await client.execute("INSERT INTO merchants (id, legal_name, display_name, status, environment) VALUES ('m_spot', 'Spot Ltd', 'Spot', 'active', 'live')");
+    await client.execute(`INSERT INTO stores (id, merchant_id, name, slug, category, logo_url, banner_url, description, is_live, live_channel_title, live_stream_url, live_viewer_count, status, environment) VALUES
+      ('store_live', 'm_spot', 'Live Grocers', 'live-grocers', 'groceries', '/logo-live.jpg', '/banner-live.jpg', 'Morning shop', 1, 'Morning market', '/live/morning.mp4', 42, 'active', 'live'),
+      ('store_quiet', 'm_spot', 'Quiet Boutique', 'quiet-boutique', 'stores', '/logo-quiet.jpg', '/banner-quiet.jpg', 'Clothes', 0, NULL, NULL, 0, 'active', 'live'),
+      ('store_hidden', 'm_spot', 'Hidden Shop', 'hidden-shop', 'stores', NULL, '/banner-hidden.jpg', '', 0, NULL, NULL, 0, 'active', 'live'),
+      ('store_paused', 'm_spot', 'Paused Shop', 'paused-shop', 'stores', NULL, '/banner-paused.jpg', '', 0, NULL, NULL, 0, 'suspended', 'live'),
+      ('store_sandbox', 'm_spot', 'Sandbox Shop', 'sandbox-shop', 'groceries', NULL, '/banner-sandbox.jpg', '', 1, 'Not this world', NULL, 9, 'active', 'sandbox'),
+      ('store_draft_only', 'm_spot', 'Draft Only', 'draft-only', 'stores', NULL, '/banner-draft.jpg', '', 0, NULL, NULL, 0, 'active', 'live')`);
+    await client.execute("UPDATE stores SET listed_in_app = 0 WHERE id = 'store_hidden'");
+    await client.execute(`INSERT INTO store_products (id, store_id, title, price, compare_at_price, badge, image_url, status, sort_order) VALUES
+      ('prod_milk', 'store_live', 'Milk', 3500, NULL, NULL, '/milk.jpg', 'active', 0),
+      ('prod_eggs', 'store_live', 'Eggs', 12000, 15000, NULL, '/eggs.jpg', 'active', 5),
+      ('prod_shirt', 'store_quiet', 'Plain shirt', 20000, NULL, NULL, '/shirt.jpg', 'active', 0),
+      ('prod_tee', 'store_quiet', 'Market tee', 25000, NULL, 'New', '/tee.jpg', 'active', 9),
+      ('prod_hidden', 'store_hidden', 'Secret', 1000, NULL, 'Shh', '/secret.jpg', 'active', 0),
+      ('prod_paused', 'store_paused', 'Paused item', 1000, NULL, NULL, '/paused.jpg', 'active', 0),
+      ('prod_sandbox', 'store_sandbox', 'Sandbox item', 1000, 2000, NULL, '/sandbox.jpg', 'active', 0),
+      ('prod_draft', 'store_draft_only', 'Unpublished', 1000, 2000, 'Soon', '/draft.jpg', 'draft', 0)`);
+
+    const feed = await json("/v1/marketplace/spotlight");
+    assert.equal(feed.status, 200);
+    const ids = feed.body.spotlight.map((item: any) => item.store_id);
+    assert.deepEqual(ids, ["store_live", "store_quiet"]);
+    const live = feed.body.spotlight[0];
+    assert.equal(live.type, "live");
+    assert.equal(live.poster_url, "/banner-live.jpg");
+    assert.equal(live.title, "Morning market");
+    assert.equal(live.viewer_count, 42);
+    assert.equal(live.media_url, "/live/morning.mp4");
+    assert.equal(live.store_category, "groceries");
+    assert.equal(live.product.id, "prod_eggs");
+    assert.equal(live.product.compare_at_price, 15000);
+    const quiet = feed.body.spotlight[1];
+    assert.equal(quiet.type, "image");
+    assert.equal(quiet.product.id, "prod_tee");
+    assert.equal(quiet.product.badge, "New");
+    assert.equal(quiet.title, "Market tee");
+
+    const liveOnly = await json("/v1/marketplace/spotlight?category=live");
+    assert.deepEqual(liveOnly.body.spotlight.map((item: any) => item.store_id), ["store_live"]);
+    const groceries = await json("/v1/marketplace/spotlight?category=groceries");
+    assert.deepEqual(groceries.body.spotlight.map((item: any) => item.store_id), ["store_live"]);
+    const storesOnly = await json("/v1/marketplace/spotlight?category=stores");
+    assert.deepEqual(storesOnly.body.spotlight.map((item: any) => item.store_id), ["store_quiet"]);
+
+    await setModuleFlags({ live: { "buy.shopping": false } });
+    assert.deepEqual((await json("/v1/marketplace/spotlight")).body.spotlight.map((item: any) => item.store_id), ["store_quiet"]);
+    await setModuleFlags({ live: { "buy.shopping": true, "buy.marketplace.live": false } });
+    const noLive = await json("/v1/marketplace/spotlight");
+    assert.ok(noLive.body.spotlight.every((item: any) => item.type !== "live"));
+    assert.deepEqual(noLive.body.spotlight.map((item: any) => item.store_id), ["store_quiet"]);
+    await setModuleFlags({ live: { "buy.marketplace.live": true, "buy.shopping": true, "buy.marketplace": true } });
+
+    await client.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('marketplace_spotlight_enabled', '0')");
+    invalidateSettingsCache();
+    assert.deepEqual((await json("/v1/marketplace/spotlight")).body.spotlight, []);
+
+    await allowDemoCatalog(client);
+    const demo = await json("/v1/marketplace/spotlight");
+    assert.ok(demo.body.spotlight.some((item: any) => item.id === "spot_live_fresh_harvest"));
+  } finally {
+    await setModuleFlags({ live: { "buy.shopping": true, "buy.marketplace": true, "buy.marketplace.live": true } }).catch(() => undefined);
+    invalidateSettingsCache();
+    client.close();
+  }
 });

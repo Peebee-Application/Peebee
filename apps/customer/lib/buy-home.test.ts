@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DEFAULT_SHOPPING_UNIT_SETTINGS as S } from "@peebee/shared";
-import { BUY_DEALS_HREF, BUY_NEARBY_HREF, buyCategoryNames, buyFeaturedSpots, matchPrice, parseListPhrase, parseListText, spotlightPullDecision, unitLabel } from "./buy-home";
+import { BUY_DEALS_HREF, BUY_NEARBY_HREF, buyCategoryNames, buyFeaturedSpots, buyHeroSlidesFromCatalog, matchPrice, parseListPhrase, parseListText, spotlightPullDecision, unitLabel } from "./buy-home";
 
 test("parses leading quantity with unit", () => {
   const it = parseListPhrase("2kg tomatoes", S)!;
@@ -61,4 +61,35 @@ test("category pills come from product data, live spots lead the hero", () => {
     { type: "image", id: "c" },
   ]).map((s) => s.id), ["b", "a", "c"]);
   assert.equal(buyFeaturedSpots([{ type: "image" }, { type: "video" }, { type: "carousel" }, { type: "live" }, { type: "image" }, { type: "video" }], 5).length, 5);
+});
+
+test("an empty spotlight still builds hero slides from loaded shops", () => {
+  assert.deepEqual(buyHeroSlidesFromCatalog([], []), []);
+  const slides = buyHeroSlidesFromCatalog(
+    [
+      { id: "quiet", name: "Quiet Boutique", banner_url: "/banner-quiet.jpg", is_live: 0 },
+      { id: "live", name: "Morning Market", banner_url: "/banner-live.jpg", is_live: 1, live_channel_title: "Unpacking the harvest", live_viewer_count: 12 },
+      { id: "bare", name: "Bare Shelves", is_live: false },
+    ],
+    [
+      { id: "plain", store_id: "quiet", title: "Plain shirt", price: 20000 },
+      { id: "badge", store_id: "quiet", title: "Market tee", price: 25000, badge: "New" },
+      { id: "milk", store_id: "live", title: "Milk", price: 3500 },
+      { id: "eggs", store_id: "live", title: "Eggs", price: 12000, compare_at_price: 15000 },
+    ],
+  );
+  assert.deepEqual(slides.map((s) => s.store_id), ["live", "quiet", "bare"]);
+  assert.equal(slides[0]?.type, "live");
+  assert.equal(slides[0]?.title, "Unpacking the harvest");
+  assert.equal(slides[0]?.poster_url, "/banner-live.jpg");
+  assert.equal(slides[0]?.viewer_count, 12);
+  assert.equal(slides[0]?.product?.id, "eggs");
+  assert.equal(slides[1]?.product?.id, "badge");
+  assert.equal(slides[2]?.product, undefined);
+  assert.equal(slides[2]?.title, "Bare Shelves");
+  assert.equal(buyHeroSlidesFromCatalog(
+    Array.from({ length: 8 }, (_, i) => ({ id: `s${i}`, name: `Shop ${i}` })),
+    [],
+    5,
+  ).length, 5);
 });

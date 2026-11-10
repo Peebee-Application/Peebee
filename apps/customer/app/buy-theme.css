@@ -215,6 +215,22 @@ html.buy-pull-page { overscroll-behavior-y: none; }
 .buy-cat[aria-selected="true"] { background: rgb(var(--color-gold)); color: rgb(var(--color-ink-gold)); border-color: transparent; }
 
 .buy-hero { margin-top: 16px; overflow: hidden; }
+.buy-hero--empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 210px;
+  padding: 24px 20px;
+  border-radius: 28px;
+  text-align: center;
+  background: linear-gradient(105deg, rgb(var(--surface-card)) 0%, rgb(var(--surface-card)) 48%, rgb(var(--color-gold) / .28) 100%);
+  box-shadow: var(--shadow-card);
+  color: rgb(var(--color-ink));
+}
+.buy-hero--empty p { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+.buy-hero--empty span { max-width: 28ch; font-size: 13px; font-weight: 650; color: rgb(var(--color-ink-500)); }
 .buy-hero__track {
   display: flex;
   gap: 12px;

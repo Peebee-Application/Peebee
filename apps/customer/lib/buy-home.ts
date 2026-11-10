@@ -139,6 +139,78 @@ export function buyFeaturedSpots<T extends { type: string }>(spots: T[], limit =
   return [...spots].sort((a, b) => Number(b.type === "live") - Number(a.type === "live")).slice(0, limit);
 }
 
+type CatalogStore = {
+  id: string;
+  name: string;
+  slug?: string;
+  category?: string;
+  logo_url?: string | null;
+  banner_url?: string | null;
+  is_live?: number | boolean | string | null;
+  live_viewer_count?: number | null;
+  live_channel_title?: string | null;
+};
+type CatalogProduct = {
+  id: string;
+  store_id: string;
+  title: string;
+  price: number;
+  compare_at_price?: number | null;
+  image_url?: string | null;
+  badge?: string | null;
+};
+
+/** 0 is a markdown, 1 is a badge, 2 is an ordinary product. */
+function catalogProductRank(product: CatalogProduct): number {
+  if (product.compare_at_price != null && product.compare_at_price > product.price) return 0;
+  if (product.badge?.trim()) return 1;
+  return 2;
+}
+
+/** Hero cards from shops and products already on the page, when the spotlight feed is empty. */
+export function buyHeroSlidesFromCatalog<TStore extends CatalogStore, TProduct extends CatalogProduct>(
+  stores: TStore[],
+  products: TProduct[],
+  limit = 5,
+) {
+  const slides = stores.map((store) => {
+    const live = store.is_live === true || store.is_live === 1 || store.is_live === "1";
+    let product: TProduct | undefined;
+    let rank = 3;
+    for (const candidate of products) {
+      if (candidate.store_id !== store.id) continue;
+      const next = catalogProductRank(candidate);
+      if (next < rank) {
+        product = candidate;
+        rank = next;
+      }
+    }
+    const title = (live ? store.live_channel_title?.trim() : product?.title.trim()) || store.name;
+    return {
+      id: `home-${store.id}`,
+      store_id: store.id,
+      store_name: store.name,
+      store_slug: store.slug,
+      store_logo: store.logo_url || undefined,
+      store_category: store.category,
+      type: live ? "live" as const : "image" as const,
+      poster_url: store.banner_url || product?.image_url || undefined,
+      title,
+      viewer_count: live && store.live_viewer_count ? Number(store.live_viewer_count) : undefined,
+      product: product
+        ? {
+            id: product.id,
+            title: product.title,
+            price: product.price,
+            compare_at_price: product.compare_at_price,
+            image_url: product.image_url,
+          }
+        : undefined,
+    };
+  });
+  return buyFeaturedSpots(slides, limit);
+}
+
 /** Customer-facing words for an active shopping order's stage. */
 export function shoppingStageLabel(stage: string): string {
   const map: Record<string, string> = {

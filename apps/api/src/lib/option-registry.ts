@@ -493,6 +493,11 @@ export const OPTION_SETTINGS: SettingDef[] = [
       opt("always", "Always", true),
     ],
   },
+  {
+    key: "marketplace_spotlight_enabled", module: "platform", kind: "bool", label: "Buy spotlight from real stores",
+    description: "On a live platform, the Buy home and Spotlight feed feature active stores and one product from each. Off leaves that feed empty. The demo catalogue, while it is allowed, is unchanged.",
+    default: true,
+  },
 ];
 
 const BY_KEY = new Map(OPTION_SETTINGS.map((def) => [def.key, def]));

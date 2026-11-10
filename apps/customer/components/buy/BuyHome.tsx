@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import {
-  BUY_DEALS_HREF, BUY_NEARBY_HREF, BUY_SPOTLIGHT_PULL_MAX, buyCategoryNames, buyFeaturedSpots, matchPrice, parseListText, shoppingStageLabel, spotlightPullDecision, unitLabel,
+  BUY_DEALS_HREF, BUY_NEARBY_HREF, BUY_SPOTLIGHT_PULL_MAX, buyCategoryNames, buyFeaturedSpots, buyHeroSlidesFromCatalog, matchPrice, parseListText, shoppingStageLabel, spotlightPullDecision, unitLabel,
 } from "../../lib/buy-home";
 import { addToCart, useCart, useEarlierCarts, type CartItem } from "../../lib/cart";
 import { CartDrawer } from "../CartDrawer";
@@ -28,7 +28,7 @@ import type { Item } from "../home/ListItemLine";
 type MStore = {
   id: string; name: string; slug?: string; category?: string; logo_url?: string | null; banner_url?: string | null;
   lat?: number | null; lng?: number | null; distance_km?: number | null; is_open?: number | boolean; is_live?: number | boolean;
-  live_viewer_count?: number; min_order_amount?: number | null; delivery_enabled?: number | boolean; pickup_enabled?: number | boolean;
+  live_channel_title?: string | null; live_viewer_count?: number; min_order_amount?: number | null; delivery_enabled?: number | boolean; pickup_enabled?: number | boolean;
 };
 type MProduct = {
   id: string; store_id: string; store_name?: string; store_slug?: string; store_category?: string; title: string; price: number;
@@ -39,7 +39,7 @@ type MProduct = {
 type Spot = {
   id: string; store_id: string; store_name: string; store_slug?: string; store_logo?: string; store_category?: string;
   type: "live" | "video" | "image" | "carousel"; poster_url?: string; title: string; viewer_count?: number; likes_count?: number;
-  product: { id: string; title: string; price: number; compare_at_price?: number | null; image_url?: string | null };
+  product?: { id: string; title: string; price: number; compare_at_price?: number | null; image_url?: string | null } | null;
 };
 
 const ugx = (n: number) => `UGX ${Math.round(n).toLocaleString("en-UG")}`;
@@ -342,14 +342,18 @@ export function BuyHome() {
   // ---- derived sections ----------------------------------------------------
   /** A same-origin picture for a Spotlight item: its product, another product from that shop, or the shop logo. */
   const spotImg = (sp: Spot) => {
-    const own = products.find((p) => p.id === sp.product.id)?.image_url;
-    const key = sp.product.title.toLowerCase().replace(/\(.*\)/, "").split(/\s+/).filter((w) => w.length > 3).slice(-1)[0]?.replace(/s$/, "");
+    const product = sp.product;
+    const own = product ? products.find((p) => p.id === product.id)?.image_url : undefined;
+    const key = product?.title.toLowerCase().replace(/\(.*\)/, "").split(/\s+/).filter((w) => w.length > 3).slice(-1)[0]?.replace(/s$/, "");
     const byTitle = key ? products.find((p) => p.image_url?.startsWith("/") && p.title.toLowerCase().includes(key))?.image_url : null;
     const sameStore = products.find((p) => p.store_id === sp.store_id && p.image_url?.startsWith("/"))?.image_url;
     const store = stores.find((x) => x.id === sp.store_id);
-    return localImg(own, byTitle, sp.product.image_url, sp.poster_url, sameStore, store?.logo_url, sp.store_logo);
+    return localImg(own, byTitle, product?.image_url, sp.poster_url, sameStore, store?.banner_url, store?.logo_url, sp.store_logo);
   };
-  const slides = useMemo(() => buyFeaturedSpots(spots), [spots]);
+  const slides = useMemo(() => {
+    const featured = buyFeaturedSpots(spots);
+    return featured.length > 0 ? featured : buyHeroSlidesFromCatalog(stores, products);
+  }, [spots, stores, products]);
   const reels = useMemo(() => {
     const lead = spots.find((s) => s.type === "live");
     return spots.filter((s) => s !== lead).slice(0, 8);
@@ -527,7 +531,15 @@ export function BuyHome() {
         </div>
       )}
 
-      {slides.length > 0 && <HeroCarousel key={slides.map((s) => s.id).join("|")} slides={slides} imageFor={spotImg} onAdd={(sp) => addSpotlightItemToCart(sp, (id) => api.getMarketplaceProduct(id))} />}
+      {slides.length > 0 ? (
+        <HeroCarousel key={slides.map((s) => s.id).join("|")} slides={slides} imageFor={spotImg} onAdd={(sp) => (sp.product ? addSpotlightItemToCart({ ...sp, product: sp.product }, (id) => api.getMarketplaceProduct(id)) : Promise.resolve())} />
+      ) : loaded ? (
+        <section className="buy-hero buy-hero--empty" aria-label="Featured from nearby shops">
+          <Store className="h-6 w-6 buy-gold" aria-hidden />
+          <p>Nothing featured right now</p>
+          <span>Nearby shops will show here when they have something on offer.</span>
+        </section>
+      ) : null}
 
       <Link href="/spotlight" className="buy-quick"><Flame className="h-[18px] w-[18px]" aria-hidden />Spotlight</Link>
 
@@ -627,8 +639,8 @@ export function BuyHome() {
             {reels.map((r) => (
               <PushLink key={r.id} href={r.product?.id ? `/product/${r.product.id}` : `/store/${r.store_id}`} reelFor={r.product?.id} chrome={r.product?.id ? "reel" : "none"} role="listitem" className="buy-reel" aria-label={`${r.title} from ${r.store_name}`}>
                 {spotImg(r) && <img src={spotImg(r)!} alt="" loading="lazy" />}
-                {r.type === "video" ? <span className="buy-reel__play"><Play className="h-3 w-3 fill-current" aria-hidden /></span> : <span className="buy-reel__price">{ugx(r.product.price)}</span>}
-                <span className="buy-reel__t"><b>{r.product.title}</b><small>{r.store_name}</small></span>
+                {r.type === "video" ? <span className="buy-reel__play"><Play className="h-3 w-3 fill-current" aria-hidden /></span> : r.product != null && <span className="buy-reel__price">{ugx(r.product.price)}</span>}
+                <span className="buy-reel__t"><b>{r.product?.title || r.title}</b><small>{r.store_name}</small></span>
               </PushLink>
             ))}
           </div>
@@ -667,9 +679,10 @@ function HeroCarousel({ slides, imageFor, onAdd }: { slides: Spot[]; imageFor: (
         {slides.map((sp, i) => {
           const copy = heroText(sp);
           const img = imageFor(sp);
-          const price = sp.product?.price > 0 ? ugx(sp.product.price) : null;
-          const productLine = sp.product?.title && sp.product.title !== copy.title ? `${sp.product.title}${price ? ` · ${price}` : ""}` : price;
-          const shopHref = sp.product?.id ? `/product/${sp.product.id}` : `/store/${sp.store_id}`;
+          const product = sp.product;
+          const price = product && product.price > 0 ? ugx(product.price) : null;
+          const productLine = product?.title && product.title !== copy.title ? `${product.title}${price ? ` · ${price}` : ""}` : price;
+          const shopHref = product?.id ? `/product/${product.id}` : `/store/${sp.store_id}`;
           return (
             <article key={sp.id} data-product-source={sp.product?.id || undefined} className="buy-hero__slide" aria-label={copy.title}>
               <div className="buy-hero__copy">
@@ -695,7 +708,7 @@ function HeroCarousel({ slides, imageFor, onAdd }: { slides: Spot[]; imageFor: (
 
 function heroText(sp: Spot): { title: string; sub: string } {
   const live = sp.type === "live";
-  const title = sp.title?.trim() || (live ? `Live from ${sp.store_name}` : sp.product.title);
+  const title = sp.title?.trim() || (live ? `Live from ${sp.store_name}` : sp.product?.title) || sp.store_name;
   const bits = [live ? "Featured live" : null, sp.store_name, sp.viewer_count ? `${sp.viewer_count} watching` : null].filter(Boolean);
   return { title, sub: bits.join(" · ") };
 }
