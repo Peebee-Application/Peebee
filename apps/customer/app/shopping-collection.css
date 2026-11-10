@@ -1,5 +1,7 @@
-/* Shared collection screens (groceries, stores, See all). Tokens only. */
-.shop-page { padding-top: 8px; }
+/* Shared collection screens (groceries, stores, See all). Tokens only.
+   --shop-gutter matches the page's px-4 (1rem). The left inset is that gutter.
+   The right side is only enough for the last item to scroll clear of the edge. */
+.shop-page { --shop-gutter: 1rem; --shop-scroll-end: 12px; padding-top: 8px; }
 .shop-title { font-size: clamp(26px, 7vw, 32px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
 .shop-sub { margin-top: 4px; font-size: 14px; font-weight: 650; color: rgb(var(--color-ink-500)); }
 .shop-search {
@@ -39,8 +41,10 @@
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  margin-inline: -16px;
-  padding: 2px 16px 4px;
+  overscroll-behavior-x: contain;
+  margin-inline: calc(-1 * var(--shop-gutter, 1rem));
+  padding: 2px var(--shop-scroll-end, 12px) 4px var(--shop-gutter, 1rem);
+  scroll-padding-inline: var(--shop-gutter, 1rem) 0px;
   scrollbar-width: none;
 }
 .shop-cats::-webkit-scrollbar { display: none; }
@@ -57,20 +61,27 @@
   box-shadow: var(--shadow-card);
 }
 .shop-cat[aria-selected="true"] { background: rgb(var(--color-gold)); color: rgb(var(--color-ink-gold)); border-color: transparent; }
-.shop-hero { margin-top: 4px; }
-.shop-hero { overflow: hidden; }
+.shop-hero {
+  margin-top: 4px;
+  margin-inline: calc(-1 * var(--shop-gutter, 1rem));
+  width: calc(100% + 2 * var(--shop-gutter, 1rem));
+}
 .shop-hero__track {
+  --buy-hero-gap: 12px;
+  --buy-peek: 20px;
   display: flex;
-  gap: 12px;
+  gap: var(--buy-hero-gap);
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
+  scroll-padding-inline: var(--shop-gutter, 1rem) 0px;
+  padding-inline: var(--shop-gutter, 1rem) calc(var(--buy-hero-gap) + var(--buy-peek));
   scrollbar-width: none;
-  border-radius: 28px;
 }
 .shop-hero__track::-webkit-scrollbar { display: none; }
 .shop-hero__slide {
-  flex: 0 0 calc(100% - 24px);
+  flex: 0 0 100%;
   scroll-snap-stop: always;
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(108px, .9fr);
@@ -93,7 +104,16 @@
 .shop-dot[aria-current="true"]::before { width: 18px; background: rgb(var(--color-gold)); }
 .shop-section { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 10px; }
 .shop-section h2 { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
-.shop-live { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.shop-live {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  margin-inline: calc(-1 * var(--shop-gutter, 1rem));
+  padding: 0 var(--shop-scroll-end, 12px) 4px var(--shop-gutter, 1rem);
+  scroll-padding-inline: var(--shop-gutter, 1rem) 0px;
+  scrollbar-width: none;
+}
 .shop-live::-webkit-scrollbar { display: none; }
 .shop-live__item { width: 72px; flex-shrink: 0; text-align: center; }
 .shop-live__ring { position: relative; display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 6px; border-radius: 50%; padding: 2.5px; background: conic-gradient(#e5372b, rgb(var(--color-gold)), #e5372b); }

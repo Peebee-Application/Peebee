@@ -14,7 +14,7 @@ import {
 } from "../../lib/buy-home";
 import { addToCart, useCart, useEarlierCarts, type CartItem } from "../../lib/cart";
 import { CartDrawer } from "../CartDrawer";
-import { Crossfade, PushLink, RollingCount, SnapDots, useBuyHomeChrome, useFadeImages, usePillIndicator, useSnapTrack } from "./motion";
+import { Crossfade, PushLink, RollingCount, SnapDots, useBuyHomeChrome, useFadeImages, useHeroAutoplay, usePillIndicator, useSnapTrack } from "./motion";
 import { formatDistanceKm, haversineKm, useCustomerLocation } from "../../lib/location";
 import { useRegisterNavBack, useRegisterNavPrimaryAction } from "../../lib/nav-primary-action";
 import { productPricing, type MarketVariant } from "../../lib/product-pricing";
@@ -666,42 +666,57 @@ export function BuyHome() {
 
 function HeroCarousel({ slides, imageFor, onAdd }: { slides: Spot[]; imageFor: (sp: Spot) => string | null; onAdd: (sp: Spot) => Promise<unknown> }) {
   const ref = useRef<HTMLDivElement>(null);
-  const { index, moving, go } = useSnapTrack(ref, slides.length);
+  const loop = slides.length > 1;
+  const { index, moving, go } = useSnapTrack(ref, slides.length, { loop });
+  const [paused, setPaused] = useState(false);
+  const progress = useHeroAutoplay(loop, index % slides.length, moving, paused, go, slides.length);
   function onKey(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     e.preventDefault();
-    go(e.key === "ArrowRight" ? Math.min(slides.length - 1, index + 1) : Math.max(0, index - 1));
+    const shown = index % slides.length;
+    go(e.key === "ArrowRight" ? shown + 1 : shown - 1);
+  }
+  function slide(sp: Spot, i: number, clone = false) {
+    const copy = heroText(sp);
+    const img = imageFor(sp);
+    const product = sp.product;
+    const price = product && product.price > 0 ? ugx(product.price) : null;
+    const productLine = product?.title && product.title !== copy.title ? `${product.title}${price ? ` · ${price}` : ""}` : price;
+    const shopHref = product?.id ? `/product/${product.id}` : `/store/${sp.store_id}`;
+    return (
+      <article key={clone ? `${sp.id}-loop` : sp.id} data-product-source={clone ? undefined : sp.product?.id || undefined} className="buy-hero__slide" aria-hidden={clone || undefined} aria-label={copy.title}>
+        <div className="buy-hero__copy">
+          <p className="buy-hero__title">{copy.title}</p>
+          {copy.sub && <p className="buy-hero__sub">{copy.sub}</p>}
+          {productLine && <p className="buy-hero__price">{productLine}</p>}
+          <PushLink href={shopHref} className="buy-shop" tabIndex={clone ? -1 : undefined}>Shop now</PushLink>
+        </div>
+        <div className="buy-hero__media">
+          <PushLink href={shopHref} className="buy-hero__photo" tabIndex={-1} aria-label={`View ${sp.product?.title || sp.store_name}`}>
+            {img && <img src={img} alt="" loading={i === 0 && !clone ? "eager" : "lazy"} />}
+          </PushLink>
+          {sp.product?.id && <AddButton label={`Add ${sp.product.title}`} className="buy-hero__add" onAdd={() => onAdd(sp)} />}
+        </div>
+      </article>
+    );
   }
 
   return (
-    <section className="buy-hero" aria-roledescription="carousel" aria-label="Featured from nearby shops">
+    <section
+      className="buy-hero"
+      aria-roledescription="carousel"
+      aria-label="Featured from nearby shops"
+      onPointerEnter={() => setPaused(true)}
+      onPointerLeave={() => setPaused(false)}
+      onPointerDown={() => setPaused(true)}
+      onPointerUp={() => setPaused(false)}
+      onPointerCancel={() => setPaused(false)}
+    >
       <div ref={ref} className="buy-hero__track" onKeyDown={onKey} tabIndex={0}>
-        {slides.map((sp, i) => {
-          const copy = heroText(sp);
-          const img = imageFor(sp);
-          const product = sp.product;
-          const price = product && product.price > 0 ? ugx(product.price) : null;
-          const productLine = product?.title && product.title !== copy.title ? `${product.title}${price ? ` · ${price}` : ""}` : price;
-          const shopHref = product?.id ? `/product/${product.id}` : `/store/${sp.store_id}`;
-          return (
-            <article key={sp.id} data-product-source={sp.product?.id || undefined} className="buy-hero__slide" aria-label={copy.title}>
-              <div className="buy-hero__copy">
-                <p className="buy-hero__title">{copy.title}</p>
-                {copy.sub && <p className="buy-hero__sub">{copy.sub}</p>}
-                {productLine && <p className="buy-hero__price">{productLine}</p>}
-                <PushLink href={shopHref} className="buy-shop">Shop now</PushLink>
-              </div>
-              <div className="buy-hero__media">
-                <PushLink href={shopHref} className="buy-hero__photo" tabIndex={-1} aria-label={`View ${sp.product?.title || sp.store_name}`}>
-                  {img && <img src={img} alt="" loading={i === 0 ? "eager" : "lazy"} />}
-                </PushLink>
-                {sp.product?.id && <AddButton label={`Add ${sp.product.title}`} className="buy-hero__add" onAdd={() => onAdd(sp)} />}
-              </div>
-            </article>
-          );
-        })}
+        {slides.map((sp, i) => slide(sp, i))}
+        {loop && slide(slides[0]!, 0, true)}
       </div>
-      <SnapDots count={slides.length} index={index} moving={moving} labels={slides.map((sp) => `Show ${sp.store_name}`)} onPick={go} />
+      <SnapDots count={slides.length} index={index} moving={moving} progress={progress} labels={slides.map((sp) => `Show ${sp.store_name}`)} onPick={go} />
     </section>
   );
 }
