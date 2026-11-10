@@ -4,8 +4,11 @@
   --buy-line: var(--border-faint);
   --buy-gold-ink: #8a6a0c;
   --buy-pull: 0px;
+  --buy-gutter: 20px;
+  /* Room so the last pill or card can scroll clear of the screen edge. Not a right-hand gutter. */
+  --buy-scroll-end: 12px;
   padding-top: 4px;
-  padding-inline: 20px;
+  padding-inline: var(--buy-gutter);
 }
 :root[data-theme="dark"] .buy-home { --buy-gold-ink: rgb(var(--color-gold-400)); }
 @media (prefers-color-scheme: dark) {
@@ -192,8 +195,10 @@ html.buy-pull-page { overscroll-behavior-y: none; }
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  margin-inline: -20px;
-  padding: 2px 20px 6px;
+  overscroll-behavior-x: contain;
+  margin-inline: calc(-1 * var(--buy-gutter));
+  padding: 2px var(--buy-scroll-end) 6px var(--buy-gutter);
+  scroll-padding-inline: var(--buy-gutter) 0px;
   scroll-snap-type: x proximity;
   scrollbar-width: none;
 }
@@ -214,7 +219,11 @@ html.buy-pull-page { overscroll-behavior-y: none; }
 }
 .buy-cat[aria-selected="true"] { background: rgb(var(--color-gold)); color: rgb(var(--color-ink-gold)); border-color: transparent; }
 
-.buy-hero { margin-top: 16px; overflow: hidden; }
+.buy-hero { margin-top: 16px; }
+.buy-hero:not(.buy-hero--empty) {
+  margin-inline: calc(-1 * var(--buy-gutter));
+  width: calc(100% + 2 * var(--buy-gutter));
+}
 .buy-hero--empty {
   display: flex;
   flex-direction: column;
@@ -233,16 +242,20 @@ html.buy-pull-page { overscroll-behavior-y: none; }
 .buy-hero--empty span { max-width: 28ch; font-size: 13px; font-weight: 650; color: rgb(var(--color-ink-500)); }
 .buy-hero__track {
   display: flex;
-  gap: 12px;
+  /* The slide stays 24px short of the content column. The gap covers that inset plus the
+     left gutter, so the next slide starts at the screen edge and does not peek. */
+  gap: calc(var(--buy-gutter) + 24px);
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
+  scroll-padding-inline: var(--buy-gutter) 0px;
+  padding-inline: var(--buy-gutter) calc(var(--buy-gutter) + 24px);
   scrollbar-width: none;
-  border-radius: 28px;
 }
 .buy-hero__track::-webkit-scrollbar { display: none; }
 .buy-hero__slide {
-  flex: 0 0 calc(100% - 24px);
+  flex: 0 0 100%;
   scroll-snap-stop: always;
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(112px, 0.9fr);
@@ -450,7 +463,7 @@ html.buy-pull-page { overscroll-behavior-y: none; }
   position: sticky;
   top: calc(4rem + 52px);
   z-index: 5;
-  margin-inline: -16px;
+  margin-inline: calc(-1 * var(--shop-gutter, 1rem));
   padding: 8px 0 10px;
   background: rgb(var(--color-cream) / calc(.78 * var(--c, 0)));
   backdrop-filter: blur(calc(20px * var(--c, 0)));
@@ -482,8 +495,20 @@ img.buy-fade[data-loaded] { opacity: 1; }
 }
 .buy-swipe__face { position: relative; background: rgb(var(--surface-card)); touch-action: pan-y; }
 .buy-grabber { display: block; width: 36px; height: 5px; margin: 0 auto 8px; border-radius: 99px; background: rgb(var(--color-ink-500) / .35); }
-.buy-extra { overflow: hidden; }
-.buy-extra__track { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.buy-extra {
+  margin-inline: calc(-1 * var(--buy-gutter));
+  width: calc(100% + 2 * var(--buy-gutter));
+}
+.buy-extra__track {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--buy-gutter) 0px;
+  padding-inline: var(--buy-gutter) var(--buy-scroll-end);
+  scrollbar-width: none;
+}
 .buy-extra__track::-webkit-scrollbar { display: none; }
 .buy-extra__slide { flex: 0 0 calc(100% - 24px); scroll-snap-align: start; scroll-snap-stop: always; }
 

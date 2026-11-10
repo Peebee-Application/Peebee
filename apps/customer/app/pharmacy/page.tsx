@@ -232,7 +232,7 @@ export default function PharmacyPage() {
           {!loading && <span className="text-xs text-ink-500">{visible.length} item{visible.length === 1 ? "" : "s"}</span>}
         </div>
         {categories.length > 1 && (
-          <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5" role="tablist" aria-label="Categories">
+          <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto overscroll-x-contain scroll-pl-4 pl-4 pr-3 pb-0.5" role="tablist" aria-label="Categories">
             {categories.map((c) => (
               <button key={c} type="button" role="tab" aria-selected={category === c} onClick={() => setCategory(c)} className={`rx-chip shrink-0 rounded-full px-3.5 py-2 text-[13px] font-semibold ${category === c ? "is-active" : ""}`}>
                 {c}
