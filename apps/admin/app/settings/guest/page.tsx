@@ -54,11 +54,19 @@ export default function GuestSettingsPage() {
 
   const off = !canManage;
   return (
-    <SettingsPageShell title="Guest checkout" loading={!form && !error}>
+    <SettingsPageShell title="Guest access" loading={!form && !error}>
       {form && (
         <form onSubmit={save} className="space-y-6 pb-12">
           {error && <div role="alert" className="flex items-center gap-3 rounded-2xl bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"><AlertCircle className="h-5 w-5 shrink-0" /><p>{error}</p></div>}
           {saved && <div role="status" className="flex items-center gap-3 rounded-2xl bg-green/10 p-4 text-sm font-semibold text-green"><CheckCircle2 className="h-5 w-5 shrink-0" /><p>Guest checkout settings saved.</p></div>}
+
+          <section className="space-y-4 rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm">
+            <div>
+              <h2 className="text-base font-bold text-ink">Guest browsing</h2>
+              <p className="text-xs text-ink-500">Signed-out visitors can look around the customer app. Cart, checkout, wallet, payments, orders, account, settings and notifications still ask them to sign in. Off keeps today&apos;s sign-in screen.</p>
+            </div>
+            <Row label="Allow guest browsing" hint="Shows “Browse as guest” on the welcome screen" checked={form.browsingEnabled} disabled={off} onChange={(v) => set("browsingEnabled", v)} />
+          </section>
 
           <section className="space-y-4 rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm">
             <div>

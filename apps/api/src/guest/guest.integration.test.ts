@@ -48,9 +48,10 @@ test("a guest buys from a shared product link, pays first, and is told about it"
       ...(init.body ? { body: JSON.stringify(init.body) } : {}),
     });
 
-  const config = await (await json("/guest/config")).json() as { enabled: boolean; cardAvailable: boolean };
+  const config = await (await json("/guest/config")).json() as { enabled: boolean; cardAvailable: boolean; browsingEnabled: boolean };
   assert.equal(config.enabled, true);
   assert.equal(config.cardAvailable, false);
+  assert.equal(config.browsingEnabled, false, "guest browsing stays off until an admin turns it on");
 
   const demo = Object.values(DEMO_MARKETPLACE_PRODUCTS).flat().find((p) => !p.has_variants && Number(p.price) >= 5000);
   assert.ok(demo, "a demo product to buy");
@@ -124,6 +125,10 @@ test("a guest buys from a shared product link, pays first, and is told about it"
   await client.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('guest_checkout_enabled', '0')");
   invalidateSettingsCache();
   assert.equal((await json("/guest/checkout", { body: details })).status, 403);
+  await client.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('guest_browsing_enabled', '1')");
+  invalidateSettingsCache();
+  assert.equal(((await (await json("/guest/config")).json()) as { browsingEnabled: boolean }).browsingEnabled, true);
+  assert.equal((await json("/guest/checkout", { body: details })).status, 403, "browsing does not turn checkout back on");
 
   // A password chosen at checkout makes the account straight away.
   await client.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('guest_checkout_enabled', '1')");

@@ -1,4 +1,5 @@
 import '@peebee/shared/auth.css';
+import "./account-auth.css";
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";

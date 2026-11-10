@@ -42,6 +42,7 @@ guestRoutes.get("/guest/config", async (c) => {
   }
   return c.json({
     enabled: ready.ok,
+    browsingEnabled: settings.browsingEnabled,
     cardAvailable,
     maxQuantity: settings.maxQuantity,
     suggestAccount: settings.suggestAccount,
@@ -275,6 +276,6 @@ guestRoutes.patch("/admin/guest-settings", requireAuth, requireRole("admin"), re
   const before = await getGuestSettings();
   await setGuestSettings(parsed.data);
   const after = await getGuestSettings();
-  await logActivity({ actor: c.get("user"), action: "settings.update", entityType: "settings", summary: "Updated Guest checkout settings", before: { guest: before }, after: { guest: after }, ip: clientIp(c) });
+  await logActivity({ actor: c.get("user"), action: "settings.update", entityType: "settings", summary: "Updated guest access settings", before: { guest: before }, after: { guest: after }, ip: clientIp(c) });
   return c.json({ guest: after });
 });

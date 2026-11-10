@@ -1,4 +1,5 @@
-import { configurePracticeSession, createApiClient, createPracticeFetch, friendlyErrorMessage } from "@peebee/shared";
+import { configurePracticeSession, createApiClient, friendlyErrorMessage } from "@peebee/shared";
+import { createCustomerFetch, leavePracticeForLiveSession } from "./live-session";
 
 export const TOKEN_KEY = "peebee_customer_token";
 export const USER_KEY = "peebee_customer_user";
@@ -14,6 +15,9 @@ export function getStoredToken(): string | null {
  * A full page load rather than a router push, so no stale state survives. */
 function onUnauthorized() {
   if (typeof window === "undefined") return;
+  // The session is already dead. Drop practice too, so the login screen is live
+  // and a saved practice persona cannot be written back over the next sign-in.
+  leavePracticeForLiveSession(TOKEN_KEY, null);
   window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(USER_KEY);
   if (!window.location.pathname.startsWith("/login")) window.location.href = "/login";
@@ -21,7 +25,7 @@ function onUnauthorized() {
 
 export const api = createApiClient({
   baseUrl: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:10000",
-  fetchImpl: createPracticeFetch("customer"),
+  fetchImpl: createCustomerFetch(getStoredToken),
   getToken: getStoredToken,
   onUnauthorized,
 });

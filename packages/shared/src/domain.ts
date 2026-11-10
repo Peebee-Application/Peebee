@@ -3402,6 +3402,8 @@ export interface PharmacyStoreProfile {
 /** Guest checkout on shared product links (admin switches) and how guests are told about their delivery. */
 export type GuestSettings = {
   enabled: boolean;
+  /** Signed-out visitors may look around the customer app. Off keeps the sign-in redirect. */
+  browsingEnabled: boolean;
   cardEnabled: boolean;
   maxQuantity: number;
   suggestAccount: boolean;
@@ -3414,7 +3416,7 @@ export type GuestSettings = {
   whatsappTemplate: string;
 };
 
-export type GuestConfig = { enabled: boolean; cardAvailable: boolean; maxQuantity: number; suggestAccount: boolean; codeStatusEnabled: boolean };
+export type GuestConfig = { enabled: boolean; browsingEnabled: boolean; cardAvailable: boolean; maxQuantity: number; suggestAccount: boolean; codeStatusEnabled: boolean };
 
 export type GuestCheckoutInput = {
   productId: string;

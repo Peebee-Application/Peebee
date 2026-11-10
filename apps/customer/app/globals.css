@@ -34,6 +34,9 @@
   --color-green: 27 122 78;
   --color-green-400: 47 168 106;
   --color-green-600: 27 122 78;
+  /* General error. Kept apart from --ride-red, which belongs to the ride screen. */
+  --color-danger: 217 45 32;
+  --color-danger-ink: 155 28 18;
   /* The page colour in light mode: a soft ivory. Cards stay white (--surface-card) so they lift off it. */
   --color-cream: 250 248 239;
   --color-cream-50: 255 255 255;
@@ -102,6 +105,8 @@
     --color-ink-900: 245 245 245;
     --color-green: 47 168 106;
     --color-green-400: 62 196 128;
+    --color-danger: 255 138 128;
+    --color-danger-ink: 255 196 188;
     --color-cream: 14 14 14;
     --color-cream-50: 14 14 14;
     --color-cream-100: 26 26 26;
@@ -142,6 +147,8 @@
   --color-ink-900: 245 245 245;
   --color-green: 47 168 106;
   --color-green-400: 62 196 128;
+  --color-danger: 255 138 128;
+  --color-danger-ink: 255 196 188;
   --color-cream: 14 14 14;
   --color-cream-50: 14 14 14;
   --color-cream-100: 26 26 26;
