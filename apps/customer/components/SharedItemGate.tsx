@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
-import { rememberReturnTo } from "../lib/return-to";
+import { useRequireAccount } from "../lib/guest-access";
 import { ShareButton } from "./ShareButton";
 
 export type SharedItemPreview = {
@@ -34,6 +34,7 @@ export function SharedItemGate({ preview, children }: { preview: SharedItemPrevi
 
 function PublicItemPreview({ preview }: { preview: SharedItemPreview }) {
   const router = useRouter();
+  const requireAccount = useRequireAccount();
   const [guestOk, setGuestOk] = useState(false);
   // Guest checkout is a product-link feature, and the admin can switch it off.
   useEffect(() => {
@@ -43,8 +44,8 @@ function PublicItemPreview({ preview }: { preview: SharedItemPreview }) {
   const productId = preview.path.split("/").filter(Boolean).pop() ?? "";
   const Icon = preview.kind === "dish" ? UtensilsCrossed : ShoppingBag;
   function signIn() {
-    rememberReturnTo(preview.path);
-    router.push("/login");
+    const productHref = guestOk && preview.kind === "product" ? `/guest/checkout?product=${encodeURIComponent(productId)}` : undefined;
+    requireAccount({ returnTo: preview.path, buyAsGuestHref: productHref });
   }
   return (
     <article className="mx-auto max-w-md space-y-5 px-4 pb-32 pt-4 text-ink">

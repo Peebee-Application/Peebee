@@ -39,6 +39,10 @@ const config: Config = {
           400: "rgb(var(--color-green-400) / <alpha-value>)",
           600: "rgb(var(--color-green-600) / <alpha-value>)",
         },
+        danger: {
+          DEFAULT: "rgb(var(--color-danger) / <alpha-value>)",
+          ink: "rgb(var(--color-danger-ink) / <alpha-value>)",
+        },
         // From the Peebee wordmark — used for brand chrome (header accents,
         // headings-as-brand, trust badges), kept separate from `gold`
         // which stays the one CTA/interactive accent.

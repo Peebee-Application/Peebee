@@ -116,7 +116,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/settings/learn", label: "Peebee Learn", icon: GraduationCap, hint: "Schools and courses" },
       { href: "/settings/channels", label: "Channels", icon: Clapperboard, hint: "Creators, Spotlight, memberships, causes, rewards", keywords: "creator spotlight membership cause donation reward kyc verification", visible: (r) => hasPermission(r, "channels.view") || hasPermission(r, "settings.manage"), children: [{ href: "/settings/channels/review", label: "Channels review queues" }] },
       { href: "/settings/video-ads", label: "Video & ads", icon: Video, hint: "Creator video providers and ads", keywords: "channels creators cloudinary mux bunny cloudflare advertising campaigns", visible: can("settings.manage") },
-      { href: "/settings/guest", label: "Guest checkout", icon: UserRound, hint: "Shared links and alerts" },
+      { href: "/settings/guest", label: "Guest access", icon: UserRound, hint: "Browsing, shared links and alerts" },
       { href: "/settings/shopping-units", label: "Shopping units", icon: Ruler, hint: "Measures and matching", visible: can("settings.manage") },
       { href: "/settings/shopping-features", label: "Shopping features", icon: Sparkles, hint: "Photo search, membership, in-store code and featured slides", visible: can("settings.manage") },
       { href: "/settings/product-variations", label: "Product variations", icon: Ruler, hint: "Colour, size and other options, and which open on Buy cards", keywords: "variant option colour color size swatch merchant product", visible: can("settings.manage") },

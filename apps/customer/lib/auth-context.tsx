@@ -5,6 +5,7 @@ import { resetNotificationSnapshots } from "@peebee/shared";
 import type { AuthUser } from "@peebee/shared";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, TOKEN_KEY, USER_KEY } from "./api";
+import { leavePracticeForLiveSession, revokeToken } from "./live-session";
 import { unsubscribeFromPush } from "./push";
 import { AUTH_CHANGE_EVENT } from "./cart";
 
@@ -44,6 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [ready, userId]);
 
   const persist = useCallback((token: string, nextUser: AuthUser) => {
+    // Every successful sign-in starts live. A practice backup is revoked, not restored.
+    const previous = window.localStorage.getItem(TOKEN_KEY);
+    leavePracticeForLiveSession(TOKEN_KEY, token);
+    if (previous && previous !== token) revokeToken(previous);
     resetNotificationSnapshots();
     window.localStorage.setItem(TOKEN_KEY, token);
     window.localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
@@ -74,6 +79,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     resetNotificationSnapshots();
+    // Drop practice before the logout call so it reaches the real API (the
+    // practice simulator otherwise swallows /v1/auth/logout) and so a saved
+    // practice session is not written back on top of the next sign-in.
+    const current = window.localStorage.getItem(TOKEN_KEY);
+    leavePracticeForLiveSession(TOKEN_KEY, current);
     // Order matters: this call reads the token out of local storage to
     // authenticate itself, so it has to be started before the token is
     // removed. Signing out doesn't wait on it or fail with it — the local

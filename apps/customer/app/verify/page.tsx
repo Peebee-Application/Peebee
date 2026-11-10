@@ -1,29 +1,31 @@
 "use client";
-import { AuthScene } from "@peebee/shared/auth";
-
 
 import { isUserVerified } from "@peebee/shared";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { api, errorMessage } from "../../lib/api";
+import { AuthButton, AuthNoticeView, AuthScreen, AuthSub, AuthTitle, AuthTop, OtpBoxes } from "../../components/account/AuthUi";
+import { maskContact } from "../../lib/account-id";
+import { classifyAuthError, type AuthNotice } from "../../lib/auth-notice";
+import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 
 type Channel = "sms" | "email";
 
+function clock(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 export default function VerifyPage() {
   const { user, updateUser, logout } = useAuth();
-  const router = useRouter();
-  const [channel, setChannel] = useState<Channel>("email");
+  const [picked, setPicked] = useState<Channel | null>(null);
+  const channel: Channel = picked ?? (user?.email ? "email" : "sms");
   const [code, setCode] = useState("");
   const [sentTarget, setSentTarget] = useState<string | null>(null);
   const [devCode, setDevCode] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (user && isUserVerified(user)) router.replace("/");
-  }, [user, router]);
+  const [notice, setNotice] = useState<AuthNotice | null>(null);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -31,28 +33,26 @@ export default function VerifyPage() {
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  // A code was already sent at registration — this just covers the case of
-  // returning to /verify later (e.g. after logging back in unverified).
-  // Email is the default channel; phone-only accounts fall back to SMS.
   useEffect(() => {
     if (!user || isUserVerified(user)) return;
-    const defaultChannel: Channel = user.email ? "email" : "sms";
-    setChannel(defaultChannel);
-    void sendCode(defaultChannel, { silent: true });
+    const next: Channel = user.email ? "email" : "sms";
+    const timer = window.setTimeout(() => { void sendCode(next, { silent: true }); }, 0);
+    return () => window.clearTimeout(timer);
+    // The code is already sent at registration; this covers a later visit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  async function sendCode(c: Channel, opts?: { silent?: boolean }) {
+  async function sendCode(next: Channel, opts?: { silent?: boolean }) {
     setBusy(true);
-    if (!opts?.silent) setError(null);
+    if (!opts?.silent) setNotice(null);
     setDevCode(null);
     try {
-      const res = await api.requestVerification(c);
+      const res = await api.requestVerification(next);
       setSentTarget(res.target);
       if (res.devCode) setDevCode(res.devCode);
       setCooldown(30);
     } catch (err) {
-      if (!opts?.silent) setError(errorMessage(err));
+      if (!opts?.silent) setNotice(classifyAuthError(err));
       setCooldown(30);
     } finally {
       setBusy(false);
@@ -61,109 +61,59 @@ export default function VerifyPage() {
 
   async function confirm(e: React.FormEvent) {
     e.preventDefault();
+    if (code.length !== 6 || busy) return;
     setBusy(true);
-    setError(null);
+    setNotice(null);
     try {
       const res = await api.confirmVerification(channel, code);
       updateUser(res.user);
-      router.replace("/");
     } catch (err) {
-      setError(errorMessage(err));
+      setNotice(classifyAuthError(err));
     } finally {
       setBusy(false);
     }
   }
 
-  function switchChannel(c: Channel) {
-    setChannel(c);
+  function switchChannel() {
+    const next: Channel = channel === "email" ? "sms" : "email";
+    setPicked(next);
     setCode("");
-    setError(null);
+    setNotice(null);
     setSentTarget(null);
     setDevCode(null);
     setCooldown(0);
+    void sendCode(next);
   }
 
   const hasEmail = !!user?.email;
   const hasPhone = !!user?.phone;
-  const hasBothChannels = hasEmail && hasPhone;
+  const shown = sentTarget ?? (channel === "sms" ? user?.phone : user?.email) ?? "";
+  const other = channel === "email" ? "Send by SMS instead" : "Send by email instead";
 
   return (
-    <AuthScene><div className="auth-legacy">
-      <div className="mx-auto w-full max-w-sm space-y-6">
-
-        <div className="space-y-1 text-center">
-          <h1 className="text-xl font-bold text-ink">Verify your account</h1>
-          <p className="text-sm text-ink-500">
-            {channel === "sms"
-              ? `Enter the 6-digit code we texted to ${sentTarget ?? user?.phone ?? "your phone"}.`
-              : `Enter the 6-digit code we emailed to ${sentTarget ?? user?.email ?? "your email"}.`}
-          </p>
+    <AuthScreen>
+      <AuthTop onBack={logout} backLabel="Sign out" step="Step 3 of 3" busy={busy} />
+      <form onSubmit={confirm}>
+        <AuthTitle>Enter the 6-digit code</AuthTitle>
+        <AuthSub>We sent it to <b>{maskContact(shown)}</b></AuthSub>
+        <div className="account-stack">
+          <OtpBoxes value={code} onChange={(value) => { setCode(value); setNotice(null); }} disabled={busy} invalid={notice?.tone === "error"} />
+          <p className="account-hint">It fills in automatically when the message arrives.</p>
+          {devCode && <p className="account-dev">No SMS or email provider is configured yet — your code is <strong>{devCode}</strong>.</p>}
+          {notice && <AuthNoticeView notice={notice} onRetry={() => void sendCode(channel)} />}
+          <AuthButton type="submit" busy={busy} disabled={code.length !== 6}>{busy ? "Checking…" : "Verify"}</AuthButton>
+          <div className="account-split">
+            <span style={{ color: "rgb(var(--color-ink-500))" }}>
+              {cooldown > 0 ? <>Resend code in <b style={{ color: "rgb(var(--color-ink))" }}>{clock(cooldown)}</b></> : (
+                <button type="button" onClick={() => void sendCode(channel)} disabled={busy}>Resend code</button>
+              )}
+            </span>
+            {hasEmail && hasPhone && (
+              <button type="button" onClick={switchChannel} disabled={busy}>{other}</button>
+            )}
+          </div>
         </div>
-
-        {hasBothChannels && (
-          <div className="flex rounded-full bg-[rgb(var(--surface-muted))] p-1">
-            {(["sms", "email"] as const).map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => switchChannel(c)}
-                className={`flex-1 rounded-full py-2 text-sm font-semibold transition-colors ${
-                  channel === c ? "glass-panel text-ink shadow-sm" : "text-ink-500"
-                }`}
-              >
-                {c === "sms" ? "By SMS" : "By email"}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <form onSubmit={confirm} className="card space-y-4 !p-5">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-ink-500" htmlFor="code">
-              6-digit code
-            </label>
-            <input
-              id="code"
-              required
-              inputMode="numeric"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/[^\d]/g, ""))}
-              className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-3 text-center text-2xl tracking-[0.4em] outline-none focus:border-gold"
-              placeholder="······"
-              autoFocus
-            />
-          </div>
-
-          {devCode && (
-            <p className="rounded-lg bg-gold/10 px-3 py-2 text-xs text-ink-500">
-              No SMS/email provider configured yet — your code is <strong>{devCode}</strong>.
-            </p>
-          )}
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={busy || code.length !== 6}
-            className="flex min-h-12 w-full items-center justify-center rounded-full bg-gold px-4 py-3 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
-          >
-            {busy ? "Please wait…" : "Verify"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => sendCode(channel)}
-            disabled={busy || cooldown > 0}
-            className="w-full text-center text-sm font-semibold text-gold disabled:cursor-not-allowed disabled:text-ink-500/60"
-          >
-            {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
-          </button>
-        </form>
-
-        <button type="button" onClick={logout} className="mx-auto block text-center text-xs text-ink-500 underline">
-          Log out
-        </button>
-      </div>
-    </div></AuthScene>
+      </form>
+    </AuthScreen>
   );
 }

@@ -4,9 +4,11 @@ import {
   CAR_MODEL_CATALOG,
   type FoodSellerOrders,
   createPracticeFetch,
+  discardPracticeSession,
   isPracticeJourneyComplete,
   isPracticeMode,
   isSandboxDemo,
+  isServerPractice,
   startPracticeMode,
 } from "@peebee/shared";
 
@@ -535,6 +537,20 @@ test("sandbox and practice are two switches over the same demo data: sandbox has
   assert.equal((await get("/v1/taxipress/config")).real, true, "no sandbox, no practice: the server");
 });
 
+
+test("leaving practice drops the saved session instead of restoring it over the next login", () => {
+  installStorage();
+  const win = (globalThis as unknown as { window: { localStorage: Storage } }).window;
+  startPracticeMode("customer");
+  win.localStorage.setItem("peebee_customer_token", "demo-token");
+  win.localStorage.setItem("peebee_practice_server", JSON.stringify({ role: "customer", backup: { peebee_customer_token: "old-live-token" } }));
+  const backup = discardPracticeSession();
+  assert.equal(backup?.peebee_customer_token, "old-live-token");
+  assert.equal(isPracticeMode(), false);
+  assert.equal(isServerPractice(), false);
+  assert.equal(win.localStorage.getItem("peebee_practice_server"), null);
+  assert.equal(win.localStorage.getItem("peebee_customer_token"), "demo-token", "the token in use is left for logout to revoke");
+});
 
 test("Taxipress demo books the way the app does: who travels and what they bring, not a seat count", async (t) => {
   installStorage();

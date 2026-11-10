@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Check, MapPin, Minus, Plus, ShoppingBag, Trash2, Truck } from "lucide-react";
 import type { CheckoutDelivery, CheckoutItem } from "@peebee/shared";
 import { useCart, cartOwnerId, dismissEarlierCartNotice } from "../../lib/cart";
+import { useGuestAccess, useRequireAccount } from "../../lib/guest-access";
 import { EarlierCarts } from "../../components/EarlierCarts";
 import { ProductImage } from "../../components/ProductImage";
 import { RoundCheck } from "../../components/marketplace/MarketplaceUI";
@@ -119,6 +120,13 @@ function CartCheckout() {
     clearCart,
     completeCheckout,
   } = useCart();
+  const requireAccount = useRequireAccount();
+  const { setBuyAsGuestTarget } = useGuestAccess();
+  useEffect(() => {
+    const ids = [...new Set(selectedItems.map((item) => item.productId))];
+    setBuyAsGuestTarget(ids.length === 1 ? `/guest/checkout?product=${encodeURIComponent(ids[0]!)}` : null);
+    return () => setBuyAsGuestTarget(null);
+  }, [selectedItems, setBuyAsGuestTarget]);
   // The "saved under Earlier carts" notice is shown once: leaving this screen clears it
   // (deferred, so a dev-mode remount does not clear it while it is still on screen).
   useEffect(() => {
@@ -168,6 +176,7 @@ function CartCheckout() {
   // Steps are history entries: forward pushes, Back returns to the step before (never another screen's checkout).
   const pushedSteps = useRef(new Set<BagCheckoutStep>());
   const goToStep = (next: BagCheckoutStep) => {
+    if (next !== "bag" && !requireAccount()) return;
     setCheckoutError(null);
     pushedSteps.current.add(next);
     router.push(bagCheckoutHref(next));
@@ -189,6 +198,7 @@ function CartCheckout() {
   const handleCheckout = async () => {
     const quote = bagQuote.quote;
     if (selectedItems.length === 0 || isSubmitting || total == null || !quote || !delivery.place) return;
+    if (!requireAccount({ buyAsGuestHref: selectedItems.length === 1 ? `/guest/checkout?product=${encodeURIComponent(selectedItems[0]!.productId)}` : undefined })) return;
     setIsSubmitting(true);
     setCheckoutError(null);
     // Only the current bag's selected lines are ever submitted (earlier carts and restaurant carts never are).

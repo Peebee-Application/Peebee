@@ -793,7 +793,7 @@ function practiceModuleGate(path: string, method: string, body: Record<string, u
   for (const [prefix, module, label] of PRACTICE_MODULE_PREFIXES) {
     if (!path.startsWith(prefix) || practiceModuleOn(module)) continue;
     if (path === "/v1/talent/config") return jsonResponse({ enabled: false, workerSearchEnabled: false });
-    if (path === "/v1/guest/config") return jsonResponse({ enabled: false, cardAvailable: false, maxQuantity: 1, suggestAccount: false, codeStatusEnabled: false });
+    if (path === "/v1/guest/config") return jsonResponse({ enabled: false, browsingEnabled: false, cardAvailable: false, maxQuantity: 1, suggestAccount: false, codeStatusEnabled: false });
     if (path === "/v1/taxipress/config") return jsonResponse({ enabled: false, routes: [], cashEnabled: false, seatChoiceFeeUgx: 0, returnDiscountPercent: 0, maxSeatsPerBooking: 0, payWithinMinutes: 0, parcelFitText: "", parcelNotAllowed: [] });
     return paused(label);
   }
@@ -806,7 +806,7 @@ const readGuestOrders = (): PracticeGuestOrder[] => { try { return canUseStorage
 
 /** Guest checkout in practice: a shared product link bought without an account, then tracked by code. Status moves on by itself. */
 function practiceGuestRequest(path: string, method: string, body: Record<string, unknown>): Response {
-  if (method === "GET" && path === "/v1/guest/config") return jsonResponse({ enabled: true, cardAvailable: false, maxQuantity: 5, suggestAccount: true, codeStatusEnabled: true });
+  if (method === "GET" && path === "/v1/guest/config") return jsonResponse({ enabled: true, browsingEnabled: false, cardAvailable: false, maxQuantity: 5, suggestAccount: true, codeStatusEnabled: true });
   if (method === "POST" && path === "/v1/guest/checkout") {
     const productId = String(body.productId ?? "");
     const quantity = Math.floor(Number(body.quantity));

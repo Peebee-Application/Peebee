@@ -495,6 +495,8 @@ const DEFAULTS = {
   pharmacy_submissions_per_hour: "10",
   /** Guest checkout on shared product links, and how guests are told about their delivery */
   guest_checkout_enabled: "1",
+  /** Signed-out browsing of the customer app. Off: visitors are sent to sign in. */
+  guest_browsing_enabled: "0",
   guest_checkout_card_enabled: "1",
   guest_checkout_max_quantity: "10",
   guest_checkout_suggest_account: "1",

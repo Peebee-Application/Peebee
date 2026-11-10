@@ -60,6 +60,31 @@ export async function launchPractice(role: PracticeRole): Promise<string> {
   return startPracticeMode(role);
 }
 
+/**
+ * Drops practice on this device without putting a saved session back.
+ * Logout and a new sign-in must not restore an earlier account over the one
+ * the person just started. The returned backup is the session server-practice
+ * had set aside (storage key → value); the caller can revoke its token.
+ * Returns null when this device was not in the shared practice world.
+ */
+export function discardPracticeSession(): Record<string, string | null> | null {
+  const store = storage();
+  if (!store) return null;
+  let backup: Record<string, string | null> | null = null;
+  const raw = store.getItem(SERVER_PRACTICE_KEY);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as { backup?: Record<string, string | null> };
+      backup = parsed.backup ?? null;
+    } catch {
+      backup = null;
+    }
+  }
+  store.removeItem(SERVER_PRACTICE_KEY);
+  store.removeItem(PRACTICE_MODE_STORAGE_KEY);
+  return backup;
+}
+
 /** Leaves the shared world and puts the person's own session back. Returns false when the shared world wasn't in use. */
 export function endServerPractice(): boolean {
   const store = storage();

@@ -14,6 +14,7 @@ import { BrandHeader } from "./BrandHeader";
 import { ChatDrawerShell } from "../lib/chat-drawer";
 import { FoodBusinessTheme } from "./FoodBusinessTheme";
 import { OfflineBanner } from "./OfflineBanner";
+import { GuestAccessProvider } from "../lib/guest-access";
 import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./PracticeMode";
 import { isNavigationOverlayOpen, subscribeToNavigationOverlay } from "../lib/location-flow-state";
 
@@ -51,12 +52,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const showNav = !isAuthPage && !isChatThread && !isFoodDetail && !navigationOverlayOpen && !isImmersiveFullscreen;
 
   return (
+    <GuestAccessProvider>
     <AuthGate>
       <ChatDrawerShell>
 
-      <PracticeModeGuard role="customer" pathname={pathname} />
-      {!isAuthPage && <PracticeModePrompt role="customer" />}
-      {!isAuthPage && <PracticeModeBanner role="customer" />}
+      {user && <PracticeModeGuard role="customer" pathname={pathname} />}
+      {user && !isAuthPage && <PracticeModePrompt role="customer" />}
+      {user && !isAuthPage && <PracticeModeBanner role="customer" />}
       {!isAuthPage && <OfflineBanner />}
       {showHeader && <BrandHeader />}
       <main
@@ -67,5 +69,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {showNav && <BottomNav />}
       </ChatDrawerShell>
     </AuthGate>
+    </GuestAccessProvider>
   );
 }
