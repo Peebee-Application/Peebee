@@ -1,6 +1,8 @@
-"""Reproduce the illustrative Shopping Concierge model; no live data or settings writes.
+"""Reproduce the WITHDRAWN initial model for audit; no live data or settings writes.
 
 Run with the Codex bundled Python (Pillow is needed only for the chart).
+The founder rejected this pricing premise. These are retained historical
+calculations only, not a recommended price, funding request or business forecast.
 Every commercial input below is an assumption, not an observed result or quote.
 """
 import json
@@ -95,7 +97,7 @@ assert [x["operating_result"] for x in annual] == [-85816000, -19920000, 2016000
 assert funding["setup"] + funding["year_1_burn"] + funding["months_13_18_burn"] + cash == funding["proposed_raise"]
 assert cash == 30403000 and downside_burn == 193434375
 
-result = dict(status="Illustrative assumptions only; not a forecast or current admin settings",
+result = dict(status="WITHDRAWN: pricing premise rejected by founder; historical arithmetic only, not an investor forecast or funding recommendation",
               currency="UGX", periods="Years since commercial launch; no calendar launch date assumed",
               reviewed_code_commit="4871a68f9e475728c7e45624d817a7f06968d671",
               cases=cases, annual=annual, cashflow_18_months=cashflow, funding=funding,
@@ -108,8 +110,8 @@ def chart():
     d = ImageDraw.Draw(im)
     font = lambda size: ImageFont.truetype("C:/Windows/Fonts/arial.ttf", size)
     ink, gold, gray = "#27251f", "#9d7928", "#69665f"
-    d.text((65,35), "Shopping Concierge illustrative operating results", font=font(35), fill=ink)
-    d.text((65,85), "UGX millions | Assumptions only | Before tax and launch setup costs", font=font(23), fill=gray)
+    d.text((65,35), "Withdrawn initial Shopping Concierge scenario", font=font(35), fill=ink)
+    d.text((65,85), "Historical assumptions only | Pricing rejected | Do not use for funding decisions", font=font(23), fill=gray)
     left, right, top, bottom, maxval, minval = 160, 1430, 145, 600, 300, -120
     yy = lambda v: top + (maxval-v)/(maxval-minval)*(bottom-top)
     for v in [-100,0,100,200,300]:
