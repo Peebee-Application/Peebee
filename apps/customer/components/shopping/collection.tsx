@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { productIdFromHref } from "../../lib/buy-motion";
-import { PushLink, SnapDots, useSnapTrack } from "../buy/motion";
+import { PushLink, SnapDots, useHeroAutoplay, useSnapTrack } from "../buy/motion";
 import "../../app/shopping-collection.css";
 
 export type CollectionSlide = {
@@ -18,36 +18,53 @@ export type CollectionSlide = {
 /** Snap carousel for a collection. Slides come from live shops or catalogue rows already loaded. */
 export function CollectionHero({ slides, label }: { slides: CollectionSlide[]; label: string }) {
   const ref = useRef<HTMLDivElement>(null);
-  const { index, moving, go } = useSnapTrack(ref, slides.length);
+  const loop = slides.length > 1;
+  const { index, moving, go } = useSnapTrack(ref, slides.length, { loop });
+  const [paused, setPaused] = useState(false);
+  const progress = useHeroAutoplay(loop, slides.length ? index % slides.length : 0, moving, paused, go, slides.length);
   if (slides.length === 0) return null;
 
   function onKey(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     e.preventDefault();
-    go(e.key === "ArrowRight" ? Math.min(slides.length - 1, index + 1) : Math.max(0, index - 1));
+    const shown = index % slides.length;
+    go(e.key === "ArrowRight" ? shown + 1 : shown - 1);
+  }
+  function card(slide: CollectionSlide, i: number, clone = false) {
+    return (
+      <article key={clone ? `${slide.id}-loop` : slide.id} data-product-source={clone ? undefined : slide.href ? productIdFromHref(slide.href) ?? undefined : undefined} className="shop-hero__slide" aria-hidden={clone || undefined} aria-label={slide.title}>
+        <div className="shop-hero__copy">
+          <p className="shop-hero__title">{slide.title}</p>
+          {slide.subtitle && <p className="shop-hero__sub">{slide.subtitle}</p>}
+          {slide.onCta ? (
+            <button type="button" className="shop-hero__cta" tabIndex={clone ? -1 : undefined} onClick={slide.onCta}>{slide.cta ?? "Shop now"}</button>
+          ) : slide.href ? (
+            <PushLink href={slide.href} className="shop-hero__cta" tabIndex={clone ? -1 : undefined}>{slide.cta ?? "Shop now"}</PushLink>
+          ) : null}
+        </div>
+        <div className="shop-hero__media">
+          {slide.imageUrl && <img className="buy-fade" src={slide.imageUrl} alt="" loading={i === 0 && !clone ? "eager" : "lazy"} onLoad={(event) => { event.currentTarget.dataset.loaded = "true"; }} />}
+        </div>
+      </article>
+    );
   }
 
   return (
-    <section className="shop-hero" aria-roledescription="carousel" aria-label={label}>
+    <section
+      className="shop-hero"
+      aria-roledescription="carousel"
+      aria-label={label}
+      onPointerEnter={() => setPaused(true)}
+      onPointerLeave={() => setPaused(false)}
+      onPointerDown={() => setPaused(true)}
+      onPointerUp={() => setPaused(false)}
+      onPointerCancel={() => setPaused(false)}
+    >
       <div ref={ref} className="shop-hero__track" onKeyDown={onKey} tabIndex={0}>
-        {slides.map((slide, i) => (
-          <article key={slide.id} data-product-source={slide.href ? productIdFromHref(slide.href) ?? undefined : undefined} className="shop-hero__slide" aria-label={slide.title}>
-            <div className="shop-hero__copy">
-              <p className="shop-hero__title">{slide.title}</p>
-              {slide.subtitle && <p className="shop-hero__sub">{slide.subtitle}</p>}
-              {slide.onCta ? (
-                <button type="button" className="shop-hero__cta" onClick={slide.onCta}>{slide.cta ?? "Shop now"}</button>
-              ) : slide.href ? (
-                <PushLink href={slide.href} className="shop-hero__cta">{slide.cta ?? "Shop now"}</PushLink>
-              ) : null}
-            </div>
-            <div className="shop-hero__media">
-              {slide.imageUrl && <img className="buy-fade" src={slide.imageUrl} alt="" loading={i === 0 ? "eager" : "lazy"} onLoad={(event) => { event.currentTarget.dataset.loaded = "true"; }} />}
-            </div>
-          </article>
-        ))}
+        {slides.map((item, i) => card(item, i))}
+        {loop && card(slides[0]!, 0, true)}
       </div>
-      <SnapDots count={slides.length} index={index} moving={moving} labels={slides.map((slide) => `Show ${slide.title}`)} onPick={go} />
+      <SnapDots count={slides.length} index={index} moving={moving} progress={progress} labels={slides.map((slide) => `Show ${slide.title}`)} onPick={go} />
     </section>
   );
 }

@@ -241,16 +241,17 @@ html.buy-pull-page { overscroll-behavior-y: none; }
 .buy-hero--empty p { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
 .buy-hero--empty span { max-width: 28ch; font-size: 13px; font-weight: 650; color: rgb(var(--color-ink-500)); }
 .buy-hero__track {
+  --buy-hero-gap: 12px;
+  --buy-peek: 20px;
   display: flex;
-  /* The slide stays 24px short of the content column. The gap covers that inset plus the
-     left gutter, so the next slide starts at the screen edge and does not peek. */
-  gap: calc(var(--buy-gutter) + 24px);
+  gap: var(--buy-hero-gap);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
   scroll-padding-inline: var(--buy-gutter) 0px;
-  padding-inline: var(--buy-gutter) calc(var(--buy-gutter) + 24px);
+  /* Right padding is the room the loop copy needs, not a resting inset. About 20px of the next slide stays in view. */
+  padding-inline: var(--buy-gutter) calc(var(--buy-hero-gap) + var(--buy-peek));
   scrollbar-width: none;
 }
 .buy-hero__track::-webkit-scrollbar { display: none; }
@@ -297,20 +298,35 @@ html.buy-pull-page { overscroll-behavior-y: none; }
 .buy-hero__photo { position: absolute; inset: 0; display: block; }
 .buy-hero__photo img { width: 100%; height: 100%; object-fit: cover; }
 .buy-hero__add { position: absolute; right: 10px; bottom: 10px; z-index: 1; }
-.buy-dots { position: relative; display: flex; justify-content: center; }
-.buy-dotpill {
-  position: absolute;
-  top: 18px;
-  left: 13px;
-  width: 18px;
-  height: 8px;
-  border-radius: 99px;
-  background: rgb(var(--color-gold));
-  pointer-events: none;
+.buy-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 11px;
+  min-height: 28px;
 }
-.buy-dots[data-moving] .buy-dotpill { width: 26px; margin-left: -4px; }
-.buy-dot { width: 44px; height: 44px; display: grid; place-items: center; background: transparent; border: 0; }
-.buy-dot::before { content: ""; width: 8px; height: 8px; border-radius: 99px; background: rgb(var(--color-ink-500) / .4); }
+.buy-dot {
+  position: relative;
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 99px;
+  background: rgb(var(--color-ink-500) / .35);
+  overflow: hidden;
+}
+.buy-dot::after { content: ""; position: absolute; inset: -14px -2px; }
+.buy-dot[aria-current="true"] { width: 22px; }
+.buy-dot__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  transform: scaleX(var(--p, 1));
+  transform-origin: left center;
+  background: rgb(var(--color-ink));
+  border-radius: inherit;
+}
 @media (max-width: 380px) {
   .buy-hero__slide { grid-template-columns: 1fr; }
   .buy-hero__media { order: -1; height: 168px; min-height: 168px; }
@@ -527,7 +543,7 @@ img.buy-fade[data-loaded] { opacity: 1; }
     opacity: .8;
   }
   .buy-add { transition: transform 100ms cubic-bezier(.2, .8, .2, 1), opacity 100ms ease-out, background 100ms ease-out; }
-  .buy-dotpill, .buy-ind, .is-animated .buy-cat, .is-animated .shop-cat { transition: transform 300ms cubic-bezier(.34, 1.3, .64, 1), width 300ms cubic-bezier(.34, 1.3, .64, 1), margin-left 300ms cubic-bezier(.34, 1.3, .64, 1), color 200ms ease-out, border-color 200ms ease-out; }
+  .buy-dot, .buy-ind, .is-animated .buy-cat, .is-animated .shop-cat { transition: transform 300ms cubic-bezier(.34, 1.3, .64, 1), width 300ms cubic-bezier(.34, 1.3, .64, 1), margin-left 300ms cubic-bezier(.34, 1.3, .64, 1), color 200ms ease-out, border-color 200ms ease-out; }
   .buy-composer.is-sticky { transition: background 200ms ease-out, backdrop-filter 200ms ease-out; }
   .buy-composer.is-sticky[data-stuck] {
     background: rgb(var(--color-cream) / .78);
@@ -597,7 +613,8 @@ img.buy-fade[data-loaded] { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .buy-pull, .buy-cap i, .buy-add, .buy-hero__track, .buy-listening span, .buy-live::before, .buy-collection, .buy-collection img, .buy-skel i, .shop-skel i, .buy-roll__old, .buy-roll__new, .buy-cross__out, .buy-cross__in, .buy-rise, .buy-card-follow > *, .buy-veil { animation: none; transition: none; scroll-behavior: auto; }
   img.buy-fade { opacity: 1; transition: none; }
-  .buy-dotpill, .buy-ind { transition: none; }
+  .buy-dot, .buy-ind { transition: none; }
+  .buy-dot__fill { transform: scaleX(1); }
   html[data-buy-home] .customer-header { transform: none; opacity: 1; }
 }
 

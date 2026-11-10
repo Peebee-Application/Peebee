@@ -67,14 +67,16 @@
   width: calc(100% + 2 * var(--shop-gutter, 1rem));
 }
 .shop-hero__track {
+  --buy-hero-gap: 12px;
+  --buy-peek: 20px;
   display: flex;
-  gap: calc(var(--shop-gutter, 1rem) + 24px);
+  gap: var(--buy-hero-gap);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
   scroll-padding-inline: var(--shop-gutter, 1rem) 0px;
-  padding-inline: var(--shop-gutter, 1rem) calc(var(--shop-gutter, 1rem) + 24px);
+  padding-inline: var(--shop-gutter, 1rem) calc(var(--buy-hero-gap) + var(--buy-peek));
   scrollbar-width: none;
 }
 .shop-hero__track::-webkit-scrollbar { display: none; }

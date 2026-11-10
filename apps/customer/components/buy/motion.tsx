@@ -3,7 +3,7 @@
 import { Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   armProductCard,
   armReel,
@@ -76,9 +76,37 @@ export function useFadeImages(rootRef: RefObject<HTMLElement | null>) {
   }, [rootRef]);
 }
 
-export function useSnapTrack(ref: RefObject<HTMLDivElement | null>, count: number) {
+/** How long one hero slide stays before the progress pill advances it. A motion timing, not a business limit. */
+export const HERO_AUTOPLAY_MS = 5000;
+
+/**
+ * `count` is the number of real slides. With `loop`, the track also has a copy of the first
+ * slide at the end, so the last slide can peek that copy and then jump home without a seam.
+ */
+export function useSnapTrack(ref: RefObject<HTMLDivElement | null>, count: number, options?: { loop?: boolean }) {
+  const loop = options?.loop === true && count > 1;
+  const slots = loop ? count + 1 : count;
   const [index, setIndex] = useState(0);
   const [moving, setMoving] = useState(false);
+
+  const settle = useCallback((el: HTMLDivElement, raw: number) => {
+    if (loop && raw >= count) {
+      el.style.scrollSnapType = "none";
+      el.style.scrollBehavior = "auto";
+      el.scrollLeft = 0;
+      setIndex(0);
+      setMoving(false);
+      requestAnimationFrame(() => {
+        el.style.scrollSnapType = "";
+        el.style.scrollBehavior = "";
+      });
+      return;
+    }
+    el.style.scrollSnapType = "";
+    el.style.scrollBehavior = "";
+    setIndex(raw);
+    setMoving(false);
+  }, [count, loop]);
 
   useEffect(() => {
     const el = ref.current;
@@ -121,18 +149,14 @@ export function useSnapTrack(ref: RefObject<HTMLDivElement | null>, count: numbe
       dragging = false;
       if (!pulled) return;
       const stride = slideStride(el);
-      const next = heroTargetIndex(el.scrollLeft, stride, count, -vx);
+      const next = heroTargetIndex(el.scrollLeft, stride, slots, -vx);
       setMoving(true);
       setIndex(next);
-      springTrackTo(el, next * stride, () => {
-        el.style.scrollSnapType = "";
-        el.style.scrollBehavior = "";
-        setMoving(false);
-      });
+      springTrackTo(el, next * stride, () => settle(el, next));
     };
     const onScroll = () => {
       if (dragging) return;
-      const next = heroTargetIndex(el.scrollLeft, slideStride(el), count, 0);
+      const next = heroTargetIndex(el.scrollLeft, slideStride(el), slots, 0);
       setIndex((current) => (current === next ? current : next));
     };
     el.addEventListener("pointerdown", down);
@@ -147,37 +171,88 @@ export function useSnapTrack(ref: RefObject<HTMLDivElement | null>, count: numbe
       el.removeEventListener("pointercancel", up);
       el.removeEventListener("scroll", onScroll);
     };
-  }, [count, ref]);
+  }, [ref, settle, slots]);
 
-  function go(next: number) {
+  const go = useCallback((next: number) => {
     const el = ref.current;
     if (!el) return;
-    const bounded = Math.max(0, Math.min(count - 1, next));
-    setIndex(bounded);
+    const bounded = Math.max(0, Math.min(slots - 1, next));
     if (prefersReducedMotion()) {
+      if (loop && bounded >= count) {
+        el.scrollLeft = 0;
+        setIndex(0);
+        return;
+      }
       el.scrollLeft = bounded * slideStride(el);
+      setIndex(bounded);
       return;
     }
     setMoving(true);
+    setIndex(bounded);
     el.style.scrollSnapType = "none";
-    springTrackTo(el, bounded * slideStride(el), () => {
-      el.style.scrollSnapType = "";
-      setMoving(false);
-    });
-  }
+    springTrackTo(el, bounded * slideStride(el), () => settle(el, bounded));
+  }, [count, loop, ref, settle, slots]);
 
   return { ref, index, moving, go };
 }
 
-export function SnapDots({ count, index, moving, labels, onPick }: {
+/** Grows from 0 to 1 over one slide, then asks for the next. Pauses in place. Reduced motion stays full and still. */
+export function useHeroAutoplay(enabled: boolean, index: number, moving: boolean, paused: boolean, go: (next: number) => void, count: number) {
+  const idle = prefersReducedMotion() || !enabled || count < 2;
+  const [sample, setSample] = useState({ index: -1, progress: 0 });
+  const elapsed = useRef(0);
+  const seen = useRef(index);
+
+  useEffect(() => {
+    if (seen.current !== index) {
+      seen.current = index;
+      elapsed.current = 0;
+    }
+    if (idle || paused || moving) return;
+    const origin = performance.now() - elapsed.current;
+    let frame = 0;
+    const tick = (now: number) => {
+      const spent = now - origin;
+      elapsed.current = spent;
+      const next = Math.min(1, spent / HERO_AUTOPLAY_MS);
+      setSample({ index, progress: next });
+      if (next >= 1) {
+        elapsed.current = 0;
+        go(index + 1);
+        return;
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [go, idle, index, moving, paused]);
+
+  if (idle) return 1;
+  return sample.index === index ? sample.progress : 0;
+}
+
+export function SnapDots({ count, index, moving, labels, onPick, progress }: {
   count: number; index: number; moving: boolean; labels: string[]; onPick: (index: number) => void;
+  /** 0 to 1 fill of the active pill. Omit it for a static pill with no timer. */
+  progress?: number;
 }) {
   if (count < 2) return null;
+  const shown = ((index % count) + count) % count;
   return (
-    <div className="buy-dots" data-moving={moving ? "" : undefined}>
-      <span className="buy-dotpill" style={{ transform: `translateX(${index * 44}px)` }} aria-hidden />
+    <div className="buy-dots" data-moving={moving ? "" : undefined} role="tablist" aria-label="Slides">
       {labels.map((label, i) => (
-        <button key={`${label}-${i}`} type="button" className="buy-dot" aria-label={label} aria-current={i === index ? "true" : undefined} onClick={() => onPick(i)} />
+        <button
+          key={`${label}-${i}`}
+          type="button"
+          role="tab"
+          className="buy-dot"
+          aria-label={label}
+          aria-selected={i === shown}
+          aria-current={i === shown ? "true" : undefined}
+          onClick={() => onPick(i)}
+        >
+          {i === shown && <span className="buy-dot__fill" style={progress == null ? undefined : { transform: `scaleX(${progress})` }} />}
+        </button>
       ))}
     </div>
   );
