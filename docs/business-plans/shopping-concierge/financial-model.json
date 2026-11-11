@@ -128,7 +128,7 @@
       "variable_operating_cost": 900000,
       "contribution": 13568595.0,
       "fixed_operating_cost": 24000000,
-      "paid_advertising": 4000000,
+      "incremental_marketing": 4000000,
       "operating_result": -14431405.0,
       "illustrative_corporate_income_tax": 0.0,
       "result_after_income_tax": -14431405.0,
@@ -154,7 +154,7 @@
       "variable_operating_cost": 2700000,
       "contribution": 40705785.0,
       "fixed_operating_cost": 36000000,
-      "paid_advertising": 0,
+      "incremental_marketing": 0,
       "operating_result": 4705785.0,
       "illustrative_corporate_income_tax": 1411735.5,
       "result_after_income_tax": 3294049.5,
@@ -180,7 +180,7 @@
       "variable_operating_cost": 5400000,
       "contribution": 81411570.0,
       "fixed_operating_cost": 48000000,
-      "paid_advertising": 0,
+      "incremental_marketing": 0,
       "operating_result": 33411570.0,
       "illustrative_corporate_income_tax": 10023471.0,
       "result_after_income_tax": 23388099.0,
@@ -217,7 +217,7 @@
         "variable_operating_cost": 5400000,
         "contribution": -13602150.0,
         "fixed_operating_cost": 48000000,
-        "paid_advertising": 0,
+        "incremental_marketing": 0,
         "operating_result": -61602150.0,
         "illustrative_corporate_income_tax": 0.0,
         "result_after_income_tax": -61602150.0,
@@ -253,7 +253,7 @@
         "variable_operating_cost": 5400000,
         "contribution": 45781425.0,
         "fixed_operating_cost": 48000000,
-        "paid_advertising": 0,
+        "incremental_marketing": 0,
         "operating_result": -2218575.0,
         "illustrative_corporate_income_tax": 0.0,
         "result_after_income_tax": -2218575.0,
@@ -289,7 +289,7 @@
         "variable_operating_cost": 5400000,
         "contribution": 81411570.0,
         "fixed_operating_cost": 48000000,
-        "paid_advertising": 0,
+        "incremental_marketing": 0,
         "operating_result": 33411570.0,
         "illustrative_corporate_income_tax": 10023471.0,
         "result_after_income_tax": 23388099.0,
@@ -325,7 +325,7 @@
         "variable_operating_cost": 5400000,
         "contribution": 99226642.5,
         "fixed_operating_cost": 48000000,
-        "paid_advertising": 0,
+        "incremental_marketing": 0,
         "operating_result": 51226642.5,
         "illustrative_corporate_income_tax": 15367992.75,
         "result_after_income_tax": 35858649.75,
@@ -361,7 +361,7 @@
         "variable_operating_cost": 5400000,
         "contribution": 105165000.0,
         "fixed_operating_cost": 48000000,
-        "paid_advertising": 0,
+        "incremental_marketing": 0,
         "operating_result": 57165000.0,
         "illustrative_corporate_income_tax": 17149500.0,
         "result_after_income_tax": 40015500.0,
@@ -380,25 +380,63 @@
     "uses": {
       "launch_setup": 12000000,
       "operating_runway": 22000000,
-      "paid_digital_advertising": 4000000,
+      "pilot_digital_advertising": 4000000,
       "working_capital": 4000000,
       "contingency": 2000000
     },
-    "paid_digital_advertising_breakdown": {
-      "search": 1500000,
-      "social_media": 2500000
-    },
-    "optional_broad_awareness": {
-      "uses": {
-        "local_radio": 5000000,
-        "billboards": 10000000,
-        "television": 8000000,
-        "newspapers": 4000000,
-        "production_and_measurement": 3000000
+    "marketing_strategy": {
+      "phase_uses": {
+        "pilot": {
+          "meta": 1500000,
+          "tiktok": 1000000,
+          "google_search_and_app": 1500000
+        },
+        "corridor_expansion": {
+          "meta": 3500000,
+          "tiktok": 2500000,
+          "google_search_and_app": 1500000,
+          "collateral": 1000000,
+          "radio": 5000000,
+          "billboard": 10000000,
+          "creators": 3500000,
+          "sms": 1500000,
+          "creative": 1500000,
+          "marketing_contingency": 500000,
+          "permits": 1000000
+        },
+        "retention": {
+          "meta": 3000000,
+          "tiktok": 2000000,
+          "google_search_and_app": 1500000,
+          "collateral": 1000000,
+          "radio": 2000000,
+          "creators": 1500000,
+          "sms": 1500000,
+          "creative": 500000,
+          "marketing_contingency": 1500000,
+          "permits": 1000000
+        }
       },
-      "additional_budget": 30000000,
-      "total_ask_with_broad_awareness": 74000000,
-      "year_one_at_same_order_volume": {
+      "phase_budgets_outside_setup": {
+        "pilot": 4000000,
+        "corridor_expansion": 31500000,
+        "retention": 15500000
+      },
+      "phase_order_targets": {
+        "pilot": 500,
+        "corridor_expansion": 1800,
+        "retention": 3700
+      },
+      "phase_core_operating_results_before_marketing": {
+        "pilot": -4869283.75,
+        "corridor_expansion": -1929421.5,
+        "retention": -3632699.75
+      },
+      "collateral_in_setup": 2000000,
+      "full_marketing_spend_including_setup_collateral": 53000000,
+      "ask_through_corridor_expansion": 75500000,
+      "full_funding_envelope": 91000000,
+      "year_one_with_full_marketing": {
         "orders": 6000,
         "goods_value": 360000000,
         "delivery_charges": 18000000,
@@ -414,14 +452,14 @@
         "variable_operating_cost": 900000,
         "contribution": 13568595.0,
         "fixed_operating_cost": 24000000,
-        "paid_advertising": 34000000,
-        "operating_result": -44431405.0,
+        "incremental_marketing": 51000000,
+        "operating_result": -61431405.0,
         "illustrative_corporate_income_tax": 0.0,
-        "result_after_income_tax": -44431405.0,
+        "result_after_income_tax": -61431405.0,
         "vat_registered_sensitivity": {
           "vat_inclusive_output_tax_no_input_credit": 2825389.8305084747,
-          "operating_result": -47256794.83050848,
-          "result_after_income_tax": -47256794.83050848
+          "operating_result": -64256794.83050848,
+          "result_after_income_tax": -64256794.83050848
         }
       }
     },
@@ -461,60 +499,60 @@
         },
         {
           "month": 4,
-          "orders": 350,
-          "operating_cash_result": -1208498.625,
-          "cumulative_operating_cash_result": -6077782.375
+          "orders": 550,
+          "operating_cash_result": -756212.125,
+          "cumulative_operating_cash_result": -5625495.875
         },
         {
           "month": 5,
-          "orders": 400,
-          "operating_cash_result": -1095427.0,
-          "cumulative_operating_cash_result": -7173209.375
+          "orders": 600,
+          "operating_cash_result": -643140.5,
+          "cumulative_operating_cash_result": -6268636.375
         },
         {
           "month": 6,
-          "orders": 450,
-          "operating_cash_result": -982355.375,
-          "cumulative_operating_cash_result": -8155564.75
+          "orders": 650,
+          "operating_cash_result": -530068.875,
+          "cumulative_operating_cash_result": -6798705.25
         },
         {
           "month": 7,
-          "orders": 500,
-          "operating_cash_result": -869283.75,
-          "cumulative_operating_cash_result": -9024848.5
+          "orders": 600,
+          "operating_cash_result": -643140.5,
+          "cumulative_operating_cash_result": -7441845.75
         },
         {
           "month": 8,
-          "orders": 550,
-          "operating_cash_result": -756212.125,
-          "cumulative_operating_cash_result": -9781060.625
+          "orders": 600,
+          "operating_cash_result": -643140.5,
+          "cumulative_operating_cash_result": -8084986.25
         },
         {
           "month": 9,
           "orders": 600,
           "operating_cash_result": -643140.5,
-          "cumulative_operating_cash_result": -10424201.125
+          "cumulative_operating_cash_result": -8728126.75
         },
         {
           "month": 10,
-          "orders": 700,
-          "operating_cash_result": -416997.25,
-          "cumulative_operating_cash_result": -10841198.375
+          "orders": 600,
+          "operating_cash_result": -643140.5,
+          "cumulative_operating_cash_result": -9371267.25
         },
         {
           "month": 11,
-          "orders": 900,
-          "operating_cash_result": 35289.25,
-          "cumulative_operating_cash_result": -10805909.125
+          "orders": 650,
+          "operating_cash_result": -530068.875,
+          "cumulative_operating_cash_result": -9901336.125
         },
         {
           "month": 12,
-          "orders": 1050,
-          "operating_cash_result": 374504.125,
+          "orders": 650,
+          "operating_cash_result": -530068.875,
           "cumulative_operating_cash_result": -10431405.0
         }
       ],
-      "peak_operating_cash_deficit": 10841198.375
+      "peak_operating_cash_deficit": 10431405.0
     },
     "downside": {
       "cash_share": 0.5,
@@ -542,56 +580,56 @@
         },
         {
           "month": 4,
-          "orders": 175,
-          "operating_cash_result": -1860489.2770127119,
-          "cumulative_operating_cash_result": -7661188.244173729
+          "orders": 275,
+          "operating_cash_result": -1780768.8638771186,
+          "cumulative_operating_cash_result": -7581467.831038136
         },
         {
           "month": 5,
-          "orders": 200,
-          "operating_cash_result": -1840559.1737288137,
-          "cumulative_operating_cash_result": -9501747.417902542
+          "orders": 300,
+          "operating_cash_result": -1760838.7605932204,
+          "cumulative_operating_cash_result": -9342306.591631357
         },
         {
           "month": 6,
-          "orders": 225,
-          "operating_cash_result": -1820629.0704449152,
-          "cumulative_operating_cash_result": -11322376.488347458
+          "orders": 325,
+          "operating_cash_result": -1740908.657309322,
+          "cumulative_operating_cash_result": -11083215.248940678
         },
         {
           "month": 7,
-          "orders": 250,
-          "operating_cash_result": -1800698.967161017,
-          "cumulative_operating_cash_result": -13123075.455508474
+          "orders": 300,
+          "operating_cash_result": -1760838.7605932204,
+          "cumulative_operating_cash_result": -12844054.009533899
         },
         {
           "month": 8,
-          "orders": 275,
-          "operating_cash_result": -1780768.8638771186,
-          "cumulative_operating_cash_result": -14903844.319385594
+          "orders": 300,
+          "operating_cash_result": -1760838.7605932204,
+          "cumulative_operating_cash_result": -14604892.77012712
         },
         {
           "month": 9,
           "orders": 300,
           "operating_cash_result": -1760838.7605932204,
-          "cumulative_operating_cash_result": -16664683.079978814
+          "cumulative_operating_cash_result": -16365731.530720338
         },
         {
           "month": 10,
-          "orders": 350,
-          "operating_cash_result": -1720978.5540254237,
-          "cumulative_operating_cash_result": -18385661.63400424
+          "orders": 300,
+          "operating_cash_result": -1760838.7605932204,
+          "cumulative_operating_cash_result": -18126570.29131356
         },
         {
           "month": 11,
-          "orders": 450,
-          "operating_cash_result": -1641258.1408898304,
-          "cumulative_operating_cash_result": -20026919.774894066
+          "orders": 325,
+          "operating_cash_result": -1740908.657309322,
+          "cumulative_operating_cash_result": -19867478.948622882
         },
         {
           "month": 12,
-          "orders": 525,
-          "operating_cash_result": -1581467.8310381356,
+          "orders": 325,
+          "operating_cash_result": -1740908.657309322,
           "cumulative_operating_cash_result": -21608387.605932202
         }
       ],

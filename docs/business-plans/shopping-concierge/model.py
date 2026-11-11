@@ -16,13 +16,21 @@ STANDARD_VAT_RATE = Fraction(18, 100)
 CORPORATE_TAX_RATE = Fraction(30, 100)
 CASH_RIDER_FEE_RECOVERY = Fraction(95, 100)
 VARIABLE_OPERATING_COST = 150
-PAID_DIGITAL_ADS = {"search": 1_500_000, "social_media": 2_500_000}
-BROAD_AWARENESS = {
-    "local_radio": 5_000_000,
-    "billboards": 10_000_000,
-    "television": 8_000_000,
-    "newspapers": 4_000_000,
-    "production_and_measurement": 3_000_000,
+# Phase amounts exclude the UGX 2m rider branding and collateral in launch setup.
+MARKETING_PHASES = {
+    "pilot": {"meta": 1_500_000, "tiktok": 1_000_000, "google_search_and_app": 1_500_000},
+    "corridor_expansion": {
+        "meta": 3_500_000, "tiktok": 2_500_000, "google_search_and_app": 1_500_000,
+        "collateral": 1_000_000, "radio": 5_000_000, "billboard": 10_000_000,
+        "creators": 3_500_000, "sms": 1_500_000, "creative": 1_500_000,
+        "marketing_contingency": 500_000, "permits": 1_000_000,
+    },
+    "retention": {
+        "meta": 3_000_000, "tiktok": 2_000_000, "google_search_and_app": 1_500_000,
+        "collateral": 1_000_000, "radio": 2_000_000, "creators": 1_500_000,
+        "sms": 1_500_000, "creative": 500_000, "marketing_contingency": 1_500_000,
+        "permits": 1_000_000,
+    },
 }
 
 
@@ -78,9 +86,9 @@ def order_economics(pricing, cash_share):
     }
 
 
-def projection(pricing, orders, fixed, cash_share, advertising=0):
+def projection(pricing, orders, fixed, cash_share, incremental_marketing=0):
     unit = order_economics(pricing, cash_share)
-    operating_result = orders * unit["contribution"] - fixed - advertising
+    operating_result = orders * unit["contribution"] - fixed - incremental_marketing
     corporate_tax = max(0, operating_result) * CORPORATE_TAX_RATE
     output_vat = orders * unit["collected_fees"] * STANDARD_VAT_RATE / (1 + STANDARD_VAT_RATE)
     vat_case_profit = operating_result - output_vat
@@ -100,7 +108,7 @@ def projection(pricing, orders, fixed, cash_share, advertising=0):
         "variable_operating_cost": orders * VARIABLE_OPERATING_COST,
         "contribution": orders * unit["contribution"],
         "fixed_operating_cost": fixed,
-        "paid_advertising": advertising,
+        "incremental_marketing": incremental_marketing,
         "operating_result": operating_result,
         "illustrative_corporate_income_tax": corporate_tax,
         "result_after_income_tax": operating_result - corporate_tax,
@@ -143,10 +151,11 @@ def main():
     reference = quote(60_000, 1)
     years = [(6_000, 24_000_000), (18_000, 36_000_000), (36_000, 48_000_000)]
     base_cash_share = Fraction(80, 100)
-    digital_budget = sum(PAID_DIGITAL_ADS.values())
-    broad_budget = sum(BROAD_AWARENESS.values())
+    phase_budgets = {phase: sum(uses.values()) for phase, uses in MARKETING_PHASES.items()}
+    pilot_budget = phase_budgets["pilot"]
+    full_marketing_budget = sum(phase_budgets.values())
     base = [
-        projection(reference, orders, fixed, base_cash_share, digital_budget if year == 1 else 0)
+        projection(reference, orders, fixed, base_cash_share, pilot_budget if year == 1 else 0)
         for year, (orders, fixed) in enumerate(years, start=1)
     ]
     sensitivities = {
@@ -156,7 +165,7 @@ def main():
         }
         for percent in (0, 50, 80, 95, 100)
     }
-    monthly_orders = [100, 150, 250, 350, 400, 450, 500, 550, 600, 700, 900, 1050]
+    monthly_orders = [100, 150, 250, 550, 600, 650, 600, 600, 600, 600, 650, 650]
     launch_budget = {
         "checkout_distance_and_fee_work": 6_000_000,
         "payment_testing_and_compliance_preparation": 2_000_000,
@@ -166,7 +175,7 @@ def main():
     funding_uses = {
         "launch_setup": sum(launch_budget.values()),
         "operating_runway": 22_000_000,
-        "paid_digital_advertising": digital_budget,
+        "pilot_digital_advertising": pilot_budget,
         "working_capital": 4_000_000,
         "contingency": 2_000_000,
     }
@@ -201,14 +210,24 @@ def main():
             "horizon_months": 12,
             "total": sum(funding_uses.values()),
             "uses": funding_uses,
-            "paid_digital_advertising_breakdown": PAID_DIGITAL_ADS,
-            "optional_broad_awareness": {
-                "uses": BROAD_AWARENESS,
-                "additional_budget": broad_budget,
-                "total_ask_with_broad_awareness": sum(funding_uses.values()) + broad_budget,
-                "year_one_at_same_order_volume": projection(
-                    reference, *years[0], base_cash_share, digital_budget + broad_budget
-                ),
+            "marketing_strategy": {
+                "phase_uses": MARKETING_PHASES,
+                "phase_budgets_outside_setup": phase_budgets,
+                "phase_order_targets": {
+                    "pilot": sum(monthly_orders[:3]),
+                    "corridor_expansion": sum(monthly_orders[3:6]),
+                    "retention": sum(monthly_orders[6:]),
+                },
+                "phase_core_operating_results_before_marketing": {
+                    "pilot": projection(reference, sum(monthly_orders[:3]), 6_000_000, base_cash_share)["operating_result"],
+                    "corridor_expansion": projection(reference, sum(monthly_orders[3:6]), 6_000_000, base_cash_share)["operating_result"],
+                    "retention": projection(reference, sum(monthly_orders[6:]), 12_000_000, base_cash_share)["operating_result"],
+                },
+                "collateral_in_setup": launch_budget["pilot_launch_materials_and_community_activation"],
+                "full_marketing_spend_including_setup_collateral": full_marketing_budget + launch_budget["pilot_launch_materials_and_community_activation"],
+                "ask_through_corridor_expansion": sum(funding_uses.values()) + phase_budgets["corridor_expansion"],
+                "full_funding_envelope": sum(funding_uses.values()) + full_marketing_budget - pilot_budget,
+                "year_one_with_full_marketing": projection(reference, *years[0], base_cash_share, full_marketing_budget),
             },
             "launch_setup_breakdown": launch_budget,
             "working_capital_breakdown": {

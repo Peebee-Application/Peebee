@@ -102,7 +102,7 @@ The corporate income tax line applies 30% to positive modeled operating income a
 | Other variable costs | (0.900) | (2.700) | (5.400) |
 | Contribution | 13.569 | 40.706 | 81.412 |
 | Fixed operating costs | (24.000) | (36.000) | (48.000) |
-| Paid search and social media | (4.000) | 0.000 | 0.000 |
+| Pilot paid search and social media | (4.000) | 0.000 | 0.000 |
 | **Operating income or loss** | (14.431) | 4.706 | 33.412 |
 | Illustrative corporate income tax | 0.000 | (1.412) | (10.023) |
 | **Result after illustrative income tax** | (14.431) | 3.294 | 23.388 |
@@ -163,49 +163,57 @@ The Admin order statistics endpoint also needs careful interpretation: its order
 
 ## Commercial launch and funding approach
 
-**Proposed funding ask: UGX 44 million** for launch setup, paid search and social media, and the first 12 months of Shopping Concierge operations in Kampala and Entebbe. A broader awareness campaign adds a provisional UGX 30 million, bringing the funding envelope to **UGX 74 million**. The operating budget assumes shared Peebee infrastructure, a small team and riders providing their own motorcycles.
+**Proposed funding is UGX 44 million for launch and protected operating runway, with a further UGX 31.5 million for corridor expansion and UGX 15.5 million for retention.** The full Year 1 envelope is **UGX 91 million** if both later phases need outside funding. Funding through corridor expansion totals UGX 75.5 million. The original UGX 44 million covers the pilot and protects core operations for 12 months.
 
-| Use of funds | UGX million | Basis |
+| Core use of funds | UGX million | Basis |
 | --- | ---: | --- |
-| One-time launch setup | 12 | 6 for checkout, distance pricing and fee split work, 2 for payment testing and compliance preparation, 2 for rider recruitment and training, and 2 for pilot materials and community activation |
-| Operating runway | 22 | Funds the peak operating cash deficit in the downside case, rounded up from 21.61 |
-| Paid search and social media | 4 | 1.5 for search and 2.5 for social media |
+| One-time launch setup | 12 | 6 for checkout, distance pricing and fee split work, 2 for payment testing and compliance preparation, 2 for rider recruitment and training, and 2 for rider branding and pilot market materials |
+| Operating runway | 22 | Covers the UGX 21.61 million downside operating cash deficit |
+| Pilot paid advertising | 4 | Meta 1.5, TikTok 1.0, and Google search and app ads 1.5 |
 | Working capital reserve | 4 | 3 for purchasing and settlement timing, equivalent to 50 reference baskets at UGX 60,000, and 1 for refunds and disputes |
-| Contingency | 2 | Unplanned launch costs or payment charges |
+| General contingency | 2 | Unplanned launch costs or payment charges |
 | **Core ask** | **44** | |
 
-The monthly operating budget is UGX 2 million in Year 1, or UGX 24 million before order contribution and paid ads. In the base case, 6,000 orders generate UGX 13.57 million in contribution, leaving a UGX 10.43 million core operating shortfall and a UGX 14.43 million loss after digital ads. Core operating cash needs peak at UGX 10.84 million in month 10. Reserving the entire digital budget alongside setup, working capital and contingency brings the base funding need to about UGX 32.84 million. Years 2 and 3 have no separately budgeted paid campaign. Update them when campaign performance and the follow-on budget are known.
+Year 1 fixed operations cost UGX 2 million per month. The base scenario’s 6,000 orders generate UGX 13.57 million in contribution against UGX 24 million in fixed costs. Core operating cash needs peak at UGX 10.43 million in month 12. With pilot ads, Year 1 operating loss is UGX 14.43 million. Full marketing would bring that loss to UGX 61.43 million at the same order volume, before setup and financing. The downside runway assumes 3,000 orders, a 50% cash mix and VAT included in Peebee’s fee. Later marketing funds are kept separate from the operating and working capital reserves. [Monthly funding and scenario model](financial-model.json)
 
-The core ask covers a downside case with 3,000 Year 1 orders, a 50% cash mix, and VAT included in the existing Peebee fee at 18% with no input credit assumed. Contribution in that case averages about UGX 797 per order. The core operating cash deficit reaches UGX 21.61 million in month 12, with the paid campaign funded separately in the use-of-funds table. The working capital allowance covers temporary exposure and should be resized using actual settlement timing, refund experience and the agreed funding arrangement.
+### Marketing strategy
 
-Use the first 90 days after launch to target 500 completed orders across the two markets and verify paid repeat orders, rider earnings, and contribution by payment method. At base-case contribution of UGX 2,261 per order, about 885 orders per month cover the Year 1 operating budget. Review spending and rollout pace against those results before expanding rider coverage or acquisition spend. [Monthly funding model](financial-model.json)
+Position Peebee as **“The Pocket Market Run” (*Omubeezi Wo Ku Dduuka*)**. Customers send a typed or voice list, request familiar market units such as heaps and bunches or set a spending amount, and pay the quoted price. Demonstrate the full experience in Luganda and English, including cash on delivery, rider communication and substitutions. Treat trust in payment and mobile data usage as pilot questions. Target an Android download under 20 MB and a lightweight web flow, and measure actual size, data use and signup completion before making public claims.
 
-### Advertising and broader awareness
+Concentrate media around staffed service zones, using the framework’s 4 km targeting radius where the channel supports it. Candidate areas are Nakawa, Ntinda, Kyanja, Bukoto and Kololo in Kampala, and Victoria Mall, Abayita Ababiri, Kitooro and Entebbe Town. Confirm live coverage before advertising any area. Use distinct links or offer codes by market and channel. Track settled orders and first-time paying customers alongside install metrics.
 
-Use paid search to reach people already looking for grocery shopping or delivery in the service areas. Use paid social to show how sending a shopping list works and build recognition around local markets and neighbourhoods. Spend UGX 500,000 across both channels in an initial test. Release the rest as completed first orders, repeat purchases and contribution justify it. Track acquisition cost as campaign spend divided by new customers who complete a paid order, and compare it with contribution from those customers over 90 days.
-
-Radio and outdoor placements can build recognition beyond the people reached by digital ads. Start with stations serving the launch areas and billboard sites near markets or along routes riders already serve. TV can show the shopping and delivery process. A newspaper placement can introduce the service and explain coverage. Give each channel a distinct offer code, link or phone prompt so Peebee can compare orders from the areas that received the campaign.
-
-| Optional awareness spending | UGX million | What to price |
+| Phase | Settled order target | Campaign and release conditions |
 | --- | ---: | --- |
-| Local radio | 5 | Repeated spots and presenter mentions for Kampala and Entebbe audiences |
-| Billboards | 10 | Limited placements near active service areas, including artwork, printing, installation and permits where applicable |
-| Television | 8 | A limited package of spots or demonstrations with an agreed schedule |
-| Newspapers | 4 | Targeted print or e-paper placements |
-| Production and measurement | 3 | Creative work, translations and campaign tracking |
-| **Additional awareness budget** | **30** | |
-| **Total ask with broader awareness** | **74** | |
+| Months 1–3. Pilot | 500 | Use Meta and TikTok voice-list demonstrations and Google search and app campaigns. Brand the first 30 vetted riders and use market collateral around Nakasero, Kalerwe and Kitooro where riders are active. Start with a small paid test and release the rest of the UGX 4 million as results support it. |
+| Months 4–6. Corridor expansion | 1,800 | Test a single Kibuye–Kajjansi corridor unipole, Luganda drive-time presenter demonstrations on stations such as Sapientia or Bukedde FM, local creators and continued digital acquisition. Release this phase after the pilot records at least 500 settled paid orders, blended CAC at or below UGX 8,000, at least 30% repeat within 30 days, cancellation below 12% and rider acceptance at or above 80%. |
+| Months 7–12. Retention | 3,700 | Use WhatsApp list sharing, tested delivery referral credits and opt-in SMS replenishment reminders alongside the channel budget below. Review release after the expansion records at least 500 completed orders per month, at least UGX 2,100 average retained contribution per order across payment methods and at least 20% of new registrations from unpaid referrals or word of mouth. Release from operating cash only if contribution covers fixed costs and planned retention spend. Otherwise use separately funded, approved spending or reduce it. |
 
-These are spending allowances. Radio Sapientia lists UGX 40,000 for a 30-second commercial. BrandAds estimates UGX 3 million to UGX 9.5 million per month for standard billboard rental, with printing and installation separate. Vision Group publishes TV, radio and newspaper rate cards. Its older newspaper card lists UGX 3.15 million for a quarter-page colour New Vision placement. A meaningful campaign needs current written quotes showing locations, number of spots, production, taxes and duration. The UGX 30 million allowance is for a limited campaign across the two launch markets. [Radio Sapientia](https://www.radiosapientia.com/marketing/) · [BrandAds billboard estimates](https://brandads.co.ug/advertising-cost-in-uganda/) · [Vision Group rate cards](https://www.visiongroup.co.ug/rate-card/) · [New Vision historical print card](https://www.visiongroup.co.ug/wp-content/uploads/2023/06/VG-newspaper-ratecard.pdf)
+The ongoing blended CAC target is UGX 6,500 per new customer with a first settled paid order. At the modeled UGX 2,261 contribution per order, three completed orders in 60 days yield about UGX 6,784 before any acquisition incentives. Measure payback using actual contribution per cohort after rewards. Track 35% second-order repeat within 21 days and 18% Google Play store visit-to-install conversion as targets. Use the proposed UGX 1,500 cost-per-install benchmark for Meta as a test input, with paid first orders governing spend. Spending all UGX 4 million on a pilot with only 500 settled orders would use the entire UGX 8,000 gate even if every order came from a distinct new paying customer. Repeat orders reduce that denominator, so pace spend against observed first-order conversions.
 
-Keep the additional UGX 30 million as a separate funding tranche. Release it when the initial launch shows reliable rider coverage and fulfilment, repeat paid orders and enough contribution to sustain the proposed campaign. At unchanged order volume, spending both ad budgets increases the Year 1 operating loss to UGX 44.43 million. The model assigns no increase in orders until there is evidence of the campaign's effect. [Financial scenarios](financial-model.json)
+### Twelve-month marketing budget
 
-Prepare and validate the existing flow before paid launch: rider purchasing capacity, accurate prices and fee disclosure, approved payment arrangements, delivery and handover, settlement, withdrawals, refunds and complaint handling. Rider recruitment should match actual order density and earnings rather than an assumed large roster.
+| Marketing line, UGX million | Months 1–3 | Months 4–6 | Months 7–12 | Year 1 |
+| --- | ---: | ---: | ---: | ---: |
+| Meta | 1.5 | 3.5 | 3.0 | 8.0 |
+| TikTok | 1.0 | 2.5 | 2.0 | 5.5 |
+| Google search and app ads | 1.5 | 1.5 | 1.5 | 4.5 |
+| Rider branding and market collateral | 2.0 | 1.0 | 1.0 | 4.0 |
+| Radio | 0.0 | 5.0 | 2.0 | 7.0 |
+| Entebbe Road billboard | 0.0 | 10.0 | 0.0 | 10.0 |
+| Local creators | 0.0 | 3.5 | 1.5 | 5.0 |
+| SMS re-engagement | 0.0 | 1.5 | 1.5 | 3.0 |
+| Creative and translation | 0.0 | 1.5 | 0.5 | 2.0 |
+| Marketing contingency | 0.0 | 0.5 | 1.5 | 2.0 |
+| Kampala and Entebbe permits allowance | 0.0 | 1.0 | 1.0 | 2.0 |
+| **Total marketing** | **6.0** | **31.5** | **15.5** | **53.0** |
+| Less pilot branding and materials already in setup | **(2.0)** | **0.0** | **0.0** | **(2.0)** |
+| **Incremental marketing outside setup** | **4.0** | **31.5** | **15.5** | **51.0** |
 
-Use early paid shopping orders in Kampala and Entebbe to establish actual basket sizes, total charges accepted, rider costs, duration, repeat use and loss experience. Separate full-price activity from subsidies and report each launch area and payment method distinctly. Avoid promoting a fixed completion time before the service can support it.
+The table follows the individual phase amounts in the supplied framework, including UGX 1 million of follow-on collateral in each later phase. The resulting totals replace the inconsistent subtotals in the attachment. Placement, SMS and permit amounts are allowances. Obtain current quotes and confirm what is included in the outdoor provider’s price before authorising spend. TV and newspaper placements remain options for a quoted substitution within an approved awareness budget. [Radio Sapientia](https://www.radiosapientia.com/marketing/) · [Vision Group rate cards](https://www.visiongroup.co.ug/rate-card/) · [Outdoor advertising supplier estimates](https://brandads.co.ug/advertising-cost-in-uganda/)
 
-Refresh the model with verified fees, payout costs, completed order volume, retention and rider capacity as pilot data becomes available. Allocate ongoing technology, support, payment administration and shared management costs to this module.
+At the 3,700-order retention target, contribution is about UGX 8.37 million against UGX 12 million in fixed costs over six months. That leaves a **UGX 3.63 million operating shortfall before retention spend**. Hold the UGX 15.5 million retention phase as a separate funding decision. A fully redeemed UGX 2,000-per-side referral would cost UGX 4,000. Pilot the offer against incremental settled orders and charge redeemed credits to the marketing contingency. Use opted-in SMS cohorts to test the framework’s Thursday reminder and make future timing depend on measured response.
 
+Prepare and validate checkout, rider purchasing capacity, payment settlement, refunds and complaints before paid launch. Measure order economics, service reliability and paid repeat use by market. Update the subsequent operating and campaign budgets from those results.
 
 ## Governance and investor diligence
 
@@ -216,6 +224,8 @@ UCC publishes courier licence categories and application requirements. Confirm t
 The investor case remains a pre-launch validation case. The strongest next evidence is affordable orders that customers repeat, adequate rider net earnings, reliable money movement and positive retained contribution. Those findings should determine growth spending and the funding request.
 
 ## Evidence and status
+
+The marketing strategy draws on the founder-supplied `marketing_strategy_and_budget_framework.md`. Phase spending follows its individual budget lines. Acquisition, retention, app size and order volumes are pilot targets.
 
 Founder-confirmed facts are Uganda as the market, Kampala and Entebbe first, no paying customers yet and one rider accepting the list, buying and delivering. The founder rejected the first draft's proposed customer price. No willingness-to-pay study has been presented as completed.
 
