@@ -53,7 +53,7 @@ Reviewed 10 November 2026 against product commit `4871a68f9e475728c7e45624d817a7
 
 ## Implications for the revised business plan
 
-Use the existing local-list shopping service as the operating description. Retain the code-default UGX 3,000 only as a reference until live settings are verified. Do not recommend a UGX 6,000 charge, UGX 2,000 added service fee, 25% commission or 2% customer processing charge without an accepted commercial basis. Do not treat the withdrawn UGX 160 million funding scenario as an amount to raise.
+The launch plan uses a shared Boda distance fare with a UGX 2,000 minimum and adds UGX 1,000 for shopping. The founder’s platform fee is 5% of goods plus delivery with shopping, split equally between the customer and rider. These rules describe the planned pricing. The checked order-creation path still uses the flat shopping charge and the existing cash path deducts applicable fees through the rider wallet. Confirm quoting, exact percentage rounding, cash payment allocation and settlement before applying the planned split. The latest fare defaults and scenario figures are recorded in the business plan.
 
 Build the next financial model from the actual fee policy and measured or accepted inputs: completed paid lists, basket sizes, agreed delivery fees, all-in payment costs, purchasing-fund access, rider travel and shopping time, paid and idle hours, refunds and failed orders, retained fees, support cost and shared operating costs. Define results by service origin and environment so restaurant and marketplace orders are not silently counted as free-form concierge shopping.
 

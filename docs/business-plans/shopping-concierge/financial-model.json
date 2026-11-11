@@ -1,173 +1,257 @@
 {
   "currency": "UGX",
-  "status": "Planning scenarios using code defaults and explicit assumptions",
+  "status": "Founder pricing policy with illustrative distance bands and planning assumptions",
   "inputs": {
-    "goods_basket": 60000,
-    "delivery_fee": 3000,
-    "customer_service_and_processing_surcharges": 0,
-    "assumed_delivery_commission_percent": 15,
-    "rounded_commission": 500,
-    "mobile_money_collection_cost": 1890.0,
+    "ride_minimum": 2000,
+    "shopping_fee": 1000,
+    "illustrative_first_band_km": 2,
+    "illustrative_first_band_ugx_per_km": 1500,
+    "illustrative_later_band_ugx_per_km": 1000,
+    "platform_share_per_side": 0.025,
+    "mobile_money_collection_rate": 0.03,
     "digital_payout_allowance": 500,
-    "cash_fee_recovery_rate": 0.95,
+    "cash_rider_fee_recovery_rate": 0.95,
     "variable_operating_cost": 150,
     "base_cash_share": 0.8
+  },
+  "example_quotes": [
+    {
+      "goods": 10000,
+      "distance_km": 1,
+      "ride": 2000,
+      "shopping": 1000,
+      "delivery": 3000,
+      "subtotal": 13000,
+      "customer_share": 325.0,
+      "rider_share": 325.0,
+      "customer_total": 13325.0,
+      "rider_delivery_earnings": 2675.0,
+      "platform_fee_assessed": 650.0
+    },
+    {
+      "goods": 20000,
+      "distance_km": 2,
+      "ride": 3000,
+      "shopping": 1000,
+      "delivery": 4000,
+      "subtotal": 24000,
+      "customer_share": 600.0,
+      "rider_share": 600.0,
+      "customer_total": 24600.0,
+      "rider_delivery_earnings": 3400.0,
+      "platform_fee_assessed": 1200.0
+    },
+    {
+      "goods": 40000,
+      "distance_km": 3,
+      "ride": 4000,
+      "shopping": 1000,
+      "delivery": 5000,
+      "subtotal": 45000,
+      "customer_share": 1125.0,
+      "rider_share": 1125.0,
+      "customer_total": 46125.0,
+      "rider_delivery_earnings": 3875.0,
+      "platform_fee_assessed": 2250.0
+    },
+    {
+      "goods": 60000,
+      "distance_km": 1,
+      "ride": 2000,
+      "shopping": 1000,
+      "delivery": 3000,
+      "subtotal": 63000,
+      "customer_share": 1575.0,
+      "rider_share": 1575.0,
+      "customer_total": 64575.0,
+      "rider_delivery_earnings": 1425.0,
+      "platform_fee_assessed": 3150.0
+    },
+    {
+      "goods": 60000,
+      "distance_km": 5,
+      "ride": 6000,
+      "shopping": 1000,
+      "delivery": 7000,
+      "subtotal": 67000,
+      "customer_share": 1675.0,
+      "rider_share": 1675.0,
+      "customer_total": 68675.0,
+      "rider_delivery_earnings": 5325.0,
+      "platform_fee_assessed": 3350.0
+    }
+  ],
+  "reference_quote": {
+    "goods": 60000,
+    "distance_km": 1,
+    "ride": 2000,
+    "shopping": 1000,
+    "delivery": 3000,
+    "subtotal": 63000,
+    "customer_share": 1575.0,
+    "rider_share": 1575.0,
+    "customer_total": 64575.0,
+    "rider_delivery_earnings": 1425.0,
+    "platform_fee_assessed": 3150.0
   },
   "base_years": [
     {
       "orders": 6000,
       "goods_value": 360000000,
-      "customer_order_value": 378000000,
       "delivery_charges": 18000000,
-      "platform_fees_assessed": 3000000,
-      "platform_fee_income": 2880000.0,
-      "payment_cost": 2868000.0,
+      "customer_order_value": 387450000.0,
+      "customer_fee_assessed": 9450000.0,
+      "rider_fee_assessed": 9450000.0,
+      "platform_fees_assessed": 18900000.0,
+      "platform_fee_income": 18522000.0,
+      "payment_cost": 2924700.0,
       "variable_operating_cost": 900000,
-      "contribution": -888000.0,
+      "contribution": 14697300.0,
       "fixed_operating_cost": 24000000,
-      "operating_result": -24888000.0
+      "operating_result": -9302700.0
     },
     {
       "orders": 18000,
       "goods_value": 1080000000,
-      "customer_order_value": 1134000000,
       "delivery_charges": 54000000,
-      "platform_fees_assessed": 9000000,
-      "platform_fee_income": 8640000.0,
-      "payment_cost": 8604000.0,
+      "customer_order_value": 1162350000.0,
+      "customer_fee_assessed": 28350000.0,
+      "rider_fee_assessed": 28350000.0,
+      "platform_fees_assessed": 56700000.0,
+      "platform_fee_income": 55566000.0,
+      "payment_cost": 8774100.0,
       "variable_operating_cost": 2700000,
-      "contribution": -2664000.0,
+      "contribution": 44091900.0,
       "fixed_operating_cost": 36000000,
-      "operating_result": -38664000.0
+      "operating_result": 8091900.0
     },
     {
       "orders": 36000,
       "goods_value": 2160000000,
-      "customer_order_value": 2268000000,
       "delivery_charges": 108000000,
-      "platform_fees_assessed": 18000000,
-      "platform_fee_income": 17280000.0,
-      "payment_cost": 17208000.0,
+      "customer_order_value": 2324700000.0,
+      "customer_fee_assessed": 56700000.0,
+      "rider_fee_assessed": 56700000.0,
+      "platform_fees_assessed": 113400000.0,
+      "platform_fee_income": 111132000.0,
+      "payment_cost": 17548200.0,
       "variable_operating_cost": 5400000,
-      "contribution": -5328000.0,
+      "contribution": 88183800.0,
       "fixed_operating_cost": 48000000,
-      "operating_result": -53328000.0
+      "operating_result": 40183800.0
     }
   ],
   "cash_share_sensitivity_percent": {
     "0": {
       "per_order": {
-        "collected_fees": 500.0,
-        "payment_cost": 2390.0,
-        "contribution": -2040.0
+        "collected_fees": 3150.0,
+        "payment_cost": 2437.25,
+        "contribution": 562.75
       },
       "year_three": {
         "orders": 36000,
         "goods_value": 2160000000,
-        "customer_order_value": 2268000000,
         "delivery_charges": 108000000,
-        "platform_fees_assessed": 18000000,
-        "platform_fee_income": 18000000.0,
-        "payment_cost": 86040000.0,
+        "customer_order_value": 2324700000.0,
+        "customer_fee_assessed": 56700000.0,
+        "rider_fee_assessed": 56700000.0,
+        "platform_fees_assessed": 113400000.0,
+        "platform_fee_income": 113400000.0,
+        "payment_cost": 87741000.0,
         "variable_operating_cost": 5400000,
-        "contribution": -73440000.0,
+        "contribution": 20259000.0,
         "fixed_operating_cost": 48000000,
-        "operating_result": -121440000.0
+        "operating_result": -27741000.0
       }
     },
     "50": {
       "per_order": {
-        "collected_fees": 487.5,
-        "payment_cost": 1195.0,
-        "contribution": -857.5
+        "collected_fees": 3110.625,
+        "payment_cost": 1218.625,
+        "contribution": 1742.0
       },
       "year_three": {
         "orders": 36000,
         "goods_value": 2160000000,
-        "customer_order_value": 2268000000,
         "delivery_charges": 108000000,
-        "platform_fees_assessed": 18000000,
-        "platform_fee_income": 17550000.0,
-        "payment_cost": 43020000.0,
+        "customer_order_value": 2324700000.0,
+        "customer_fee_assessed": 56700000.0,
+        "rider_fee_assessed": 56700000.0,
+        "platform_fees_assessed": 113400000.0,
+        "platform_fee_income": 111982500.0,
+        "payment_cost": 43870500.0,
         "variable_operating_cost": 5400000,
-        "contribution": -30870000.0,
+        "contribution": 62712000.0,
         "fixed_operating_cost": 48000000,
-        "operating_result": -78870000.0
+        "operating_result": 14712000.0
       }
     },
     "80": {
       "per_order": {
-        "collected_fees": 480.0,
-        "payment_cost": 478.0,
-        "contribution": -148.0
+        "collected_fees": 3087.0,
+        "payment_cost": 487.45,
+        "contribution": 2449.55
       },
       "year_three": {
         "orders": 36000,
         "goods_value": 2160000000,
-        "customer_order_value": 2268000000,
         "delivery_charges": 108000000,
-        "platform_fees_assessed": 18000000,
-        "platform_fee_income": 17280000.0,
-        "payment_cost": 17208000.0,
+        "customer_order_value": 2324700000.0,
+        "customer_fee_assessed": 56700000.0,
+        "rider_fee_assessed": 56700000.0,
+        "platform_fees_assessed": 113400000.0,
+        "platform_fee_income": 111132000.0,
+        "payment_cost": 17548200.0,
         "variable_operating_cost": 5400000,
-        "contribution": -5328000.0,
+        "contribution": 88183800.0,
         "fixed_operating_cost": 48000000,
-        "operating_result": -53328000.0
+        "operating_result": 40183800.0
       }
     },
     "95": {
       "per_order": {
-        "collected_fees": 476.25,
-        "payment_cost": 119.5,
-        "contribution": 206.75
+        "collected_fees": 3075.1875,
+        "payment_cost": 121.8625,
+        "contribution": 2803.325
       },
       "year_three": {
         "orders": 36000,
         "goods_value": 2160000000,
-        "customer_order_value": 2268000000,
         "delivery_charges": 108000000,
-        "platform_fees_assessed": 18000000,
-        "platform_fee_income": 17145000.0,
-        "payment_cost": 4302000.0,
+        "customer_order_value": 2324700000.0,
+        "customer_fee_assessed": 56700000.0,
+        "rider_fee_assessed": 56700000.0,
+        "platform_fees_assessed": 113400000.0,
+        "platform_fee_income": 110706750.0,
+        "payment_cost": 4387050.0,
         "variable_operating_cost": 5400000,
-        "contribution": 7443000.0,
+        "contribution": 100919700.0,
         "fixed_operating_cost": 48000000,
-        "operating_result": -40557000.0
+        "operating_result": 52919700.0
       }
     },
     "100": {
       "per_order": {
-        "collected_fees": 475.0,
+        "collected_fees": 3071.25,
         "payment_cost": 0.0,
-        "contribution": 325.0
+        "contribution": 2921.25
       },
       "year_three": {
         "orders": 36000,
         "goods_value": 2160000000,
-        "customer_order_value": 2268000000,
         "delivery_charges": 108000000,
-        "platform_fees_assessed": 18000000,
-        "platform_fee_income": 17100000.0,
+        "customer_order_value": 2324700000.0,
+        "customer_fee_assessed": 56700000.0,
+        "rider_fee_assessed": 56700000.0,
+        "platform_fees_assessed": 113400000.0,
+        "platform_fee_income": 110565000.0,
         "payment_cost": 0.0,
         "variable_operating_cost": 5400000,
-        "contribution": 11700000.0,
+        "contribution": 105165000.0,
         "fixed_operating_cost": 48000000,
-        "operating_result": -36300000.0
+        "operating_result": 57165000.0
       }
     }
   },
-  "commission_off_year_three": {
-    "orders": 36000,
-    "goods_value": 2160000000,
-    "customer_order_value": 2268000000,
-    "delivery_charges": 108000000,
-    "platform_fees_assessed": 0,
-    "platform_fee_income": 0.0,
-    "payment_cost": 17208000.0,
-    "variable_operating_cost": 5400000,
-    "contribution": -22608000.0,
-    "fixed_operating_cost": 48000000,
-    "operating_result": -70608000.0
-  },
-  "cumulative_base_operating_deficit": 116880000.0
+  "cumulative_base_operating_result": 38973000.0
 }
