@@ -1,8 +1,6 @@
 # Peebee Shopping Concierge Business Plan
 
-Working investor draft revised after product review | Kampala and Entebbe Uganda | 10 November 2026
-
-**The original proposed tariff and its dependent forecasts and funding amount are withdrawn.** This revision describes the existing customer, rider and Admin flows. Pricing and financial projections will follow verified operating settings and a credible affordability and cost basis. The retained initial model files are historical calculations only and must not be used in a funding proposal.
+Working investor draft | Kampala and Entebbe, Uganda | 11 November 2026
 
 ## Executive summary
 
@@ -12,7 +10,7 @@ The product supports local shopping in the form customers already use: quantitie
 
 The commercial proposition is convenient, dependable local shopping at a customer-acceptable total cost. The initial investment case should establish that customers repeat purchases, riders earn enough after their costs, and Peebee retains enough income to cover the service. Existing technology lowers the amount of new product development required; it does not demonstrate demand or profitability.
 
-This draft does not recommend a new fee stack or funding amount. The earlier approach increased the delivery charge and added service and processing charges without sufficient evidence from the app or market. Those assumptions are unsuitable as the foundation for an investor proposal. The first commercial model must begin with the actual configured charging policy and the full cost of fulfilling an order.
+The pricing table uses the UGX 3,000 shopping delivery default. The three-year planning scenario tests a share of that existing charge as Peebee income. At 36,000 completed orders in Year 3, it produces UGX 17.28 million in collected platform fees and a UGX 53.328 million operating loss under the stated payment and staffing assumptions. Mobile money costs on the full shopping basket and the small fee retained per order drive the result.
 
 ## Service and customer need
 
@@ -36,15 +34,68 @@ During shopping, a rider can propose substitutions for customer approval. The ri
 
 The source review found a consistency issue requiring validation: the shopping fee-proposal UI describes a delivery-fee change, but the approval handler changes the order's final total without updating the shopping order's stored delivery-fee field. This can affect the displayed goods split and fee attribution. It is a product readiness item, not a reason to invent a replacement pricing policy. No code change is included in this plan.
 
-## Existing pricing and the affordability requirement
+## Customer pricing
 
-Shopping uses a flat Admin-controlled delivery charge. Its code default is **UGX 3,000**. The default service-fee, delivery-commission and processing-fee switches are off with zero values. Those defaults are not a live settings read.
+Shopping starts with the goods budget plus the flat Admin delivery charge. The code defaults are UGX 3,000 delivery and zero service, processing and commission fees. The deployed settings endpoint requires authentication, so live overrides remain unverified. The examples assume an unchanged list, zero discounts and zero additional charges.
 
-For illustration of the existing defaults only, an unchanged UGX 60,000 goods estimate plus UGX 3,000 delivery gives UGX 63,000. This is before live overrides, offers or approved changes. It is not a new tariff recommendation, a provider quotation or evidence that the resulting price is acceptable for every basket.
+| Goods budget | Delivery | Customer total | Delivery as share of goods |
+| ---: | ---: | ---: | ---: |
+| UGX 10,000 | UGX 3,000 | **UGX 13,000** | 30% |
+| UGX 20,000 | UGX 3,000 | **UGX 23,000** | 15% |
+| UGX 40,000 | UGX 3,000 | **UGX 43,000** | 7.5% |
+| UGX 60,000 | UGX 3,000 | **UGX 63,000** | 5% |
 
-The commercial model must establish the customer's total cost at the relevant shopping budget. A delivery charge that may be acceptable for a large shopping list can be too expensive relative to a small purchase. Buying by UGX amount in the product makes small-budget orders a relevant research question. Neither a single assumed average basket nor a blanket fee increase settles that question.
+The flat charge takes a larger share of smaller baskets. A rider can propose a different delivery charge for the customer to approve. Confirm how the approved change appears in settlement before using it in revenue projections. [Delivery source audit](DELIVERY_SOURCE_AUDIT.md)
 
-Peebee has configurable ways to collect income, including delivery commission, service fees, processing recovery, additional Money flow commission and rider subscriptions. Their existence in code does not mean they are active, should all be applied together or can all be borne by the customer. The business plan will use the chosen commercial policy, checked against the actual settings and payment flow. It will separately account for rider earnings, provider charges, discounts and any other deductions.
+## Revenue and income per order
+
+The model tests one existing Admin control, a **15% delivery commission**, with customer surcharges at zero. This is a planning assumption for testing rider economics. Default UGX 500 fee rounding makes 15% of UGX 3,000 payable as UGX 500, an effective 16.7% share. The rider earns UGX 2,500 before fuel, time and other costs when the commission is recovered. With the commission switch off, the rider keeps UGX 3,000 and Peebee earns UGX 0 in modeled fees. The customer total stays UGX 63,000 in both cases.
+
+Yo! Payments publishes 3% on inbound mobile money and UGX 500 for a payout in the UGX 60,001–500,000 band, with possible network fees. Flutterwave also publishes 3% on local wallet and mobile money collections. The scenario uses 3% on the full checkout and one UGX 500 payout allowance per digital order. Actual provider contract rates, payout batching, additional network charges and applicable taxes need verification. [Yo! Payments tariffs](https://paymentsweb.yo.co.ug/index.php/how-it-works) · [Flutterwave Uganda pricing](https://www.flutterwave.com/ug/pricing)
+
+| Per order at a UGX 60,000 goods budget | Cash | Mobile money |
+| --- | ---: | ---: |
+| Customer total | 63,000 | 63,000 |
+| Goods purchase or reimbursement | 60,000 | 60,000 |
+| Rider gross delivery earnings after full commission | 2,500 | 2,500 |
+| Peebee commission assessed | 500 | 500 |
+| Expected commission collected | 475 | 500 |
+| Collection and payout cost to Peebee | 0 | 2,390 |
+| Other variable operating cost | 150 | 150 |
+| **Peebee contribution before fixed costs** | **325** | **−2,040** |
+
+Amounts are in UGX. Cash assumes recovery of 95% of the fee owed through the rider wallet and no provider charge per cash order. It allows UGX 25 in uncollected commission per order. The UGX 150 allowance for variable support, communications and losses is a placeholder. Digital assumes the rider is reimbursed through a payout and Peebee absorbs the modeled payment costs. The model covers cash and mobile money. Card, wallet top-up economics, subscriptions, discounts and merchant income are outside this scenario. Goods purchased for the customer and rider earnings are pass-through amounts in the management forecast.
+
+## Three-year financial projections
+
+The volume scenario averages 500, 1,500 and 3,000 completed orders per month in Years 1–3 across Kampala and Entebbe. At two orders per active customer each month, that implies 250, 750 and 1,500 active customers respectively. These are planning inputs for a pre-launch business. The UGX 60,000 reference basket and 80% cash share are held constant to make the economics visible.
+
+The fixed budget starts at UGX 2 million per month, with UGX 1 million for dispatch and operations, UGX 600,000 for customer support and acquisition, and UGX 400,000 for shared technology and administration. It scales to UGX 3 million and UGX 4 million monthly in Years 2 and 3. These are provisional expense allowances. The forecast is before tax, one-time setup costs and any separate facility for shopping funds.
+
+| Financial measure, UGX million except orders | Year 1 | Year 2 | Year 3 |
+| --- | ---: | ---: | ---: |
+| Completed orders | 6,000 | 18,000 | 36,000 |
+| Goods purchased | 360.000 | 1,080.000 | 2,160.000 |
+| Total customer order value | 378.000 | 1,134.000 | 2,268.000 |
+| Delivery charges included in customer totals | 18.000 | 54.000 | 108.000 |
+| Peebee commission assessed | 3.000 | 9.000 | 18.000 |
+| **Peebee fee income after collection losses** | **2.880** | **8.640** | **17.280** |
+| Payment costs | (2.868) | (8.604) | (17.208) |
+| Other variable costs | (0.900) | (2.700) | (5.400) |
+| Contribution | (0.888) | (2.664) | (5.328) |
+| Fixed operating costs | (24.000) | (36.000) | (48.000) |
+| **Operating income or loss** | **(24.888)** | **(38.664)** | **(53.328)** |
+
+At 80% cash, fee income averages UGX 480 per order and variable costs average UGX 628. Each additional order reduces contribution by UGX 148 under those assumptions. The three-year operating deficit is UGX 116.88 million before setup and financing. At the unchanged commission-off code default and the same Year 3 volume and costs, Peebee fee income is UGX 0 and the operating loss is UGX 70.608 million.
+
+| Cash share | Contribution per order, UGX | Year 3 operating result, UGX million |
+| ---: | ---: | ---: |
+| 50% | −857.50 | −78.870 |
+| 80% | −148.00 | −53.328 |
+| 95% | 206.75 | −40.557 |
+| 100% | 325.00 | −36.300 |
+
+Contribution turns positive above about 86.3% cash under these inputs. With 95% cash, UGX 48 million in annual fixed costs would require about 232,165 completed orders for operating break-even. At the planned 36,000 orders, even the all-cash case leaves a deficit. The investment case therefore depends on testing a lower cost of serving and settling orders, stronger retained income within acceptable customer and rider economics, or a different scale of operations. [Model script](model.py) · [Calculated scenarios](financial-model.json)
 
 ## Delivery distance and assignment
 
@@ -102,9 +153,9 @@ Prepare and validate the existing flow before paid launch: rider purchasing capa
 
 Use early paid shopping orders in Kampala and Entebbe to establish actual basket sizes, total charges accepted, rider costs, duration, repeat use and loss experience. Separate full-price activity from subsidies and report each launch area and payment method distinctly. Avoid promoting a fixed completion time before the service can support it.
 
-The financial model should then calculate contribution from the actual fee policy and forecast completed orders using demonstrated acquisition, retention and rider capacity. Fixed costs must include a fair allocation of technology maintenance, support, payment administration and shared Peebee management. Existing software is an asset of the proposition; it does not make those ongoing costs zero.
+Refresh the model with verified fees, payout costs, completed order volume, retention and rider capacity as pilot data becomes available. Allocate ongoing technology, support, payment administration and shared management costs to this module.
 
-Funding need equals validated launch setup costs plus forecast operating cash deficits, separately justified purchasing liquidity and an appropriate operating reserve. Provider, insurance, staffing and professional costs need quotations or a clearly accepted budgeting basis. Neither a funding ask nor three-year profit figures are recommended in this revision. Equity terms, grant eligibility and investor returns have not been established.
+Funding need equals validated launch setup costs plus operating cash deficits, required purchasing liquidity and an operating reserve. The projections quantify the operating deficit under the modeled inputs. A funding request also needs costed setup, working capital, payment terms and a credible path to positive contribution.
 
 ## Governance and investor diligence
 
@@ -120,4 +171,4 @@ Founder-confirmed facts are Uganda as the market, Kampala and Entebbe first, no 
 
 Product evidence is pinned to commit `4871a68f9e475728c7e45624d817a7f06968d671`. The [source audit](DELIVERY_SOURCE_AUDIT.md) covers the active customer list and checkout, rider workflow, Admin pricing and monetisation, matching, distance calculation, fee changes, payment and reporting paths. Code defaults are distinguished from unknown live overrides and measured performance.
 
-The earlier [model script](model.py), [calculated results](financial-model.json) and chart are retained with a withdrawn label for audit only. They do not support the revised plan. No application behaviour, live settings, migration or deployment is changed by this document.
+The current model replaces the withdrawn tariff scenario. It uses the verified code-default price, published provider benchmarks and disclosed assumptions for commission, payment mix, recovery, volume and costs. [Model script](model.py) · [Calculated scenarios](financial-model.json)
