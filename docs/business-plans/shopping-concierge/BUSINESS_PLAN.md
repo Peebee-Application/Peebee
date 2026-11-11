@@ -10,7 +10,7 @@ The product supports local shopping in the form customers already use: quantitie
 
 The commercial proposition is convenient, dependable local shopping at a customer-acceptable total cost. The initial investment case should establish that customers repeat purchases, riders earn enough after their costs, and Peebee retains enough income to cover the service. Existing technology lowers the amount of new product development required; it does not demonstrate demand or profitability.
 
-The launch pricing policy combines a distance-based Boda fare with UGX 1,000 for shopping. Peebee earns 5% of the goods and fulfilment subtotal, split equally between the customer and rider. On a UGX 60,000 basket with a 1 km delivery, the customer pays UGX 64,575 and Peebee assesses UGX 3,150 in gross fees. At 36,000 completed orders, the Year 3 scenario projects UGX 111.132 million in collected fee income and UGX 40.184 million in operating income before tax and setup costs.
+The launch pricing policy combines a distance-based Boda fare with UGX 1,000 for shopping. Peebee earns 5% of the goods and fulfilment subtotal, split equally between the customer and rider. On a UGX 60,000 basket with a 1 km delivery, the customer pays UGX 64,575 and Peebee assesses UGX 3,150 in gross fees. At 36,000 completed orders, the Year 3 scenario projects UGX 111.132 million in collected fee income and UGX 33.412 million in operating income after payment costs and provider fee tax. The illustrative result after corporate income tax is UGX 23.388 million before setup and financing costs.
 
 ## Service and customer need
 
@@ -62,31 +62,53 @@ Both 2.5% shares use the same subtotal of goods plus delivery with shopping. The
 
 At the 1 km, UGX 60,000 example, the customer’s UGX 64,575 covers UGX 60,000 of goods, UGX 1,425 of rider earnings and UGX 3,150 in Peebee fees. A larger basket increases the rider fee even at the same distance, so the pilot should measure rider acceptance and net earnings by basket size.
 
+## Aggregator charges and mobile money taxes per order
+
+The model assumes Peebee absorbs the payment costs inside its 5% fee. The aggregator charges 3% of the customer payment to collect by mobile money. The model adds one mobile money payout per order, at UGX 1,000 for these payout amounts. Flutterwave bundles mobile money collection into its 3% rate. Any separately invoiced operator charge or wallet cash-out levy would need its own amount and payer. [Flutterwave Uganda pricing](https://www.flutterwave.com/ug/pricing)
+
+Flutterwave’s help page lists a 15% tax on Uganda transaction fees. The illustration applies 15% to both the collection and payout fees as a planning allowance. URA lists an 18% standard VAT rate, so confirm the provider invoice, tax classification and payout tax treatment. The 15% allowance uses the provider fees as its base. [Flutterwave merchant tax table](https://flutterwave.com/gb/support/pricing/value-added-tax-vat-for-flutterwave-merchants) · [URA taxation handbook](https://ura.go.ug/wp-content/uploads/2024/12/Taxation-Handbook-FY-2024-25.pdf)
+
+| Goods budget and trip | Gross Peebee fee | Aggregator collection, 3% | Mobile money payout | Provider fee tax, 15% | Total payment cost | Peebee after payment costs |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 10,000 · 1 km | 650.00 | 399.75 | 1,000.00 | 209.96 | 1,609.71 | **-959.71** |
+| 20,000 · 2 km | 1,200.00 | 738.00 | 1,000.00 | 260.70 | 1,998.70 | **-798.70** |
+| 40,000 · 3 km | 2,250.00 | 1,383.75 | 1,000.00 | 357.56 | 2,741.31 | **-491.31** |
+| 60,000 · 1 km | 3,150.00 | 1,937.25 | 1,000.00 | 440.59 | 3,377.84 | **-227.84** |
+| 60,000 · 5 km | 3,350.00 | 2,060.25 | 1,000.00 | 459.04 | 3,519.29 | **-169.29** |
+
+All amounts are UGX. For cash paid directly to the rider, the model assigns zero per-order aggregator and payout charges. It allows for partial recovery of the rider’s 2.5% share. Any separately billed cost of funding or withdrawing wallet balances depends on the settlement arrangement.
+
 ## Three-year financial projections
 
-The planning scenario keeps the previous volumes of 6,000, 18,000 and 36,000 completed orders across Kampala and Entebbe. It uses the UGX 60,000 goods budget and 1 km trip as a reference order, with 80% cash and 20% mobile money. It assumes full recovery of the customer share and 95% recovery of the rider share on cash orders. Digital orders assume full recovery of both shares. The current cash checkout and settlement path requires verification and alignment to collect the shares from their intended payers.
+The planning scenario uses 6,000, 18,000 and 36,000 completed orders across Kampala and Entebbe. The reference order is UGX 60,000 of goods with a 1 km delivery. The assumed mix is 80% cash and 20% mobile money. The model assumes full recovery of the customer share and 95% recovery of the rider share on cash orders. Digital orders assume full recovery of both shares. The cash checkout and settlement path requires alignment to collect the shares from their intended payers.
 
-Mobile money collection is modeled at 3% of the customer total, or UGX 1,937.25 per digital order, using Flutterwave’s published Uganda rate as a benchmark. The model also retains a UGX 500 payout allowance and UGX 150 of other variable costs per order. The payout allowance is a planning input. Actual provider contract rates, payout batching and applicable taxes need verification. [Flutterwave Uganda collection pricing](https://www.flutterwave.com/ug/pricing)
+At that mix, Peebee collects an average of UGX 3,087 per order. Payment charges and provider fee tax average UGX 675.57. After UGX 150 in other variable costs, contribution averages UGX 2,261.43. Fixed costs are assumed at UGX 2 million, UGX 3 million and UGX 4 million per month across the three years. Setup and financing costs sit outside the operating projection.
 
-At the assumed payment mix, Peebee collects an average of UGX 3,087 per completed order. Payment costs average UGX 487.45 and contribution averages UGX 2,449.55 after other variable costs. Fixed operating costs are assumed at UGX 2 million, UGX 3 million and UGX 4 million per month across the three years. These projections precede tax, setup costs and any financing for purchasing funds.
+The corporate income tax line applies 30% to positive modeled operating income as a proxy for chargeable income. Loss relief, allowances and other Peebee modules’ results would affect actual tax. [URA corporate income tax](https://ura.go.ug/en/ask-ura-commissioner-general-30/)
 
 | Financial measure, UGX million except orders | Year 1 | Year 2 | Year 3 |
 | --- | ---: | ---: | ---: |
 | Completed orders | 6,000 | 18,000 | 36,000 |
-| Goods purchased | 360.000 | 1080.000 | 2160.000 |
-| Total paid by customers | 387.450 | 1162.350 | 2324.700 |
+| Goods purchased | 360.000 | 1,080.000 | 2,160.000 |
+| Total paid by customers | 387.450 | 1,162.350 | 2,324.700 |
 | Ride and shopping charges | 18.000 | 54.000 | 108.000 |
 | Customer 2.5% assessed | 9.450 | 28.350 | 56.700 |
 | Rider 2.5% assessed | 9.450 | 28.350 | 56.700 |
 | Gross Peebee fees assessed | 18.900 | 56.700 | 113.400 |
 | **Peebee fee income after collection losses** | 18.522 | 55.566 | 111.132 |
-| Payment costs | (2.925) | (8.774) | (17.548) |
+| Aggregator collection costs | (2.325) | (6.974) | (13.948) |
+| Mobile money payout costs | (1.200) | (3.600) | (7.200) |
+| Tax on provider fees | (0.529) | (1.586) | (3.172) |
 | Other variable costs | (0.900) | (2.700) | (5.400) |
-| Contribution | 14.697 | 44.092 | 88.184 |
+| Contribution | 13.569 | 40.706 | 81.412 |
 | Fixed operating costs | (24.000) | (36.000) | (48.000) |
-| **Operating income or loss** | (9.303) | 8.092 | 40.184 |
+| **Operating income or loss** | (10.431) | 4.706 | 33.412 |
+| Illustrative corporate income tax | 0.000 | (1.412) | (10.023) |
+| **Result after illustrative income tax** | (10.431) | 3.294 | 23.388 |
 
-At 80% cash, Year 3 operating break-even requires about 19,596 completed orders at the modeled cost base. If all orders use mobile money, contribution drops to UGX 562.75 per order and Year 3 shows a UGX 27.741 million operating loss. These scenarios depend on real payment mix, successful fee collection, and order volumes. The reproducible model includes five payment mixes. [Model script](model.py) · [Calculated scenarios](financial-model.json)
+The base case assumes Peebee has no output VAT obligation on the modeled fees. URA’s annual registration threshold is UGX 300 million in taxable turnover from 1 July 2026. Peebee’s registration and overall taxable turnover across modules govern applicability. If the 5% fee is VAT-inclusive and taxable at 18%, a fully collected UGX 3,150 fee contains UGX 480.51 in VAT. With no input tax credit assumed, the same Year 3 scenario would show UGX 16.459 million in operating income and UGX 11.521 million after illustrative corporate income tax. [URA VAT threshold notice](https://ura.go.ug/en/revised-value-added-tax-registration-threshold/)
+
+At 80% cash, Year 3 operating break-even requires about 21,226 completed orders under the base assumptions. With all orders paid by mobile money, the reference order loses UGX 377.84 in contribution after variable costs and the Year 3 operating loss is UGX 61.602 million. The model includes five payment mixes. [Model script](model.py) · [Calculated scenarios](financial-model.json)
 
 ## Delivery distance and assignment
 

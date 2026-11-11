@@ -11,7 +11,9 @@ FIRST_BAND_RATE = 1_500
 LATER_BAND_RATE = 1_000
 PLATFORM_SHARE_PER_SIDE = Fraction(25, 1000)
 MOBILE_MONEY_RATE = Fraction(3, 100)
-PAYOUT_COST = 500
+PROVIDER_FEE_TAX_RATE = Fraction(15, 100)
+STANDARD_VAT_RATE = Fraction(18, 100)
+CORPORATE_TAX_RATE = Fraction(30, 100)
 CASH_RIDER_FEE_RECOVERY = Fraction(95, 100)
 VARIABLE_OPERATING_COST = 150
 
@@ -41,14 +43,27 @@ def quote(goods, distance_km):
     }
 
 
+def payment_charges(pricing):
+    collection = pricing["customer_total"] * MOBILE_MONEY_RATE
+    rider_payout = pricing["goods"] + pricing["rider_delivery_earnings"]
+    transfer = 1_000 if rider_payout < 125_000 else rider_payout * Fraction(12, 1000)
+    return {
+        "aggregator_collection_fee": collection,
+        "mobile_money_payout_fee": transfer,
+        "provider_fee_tax": (collection + transfer) * PROVIDER_FEE_TAX_RATE,
+    }
+
+
 def order_economics(pricing, cash_share):
     digital_share = 1 - cash_share
     cash_income = (
         pricing["customer_share"] + pricing["rider_share"] * CASH_RIDER_FEE_RECOVERY
     )
     collected_fees = cash_share * cash_income + digital_share * pricing["platform_fee_assessed"]
-    payment_cost = digital_share * (pricing["customer_total"] * MOBILE_MONEY_RATE + PAYOUT_COST)
+    payment = {name: digital_share * fee for name, fee in payment_charges(pricing).items()}
+    payment_cost = sum(payment.values())
     return {
+        **payment,
         "collected_fees": collected_fees,
         "payment_cost": payment_cost,
         "contribution": collected_fees - payment_cost - VARIABLE_OPERATING_COST,
@@ -57,6 +72,10 @@ def order_economics(pricing, cash_share):
 
 def projection(pricing, orders, fixed, cash_share):
     unit = order_economics(pricing, cash_share)
+    operating_result = orders * unit["contribution"] - fixed
+    corporate_tax = max(0, operating_result) * CORPORATE_TAX_RATE
+    output_vat = orders * unit["collected_fees"] * STANDARD_VAT_RATE / (1 + STANDARD_VAT_RATE)
+    vat_case_profit = operating_result - output_vat
     return {
         "orders": orders,
         "goods_value": orders * pricing["goods"],
@@ -66,11 +85,21 @@ def projection(pricing, orders, fixed, cash_share):
         "rider_fee_assessed": orders * pricing["rider_share"],
         "platform_fees_assessed": orders * pricing["platform_fee_assessed"],
         "platform_fee_income": orders * unit["collected_fees"],
+        "aggregator_collection_cost": orders * unit["aggregator_collection_fee"],
+        "mobile_money_payout_cost": orders * unit["mobile_money_payout_fee"],
+        "provider_fee_tax": orders * unit["provider_fee_tax"],
         "payment_cost": orders * unit["payment_cost"],
         "variable_operating_cost": orders * VARIABLE_OPERATING_COST,
         "contribution": orders * unit["contribution"],
         "fixed_operating_cost": fixed,
-        "operating_result": orders * unit["contribution"] - fixed,
+        "operating_result": operating_result,
+        "illustrative_corporate_income_tax": corporate_tax,
+        "result_after_income_tax": operating_result - corporate_tax,
+        "vat_registered_sensitivity": {
+            "vat_inclusive_output_tax_no_input_credit": output_vat,
+            "operating_result": vat_case_profit,
+            "result_after_income_tax": vat_case_profit - max(0, vat_case_profit) * CORPORATE_TAX_RATE,
+        },
     }
 
 
@@ -97,13 +126,18 @@ def main():
             "illustrative_later_band_ugx_per_km": LATER_BAND_RATE,
             "platform_share_per_side": PLATFORM_SHARE_PER_SIDE,
             "mobile_money_collection_rate": MOBILE_MONEY_RATE,
-            "digital_payout_allowance": PAYOUT_COST,
+            "provider_fee_tax_rate_scenario": PROVIDER_FEE_TAX_RATE,
+            "standard_vat_rate_sensitivity": STANDARD_VAT_RATE,
+            "illustrative_corporate_income_tax_rate": CORPORATE_TAX_RATE,
             "cash_rider_fee_recovery_rate": CASH_RIDER_FEE_RECOVERY,
             "variable_operating_cost": VARIABLE_OPERATING_COST,
             "base_cash_share": base_cash_share,
         },
-        "example_quotes": [quote(goods, km) for goods, km in
-                           [(10_000, 1), (20_000, 2), (40_000, 3), (60_000, 1), (60_000, 5)]],
+        "example_quotes": [
+            {**pricing, **payment_charges(pricing)}
+            for pricing in (quote(goods, km) for goods, km in
+                            [(10_000, 1), (20_000, 2), (40_000, 3), (60_000, 1), (60_000, 5)])
+        ],
         "reference_quote": reference,
         "base_years": base,
         "cash_share_sensitivity_percent": sensitivities,

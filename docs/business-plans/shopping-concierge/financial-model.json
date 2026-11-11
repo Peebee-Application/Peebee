@@ -9,7 +9,9 @@
     "illustrative_later_band_ugx_per_km": 1000,
     "platform_share_per_side": 0.025,
     "mobile_money_collection_rate": 0.03,
-    "digital_payout_allowance": 500,
+    "provider_fee_tax_rate_scenario": 0.15,
+    "standard_vat_rate_sensitivity": 0.18,
+    "illustrative_corporate_income_tax_rate": 0.3,
     "cash_rider_fee_recovery_rate": 0.95,
     "variable_operating_cost": 150,
     "base_cash_share": 0.8
@@ -26,7 +28,10 @@
       "rider_share": 325.0,
       "customer_total": 13325.0,
       "rider_delivery_earnings": 2675.0,
-      "platform_fee_assessed": 650.0
+      "platform_fee_assessed": 650.0,
+      "aggregator_collection_fee": 399.75,
+      "mobile_money_payout_fee": 1000,
+      "provider_fee_tax": 209.9625
     },
     {
       "goods": 20000,
@@ -39,7 +44,10 @@
       "rider_share": 600.0,
       "customer_total": 24600.0,
       "rider_delivery_earnings": 3400.0,
-      "platform_fee_assessed": 1200.0
+      "platform_fee_assessed": 1200.0,
+      "aggregator_collection_fee": 738.0,
+      "mobile_money_payout_fee": 1000,
+      "provider_fee_tax": 260.7
     },
     {
       "goods": 40000,
@@ -52,7 +60,10 @@
       "rider_share": 1125.0,
       "customer_total": 46125.0,
       "rider_delivery_earnings": 3875.0,
-      "platform_fee_assessed": 2250.0
+      "platform_fee_assessed": 2250.0,
+      "aggregator_collection_fee": 1383.75,
+      "mobile_money_payout_fee": 1000,
+      "provider_fee_tax": 357.5625
     },
     {
       "goods": 60000,
@@ -65,7 +76,10 @@
       "rider_share": 1575.0,
       "customer_total": 64575.0,
       "rider_delivery_earnings": 1425.0,
-      "platform_fee_assessed": 3150.0
+      "platform_fee_assessed": 3150.0,
+      "aggregator_collection_fee": 1937.25,
+      "mobile_money_payout_fee": 1000,
+      "provider_fee_tax": 440.5875
     },
     {
       "goods": 60000,
@@ -78,7 +92,10 @@
       "rider_share": 1675.0,
       "customer_total": 68675.0,
       "rider_delivery_earnings": 5325.0,
-      "platform_fee_assessed": 3350.0
+      "platform_fee_assessed": 3350.0,
+      "aggregator_collection_fee": 2060.25,
+      "mobile_money_payout_fee": 1000,
+      "provider_fee_tax": 459.0375
     }
   ],
   "reference_quote": {
@@ -104,11 +121,21 @@
       "rider_fee_assessed": 9450000.0,
       "platform_fees_assessed": 18900000.0,
       "platform_fee_income": 18522000.0,
-      "payment_cost": 2924700.0,
+      "aggregator_collection_cost": 2324700.0,
+      "mobile_money_payout_cost": 1200000.0,
+      "provider_fee_tax": 528705.0,
+      "payment_cost": 4053405.0,
       "variable_operating_cost": 900000,
-      "contribution": 14697300.0,
+      "contribution": 13568595.0,
       "fixed_operating_cost": 24000000,
-      "operating_result": -9302700.0
+      "operating_result": -10431405.0,
+      "illustrative_corporate_income_tax": 0.0,
+      "result_after_income_tax": -10431405.0,
+      "vat_registered_sensitivity": {
+        "vat_inclusive_output_tax_no_input_credit": 2825389.8305084747,
+        "operating_result": -13256794.830508474,
+        "result_after_income_tax": -13256794.830508474
+      }
     },
     {
       "orders": 18000,
@@ -119,11 +146,21 @@
       "rider_fee_assessed": 28350000.0,
       "platform_fees_assessed": 56700000.0,
       "platform_fee_income": 55566000.0,
-      "payment_cost": 8774100.0,
+      "aggregator_collection_cost": 6974100.0,
+      "mobile_money_payout_cost": 3600000.0,
+      "provider_fee_tax": 1586115.0,
+      "payment_cost": 12160215.0,
       "variable_operating_cost": 2700000,
-      "contribution": 44091900.0,
+      "contribution": 40705785.0,
       "fixed_operating_cost": 36000000,
-      "operating_result": 8091900.0
+      "operating_result": 4705785.0,
+      "illustrative_corporate_income_tax": 1411735.5,
+      "result_after_income_tax": 3294049.5,
+      "vat_registered_sensitivity": {
+        "vat_inclusive_output_tax_no_input_credit": 8476169.491525425,
+        "operating_result": -3770384.4915254237,
+        "result_after_income_tax": -3770384.4915254237
+      }
     },
     {
       "orders": 36000,
@@ -134,19 +171,32 @@
       "rider_fee_assessed": 56700000.0,
       "platform_fees_assessed": 113400000.0,
       "platform_fee_income": 111132000.0,
-      "payment_cost": 17548200.0,
+      "aggregator_collection_cost": 13948200.0,
+      "mobile_money_payout_cost": 7200000.0,
+      "provider_fee_tax": 3172230.0,
+      "payment_cost": 24320430.0,
       "variable_operating_cost": 5400000,
-      "contribution": 88183800.0,
+      "contribution": 81411570.0,
       "fixed_operating_cost": 48000000,
-      "operating_result": 40183800.0
+      "operating_result": 33411570.0,
+      "illustrative_corporate_income_tax": 10023471.0,
+      "result_after_income_tax": 23388099.0,
+      "vat_registered_sensitivity": {
+        "vat_inclusive_output_tax_no_input_credit": 16952338.98305085,
+        "operating_result": 16459231.016949153,
+        "result_after_income_tax": 11521461.711864406
+      }
     }
   ],
   "cash_share_sensitivity_percent": {
     "0": {
       "per_order": {
+        "aggregator_collection_fee": 1937.25,
+        "mobile_money_payout_fee": 1000.0,
+        "provider_fee_tax": 440.5875,
         "collected_fees": 3150.0,
-        "payment_cost": 2437.25,
-        "contribution": 562.75
+        "payment_cost": 3377.8375,
+        "contribution": -377.8375
       },
       "year_three": {
         "orders": 36000,
@@ -157,18 +207,31 @@
         "rider_fee_assessed": 56700000.0,
         "platform_fees_assessed": 113400000.0,
         "platform_fee_income": 113400000.0,
-        "payment_cost": 87741000.0,
+        "aggregator_collection_cost": 69741000.0,
+        "mobile_money_payout_cost": 36000000.0,
+        "provider_fee_tax": 15861150.0,
+        "payment_cost": 121602150.0,
         "variable_operating_cost": 5400000,
-        "contribution": 20259000.0,
+        "contribution": -13602150.0,
         "fixed_operating_cost": 48000000,
-        "operating_result": -27741000.0
+        "operating_result": -61602150.0,
+        "illustrative_corporate_income_tax": 0.0,
+        "result_after_income_tax": -61602150.0,
+        "vat_registered_sensitivity": {
+          "vat_inclusive_output_tax_no_input_credit": 17298305.08474576,
+          "operating_result": -78900455.08474576,
+          "result_after_income_tax": -78900455.08474576
+        }
       }
     },
     "50": {
       "per_order": {
+        "aggregator_collection_fee": 968.625,
+        "mobile_money_payout_fee": 500.0,
+        "provider_fee_tax": 220.29375,
         "collected_fees": 3110.625,
-        "payment_cost": 1218.625,
-        "contribution": 1742.0
+        "payment_cost": 1688.91875,
+        "contribution": 1271.70625
       },
       "year_three": {
         "orders": 36000,
@@ -179,18 +242,31 @@
         "rider_fee_assessed": 56700000.0,
         "platform_fees_assessed": 113400000.0,
         "platform_fee_income": 111982500.0,
-        "payment_cost": 43870500.0,
+        "aggregator_collection_cost": 34870500.0,
+        "mobile_money_payout_cost": 18000000.0,
+        "provider_fee_tax": 7930575.0,
+        "payment_cost": 60801075.0,
         "variable_operating_cost": 5400000,
-        "contribution": 62712000.0,
+        "contribution": 45781425.0,
         "fixed_operating_cost": 48000000,
-        "operating_result": 14712000.0
+        "operating_result": -2218575.0,
+        "illustrative_corporate_income_tax": 0.0,
+        "result_after_income_tax": -2218575.0,
+        "vat_registered_sensitivity": {
+          "vat_inclusive_output_tax_no_input_credit": 17082076.27118644,
+          "operating_result": -19300651.27118644,
+          "result_after_income_tax": -19300651.27118644
+        }
       }
     },
     "80": {
       "per_order": {
+        "aggregator_collection_fee": 387.45,
+        "mobile_money_payout_fee": 200.0,
+        "provider_fee_tax": 88.1175,
         "collected_fees": 3087.0,
-        "payment_cost": 487.45,
-        "contribution": 2449.55
+        "payment_cost": 675.5675,
+        "contribution": 2261.4325
       },
       "year_three": {
         "orders": 36000,
@@ -201,18 +277,31 @@
         "rider_fee_assessed": 56700000.0,
         "platform_fees_assessed": 113400000.0,
         "platform_fee_income": 111132000.0,
-        "payment_cost": 17548200.0,
+        "aggregator_collection_cost": 13948200.0,
+        "mobile_money_payout_cost": 7200000.0,
+        "provider_fee_tax": 3172230.0,
+        "payment_cost": 24320430.0,
         "variable_operating_cost": 5400000,
-        "contribution": 88183800.0,
+        "contribution": 81411570.0,
         "fixed_operating_cost": 48000000,
-        "operating_result": 40183800.0
+        "operating_result": 33411570.0,
+        "illustrative_corporate_income_tax": 10023471.0,
+        "result_after_income_tax": 23388099.0,
+        "vat_registered_sensitivity": {
+          "vat_inclusive_output_tax_no_input_credit": 16952338.98305085,
+          "operating_result": 16459231.016949153,
+          "result_after_income_tax": 11521461.711864406
+        }
       }
     },
     "95": {
       "per_order": {
+        "aggregator_collection_fee": 96.8625,
+        "mobile_money_payout_fee": 50.0,
+        "provider_fee_tax": 22.029375,
         "collected_fees": 3075.1875,
-        "payment_cost": 121.8625,
-        "contribution": 2803.325
+        "payment_cost": 168.891875,
+        "contribution": 2756.295625
       },
       "year_three": {
         "orders": 36000,
@@ -223,15 +312,28 @@
         "rider_fee_assessed": 56700000.0,
         "platform_fees_assessed": 113400000.0,
         "platform_fee_income": 110706750.0,
-        "payment_cost": 4387050.0,
+        "aggregator_collection_cost": 3487050.0,
+        "mobile_money_payout_cost": 1800000.0,
+        "provider_fee_tax": 793057.5,
+        "payment_cost": 6080107.5,
         "variable_operating_cost": 5400000,
-        "contribution": 100919700.0,
+        "contribution": 99226642.5,
         "fixed_operating_cost": 48000000,
-        "operating_result": 52919700.0
+        "operating_result": 51226642.5,
+        "illustrative_corporate_income_tax": 15367992.75,
+        "result_after_income_tax": 35858649.75,
+        "vat_registered_sensitivity": {
+          "vat_inclusive_output_tax_no_input_credit": 16887470.33898305,
+          "operating_result": 34339172.16101695,
+          "result_after_income_tax": 24037420.512711864
+        }
       }
     },
     "100": {
       "per_order": {
+        "aggregator_collection_fee": 0.0,
+        "mobile_money_payout_fee": 0.0,
+        "provider_fee_tax": 0.0,
         "collected_fees": 3071.25,
         "payment_cost": 0.0,
         "contribution": 2921.25
@@ -245,13 +347,23 @@
         "rider_fee_assessed": 56700000.0,
         "platform_fees_assessed": 113400000.0,
         "platform_fee_income": 110565000.0,
+        "aggregator_collection_cost": 0.0,
+        "mobile_money_payout_cost": 0.0,
+        "provider_fee_tax": 0.0,
         "payment_cost": 0.0,
         "variable_operating_cost": 5400000,
         "contribution": 105165000.0,
         "fixed_operating_cost": 48000000,
-        "operating_result": 57165000.0
+        "operating_result": 57165000.0,
+        "illustrative_corporate_income_tax": 17149500.0,
+        "result_after_income_tax": 40015500.0,
+        "vat_registered_sensitivity": {
+          "vat_inclusive_output_tax_no_input_credit": 16865847.457627118,
+          "operating_result": 40299152.54237288,
+          "result_after_income_tax": 28209406.77966102
+        }
       }
     }
   },
-  "cumulative_base_operating_result": 38973000.0
+  "cumulative_base_operating_result": 27685950.0
 }
