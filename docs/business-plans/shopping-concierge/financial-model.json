@@ -128,13 +128,14 @@
       "variable_operating_cost": 900000,
       "contribution": 13568595.0,
       "fixed_operating_cost": 24000000,
-      "operating_result": -10431405.0,
+      "paid_advertising": 4000000,
+      "operating_result": -14431405.0,
       "illustrative_corporate_income_tax": 0.0,
-      "result_after_income_tax": -10431405.0,
+      "result_after_income_tax": -14431405.0,
       "vat_registered_sensitivity": {
         "vat_inclusive_output_tax_no_input_credit": 2825389.8305084747,
-        "operating_result": -13256794.830508474,
-        "result_after_income_tax": -13256794.830508474
+        "operating_result": -17256794.830508474,
+        "result_after_income_tax": -17256794.830508474
       }
     },
     {
@@ -153,6 +154,7 @@
       "variable_operating_cost": 2700000,
       "contribution": 40705785.0,
       "fixed_operating_cost": 36000000,
+      "paid_advertising": 0,
       "operating_result": 4705785.0,
       "illustrative_corporate_income_tax": 1411735.5,
       "result_after_income_tax": 3294049.5,
@@ -178,6 +180,7 @@
       "variable_operating_cost": 5400000,
       "contribution": 81411570.0,
       "fixed_operating_cost": 48000000,
+      "paid_advertising": 0,
       "operating_result": 33411570.0,
       "illustrative_corporate_income_tax": 10023471.0,
       "result_after_income_tax": 23388099.0,
@@ -214,6 +217,7 @@
         "variable_operating_cost": 5400000,
         "contribution": -13602150.0,
         "fixed_operating_cost": 48000000,
+        "paid_advertising": 0,
         "operating_result": -61602150.0,
         "illustrative_corporate_income_tax": 0.0,
         "result_after_income_tax": -61602150.0,
@@ -249,6 +253,7 @@
         "variable_operating_cost": 5400000,
         "contribution": 45781425.0,
         "fixed_operating_cost": 48000000,
+        "paid_advertising": 0,
         "operating_result": -2218575.0,
         "illustrative_corporate_income_tax": 0.0,
         "result_after_income_tax": -2218575.0,
@@ -284,6 +289,7 @@
         "variable_operating_cost": 5400000,
         "contribution": 81411570.0,
         "fixed_operating_cost": 48000000,
+        "paid_advertising": 0,
         "operating_result": 33411570.0,
         "illustrative_corporate_income_tax": 10023471.0,
         "result_after_income_tax": 23388099.0,
@@ -319,6 +325,7 @@
         "variable_operating_cost": 5400000,
         "contribution": 99226642.5,
         "fixed_operating_cost": 48000000,
+        "paid_advertising": 0,
         "operating_result": 51226642.5,
         "illustrative_corporate_income_tax": 15367992.75,
         "result_after_income_tax": 35858649.75,
@@ -354,6 +361,7 @@
         "variable_operating_cost": 5400000,
         "contribution": 105165000.0,
         "fixed_operating_cost": 48000000,
+        "paid_advertising": 0,
         "operating_result": 57165000.0,
         "illustrative_corporate_income_tax": 17149500.0,
         "result_after_income_tax": 40015500.0,
@@ -365,15 +373,57 @@
       }
     }
   },
-  "cumulative_base_operating_result": 27685950.0,
+  "cumulative_base_operating_result": 23685950.0,
   "funding_ask": {
     "horizon_months": 12,
-    "total": 40000000,
+    "total": 44000000,
     "uses": {
       "launch_setup": 12000000,
       "operating_runway": 22000000,
+      "paid_digital_advertising": 4000000,
       "working_capital": 4000000,
       "contingency": 2000000
+    },
+    "paid_digital_advertising_breakdown": {
+      "search": 1500000,
+      "social_media": 2500000
+    },
+    "optional_broad_awareness": {
+      "uses": {
+        "local_radio": 5000000,
+        "billboards": 10000000,
+        "television": 8000000,
+        "newspapers": 4000000,
+        "production_and_measurement": 3000000
+      },
+      "additional_budget": 30000000,
+      "total_ask_with_broad_awareness": 74000000,
+      "year_one_at_same_order_volume": {
+        "orders": 6000,
+        "goods_value": 360000000,
+        "delivery_charges": 18000000,
+        "customer_order_value": 387450000.0,
+        "customer_fee_assessed": 9450000.0,
+        "rider_fee_assessed": 9450000.0,
+        "platform_fees_assessed": 18900000.0,
+        "platform_fee_income": 18522000.0,
+        "aggregator_collection_cost": 2324700.0,
+        "mobile_money_payout_cost": 1200000.0,
+        "provider_fee_tax": 528705.0,
+        "payment_cost": 4053405.0,
+        "variable_operating_cost": 900000,
+        "contribution": 13568595.0,
+        "fixed_operating_cost": 24000000,
+        "paid_advertising": 34000000,
+        "operating_result": -44431405.0,
+        "illustrative_corporate_income_tax": 0.0,
+        "result_after_income_tax": -44431405.0,
+        "vat_registered_sensitivity": {
+          "vat_inclusive_output_tax_no_input_credit": 2825389.8305084747,
+          "operating_result": -47256794.83050848,
+          "result_after_income_tax": -47256794.83050848
+        }
+      }
     },
     "launch_setup_breakdown": {
       "checkout_distance_and_fee_work": 6000000,

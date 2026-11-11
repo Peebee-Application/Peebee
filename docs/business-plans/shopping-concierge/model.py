@@ -16,6 +16,14 @@ STANDARD_VAT_RATE = Fraction(18, 100)
 CORPORATE_TAX_RATE = Fraction(30, 100)
 CASH_RIDER_FEE_RECOVERY = Fraction(95, 100)
 VARIABLE_OPERATING_COST = 150
+PAID_DIGITAL_ADS = {"search": 1_500_000, "social_media": 2_500_000}
+BROAD_AWARENESS = {
+    "local_radio": 5_000_000,
+    "billboards": 10_000_000,
+    "television": 8_000_000,
+    "newspapers": 4_000_000,
+    "production_and_measurement": 3_000_000,
+}
 
 
 def quote(goods, distance_km):
@@ -70,9 +78,9 @@ def order_economics(pricing, cash_share):
     }
 
 
-def projection(pricing, orders, fixed, cash_share):
+def projection(pricing, orders, fixed, cash_share, advertising=0):
     unit = order_economics(pricing, cash_share)
-    operating_result = orders * unit["contribution"] - fixed
+    operating_result = orders * unit["contribution"] - fixed - advertising
     corporate_tax = max(0, operating_result) * CORPORATE_TAX_RATE
     output_vat = orders * unit["collected_fees"] * STANDARD_VAT_RATE / (1 + STANDARD_VAT_RATE)
     vat_case_profit = operating_result - output_vat
@@ -92,6 +100,7 @@ def projection(pricing, orders, fixed, cash_share):
         "variable_operating_cost": orders * VARIABLE_OPERATING_COST,
         "contribution": orders * unit["contribution"],
         "fixed_operating_cost": fixed,
+        "paid_advertising": advertising,
         "operating_result": operating_result,
         "illustrative_corporate_income_tax": corporate_tax,
         "result_after_income_tax": operating_result - corporate_tax,
@@ -134,7 +143,12 @@ def main():
     reference = quote(60_000, 1)
     years = [(6_000, 24_000_000), (18_000, 36_000_000), (36_000, 48_000_000)]
     base_cash_share = Fraction(80, 100)
-    base = [projection(reference, orders, fixed, base_cash_share) for orders, fixed in years]
+    digital_budget = sum(PAID_DIGITAL_ADS.values())
+    broad_budget = sum(BROAD_AWARENESS.values())
+    base = [
+        projection(reference, orders, fixed, base_cash_share, digital_budget if year == 1 else 0)
+        for year, (orders, fixed) in enumerate(years, start=1)
+    ]
     sensitivities = {
         str(percent): {
             "per_order": order_economics(reference, Fraction(percent, 100)),
@@ -152,6 +166,7 @@ def main():
     funding_uses = {
         "launch_setup": sum(launch_budget.values()),
         "operating_runway": 22_000_000,
+        "paid_digital_advertising": digital_budget,
         "working_capital": 4_000_000,
         "contingency": 2_000_000,
     }
@@ -186,6 +201,15 @@ def main():
             "horizon_months": 12,
             "total": sum(funding_uses.values()),
             "uses": funding_uses,
+            "paid_digital_advertising_breakdown": PAID_DIGITAL_ADS,
+            "optional_broad_awareness": {
+                "uses": BROAD_AWARENESS,
+                "additional_budget": broad_budget,
+                "total_ask_with_broad_awareness": sum(funding_uses.values()) + broad_budget,
+                "year_one_at_same_order_volume": projection(
+                    reference, *years[0], base_cash_share, digital_budget + broad_budget
+                ),
+            },
             "launch_setup_breakdown": launch_budget,
             "working_capital_breakdown": {
                 "purchasing_and_settlement_reserve": 3_000_000,

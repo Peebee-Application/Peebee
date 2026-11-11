@@ -102,9 +102,10 @@ The corporate income tax line applies 30% to positive modeled operating income a
 | Other variable costs | (0.900) | (2.700) | (5.400) |
 | Contribution | 13.569 | 40.706 | 81.412 |
 | Fixed operating costs | (24.000) | (36.000) | (48.000) |
-| **Operating income or loss** | (10.431) | 4.706 | 33.412 |
+| Paid search and social media | (4.000) | 0.000 | 0.000 |
+| **Operating income or loss** | (14.431) | 4.706 | 33.412 |
 | Illustrative corporate income tax | 0.000 | (1.412) | (10.023) |
-| **Result after illustrative income tax** | (10.431) | 3.294 | 23.388 |
+| **Result after illustrative income tax** | (14.431) | 3.294 | 23.388 |
 
 The base case assumes Peebee has no output VAT obligation on the modeled fees. URA’s annual registration threshold is UGX 300 million in taxable turnover from 1 July 2026. Peebee’s registration and overall taxable turnover across modules govern applicability. If the 5% fee is VAT-inclusive and taxable at 18%, a fully collected UGX 3,150 fee contains UGX 480.51 in VAT. With no input tax credit assumed, the same Year 3 scenario would show UGX 16.459 million in operating income and UGX 11.521 million after illustrative corporate income tax. [URA VAT threshold notice](https://ura.go.ug/en/revised-value-added-tax-registration-threshold/)
 
@@ -162,21 +163,42 @@ The Admin order statistics endpoint also needs careful interpretation: its order
 
 ## Commercial launch and funding approach
 
-**Proposed funding ask: UGX 40 million** for launch setup and the first 12 months of Shopping Concierge operations in Kampala and Entebbe. This is a planning budget based on shared Peebee infrastructure, a small operating team and riders providing their own motorcycles. Replace the setup and operating allowances with supplier quotes and staffing commitments before closing the raise.
+**Proposed funding ask: UGX 44 million** for launch setup, paid search and social media, and the first 12 months of Shopping Concierge operations in Kampala and Entebbe. A broader awareness campaign adds a provisional UGX 30 million, bringing the funding envelope to **UGX 74 million**. The operating budget assumes shared Peebee infrastructure, a small team and riders providing their own motorcycles.
 
 | Use of funds | UGX million | Basis |
 | --- | ---: | --- |
 | One-time launch setup | 12 | 6 for checkout, distance pricing and fee split work, 2 for payment testing and compliance preparation, 2 for rider recruitment and training, and 2 for pilot materials and community activation |
 | Operating runway | 22 | Funds the peak operating cash deficit in the downside case, rounded up from 21.61 |
+| Paid search and social media | 4 | 1.5 for search and 2.5 for social media |
 | Working capital reserve | 4 | 3 for purchasing and settlement timing, equivalent to 50 reference baskets at UGX 60,000, and 1 for refunds and disputes |
 | Contingency | 2 | Unplanned launch costs or payment charges |
-| **Total ask** | **40** | |
+| **Core ask** | **44** | |
 
-The monthly operating budget is UGX 2 million in Year 1, or UGX 24 million before order contribution. In the base case, 6,000 orders generate UGX 13.57 million in contribution, leaving a full-year operating shortfall of UGX 10.43 million. The monthly ramp starts at 100 orders and reaches 1,050 in month 12. The cumulative cash deficit peaks at UGX 10.84 million in month 10, before the last two months improve the balance. Base-case funding through the peak is about UGX 28.84 million including launch setup, working capital and contingency.
+The monthly operating budget is UGX 2 million in Year 1, or UGX 24 million before order contribution and paid ads. In the base case, 6,000 orders generate UGX 13.57 million in contribution, leaving a UGX 10.43 million core operating shortfall and a UGX 14.43 million loss after digital ads. Core operating cash needs peak at UGX 10.84 million in month 10. Reserving the entire digital budget alongside setup, working capital and contingency brings the base funding need to about UGX 32.84 million. Years 2 and 3 have no separately budgeted paid campaign. Update them when campaign performance and the follow-on budget are known.
 
-The UGX 40 million ask covers a downside case with 3,000 Year 1 orders, a 50% cash mix, and VAT included in the existing Peebee fee at 18% with no input credit assumed. Contribution in that case averages about UGX 797 per order. The operating cash deficit reaches UGX 21.61 million in month 12. At zero orders and the same fixed budget, the total need rises to UGX 42 million with setup and both reserves included. The working capital allowance covers temporary exposure and should be resized using actual settlement timing, refund experience and the agreed funding arrangement. It is separate from customer money.
+The core ask covers a downside case with 3,000 Year 1 orders, a 50% cash mix, and VAT included in the existing Peebee fee at 18% with no input credit assumed. Contribution in that case averages about UGX 797 per order. The core operating cash deficit reaches UGX 21.61 million in month 12, with the paid campaign funded separately in the use-of-funds table. The working capital allowance covers temporary exposure and should be resized using actual settlement timing, refund experience and the agreed funding arrangement.
 
 Use the first 90 days after launch to target 500 completed orders across the two markets and verify paid repeat orders, rider earnings, and contribution by payment method. At base-case contribution of UGX 2,261 per order, about 885 orders per month cover the Year 1 operating budget. Review spending and rollout pace against those results before expanding rider coverage or acquisition spend. [Monthly funding model](financial-model.json)
+
+### Advertising and broader awareness
+
+Use paid search to reach people already looking for grocery shopping or delivery in the service areas. Use paid social to show how sending a shopping list works and build recognition around local markets and neighbourhoods. Spend UGX 500,000 across both channels in an initial test. Release the rest as completed first orders, repeat purchases and contribution justify it. Track acquisition cost as campaign spend divided by new customers who complete a paid order, and compare it with contribution from those customers over 90 days.
+
+Radio and outdoor placements can build recognition beyond the people reached by digital ads. Start with stations serving the launch areas and billboard sites near markets or along routes riders already serve. TV can show the shopping and delivery process. A newspaper placement can introduce the service and explain coverage. Give each channel a distinct offer code, link or phone prompt so Peebee can compare orders from the areas that received the campaign.
+
+| Optional awareness spending | UGX million | What to price |
+| --- | ---: | --- |
+| Local radio | 5 | Repeated spots and presenter mentions for Kampala and Entebbe audiences |
+| Billboards | 10 | Limited placements near active service areas, including artwork, printing, installation and permits where applicable |
+| Television | 8 | A limited package of spots or demonstrations with an agreed schedule |
+| Newspapers | 4 | Targeted print or e-paper placements |
+| Production and measurement | 3 | Creative work, translations and campaign tracking |
+| **Additional awareness budget** | **30** | |
+| **Total ask with broader awareness** | **74** | |
+
+These are spending allowances. Radio Sapientia lists UGX 40,000 for a 30-second commercial. BrandAds estimates UGX 3 million to UGX 9.5 million per month for standard billboard rental, with printing and installation separate. Vision Group publishes TV, radio and newspaper rate cards. Its older newspaper card lists UGX 3.15 million for a quarter-page colour New Vision placement. A meaningful campaign needs current written quotes showing locations, number of spots, production, taxes and duration. The UGX 30 million allowance is for a limited campaign across the two launch markets. [Radio Sapientia](https://www.radiosapientia.com/marketing/) · [BrandAds billboard estimates](https://brandads.co.ug/advertising-cost-in-uganda/) · [Vision Group rate cards](https://www.visiongroup.co.ug/rate-card/) · [New Vision historical print card](https://www.visiongroup.co.ug/wp-content/uploads/2023/06/VG-newspaper-ratecard.pdf)
+
+Keep the additional UGX 30 million as a separate funding tranche. Release it when the initial launch shows reliable rider coverage and fulfilment, repeat paid orders and enough contribution to sustain the proposed campaign. At unchanged order volume, spending both ad budgets increases the Year 1 operating loss to UGX 44.43 million. The model assigns no increase in orders until there is evidence of the campaign's effect. [Financial scenarios](financial-model.json)
 
 Prepare and validate the existing flow before paid launch: rider purchasing capacity, accurate prices and fee disclosure, approved payment arrangements, delivery and handover, settlement, withdrawals, refunds and complaint handling. Rider recruitment should match actual order density and earnings rather than an assumed large roster.
 
