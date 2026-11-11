@@ -14,7 +14,6 @@ import {
   AuthTop,
   CollapsedId,
   PasswordField,
-  WelcomeArt,
 } from "../../components/account/AuthUi";
 import { identifierInputMode, identifierIsValid, identifierKind, identifierLabel } from "../../lib/account-id";
 import { classifyAuthError, type AuthNotice } from "../../lib/auth-notice";
@@ -81,11 +80,10 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthScreen>
+    <AuthScreen welcome={step === "welcome"}>
       {step === "welcome" ? (
         <>
           <AuthBrand />
-          <WelcomeArt />
           <AuthTitle center>Your day, delivered.</AuthTitle>
           <AuthSub center>Food, shopping and parcels, brought to your door by a Peebee rider.</AuthSub>
           <div className="account-stack" style={{ marginTop: 30 }}>
