@@ -1,11 +1,35 @@
 "use client";
 
 import { Eye, EyeOff, Wifi } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { AuthNotice } from "../../lib/auth-notice";
 
-export function AuthScreen({ children }: { children: ReactNode }) {
-  return <div className="account-screen">{children}</div>;
+/** Hide the top illustration while the keyboard is open so fields stay on screen. */
+function useAuthKeyboard() {
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const sync = () => {
+      const open = window.innerHeight - viewport.height > 140;
+      document.documentElement.classList.toggle("account-keyboard", open);
+    };
+    sync();
+    viewport.addEventListener("resize", sync);
+    return () => {
+      viewport.removeEventListener("resize", sync);
+      document.documentElement.classList.remove("account-keyboard");
+    };
+  }, []);
+}
+
+export function AuthScreen({ children, welcome = false }: { children: ReactNode; welcome?: boolean }) {
+  useAuthKeyboard();
+  return (
+    <div className="account-screen">
+      <WelcomeArt welcome={welcome} />
+      <div className="account-body">{children}</div>
+    </div>
+  );
 }
 
 export function AuthTop({
@@ -47,41 +71,12 @@ export function AuthBrand() {
   );
 }
 
-export function WelcomeArt() {
+/** The rider illustration the previous sign-in scene showed, flush to the top of the screen. */
+export function WelcomeArt({ welcome = false }: { welcome?: boolean }) {
   return (
-    <div className="account-art" aria-hidden="true">
-      <svg viewBox="0 0 310 214">
-        <defs>
-          <linearGradient id="account-gold" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#E0B93D" />
-            <stop offset="1" stopColor="#C9A227" />
-          </linearGradient>
-          <linearGradient id="account-glass" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.92" />
-            <stop offset="1" stopColor="#FFFFFF" stopOpacity="0.62" />
-          </linearGradient>
-        </defs>
-        <path d="M60 40 C110 -10 230 0 270 50 C310 100 290 170 230 195 C170 220 80 210 40 170 C0 130 10 90 60 40Z" fill="url(#account-gold)" opacity="0.95" />
-        <path d="M200 20 C240 10 280 30 288 60 C296 92 270 104 248 96 C222 86 180 40 200 20Z" fill="#F1EEE4" opacity="0.7" />
-        <circle cx="52" cy="186" r="14" fill="#F1EEE4" />
-        <circle cx="282" cy="160" r="7" fill="#0A0A0A" opacity="0.85" />
-        <rect x="34" y="62" width="104" height="104" rx="12" fill="url(#account-glass)" stroke="#FFFFFF" strokeOpacity="0.8" />
-        <rect x="172" y="62" width="104" height="104" rx="12" fill="url(#account-glass)" stroke="#FFFFFF" strokeOpacity="0.8" />
-        <rect x="103" y="98" width="104" height="104" rx="12" fill="#FFFFFF" />
-        <g transform="translate(62 88)" fill="none" stroke="#0A0A0A" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M2 26h44a22 22 0 01-44 0z" fill="#E0B93D" />
-          <path d="M14 18c0-6 6-6 6-12M26 18c0-6 6-6 6-12" />
-        </g>
-        <g transform="translate(200 86)" fill="none" stroke="#0A0A0A" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 16h36l-3 34H9z" fill="#E0B93D" />
-          <path d="M16 22v-8a8 8 0 0116 0v8" />
-        </g>
-        <g transform="translate(131 120)" fill="none" stroke="#0A0A0A" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="4" y="12" width="40" height="36" rx="6" fill="#F1EEE4" />
-          <path d="M4 24h40M24 12v12" />
-          <path d="M14 6l10-4 10 4" />
-        </g>
-      </svg>
+    <div className={`account-art${welcome ? " is-welcome" : ""}`} aria-hidden="true">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/auth-illustration.webp" alt="" width={1536} height={1024} draggable={false} />
     </div>
   );
 }
