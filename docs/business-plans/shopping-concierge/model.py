@@ -103,6 +103,33 @@ def projection(pricing, orders, fixed, cash_share):
     }
 
 
+def first_year_runway(pricing, monthly_orders, cash_share, vat_inclusive=False):
+    monthly_fixed = 2_000_000
+    unit = order_economics(pricing, cash_share)
+    contribution = unit["contribution"]
+    if vat_inclusive:
+        contribution -= unit["collected_fees"] * STANDARD_VAT_RATE / (1 + STANDARD_VAT_RATE)
+    cumulative_result = 0
+    months = []
+    for month, orders in enumerate(monthly_orders, start=1):
+        result = orders * contribution - monthly_fixed
+        cumulative_result += result
+        months.append({
+            "month": month,
+            "orders": orders,
+            "operating_cash_result": result,
+            "cumulative_operating_cash_result": cumulative_result,
+        })
+    return {
+        "cash_share": cash_share,
+        "vat_inclusive": vat_inclusive,
+        "contribution_per_order": contribution,
+        "monthly_fixed_cost": monthly_fixed,
+        "months": months,
+        "peak_operating_cash_deficit": max(0, -min(row["cumulative_operating_cash_result"] for row in months)),
+    }
+
+
 def main():
     reference = quote(60_000, 1)
     years = [(6_000, 24_000_000), (18_000, 36_000_000), (36_000, 48_000_000)]
@@ -114,6 +141,19 @@ def main():
             "year_three": projection(reference, *years[-1], Fraction(percent, 100)),
         }
         for percent in (0, 50, 80, 95, 100)
+    }
+    monthly_orders = [100, 150, 250, 350, 400, 450, 500, 550, 600, 700, 900, 1050]
+    launch_budget = {
+        "checkout_distance_and_fee_work": 6_000_000,
+        "payment_testing_and_compliance_preparation": 2_000_000,
+        "rider_recruitment_and_training": 2_000_000,
+        "pilot_launch_materials_and_community_activation": 2_000_000,
+    }
+    funding_uses = {
+        "launch_setup": sum(launch_budget.values()),
+        "operating_runway": 22_000_000,
+        "working_capital": 4_000_000,
+        "contingency": 2_000_000,
     }
     result = {
         "currency": "UGX",
@@ -142,6 +182,20 @@ def main():
         "base_years": base,
         "cash_share_sensitivity_percent": sensitivities,
         "cumulative_base_operating_result": sum(row["operating_result"] for row in base),
+        "funding_ask": {
+            "horizon_months": 12,
+            "total": sum(funding_uses.values()),
+            "uses": funding_uses,
+            "launch_setup_breakdown": launch_budget,
+            "working_capital_breakdown": {
+                "purchasing_and_settlement_reserve": 3_000_000,
+                "refunds_and_disputes_reserve": 1_000_000,
+            },
+            "base": first_year_runway(reference, monthly_orders, base_cash_share),
+            "downside": first_year_runway(
+                reference, [orders // 2 for orders in monthly_orders], Fraction(1, 2), vat_inclusive=True
+            ),
+        },
     }
     Path(__file__).with_name("financial-model.json").write_text(
         json.dumps(result, indent=2, default=float) + "\n", encoding="utf-8"

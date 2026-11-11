@@ -162,13 +162,28 @@ The Admin order statistics endpoint also needs careful interpretation: its order
 
 ## Commercial launch and funding approach
 
+**Proposed funding ask: UGX 40 million** for launch setup and the first 12 months of Shopping Concierge operations in Kampala and Entebbe. This is a planning budget based on shared Peebee infrastructure, a small operating team and riders providing their own motorcycles. Replace the setup and operating allowances with supplier quotes and staffing commitments before closing the raise.
+
+| Use of funds | UGX million | Basis |
+| --- | ---: | --- |
+| One-time launch setup | 12 | 6 for checkout, distance pricing and fee split work, 2 for payment testing and compliance preparation, 2 for rider recruitment and training, and 2 for pilot materials and community activation |
+| Operating runway | 22 | Funds the peak operating cash deficit in the downside case, rounded up from 21.61 |
+| Working capital reserve | 4 | 3 for purchasing and settlement timing, equivalent to 50 reference baskets at UGX 60,000, and 1 for refunds and disputes |
+| Contingency | 2 | Unplanned launch costs or payment charges |
+| **Total ask** | **40** | |
+
+The monthly operating budget is UGX 2 million in Year 1, or UGX 24 million before order contribution. In the base case, 6,000 orders generate UGX 13.57 million in contribution, leaving a full-year operating shortfall of UGX 10.43 million. The monthly ramp starts at 100 orders and reaches 1,050 in month 12. The cumulative cash deficit peaks at UGX 10.84 million in month 10, before the last two months improve the balance. Base-case funding through the peak is about UGX 28.84 million including launch setup, working capital and contingency.
+
+The UGX 40 million ask covers a downside case with 3,000 Year 1 orders, a 50% cash mix, and VAT included in the existing Peebee fee at 18% with no input credit assumed. Contribution in that case averages about UGX 797 per order. The operating cash deficit reaches UGX 21.61 million in month 12. At zero orders and the same fixed budget, the total need rises to UGX 42 million with setup and both reserves included. The working capital allowance covers temporary exposure and should be resized using actual settlement timing, refund experience and the agreed funding arrangement. It is separate from customer money.
+
+Use the first 90 days after launch to target 500 completed orders across the two markets and verify paid repeat orders, rider earnings, and contribution by payment method. At base-case contribution of UGX 2,261 per order, about 885 orders per month cover the Year 1 operating budget. Review spending and rollout pace against those results before expanding rider coverage or acquisition spend. [Monthly funding model](financial-model.json)
+
 Prepare and validate the existing flow before paid launch: rider purchasing capacity, accurate prices and fee disclosure, approved payment arrangements, delivery and handover, settlement, withdrawals, refunds and complaint handling. Rider recruitment should match actual order density and earnings rather than an assumed large roster.
 
 Use early paid shopping orders in Kampala and Entebbe to establish actual basket sizes, total charges accepted, rider costs, duration, repeat use and loss experience. Separate full-price activity from subsidies and report each launch area and payment method distinctly. Avoid promoting a fixed completion time before the service can support it.
 
 Refresh the model with verified fees, payout costs, completed order volume, retention and rider capacity as pilot data becomes available. Allocate ongoing technology, support, payment administration and shared management costs to this module.
 
-Funding need equals validated launch setup costs plus operating cash deficits, required purchasing liquidity and an operating reserve. The projections quantify the operating deficit under the modeled inputs. A funding request also needs costed setup, working capital, payment terms and a credible path to positive contribution.
 
 ## Governance and investor diligence
 

@@ -365,5 +365,187 @@
       }
     }
   },
-  "cumulative_base_operating_result": 27685950.0
+  "cumulative_base_operating_result": 27685950.0,
+  "funding_ask": {
+    "horizon_months": 12,
+    "total": 40000000,
+    "uses": {
+      "launch_setup": 12000000,
+      "operating_runway": 22000000,
+      "working_capital": 4000000,
+      "contingency": 2000000
+    },
+    "launch_setup_breakdown": {
+      "checkout_distance_and_fee_work": 6000000,
+      "payment_testing_and_compliance_preparation": 2000000,
+      "rider_recruitment_and_training": 2000000,
+      "pilot_launch_materials_and_community_activation": 2000000
+    },
+    "working_capital_breakdown": {
+      "purchasing_and_settlement_reserve": 3000000,
+      "refunds_and_disputes_reserve": 1000000
+    },
+    "base": {
+      "cash_share": 0.8,
+      "vat_inclusive": false,
+      "contribution_per_order": 2261.4325,
+      "monthly_fixed_cost": 2000000,
+      "months": [
+        {
+          "month": 1,
+          "orders": 100,
+          "operating_cash_result": -1773856.75,
+          "cumulative_operating_cash_result": -1773856.75
+        },
+        {
+          "month": 2,
+          "orders": 150,
+          "operating_cash_result": -1660785.125,
+          "cumulative_operating_cash_result": -3434641.875
+        },
+        {
+          "month": 3,
+          "orders": 250,
+          "operating_cash_result": -1434641.875,
+          "cumulative_operating_cash_result": -4869283.75
+        },
+        {
+          "month": 4,
+          "orders": 350,
+          "operating_cash_result": -1208498.625,
+          "cumulative_operating_cash_result": -6077782.375
+        },
+        {
+          "month": 5,
+          "orders": 400,
+          "operating_cash_result": -1095427.0,
+          "cumulative_operating_cash_result": -7173209.375
+        },
+        {
+          "month": 6,
+          "orders": 450,
+          "operating_cash_result": -982355.375,
+          "cumulative_operating_cash_result": -8155564.75
+        },
+        {
+          "month": 7,
+          "orders": 500,
+          "operating_cash_result": -869283.75,
+          "cumulative_operating_cash_result": -9024848.5
+        },
+        {
+          "month": 8,
+          "orders": 550,
+          "operating_cash_result": -756212.125,
+          "cumulative_operating_cash_result": -9781060.625
+        },
+        {
+          "month": 9,
+          "orders": 600,
+          "operating_cash_result": -643140.5,
+          "cumulative_operating_cash_result": -10424201.125
+        },
+        {
+          "month": 10,
+          "orders": 700,
+          "operating_cash_result": -416997.25,
+          "cumulative_operating_cash_result": -10841198.375
+        },
+        {
+          "month": 11,
+          "orders": 900,
+          "operating_cash_result": 35289.25,
+          "cumulative_operating_cash_result": -10805909.125
+        },
+        {
+          "month": 12,
+          "orders": 1050,
+          "operating_cash_result": 374504.125,
+          "cumulative_operating_cash_result": -10431405.0
+        }
+      ],
+      "peak_operating_cash_deficit": 10841198.375
+    },
+    "downside": {
+      "cash_share": 0.5,
+      "vat_inclusive": true,
+      "contribution_per_order": 797.2041313559322,
+      "monthly_fixed_cost": 2000000,
+      "months": [
+        {
+          "month": 1,
+          "orders": 50,
+          "operating_cash_result": -1960139.7934322034,
+          "cumulative_operating_cash_result": -1960139.7934322034
+        },
+        {
+          "month": 2,
+          "orders": 75,
+          "operating_cash_result": -1940209.6901483051,
+          "cumulative_operating_cash_result": -3900349.4835805083
+        },
+        {
+          "month": 3,
+          "orders": 125,
+          "operating_cash_result": -1900349.4835805085,
+          "cumulative_operating_cash_result": -5800698.967161017
+        },
+        {
+          "month": 4,
+          "orders": 175,
+          "operating_cash_result": -1860489.2770127119,
+          "cumulative_operating_cash_result": -7661188.244173729
+        },
+        {
+          "month": 5,
+          "orders": 200,
+          "operating_cash_result": -1840559.1737288137,
+          "cumulative_operating_cash_result": -9501747.417902542
+        },
+        {
+          "month": 6,
+          "orders": 225,
+          "operating_cash_result": -1820629.0704449152,
+          "cumulative_operating_cash_result": -11322376.488347458
+        },
+        {
+          "month": 7,
+          "orders": 250,
+          "operating_cash_result": -1800698.967161017,
+          "cumulative_operating_cash_result": -13123075.455508474
+        },
+        {
+          "month": 8,
+          "orders": 275,
+          "operating_cash_result": -1780768.8638771186,
+          "cumulative_operating_cash_result": -14903844.319385594
+        },
+        {
+          "month": 9,
+          "orders": 300,
+          "operating_cash_result": -1760838.7605932204,
+          "cumulative_operating_cash_result": -16664683.079978814
+        },
+        {
+          "month": 10,
+          "orders": 350,
+          "operating_cash_result": -1720978.5540254237,
+          "cumulative_operating_cash_result": -18385661.63400424
+        },
+        {
+          "month": 11,
+          "orders": 450,
+          "operating_cash_result": -1641258.1408898304,
+          "cumulative_operating_cash_result": -20026919.774894066
+        },
+        {
+          "month": 12,
+          "orders": 525,
+          "operating_cash_result": -1581467.8310381356,
+          "cumulative_operating_cash_result": -21608387.605932202
+        }
+      ],
+      "peak_operating_cash_deficit": 21608387.605932202
+    }
+  }
 }
