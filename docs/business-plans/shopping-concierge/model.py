@@ -1,6 +1,7 @@
 """Generate the Shopping Concierge pricing and financial scenarios with Python 3."""
 
 import json
+from math import ceil
 from fractions import Fraction
 from pathlib import Path
 
@@ -16,6 +17,20 @@ STANDARD_VAT_RATE = Fraction(18, 100)
 CORPORATE_TAX_RATE = Fraction(30, 100)
 CASH_RIDER_FEE_RECOVERY = Fraction(95, 100)
 VARIABLE_OPERATING_COST = 150
+AGENT_COMMISSION = 2_000
+# Budget one commission for every ten settled orders, each on a verified first order.
+AGENT_FIRST_ORDER_SHARE = Fraction(1, 10)
+MONTHLY_FIXED_COSTS = {
+    "operations_lead_salary": 1_500_000,
+    "dispatch_salary": 900_000,
+    "customer_support_salary": 750_000,
+    "part_time_finance_and_admin_salary": 400_000,
+    "employer_nssf": 355_000,
+    "sales_agent_allowances": 400_000,
+    "office_rent": 1_000_000,
+    "office_utilities_and_internet": 250_000,
+    "allocated_technology_and_admin": 345_000,
+}
 # Phase amounts exclude the UGX 2m rider branding and collateral in launch setup.
 MARKETING_PHASES = {
     "pilot": {"meta": 1_500_000, "tiktok": 1_000_000, "google_search_and_app": 1_500_000},
@@ -82,7 +97,7 @@ def order_economics(pricing, cash_share):
         **payment,
         "collected_fees": collected_fees,
         "payment_cost": payment_cost,
-        "contribution": collected_fees - payment_cost - VARIABLE_OPERATING_COST,
+        "contribution": collected_fees - payment_cost - VARIABLE_OPERATING_COST - AGENT_COMMISSION * AGENT_FIRST_ORDER_SHARE,
     }
 
 
@@ -106,6 +121,7 @@ def projection(pricing, orders, fixed, cash_share, incremental_marketing=0):
         "provider_fee_tax": orders * unit["provider_fee_tax"],
         "payment_cost": orders * unit["payment_cost"],
         "variable_operating_cost": orders * VARIABLE_OPERATING_COST,
+        "sales_agent_commissions": orders * AGENT_COMMISSION * AGENT_FIRST_ORDER_SHARE,
         "contribution": orders * unit["contribution"],
         "fixed_operating_cost": fixed,
         "incremental_marketing": incremental_marketing,
@@ -121,7 +137,7 @@ def projection(pricing, orders, fixed, cash_share, incremental_marketing=0):
 
 
 def first_year_runway(pricing, monthly_orders, cash_share, vat_inclusive=False):
-    monthly_fixed = 2_000_000
+    monthly_fixed = sum(MONTHLY_FIXED_COSTS.values())
     unit = order_economics(pricing, cash_share)
     contribution = unit["contribution"]
     if vat_inclusive:
@@ -149,7 +165,9 @@ def first_year_runway(pricing, monthly_orders, cash_share, vat_inclusive=False):
 
 def main():
     reference = quote(60_000, 1)
-    years = [(6_000, 24_000_000), (18_000, 36_000_000), (36_000, 48_000_000)]
+    monthly_fixed = sum(MONTHLY_FIXED_COSTS.values())
+    years = [(6_000, monthly_fixed * 12), (18_000, (monthly_fixed + 1_000_000) * 12),
+             (36_000, (monthly_fixed + 2_000_000) * 12)]
     base_cash_share = Fraction(80, 100)
     phase_budgets = {phase: sum(uses.values()) for phase, uses in MARKETING_PHASES.items()}
     pilot_budget = phase_budgets["pilot"]
@@ -166,6 +184,10 @@ def main():
         for percent in (0, 50, 80, 95, 100)
     }
     monthly_orders = [100, 150, 250, 550, 600, 650, 600, 600, 600, 600, 650, 650]
+    base_runway = first_year_runway(reference, monthly_orders, base_cash_share)
+    downside_runway = first_year_runway(
+        reference, [orders // 2 for orders in monthly_orders], Fraction(1, 2), vat_inclusive=True
+    )
     launch_budget = {
         "checkout_distance_and_fee_work": 6_000_000,
         "payment_testing_and_compliance_preparation": 2_000_000,
@@ -174,9 +196,10 @@ def main():
     }
     funding_uses = {
         "launch_setup": sum(launch_budget.values()),
-        "operating_runway": 22_000_000,
+        "operating_runway": ceil(downside_runway["peak_operating_cash_deficit"] / 1_000_000) * 1_000_000,
         "pilot_digital_advertising": pilot_budget,
         "working_capital": 4_000_000,
+        "refundable_office_deposit": 2_000_000,
         "contingency": 2_000_000,
     }
     result = {
@@ -195,6 +218,9 @@ def main():
             "illustrative_corporate_income_tax_rate": CORPORATE_TAX_RATE,
             "cash_rider_fee_recovery_rate": CASH_RIDER_FEE_RECOVERY,
             "variable_operating_cost": VARIABLE_OPERATING_COST,
+            "sales_agent_commission_per_verified_first_order": AGENT_COMMISSION,
+            "agent_first_order_share_of_all_settled_orders": AGENT_FIRST_ORDER_SHARE,
+            "year_one_monthly_fixed_cost_breakdown": MONTHLY_FIXED_COSTS,
             "base_cash_share": base_cash_share,
         },
         "example_quotes": [
@@ -219,9 +245,9 @@ def main():
                     "retention": sum(monthly_orders[6:]),
                 },
                 "phase_core_operating_results_before_marketing": {
-                    "pilot": projection(reference, sum(monthly_orders[:3]), 6_000_000, base_cash_share)["operating_result"],
-                    "corridor_expansion": projection(reference, sum(monthly_orders[3:6]), 6_000_000, base_cash_share)["operating_result"],
-                    "retention": projection(reference, sum(monthly_orders[6:]), 12_000_000, base_cash_share)["operating_result"],
+                    "pilot": projection(reference, sum(monthly_orders[:3]), 3 * monthly_fixed, base_cash_share)["operating_result"],
+                    "corridor_expansion": projection(reference, sum(monthly_orders[3:6]), 3 * monthly_fixed, base_cash_share)["operating_result"],
+                    "retention": projection(reference, sum(monthly_orders[6:]), 6 * monthly_fixed, base_cash_share)["operating_result"],
                 },
                 "collateral_in_setup": launch_budget["pilot_launch_materials_and_community_activation"],
                 "full_marketing_spend_including_setup_collateral": full_marketing_budget + launch_budget["pilot_launch_materials_and_community_activation"],
@@ -234,10 +260,8 @@ def main():
                 "purchasing_and_settlement_reserve": 3_000_000,
                 "refunds_and_disputes_reserve": 1_000_000,
             },
-            "base": first_year_runway(reference, monthly_orders, base_cash_share),
-            "downside": first_year_runway(
-                reference, [orders // 2 for orders in monthly_orders], Fraction(1, 2), vat_inclusive=True
-            ),
+            "base": base_runway,
+            "downside": downside_runway,
         },
     }
     Path(__file__).with_name("financial-model.json").write_text(

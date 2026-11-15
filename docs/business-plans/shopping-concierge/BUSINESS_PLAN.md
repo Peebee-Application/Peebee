@@ -10,7 +10,7 @@ The product supports local shopping in the form customers already use: quantitie
 
 The commercial proposition is convenient, dependable local shopping at a customer-acceptable total cost. The initial investment case should establish that customers repeat purchases, riders earn enough after their costs, and Peebee retains enough income to cover the service. Existing technology lowers the amount of new product development required; it does not demonstrate demand or profitability.
 
-The launch pricing policy combines a distance-based Boda fare with UGX 1,000 for shopping. Peebee earns 5% of the goods and fulfilment subtotal, split equally between the customer and rider. On a UGX 60,000 basket with a 1 km delivery, the customer pays UGX 64,575 and Peebee assesses UGX 3,150 in gross fees. At 36,000 completed orders, the Year 3 scenario projects UGX 111.132 million in collected fee income and UGX 33.412 million in operating income after payment costs and provider fee tax. The illustrative result after corporate income tax is UGX 23.388 million before setup and financing costs.
+The launch pricing policy combines a distance-based Boda fare with UGX 1,000 for shopping. Peebee earns 5% of the goods and fulfilment subtotal, split equally between the customer and rider. On a UGX 60,000 basket with a 1 km delivery, the customer pays UGX 64,575 and Peebee assesses UGX 3,150 in gross fees. At 36,000 completed orders, the Year 3 scenario projects UGX 111.132 million in collected fee income and a UGX 20.588 million operating loss after staffing, sales costs and office costs.
 
 ## Service and customer need
 
@@ -82,9 +82,26 @@ All amounts are UGX. For cash paid directly to the rider, the model assigns zero
 
 The planning scenario uses 6,000, 18,000 and 36,000 completed orders across Kampala and Entebbe. The reference order is UGX 60,000 of goods with a 1 km delivery. The assumed mix is 80% cash and 20% mobile money. The model assumes full recovery of the customer share and 95% recovery of the rider share on cash orders. Digital orders assume full recovery of both shares. The cash checkout and settlement path requires alignment to collect the shares from their intended payers.
 
-At that mix, Peebee collects an average of UGX 3,087 per order. Payment charges and provider fee tax average UGX 675.57. After UGX 150 in other variable costs, contribution averages UGX 2,261.43. Fixed costs are assumed at UGX 2 million, UGX 3 million and UGX 4 million per month across the three years. Setup and financing costs sit outside the operating projection.
+At that mix, Peebee collects an average of UGX 3,087 per order. Payment charges and provider fee tax average UGX 675.57. Contribution averages UGX 2,061.43 after UGX 150 in other variable costs and UGX 200 in budgeted sales commissions per settled order. Staffing, field allowances, rent and shared overhead are included in the fixed budget below. Setup, office deposit and financing are outside operating income.
 
 The corporate income tax line applies 30% to positive modeled operating income as a proxy for chargeable income. Loss relief, allowances and other Peebee modules’ results would affect actual tax. [URA corporate income tax](https://ura.go.ug/en/ask-ura-commissioner-general-30/)
+
+| Year 1 fixed operating budget | Monthly UGX | Annual UGX |
+| --- | ---: | ---: |
+| Operations lead, gross salary | 1,500,000 | 18,000,000 |
+| Dispatch coordinator, gross salary | 900,000 | 10,800,000 |
+| Customer support, gross salary | 750,000 | 9,000,000 |
+| Part-time finance and admin, gross salary | 400,000 | 4,800,000 |
+| Employer NSSF provision | 355,000 | 4,260,000 |
+| Two sales agent transport and airtime allowances | 400,000 | 4,800,000 |
+| Shared Kampala office rent | 1,000,000 | 12,000,000 |
+| Office utilities and internet | 250,000 | 3,000,000 |
+| Allocated technology and administration | 345,000 | 4,140,000 |
+| **Total fixed operating costs** | **5,900,000** | **70,800,000** |
+
+The budget assumes three full-time staff, part-time finance support, two field agents at UGX 200,000 each per month in allowances, and one office shared by the Kampala and Entebbe teams. Salary amounts are planning estimates. The rent is an allowance for modest Kampala office space. Confirm rent, service charges, tax and payment timing before signing. The model reserves a refundable deposit equal to two months’ rent. NSSF’s employer rate is 10% of covered gross wages. The budget applies it to staff salaries and assumes the field agents are independently contracted. Actual employment classification and treatment of allowances determine the final payroll cost. [Kampala office listing](https://www.rentwide.co.ug/Rentwide/HouseDetails.aspx?HouseCode=30315) · [NSSF contribution rules](https://www.nssfug.org/about-us/membership/)
+
+Budget UGX 2,000 per verified agent-referred first paid order that settles without a refund. The forecast assumes these first orders account for 10% of all settled orders, or 600 payouts and UGX 1.2 million in Year 1. Keep that variable expense separate from agents’ fixed transport and airtime. The commission is a proposed compensation assumption. Confirm the attribution and payout terms before use. The model adds UGX 1 million to the monthly fixed budget in Year 2 and UGX 2 million in Year 3 versus Year 1 for added operating capacity.
 
 | Financial measure, UGX million except orders | Year 1 | Year 2 | Year 3 |
 | --- | ---: | ---: | ---: |
@@ -100,16 +117,17 @@ The corporate income tax line applies 30% to positive modeled operating income a
 | Mobile money payout costs | (1.200) | (3.600) | (7.200) |
 | Tax on provider fees | (0.529) | (1.586) | (3.172) |
 | Other variable costs | (0.900) | (2.700) | (5.400) |
-| Contribution | 13.569 | 40.706 | 81.412 |
-| Fixed operating costs | (24.000) | (36.000) | (48.000) |
+| Sales agent commissions | (1.200) | (3.600) | (7.200) |
+| Contribution | 12.369 | 37.106 | 74.212 |
+| Fixed operating costs | (70.800) | (82.800) | (94.800) |
 | Pilot paid search and social media | (4.000) | 0.000 | 0.000 |
-| **Operating income or loss** | (14.431) | 4.706 | 33.412 |
-| Illustrative corporate income tax | 0.000 | (1.412) | (10.023) |
-| **Result after illustrative income tax** | (14.431) | 3.294 | 23.388 |
+| **Operating income or loss** | (62.431) | (45.694) | (20.588) |
+| Illustrative corporate income tax | 0.000 | 0.000 | 0.000 |
+| **Result after illustrative income tax** | (62.431) | (45.694) | (20.588) |
 
-The base case assumes Peebee has no output VAT obligation on the modeled fees. URA’s annual registration threshold is UGX 300 million in taxable turnover from 1 July 2026. Peebee’s registration and overall taxable turnover across modules govern applicability. If the 5% fee is VAT-inclusive and taxable at 18%, a fully collected UGX 3,150 fee contains UGX 480.51 in VAT. With no input tax credit assumed, the same Year 3 scenario would show UGX 16.459 million in operating income and UGX 11.521 million after illustrative corporate income tax. [URA VAT threshold notice](https://ura.go.ug/en/revised-value-added-tax-registration-threshold/)
+The base case assumes Peebee has no output VAT obligation on the modeled fees. URA’s annual registration threshold is UGX 300 million in taxable turnover from 1 July 2026. Peebee’s registration and overall taxable turnover across modules govern applicability. If the 5% fee is VAT-inclusive and taxable at 18%, a fully collected UGX 3,150 fee contains UGX 480.51 in VAT. With no input tax credit assumed, the same Year 3 scenario would show a UGX 37.541 million operating loss. [URA VAT threshold notice](https://ura.go.ug/en/revised-value-added-tax-registration-threshold/)
 
-At 80% cash, Year 3 operating break-even requires about 21,226 completed orders under the base assumptions. With all orders paid by mobile money, the reference order loses UGX 377.84 in contribution after variable costs and the Year 3 operating loss is UGX 61.602 million. The model includes five payment mixes. [Model script](model.py) · [Calculated scenarios](financial-model.json)
+At 80% cash, Year 3 operating break-even requires about 45,988 completed orders under the base assumptions, before any Year 3 campaign spend. With all orders paid by mobile money, the reference order loses UGX 577.84 in contribution after variable costs and the Year 3 operating loss is UGX 115.602 million. [Model script](model.py) · [Calculated scenarios](financial-model.json)
 
 ## Delivery distance and assignment
 
@@ -163,18 +181,19 @@ The Admin order statistics endpoint also needs careful interpretation: its order
 
 ## Commercial launch and funding approach
 
-**Proposed funding is UGX 44 million for launch and protected operating runway, with a further UGX 31.5 million for corridor expansion and UGX 15.5 million for retention.** The full Year 1 envelope is **UGX 91 million** if both later phases need outside funding. Funding through corridor expansion totals UGX 75.5 million. The original UGX 44 million covers the pilot and protects core operations for 12 months.
+**Proposed funding is UGX 94 million for launch and 12 months of protected operating runway.** Funding rises to **UGX 125.5 million** through corridor expansion, and to **UGX 141 million** with all Year 1 marketing phases funded.
 
 | Core use of funds | UGX million | Basis |
 | --- | ---: | --- |
 | One-time launch setup | 12 | 6 for checkout, distance pricing and fee split work, 2 for payment testing and compliance preparation, 2 for rider recruitment and training, and 2 for rider branding and pilot market materials |
-| Operating runway | 22 | Covers the UGX 21.61 million downside operating cash deficit |
+| Operating runway | 70 | Covers the UGX 69.01 million downside operating cash deficit |
 | Pilot paid advertising | 4 | Meta 1.5, TikTok 1.0, and Google search and app ads 1.5 |
 | Working capital reserve | 4 | 3 for purchasing and settlement timing, equivalent to 50 reference baskets at UGX 60,000, and 1 for refunds and disputes |
 | General contingency | 2 | Unplanned launch costs or payment charges |
-| **Core ask** | **44** | |
+| Refundable office deposit | 2 | Two months’ rent, separate from Year 1 rent expense |
+| **Core ask** | **94** | |
 
-Year 1 fixed operations cost UGX 2 million per month. The base scenario’s 6,000 orders generate UGX 13.57 million in contribution against UGX 24 million in fixed costs. Core operating cash needs peak at UGX 10.43 million in month 12. With pilot ads, Year 1 operating loss is UGX 14.43 million. Full marketing would bring that loss to UGX 61.43 million at the same order volume, before setup and financing. The downside runway assumes 3,000 orders, a 50% cash mix and VAT included in Peebee’s fee. Later marketing funds are kept separate from the operating and working capital reserves. [Monthly funding and scenario model](financial-model.json)
+Year 1 fixed costs total UGX 70.8 million. At 6,000 orders, UGX 12.37 million in contribution leaves a UGX 58.43 million operating cash deficit before advertising. The downside uses 3,000 orders, 50% cash and VAT included in Peebee’s fee. It produces a UGX 69.01 million operating cash deficit before advertising. Year 1 operating losses rise to UGX 62.43 million with pilot ads, or UGX 109.43 million with the full awareness and retention programme at the same order volume. The funding ask sets aside launch setup, the office deposit, advertising and reserves separately from operating runway. This funding covers Year 1. The current volume scenario still runs at a loss in Years 2 and 3. [Monthly funding and scenario model](financial-model.json)
 
 ### Marketing strategy
 
@@ -188,7 +207,7 @@ Concentrate media around staffed service zones, using the framework’s 4 km tar
 | Months 4–6. Corridor expansion | 1,800 | Test a single Kibuye–Kajjansi corridor unipole, Luganda drive-time presenter demonstrations on stations such as Sapientia or Bukedde FM, local creators and continued digital acquisition. Release this phase after the pilot records at least 500 settled paid orders, blended CAC at or below UGX 8,000, at least 30% repeat within 30 days, cancellation below 12% and rider acceptance at or above 80%. |
 | Months 7–12. Retention | 3,700 | Use WhatsApp list sharing, tested delivery referral credits and opt-in SMS replenishment reminders alongside the channel budget below. Review release after the expansion records at least 500 completed orders per month, at least UGX 2,100 average retained contribution per order across payment methods and at least 20% of new registrations from unpaid referrals or word of mouth. Release from operating cash only if contribution covers fixed costs and planned retention spend. Otherwise use separately funded, approved spending or reduce it. |
 
-The ongoing blended CAC target is UGX 6,500 per new customer with a first settled paid order. At the modeled UGX 2,261 contribution per order, three completed orders in 60 days yield about UGX 6,784 before any acquisition incentives. Measure payback using actual contribution per cohort after rewards. Track 35% second-order repeat within 21 days and 18% Google Play store visit-to-install conversion as targets. Use the proposed UGX 1,500 cost-per-install benchmark for Meta as a test input, with paid first orders governing spend. Spending all UGX 4 million on a pilot with only 500 settled orders would use the entire UGX 8,000 gate even if every order came from a distinct new paying customer. Repeat orders reduce that denominator, so pace spend against observed first-order conversions.
+The ongoing blended CAC target is UGX 6,500 per new customer with a first settled paid order. Include attributable agent commissions and allowances in blended CAC alongside paid media. For cohort payback, use order contribution before acquisition costs to avoid counting commission twice. At the reference contribution of UGX 2,261 before acquisition costs, three completed orders yield about UGX 6,784 before referral rewards. Track actual payback by channel. Track 35% second-order repeat within 21 days and 18% Google Play store visit-to-install conversion as targets. Use the proposed UGX 1,500 cost-per-install benchmark for Meta as a test input, with paid first orders governing spend. Spending all UGX 4 million on a pilot with only 500 settled orders would use the entire UGX 8,000 gate even if every order came from a distinct new paying customer. Repeat orders reduce that denominator, so pace spend against observed first-order conversions.
 
 ### Twelve-month marketing budget
 
@@ -211,7 +230,7 @@ The ongoing blended CAC target is UGX 6,500 per new customer with a first settle
 
 The table follows the individual phase amounts in the supplied framework, including UGX 1 million of follow-on collateral in each later phase. The resulting totals replace the inconsistent subtotals in the attachment. Placement, SMS and permit amounts are allowances. Obtain current quotes and confirm what is included in the outdoor provider’s price before authorising spend. TV and newspaper placements remain options for a quoted substitution within an approved awareness budget. [Radio Sapientia](https://www.radiosapientia.com/marketing/) · [Vision Group rate cards](https://www.visiongroup.co.ug/rate-card/) · [Outdoor advertising supplier estimates](https://brandads.co.ug/advertising-cost-in-uganda/)
 
-At the 3,700-order retention target, contribution is about UGX 8.37 million against UGX 12 million in fixed costs over six months. That leaves a **UGX 3.63 million operating shortfall before retention spend**. Hold the UGX 15.5 million retention phase as a separate funding decision. A fully redeemed UGX 2,000-per-side referral would cost UGX 4,000. Pilot the offer against incremental settled orders and charge redeemed credits to the marketing contingency. Use opted-in SMS cohorts to test the framework’s Thursday reminder and make future timing depend on measured response.
+At the 3,700-order retention target, contribution is about UGX 7.63 million against UGX 35.40 million in fixed costs over six months. That leaves a **UGX 27.77 million operating shortfall before retention spend**. Hold the UGX 15.5 million retention phase as a separate funding decision. A fully redeemed UGX 2,000-per-side referral would cost UGX 4,000. Pilot the offer against incremental settled orders and charge redeemed credits to the marketing contingency. Use opted-in SMS cohorts to test the framework’s Thursday reminder and make future timing depend on measured response.
 
 Prepare and validate checkout, rider purchasing capacity, payment settlement, refunds and complaints before paid launch. Measure order economics, service reliability and paid repeat use by market. Update the subsequent operating and campaign budgets from those results.
 
@@ -224,6 +243,8 @@ UCC publishes courier licence categories and application requirements. Confirm t
 The investor case remains a pre-launch validation case. The strongest next evidence is affordable orders that customers repeat, adequate rider net earnings, reliable money movement and positive retained contribution. Those findings should determine growth spending and the funding request.
 
 ## Evidence and status
+
+The framework’s UGX 2,100 contribution gate remains a measured target. The revised model comes in below that target at UGX 2,061 per order after agent commission.
 
 The marketing strategy draws on the founder-supplied `marketing_strategy_and_budget_framework.md`. Phase spending follows its individual budget lines. Acquisition, retention, app size and order volumes are pilot targets.
 

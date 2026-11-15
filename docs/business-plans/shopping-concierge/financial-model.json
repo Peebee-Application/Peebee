@@ -14,6 +14,19 @@
     "illustrative_corporate_income_tax_rate": 0.3,
     "cash_rider_fee_recovery_rate": 0.95,
     "variable_operating_cost": 150,
+    "sales_agent_commission_per_verified_first_order": 2000,
+    "agent_first_order_share_of_all_settled_orders": 0.1,
+    "year_one_monthly_fixed_cost_breakdown": {
+      "operations_lead_salary": 1500000,
+      "dispatch_salary": 900000,
+      "customer_support_salary": 750000,
+      "part_time_finance_and_admin_salary": 400000,
+      "employer_nssf": 355000,
+      "sales_agent_allowances": 400000,
+      "office_rent": 1000000,
+      "office_utilities_and_internet": 250000,
+      "allocated_technology_and_admin": 345000
+    },
     "base_cash_share": 0.8
   },
   "example_quotes": [
@@ -126,16 +139,17 @@
       "provider_fee_tax": 528705.0,
       "payment_cost": 4053405.0,
       "variable_operating_cost": 900000,
-      "contribution": 13568595.0,
-      "fixed_operating_cost": 24000000,
+      "sales_agent_commissions": 1200000.0,
+      "contribution": 12368595.0,
+      "fixed_operating_cost": 70800000,
       "incremental_marketing": 4000000,
-      "operating_result": -14431405.0,
+      "operating_result": -62431405.0,
       "illustrative_corporate_income_tax": 0.0,
-      "result_after_income_tax": -14431405.0,
+      "result_after_income_tax": -62431405.0,
       "vat_registered_sensitivity": {
         "vat_inclusive_output_tax_no_input_credit": 2825389.8305084747,
-        "operating_result": -17256794.830508474,
-        "result_after_income_tax": -17256794.830508474
+        "operating_result": -65256794.83050848,
+        "result_after_income_tax": -65256794.83050848
       }
     },
     {
@@ -152,16 +166,17 @@
       "provider_fee_tax": 1586115.0,
       "payment_cost": 12160215.0,
       "variable_operating_cost": 2700000,
-      "contribution": 40705785.0,
-      "fixed_operating_cost": 36000000,
+      "sales_agent_commissions": 3600000.0,
+      "contribution": 37105785.0,
+      "fixed_operating_cost": 82800000,
       "incremental_marketing": 0,
-      "operating_result": 4705785.0,
-      "illustrative_corporate_income_tax": 1411735.5,
-      "result_after_income_tax": 3294049.5,
+      "operating_result": -45694215.0,
+      "illustrative_corporate_income_tax": 0.0,
+      "result_after_income_tax": -45694215.0,
       "vat_registered_sensitivity": {
         "vat_inclusive_output_tax_no_input_credit": 8476169.491525425,
-        "operating_result": -3770384.4915254237,
-        "result_after_income_tax": -3770384.4915254237
+        "operating_result": -54170384.49152543,
+        "result_after_income_tax": -54170384.49152543
       }
     },
     {
@@ -178,16 +193,17 @@
       "provider_fee_tax": 3172230.0,
       "payment_cost": 24320430.0,
       "variable_operating_cost": 5400000,
-      "contribution": 81411570.0,
-      "fixed_operating_cost": 48000000,
+      "sales_agent_commissions": 7200000.0,
+      "contribution": 74211570.0,
+      "fixed_operating_cost": 94800000,
       "incremental_marketing": 0,
-      "operating_result": 33411570.0,
-      "illustrative_corporate_income_tax": 10023471.0,
-      "result_after_income_tax": 23388099.0,
+      "operating_result": -20588430.0,
+      "illustrative_corporate_income_tax": 0.0,
+      "result_after_income_tax": -20588430.0,
       "vat_registered_sensitivity": {
         "vat_inclusive_output_tax_no_input_credit": 16952338.98305085,
-        "operating_result": 16459231.016949153,
-        "result_after_income_tax": 11521461.711864406
+        "operating_result": -37540768.983050846,
+        "result_after_income_tax": -37540768.983050846
       }
     }
   ],
@@ -199,7 +215,7 @@
         "provider_fee_tax": 440.5875,
         "collected_fees": 3150.0,
         "payment_cost": 3377.8375,
-        "contribution": -377.8375
+        "contribution": -577.8375
       },
       "year_three": {
         "orders": 36000,
@@ -215,16 +231,17 @@
         "provider_fee_tax": 15861150.0,
         "payment_cost": 121602150.0,
         "variable_operating_cost": 5400000,
-        "contribution": -13602150.0,
-        "fixed_operating_cost": 48000000,
+        "sales_agent_commissions": 7200000.0,
+        "contribution": -20802150.0,
+        "fixed_operating_cost": 94800000,
         "incremental_marketing": 0,
-        "operating_result": -61602150.0,
+        "operating_result": -115602150.0,
         "illustrative_corporate_income_tax": 0.0,
-        "result_after_income_tax": -61602150.0,
+        "result_after_income_tax": -115602150.0,
         "vat_registered_sensitivity": {
           "vat_inclusive_output_tax_no_input_credit": 17298305.08474576,
-          "operating_result": -78900455.08474576,
-          "result_after_income_tax": -78900455.08474576
+          "operating_result": -132900455.08474576,
+          "result_after_income_tax": -132900455.08474576
         }
       }
     },
@@ -235,7 +252,7 @@
         "provider_fee_tax": 220.29375,
         "collected_fees": 3110.625,
         "payment_cost": 1688.91875,
-        "contribution": 1271.70625
+        "contribution": 1071.70625
       },
       "year_three": {
         "orders": 36000,
@@ -251,16 +268,17 @@
         "provider_fee_tax": 7930575.0,
         "payment_cost": 60801075.0,
         "variable_operating_cost": 5400000,
-        "contribution": 45781425.0,
-        "fixed_operating_cost": 48000000,
+        "sales_agent_commissions": 7200000.0,
+        "contribution": 38581425.0,
+        "fixed_operating_cost": 94800000,
         "incremental_marketing": 0,
-        "operating_result": -2218575.0,
+        "operating_result": -56218575.0,
         "illustrative_corporate_income_tax": 0.0,
-        "result_after_income_tax": -2218575.0,
+        "result_after_income_tax": -56218575.0,
         "vat_registered_sensitivity": {
           "vat_inclusive_output_tax_no_input_credit": 17082076.27118644,
-          "operating_result": -19300651.27118644,
-          "result_after_income_tax": -19300651.27118644
+          "operating_result": -73300651.27118644,
+          "result_after_income_tax": -73300651.27118644
         }
       }
     },
@@ -271,7 +289,7 @@
         "provider_fee_tax": 88.1175,
         "collected_fees": 3087.0,
         "payment_cost": 675.5675,
-        "contribution": 2261.4325
+        "contribution": 2061.4325
       },
       "year_three": {
         "orders": 36000,
@@ -287,16 +305,17 @@
         "provider_fee_tax": 3172230.0,
         "payment_cost": 24320430.0,
         "variable_operating_cost": 5400000,
-        "contribution": 81411570.0,
-        "fixed_operating_cost": 48000000,
+        "sales_agent_commissions": 7200000.0,
+        "contribution": 74211570.0,
+        "fixed_operating_cost": 94800000,
         "incremental_marketing": 0,
-        "operating_result": 33411570.0,
-        "illustrative_corporate_income_tax": 10023471.0,
-        "result_after_income_tax": 23388099.0,
+        "operating_result": -20588430.0,
+        "illustrative_corporate_income_tax": 0.0,
+        "result_after_income_tax": -20588430.0,
         "vat_registered_sensitivity": {
           "vat_inclusive_output_tax_no_input_credit": 16952338.98305085,
-          "operating_result": 16459231.016949153,
-          "result_after_income_tax": 11521461.711864406
+          "operating_result": -37540768.983050846,
+          "result_after_income_tax": -37540768.983050846
         }
       }
     },
@@ -307,7 +326,7 @@
         "provider_fee_tax": 22.029375,
         "collected_fees": 3075.1875,
         "payment_cost": 168.891875,
-        "contribution": 2756.295625
+        "contribution": 2556.295625
       },
       "year_three": {
         "orders": 36000,
@@ -323,16 +342,17 @@
         "provider_fee_tax": 793057.5,
         "payment_cost": 6080107.5,
         "variable_operating_cost": 5400000,
-        "contribution": 99226642.5,
-        "fixed_operating_cost": 48000000,
+        "sales_agent_commissions": 7200000.0,
+        "contribution": 92026642.5,
+        "fixed_operating_cost": 94800000,
         "incremental_marketing": 0,
-        "operating_result": 51226642.5,
-        "illustrative_corporate_income_tax": 15367992.75,
-        "result_after_income_tax": 35858649.75,
+        "operating_result": -2773357.5,
+        "illustrative_corporate_income_tax": 0.0,
+        "result_after_income_tax": -2773357.5,
         "vat_registered_sensitivity": {
           "vat_inclusive_output_tax_no_input_credit": 16887470.33898305,
-          "operating_result": 34339172.16101695,
-          "result_after_income_tax": 24037420.512711864
+          "operating_result": -19660827.83898305,
+          "result_after_income_tax": -19660827.83898305
         }
       }
     },
@@ -343,7 +363,7 @@
         "provider_fee_tax": 0.0,
         "collected_fees": 3071.25,
         "payment_cost": 0.0,
-        "contribution": 2921.25
+        "contribution": 2721.25
       },
       "year_three": {
         "orders": 36000,
@@ -359,29 +379,31 @@
         "provider_fee_tax": 0.0,
         "payment_cost": 0.0,
         "variable_operating_cost": 5400000,
-        "contribution": 105165000.0,
-        "fixed_operating_cost": 48000000,
+        "sales_agent_commissions": 7200000.0,
+        "contribution": 97965000.0,
+        "fixed_operating_cost": 94800000,
         "incremental_marketing": 0,
-        "operating_result": 57165000.0,
-        "illustrative_corporate_income_tax": 17149500.0,
-        "result_after_income_tax": 40015500.0,
+        "operating_result": 3165000.0,
+        "illustrative_corporate_income_tax": 949500.0,
+        "result_after_income_tax": 2215500.0,
         "vat_registered_sensitivity": {
           "vat_inclusive_output_tax_no_input_credit": 16865847.457627118,
-          "operating_result": 40299152.54237288,
-          "result_after_income_tax": 28209406.77966102
+          "operating_result": -13700847.45762712,
+          "result_after_income_tax": -13700847.45762712
         }
       }
     }
   },
-  "cumulative_base_operating_result": 23685950.0,
+  "cumulative_base_operating_result": -128714050.0,
   "funding_ask": {
     "horizon_months": 12,
-    "total": 44000000,
+    "total": 94000000,
     "uses": {
       "launch_setup": 12000000,
-      "operating_runway": 22000000,
+      "operating_runway": 70000000,
       "pilot_digital_advertising": 4000000,
       "working_capital": 4000000,
+      "refundable_office_deposit": 2000000,
       "contingency": 2000000
     },
     "marketing_strategy": {
@@ -428,14 +450,14 @@
         "retention": 3700
       },
       "phase_core_operating_results_before_marketing": {
-        "pilot": -4869283.75,
-        "corridor_expansion": -1929421.5,
-        "retention": -3632699.75
+        "pilot": -16669283.75,
+        "corridor_expansion": -13989421.5,
+        "retention": -27772699.75
       },
       "collateral_in_setup": 2000000,
       "full_marketing_spend_including_setup_collateral": 53000000,
-      "ask_through_corridor_expansion": 75500000,
-      "full_funding_envelope": 91000000,
+      "ask_through_corridor_expansion": 125500000,
+      "full_funding_envelope": 141000000,
       "year_one_with_full_marketing": {
         "orders": 6000,
         "goods_value": 360000000,
@@ -450,16 +472,17 @@
         "provider_fee_tax": 528705.0,
         "payment_cost": 4053405.0,
         "variable_operating_cost": 900000,
-        "contribution": 13568595.0,
-        "fixed_operating_cost": 24000000,
+        "sales_agent_commissions": 1200000.0,
+        "contribution": 12368595.0,
+        "fixed_operating_cost": 70800000,
         "incremental_marketing": 51000000,
-        "operating_result": -61431405.0,
+        "operating_result": -109431405.0,
         "illustrative_corporate_income_tax": 0.0,
-        "result_after_income_tax": -61431405.0,
+        "result_after_income_tax": -109431405.0,
         "vat_registered_sensitivity": {
           "vat_inclusive_output_tax_no_input_credit": 2825389.8305084747,
-          "operating_result": -64256794.83050848,
-          "result_after_income_tax": -64256794.83050848
+          "operating_result": -112256794.83050847,
+          "result_after_income_tax": -112256794.83050847
         }
       }
     },
@@ -476,164 +499,164 @@
     "base": {
       "cash_share": 0.8,
       "vat_inclusive": false,
-      "contribution_per_order": 2261.4325,
-      "monthly_fixed_cost": 2000000,
+      "contribution_per_order": 2061.4325,
+      "monthly_fixed_cost": 5900000,
       "months": [
         {
           "month": 1,
           "orders": 100,
-          "operating_cash_result": -1773856.75,
-          "cumulative_operating_cash_result": -1773856.75
+          "operating_cash_result": -5693856.75,
+          "cumulative_operating_cash_result": -5693856.75
         },
         {
           "month": 2,
           "orders": 150,
-          "operating_cash_result": -1660785.125,
-          "cumulative_operating_cash_result": -3434641.875
+          "operating_cash_result": -5590785.125,
+          "cumulative_operating_cash_result": -11284641.875
         },
         {
           "month": 3,
           "orders": 250,
-          "operating_cash_result": -1434641.875,
-          "cumulative_operating_cash_result": -4869283.75
+          "operating_cash_result": -5384641.875,
+          "cumulative_operating_cash_result": -16669283.75
         },
         {
           "month": 4,
           "orders": 550,
-          "operating_cash_result": -756212.125,
-          "cumulative_operating_cash_result": -5625495.875
+          "operating_cash_result": -4766212.125,
+          "cumulative_operating_cash_result": -21435495.875
         },
         {
           "month": 5,
           "orders": 600,
-          "operating_cash_result": -643140.5,
-          "cumulative_operating_cash_result": -6268636.375
+          "operating_cash_result": -4663140.5,
+          "cumulative_operating_cash_result": -26098636.375
         },
         {
           "month": 6,
           "orders": 650,
-          "operating_cash_result": -530068.875,
-          "cumulative_operating_cash_result": -6798705.25
+          "operating_cash_result": -4560068.875,
+          "cumulative_operating_cash_result": -30658705.25
         },
         {
           "month": 7,
           "orders": 600,
-          "operating_cash_result": -643140.5,
-          "cumulative_operating_cash_result": -7441845.75
+          "operating_cash_result": -4663140.5,
+          "cumulative_operating_cash_result": -35321845.75
         },
         {
           "month": 8,
           "orders": 600,
-          "operating_cash_result": -643140.5,
-          "cumulative_operating_cash_result": -8084986.25
+          "operating_cash_result": -4663140.5,
+          "cumulative_operating_cash_result": -39984986.25
         },
         {
           "month": 9,
           "orders": 600,
-          "operating_cash_result": -643140.5,
-          "cumulative_operating_cash_result": -8728126.75
+          "operating_cash_result": -4663140.5,
+          "cumulative_operating_cash_result": -44648126.75
         },
         {
           "month": 10,
           "orders": 600,
-          "operating_cash_result": -643140.5,
-          "cumulative_operating_cash_result": -9371267.25
+          "operating_cash_result": -4663140.5,
+          "cumulative_operating_cash_result": -49311267.25
         },
         {
           "month": 11,
           "orders": 650,
-          "operating_cash_result": -530068.875,
-          "cumulative_operating_cash_result": -9901336.125
+          "operating_cash_result": -4560068.875,
+          "cumulative_operating_cash_result": -53871336.125
         },
         {
           "month": 12,
           "orders": 650,
-          "operating_cash_result": -530068.875,
-          "cumulative_operating_cash_result": -10431405.0
+          "operating_cash_result": -4560068.875,
+          "cumulative_operating_cash_result": -58431405.0
         }
       ],
-      "peak_operating_cash_deficit": 10431405.0
+      "peak_operating_cash_deficit": 58431405.0
     },
     "downside": {
       "cash_share": 0.5,
       "vat_inclusive": true,
-      "contribution_per_order": 797.2041313559322,
-      "monthly_fixed_cost": 2000000,
+      "contribution_per_order": 597.2041313559322,
+      "monthly_fixed_cost": 5900000,
       "months": [
         {
           "month": 1,
           "orders": 50,
-          "operating_cash_result": -1960139.7934322034,
-          "cumulative_operating_cash_result": -1960139.7934322034
+          "operating_cash_result": -5870139.793432203,
+          "cumulative_operating_cash_result": -5870139.793432203
         },
         {
           "month": 2,
           "orders": 75,
-          "operating_cash_result": -1940209.6901483051,
-          "cumulative_operating_cash_result": -3900349.4835805083
+          "operating_cash_result": -5855209.690148305,
+          "cumulative_operating_cash_result": -11725349.48358051
         },
         {
           "month": 3,
           "orders": 125,
-          "operating_cash_result": -1900349.4835805085,
-          "cumulative_operating_cash_result": -5800698.967161017
+          "operating_cash_result": -5825349.483580508,
+          "cumulative_operating_cash_result": -17550698.96716102
         },
         {
           "month": 4,
           "orders": 275,
-          "operating_cash_result": -1780768.8638771186,
-          "cumulative_operating_cash_result": -7581467.831038136
+          "operating_cash_result": -5735768.863877119,
+          "cumulative_operating_cash_result": -23286467.831038136
         },
         {
           "month": 5,
           "orders": 300,
-          "operating_cash_result": -1760838.7605932204,
-          "cumulative_operating_cash_result": -9342306.591631357
+          "operating_cash_result": -5720838.760593221,
+          "cumulative_operating_cash_result": -29007306.591631357
         },
         {
           "month": 6,
           "orders": 325,
-          "operating_cash_result": -1740908.657309322,
-          "cumulative_operating_cash_result": -11083215.248940678
+          "operating_cash_result": -5705908.657309322,
+          "cumulative_operating_cash_result": -34713215.24894068
         },
         {
           "month": 7,
           "orders": 300,
-          "operating_cash_result": -1760838.7605932204,
-          "cumulative_operating_cash_result": -12844054.009533899
+          "operating_cash_result": -5720838.760593221,
+          "cumulative_operating_cash_result": -40434054.0095339
         },
         {
           "month": 8,
           "orders": 300,
-          "operating_cash_result": -1760838.7605932204,
-          "cumulative_operating_cash_result": -14604892.77012712
+          "operating_cash_result": -5720838.760593221,
+          "cumulative_operating_cash_result": -46154892.77012712
         },
         {
           "month": 9,
           "orders": 300,
-          "operating_cash_result": -1760838.7605932204,
-          "cumulative_operating_cash_result": -16365731.530720338
+          "operating_cash_result": -5720838.760593221,
+          "cumulative_operating_cash_result": -51875731.53072034
         },
         {
           "month": 10,
           "orders": 300,
-          "operating_cash_result": -1760838.7605932204,
-          "cumulative_operating_cash_result": -18126570.29131356
+          "operating_cash_result": -5720838.760593221,
+          "cumulative_operating_cash_result": -57596570.29131356
         },
         {
           "month": 11,
           "orders": 325,
-          "operating_cash_result": -1740908.657309322,
-          "cumulative_operating_cash_result": -19867478.948622882
+          "operating_cash_result": -5705908.657309322,
+          "cumulative_operating_cash_result": -63302478.94862288
         },
         {
           "month": 12,
           "orders": 325,
-          "operating_cash_result": -1740908.657309322,
-          "cumulative_operating_cash_result": -21608387.605932202
+          "operating_cash_result": -5705908.657309322,
+          "cumulative_operating_cash_result": -69008387.6059322
         }
       ],
-      "peak_operating_cash_deficit": 21608387.605932202
+      "peak_operating_cash_deficit": 69008387.6059322
     }
   }
 }
