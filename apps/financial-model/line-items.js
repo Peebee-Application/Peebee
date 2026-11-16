@@ -6,6 +6,7 @@
   const growth = label => pct("growth", label, { min: -100, initial: "0" });
   const month = (id, label, initial) => num(id, label, { min: 1, withinForecast: true, step: 1, initial });
   const life = (id, label) => num(id, label, { min: 1, max: 600, step: 1 });
+  const settlement = label => num("month", label, { min: 1, max: 600, step: 1, initial: "1" });
   const days = (id, label) => num(id, label, { max: 365, initial: "0" });
   const select = (id, label, choices, initial) => ({ id, label, choices, initial, type: "select" });
   const name = text("name", "Line item name");
@@ -42,11 +43,11 @@
     group("accounts", "Working capital", "Where is your opening cash held?", "Add the opening amount for each bank account, cash balance, or cash equivalent.", "cash account", [
       amount("amount", "Opening cash balance"),
     ], ["Bank account", "Cash on hand"]),
-    group("receivables", "Working capital", "Who already owes the business money?", "List existing invoices or customer balances and when each is expected to be collected. New sales receivables use the terms on each revenue stream.", "receivable", [
-      amount("amount", "Opening amount owed"), month("month", "Collection month", "1"),
+    group("receivables", "Working capital", "Who already owes the business money?", "List existing invoices or customer balances and when each is expected to be collected. Balances settling after the forecast stay outstanding. New sales receivables use each stream’s terms.", "receivable", [
+      amount("amount", "Opening amount owed"), settlement("Collection month"),
     ]),
-    group("payables", "Working capital", "Who does the business already owe?", "List existing supplier balances and when they will be paid. New supplier balances use the terms on each direct cost.", "payable", [
-      amount("amount", "Opening amount due"), month("month", "Payment month", "1"),
+    group("payables", "Working capital", "Who does the business already owe?", "List existing supplier balances and when they will be paid. Balances settling after the forecast stay outstanding. New purchases use each direct cost’s terms.", "payable", [
+      amount("amount", "Opening amount due"), settlement("Payment month"),
     ]),
     group("ownedAssets", "Investment", "Which fixed assets do you already own?", "Use the current book value and remaining useful life for each asset or asset group.", "existing asset", [
       amount("amount", "Opening book value"), life("life", "Remaining useful life in months"),

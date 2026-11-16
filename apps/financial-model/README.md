@@ -10,6 +10,6 @@ Revenue streams may use units, subscriptions, or a monthly sales amount. Enter d
 
 Existing drafts carry their original summary values forward as named line items. Edit or replace a carried-forward line to provide more detail. The example uses fictional inputs.
 
-The supplied workbook informed the structure. The model estimates working capital on a 30-day basis and pays income tax monthly on positive profit. It excludes VAT, historical actuals, and tax loss carryforwards. CSV downloads are snapshots. To recalculate, edit the assumptions in the app.
+The supplied workbook informed the structure. The model estimates collections and supplier payments from prior and current sales or purchases on a 30-day basis, with activity spread evenly across each model month. It measures funding needs at month end. The balance sheet shows unmet funding separately from liabilities. Tax is estimated and paid monthly on positive profit. It excludes VAT, historical actuals, and tax loss carryforwards. CSV downloads are snapshots. To recalculate, edit the assumptions in the app.
 
 Run the engine checks with `node --test apps/financial-model/model.test.cjs` from the repository root.
