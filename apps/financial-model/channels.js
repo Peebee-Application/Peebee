@@ -40,7 +40,7 @@
       groups.push({ key: channel.key, name: channel.name, streams: sources });
       lines.push([`${channel.name} total`, row => sources.reduce((total, source) => total + row.details.streams[source.index].revenue, 0), "total"]);
     }
-    lines.push(["Consolidated revenue", "revenue", "total"]);
+    lines.push(["Consolidated revenue", "revenue", "footer"]);
     return {
       answers: { ...answers, streams },
       groups,

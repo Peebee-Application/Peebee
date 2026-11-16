@@ -28,9 +28,6 @@
   function mountChart(canvas, chart, readout, format) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return () => {};
-    const colors = getComputedStyle(canvas);
-    const ink = colors.getPropertyValue("--ink").trim();
-    const palette = [colors.getPropertyValue("--gold").trim(), ink, colors.getPropertyValue("--quiet").trim(), ink];
     const dashes = [[], [7, 3], [2, 4], [10, 4, 2, 4]];
     const data = chart.series.flatMap(series => series.values.filter(Number.isFinite));
     const axis = scale(data, chart.unit);
@@ -53,6 +50,9 @@
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
       if (!width || !height) return;
+      const colors = getComputedStyle(canvas);
+      const ink = colors.getPropertyValue("--ink").trim();
+      const palette = [colors.getPropertyValue("--gold").trim(), ink, colors.getPropertyValue("--quiet").trim(), ink];
       const ratio = Math.min(2, devicePixelRatio || 1);
       const pixels = [Math.round(width * ratio), Math.round(height * ratio)];
       if (canvas.width !== pixels[0]) canvas.width = pixels[0];
@@ -160,9 +160,13 @@
     });
     const observer = new ResizeObserver(draw);
     observer.observe(canvas);
+    document.addEventListener("appearancechange", draw);
     announce();
     draw();
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("appearancechange", draw);
+    };
   }
 
   function mount(root, analysis, format) {

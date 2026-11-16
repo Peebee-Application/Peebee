@@ -406,9 +406,18 @@
   const lineValue = (row, field) => typeof field === "function" ? field(row) : row[field];
   const format = (value, style) => value === null ? "—" : (style === "rate" ? percentFormat : numberFormat).format(value === 0 || (style !== "rate" && Math.abs(value) < halfCent) ? 0 : value);
   const money = value => `${currencyOf(answers)} ${format(value)}`;
-  const table = (name, columns, rows) => `<div class="table-wrap" tabindex="0" role="region" aria-label="${escape(name)}">
-    <table aria-label="${escape(name)}"><thead><tr><th scope="col">${escape(name)}</th>${columns.map(label => `<th scope="col">${escape(label)}</th>`).join("")}</tr></thead>
-    <tbody>${rows.map(([label, cells, style]) => `<tr${style === "total" || style === "detail" ? ` class="${style}"` : ""}><th scope="row">${escape(label)}</th>${cells.map(value => `<td>${escape(value)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  function table(name, columns, rows) {
+    const renderRow = ([label, cells, style]) => {
+      const rowClass = style === "footer" ? "total" : style === "total" || style === "detail" ? style : "";
+      return `<tr${rowClass ? ` class="${rowClass}"` : ""}><th scope="row">${escape(label)}</th>${cells.map(value => `<td>${escape(value)}</td>`).join("")}</tr>`;
+    };
+    const body = [];
+    const footer = [];
+    for (const row of rows) (row[2] === "footer" ? footer : body).push(renderRow(row));
+    return `<div class="table-wrap" tabindex="0" role="region" aria-label="${escape(name)}">
+      <table aria-label="${escape(name)}"><thead><tr><th scope="col">${escape(name)}</th>${columns.map(label => `<th scope="col">${escape(label)}</th>`).join("")}</tr></thead>
+      <tbody>${body.join("")}</tbody>${footer.length ? `<tfoot>${footer.join("")}</tfoot>` : ""}</table></div>`;
+  }
   const metric = (label, value, context) => `<div class="panel metric">
     <span>${label}</span>
     <div class="metric-value">
@@ -464,6 +473,7 @@
     const ids = new Set(["currency", "customCurrency", "start", "months", "tax", "accounts", "ownedAssets", "receivables", "payables", "existingLoans"]);
     const entries = activeQuestions(answers).filter(prompt => ids.has(prompt.id));
     return `<section class="panel workbook-view"><h2>Settings</h2><dl>
+      <div><dt>Appearance</dt><dd><button class="text-button" id="appearance-settings" type="button">Change theme</button></dd></div>
       <div><dt>Company</dt><dd>${escape(answers.company)}</dd></div>
       ${entries.map(prompt => `<div><dt>${escape(stepLabel(prompt))}</dt><dd>
         <button class="text-button" data-edit-setting="${prompt.id}" aria-label="${escape("Edit " + stepLabel(prompt))}">
@@ -529,6 +539,10 @@
         : selectedReport === "intro" ? workbookIntro() : selectedReport === "workbook-settings" ? workbookSettings() : overview(model)}`;
     document.querySelector("#review").addEventListener("click", showReview);
     if (analysis) bindAnalysis(analysis, currency);
+    app.querySelector("#appearance-settings")?.addEventListener("click", () => {
+      settingsDialog.showModal();
+      settingsDialog.querySelector("#appearance-mode").focus();
+    });
     app.querySelectorAll("[data-edit-setting]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.editSetting, true)));
     document.querySelector("#download").addEventListener("click", () => downloadAll(forecastReports, forecastAnswers));
     document.querySelector("#download-report")?.addEventListener("click", () => {
