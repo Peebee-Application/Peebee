@@ -14,15 +14,17 @@
     ({ id, section, label, hint, item, fields: [name, ...fields], presets, required, type: "items" });
   const groups = [
     group("streams", "Revenue", "What are your revenue streams?", "Add each product, service or income stream and enter how it earns revenue. Collection days estimate the sales still owed at month end.", "revenue stream", [
-      select("method", "Revenue driver", [["units", "Units × price"], ["subscription", "Subscriptions × monthly price"], ["direct", "Monthly sales amount"]], "units"),
+      select("method", "Revenue driver", [["units", "Units × price"], ["subscription", "Subscriptions × monthly price"], ["direct", "Monthly sales amount"], ["percentage", "Percentage of transaction or payout"]], "units"),
       num("units", "Units sold in first month", { when: row => row.method === "units" }),
       num("active", "Subscribers before month one", { when: row => row.method === "subscription", initial: "0" }),
       num("newSubscribers", "New subscribers in first month", { when: row => row.method === "subscription" }),
       pct("churn", "Monthly subscriber churn", { when: row => row.method === "subscription", initial: "0" }),
-      amount("price", "Price per unit or subscriber", { when: row => row.method !== "direct" }),
+      amount("price", "Price per unit or subscriber", { when: row => row.method === "units" || row.method === "subscription" }),
       amount("amount", "First-month revenue", { when: row => row.method === "direct" }),
+      amount("transactionValue", "First-month transaction or payout value", { when: row => row.method === "percentage" }),
+      pct("rate", "Percentage earned", { when: row => row.method === "percentage" }),
       growth("Monthly sales growth"), days("days", "Customer payment days"),
-    ], ["Product sales", "Services", "Subscriptions"], true),
+    ], ["Product sales", "Services", "Subscriptions", "Transaction fees", "Revenue share"], true),
     group("directCosts", "Costs", "What does it cost to deliver your sales?", "Add production, delivery and payment costs. Each line can be a share of total sales or a monthly amount. Include stock and supplier terms where they apply.", "direct cost", [
       select("basis", "Cost basis", [["rate", "Percentage of total revenue"], ["fixed", "Monthly amount"]], "rate"),
       pct("rate", "Share of total revenue", { when: row => row.basis === "rate" }),
@@ -65,7 +67,17 @@
       amount("amount", "Equity contribution"), month("month", "Contribution month", "1"),
     ], ["Owner contribution", "Investor funding"]),
   ];
+  const channels = {
+    ...group("channels", "Revenue", "Which channels earn income?", "Add each business line, brand or product group. You’ll set up its revenue streams on the next screens.", "channel", [],
+      ["Peebee Concierge", "Peebee Buy", "Peebee Work", "Peebee Rides", "Peebee Learn"], true),
+    keyed: true,
+  };
   const byId = Object.fromEntries(groups.map(group => [group.id, group]));
+  const channelStreams = {
+    ...byId.streams,
+    hint: "Add the revenue this channel earns from customers or partners. Exclude transfers between your channels and count each source of revenue once.",
+    presets: ["Transaction fees", "Revenue share", "Subscriptions", "Product sales", "Services"],
+  };
   const fieldsFor = (group, row) => group.fields.filter(field => !field.when || field.when(row));
 
   function upgradeDraft(old) {
@@ -99,5 +111,5 @@
     return answers;
   }
 
-  globalThis.FinancialLineItems = { byId, fieldsFor, upgradeDraft };
+  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft };
 })();

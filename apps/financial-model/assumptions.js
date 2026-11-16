@@ -65,10 +65,16 @@
   });
 
   function itemError(prompt, rows, answers) {
+    const names = new Set();
     for (const [index, row] of rows.entries()) {
       for (const field of fieldsFor(prompt, row)) {
         const issue = errorFor(field, row[field.id], answers);
         if (issue) return { id: `item-${index}-${field.id}`, message: `Line ${index + 1}, ${field.label}: ${issue}` };
+      }
+      if (prompt.keyed) {
+        const name = row.name.toLowerCase();
+        if (names.has(name)) return { id: `item-${index}-name`, message: "Give each channel a distinct name." };
+        names.add(name);
       }
     }
     return null;
