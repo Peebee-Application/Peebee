@@ -269,7 +269,7 @@
       editor.innerHTML = `<div class="line-actions" aria-label="Add ${escape(prompt.item)}">${prompt.presets.map((preset, index) =>
         `<button type="button" class="button secondary small" data-preset="${index}" title="Add ${escape(preset)}">+ ${escape(preset)}</button>`).join("")}
         <button type="button" id="add-line" class="button secondary small">+ Add ${prompt.presets.length ? "custom " : ""}${escape(prompt.item)}</button></div>
-        ${rows.length ? `<div class="line-list">${rows.map((row, index) => `<fieldset class="line-item"><legend>${escape(prompt.item[0].toUpperCase() + prompt.item.slice(1))} ${index + 1}</legend>
+        ${rows.length ? `<div class="line-list${prompt.id === "channels" ? " channel-list" : ""}">${rows.map((row, index) => `<fieldset class="line-item"><legend>${escape(prompt.item[0].toUpperCase() + prompt.item.slice(1))} ${index + 1}</legend>
           <div class="line-fields">${fieldsFor(prompt, row).map(field => lineField(field, row, index)).join("")}</div>
           ${row.method === "orders" ? `<output class="muted order-estimate" data-estimate="${index}">${orderEstimate(row)}</output>` : ""}
           <button type="button" class="text-button remove-line" id="remove-line-${index}" data-remove="${index}" aria-label="${escape("Remove " + (row.name || prompt.item + " " + (index + 1)))}">Remove</button>
