@@ -14,7 +14,7 @@
     scenarios: "Scenario comparison", downside: "Downside growth", upside: "Upside growth",
     valuation: "DCF valuation", discountRate: "Discount rate", exitValue: "Exit value",
   };
-  const stepLabel = item => item.stepLabel || stepLabels[item.id] || item.label;
+  const stepLabel = item => item.title || stepLabels[item.id] || item.label;
   const app = document.querySelector("#app");
   const storageKey = "peebee-financial-model-multichannel-v1";
   const autosaveKey = "peebee-financial-model-autosave";
@@ -161,7 +161,8 @@
       <form class="question${isItems ? " item-question" : ""}" id="question-form" novalidate>
         <div class="progress-head"><span>${prompt.section} · Section ${sectionIndex + 1} of ${sections.length}</span><span>Question ${sectionStep} of ${sectionQuestions.length}</span></div>
         <progress aria-label="Applicable assumptions answered" value="${done}" max="${list.length}"></progress>
-        <h1 id="question-title" tabindex="-1">${escape(prompt.label)}</h1>
+        ${prompt.subtitle ? `<p class="question-subtitle">${escape(prompt.subtitle)}</p>` : ""}
+        <h1 id="question-title" tabindex="-1">${escape(prompt.title || prompt.label)}</h1>
         <p class="hint" id="hint">${escape([prompt.hint, prompt.note].filter(Boolean).join(" "))}</p>
         ${input}
         <p id="error" class="error" role="alert" hidden></p>
