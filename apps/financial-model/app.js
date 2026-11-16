@@ -6,6 +6,14 @@
   const { buildAnalysis, renderAnalysis, exportRows } = globalThis.FinancialAnalysis;
   const { company, catalog, createDefaults, loadStarterRevenue } = globalThis.PeebeeDefaults;
   const dataNote = "Starter estimates model a launch scenario across all channels. Volumes, average values and unverified fees are illustrative. The scenario includes features that may be off in Admin. Apply available Admin fees to matching lines, and enter Peebee’s costs and opening balances.";
+  const stepLabels = {
+    currency: "Currency", customCurrency: "Currency code", start: "Forecast start", months: "Forecast length",
+    channels: "Revenue channels", directCosts: "Direct costs", staff: "Staffing", expenses: "Operating expenses", tax: "Income tax",
+    accounts: "Opening cash", receivables: "Receivables", payables: "Payables", ownedAssets: "Existing assets", investments: "Asset purchases",
+    existingLoans: "Outstanding loans", newLoans: "New loans", contributions: "Equity contributions",
+    scenarios: "Scenario comparison", downside: "Downside growth", upside: "Upside growth",
+    valuation: "DCF valuation", discountRate: "Discount rate", exitValue: "Exit value",
+  };
   const app = document.querySelector("#app");
   const storageKey = "peebee-financial-model-multichannel-v1";
   const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
@@ -74,6 +82,9 @@
     const sectionIndex = sections.indexOf(prompt.section);
     const sectionQuestions = list.filter(item => item.section === prompt.section);
     const sectionStep = sectionQuestions.indexOf(prompt) + 1;
+    const sectionSteps = `<ol class="section-steps" role="list" aria-label="${escape(prompt.section)} questions">
+      ${sectionQuestions.map(item => `<li${item === prompt ? ' aria-current="step"' : ""}>${escape(item.stepLabel || stepLabels[item.id] || item.label)}</li>`).join("")}
+    </ol>`;
     const done = list.filter(item => !errorFor(item, answers[item.id], answers)).length;
     const value = answers[step] || "";
     const unit = prompt.unit === "currency" ? currencyOf(answers) : prompt.unit;
@@ -86,9 +97,10 @@
       <nav class="rail" aria-label="Assumption sections"><h2>Model assumptions</h2><ol class="steps">
         ${sections.map((section, i) => {
           const complete = i < sectionIndex && list.filter(item => item.section === section).every(item => !errorFor(item, answers[item.id], answers));
-          return `<li><button type="button" data-section="${i}" ${i === sectionIndex ? 'aria-current="step"' : ""} ${i > sectionIndex ? "disabled" : ""}><span aria-hidden="true" class="dot">${complete ? "✓" : i + 1}</span>${section}</button></li>`;
+          return `<li><button type="button" data-section="${i}" ${i === sectionIndex ? 'class="active-section"' : ""} ${i > sectionIndex ? "disabled" : ""}><span aria-hidden="true" class="dot">${complete ? "✓" : i + 1}</span>${section}</button>${i === sectionIndex ? sectionSteps : ""}</li>`;
         }).join("")}
       </ol></nav>
+      <details class="mobile-steps"><summary>${escape(prompt.section)} questions</summary>${sectionSteps}</details>
       <form class="question${isItems ? " item-question" : ""}" id="question-form" novalidate>
         <div class="progress-head"><span>${prompt.section} · Section ${sectionIndex + 1} of ${sections.length}</span><span>Question ${sectionStep} of ${sectionQuestions.length}</span></div>
         <progress aria-label="Applicable assumptions answered" value="${done}" max="${list.length}"></progress>
