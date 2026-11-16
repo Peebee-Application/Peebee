@@ -63,7 +63,10 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.5rem); letter-spacing: -.058em; li
 .error { margin: 10px 0 0; font-size: .9rem; font-weight: 650; }
 .suggestion { margin: 10px 0 0; }
 .text-button { background: none; border: 0; padding: 4px 0; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; font-size: .86rem; }
-.actions { display: flex; gap: 10px; justify-content: space-between; align-items: center; margin-top: 34px; padding-top: 20px; border-top: 1px solid var(--border); }
+.save-status { margin: 10px 0 0; }
+.save-status:empty { margin: 0; }
+.step-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; margin-top: 34px; padding-top: 20px; border-top: 1px solid var(--border); }
 .button { min-height: 42px; border-radius: 9px; border: 1px solid transparent; padding: 9px 16px; background: var(--ink); color: rgb(var(--color-cream)); font-weight: 650; white-space: nowrap; }
 .button:hover { opacity: .8; }
 .button.secondary { background: rgb(var(--surface-card)); border-color: var(--border); color: var(--ink); }
