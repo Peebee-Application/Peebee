@@ -1,5 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
+require("./line-items.js");
 require("./assumptions.js");
 require("./model.js");
 const { example, questions, errorFor } = globalThis.FinancialAssumptions;
@@ -68,4 +69,35 @@ test("opening inventory runs down through sales and the funding gap stays visibl
   assert.equal(model.shortfall.period, "2026-12");
   assert.equal(model.fundingGap, 1800);
   near(second.check, 0);
+});
+
+
+test("named lines roll into linked statements, with independent schedules and annual totals", () => {
+  const { linesFor, reports } = globalThis.FinancialModel;
+  const forecast = { ...example, scenarios: "no", months: "14", start: "2026-01",
+    expenses: [
+      { name: "Rent", amount: "100", month: "1", growth: "10" },
+      { name: "Software", amount: "25", month: "3", growth: "20" },
+    ],
+    receivables: [{ name: "Invoice 42", amount: "500", month: "3" }],
+    contributions: [{ name: "Owner", amount: "80", month: "4" }, { name: "Investor", amount: "200", month: "9" }],
+  };
+  const [base] = build(forecast);
+  const incomes = linesFor(reports.find(report => report.id === "income"), forecast);
+  const cell = label => incomes.find(([name]) => name === label)[1];
+  const rent = cell("Operating expense · Rent");
+  const software = cell("Operating expense · Software");
+  near(rent(base.months[0]), 100);
+  near(rent(base.months[12]), 110);
+  near(software(base.months[1]), 0);
+  near(software(base.months[2]), 25);
+  near(software(base.months[12]), 25);
+  near(software(base.annual[0]), 250);
+  near(rent(base.annual[0]), 1200);
+  near(base.annual[0].overhead, 1450);
+  near(base.months[1].details.receivables[0].amount, 500);
+  near(base.months[2].details.receivables[0].amount, 0);
+  near(base.months[2].details.receivables[0].settled, 500);
+  near(base.annual[0].equityRaised, 280);
+  for (const row of base.months) near(row.check, 0);
 });
