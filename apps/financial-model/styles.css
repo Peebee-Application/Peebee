@@ -131,14 +131,34 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.5rem); letter-spacing: -.058em; li
 .plot strong { text-align: right; overflow-wrap: anywhere; }
 .track { background: rgb(var(--surface-muted)); height: 12px; border-radius: 9px; overflow: hidden; }
 .bar { display: block; height: 100%; background: var(--gold); border-radius: inherit; }
-.table-wrap { overflow: auto; max-height: 620px; border: 1px solid var(--border); border-radius: 13px; margin-top: 12px; background: rgb(var(--surface-card)); }
+.table-wrap {
+  overflow: auto;
+  max-height: 620px;
+  max-height: clamp(18rem, 72dvh, 620px);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  margin-top: 12px;
+  background: rgb(var(--surface-card));
+  scrollbar-width: thin;
+  scrollbar-color: var(--quiet) rgb(var(--surface-muted));
+}
+@media (prefers-reduced-motion: no-preference) {
+  .table-wrap { scroll-behavior: smooth; }
+}
+@media (forced-colors: active) {
+  .table-wrap { scrollbar-color: auto; }
+}
 table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .86rem; font-variant-numeric: tabular-nums; }
 th, td { padding: 11px 14px; text-align: right; min-width: 92px; border-bottom: 1px solid var(--border); }
 th:first-child { position: sticky; left: 0; text-align: left; min-width: 160px; max-width: 230px; background: rgb(var(--surface-card)); border-right: 1px solid var(--border); }
-thead th { top: 0; position: sticky; z-index: 1; background: rgb(var(--surface-muted)); white-space: nowrap; }
-thead th:first-child { z-index: 2; background: rgb(var(--surface-muted)); }
+thead, tfoot { position: sticky; z-index: 1; background: rgb(var(--surface-muted)); }
+thead { top: 0; }
+thead th, thead th:first-child { background: rgb(var(--surface-muted)); white-space: nowrap; }
+tfoot { bottom: 0; }
+tfoot tr:first-child > * { border-top: 1px solid var(--border); }
+tfoot tr:last-child > * { border-bottom: 0; }
 tbody th { font-weight: 500; }
-tbody td { white-space: nowrap; }
+tbody td, tfoot td { white-space: nowrap; }
 tr.total > * { background: rgb(var(--surface-muted)); font-weight: 700; }
 .assumptions-note { margin: 16px 0 0; font-size: .86rem; }
 .stack { display: grid; gap: 16px; }
