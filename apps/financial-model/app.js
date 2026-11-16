@@ -3,6 +3,7 @@
   const { fieldsFor, upgradeDraft } = globalThis.FinancialLineItems;
   const { build, reports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
   const { questionsFor, consolidate, multiExample } = globalThis.FinancialChannels;
+  const { buildAnalysis, renderAnalysis, exportRows } = globalThis.FinancialAnalysis;
   const multiChannel = new URLSearchParams(location.search).get("model") === "multichannel";
   document.getElementById(multiChannel ? "multi-model" : "single-model").setAttribute("aria-current", "page");
   if (multiChannel) document.title = "Multi-channel Financial Model Builder";
@@ -53,11 +54,15 @@
   let selectedReport = "overview";
   let frequency = "Annual";
   let outcomes;
+  let analysisState = { windows: {} };
+  let detachCharts;
   const save = () => {
     try { localStorage.setItem(storageKey, JSON.stringify({ answers, step, screen })); } catch { /* Browser storage can be unavailable. */ }
   };
 
   function render(focusId) {
+    detachCharts?.();
+    detachCharts = null;
     exampleButton.hidden = screen !== "wizard";
     newModelButton.hidden = screen === "wizard";
     if (screen === "report") renderReport();
@@ -283,6 +288,7 @@
       selectedReport = "overview";
       selectedCase = "Base";
       frequency = "Annual";
+      analysisState = { windows: {} };
       save();
       render("report-title");
     });
@@ -345,7 +351,7 @@
     const channelModel = multiChannel ? consolidate(inputs) : null;
     const forecastAnswers = channelModel?.answers || inputs;
     const forecastReports = channelModel ? [channelModel.report, ...reports] : reports;
-    const reportOptions = [{ id: "overview", name: "Overview" }, ...forecastReports];
+    const reportOptions = [{ id: "overview", name: "Overview" }, { id: "analysis", name: "Analysis" }, ...forecastReports];
     try {
       outcomes ||= build(forecastAnswers);
     } catch (error) {
@@ -359,18 +365,24 @@
     const model = outcomes.find(item => item.name === selectedCase);
     const report = forecastReports.find(item => item.id === selectedReport);
     const rows = frequency === "Annual" ? model.annual : model.months;
+    const currency = currencyOf(answers);
+    const analysis = selectedReport === "analysis" ? buildAnalysis({
+      model, outcomes, rows, frequency, answers: forecastAnswers, groups: channelModel?.groups,
+      state: { ...analysisState, ...analysisState.windows[frequency] },
+    }) : null;
     const options = [`<div class="segmented" role="group" aria-label="Scenario">${radio(outcomes.map(item => [item.name, item.name]), selectedCase, "case")}</div>`,
-      report ? `<div class="segmented" role="group" aria-label="Reporting period">${radio([["Annual", "Annual"], ["Monthly", "Monthly"]], frequency, "frequency")}</div>` : ""];
+      report || analysis ? `<div class="segmented" role="group" aria-label="Reporting period">${radio([["Annual", "Annual"], ["Monthly", "Monthly"]], frequency, "frequency")}</div>` : ""];
     app.innerHTML = `<div class="report-head"><div><h1 id="report-title" tabindex="-1">${escape(answers.company)}</h1>
         <p class="muted">${multiChannel ? "Consolidated financial forecast" : "Financial forecast"} · ${escape(currencyOf(answers))} · ${model.months[0].period} to ${model.months.at(-1).period}</p></div>
         <div class="toolbar"><button type="button" id="review" class="button secondary">Edit assumptions</button>
         <button type="button" id="download" class="button gold">Download model CSV <span aria-hidden="true">↓</span></button></div></div>
       <nav class="report-nav" aria-label="Financial reports">${radio(reportOptions.map(item => [item.id, item.name]), selectedReport, "report")}</nav>
-      ${outcomes.length > 1 || report ? `<div class="toolbar">${options.slice(outcomes.length > 1 ? 0 : 1).join("")}
+      ${outcomes.length > 1 || report || analysis ? `<div class="toolbar">${options.slice(outcomes.length > 1 ? 0 : 1).join("")}
         ${report ? '<button type="button" id="download-report" class="button secondary small">Download this view</button>' : ""}</div>` : ""}
-      ${report ? table(report.name, rows.map(row => row.period), linesFor(report, forecastAnswers).map(([label, field, style]) =>
+      ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? table(report.name, rows.map(row => row.period), linesFor(report, forecastAnswers).map(([label, field, style]) =>
         [label, rows.map(row => format(lineValue(row, field), style)), style])) : overview(model)}`;
     document.querySelector("#review").addEventListener("click", showReview);
+    if (analysis) bindAnalysis(analysis, currency);
     document.querySelector("#download").addEventListener("click", () => downloadAll(forecastReports, forecastAnswers));
     document.querySelector("#download-report")?.addEventListener("click", () => {
       download([["Company", answers.company], ["Currency", currencyOf(answers)], ["Scenario", model.name], ...csvTable(report, rows, forecastAnswers)],
@@ -386,6 +398,25 @@
         render(button.id);
       }));
     }
+  }
+
+  function bindAnalysis(analysis, currency) {
+    detachCharts = globalThis.ForecastCharts.mount(app, analysis, format);
+    for (const [id, read] of [
+      ["analysis-from", value => { analysisState.windows[frequency] = { from: Number(value), to: Math.max(Number(value), analysis.to) }; }],
+      ["analysis-to", value => { analysisState.windows[frequency] = { from: Math.min(Number(value), analysis.from), to: Number(value) }; }],
+      ["analysis-metric", value => { analysisState.metric = value; }],
+      ["analysis-group", value => { analysisState.group = value; }],
+    ]) {
+      document.getElementById(id)?.addEventListener("change", event => {
+        read(event.target.value);
+        render(id);
+      });
+    }
+    document.getElementById("analysis-download").addEventListener("click", () => {
+      download([["Company", answers.company], ...exportRows(analysis, currency)],
+        `analysis-${selectedCase.toLowerCase()}-${frequency.toLowerCase()}`);
+    });
   }
 
   function csvTable(report, rows, forecastAnswers) {
