@@ -1,7 +1,7 @@
 (() => {
   const { questions, sections, example, errorFor, itemError } = globalThis.FinancialAssumptions;
   const { fieldsFor, upgradeDraft } = globalThis.FinancialLineItems;
-  const { build, reports, linesFor, sum } = globalThis.FinancialModel;
+  const { build, reports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
   const app = document.querySelector("#app");
   const exampleButton = document.querySelector("#example");
   const newModelButton = document.querySelector("#new-model");
@@ -247,13 +247,16 @@
     if (prompt.type === "select") return prompt.choices.find(([id]) => id === value)?.[1] || "";
     if (prompt.type !== "number") return value;
     const unit = prompt.unit === "currency" ? currencyOf(answers) : prompt.unit;
-    return `${numberFormat.format(value)}${unit === "%" ? "%" : unit ? " " + unit : ""}`;
+    const numeric = Number(value);
+    const shown = Number(numeric.toFixed(2)) === numeric ? numberFormat.format(numeric) : value;
+    return `${shown}${unit === "%" ? "%" : unit ? " " + unit : ""}`;
   }
 
-  function renderReview() {
+  function renderReview(forecastError = "") {
     const list = activeQuestions(answers);
     app.innerHTML = `<div class="review-head"><div><h1 id="review-title" tabindex="-1">Review assumptions</h1><p class="muted">${escape(answers.company)} · ${escape(currencyOf(answers))}</p></div>
       <button type="button" id="generate" class="button gold">Generate forecast <span aria-hidden="true">→</span></button></div>
+      ${forecastError ? `<p class="notice" id="forecast-error" role="alert" tabindex="-1">${escape(forecastError)}</p>` : ""}
       <div class="review-grid">${sections.map(section => `<section class="panel"><h2>${section}</h2><dl>${list.filter(prompt => prompt.section === section).map(prompt =>
         `<div class="review-answer"><dt>${escape(prompt.label)}</dt><dd><button class="text-button" data-edit="${prompt.id}" aria-label="${escape("Edit: " + prompt.label)}">${escape(displayAnswer(prompt, answers[prompt.id]))}</button></dd>
           ${prompt.type === "items" && answers[prompt.id].length ? `<dd class="review-lines"><details><summary>View line items</summary>
@@ -277,7 +280,7 @@
   }
 
   const lineValue = (row, field) => typeof field === "function" ? field(row) : row[field];
-  const format = (value, style) => value === null ? "—" : (style === "rate" ? percentFormat : numberFormat).format(value === 0 || (style !== "rate" && Math.abs(value) < 0.005) ? 0 : value);
+  const format = (value, style) => value === null ? "—" : (style === "rate" ? percentFormat : numberFormat).format(value === 0 || (style !== "rate" && Math.abs(value) < halfCent) ? 0 : value);
   const money = value => `${currencyOf(answers)} ${format(value)}`;
   const table = (name, columns, rows) => `<div class="table-wrap" tabindex="0" role="region" aria-label="${escape(name)}">
     <table aria-label="${escape(name)}"><thead><tr><th scope="col">${escape(name)}</th>${columns.map(label => `<th scope="col">${escape(label)}</th>`).join("")}</tr></thead>
@@ -290,11 +293,11 @@
     const yearOne = model.months.slice(0, 12);
     const yearOneLabel = `First ${yearOne.length} ${yearOne.length === 1 ? "month" : "months"}`;
     const last = model.months.at(-1);
-    const maxRevenue = Math.max(1, ...model.annual.map(row => row.revenue));
+    const maxRevenue = Math.max(Number.MIN_VALUE, ...model.annual.map(row => row.revenue));
     const comparison = [
       ["Sales growth adjustment (percentage points)", item => format(item.growthAdjustment * 100)],
-      ["Total forecast revenue", item => money(sum(item.months, "revenue"))],
-      ["Total forecast EBITDA", item => money(sum(item.months, "ebitda"))],
+      ["Total forecast revenue", item => money(item.totals.revenue)],
+      ["Total forecast EBITDA", item => money(item.totals.ebitda)],
       ["Ending cash", item => money(item.months.at(-1).cash)],
       ["Peak funding gap", item => money(item.fundingGap)],
     ];
@@ -303,9 +306,9 @@
       ${metric("Revenue", money(sum(yearOne, "revenue")), yearOneLabel)}
       ${metric("EBITDA", money(sum(yearOne, "ebitda")), yearOneLabel)}
       ${metric("Ending cash", money(last.cash), last.period)}
-      ${metric("Peak funding gap", money(model.fundingGap), model.shortfall ? `Lowest cash in ${model.lowCash.period}` : "Cash stays at or above zero")}
+      ${metric("Peak funding gap", money(model.fundingGap), model.shortfall ? `Lowest cash in ${model.lowCash.period}` : "No month-end shortfall at report precision")}
       </div>
-      ${model.shortfall ? `<p class="notice">Cash first falls below zero in <strong>${model.shortfall.period}</strong>. The forecast shows the shortfall before any additional financing.</p>` : ""}
+      ${model.shortfall ? `<p class="notice">The first month-end cash shortfall is in <strong>${model.shortfall.period}</strong>. The forecast shows the shortfall before any additional financing.</p>` : ""}
       <div class="stack"><section class="panel"><h2>Revenue by calendar year</h2><ul class="plot">
         ${model.annual.map(row => `<li><span>${row.period}</span><span class="track" aria-hidden="true"><span class="bar" style="width:${100 * row.revenue / maxRevenue}%"></span></span><strong title="${escape(money(row.revenue))}">${escape(compactFormat.format(row.revenue))}</strong></li>`).join("")}
       </ul></section>
@@ -317,14 +320,23 @@
         <div><dt>Equity value after opening cash and debt</dt><dd>${escape(money(model.valuation.equity))}</dd></div>
       </dl></section>` : ""}
       <details class="panel"><summary>Model methodology</summary>
-        <p class="muted">Each revenue stream grows from its own driver. Payroll and operating expenses change on the anniversary of each line’s start month. Receivables use each stream’s sales and payment terms. Inventory and payables use each direct cost’s terms on a 30-day basis. Opening receivables and payables settle in the months entered.</p>
+        <p class="muted">Each revenue stream grows from its own driver. Payroll and operating expenses change on the anniversary of each line’s start month. Receivables and payables roll forward from sales and purchases already forecast, spread evenly within 30-day model months. Inventory targets use direct costs. Opening receivables and payables settle in the months entered.</p>
         <p class="muted">Fixed assets depreciate straight-line. Debt uses equal principal payments. Opening equity is derived from opening assets and liabilities. Corporate income tax is paid monthly on positive profit. The model excludes VAT, historical statements, and tax loss carryforwards.</p>
-        <p class="muted">Annual flows sum the included months. Balance sheet values use the final month of each calendar year shown. Any cash shortfall remains visible until funding or operating cash flow covers it.</p>
+        <p class="muted">Annual flows sum the included months. Balance sheet values use the final month of each calendar year shown. Reports display up to two decimal places. Totals use unrounded values. Cash shortfalls are measured at month end before additional funding. The balance sheet shows the unmet funding need as a separate amount.</p>
       </details></div>`;
   }
 
   function renderReport() {
-    outcomes ||= build(modelAnswers());
+    try {
+      outcomes ||= build(modelAnswers());
+    } catch (error) {
+      if (!(error instanceof ForecastRangeError)) throw error;
+      screen = "review";
+      save();
+      renderReview(error.message);
+      document.querySelector("#forecast-error").focus();
+      return;
+    }
     const model = outcomes.find(item => item.name === selectedCase);
     const report = reports.find(item => item.id === selectedReport);
     const rows = frequency === "Annual" ? model.annual : model.months;
@@ -366,23 +378,28 @@
   }
 
   function downloadAll() {
-    const rows = [["Company", answers.company], ["Currency", currencyOf(answers)], [], ["Assumption or category", "Value or line item", "Line item field", "Line item value"]];
+    const inputValue = (field, value) => field.type === "number" ? Number(value) : displayAnswer(field, value);
+    const inputUnit = field => field.unit === "currency" ? currencyOf(answers) : field.unit || "";
+    const rows = [["Company", answers.company], ["Currency", currencyOf(answers)],
+      ["Cash shortfall basis", "Month-end cash before additional funding"],
+      ["Trade balance basis", "Sales and purchases spread evenly within 30-day model months"],
+      [], ["Assumption or category", "Value or line item", "Field", "Line item value", "Unit"]];
     for (const prompt of activeQuestions(answers)) {
       const answer = answers[prompt.id];
       if (prompt.type !== "items") {
-        rows.push([prompt.label, displayAnswer(prompt, answer)]);
+        rows.push([prompt.label, inputValue(prompt, answer), "", "", inputUnit(prompt)]);
         continue;
       }
       if (!answer.length) rows.push([prompt.label, "None"]);
       for (const item of answer) {
         for (const field of fieldsFor(prompt, item)) {
-          if (field.id !== "name") rows.push([prompt.label, item.name, field.label, displayAnswer(field, item[field.id])]);
+          if (field.id !== "name") rows.push([prompt.label, item.name, field.label, inputValue(field, item[field.id]), inputUnit(field)]);
         }
       }
     }
     for (const model of outcomes) {
       rows.push([], ["Scenario", model.name], ["Sales growth adjustment (percentage points)", model.growthAdjustment * 100], ["Peak funding gap", model.fundingGap],
-        ["First negative cash month", model.shortfall?.period || ""], ["Lowest cash month", model.lowCash.period]);
+        ["First month-end cash shortfall", model.shortfall?.period || ""], ["Lowest cash month", model.lowCash.period]);
       if (model.valuation) rows.push(["Present value of forecast cash flows", model.valuation.pvFlows], ["Present value of exit value", model.valuation.pvExit],
         ["DCF enterprise value", model.valuation.enterprise], ["DCF equity value", model.valuation.equity]);
       for (const [label, periods] of [["Annual", model.annual], ["Monthly", model.months]]) {

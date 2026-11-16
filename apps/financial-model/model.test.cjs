@@ -101,3 +101,105 @@ test("named lines roll into linked statements, with independent schedules and an
   near(base.annual[0].equityRaised, 280);
   for (const row of base.months) near(row.check, 0);
 });
+
+test("independent cash ledger agrees with all three statements and a nonzero-rate DCF", () => {
+  const [base] = build({
+    start: "2026-11", months: "2", tax: "25", valuation: "yes", discountRate: "21", exitValue: "600",
+    streams: [{ name: "Sales", method: "direct", amount: "300", growth: "-50", days: "45" }],
+    directCosts: [{ name: "Stock", basis: "rate", rate: "40", stock: "20", inventoryDays: "15", payableDays: "45" }],
+    staff: [{ name: "Staff", amount: "50", headcount: "1", burden: "10", month: "1", growth: "0" }],
+    expenses: [{ name: "Rent", amount: "20", month: "1", growth: "0" }],
+    accounts: [{ name: "Bank", amount: "300" }],
+    receivables: [{ name: "Opening invoice", amount: "80", month: "2" }],
+    payables: [{ name: "Opening bill", amount: "40", month: "1" }],
+    ownedAssets: [{ name: "Existing equipment", amount: "40", life: "4" }],
+    investments: [{ name: "New equipment", amount: "60", life: "6", month: "2" }],
+    existingLoans: [{ name: "Old loan", amount: "60", rate: "12", term: "3" }],
+    newLoans: [{ name: "New loan", amount: "90", rate: "12", term: "3", month: "2" }],
+  });
+  const [nov, dec] = base.months;
+  // November has only new credit sales and purchases. December collects half of
+  // November's sales plus the opening invoice, and pays half of November's purchases.
+  near(nov.ar, 380);
+  near(nov.stock, 60);
+  near(nov.purchases, 160);
+  near(nov.ap, 160);
+  near(nov.operating, 0 - 40 - 55 - 20 - 0.6 - 23.6);
+  near(nov.cash, 140.8);
+  near(nov.profit, 70.8);
+  near(nov.totalAssets, 610.8);
+  near(nov.liabilities, 200);
+  near(nov.equity, 410.8);
+  near(dec.ar, 300);
+  near(dec.stock, 30);
+  near(dec.purchases, 30);
+  near(dec.ap, 110);
+  near(dec.operating, 150 + 80 - 80 - 55 - 20 - 1.3);
+  near(dec.cash, 224.5);
+  near(dec.profit, -6.3);
+  near(dec.totalAssets, 624.5);
+  near(dec.liabilities, 220);
+  near(dec.equity, 404.5);
+  for (const row of base.months) near(row.totalAssets, row.liabilities + row.equity);
+  const [annual] = base.annual;
+  assert.equal(annual.period, "2026 (2 mo.)");
+  near(annual.revenue, 450);
+  near(annual.gross, 270);
+  near(annual.ebitda, 120);
+  near(annual.depreciation, 30);
+  near(annual.profit, 64.5);
+  near(annual.openingCash, 300);
+  near(annual.cash, 224.5);
+  near(annual.ar, 300);
+  near(nov.freeCash, -138.75);
+  near(dec.freeCash, 15);
+  near(base.valuation.pvFlows, -122.0324258574582);
+  near(base.valuation.pvExit, 581.2375836908785);
+  near(base.valuation.enterprise, 459.20515783342034);
+  near(base.valuation.equity, 699.2051578334203);
+});
+
+test("long terms never recognize future sales or purchases and opening balances can settle after the forecast", () => {
+  const [base] = build({
+    start: "2026-01", months: "4",
+    streams: [{ name: "Sales", method: "direct", amount: "100", growth: "0", days: "90" }],
+    directCosts: [{ name: "Supplier", basis: "fixed", amount: "60", growth: "0", stock: "0", inventoryDays: "0", payableDays: "90" }],
+    receivables: [{ name: "Opening invoice", amount: "17", month: "5" }],
+    payables: [{ name: "Opening bill", amount: "11", month: "5" }],
+  });
+  assert.deepEqual(base.months.map(row => row.ar), [117, 217, 317, 317]);
+  assert.deepEqual(base.months.map(row => row.ap), [71, 131, 191, 191]);
+  assert.deepEqual(base.months.map(row => row.cash), [0, 0, 0, 40]);
+  assert.equal(base.fundingGap, 0);
+  for (const [id, item] of [["receivables", base.months[0].details.receivables[0]], ["payables", base.months[0].details.payables[0]]]) {
+    const prompt = questions.find(question => question.id === id);
+    assert.equal(errorFor(prompt, [{ name: "Opening balance", amount: String(item.amount), month: "5" }], { months: "4" }), "");
+  }
+});
+
+test("half-cent funding gaps and their balance sheet presentation agree", () => {
+  const baseAnswers = { start: "2026-01", months: "1" };
+  const [base] = build({ ...baseAnswers, overhead: "0.005" });
+  assert.equal(base.shortfall.period, "2026-01");
+  assert.equal(base.fundingGap, 0.005);
+  const [jan] = base.months;
+  assert.equal(jan.cash, -0.005);
+  assert.equal(jan.cashAsset, 0);
+  assert.equal(jan.cashShortfall, 0.005);
+  assert.equal(jan.liabilities, 0);
+  assert.equal(jan.totalAssets, 0);
+  assert.equal(jan.totalSources, 0);
+  const [tiny] = build({ ...baseAnswers, overhead: "0.004" });
+  assert.equal(tiny.shortfall, undefined);
+  assert.equal(tiny.fundingGap, 0);
+});
+
+test("full churn preserves new signups and the engine rejects precision-breaking amounts", () => {
+  const base = { start: "2026-01", months: "1" };
+  const [churn] = build({ ...base, revenueMethod: "subscription", active: "1000000000000",
+    newSubscribers: "0.00001", churn: "100", price: "100000" });
+  near(churn.months[0].details.streams[0].active, 0.00001);
+  near(churn.months[0].revenue, 1);
+  assert.throws(() => build({ ...base, revenueMethod: "units", units: "1000000000000", price: "1000000000000" }),
+    globalThis.FinancialModel.ForecastRangeError);
+});

@@ -1,5 +1,20 @@
 (() => {
   const { upgradeDraft, byId } = globalThis.FinancialLineItems;
+  const halfCent = 0.005;
+  const maxPreciseAmount = Number.MAX_SAFE_INTEGER / 100;
+
+  class ForecastRangeError extends RangeError {
+    constructor(scenario, period) {
+      super(`The ${scenario.toLowerCase()} forecast exceeds the model’s reliable numerical range (${period}). Review the input amounts, growth rates or forecast length.`);
+    }
+  }
+
+  function checkPrecision(values, scenario, period) {
+    if (values.some(value => typeof value === "number" && (!Number.isFinite(value) || Math.abs(value) > maxPreciseAmount))) {
+      throw new ForecastRangeError(scenario, period);
+    }
+  }
+
   const sum = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
   const total = rows => sum(rows, "amount");
   const amounts = answers => Object.fromEntries(Object.keys(byId).map(id => [id, (answers[id] || []).map(row =>
@@ -13,17 +28,29 @@
     settled: row.month === month ? row.amount : 0,
   }));
 
+  // Assume activity is evenly distributed within each 30-day model month.
+  // Only purchases or sales already forecast can contribute to closing balances.
+  function tradeBalance(amount, days, history, group, index, field) {
+    const fullMonths = Math.floor(days / 30);
+    const fraction = (days % 30) / 30;
+    const atAge = age => age === 0 ? amount : history.at(-age)?.details[group][index][field] ?? 0;
+    let balance = 0;
+    for (let age = 0; age < fullMonths; age++) balance += atAge(age);
+    return balance + fraction * atAge(fullMonths);
+  }
+
   function sale(line, prior, elapsed, adjustment) {
-    const { method, price, days } = line;
+    const { method, price } = line;
     const rate = Math.max(-1, (numeric(line, "growth") + adjustment) / 100);
     const scale = (1 + rate) ** elapsed;
     const units = method === "units" ? line.units * scale : 0;
     const joining = method === "subscription" ? line.newSubscribers * scale : 0;
     const opening = prior?.active ?? numeric(line, "active");
-    const leaving = method === "subscription" ? opening * line.churn / 100 : 0;
-    const active = opening + joining - leaving;
+    const churn = method === "subscription" ? line.churn / 100 : 0;
+    const leaving = opening * churn;
+    const active = opening * (1 - churn) + joining;
     const revenue = method === "direct" ? line.amount * scale : (method === "units" ? units : active) * price;
-    return { revenue, units, joining, leaving, active, price, ar: revenue * numeric(line, "days") / 30 };
+    return { revenue, units, joining, leaving, active, price };
   }
 
   function directCost(line, prior, revenue, elapsed) {
@@ -31,7 +58,7 @@
     const opening = prior?.stock ?? numeric(line, "stock");
     const stock = stockAfter(opening, cogs, numeric(line, "inventoryDays"));
     const purchases = Math.max(0, cogs + stock - opening);
-    return { cogs, stock, purchases, ap: purchases * numeric(line, "payableDays") / 30 };
+    return { cogs, stock, purchases };
   }
 
   function expense(line, month, staffing) {
@@ -114,10 +141,18 @@
       const month = i + 1;
       const year = startYear + Math.floor((startMonth + i) / 12);
       const period = `${year}-${String((startMonth + i) % 12 + 1).padStart(2, "0")}`;
-      const current = (group, evaluate) => items[group].map((line, index) => evaluate(line, previous.details[group]?.[index]));
-      const streams = current("streams", (line, prior) => sale(line, prior, i, growthAdjustment));
+      const current = (group, evaluate) => items[group].map((line, index) => evaluate(line, previous.details[group]?.[index], index));
+      const streams = current("streams", (line, prior, index) => {
+        const result = sale(line, prior, i, growthAdjustment);
+        const ar = tradeBalance(result.revenue, numeric(line, "days"), months, "streams", index, "revenue");
+        return { ...result, ar };
+      });
       const revenue = sum(streams, "revenue");
-      const directCosts = current("directCosts", (line, prior) => directCost(line, prior, revenue, i));
+      const directCosts = current("directCosts", (line, prior, index) => {
+        const result = directCost(line, prior, revenue, i);
+        const ap = tradeBalance(result.purchases, numeric(line, "payableDays"), months, "directCosts", index, "purchases");
+        return { ...result, ap };
+      });
       const cogs = sum(directCosts, "cogs");
       const staff = current("staff", line => expense(line, month, true));
       const expenses = current("expenses", line => expense(line, month, false));
@@ -166,31 +201,48 @@
       const retained = previous.retained + profit;
       const capital = previous.capital + equityRaised;
       const equity = capital + retained;
-      const currentAssets = cash + ar + stock;
+      const cashAsset = Math.max(0, cash);
+      const cashShortfall = Math.max(0, -cash);
+      const currentAssets = cashAsset + ar + stock;
       const totalAssets = currentAssets + assets;
       const liabilities = ap + debt;
-      const check = totalAssets - liabilities - equity;
+      const totalSources = liabilities + equity + cashShortfall;
+      const check = totalAssets - totalSources;
       const freeCash = ebit - Math.max(0, ebit) * taxRate + depreciation - deltaWC - capex;
       const details = { streams, directCosts, staff, expenses, accounts, receivables, payables, ownedAssets, investments, existingLoans, newLoans, contributions };
       const row = { period, year, revenue, cogs, gross, payroll, overhead, ebitda, depreciation, ebit, interest, pretax, tax, profit,
-        ar, stock, ap, wc, deltaAR, deltaStock, deltaAP, deltaWC, purchases, assets, currentAssets, totalAssets, debt, liabilities,
+        ar, stock, ap, wc, deltaAR, deltaStock, deltaAP, deltaWC, purchases, assets, cashAsset, cashShortfall, currentAssets, totalAssets, debt, liabilities, totalSources,
         capital, retained, equity, check, operating, investing, financing, netCash, openingCash, cash, capex, draw,
         principal, equityRaised, freeCash, details };
+      const itemValues = Object.values(details).flatMap(list => list.flatMap(Object.values));
+      checkPrecision([...Object.values(row), ...itemValues], name, period);
+      if (Math.abs(check) >= halfCent) throw new ForecastRangeError(name, period);
       months.push(row);
       previous = row;
     }
     const lowCash = months.reduce((low, row) => row.cash < low.cash ? row : low);
-    const shortfall = months.find(row => row.cash < -0.005);
+    const shortfall = months.find(row => row.cash <= -halfCent);
     const rate = n("discountRate") / 100;
     const pvFlows = months.reduce((value, row, i) => value + row.freeCash / (1 + rate) ** ((i + 1) / 12), 0);
     const pvExit = n("exitValue") / (1 + rate) ** (months.length / 12);
+    const annual = toAnnual(months);
+    for (const row of annual) {
+      checkPrecision([...Object.values(row), ...Object.values(row.details).flatMap(list => list.flatMap(Object.values))], name, row.period);
+    }
+    const totals = { revenue: sum(months, "revenue"), ebitda: sum(months, "ebitda") };
+    checkPrecision(Object.values(totals), name, "forecast totals");
+    const valuation = answers.valuation === "yes"
+      ? { pvFlows, pvExit, enterprise: pvFlows + pvExit, equity: pvFlows + pvExit + initialCash - initialDebt } : null;
+    if (valuation) checkPrecision(Object.values(valuation), name, "the valuation");
     return {
-      name, growthAdjustment: growthAdjustment / 100, months, annual: toAnnual(months), lowCash, shortfall, fundingGap: Math.max(0, -lowCash.cash),
-      valuation: answers.valuation === "yes" ? { pvFlows, pvExit, enterprise: pvFlows + pvExit, equity: pvFlows + pvExit + initialCash - initialDebt } : null,
+      name, growthAdjustment: growthAdjustment / 100, months, annual, totals, lowCash, shortfall, fundingGap: shortfall ? -lowCash.cash : 0, valuation,
     };
   }
 
-  const margin = key => row => row.revenue ? row[key] / row.revenue : null;
+  const margin = key => row => {
+    const ratio = row[key] / row.revenue;
+    return Number.isFinite(ratio * 100) ? ratio : null;
+  };
   const detail = (group, key, prefix, style = "detail", filter = () => true) => ({ group, key, prefix, style, filter });
   const assetLines = (key, prefix) => [detail("ownedAssets", key, prefix), detail("investments", key, prefix)];
   const loanLines = (key, prefix, sign = 1) => [detail("existingLoans", key, prefix), detail("newLoans", key, prefix)].map(line => ({ ...line, sign }));
@@ -205,14 +257,14 @@
       ["Profit before tax", "pretax"], ["Income tax", "tax"], ["Net income", "profit", "total"], ["Net margin", margin("profit"), "rate"],
     ] },
     { id: "balance", name: "Balance sheet", lines: [
-      ["Cash before additional financing", "cash"],
+      ["Cash and cash equivalents", "cashAsset"],
       detail("streams", "ar", "Forecast receivable"), detail("receivables", "amount", "Opening receivable"), ["Accounts receivable", "ar", "total"],
       detail("directCosts", "stock", "Stock", "detail", row => Number(row.stock) > 0 || Number(row.inventoryDays) > 0), ["Inventory", "stock", "total"],
       ["Current assets", "currentAssets", "total"], ...assetLines("assets", "Book value"), ["Net fixed assets", "assets", "total"], ["Total assets", "totalAssets", "total"],
       detail("directCosts", "ap", "Forecast payable", "detail", row => Number(row.payableDays) > 0), detail("payables", "amount", "Opening payable"), ["Accounts payable", "ap", "total"],
       ...loanLines("debt", "Loan balance"), ["Debt outstanding", "debt", "total"], ["Total liabilities", "liabilities", "total"],
       ["Opening equity and contributions", "capital"], ["Forecast retained earnings", "retained"], ["Total equity", "equity", "total"],
-      ["Total liabilities and equity", row => row.liabilities + row.equity, "total"], ["Balance sheet difference", "check"],
+      ["Unfunded cash shortfall", "cashShortfall"], ["Total liabilities, equity and unfunded cash shortfall", "totalSources", "total"], ["Balance sheet difference", row => Math.abs(row.check) < halfCent ? 0 : row.check],
     ] },
     { id: "cashflow", name: "Cash flow", lines: [
       ["Opening cash", "openingCash", "total"], ["Net income", "profit"], ["Depreciation add-back", "depreciation"],
@@ -222,7 +274,7 @@
       detail("contributions", "amount", "Equity"), ["Equity raised", "equityRaised", "total"],
       detail("newLoans", "draw", "Loan draw"), ["Loan proceeds", "draw", "total"], ...loanLines("principal", "Principal payment", -1),
       ["Principal repaid", row => -row.principal, "total"], ["Financing cash flow", "financing", "total"],
-      ["Net change in cash", "netCash", "total"], ["Ending cash", "cash", "total"],
+      ["Net change in cash", "netCash", "total"], ["Ending cash before additional funding", "cash", "total"],
     ] },
     { id: "schedules", name: "Supporting schedules", lines: [
       detail("streams", "units", "Units sold", "count", row => row.method === "units"),
@@ -256,5 +308,5 @@
     ] : [base];
   }
 
-  globalThis.FinancialModel = { build, reports, linesFor, sum };
+  globalThis.FinancialModel = { build, reports, linesFor, sum, halfCent, ForecastRangeError };
 })();
