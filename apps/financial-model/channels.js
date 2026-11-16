@@ -17,7 +17,8 @@
           presetRows: defaults.get(row.key)?.streams,
           id: channelKey(row),
           label: `Revenue streams for ${name}`,
-          stepLabel: name,
+          title: name,
+          subtitle: "Revenue streams",
           exportLabel: `Revenue · ${name}`,
         };
       }),

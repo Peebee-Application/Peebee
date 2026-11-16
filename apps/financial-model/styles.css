@@ -79,6 +79,7 @@ progress { display: block; margin: 12px 0 35px; width: 100%; height: 5px; appear
 progress::-webkit-progress-bar { background: rgb(var(--surface-muted)); }
 progress::-webkit-progress-value { background: var(--gold); }
 progress::-moz-progress-bar { background: var(--gold); }
+.question-subtitle { margin: 0 0 6px; color: var(--quiet); font-size: 1rem; font-weight: 650; }
 h1, h2, p { overflow-wrap: anywhere; }
 h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.5rem); letter-spacing: -.058em; line-height: 1.06; }
 .hint, .muted { color: var(--quiet); line-height: 1.55; }
