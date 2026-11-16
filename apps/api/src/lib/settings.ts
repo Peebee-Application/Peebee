@@ -1212,7 +1212,8 @@ async function loadSettings(): Promise<Map<string, string>> {
     const version = settingsVersion;
     settingsLoading = (async () => {
       try {
-        const res = await db.execute("SELECT key, value FROM settings");
+        // The private forecast draft is read only through the Finance endpoints.
+        const res = await db.execute("SELECT key, value FROM settings WHERE key <> 'financial_model_shared_draft'");
         const values = new Map<string, string>();
         for (const row of res.rows) values.set(String(row.key), String(row.value ?? ""));
         // A save that landed while this read was in flight must not be hidden behind the older snapshot.

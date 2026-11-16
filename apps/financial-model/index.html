@@ -14,6 +14,7 @@
   <script defer src="channels.js"></script>
   <script defer src="analysis.js"></script>
   <script defer src="forecast-charts.js"></script>
+  <script defer src="shared-session.js"></script>
   <script defer src="live.js"></script>
   <script defer src="app.js"></script>
 </head>
@@ -31,6 +32,11 @@
     </div>
     <nav id="secondary-nav" class="secondary-nav" aria-label="Forecast views"></nav>
   </header>
+  <div id="shared-save" class="shared-save" hidden>
+    <span id="shared-status" role="status"></span>
+    <button class="text-button" id="retry-save" type="button" hidden>Retry save</button>
+    <button class="text-button" id="reload-shared" type="button" hidden>Reload shared version</button>
+  </div>
   <main id="app" class="shell"></main>
   <dialog id="live-dialog" class="panel" aria-labelledby="live-title"></dialog>
   <dialog id="settings-dialog" class="panel model-dialog" aria-labelledby="settings-title">
@@ -55,6 +61,7 @@
     <section class="settings-actions" aria-labelledby="settings-data-title">
       <h3 id="settings-data-title">Data and reset</h3>
       <button class="button secondary" id="live-data" type="button" aria-haspopup="dialog" hidden>Live Admin data</button>
+      <button class="button secondary" id="publish-local" type="button" hidden>Use this browser’s draft</button>
       <button class="button secondary" id="reset-model" type="button" aria-haspopup="dialog">Reset to Peebee defaults</button>
     </section>
     <form method="dialog" class="dialog-actions"><button class="button gold">Done</button></form>
@@ -83,7 +90,7 @@
       <button class="button gold" value="save">Save and continue</button>
     </form>
   </dialog>
-  <footer class="footer">Forecasts use the assumptions you enter. Drafts are stored on this device when browser storage is available.</footer>
+  <footer class="footer">Forecasts use the assumptions you enter.</footer>
   <noscript>Enable JavaScript to build and view your financial model.</noscript>
 </body>
 </html>

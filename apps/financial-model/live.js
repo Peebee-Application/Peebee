@@ -19,11 +19,10 @@
     return updated;
   }
 
-  function mount({ escape, format, confirmAction, open, beforeApply, applyRates: importRates }) {
-    if (location.hostname !== "financials.peebee.online") return;
+  function mount({ session, escape, format, confirmAction, open, beforeApply, applyRates: importRates }) {
+    if (!session) return;
     const launch = document.querySelector("#live-data");
     const dialog = document.querySelector("#live-dialog");
-    let token;
     let snapshot;
     let status = "";
     let busy = false;
@@ -32,25 +31,6 @@
     const timestamp = value => new Intl.DateTimeFormat("en-UG", {
       dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Kampala",
     }).format(new Date(value));
-
-    async function request(path, body) {
-      const headers = new Headers();
-      if (token) headers.set("Authorization", `Bearer ${token}`);
-      if (body) headers.set("Content-Type", "application/json");
-      const response = await fetch(path, {
-        method: body ? "POST" : "GET", headers, cache: "no-store",
-        credentials: "omit", body: body ? JSON.stringify(body) : undefined,
-      });
-      if (response.status === 401) {
-        token = undefined;
-        snapshot = undefined;
-        throw new Error("Sign in with your Peebee Admin credentials.");
-      }
-      if (response.status === 403) throw new Error("This account needs access to Payments management and Admin statistics.");
-      if (response.status === 429) throw new Error("Too many attempts. Wait before trying again.");
-      if (!response.ok) throw new Error("Could not retrieve live Admin data. Try again.");
-      return response.json();
-    }
 
     function draw() {
       const activity = snapshot?.activity.map(source => `<details>
@@ -62,16 +42,7 @@
       dialog.innerHTML = `<div class="toolbar"><h2 id="live-title">Live Admin data</h2>
         <button class="button secondary small" id="live-close" type="button">Close</button></div>
         <p id="live-status" class="muted" role="status" tabindex="-1">${escape(status)}</p>
-        ${!token ? `<form id="live-login">
-          <label for="live-identifier">Admin email or phone</label>
-          <input id="live-identifier" name="identifier" autocomplete="username" required>
-          <label for="live-password">Password</label>
-          <input id="live-password" name="password" type="password" autocomplete="current-password" required>
-          <button class="button gold" type="submit" ${busy ? "disabled" : ""}>Sign in to sync</button>
-        </form>` : `<div class="toolbar">
-          <button class="button secondary small" id="live-refresh" type="button" ${busy ? "disabled" : ""}>Refresh</button>
-          <button class="button secondary small" id="live-signout" type="button" ${busy ? "disabled" : ""}>Sign out</button>
-        </div>`}
+        <button class="button secondary small" id="live-refresh" type="button" ${busy ? "disabled" : ""}>Refresh</button>
         ${snapshot ? `<p class="muted">Live activity from ${escape(timestamp(snapshot.from))} to ${escape(timestamp(snapshot.to))} (Kampala time).</p>
           <p class="muted">Activity reflects recorded transactions from the listed sources. Some flows and adjustments have separate records. Use the figures to inform the forecast and count each fee once.</p>
           ${activity}
@@ -83,13 +54,7 @@
           <p class="muted">Apply rates to matching forecast lines. Change the revenue driver first when a fee switches between flat and percentage.</p>
           <button class="button gold" type="button" id="live-apply" ${busy ? "disabled" : ""}>Apply live fees to forecast</button>` : ""}`;
       dialog.querySelector("#live-close").onclick = () => dialog.close();
-      dialog.querySelector("#live-login")?.addEventListener("submit", event => {
-        event.preventDefault();
-        const { identifier, password } = Object.fromEntries(new FormData(event.target));
-        void refresh({ identifier, password });
-      });
-      dialog.querySelector("#live-refresh")?.addEventListener("click", () => refresh());
-      dialog.querySelector("#live-signout")?.addEventListener("click", signOut);
+      dialog.querySelector("#live-refresh").addEventListener("click", () => void refresh());
       dialog.querySelector("#live-apply")?.addEventListener("click", () => {
         confirmAction(
           "Overwrite forecast fees with live rates?",
@@ -103,21 +68,13 @@
       });
     }
 
-    async function refresh(credentials) {
+    async function refresh() {
       if (busy) return;
       busy = true;
       status = "Loading live Admin data…";
       draw();
       try {
-        if (credentials) {
-          const session = await request("/v1/auth/login", credentials);
-          token = session.token;
-          if (session.user?.role !== "admin") {
-            await signOut();
-            throw new Error("Use a Peebee Admin account.");
-          }
-        }
-        snapshot = await request("/v1/admin/financial-model");
+        snapshot = await session.request("activity");
         status = "Live data updated.";
       } catch (error) {
         snapshot = undefined;
@@ -129,18 +86,11 @@
       }
     }
 
-    async function signOut() {
-      try { if (token) await request("/v1/auth/logout", {}); } catch { /* Return to the signed-out state on a network error. */ }
-      token = undefined;
-      snapshot = undefined;
-      status = "Signed out.";
-      draw();
-    }
-
     launch.hidden = false;
     launch.addEventListener("click", () => open(() => {
       draw();
       dialog.showModal();
+      void refresh();
     }));
   }
 

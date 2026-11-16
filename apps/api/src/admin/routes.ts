@@ -1,5 +1,6 @@
 import { demoPeopleFilter } from "../practice/people.js";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { InArgs } from "@libsql/client";
 import { db } from "../db/client.js";
@@ -17,6 +18,7 @@ import {
   requirePermission,
   requireSuperAdmin,
 } from "./permissions.js";
+import { draftInput, getFinancialDraft, saveFinancialDraft } from "./financial-draft.js";
 import { financialModelPermissions, financialModelSnapshot } from "./financial-model.js";
 import { countSuperAdmins, inviteStaff, listStaff, resetStaffPassword } from "./staff.js";
 import { clientIp } from "../lib/ratelimit.js";
@@ -37,6 +39,25 @@ type Row = Record<string, unknown>;
 adminRoutes.get("/admin/financial-model", ...financialModelPermissions, async (c) => {
   c.header("Cache-Control", "private, no-store");
   return c.json(await financialModelSnapshot());
+});
+
+adminRoutes.get("/admin/financial-model/draft", ...financialModelPermissions, async (c) => {
+  c.header("Cache-Control", "private, no-store");
+  return c.json({ draft: await getFinancialDraft() });
+});
+
+adminRoutes.put("/admin/financial-model/draft", ...financialModelPermissions, bodyLimit({ maxSize: 128_000 }), async (c) => {
+  c.header("Cache-Control", "private, no-store");
+  const input = draftInput.safeParse(await c.req.json().catch(() => null));
+  if (!input.success) return c.json({ error: "invalid_draft", message: "The forecast draft is invalid or too large." }, 400);
+  const actor = c.get("user");
+  const draft = await saveFinancialDraft(input.data);
+  if (!draft) return c.json({ error: "draft_conflict", message: "Another editor saved the forecast first." }, 409);
+  await logActivity({
+    actor, action: "financial_model.save", summary: "Saved the shared financial model",
+    entityType: "financial_model", entityId: "peebee", after: { revision: draft.revision },
+  }).catch(error => console.error("Could not log financial model save", error));
+  return c.json({ draft });
 });
 
 const previewPermissions = { riders: "riders.view", customers: "customers.view", restaurants: "restaurants.view", merchants: "merchants.view" } as const;

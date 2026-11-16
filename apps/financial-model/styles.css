@@ -306,8 +306,6 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 .order-estimate { display: block; margin: 12px 0 0; }
 #live-dialog { width: min(920px, calc(100vw - 32px)); max-height: 85vh; padding: clamp(20px, 4vw, 36px); color: var(--ink); }
 #live-dialog::backdrop { background: rgb(var(--color-ink-gold) / .4); }
-#live-dialog form { display: grid; gap: 12px; max-width: 440px; }
-#live-dialog input { min-height: 44px; }
 #live-dialog .table-wrap { max-height: 16rem; }
 
 .model-dialog {
@@ -379,3 +377,15 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 
 .workbook-view > .muted { margin: 0; }
 .workbook-view .table-wrap { margin-top: 0; }
+
+.shared-save {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 10px clamp(16px, 4vw, 36px) 0;
+  display: flex;
+  gap: 6px 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  color: var(--quiet);
+  font-size: .85rem;
+}
