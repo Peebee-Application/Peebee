@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Build a financial forecast one assumption at a time.">
+  <title>Financial Model Builder</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="assumptions.js"></script>
+  <script defer src="model.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span> Financial Model Builder</div>
+      <div class="masthead-actions"><button class="button secondary small" id="example" type="button">Try an example</button><button class="button secondary small" id="new-model" type="button" hidden>New model</button></div>
+    </div>
+  </header>
+  <main id="app" class="shell"></main>
+  <footer class="footer">Forecasts use the assumptions you enter. Drafts are stored on this device when browser storage is available.</footer>
+  <noscript>Enable JavaScript to build and view your financial model.</noscript>
+</body>
+</html>
