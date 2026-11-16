@@ -347,3 +347,22 @@ test("Peebee defaults cover the platform, remain editable, and require a tax ass
   assert.equal(edited.report.lines.find(([label]) => label === "Peebee Buy total")[1](forecast.months[0]), 100000);
   assert.equal(createDefaults()["channel-buy"][0].transactionValue, "0");
 });
+
+test("order estimates use eligible order value and preserve assumptions when applying live fees", () => {
+  require("./live.js");
+  const draft = globalThis.PeebeeDefaults.createDefaults();
+  const [parcel] = draft["channel-concierge"];
+  assert.equal(parcel.orders, "300");
+  assert.equal(globalThis.FinancialLive.applyRates(draft, [
+    { channel: "concierge", name: parcel.name, kind: "flat", value: 1000 },
+  ]), 0);
+  assert.equal(globalThis.FinancialLive.applyRates(draft, [
+    { channel: "concierge", name: parcel.name, kind: "percent", value: 12 },
+  ]), 1);
+  assert.equal(parcel.orderValue, "5000");
+  const [forecast] = build(globalThis.FinancialChannels.consolidate(draft).answers);
+  const first = forecast.months[0].details.streams[0];
+  assert.equal(first.units, 300);
+  assert.equal(first.volume, 1_500_000);
+  assert.equal(first.revenue, 180_000);
+});

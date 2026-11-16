@@ -188,3 +188,10 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
   .forecast-chart { height: 206px; }
   .analysis-controls { width: 100%; }
 }
+
+.order-estimate { display: block; margin: 12px 0 0; }
+#live-dialog { width: min(920px, calc(100vw - 32px)); max-height: 85vh; padding: clamp(20px, 4vw, 36px); color: var(--ink); }
+#live-dialog::backdrop { background: rgb(var(--color-ink) / .4); }
+#live-dialog form { display: grid; gap: 12px; max-width: 440px; }
+#live-dialog input { min-height: 44px; }
+#live-dialog .table-wrap { max-height: 16rem; }

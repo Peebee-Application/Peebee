@@ -37,7 +37,28 @@ import { topUpDemoOrders } from "./practice/demo-customers.js";
  * conflicts with @types/node's DOM-lib globals) just for one field. */
 type CfExecutionContext = { waitUntil(promise: Promise<unknown>): void; passThroughOnException(): void };
 
-type WorkerEnv = Record<string, unknown> & { DB?: D1Database; RIDER_DOCS?: R2Bucket; AI?: AiBinding };
+type WorkerEnv = Record<string, unknown> & {
+  DB?: D1Database;
+  RIDER_DOCS?: R2Bucket;
+  AI?: AiBinding;
+  FINANCIAL_ASSETS?: { fetch(request: Request): Promise<Response> };
+};
+
+const financeApi = new Map([
+  ["/v1/auth/login", "POST"],
+  ["/v1/auth/logout", "POST"],
+  ["/v1/admin/financial-model", "GET"],
+]);
+
+async function serveFinancialAssets(request: Request, assets?: WorkerEnv["FINANCIAL_ASSETS"]) {
+  if (!assets || (request.method !== "GET" && request.method !== "HEAD")) return new Response(null, { status: 404 });
+  const response = await assets.fetch(request);
+  const headers = new Headers(response.headers);
+  headers.set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Referrer-Policy", "no-referrer");
+  return new Response(response.body, { status: response.status, headers });
+}
 
 function bindEnv(env: WorkerEnv): void {
   for (const [key, value] of Object.entries(env)) {
@@ -55,6 +76,10 @@ function bindEnv(env: WorkerEnv): void {
  * separately since it isn't a string. */
 export default {
   fetch(request: Request, env: WorkerEnv, ctx: CfExecutionContext): Response | Promise<Response> {
+    const url = new URL(request.url);
+    if (url.hostname === "financials.peebee.online" && financeApi.get(url.pathname) !== request.method) {
+      return serveFinancialAssets(request, env.FINANCIAL_ASSETS);
+    }
     bindEnv(env);
     return app.fetch(request, env as never, ctx as never);
   },

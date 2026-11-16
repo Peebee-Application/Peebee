@@ -4,6 +4,9 @@
   const company = "Peebee";
   const stream = (name, method, fields) => ({ name, method, ...fields, growth: "0", days: "0" });
   const share = (name, rate) => stream(name, "percentage", { transactionValue: "0", rate: String(rate) });
+  const orders = (name, count, orderValue, rate) => stream(name, "orders", {
+    orders: String(count), orderValue: String(orderValue), rate: String(rate),
+  });
   const subscription = (name, price) => stream(name, "subscription", {
     active: "0", newSubscribers: "0", churn: "0", price: String(price),
   });
@@ -16,9 +19,9 @@
   const catalog = [
     {
       key: "concierge", name: "Peebee Concierge",
-      streams: [share("Parcel delivery commission", 0), share("Shopping delivery commission", 0),
+      streams: [orders("Parcel delivery commission", 300, 5000, 0), orders("Shopping delivery commission", 150, 3000, 0),
         units("Concierge service fees", 0), share("Processing fees retained by Peebee", 0)],
-      note: "Delivery commission applies to the delivery fee. Delivery commission, service fees and processing fees start off in Monetization.",
+      note: "The starting parcel and shopping counts and average delivery fees are illustrative planning estimates. For delivery commission, enter the delivery fee per order, excluding the value of goods. Delivery commission, service fees and processing fees start off in Monetization.",
     },
     {
       key: "buy", name: "Peebee Buy",
@@ -82,7 +85,7 @@
     {
       key: "creator-media", name: "Peebee Channels & Ads",
       streams: [share("Creator membership share", 15), share("Paid post share", 20),
-        share("Tips and live gift share", 10), share("Fundraising fee", 0), share("Ad revenue after creator share", 45)],
+        share("Tips share", 10), share("Live gift share", 10), share("Fundraising fee", 0), share("Ad revenue after creator share", 45)],
       note: "Creator monetization, fundraising and ads default to off. Use paid activity only after activation. The ad share assumes the configured 55% creator share. Track merchant promotion fees only once.",
     },
     {

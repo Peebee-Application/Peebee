@@ -43,15 +43,15 @@
     const { method, price } = line;
     const rate = Math.max(-1, (numeric(line, "growth") + adjustment) / 100);
     const scale = (1 + rate) ** elapsed;
-    const units = method === "units" ? line.units * scale : 0;
+    const units = method === "units" ? line.units * scale : method === "orders" ? line.orders * scale : 0;
     const joining = method === "subscription" ? line.newSubscribers * scale : 0;
     const opening = prior?.active ?? numeric(line, "active");
     const churn = method === "subscription" ? line.churn / 100 : 0;
     const leaving = opening * churn;
     const active = opening * (1 - churn) + joining;
-    const volume = method === "percentage" ? line.transactionValue * scale : 0;
-    const feeRate = method === "percentage" ? line.rate / 100 : 0;
-    const revenue = method === "percentage" ? volume * feeRate
+    const volume = method === "orders" ? units * line.orderValue : method === "percentage" ? line.transactionValue * scale : 0;
+    const feeRate = (method === "percentage" || method === "orders") ? line.rate / 100 : 0;
+    const revenue = (method === "percentage" || method === "orders") ? volume * feeRate
       : method === "direct" ? line.amount * scale : (method === "units" ? units : active) * price;
     return { revenue, units, joining, leaving, active, price, volume, feeRate };
   }
@@ -281,11 +281,12 @@
     ] },
     { id: "schedules", name: "Supporting schedules", lines: [
       detail("streams", "units", "Units sold", "count", row => row.method === "units"),
+      detail("streams", "units", "Estimated orders", "count", row => row.method === "orders"),
       detail("streams", "joining", "New subscribers", "count", row => row.method === "subscription"),
       detail("streams", "leaving", "Subscribers lost", "count", row => row.method === "subscription"),
       detail("streams", "active", "Closing subscribers", "count", row => row.method === "subscription"),
       detail("streams", "price", "Price per unit or subscriber", "detail", row => row.method === "units" || row.method === "subscription"),
-      detail("streams", "volume", "Transaction or payout volume", "detail", row => row.method === "percentage"),
+      detail("streams", "volume", "Transaction or payout volume", "detail", row => row.method === "percentage" || row.method === "orders"),
       detail("streams", "feeRate", "Percentage earned", "rate", row => row.method === "percentage"),
       detail("streams", "revenue", "Sales"), ["Revenue", "revenue", "total"],
       detail("directCosts", "cogs", "Direct cost"), detail("directCosts", "purchases", "Purchases"), ["Total purchases", "purchases", "total"],

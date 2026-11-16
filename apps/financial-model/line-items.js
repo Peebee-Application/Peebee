@@ -14,15 +14,17 @@
     ({ id, section, label, hint, item, fields: [name, ...fields], presets, required, type: "items" });
   const groups = [
     group("streams", "Revenue", "What are your revenue streams?", "Add each product, service or income stream and enter how it earns revenue. Collection days estimate the sales still owed at month end.", "revenue stream", [
-      select("method", "Revenue driver", [["units", "Units × price"], ["subscription", "Subscriptions × monthly price"], ["direct", "Monthly sales amount"], ["percentage", "Percentage of transaction or payout"]], "units"),
+      select("method", "Revenue driver", [["units", "Units × price"], ["subscription", "Subscriptions × monthly price"], ["direct", "Monthly sales amount"], ["orders", "Orders × average value × fee rate"], ["percentage", "Percentage of transaction or payout"]], "units"),
       num("units", "Units sold in first month", { when: row => row.method === "units" }),
+      num("orders", "Estimated orders in month one", { step: 1, initial: "0", when: row => row.method === "orders" }),
+      amount("orderValue", "Average eligible value per order", { initial: "0", when: row => row.method === "orders" }),
       num("active", "Subscribers before month one", { when: row => row.method === "subscription", initial: "0" }),
       num("newSubscribers", "New subscribers in first month", { when: row => row.method === "subscription" }),
       pct("churn", "Monthly subscriber churn", { when: row => row.method === "subscription", initial: "0" }),
       amount("price", "Price per unit or subscriber", { when: row => row.method === "units" || row.method === "subscription" }),
       amount("amount", "First-month revenue", { when: row => row.method === "direct" }),
       amount("transactionValue", "First-month transaction or payout value", { when: row => row.method === "percentage" }),
-      pct("rate", "Percentage earned", { when: row => row.method === "percentage" }),
+      pct("rate", "Percentage earned", { initial: "0", when: row => row.method === "percentage" || row.method === "orders" }),
       growth("Monthly sales growth"), days("days", "Customer payment days"),
     ], ["Product sales", "Services", "Subscriptions", "Transaction fees", "Revenue share"], true),
     group("directCosts", "Costs", "What does it cost to deliver your sales?", "Add production, delivery and payment costs. Each line can be a share of total sales or a monthly amount. Include stock and supplier terms where they apply.", "direct cost", [
