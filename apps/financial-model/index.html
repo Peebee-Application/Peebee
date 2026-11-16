@@ -22,12 +22,30 @@
       <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span> Peebee Financial Model</div>
       <div class="toolbar">
         <button class="button secondary small" id="live-data" type="button" hidden>Live Admin data</button>
+        <button class="button secondary small" id="open-settings" type="button">Settings</button>
         <button class="button secondary small" id="reset-model" type="button">Reset to Peebee defaults</button>
       </div>
     </div>
   </header>
   <main id="app" class="shell"></main>
   <dialog id="live-dialog" class="panel" aria-labelledby="live-title"></dialog>
+  <dialog id="settings-dialog" class="panel model-dialog" aria-labelledby="settings-title">
+    <h2 id="settings-title">Settings</h2>
+    <label class="autosave-option"><input type="checkbox" role="switch" data-autosave aria-describedby="autosave-help"> Autosave</label>
+    <p id="autosave-help" class="muted">Save valid answers automatically when you leave a question.</p>
+    <form method="dialog" class="dialog-actions"><button class="button gold">Done</button></form>
+  </dialog>
+  <dialog id="unsaved-dialog" class="panel model-dialog" aria-labelledby="unsaved-title" aria-describedby="unsaved-help">
+    <h2 id="unsaved-title">Save your changes?</h2>
+    <p id="unsaved-help" class="muted">Save this answer before opening another question or leaving the editor.</p>
+    <label class="autosave-option"><input type="checkbox" role="switch" data-autosave aria-describedby="unsaved-autosave-help"> Autosave</label>
+    <p id="unsaved-autosave-help" class="muted">Save valid answers automatically when you leave a question.</p>
+    <form method="dialog" class="dialog-actions">
+      <button class="button secondary" value="stay" autofocus>Stay here</button>
+      <button class="button secondary" value="discard">Discard changes</button>
+      <button class="button gold" value="save">Save and continue</button>
+    </form>
+  </dialog>
   <footer class="footer">Forecasts use the assumptions you enter. Drafts are stored on this device when browser storage is available.</footer>
   <noscript>Enable JavaScript to build and view your financial model.</noscript>
 </body>

@@ -19,7 +19,7 @@
     return updated;
   }
 
-  function mount({ escape, format, applyRates: importRates }) {
+  function mount({ escape, format, beforeApply, applyRates: importRates }) {
     if (location.hostname !== "financials.peebee.online") return;
     const launch = document.querySelector("#live-data");
     const dialog = document.querySelector("#live-dialog");
@@ -92,8 +92,10 @@
       dialog.querySelector("#live-signout")?.addEventListener("click", signOut);
       dialog.querySelector("#live-apply")?.addEventListener("click", () => {
         if (!window.confirm("Replace the fee values on matching forecast lines with current Admin values?")) return;
-        status = importRates(snapshot.rates);
-        dialog.querySelector("#live-status").textContent = status;
+        beforeApply(() => {
+          status = importRates(snapshot.rates);
+          dialog.querySelector("#live-status").textContent = status;
+        }, dialog);
       });
     }
 
