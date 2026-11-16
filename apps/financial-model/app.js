@@ -16,6 +16,21 @@
   };
   const app = document.querySelector("#app");
   const storageKey = "peebee-financial-model-multichannel-v1";
+  const autosaveKey = "peebee-financial-model-autosave";
+  const settingsDialog = document.querySelector("#settings-dialog");
+  const unsavedDialog = document.querySelector("#unsaved-dialog");
+  const autosaveControls = document.querySelectorAll("[data-autosave]");
+  let autosave = false;
+  try { autosave = localStorage.getItem(autosaveKey) === "true"; } catch { /* This tab still supports the preference. */ }
+  for (const control of autosaveControls) {
+    control.checked = autosave;
+    control.addEventListener("change", () => {
+      autosave = control.checked;
+      for (const toggle of autosaveControls) toggle.checked = autosave;
+      try { localStorage.setItem(autosaveKey, String(autosave)); } catch { /* Keep the preference in this tab. */ }
+    });
+  }
+  document.querySelector("#open-settings").addEventListener("click", () => settingsDialog.showModal());
   const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
   const compactFormat = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
   const percentFormat = new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 });
@@ -65,7 +80,47 @@
     }
   };
 
+  let activeEdit;
+  let pendingNavigation;
+
+  function beforeUnload(event) {
+    if (autosave && !activeEdit.issue() && activeEdit.commit() && save()) return;
+    event.preventDefault();
+    event.returnValue = true;
+  }
+
+  function finishNavigation(action) {
+    const from = activeEdit;
+    action();
+    if (from && activeEdit === from) {
+      save();
+      render("question-title");
+    }
+  }
+
+  function navigate(action) {
+    if (!activeEdit?.dirty()) {
+      action();
+    } else if (autosave && !activeEdit.issue() && activeEdit.commit()) {
+      finishNavigation(action);
+    } else {
+      pendingNavigation = action;
+      unsavedDialog.returnValue = "";
+      unsavedDialog.showModal();
+    }
+  }
+
+  unsavedDialog.addEventListener("close", () => {
+    const action = pendingNavigation;
+    pendingNavigation = undefined;
+    if (action && (unsavedDialog.returnValue === "discard" || (unsavedDialog.returnValue === "save" && activeEdit.commit()))) {
+      finishNavigation(action);
+    }
+  });
+
   function render(focusId) {
+    activeEdit = undefined;
+    window.removeEventListener("beforeunload", beforeUnload);
     detachCharts?.();
     detachCharts = null;
     if (screen === "report") renderReport();
@@ -83,7 +138,7 @@
     const sectionQuestions = list.filter(item => item.section === prompt.section);
     const sectionStep = sectionQuestions.indexOf(prompt) + 1;
     const sectionSteps = `<ol class="section-steps" role="list" aria-label="${escape(prompt.section)} questions">
-      ${sectionQuestions.map(item => `<li${item === prompt ? ' aria-current="step"' : ""}>${escape(item.stepLabel || stepLabels[item.id] || item.label)}</li>`).join("")}
+      ${sectionQuestions.map(item => `<li><button type="button" data-step="${escape(item.id)}"${item === prompt ? ' aria-current="step"' : ""}>${escape(item.stepLabel || stepLabels[item.id] || item.label)}</button></li>`).join("")}
     </ol>`;
     const done = list.filter(item => !errorFor(item, answers[item.id], answers)).length;
     const value = answers[step] || "";
@@ -96,8 +151,8 @@
     app.innerHTML = `<div class="layout">
       <nav class="rail" aria-label="Assumption sections"><h2>Model assumptions</h2><ol class="steps">
         ${sections.map((section, i) => {
-          const complete = i < sectionIndex && list.filter(item => item.section === section).every(item => !errorFor(item, answers[item.id], answers));
-          return `<li><button type="button" data-section="${i}" ${i === sectionIndex ? 'class="active-section"' : ""} ${i > sectionIndex ? "disabled" : ""}><span aria-hidden="true" class="dot">${complete ? "✓" : i + 1}</span>${section}</button>${i === sectionIndex ? sectionSteps : ""}</li>`;
+          const complete = i !== sectionIndex && list.filter(item => item.section === section).every(item => !errorFor(item, answers[item.id], answers));
+          return `<li><button type="button" data-section="${i}" ${i === sectionIndex ? 'class="active-section"' : ""}><span aria-hidden="true" class="dot">${complete ? "✓" : i + 1}</span>${section}</button>${i === sectionIndex ? sectionSteps : ""}</li>`;
         }).join("")}
       </ol></nav>
       <details class="mobile-steps"><summary>${escape(prompt.section)} questions</summary>${sectionSteps}</details>
@@ -122,22 +177,24 @@
       error.hidden = true;
       saveStatus.textContent = "";
     };
-    const remember = answer => {
+    const remember = () => {
       clearError();
-      if (!editing) {
-        answers[step] = answer;
-        save();
-      }
+      if (activeEdit.dirty()) window.addEventListener("beforeunload", beforeUnload);
+      else window.removeEventListener("beforeunload", beforeUnload);
     };
     const readItems = isItems ? editItems(prompt, value, remember) : null;
     const capturedValue = () => isItems ? readItems() : field.value.trim();
-    field?.addEventListener("input", () => remember(capturedValue()));
+    const original = JSON.stringify(capturedValue());
+    const dirty = () => JSON.stringify(capturedValue()) !== original;
+    const issueFor = () => errorFor(prompt, capturedValue(), answers);
+    activeEdit = { dirty, issue: issueFor, commit };
+    field?.addEventListener("input", remember);
     document.querySelector("#suggestion")?.addEventListener("click", () => {
       field.value = prompt.suggestion;
       field.dispatchEvent(new Event("input"));
       field.focus();
     });
-    function commitStep(advance) {
+    function commit() {
       const inputValue = capturedValue();
       const issue = errorFor(prompt, inputValue, answers);
       if (issue) {
@@ -148,12 +205,11 @@
           : field;
         invalid.setAttribute("aria-invalid", "true");
         invalid.focus();
-        return;
+        return false;
       }
       answers[step] = inputValue;
-      const current = activeQuestions(answers);
       if (prompt.keyed) {
-        const active = new Set(current.map(item => item.id));
+        const active = new Set(activeQuestions(answers).map(item => item.id));
         for (const { key } of inputValue) {
           answers[`channel-${key}`] ??= structuredClone(catalog.find(channel => channel.key === key)?.streams || []);
         }
@@ -161,33 +217,34 @@
           if (id.startsWith("channel-") && !active.has(id)) delete answers[id];
         }
       }
-      if (!advance) {
-        const persisted = save();
-        render("save-step");
-        document.querySelector("#save-status").textContent = persisted ? "Saved." : "Saved for this session. Browser storage is unavailable.";
-        return;
-      }
-      const next = current[current.findIndex(item => item.id === step) + 1];
-      if (next) goTo(next.id, editing);
-      else {
-        editing = false;
-        showReview();
-      }
+      return true;
     }
-    document.querySelector("#save-step").addEventListener("click", () => commitStep(false));
+    document.querySelector("#save-step").addEventListener("click", () => {
+      if (!commit()) return;
+      const persisted = save();
+      render("save-step");
+      document.querySelector("#save-status").textContent = persisted ? "Saved." : "Saved for this session. Browser storage is unavailable.";
+    });
     document.querySelector("#question-form").addEventListener("submit", event => {
       event.preventDefault();
-      commitStep(true);
+      if (!commit()) return;
+      const current = activeQuestions(answers);
+      const next = current[current.findIndex(item => item.id === step) + 1];
+      if (next) goTo(next.id, editing);
+      else showReview();
     });
     document.querySelector("#back").addEventListener("click", () => {
-      if (editing) {
-        editing = false;
-        showReview();
-      } else if (index) goTo(list[index - 1].id);
+      if (editing) navigate(showReview);
+      else if (index) navigate(() => goTo(list[index - 1].id));
     });
+    function openQuestion(questionId) {
+      if (questionId !== step) navigate(() => {
+        if (activeQuestions(answers).some(item => item.id === questionId)) goTo(questionId, editing);
+      });
+    }
+    app.querySelectorAll("[data-step]").forEach(button => button.addEventListener("click", () => openQuestion(button.dataset.step)));
     app.querySelectorAll("[data-section]").forEach(button => button.addEventListener("click", () => {
-      editing = false;
-      goTo(list.find(item => item.section === sections[Number(button.dataset.section)]).id);
+      openQuestion(list.find(item => item.section === sections[Number(button.dataset.section)]).id);
     }));
   }
 
@@ -226,7 +283,7 @@
       }
       const preset = prompt.presetRows?.find(row => row.name === name);
       rows.push({ ...initial, ...preset, name });
-      remember(snapshot());
+      remember();
       const first = name ? fieldsFor(prompt, rows.at(-1))[1]?.id || "name" : "name";
       draw(`item-${rows.length - 1}-${first}`);
     };
@@ -237,7 +294,7 @@
       else if (button.hasAttribute("data-preset")) add(prompt.presets[Number(button.dataset.preset)]);
       else if (button.hasAttribute("data-remove")) {
         rows.splice(Number(button.dataset.remove), 1);
-        remember(snapshot());
+        remember();
         draw("add-line");
       }
     });
@@ -246,7 +303,7 @@
       const row = rows[Number(field.dataset.line)];
       if (!row) return;
       row[field.dataset.field] = field.value.trim();
-      remember(snapshot());
+      remember();
       const estimate = editor.querySelector(`[data-estimate="${field.dataset.line}"]`);
       if (estimate) estimate.textContent = orderEstimate(row);
       if (field.tagName === "SELECT") draw(field.id);
@@ -287,6 +344,7 @@
   }
 
   function showReview() {
+    editing = false;
     screen = "review";
     save();
     render("review-title");
@@ -524,20 +582,25 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  document.querySelector("#reset-model").addEventListener("click", () => {
+  document.querySelector("#reset-model").addEventListener("click", () => navigate(() => {
     if (!window.confirm("Replace this draft with Peebee’s default assumptions?")) return;
     answers = createDefaults();
-    editing = false;
     step = undefined;
     outcomes = null;
     showReview();
-  });
+  }));
 
-  globalThis.FinancialLive.mount({ escape, format, applyRates(rates) {
+  globalThis.FinancialLive.mount({ escape, format, beforeApply(action, dialog) {
+    if (!activeEdit?.dirty()) return action();
+    dialog.close();
+    navigate(() => {
+      action();
+      dialog.showModal();
+    });
+  }, applyRates(rates) {
     if (currencyOf(answers) !== "UGX") return "Set the model currency to UGX before applying live fees.";
     const updated = globalThis.FinancialLive.applyRates(answers, rates);
     if (!updated) return "No compatible fee lines changed.";
-    editing = false;
     outcomes = null;
     showReview();
     return `Updated ${updated} fee lines. Volumes and other forecast inputs are preserved.`;

@@ -37,9 +37,9 @@ button:disabled { cursor: default; opacity: .48; }
 .rail { padding: 15px 0; }
 .rail h2 { font-size: 1.1rem; margin: 0 0 20px; letter-spacing: -.02em; }
 .steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 5px; }
-.steps button { border: 1px solid transparent; width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px; border-radius: 10px; background: transparent; color: var(--ink); }
-.steps button.active-section { background: rgb(var(--color-gold) / .13); border-color: rgb(var(--color-gold) / .36); font-weight: 700; }
-.steps button:not(:disabled):hover { border-color: var(--border); }
+.steps > li > button { border: 1px solid transparent; width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px; border-radius: 10px; background: transparent; color: var(--ink); }
+.steps > li > button.active-section { background: rgb(var(--color-gold) / .13); border-color: rgb(var(--color-gold) / .36); font-weight: 700; }
+.steps > li > button:not(:disabled):hover { border-color: var(--border); }
 .dot { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 50%; font-size: .78rem; background: rgb(var(--surface-card)); flex-shrink: 0; }
 .active-section .dot { background: var(--ink); color: rgb(var(--color-cream)); }
 .section-steps {
@@ -50,14 +50,20 @@ button:disabled { cursor: default; opacity: .48; }
   display: grid;
   gap: 2px;
 }
-.section-steps li {
+.section-steps button {
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: start;
   padding: 6px 9px;
   color: var(--quiet);
   font-size: .86rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
-.section-steps [aria-current="step"] {
+.section-steps button:hover { background: rgb(var(--surface-muted)); color: var(--ink); }
+.section-steps button[aria-current="step"] {
   background: rgb(var(--color-gold) / .13);
   border-inline-start: 3px solid var(--gold);
   border-radius: 6px;
@@ -224,3 +230,10 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 #live-dialog form { display: grid; gap: 12px; max-width: 440px; }
 #live-dialog input { min-height: 44px; }
 #live-dialog .table-wrap { max-height: 16rem; }
+
+.model-dialog { width: min(510px, calc(100vw - 32px)); max-height: 85vh; color: var(--ink); }
+.model-dialog::backdrop { background: rgb(var(--color-ink) / .4); }
+.model-dialog .muted { margin: 8px 0 16px; }
+.autosave-option { display: flex; align-items: center; gap: 8px; font-weight: 650; }
+.autosave-option input { width: 18px; height: 18px; margin: 0; accent-color: var(--gold); }
+.dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 18px; }
