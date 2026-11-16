@@ -14,6 +14,7 @@
     scenarios: "Scenario comparison", downside: "Downside growth", upside: "Upside growth",
     valuation: "DCF valuation", discountRate: "Discount rate", exitValue: "Exit value",
   };
+  const stepLabel = item => item.stepLabel || stepLabels[item.id] || item.label;
   const app = document.querySelector("#app");
   const storageKey = "peebee-financial-model-multichannel-v1";
   const autosaveKey = "peebee-financial-model-autosave";
@@ -105,6 +106,7 @@
       finishNavigation(action);
     } else {
       pendingNavigation = action;
+      unsavedDialog.querySelector("#unsaved-question").textContent = activeEdit.label;
       unsavedDialog.returnValue = "";
       unsavedDialog.showModal();
     }
@@ -138,7 +140,7 @@
     const sectionQuestions = list.filter(item => item.section === prompt.section);
     const sectionStep = sectionQuestions.indexOf(prompt) + 1;
     const sectionSteps = `<ol class="section-steps" role="list" aria-label="${escape(prompt.section)} questions">
-      ${sectionQuestions.map(item => `<li><button type="button" data-step="${escape(item.id)}"${item === prompt ? ' aria-current="step"' : ""}>${escape(item.stepLabel || stepLabels[item.id] || item.label)}</button></li>`).join("")}
+      ${sectionQuestions.map(item => `<li><button type="button" data-step="${escape(item.id)}"${item === prompt ? ' aria-current="step"' : ""}>${escape(stepLabel(item))}</button></li>`).join("")}
     </ol>`;
     const done = list.filter(item => !errorFor(item, answers[item.id], answers)).length;
     const value = answers[step] || "";
@@ -187,7 +189,7 @@
     const original = JSON.stringify(capturedValue());
     const dirty = () => JSON.stringify(capturedValue()) !== original;
     const issueFor = () => errorFor(prompt, capturedValue(), answers);
-    activeEdit = { dirty, issue: issueFor, commit };
+    activeEdit = { label: stepLabel(prompt), dirty, issue: issueFor, commit };
     field?.addEventListener("input", remember);
     document.querySelector("#suggestion")?.addEventListener("click", () => {
       field.value = prompt.suggestion;
