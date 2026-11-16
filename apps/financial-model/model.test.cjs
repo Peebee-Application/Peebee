@@ -203,3 +203,44 @@ test("full churn preserves new signups and the engine rejects precision-breaking
   assert.throws(() => build({ ...base, revenueMethod: "units", units: "1000000000000", price: "1000000000000" }),
     globalThis.FinancialModel.ForecastRangeError);
 });
+
+test("channel subtotals roll up only recognized revenue in every scenario", () => {
+  require("./channels.js");
+  const { consolidate, multiExample, questionsFor } = globalThis.FinancialChannels;
+  const multiQuestions = questionsFor(questions, multiExample);
+  for (const prompt of multiQuestions.filter(q => !q.when || q.when(multiExample))) {
+    assert.equal(errorFor(prompt, multiExample[prompt.id], multiExample), "", prompt.id);
+  }
+
+  const { answers, report } = consolidate({
+    start: "2026-01", months: "2", scenarios: "yes", downside: "5", upside: "5",
+    channels: [{ key: "concierge", name: "Concierge" }, { key: "buy", name: "Buy" }],
+    "channel-concierge": [
+      { name: "Commission", method: "percentage", transactionValue: "10000", rate: "2.5", growth: "10", days: "60" },
+      { name: "Rider share", method: "percentage", transactionValue: "4000", rate: "10", growth: "0", days: "0" },
+      { name: "Subscriptions", method: "subscription", active: "10", newSubscribers: "0", price: "30", churn: "0", growth: "0", days: "0" },
+    ],
+    "channel-buy": [{ name: "Commission", method: "units", units: "100", price: "5", growth: "0", days: "0" }],
+    "channel-removed": [{ name: "Old sales", method: "direct", amount: "2000" }],
+  });
+  const [downside, base, upside] = build(answers);
+  const [jan, feb] = base.months;
+  const labels = Object.fromEntries(report.lines.map(([name, field]) => [name, typeof field === "function" ? field : row => row[field]]));
+  near(labels["Concierge total"](jan), 950);
+  near(labels["Buy total"](jan), 500);
+  near(labels["Consolidated revenue"](jan), 1450);
+  near(feb.ar, 525);
+  near(labels["Concierge total"](base.annual[0]), 1925);
+  near(labels["Consolidated revenue"](base.annual[0]), 2925);
+  near(base.annual[0].details.streams[0].volume, 21000);
+  near(base.annual[0].details.streams[0].feeRate, 0.025);
+
+  for (const scenario of [downside, base, upside]) {
+    for (const row of [...scenario.months, ...scenario.annual]) {
+      near(labels["Concierge total"](row) + labels["Buy total"](row), row.revenue);
+      near(row.totalAssets, row.totalSources);
+    }
+  }
+  assert.ok(downside.months[1].revenue < feb.revenue);
+  assert.ok(upside.months[1].revenue > feb.revenue);
+});

@@ -2,29 +2,35 @@
   const { questions, sections, example, errorFor, itemError } = globalThis.FinancialAssumptions;
   const { fieldsFor, upgradeDraft } = globalThis.FinancialLineItems;
   const { build, reports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
+  const { questionsFor, consolidate, multiExample } = globalThis.FinancialChannels;
+  const multiChannel = new URLSearchParams(location.search).get("model") === "multichannel";
+  document.getElementById(multiChannel ? "multi-model" : "single-model").setAttribute("aria-current", "page");
+  if (multiChannel) document.title = "Multi-channel Financial Model Builder";
   const app = document.querySelector("#app");
   const exampleButton = document.querySelector("#example");
   const newModelButton = document.querySelector("#new-model");
-  const storageKey = "peebee-financial-model-v1";
+  const storageKey = multiChannel ? "peebee-financial-model-multichannel-v1" : "peebee-financial-model-v1";
   const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
   const compactFormat = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
   const percentFormat = new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 });
   const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
   const currencyOf = answers => ((answers.currency === "other" ? answers.customCurrency : answers.currency) || "").toUpperCase();
-  const reportOptions = [{ id: "overview", name: "Overview" }, ...reports];
-  const activeQuestions = answers => questions.filter(prompt => !prompt.when || prompt.when(answers));
+  const availableQuestions = answers => multiChannel ? questionsFor(questions, answers) : questions;
+  const activeQuestions = answers => availableQuestions(answers).filter(prompt => !prompt.when || prompt.when(answers));
   const firstMissing = answers => activeQuestions(answers).find(prompt => errorFor(prompt, answers[prompt.id], answers));
   const readDraft = () => {
     try {
       const data = JSON.parse(localStorage.getItem(storageKey));
       const upgraded = upgradeDraft(data?.answers || {});
       const answers = {};
-      for (const prompt of questions) {
+      for (const prompt of availableQuestions(upgraded)) {
         const value = upgraded[prompt.id];
         if (prompt.type === "items" && Array.isArray(value)) {
-          answers[prompt.id] = value.filter(row => row && typeof row === "object").map(row => Object.fromEntries(
-            prompt.fields.filter(field => typeof row[field.id] === "string")
-              .map(field => [field.id, row[field.id].slice(0, 160)])));
+          answers[prompt.id] = value.filter(row => row && typeof row === "object").map(row => {
+            const fields = Object.fromEntries(prompt.fields.filter(field => typeof row[field.id] === "string")
+              .map(field => [field.id, row[field.id].slice(0, 160)]));
+            return prompt.keyed ? { ...fields, key: row.key } : fields;
+          });
         } else if (typeof value === "string") {
           answers[prompt.id] = value.slice(0, 160);
         }
@@ -133,7 +139,13 @@
       const wasEditing = editing;
       editing = false;
       const current = activeQuestions(answers);
-      const next = current[current.indexOf(prompt) + 1];
+      if (prompt.keyed) {
+        const active = new Set(current.map(item => item.id));
+        for (const id of Object.keys(answers)) {
+          if (id.startsWith("channel-") && !active.has(id)) delete answers[id];
+        }
+      }
+      const next = current[current.findIndex(item => item.id === step) + 1];
       if (next && !wasEditing) goTo(next.id);
       else showReview();
     });
@@ -177,9 +189,10 @@
 
     const add = (name = "") => {
       const initial = Object.fromEntries(prompt.fields.map(field => [field.id, field.initial || ""]));
+      if (prompt.keyed) initial.key = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join("");
       rows.push({ ...initial, name });
       remember(snapshot());
-      const first = name ? fieldsFor(prompt, rows.at(-1))[1].id : "name";
+      const first = name ? fieldsFor(prompt, rows.at(-1))[1]?.id || "name" : "name";
       draw(`item-${rows.length - 1}-${first}`);
     };
     editor.addEventListener("click", event => {
@@ -228,7 +241,7 @@
     step = id;
     screen = "wizard";
     save();
-    render(questions.find(prompt => prompt.id === id)?.type === "items" ? "question-title" : "answer");
+    render(availableQuestions(answers).find(prompt => prompt.id === id)?.type === "items" ? "question-title" : "answer");
   }
 
   function showReview() {
@@ -320,6 +333,7 @@
         <div><dt>Equity value after opening cash and debt</dt><dd>${escape(money(model.valuation.equity))}</dd></div>
       </dl></section>` : ""}
       <details class="panel"><summary>Model methodology</summary>
+        ${multiChannel ? '<p class="muted">Channel revenue includes external sales. Expenses, funding and the financial statements are calculated for the company as a whole.</p>' : ""}
         <p class="muted">Each revenue stream grows from its own driver. Payroll and operating expenses change on the anniversary of each line’s start month. Receivables and payables roll forward from sales and purchases already forecast, spread evenly within 30-day model months. Inventory targets use direct costs. Opening receivables and payables settle in the months entered.</p>
         <p class="muted">Fixed assets depreciate straight-line. Debt uses equal principal payments. Opening equity is derived from opening assets and liabilities. Corporate income tax is paid monthly on positive profit. The model excludes VAT, historical statements, and tax loss carryforwards.</p>
         <p class="muted">Annual flows sum the included months. Balance sheet values use the final month of each calendar year shown. Reports display up to two decimal places. Totals use unrounded values. Cash shortfalls are measured at month end before additional funding. The balance sheet shows the unmet funding need as a separate amount.</p>
@@ -327,8 +341,13 @@
   }
 
   function renderReport() {
+    const inputs = modelAnswers();
+    const channelModel = multiChannel ? consolidate(inputs) : null;
+    const forecastAnswers = channelModel?.answers || inputs;
+    const forecastReports = channelModel ? [channelModel.report, ...reports] : reports;
+    const reportOptions = [{ id: "overview", name: "Overview" }, ...forecastReports];
     try {
-      outcomes ||= build(modelAnswers());
+      outcomes ||= build(forecastAnswers);
     } catch (error) {
       if (!(error instanceof ForecastRangeError)) throw error;
       screen = "review";
@@ -338,23 +357,23 @@
       return;
     }
     const model = outcomes.find(item => item.name === selectedCase);
-    const report = reports.find(item => item.id === selectedReport);
+    const report = forecastReports.find(item => item.id === selectedReport);
     const rows = frequency === "Annual" ? model.annual : model.months;
     const options = [`<div class="segmented" role="group" aria-label="Scenario">${radio(outcomes.map(item => [item.name, item.name]), selectedCase, "case")}</div>`,
       report ? `<div class="segmented" role="group" aria-label="Reporting period">${radio([["Annual", "Annual"], ["Monthly", "Monthly"]], frequency, "frequency")}</div>` : ""];
     app.innerHTML = `<div class="report-head"><div><h1 id="report-title" tabindex="-1">${escape(answers.company)}</h1>
-        <p class="muted">Financial forecast · ${escape(currencyOf(answers))} · ${model.months[0].period} to ${model.months.at(-1).period}</p></div>
+        <p class="muted">${multiChannel ? "Consolidated financial forecast" : "Financial forecast"} · ${escape(currencyOf(answers))} · ${model.months[0].period} to ${model.months.at(-1).period}</p></div>
         <div class="toolbar"><button type="button" id="review" class="button secondary">Edit assumptions</button>
         <button type="button" id="download" class="button gold">Download model CSV <span aria-hidden="true">↓</span></button></div></div>
       <nav class="report-nav" aria-label="Financial reports">${radio(reportOptions.map(item => [item.id, item.name]), selectedReport, "report")}</nav>
       ${outcomes.length > 1 || report ? `<div class="toolbar">${options.slice(outcomes.length > 1 ? 0 : 1).join("")}
         ${report ? '<button type="button" id="download-report" class="button secondary small">Download this view</button>' : ""}</div>` : ""}
-      ${report ? table(report.name, rows.map(row => row.period), linesFor(report, answers).map(([label, field, style]) =>
+      ${report ? table(report.name, rows.map(row => row.period), linesFor(report, forecastAnswers).map(([label, field, style]) =>
         [label, rows.map(row => format(lineValue(row, field), style)), style])) : overview(model)}`;
     document.querySelector("#review").addEventListener("click", showReview);
-    document.querySelector("#download").addEventListener("click", downloadAll);
+    document.querySelector("#download").addEventListener("click", () => downloadAll(forecastReports, forecastAnswers));
     document.querySelector("#download-report")?.addEventListener("click", () => {
-      download([["Company", answers.company], ["Currency", currencyOf(answers)], ["Scenario", model.name], ...csvTable(report, rows)],
+      download([["Company", answers.company], ["Currency", currencyOf(answers)], ["Scenario", model.name], ...csvTable(report, rows, forecastAnswers)],
         `${model.name.toLowerCase()}-${frequency.toLowerCase()}-${report.id}`);
     });
     for (const [type, select] of [
@@ -369,32 +388,34 @@
     }
   }
 
-  function csvTable(report, rows) {
-    return [[report.name, ...rows.map(row => row.period)], ...linesFor(report, answers).map(([label, field, style]) =>
+  function csvTable(report, rows, forecastAnswers) {
+    return [[report.name, ...rows.map(row => row.period)], ...linesFor(report, forecastAnswers).map(([label, field, style]) =>
       [style === "rate" ? `${label} (%)` : label, ...rows.map(row => {
         const value = lineValue(row, field);
         return value === null ? "" : Number((style === "rate" ? value * 100 : value).toFixed(6));
       })])];
   }
 
-  function downloadAll() {
+  function downloadAll(forecastReports, forecastAnswers) {
     const inputValue = (field, value) => field.type === "number" ? Number(value) : displayAnswer(field, value);
     const inputUnit = field => field.unit === "currency" ? currencyOf(answers) : field.unit || "";
     const rows = [["Company", answers.company], ["Currency", currencyOf(answers)],
       ["Cash shortfall basis", "Month-end cash before additional funding"],
       ["Trade balance basis", "Sales and purchases spread evenly within 30-day model months"],
       [], ["Assumption or category", "Value or line item", "Field", "Line item value", "Unit"]];
+    if (multiChannel) rows.splice(2, 0, ["Model type", "Multi-channel"], ["Revenue basis", "External revenue consolidated across channels"]);
     for (const prompt of activeQuestions(answers)) {
       const answer = answers[prompt.id];
+      const label = prompt.exportLabel || prompt.label;
       if (prompt.type !== "items") {
         rows.push([prompt.label, inputValue(prompt, answer), "", "", inputUnit(prompt)]);
         continue;
       }
       if (!answer.length) rows.push([prompt.label, "None"]);
       for (const item of answer) {
-        for (const field of fieldsFor(prompt, item)) {
-          if (field.id !== "name") rows.push([prompt.label, item.name, field.label, inputValue(field, item[field.id]), inputUnit(field)]);
-        }
+        const fields = fieldsFor(prompt, item).filter(field => field.id !== "name");
+        if (!fields.length) rows.push([label, item.name]);
+        for (const field of fields) rows.push([label, item.name, field.label, inputValue(field, item[field.id]), inputUnit(field)]);
       }
     }
     for (const model of outcomes) {
@@ -404,10 +425,10 @@
         ["DCF enterprise value", model.valuation.enterprise], ["DCF equity value", model.valuation.equity]);
       for (const [label, periods] of [["Annual", model.annual], ["Monthly", model.months]]) {
         rows.push([], [label]);
-        for (const report of reports) rows.push(...csvTable(report, periods), []);
+        for (const report of forecastReports) rows.push(...csvTable(report, periods, forecastAnswers), []);
       }
     }
-    download(rows, "financial-model");
+    download(rows, multiChannel ? "multichannel-financial-model" : "financial-model");
   }
 
   function download(rows, suffix) {
@@ -437,7 +458,7 @@
 
   exampleButton.addEventListener("click", () => {
     if (Object.values(answers).some(Boolean) && !window.confirm("Replace the current draft with the example?")) return;
-    answers = { ...example };
+    answers = { ...(multiChannel ? multiExample : example) };
     editing = false;
     showReview();
   });

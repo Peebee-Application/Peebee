@@ -49,8 +49,11 @@
     const churn = method === "subscription" ? line.churn / 100 : 0;
     const leaving = opening * churn;
     const active = opening * (1 - churn) + joining;
-    const revenue = method === "direct" ? line.amount * scale : (method === "units" ? units : active) * price;
-    return { revenue, units, joining, leaving, active, price };
+    const volume = method === "percentage" ? line.transactionValue * scale : 0;
+    const feeRate = method === "percentage" ? line.rate / 100 : 0;
+    const revenue = method === "percentage" ? volume * feeRate
+      : method === "direct" ? line.amount * scale : (method === "units" ? units : active) * price;
+    return { revenue, units, joining, leaving, active, price, volume, feeRate };
   }
 
   function directCost(line, prior, revenue, elapsed) {
@@ -90,7 +93,7 @@
   }
 
   const detailFlows = {
-    streams: ["revenue", "units", "joining", "leaving"],
+    streams: ["revenue", "units", "joining", "leaving", "volume"],
     directCosts: ["cogs", "purchases"],
     staff: ["amount", "wages", "benefits"],
     expenses: ["amount"],
@@ -281,7 +284,9 @@
       detail("streams", "joining", "New subscribers", "count", row => row.method === "subscription"),
       detail("streams", "leaving", "Subscribers lost", "count", row => row.method === "subscription"),
       detail("streams", "active", "Closing subscribers", "count", row => row.method === "subscription"),
-      detail("streams", "price", "Price per unit or subscriber", "detail", row => row.method !== "direct"),
+      detail("streams", "price", "Price per unit or subscriber", "detail", row => row.method === "units" || row.method === "subscription"),
+      detail("streams", "volume", "Transaction or payout volume", "detail", row => row.method === "percentage"),
+      detail("streams", "feeRate", "Percentage earned", "rate", row => row.method === "percentage"),
       detail("streams", "revenue", "Sales"), ["Revenue", "revenue", "total"],
       detail("directCosts", "cogs", "Direct cost"), detail("directCosts", "purchases", "Purchases"), ["Total purchases", "purchases", "total"],
       detail("staff", "headcount", "Closing headcount", "count"), detail("staff", "wages", "Wages"), detail("staff", "benefits", "Employer taxes and benefits"),

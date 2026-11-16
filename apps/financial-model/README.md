@@ -2,11 +2,17 @@
 
 Open `index.html` in Chrome, Edge, or Firefox. The planner runs in the browser and has no install step or connection to Peebee accounts. The current draft is saved when browser storage is available. Use **Download model CSV** to keep a copy of the assumptions and all outputs outside the app.
 
+Choose **Single-channel** to forecast one business line with multiple revenue sources. Choose **Multi-channel** to set up multiple business lines and forecast each channel’s revenue sources separately. The model selector keeps a separate local draft for each mode.
+
 1. Enter a company name, currency, and forecast period.
 2. Use one screen per category. Add applicable line items from the suggested names or enter your own. Complete all the lines on that screen before continuing.
 3. Review the answers and generate the forecast. Switch between annual and monthly reports, and between scenarios if enabled.
 
-Revenue streams may use units, subscriptions, or a monthly sales amount. Enter direct costs, payroll roles, and expenses separately. The wizard also supports multiple opening cash accounts, existing receivables and payables, inventory balances by direct cost, existing and new assets, outstanding and planned loans, and equity contributions. The statements and supporting schedules roll the named lines into totals. The overview identifies funding gaps and displays a DCF when you enter valuation assumptions.
+Revenue streams may use units, subscriptions, a monthly sales amount, or a percentage of transaction or payout value. The percentage driver records the fee or share earned as revenue. The transaction or payout volume is shown in supporting schedules.
+
+The multi-channel **Revenue by channel** report shows monthly and annual source rows, channel subtotals, and consolidated revenue. Costs, working capital schedules, funding, valuation, and financial statements are consolidated at company level. Use external revenue for each channel and exclude internal transfers. The multi-channel example uses fictional assumptions for Peebee Concierge, Buy, Work, Rides, and Learn.
+
+Enter direct costs, payroll roles, and expenses separately. The wizard also supports multiple opening cash accounts, existing receivables and payables, inventory balances by direct cost, existing and new assets, outstanding and planned loans, and equity contributions. The statements and supporting schedules roll the named lines into totals. The overview identifies funding gaps and displays a DCF when you enter valuation assumptions.
 
 Existing drafts carry their original summary values forward as named line items. Edit or replace a carried-forward line to provide more detail. The example uses fictional inputs.
 
