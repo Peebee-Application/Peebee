@@ -33,18 +33,18 @@
       amount("stock", "Opening inventory at cost", { initial: "0" }),
       days("inventoryDays", "Target inventory days"),
       days("payableDays", "Supplier payment days"),
-    ], ["Materials", "Fulfilment", "Payment fees"]),
+    ], ["Payment provider fees borne by Peebee", "Fulfilment costs borne by Peebee", "Promotions and credits funded by Peebee"]),
     group("staff", "Costs", "Which roles or teams will you pay?", "Enter starting headcount, monthly pay per person, and employer taxes and benefits for each role or team.", "role", [
       num("headcount", "Headcount", { initial: "1" }), amount("amount", "Monthly pay per person"),
       pct("burden", "Employer taxes and benefits", { initial: "0" }), month("month", "First paid month", "1"),
       growth("Annual pay change"),
-    ], ["Operations", "Sales", "Administration"]),
+    ], ["Operations and support", "Engineering and product", "Sales and partner onboarding", "Finance and administration"]),
     group("expenses", "Costs", "What are your operating expenses?", "Add a separate line for each expense. Each line has its own amount, start month and annual change.", "expense", [
       amount("amount", "Monthly amount"), month("month", "First expense month", "1"), growth("Annual cost change"),
-    ], ["Rent", "Software", "Marketing", "Professional fees", "Utilities", "Insurance"]),
+    ], ["Hosting, storage and video", "Maps and routing", "Messaging and verification", "Marketing", "Rent and utilities", "Professional fees and compliance", "Insurance"]),
     group("accounts", "Working capital", "Where is your opening cash held?", "Add the opening amount for each bank account, cash balance, or cash equivalent.", "cash account", [
       amount("amount", "Opening cash balance"),
-    ], ["Bank account", "Cash on hand"]),
+    ], ["Operating bank account", "Peebee-owned mobile money", "Cash on hand"]),
     group("receivables", "Working capital", "Who already owes the business money?", "List existing invoices or customer balances and when each is expected to be collected. Balances settling after the forecast stay outstanding. New sales receivables use each stream’s terms.", "receivable", [
       amount("amount", "Opening amount owed"), settlement("Collection month"),
     ]),
@@ -68,8 +68,8 @@
     ], ["Owner contribution", "Investor funding"]),
   ];
   const channels = {
-    ...group("channels", "Revenue", "Which channels earn income?", "Add each business line, brand or product group. You’ll set up its revenue streams on the next screens.", "channel", [],
-      ["Peebee Concierge", "Peebee Buy", "Peebee Work", "Peebee Rides", "Peebee Learn"], true),
+    ...group("channels", "Revenue", "Which channels earn income?", "Review Peebee’s business lines. You can rename, remove or add a channel.", "channel", [],
+      [], true),
     keyed: true,
   };
   const byId = Object.fromEntries(groups.map(group => [group.id, group]));

@@ -3,15 +3,44 @@ const assert = require("node:assert/strict");
 require("./line-items.js");
 require("./assumptions.js");
 require("./model.js");
-const { example, questions, errorFor } = globalThis.FinancialAssumptions;
+require("./peebee-defaults.js");
+require("./channels.js");
+const { questions, errorFor } = globalThis.FinancialAssumptions;
 const { build, sum } = globalThis.FinancialModel;
+const { upgradeDraft } = globalThis.FinancialLineItems;
+
+const forecastFixture = upgradeDraft({
+  company: "Acacia Studio", currency: "USD", start: "2026-10", months: "36",
+  streams: [
+    { name: "Product sales", method: "units", units: "500", price: "45", growth: "3", days: "14" },
+    { name: "Design services", method: "direct", amount: "4500", growth: "3", days: "30" },
+  ],
+  directCosts: [
+    { name: "Materials", basis: "rate", rate: "31", stock: "6000", inventoryDays: "25", payableDays: "20" },
+    { name: "Payment fees", basis: "rate", rate: "5", stock: "0", inventoryDays: "0", payableDays: "0" },
+  ],
+  staff: [
+    { name: "Production", headcount: "4", amount: "1500", burden: "10", month: "1", growth: "8" },
+    { name: "Operations", headcount: "1", amount: "2600", burden: "0", month: "1", growth: "8" },
+  ],
+  expenses: [
+    { name: "Rent", amount: "1800", month: "1", growth: "5" },
+    { name: "Software", amount: "400", month: "1", growth: "5" },
+    { name: "Marketing", amount: "1300", month: "1", growth: "5" },
+    { name: "Professional fees", amount: "300", month: "1", growth: "5" },
+  ],
+  tax: "25", cash: "25000", openingAR: "3000", openingAP: "2000", openingAssets: "12000", openingLife: "36",
+  capex: "18000", capexMonth: "4", capexLife: "48", openingDebt: "0",
+  loan: "10000", loanMonth: "4", loanRate: "12", loanTerm: "24", funding: "0",
+  scenarios: "yes", downside: "2", upside: "1", valuation: "yes", discountRate: "15", exitValue: "0",
+});
 
 function near(actual, expected) {
   assert.ok(Math.abs(actual - expected) < 1e-7, `${actual} differs from ${expected}`);
 }
 
-test("example inputs validate and every scenario reconciles through the final period", () => {
-  const answers = { ...example, start: "2026-10" };
+test("forecast inputs validate and every scenario reconciles through the final period", () => {
+  const answers = { ...forecastFixture, start: "2026-10" };
   for (const prompt of questions.filter(q => !q.when || q.when(answers))) {
     assert.equal(errorFor(prompt, answers[prompt.id], answers), "", prompt.id);
   }
@@ -74,7 +103,7 @@ test("opening inventory runs down through sales and the funding gap stays visibl
 
 test("named lines roll into linked statements, with independent schedules and annual totals", () => {
   const { linesFor, reports } = globalThis.FinancialModel;
-  const forecast = { ...example, scenarios: "no", months: "14", start: "2026-01",
+  const forecast = { ...forecastFixture, scenarios: "no", months: "14", start: "2026-01",
     expenses: [
       { name: "Rent", amount: "100", month: "1", growth: "10" },
       { name: "Software", amount: "25", month: "3", growth: "20" },
@@ -205,13 +234,7 @@ test("full churn preserves new signups and the engine rejects precision-breaking
 });
 
 test("channel subtotals roll up only recognized revenue in every scenario", () => {
-  require("./channels.js");
-  const { consolidate, multiExample, questionsFor } = globalThis.FinancialChannels;
-  const multiQuestions = questionsFor(questions, multiExample);
-  for (const prompt of multiQuestions.filter(q => !q.when || q.when(multiExample))) {
-    assert.equal(errorFor(prompt, multiExample[prompt.id], multiExample), "", prompt.id);
-  }
-
+  const { consolidate } = globalThis.FinancialChannels;
   const { answers, report } = consolidate({
     start: "2026-01", months: "2", scenarios: "yes", downside: "5", upside: "5",
     channels: [{ key: "concierge", name: "Concierge" }, { key: "buy", name: "Buy" }],
@@ -247,7 +270,6 @@ test("channel subtotals roll up only recognized revenue in every scenario", () =
 
 test("analysis uses the selected rows, reconciles revenue mix, and computes break-even from fixed and variable costs", () => {
   require("./analysis.js");
-  require("./channels.js");
   const { buildAnalysis, exportRows } = globalThis.FinancialAnalysis;
   const { consolidate } = globalThis.FinancialChannels;
   const { answers, groups } = consolidate({
@@ -300,4 +322,28 @@ test("analysis leaves undefined margins and break-even values blank", () => {
   assert.equal(analysis.mix[0].share, null);
   assert.equal(analysis.charts.find(item => item.id === "break-even").series[1].values[0], null);
   assert.deepEqual(analysis.charts.find(item => item.id === "margins").series.map(series => series.values[0]), [null, null, null]);
+});
+
+test("Peebee defaults cover the platform, remain editable, and require a tax assumption", () => {
+  const { createDefaults } = globalThis.PeebeeDefaults;
+  const { questionsFor, consolidate } = globalThis.FinancialChannels;
+  const draft = createDefaults();
+  assert.equal(draft.company, "Peebee");
+  assert.equal(draft.currency, "UGX");
+  assert.equal(draft.channels.length, 13);
+  const prompts = questionsFor(questions, draft).filter(q => !q.when || q.when(draft));
+  assert.deepEqual(prompts.filter(q => errorFor(q, draft[q.id], draft)).map(q => q.id), ["tax"]);
+
+  draft.tax = "0";
+  const channelModel = consolidate(draft);
+  const [baseline] = build(channelModel.answers);
+  assert.ok(baseline.months.every(row => row.revenue === 0 && row.cash === 0));
+
+  draft["channel-buy"][0].transactionValue = "1000000";
+  draft["channel-rides"][2].amount = "25000";
+  const edited = consolidate(draft);
+  const [forecast] = build(edited.answers);
+  assert.equal(forecast.months[0].revenue, 125000);
+  assert.equal(edited.report.lines.find(([label]) => label === "Peebee Buy total")[1](forecast.months[0]), 100000);
+  assert.equal(createDefaults()["channel-buy"][0].transactionValue, "0");
 });

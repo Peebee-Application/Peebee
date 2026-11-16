@@ -1,18 +1,20 @@
 (() => {
   const { channels, channelStreams } = globalThis.FinancialLineItems;
-  const { example } = globalThis.FinancialAssumptions;
-  const channelNames = channels.presets;
+  const defaults = new Map(globalThis.PeebeeDefaults.catalog.map(channel => [channel.key, channel]));
   const channelKey = row => `channel-${row.key}`;
   const channelRows = answers => (Array.isArray(answers.channels) ? answers.channels : [])
     .filter(row => typeof row?.key === "string" && /^[a-z0-9-]{1,64}$/.test(row.key));
 
   function questionsFor(questions, answers) {
     return questions.flatMap(prompt => prompt.id !== "streams" ? [prompt] : [
-      channels,
+      { ...channels, presets: [...defaults.values()].map(channel => channel.name) },
       ...channelRows(answers).map((row, index) => {
         const name = row.name || `Channel ${index + 1}`;
         return {
           ...channelStreams,
+          note: defaults.get(row.key)?.note,
+          presets: defaults.get(row.key)?.streams.map(stream => stream.name) || channelStreams.presets,
+          presetRows: defaults.get(row.key)?.streams,
           id: channelKey(row),
           label: `Revenue streams for ${name}`,
           exportLabel: `Revenue · ${name}`,
@@ -44,25 +46,5 @@
     };
   }
 
-  const multiExample = {
-    ...example,
-    company: "Peebee (illustrative)", currency: "UGX",
-    channels: channelNames.map((name, index) => ({ name, key: `example-${index}` })),
-    "channel-example-0": [
-      { name: "Transaction fees", method: "percentage", transactionValue: "20000000", rate: "5", growth: "3", days: "0" },
-      { name: "Share of rider payouts", method: "percentage", transactionValue: "10000000", rate: "10", growth: "3", days: "0" },
-      { name: "Rider subscriptions", method: "subscription", active: "40", newSubscribers: "6", churn: "4", price: "25000", growth: "3", days: "0" },
-    ],
-    "channel-example-1": [{ name: "Marketplace commissions", method: "percentage", transactionValue: "18000000", rate: "8", growth: "4", days: "0" }],
-    "channel-example-2": [{ name: "Service bookings", method: "units", units: "160", price: "7500", growth: "4", days: "7" }],
-    "channel-example-3": [{ name: "Ride commissions", method: "percentage", transactionValue: "18000000", rate: "12", growth: "5", days: "0" }],
-    "channel-example-4": [{ name: "Course enrolments", method: "units", units: "35", price: "45000", growth: "3", days: "0" }],
-    directCosts: [{ name: "Payment processing", basis: "rate", rate: "4", stock: "0", inventoryDays: "0", payableDays: "0" }],
-    staff: [{ name: "Operations", headcount: "5", amount: "800000", burden: "10", month: "1", growth: "8" }],
-    expenses: [{ name: "Software", amount: "450000", month: "1", growth: "5" }, { name: "Marketing", amount: "800000", month: "1", growth: "5" }],
-    accounts: [{ name: "Bank", amount: "20000000" }], receivables: [], payables: [], ownedAssets: [], investments: [], existingLoans: [], newLoans: [],
-    contributions: [], valuation: "no",
-  };
-
-  globalThis.FinancialChannels = { questionsFor, consolidate, multiExample };
+  globalThis.FinancialChannels = { questionsFor, consolidate };
 })();

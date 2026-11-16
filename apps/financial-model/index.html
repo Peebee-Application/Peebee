@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Build a financial forecast one assumption at a time.">
-  <title>Financial Model Builder</title>
+  <meta name="description" content="Build a consolidated forecast for Peebee's business channels.">
+  <title>Peebee Financial Model</title>
   <link rel="stylesheet" href="styles.css">
   <script defer src="line-items.js"></script>
   <script defer src="assumptions.js"></script>
   <script defer src="model.js"></script>
+  <script defer src="peebee-defaults.js"></script>
   <script defer src="channels.js"></script>
   <script defer src="analysis.js"></script>
   <script defer src="forecast-charts.js"></script>
@@ -17,9 +18,8 @@
 <body>
   <header class="masthead">
     <div class="masthead-inner">
-      <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span> Financial Model Builder</div>
-      <nav class="model-switch segmented" aria-label="Financial model"><a href="index.html" id="single-model">Single-channel</a><a href="?model=multichannel" id="multi-model">Multi-channel</a></nav>
-      <div class="masthead-actions"><button class="button secondary small" id="example" type="button">Try an example</button><button class="button secondary small" id="new-model" type="button" hidden>New model</button></div>
+      <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span> Peebee Financial Model</div>
+      <button class="button secondary small" id="reset-model" type="button">Reset to Peebee defaults</button>
     </div>
   </header>
   <main id="app" class="shell"></main>
