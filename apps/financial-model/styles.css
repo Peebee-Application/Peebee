@@ -296,3 +296,6 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
   .unsaved-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .unsaved-actions > .gold { grid-column: 1 / -1; }
 }
+
+.workbook-view > .muted { margin: 0; }
+.workbook-view .table-wrap { margin-top: 0; }

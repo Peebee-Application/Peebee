@@ -53,7 +53,7 @@
     const feeRate = (method === "percentage" || method === "orders") ? line.rate / 100 : 0;
     const revenue = (method === "percentage" || method === "orders") ? volume * feeRate
       : method === "direct" ? line.amount * scale : (method === "units" ? units : active) * price;
-    return { revenue, units, joining, leaving, active, price, volume, feeRate };
+    return { revenue, units, joining, leaving, active, price, volume, feeRate, orderValue: numeric(line, "orderValue") };
   }
 
   function directCost(line, prior, revenue, elapsed) {
@@ -249,6 +249,17 @@
   const detail = (group, key, prefix, style = "detail", filter = () => true) => ({ group, key, prefix, style, filter });
   const assetLines = (key, prefix) => [detail("ownedAssets", key, prefix), detail("investments", key, prefix)];
   const loanLines = (key, prefix, sign = 1) => [detail("existingLoans", key, prefix), detail("newLoans", key, prefix)].map(line => ({ ...line, sign }));
+  const revenueDrivers = [
+      detail("streams", "units", "Units sold", "count", row => row.method === "units"),
+      detail("streams", "units", "Estimated orders or transactions", "count", row => row.method === "orders"),
+      detail("streams", "joining", "New subscribers", "count", row => row.method === "subscription"),
+      detail("streams", "leaving", "Subscribers lost", "count", row => row.method === "subscription"),
+      detail("streams", "active", "Closing subscribers", "count", row => row.method === "subscription"),
+      detail("streams", "price", "Price per unit or subscriber", "detail", row => row.method === "units" || row.method === "subscription"),
+      detail("streams", "orderValue", "Average eligible order value", "detail", row => row.method === "orders"),
+      detail("streams", "volume", "Transaction or payout volume", "detail", row => row.method === "percentage" || row.method === "orders"),
+      detail("streams", "feeRate", "Percentage earned", "rate", row => row.method === "percentage" || row.method === "orders"),
+  ];
   const reports = [
     { id: "income", name: "Income statement", lines: [
       detail("streams", "revenue", "Sales"), ["Revenue", "revenue", "total"],
@@ -280,14 +291,7 @@
       ["Net change in cash", "netCash", "total"], ["Ending cash before additional funding", "cash", "total"],
     ] },
     { id: "schedules", name: "Supporting schedules", lines: [
-      detail("streams", "units", "Units sold", "count", row => row.method === "units"),
-      detail("streams", "units", "Estimated orders or transactions", "count", row => row.method === "orders"),
-      detail("streams", "joining", "New subscribers", "count", row => row.method === "subscription"),
-      detail("streams", "leaving", "Subscribers lost", "count", row => row.method === "subscription"),
-      detail("streams", "active", "Closing subscribers", "count", row => row.method === "subscription"),
-      detail("streams", "price", "Price per unit or subscriber", "detail", row => row.method === "units" || row.method === "subscription"),
-      detail("streams", "volume", "Transaction or payout volume", "detail", row => row.method === "percentage" || row.method === "orders"),
-      detail("streams", "feeRate", "Percentage earned", "rate", row => row.method === "percentage"),
+      ...revenueDrivers,
       detail("streams", "revenue", "Sales"), ["Revenue", "revenue", "total"],
       detail("directCosts", "cogs", "Direct cost"), detail("directCosts", "purchases", "Purchases"), ["Total purchases", "purchases", "total"],
       detail("staff", "headcount", "Closing headcount", "count"), detail("staff", "wages", "Wages"), detail("staff", "benefits", "Employer taxes and benefits"),
@@ -299,6 +303,55 @@
       detail("contributions", "amount", "Equity"), ["Unlevered free cash flow", "freeCash", "total"],
     ] },
   ];
+
+
+  const scheduleReports = [
+    { id: "cogs", name: "COGS (Costs)", note: "COGS feeds gross profit in the financial statements. Peebee calculates each cost from its monthly expense or its share of revenue. Purchases and closing inventory reflect inventory targets.", lines: [
+      detail("directCosts", "cogs", "Cost of goods sold"), ["Total COGS", "cogs", "total"],
+      detail("directCosts", "purchases", "Inventory and supply purchases"), ["Total purchases", "purchases", "total"],
+      detail("directCosts", "stock", "Closing inventory"), ["Total closing inventory", "stock", "total"],
+    ] },
+    { id: "sga", name: "SG&A (Expenses)", note: "Total SG&A adds payroll and operating expenses. EBITDA is gross profit less SG&A.", lines: [
+      ["Staff and payroll", "payroll"], detail("expenses", "amount", "Operating expense"),
+      ["Total operating expenses", "overhead", "total"], ["Total SG&A", row => row.payroll + row.overhead, "total"],
+      ["SG&A as a share of revenue", row => row.revenue ? (row.payroll + row.overhead) / row.revenue : null, "rate"],
+    ] },
+    { id: "staff-schedule", name: "SG&A > Staff", note: "Payroll adds wages and employer costs by role. Wages use headcount × monthly pay after annual raises. Annual headcount shows the last forecast month of the year.", lines: [
+      detail("staff", "headcount", "Closing headcount", "count"), ["Total closing headcount", row => sum(row.details.staff, "headcount"), "total"],
+      detail("staff", "wages", "Wages"), detail("staff", "benefits", "Payroll taxes and benefits"),
+      detail("staff", "amount", "Total cost by role"), ["Total staff and payroll", "payroll", "total"],
+    ] },
+    { id: "working-capex", name: "WK + CAPEX", note: "Working capital adds receivables and inventory and subtracts payables. Fixed assets roll forward from opening book value plus purchases less straight-line depreciation.", lines: [
+      detail("streams", "ar", "Forecast receivable"), detail("receivables", "amount", "Outstanding opening receivable"),
+      ["Closing receivables", "ar", "total"], ["Closing inventory", "stock"], detail("directCosts", "ap", "Supplier payable"),
+      detail("payables", "amount", "Outstanding opening payable"), ["Closing payables", "ap", "total"],
+      ["Closing net working capital", "wc", "total"], ["Change in net working capital", "deltaWC"], ["Working capital cash impact", row => -row.deltaWC],
+      detail("investments", "capex", "Asset purchase"), ["Total capital expenditure", "capex", "total"],
+      ...assetLines("depreciation", "Depreciation"), ["Total depreciation", "depreciation", "total"],
+      ...assetLines("assets", "Closing book value"), ["Net fixed assets", "assets", "total"],
+      ...loanLines("interest", "Interest"), ...loanLines("principal", "Principal repaid"), ["Closing debt", "debt", "total"],
+    ] },
+  ];
+
+  function statementReports() {
+    const sections = reports.filter(report => report.id !== "schedules");
+    return [["monthly", "FS-Month", "Monthly"], ["annual", "FS-Annual", "Annual"]].map(([id, name, frequency]) => {
+      // The workbook floors EBITDA margin at zero and suppresses monthly net margin in loss periods.
+      const adjustedSections = sections.map(section => section.id !== "income" ? section : {
+        ...section,
+        lines: section.lines.map(line => {
+          if (line[0] === "EBITDA margin") return [line[0], row => row.revenue ? Math.max(0, row.ebitda / row.revenue) : null, "rate"];
+          if (line[0] === "Net margin") return [line[0], row => row.revenue && (frequency === "Annual" || row.profit > 0)
+            ? Math.max(0, row.profit / row.revenue) : null, "rate"];
+          return line;
+        }),
+      });
+      return { id: `fs-${id}`, name, frequency, sections: adjustedSections,
+        note: frequency === "Annual"
+          ? "Annual flows sum the months in each calendar year. Closing balances use the final forecast month of that year. Partial years show the month count."
+          : "The monthly income statement, balance sheet and cash flow use the same Peebee forecast as the related schedules." };
+    });
+  }
 
   function linesFor(report, answers) {
     return report.lines.flatMap(line => Array.isArray(line) ? [line] : (answers[line.group] || []).flatMap((item, index) =>
@@ -314,5 +367,5 @@
     ] : [base];
   }
 
-  globalThis.FinancialModel = { build, reports, linesFor, sum, halfCent, ForecastRangeError };
+  globalThis.FinancialModel = { build, reports, revenueDrivers, scheduleReports, statementReports: statementReports(), linesFor, sum, halfCent, ForecastRangeError };
 })();
