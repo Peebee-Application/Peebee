@@ -1,8 +1,8 @@
 # Peebee Financial Model
 
-Open `index.html` in Chrome, Edge, or Firefox. A fresh browser opens the review of Peebee’s multichannel assumptions. Edit any assumption from that review, then generate the forecast. Drafts are saved in browser storage when available. **Reset to Peebee defaults** replaces the current draft after confirmation. Existing multichannel drafts open automatically.
+Open `index.html` in Chrome, Edge, or Firefox. A fresh browser opens the review of Peebee’s multichannel assumptions. Edit any assumption from that review, then generate the forecast. Drafts are saved in browser storage when available. **Reset to Peebee defaults** replaces the current draft after confirmation. Existing multichannel drafts open automatically. In a saved UGX draft, **Load starter revenue estimates** refreshes the standard revenue lines of the Peebee channels in the draft. It preserves custom lines, growth, collection days and other forecast sections.
 
-The default starts this month in UGX and runs for 36 months. Enter Peebee’s forecast income tax rate before generating a forecast. The Concierge forecast starts with illustrative parcel and shopping order estimates. Edit order counts and average eligible delivery fees directly. Other revenue volumes, growth, collection terms, operating costs and headcounts start at zero for editing. Add opening cash, receivables, payables, fixed assets and debt from the books. Add capex, financing and equity from the approved plan. The local file works offline.
+The default starts this month in UGX and runs for 36 months. Enter Peebee’s forecast income tax rate before generating a forecast. All 13 channels start with editable launch estimates. Order-based commissions use transaction counts, average eligible values and fee rates. Flat fees use chargeable units and average prices. Subscription lines use starting subscribers, new subscriptions, assumed monthly churn and price. Some estimates assume paid features are enabled. Costs, headcounts and collection periods start at zero. Add opening cash, receivables, payables, fixed assets and debt from the books. Add capex, financing and equity from the approved plan. The local file works offline.
 
 ## Peebee sources
 
@@ -17,7 +17,7 @@ The default starts this month in UGX and runs for 36 months. Enter Peebee’s fo
 | Channels & Ads | [Creator monetization](../../packages/shared/src/channels-config.ts), [ad settings](../api/src/ads/settings.ts) |
 | Wallet | [Wallet service](../api/src/wallet/service.ts). Use fees earned by Peebee and exclude customer balances and transfers. |
 
-Check current Admin settings and applicable contracts before entering volumes. Paid activity for features that start off or use free billing is zero until Peebee charges for the feature. The revenue screens describe the base for each percentage fee and where external payment activity should be counted. Count external revenue once, including sales made through Peebee TV and other customer surfaces in the originating channel.
+The starter figures are illustrative. Use Admin settings, actual activity and applicable contracts when modeling current operations. The revenue screens describe the base for each percentage fee and where external payment activity should be counted. Count external revenue once, including sales made through Peebee TV and other customer surfaces in the originating channel.
 
 ## Live Admin data
 
