@@ -409,7 +409,14 @@
   const table = (name, columns, rows) => `<div class="table-wrap" tabindex="0" role="region" aria-label="${escape(name)}">
     <table aria-label="${escape(name)}"><thead><tr><th scope="col">${escape(name)}</th>${columns.map(label => `<th scope="col">${escape(label)}</th>`).join("")}</tr></thead>
     <tbody>${rows.map(([label, cells, style]) => `<tr${style === "total" || style === "detail" ? ` class="${style}"` : ""}><th scope="row">${escape(label)}</th>${cells.map(value => `<td>${escape(value)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
-  const metric = (label, value, context) => `<div class="panel metric"><span>${label}</span><strong>${escape(value)}</strong><small>${escape(context)}</small></div>`;
+  const metric = (label, value, context) => `<div class="panel metric">
+    <span>${label}</span>
+    <div class="metric-value">
+      <strong aria-hidden="true">${escape(compactFormat.format(Math.abs(value) < halfCent ? 0 : value))}</strong>
+      <span class="metric-amount">${escape(money(value))}</span>
+    </div>
+    <small>${escape(context)}</small>
+  </div>`;
   const radio = (items, selected, type) => items.map(([id, label]) =>
     `<button type="button" id="${type}-${id}" data-${type}="${id}" aria-pressed="${id === selected}">${escape(label)}</button>`).join("");
 
@@ -427,10 +434,10 @@
     ];
     if (model.valuation) comparison.push(["DCF enterprise value", item => money(item.valuation.enterprise)]);
     return `<div class="metrics">
-      ${metric("Revenue", money(sum(yearOne, "revenue")), yearOneLabel)}
-      ${metric("EBITDA", money(sum(yearOne, "ebitda")), yearOneLabel)}
-      ${metric("Ending cash", money(last.cash), last.period)}
-      ${metric("Peak funding gap", money(model.fundingGap), model.shortfall ? `Lowest cash in ${model.lowCash.period}` : "No month-end shortfall at report precision")}
+      ${metric("Revenue", sum(yearOne, "revenue"), yearOneLabel)}
+      ${metric("EBITDA", sum(yearOne, "ebitda"), yearOneLabel)}
+      ${metric("Ending cash", last.cash, last.period)}
+      ${metric("Peak funding gap", model.fundingGap, model.shortfall ? `Lowest cash in ${model.lowCash.period}` : "No month-end shortfall at report precision")}
       </div>
       ${model.shortfall ? `<p class="notice">The first month-end cash shortfall is in <strong>${model.shortfall.period}</strong>. The forecast shows the shortfall before any additional financing.</p>` : ""}
       <div class="stack"><section class="panel"><h2>Revenue by calendar year</h2><ul class="plot">
