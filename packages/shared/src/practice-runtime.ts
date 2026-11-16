@@ -1,6 +1,7 @@
 import { endServerPractice, isServerPractice } from "./practice-server.js";
 import { practiceTalentRequest, resetPracticeTalent } from "./practice-talent.js";
 import { practiceTaxipressRequest, rememberPracticeTaxipressOptions, resetPracticeTaxipress } from "./practice-taxipress.js";
+import { practiceAccountsPayload, practiceLookup, practiceWalletExtra } from "./practice-accounts.js";
 import { practiceWalletView, practiceWalletBalance, practiceWalletSpend, practiceWalletRefund, resetPracticeWallet } from "./practice-wallet.js";
 import { practiceWorkRequest, resetPracticeWork } from "./practice-work.js";
 import { PRACTICE_MODE_STORAGE_KEY, type PracticeRole } from "./practice.js";
@@ -1353,7 +1354,12 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
 
   if (method === "GET" && path === "/v1/wallet") return jsonResponse(role === "customer" ? practiceWalletView() : { balance: 12_000, cap: 2_000_000, verified: true, ledger: [] });
   if (method === "GET" && path === "/v1/wallet/shares") return jsonResponse({ granted: [], received: [] });
-  if (method === "GET" && path === "/v1/wallets") return jsonResponse({ wallets: [{ id: "primary", name: "Primary", balance: role === "customer" ? practiceWalletBalance() : 12_000, isPrimary: true }], suggestedNames: ["Family Expenses", "Office Supplies", "Personal Savings", "Travel Fund"], maxWallets: 5 });
+  if (method === "GET" && path === "/v1/wallets") return jsonResponse(role === "customer" ? practiceAccountsPayload(practiceWalletBalance()) : { wallets: [{ id: "primary", name: "Primary", balance: 12_000, isPrimary: true, frozen: false }], suggestedNames: ["Home", "Office", "Travel"], maxWallets: 5, features: { freeze: true, requests: true, sendFromShared: false, nicknames: true, contactsMax: 50, requestContactsOnly: false, requestAllowCancel: true, requestNotify: true } });
+  if (role === "customer" && method === "GET" && path === "/v1/wallet/lookup") { const found = practiceLookup(query.get("q") ?? ""); return jsonResponse(found.body, found.status as 200); }
+  if (role === "customer" && (path.startsWith("/v1/wallet/") || path === "/v1/wallets" || path.startsWith("/v1/wallets/"))) {
+    const extra = practiceWalletExtra(method, path, body);
+    if (extra) return jsonResponse(extra.body, extra.status as 200);
+  }
   if (method === "GET" && /^\/v1\/wallets\/[^/]+\/ledger$/.test(path)) return jsonResponse({ ledger: [] });
   if (method === "GET" && /^\/v1\/wallets\/[^/]+\/report$/.test(path)) return jsonResponse({ period: "month", totalIn: 12_000, totalOut: 0, net: 12_000, byType: [] });
   if (method === "GET" && path.startsWith("/v1/mobile-numbers")) return jsonResponse({ numbers: [{ id: "practice-number", owner_id: "practice-user", purpose: path.includes("withdrawal") ? "withdrawal" : "payment", phone: "0700000000", label: "Practice number", is_primary: 1, created_at: nowIso(-86_400_000), updated_at: nowIso() }] });

@@ -19,7 +19,7 @@ const MODULE_NAMES: Record<string, string> = {
  * Bonus credit, offers, invitations and (when an admin has opened it) cashing out — all in one place under the balance.
  * Each part appears only when it applies, so a customer with nothing of this sees nothing extra.
  */
-export function CreditSection() {
+export function CreditSection({ hideCashout = false }: { hideCashout?: boolean } = {}) {
   const [credit, setCredit] = useState<Credit | null>(null);
   const [mine, setMine] = useState<Mine | null>(null);
   const [referral, setReferral] = useState<Referral | null>(null);
@@ -70,7 +70,7 @@ export function CreditSection() {
 
   const showCredit = !!credit && credit.enabled && credit.balance > 0;
   const offers = mine?.offers ?? [];
-  const showCashout = !!cashout?.enabled;
+  const showCashout = !!cashout?.enabled && !hideCashout;
   if (!showCredit && offers.length === 0 && !referral?.enabled && !showCashout) return null;
 
   return (
@@ -136,7 +136,7 @@ export function CreditSection() {
             <div className="space-y-2">
               <input aria-label="Amount" inputMode="numeric" value={wdAmount} onChange={(e) => setWdAmount(e.target.value.replace(/[^\d]/g, ""))} placeholder="Amount (UGX)" className="w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm" />
               <MobileNumberPicker purpose="withdrawal" value={wdPhone} onChange={setWdPhone} />
-              <button type="button" disabled={wdBusy || !wdAmount || wdPhone.trim().length < 6} onClick={() => void withdraw()} className="w-full rounded-xl bg-gold px-4 py-3 text-sm font-bold text-ink disabled:opacity-50">{wdBusy ? "Please wait…" : "Withdraw"}</button>
+              <button type="button" disabled={wdBusy || !wdAmount || wdPhone.trim().length < 6} onClick={() => void withdraw()} className="w-full rounded-xl bg-gold px-4 py-3 text-sm font-bold text-ink-gold disabled:opacity-50">{wdBusy ? "Please wait…" : "Withdraw"}</button>
             </div>
           )}
           {wdMessage && <p className="text-sm text-ink-500" role="status">{wdMessage}</p>}
