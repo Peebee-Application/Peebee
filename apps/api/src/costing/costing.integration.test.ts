@@ -367,3 +367,29 @@ test("financial model snapshot requires Admin access and reads only live aggrega
   assert.equal(withoutSplits.status, 200);
   assert.equal(withoutSplits.body.activity[0].available, false);
 });
+
+test("shared forecast requires finance permissions and rejects stale writes", async () => {
+  const client = await freshDb();
+  const { adminRoutes } = await import("../admin/routes.js");
+  const app = new Hono().route("/v1", adminRoutes);
+  const request = caller(app, await tokens());
+  const path = "/admin/financial-model/draft";
+  const answers = { company: "Peebee", tax: "30" };
+  assert.equal((await app.request(`/v1${path}`)).status, 401);
+  assert.equal((await request("cust", "GET", path)).status, 403);
+  assert.equal((await request("admin", "PUT", path, { revision: null, answers: { company: [] } })).status, 400);
+  const empty = await request("admin", "GET", path);
+  assert.deepEqual(empty.body, { draft: null });
+  const first = await request("admin", "PUT", path, { revision: null, answers });
+  assert.equal(first.status, 200);
+  const revision = first.body.draft.revision;
+  assert.equal((await request("admin", "PUT", path, { revision: null, answers })).status, 409);
+  const update = { ...answers, tax: "28" };
+  assert.equal((await request("admin", "PUT", path, { revision, answers: update })).status, 200);
+  assert.equal((await request("admin", "PUT", path, { revision, answers })).status, 409);
+  const latest = await request("admin", "GET", path);
+  assert.deepEqual(latest.body.draft.answers, update);
+  await client.execute("UPDATE users SET admin_role = NULL WHERE id = 'admin'");
+  assert.equal((await request("admin", "GET", path)).status, 403);
+  assert.equal((await request("admin", "PUT", path, { revision, answers })).status, 403);
+});

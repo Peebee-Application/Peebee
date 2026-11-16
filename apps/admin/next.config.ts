@@ -10,10 +10,11 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   async headers() {
-    return securityHeaderRules({
+    const rules = securityHeaderRules({
       apiUrl: process.env.NEXT_PUBLIC_API_URL,
       dev: process.env.NODE_ENV === "development",
     });
+    return rules.map(rule => ({ ...rule, source: "/:path((?!financial-session$).*)" }));
   },
   webpack(config) {
     // @peebee/shared uses explicit ".js" extensions on relative imports (required by

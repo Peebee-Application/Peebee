@@ -119,9 +119,11 @@
   const availableQuestions = answers => questionsFor(questions, answers);
   const activeQuestions = answers => availableQuestions(answers).filter(prompt => !prompt.when || prompt.when(answers));
   const firstMissing = answers => activeQuestions(answers).find(prompt => errorFor(prompt, answers[prompt.id], answers));
-  const readDraft = () => {
+  const readLocal = () => {
+    try { return JSON.parse(localStorage.getItem(storageKey)); } catch { return null; }
+  };
+  const readDraft = data => {
     try {
-      const data = JSON.parse(localStorage.getItem(storageKey));
       if (!data?.answers) return { answers: createDefaults(), screen: "review" };
       const upgraded = upgradeDraft(data.answers);
       const answers = { company: upgraded.company === "Peebee (illustrative)" ? upgraded.company : company };
@@ -142,7 +144,28 @@
       return { answers: createDefaults(), screen: "review" };
     }
   };
-  let { answers, step, screen, editing = false } = readDraft();
+  const session = globalThis.SharedForecastSession;
+  if (!session && location.hostname === "financials.peebee.online") {
+    document.querySelector("#open-settings").hidden = true;
+    app.innerHTML = '<p class="notice" role="alert">The Admin session could not load. Refresh the page to try again.</p>';
+    return;
+  }
+  const localDraft = readLocal();
+  let { answers, step, screen, editing = false } = readDraft(session ? null : localDraft);
+  let revision = null;
+  let savedAnswers;
+  let queuedAnswers;
+  let saving = false;
+  let saveError;
+  let sharedReady = !session;
+  let loadingShared = false;
+  let signInRequired = false;
+  const statusBar = document.querySelector("#shared-save");
+  const sharedStatus = document.querySelector("#shared-status");
+  const retrySave = document.querySelector("#retry-save");
+  const reloadShared = document.querySelector("#reload-shared");
+  const publishLocal = document.querySelector("#publish-local");
+  document.querySelector("#open-settings").hidden = !!session;
   if (screen === "report" && firstMissing(answers)) screen = "review";
   if (!["report", "wizard", "intro", "workbook-settings"].includes(screen)) screen = "review";
   let selectedCase = "Base";
@@ -152,6 +175,16 @@
   let analysisState = { windows: {} };
   let detachCharts;
   const save = () => {
+    if (session) {
+      if (!sharedReady) return false;
+      const value = JSON.stringify(answers);
+      if (value !== savedAnswers || queuedAnswers) {
+        queuedAnswers = value;
+        window.addEventListener("beforeunload", beforeUnload);
+        if (!saveError) void flushShared();
+      }
+      return true;
+    }
     try {
       localStorage.setItem(storageKey, JSON.stringify({ answers, step, screen, editing }));
       return true;
@@ -160,11 +193,90 @@
     }
   };
 
+  function showSaveStatus(message, error) {
+    statusBar.hidden = false;
+    sharedStatus.textContent = message;
+    retrySave.hidden = !error || error.status === 409;
+    reloadShared.hidden = error?.status !== 409;
+  }
+
+  async function flushShared() {
+    if (saving || !queuedAnswers) return;
+    saving = true;
+    saveError = undefined;
+    showSaveStatus("Saving shared forecast…");
+    try {
+      while (queuedAnswers) {
+        const value = queuedAnswers;
+        if (value === savedAnswers) {
+          queuedAnswers = undefined;
+          break;
+        }
+        const { draft } = await session.request("save", { revision, answers: JSON.parse(value) });
+        revision = draft.revision;
+        savedAnswers = value;
+        publishLocal.hidden = true;
+        if (queuedAnswers === value) queuedAnswers = undefined;
+      }
+      showSaveStatus("Shared forecast saved");
+    } catch (error) {
+      saveError = error;
+      showSaveStatus(error.message, error);
+    } finally {
+      saving = false;
+      if (!queuedAnswers && !activeEdit?.dirty()) window.removeEventListener("beforeunload", beforeUnload);
+    }
+  }
+
+  retrySave.addEventListener("click", () => void flushShared());
+  reloadShared.addEventListener("click", () => confirmAction(
+    "Reload the shared forecast?",
+    "This will discard your unsaved changes and open the latest version saved by another editor.",
+    "Discard edits and reload",
+    () => void loadShared()
+  ));
+
+  async function loadShared() {
+    if (loadingShared) return;
+    loadingShared = true;
+    signInRequired = false;
+    if (!sharedReady) app.innerHTML = '<p role="status">Connecting to Peebee Admin…</p>';
+    try {
+      const { draft } = await session.request("load");
+      revision = draft?.revision ?? null;
+      ({ answers, step, screen, editing = false } = readDraft(draft ? { answers: draft.answers, screen: "report" } : null));
+      if (firstMissing(answers)) screen = "review";
+      savedAnswers = JSON.stringify(answers);
+      queuedAnswers = undefined;
+      saveError = undefined;
+      outcomes = null;
+      sharedReady = true;
+      document.querySelector("#open-settings").hidden = false;
+      publishLocal.hidden = !!draft || !localDraft?.answers;
+      showSaveStatus(draft ? "Shared forecast" : "Shared forecast · Peebee defaults");
+      render();
+    } catch (error) {
+      if (sharedReady) return showSaveStatus(error.message, saveError || error);
+      signInRequired = error.status === 401;
+      app.innerHTML = `<section class="panel"><h1>Peebee Financial Model</h1><p class="muted" role="status">${escape(error.message)}</p>
+        <div class="toolbar"><a class="button gold" href="https://admin.peebee.online/login" target="_blank" rel="noopener">Open Peebee Admin</a>
+        <button class="button secondary" id="connect-shared" type="button">Retry connection</button></div></section>`;
+      app.querySelector("#connect-shared").addEventListener("click", () => void loadShared());
+    } finally {
+      loadingShared = false;
+    }
+  }
+
+  if (session) window.addEventListener("focus", () => {
+    if (signInRequired) void loadShared();
+  });
+
   let activeEdit;
   let pendingNavigation;
 
   function beforeUnload(event) {
-    if (autosave && !activeEdit.issue() && activeEdit.commit() && save()) return;
+    if (activeEdit?.dirty() && autosave && !activeEdit.issue() && activeEdit.commit() && save() && !session) return;
+    if (!activeEdit?.dirty() && !queuedAnswers) return;
     event.preventDefault();
     event.returnValue = true;
   }
@@ -202,7 +314,7 @@
   function render(focusId) {
     menuGroup = undefined;
     activeEdit = undefined;
-    window.removeEventListener("beforeunload", beforeUnload);
+    if (!queuedAnswers) window.removeEventListener("beforeunload", beforeUnload);
     detachCharts?.();
     detachCharts = null;
     if (screen === "report") renderReport();
@@ -266,7 +378,7 @@
     const remember = () => {
       clearError();
       if (activeEdit.dirty()) window.addEventListener("beforeunload", beforeUnload);
-      else window.removeEventListener("beforeunload", beforeUnload);
+      else if (!queuedAnswers) window.removeEventListener("beforeunload", beforeUnload);
     };
     const readItems = isItems ? editItems(prompt, value, remember) : null;
     const capturedValue = () => isItems ? readItems() : field.value.trim();
@@ -310,7 +422,7 @@
       if (!commit()) return;
       const persisted = save();
       render("save-step");
-      document.querySelector("#save-status").textContent = persisted ? "Saved." : "Saved for this session. Browser storage is unavailable.";
+      document.querySelector("#save-status").textContent = persisted ? (session ? "Check shared save status above." : "Saved.") : "Saved for this session. Browser storage is unavailable.";
     });
     document.querySelector("#question-form").addEventListener("submit", event => {
       event.preventDefault();
@@ -727,9 +839,23 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  publishLocal.addEventListener("click", () => confirmAction(
+    "Use this browser’s draft?",
+    "This will make the forecast saved in this browser available to every authorized Peebee Admin user. It can only initialize an empty shared forecast.",
+    "Use draft as shared forecast",
+    () => {
+      if (revision !== null || queuedAnswers) return;
+      ({ answers, step, screen, editing = false } = readDraft(localDraft));
+      savedAnswers = undefined;
+      outcomes = null;
+      settingsDialog.close();
+      showReview();
+    }
+  ));
+
   document.querySelector("#reset-model").addEventListener("click", () => confirmAction(
     "Permanently reset this forecast?",
-    "This will erase your saved assumptions and any unsaved edits on this device, then replace them with Peebee’s defaults. You cannot undo this reset. Cancel to keep your work.",
+    `${session ? "This will replace the shared forecast with Peebee’s defaults for everyone with access." : "This will replace the draft on this device with Peebee’s defaults."} Any unsaved edits here will be lost. Cancel to keep your work.`,
     "Reset and replace forecast",
     () => {
       settingsDialog.close();
@@ -740,7 +866,7 @@
     }
   ));
 
-  globalThis.FinancialLive.mount({ escape, format, confirmAction, open(action) {
+  globalThis.FinancialLive.mount({ session, escape, format, confirmAction, open(action) {
     confirmAction(
       "Open live Admin data?",
       "This connects to Peebee’s production Admin and can display confidential transaction totals and fees. Continue only if you are authorized and your screen is private. Viewing data does not change the forecast.",
@@ -763,5 +889,6 @@
     return `Updated ${updated} fee lines. Volumes and other forecast inputs are preserved.`;
   } });
 
-  render();
+  if (session) void loadShared();
+  else render();
 })();
