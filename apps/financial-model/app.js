@@ -32,6 +32,85 @@
     });
   }
   document.querySelector("#open-settings").addEventListener("click", () => settingsDialog.showModal());
+  const confirmation = document.querySelector("#confirm-action");
+  let confirmedAction;
+  function confirmAction(title, detail, label, action) {
+    confirmation.querySelector("#confirm-action-title").textContent = title;
+    confirmation.querySelector("#confirm-action-detail").textContent = detail;
+    confirmation.querySelector("#confirm-action-submit").textContent = label;
+    confirmation.returnValue = "";
+    confirmedAction = action;
+    confirmation.showModal();
+  }
+
+  confirmation.addEventListener("close", () => {
+    const action = confirmedAction;
+    confirmedAction = undefined;
+    if (confirmation.returnValue === "confirm") action?.();
+  });
+
+  const reportLinks = reports.map(({ id, name }) => [id, name]);
+  const navigation = [
+    { id: "home", name: "Home", views: [["overview", "Dashboard"], ["intro", "Intro"], ["analysis", "Analysis"]] },
+    { id: "model", name: "Model", views: [["assumptions", "Assumptions"], ["workbook-settings", "Forecast settings"]] },
+    { id: "schedules", name: "Schedules", views: [["channel-revenue", "Revenue"], ...scheduleReports.map(({ id, name }) => [id, name]),
+      ...reportLinks.filter(([id]) => id === "schedules")] },
+    { id: "statements", name: "Statements", views: [...statementReports.map(({ id, name }) => [id, name]),
+      ...reportLinks.filter(([id]) => id !== "schedules")] },
+  ];
+  const primaryNav = document.querySelector("#primary-nav");
+  const secondaryNav = document.querySelector("#secondary-nav");
+  let menuGroup;
+
+  function currentView() {
+    if (screen === "report") return selectedReport;
+    if (screen === "intro" || screen === "workbook-settings") return screen;
+    return "assumptions";
+  }
+
+  function renderNavigation() {
+    const view = currentView();
+    const group = navigation.find(item => item.id === menuGroup) || navigation.find(item => item.views.some(([id]) => id === view));
+    primaryNav.innerHTML = radio(navigation.map(item => [item.id, item.name]), group.id, "primary");
+    secondaryNav.innerHTML = radio(group.views, view, "view");
+  }
+
+  function openView(view, focusId) {
+    if (view === currentView() && screen !== "wizard") return;
+    navigate(() => {
+      if (view === "assumptions") return showReview();
+      if (view === "intro" || view === "workbook-settings") {
+        screen = view;
+      } else {
+        const missing = firstMissing(answers);
+        if (missing) return goTo(missing.id, true);
+        screen = "report";
+        selectedReport = view;
+      }
+      editing = false;
+      save();
+      render(focusId);
+    });
+  }
+
+  primaryNav.addEventListener("click", event => {
+    const button = event.target.closest("[data-primary]");
+    if (!button || button.getAttribute("aria-pressed") === "true") return;
+    const group = navigation.find(item => item.id === button.dataset.primary);
+    const destination = group.views[0][0];
+    if (destination !== "assumptions" && firstMissing(answers)) {
+      menuGroup = group.id;
+      renderNavigation();
+      document.getElementById(button.id).focus();
+      return;
+    }
+    openView(destination, button.id);
+  });
+  secondaryNav.addEventListener("click", event => {
+    const button = event.target.closest("[data-view]");
+    if (button) openView(button.dataset.view, button.id);
+  });
+
   const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
   const compactFormat = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
   const percentFormat = new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 });
@@ -65,7 +144,7 @@
   };
   let { answers, step, screen, editing = false } = readDraft();
   if (screen === "report" && firstMissing(answers)) screen = "review";
-  if (screen !== "report" && screen !== "wizard") screen = "review";
+  if (!["report", "wizard", "intro", "workbook-settings"].includes(screen)) screen = "review";
   let selectedCase = "Base";
   let selectedReport = "overview";
   let frequency = "Annual";
@@ -121,13 +200,17 @@
   });
 
   function render(focusId) {
+    menuGroup = undefined;
     activeEdit = undefined;
     window.removeEventListener("beforeunload", beforeUnload);
     detachCharts?.();
     detachCharts = null;
     if (screen === "report") renderReport();
     else if (screen === "review") renderReview();
+    else if (screen === "intro") app.innerHTML = workbookIntro();
+    else if (screen === "workbook-settings") renderWorkbookSettings();
     else renderQuestion();
+    renderNavigation();
     if (focusId) document.getElementById(focusId)?.focus();
   }
 
@@ -210,6 +293,7 @@
         invalid.focus();
         return false;
       }
+      if (dirty()) outcomes = null;
       answers[step] = inputValue;
       if (prompt.keyed) {
         const active = new Set(activeQuestions(answers).map(item => item.id));
@@ -383,6 +467,7 @@
     document.querySelector("#starter-revenue")?.addEventListener("click", () => {
       if (!window.confirm("Replace standard Peebee revenue drivers, volumes and fees with the starter estimates? Custom revenue lines, growth assumptions and costs will be kept.")) return;
       loadStarterRevenue(answers);
+      outcomes = null;
       showReview();
     });
     document.querySelector("#generate").addEventListener("click", () => {
@@ -469,21 +554,26 @@
       </details></div>`;
   }
 
-  function workbookSettings() {
+  function renderWorkbookSettings() {
     const ids = new Set(["currency", "customCurrency", "start", "months", "tax", "accounts", "ownedAssets", "receivables", "payables", "existingLoans"]);
     const entries = activeQuestions(answers).filter(prompt => ids.has(prompt.id));
-    return `<section class="panel workbook-view"><h2>Settings</h2><dl>
+    app.innerHTML = `<section class="panel workbook-view"><h1>Forecast settings</h1><dl>
       <div><dt>Appearance</dt><dd><button class="text-button" id="appearance-settings" type="button">Change theme</button></dd></div>
       <div><dt>Company</dt><dd>${escape(answers.company)}</dd></div>
       ${entries.map(prompt => `<div><dt>${escape(stepLabel(prompt))}</dt><dd>
         <button class="text-button" data-edit-setting="${prompt.id}" aria-label="${escape("Edit " + stepLabel(prompt))}">
           ${escape(displayAnswer(prompt, answers[prompt.id]))}</button></dd></div>`).join("")}
     </dl></section>`;
+    app.querySelector("#appearance-settings").addEventListener("click", () => {
+      settingsDialog.showModal();
+      settingsDialog.querySelector("#appearance-mode").focus();
+    });
+    app.querySelectorAll("[data-edit-setting]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.editSetting, true)));
   }
 
   function workbookIntro() {
     return `<section class="panel workbook-view">
-      <h2>About this forecast</h2>
+      <h1>About this forecast</h1>
       <p>Settings and assumptions feed the revenue, COGS, expenses, staff, and working capital schedules. FS-Month and FS-Annual show the income statement, balance sheet, and cash flow together.</p>
       <p class="muted">These views use your Peebee assumptions. The reference workbook has other controls for account acquisition, staffing schedules, inventory orders, automatic asset replacement, loan payments, VAT, and fiscal-year tax settlement. Peebee uses its own assumptions and timing in those areas.</p>
     </section>`;
@@ -497,10 +587,6 @@
       sections: [{ ...channelReport, name: "Revenue by channel" }, { name: "Revenue drivers", lines: revenueDrivers }],
     };
     const forecastReports = [revenueReport, ...scheduleReports, ...statementReports, ...reports];
-    const reportOptions = [
-      { id: "intro", name: "Intro" }, { id: "workbook-settings", name: "Settings" }, { id: "assumptions", name: "Assumptions" },
-      { id: "overview", name: "Dashboard" }, ...forecastReports, { id: "analysis", name: "Analysis" },
-    ];
     try {
       outcomes ||= build(forecastAnswers);
     } catch (error) {
@@ -511,6 +597,7 @@
       document.querySelector("#forecast-error").focus();
       return;
     }
+    if (!outcomes.some(item => item.name === selectedCase)) selectedCase = "Base";
     const model = outcomes.find(item => item.name === selectedCase);
     const report = forecastReports.find(item => item.id === selectedReport);
     const reportFrequency = report?.frequency || frequency;
@@ -532,18 +619,11 @@
         <p class="muted">Consolidated financial forecast · ${escape(currencyOf(answers))} · ${model.months[0].period} to ${model.months.at(-1).period}</p></div>
         <div class="toolbar"><button type="button" id="review" class="button secondary">Edit assumptions</button>
         <button type="button" id="download" class="button gold">Download model CSV <span aria-hidden="true">↓</span></button></div></div>
-      <nav class="report-nav" aria-label="Financial reports">${radio(reportOptions.map(item => [item.id, item.name]), selectedReport, "report")}</nav>
       ${outcomes.length > 1 || report || analysis ? `<div class="toolbar">${options.slice(outcomes.length > 1 ? 0 : 1).join("")}
         ${report ? '<button type="button" id="download-report" class="button secondary small">Download this view</button>' : ""}</div>` : ""}
-      ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? reportBody
-        : selectedReport === "intro" ? workbookIntro() : selectedReport === "workbook-settings" ? workbookSettings() : overview(model)}`;
+      ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? reportBody : overview(model)}`;
     document.querySelector("#review").addEventListener("click", showReview);
     if (analysis) bindAnalysis(analysis, currency);
-    app.querySelector("#appearance-settings")?.addEventListener("click", () => {
-      settingsDialog.showModal();
-      settingsDialog.querySelector("#appearance-mode").focus();
-    });
-    app.querySelectorAll("[data-edit-setting]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.editSetting, true)));
     document.querySelector("#download").addEventListener("click", () => downloadAll(forecastReports, forecastAnswers));
     document.querySelector("#download-report")?.addEventListener("click", () => {
       download([["Company", answers.company], ["Currency", currencyOf(answers)], ["Scenario", model.name], ...reportCsv(report, rows, forecastAnswers)],
@@ -551,11 +631,9 @@
     });
     for (const [type, select] of [
       ["case", value => { selectedCase = value; }],
-      ["report", value => { selectedReport = value; }],
       ["frequency", value => { frequency = value; }],
     ]) {
       app.querySelectorAll(`[data-${type}]`).forEach(button => button.addEventListener("click", () => {
-        if (type === "report" && button.dataset.report === "assumptions") return showReview();
         select(button.dataset[type]);
         render(button.id);
       }));
@@ -649,15 +727,27 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  document.querySelector("#reset-model").addEventListener("click", () => navigate(() => {
-    if (!window.confirm("Replace this draft with Peebee’s default assumptions?")) return;
-    answers = createDefaults();
-    step = undefined;
-    outcomes = null;
-    showReview();
-  }));
+  document.querySelector("#reset-model").addEventListener("click", () => confirmAction(
+    "Permanently reset this forecast?",
+    "This will erase your saved assumptions and any unsaved edits on this device, then replace them with Peebee’s defaults. You cannot undo this reset. Cancel to keep your work.",
+    "Reset and replace forecast",
+    () => {
+      settingsDialog.close();
+      answers = createDefaults();
+      step = undefined;
+      outcomes = null;
+      showReview();
+    }
+  ));
 
-  globalThis.FinancialLive.mount({ escape, format, beforeApply(action, dialog) {
+  globalThis.FinancialLive.mount({ escape, format, confirmAction, open(action) {
+    confirmAction(
+      "Open live Admin data?",
+      "This connects to Peebee’s production Admin and can display confidential transaction totals and fees. Continue only if you are authorized and your screen is private. Viewing data does not change the forecast.",
+      "Continue to live data",
+      action
+    );
+  }, beforeApply(action, dialog) {
     if (!activeEdit?.dirty()) return action();
     dialog.close();
     navigate(() => {

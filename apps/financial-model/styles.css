@@ -39,7 +39,7 @@ button:disabled { cursor: default; opacity: .48; }
 :focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 [hidden] { display: none !important; }
 .masthead { background: rgb(var(--surface-card)); border-bottom: 1px solid var(--border); }
-.masthead-inner { max-width: 1280px; margin: auto; padding: 16px 36px; min-height: 74px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.masthead-inner { max-width: 1280px; margin: auto; padding: 16px 36px; min-height: 74px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 720; letter-spacing: -.025em; }
 .mark { display: flex; align-items: flex-end; justify-content: center; gap: 3px; width: 34px; height: 34px; padding: 8px; border-radius: 9px; background: rgb(var(--color-ink-gold)); flex-shrink: 0; }
 .mark i { width: 4px; border-radius: 1px; background: var(--gold); }
@@ -131,10 +131,17 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.5rem); letter-spacing: -.058em; li
 .panel dd .text-button { font-weight: 620; }
 .toolbar { align-items: center; margin-bottom: 18px; }
 .segmented { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px; background: rgb(var(--surface-muted)); border: 1px solid var(--border); border-radius: 11px; }
-.segmented button, .report-nav button { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 8px 12px; font-size: .88rem; color: var(--ink); }
+.segmented button, .primary-nav button, .secondary-nav button { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 8px 12px; font-size: .88rem; color: var(--ink); }
 .segmented button[aria-pressed="true"] { background: rgb(var(--surface-card)); border-color: var(--border); font-weight: 700; }
-.report-nav { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 18px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
-.report-nav button[aria-pressed="true"] { background: rgb(var(--color-gold) / .15); border-color: rgb(var(--color-gold) / .4); font-weight: 700; }
+.primary-nav, .secondary-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.primary-nav { justify-content: center; }
+.secondary-nav { max-width: 1280px; padding: 0 36px 10px; margin: 0 auto; }
+.primary-nav button:hover, .secondary-nav button:hover { background: rgb(var(--surface-muted)); }
+.primary-nav button[aria-pressed="true"], .secondary-nav button[aria-pressed="true"] {
+  background: rgb(var(--color-gold) / .15);
+  border-color: rgb(var(--color-gold) / .4);
+  font-weight: 700;
+}
 .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .metric { padding: 18px; display: grid; gap: 8px; align-content: start; }
 .metric > span, .metric small { font-size: .85rem; color: var(--quiet); }
@@ -197,7 +204,7 @@ tr.total > * { background: rgb(var(--surface-muted)); font-weight: 700; }
   .shell { padding-top: 30px; }
 }
 @media (max-width: 540px) {
-  .masthead-inner, .shell, .footer { padding-left: 16px; padding-right: 16px; }
+  .masthead-inner, .secondary-nav, .shell, .footer { padding-left: 16px; padding-right: 16px; }
   .masthead-inner { gap: 8px; }
   .brand { font-size: .91rem; }
   .question { border-radius: 16px; }
@@ -243,7 +250,8 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 }
 
 @media (max-width: 800px) {
-  .masthead-inner { flex-wrap: wrap; }
+  .masthead-inner { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; }
+  .primary-nav { grid-area: 2 / 1 / 3 / -1; justify-content: flex-start; }
 }
 
 .analysis-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; align-items: end; margin: 4px 0 18px; }
@@ -317,6 +325,11 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 .appearance-option select { min-height: 44px; padding: 9px 12px; }
 .appearance-option .muted { font-size: .83rem; }
 #settings-dialog .autosave-option { margin-top: 16px; }
+.settings-actions { display: grid; gap: 8px; border-top: 1px solid var(--border); margin-top: 20px; padding-top: 14px; }
+.settings-actions h3 { margin: 0 0 4px; font-size: .92rem; }
+.settings-actions .button { white-space: normal; text-align: start; }
+#confirm-action .notice { margin: 14px 0 0; font-size: .9rem; }
+.workbook-view > h1 { margin-bottom: 16px; }
 .autosave-copy { display: grid; gap: 3px; }
 .autosave-copy strong { font-size: .92rem; }
 .autosave-copy span { color: var(--quiet); font-size: .83rem; line-height: 1.4; }
