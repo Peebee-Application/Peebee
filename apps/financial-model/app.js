@@ -34,15 +34,14 @@
           answers[prompt.id] = value.slice(0, 160);
         }
       }
-      return { answers, step: data?.step, screen: data?.screen };
+      return { answers, step: data.step, screen: data.screen, editing: data.screen === "wizard" && data.editing === true };
     } catch {
       return { answers: createDefaults(), screen: "review" };
     }
   };
-  let { answers, step, screen } = readDraft();
+  let { answers, step, screen, editing = false } = readDraft();
   if (screen === "report" && firstMissing(answers)) screen = "review";
   if (screen !== "report" && screen !== "wizard") screen = "review";
-  let editing = false;
   let selectedCase = "Base";
   let selectedReport = "overview";
   let frequency = "Annual";
@@ -50,7 +49,12 @@
   let analysisState = { windows: {} };
   let detachCharts;
   const save = () => {
-    try { localStorage.setItem(storageKey, JSON.stringify({ answers, step, screen })); } catch { /* Browser storage can be unavailable. */ }
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ answers, step, screen, editing }));
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   function render(focusId) {
@@ -93,14 +97,18 @@
         ${input}
         <p id="error" class="error" role="alert" hidden></p>
         ${prompt.suggestion ? `<p class="suggestion"><button type="button" id="suggestion" class="text-button">Use ${escape(prompt.suggestion)}</button></p>` : ""}
-        <div class="actions"><button type="button" id="back" class="button secondary" ${!index && !editing ? "disabled" : ""}>${editing ? "Cancel edit" : "Back"}</button>
-          <button type="submit" class="button gold">${editing ? "Save answer" : index === list.length - 1 ? "Review assumptions" : "Continue"} <span aria-hidden="true">→</span></button></div>
+        <p id="save-status" class="muted save-status" role="status"></p>
+        <div class="actions"><button type="button" id="back" class="button secondary" ${!index && !editing ? "disabled" : ""}>${editing ? "Back to review" : "Back"}</button>
+          <div class="step-actions"><button type="button" class="button secondary" id="save-step">Save</button>
+            <button type="submit" class="button gold">Next <span aria-hidden="true">→</span></button></div></div>
       </form></div>`;
     const field = document.querySelector("#answer");
     const error = document.querySelector("#error");
+    const saveStatus = document.querySelector("#save-status");
     const clearError = () => {
       app.querySelector('[aria-invalid="true"]')?.removeAttribute("aria-invalid");
       error.hidden = true;
+      saveStatus.textContent = "";
     };
     const remember = answer => {
       clearError();
@@ -117,8 +125,7 @@
       field.dispatchEvent(new Event("input"));
       field.focus();
     });
-    document.querySelector("#question-form").addEventListener("submit", event => {
-      event.preventDefault();
+    function commitStep(advance) {
       const inputValue = capturedValue();
       const issue = errorFor(prompt, inputValue, answers);
       if (issue) {
@@ -132,8 +139,6 @@
         return;
       }
       answers[step] = inputValue;
-      const wasEditing = editing;
-      editing = false;
       const current = activeQuestions(answers);
       if (prompt.keyed) {
         const active = new Set(current.map(item => item.id));
@@ -144,9 +149,23 @@
           if (id.startsWith("channel-") && !active.has(id)) delete answers[id];
         }
       }
+      if (!advance) {
+        const persisted = save();
+        render("save-step");
+        document.querySelector("#save-status").textContent = persisted ? "Saved." : "Saved for this session. Browser storage is unavailable.";
+        return;
+      }
       const next = current[current.findIndex(item => item.id === step) + 1];
-      if (next && !wasEditing) goTo(next.id);
-      else showReview();
+      if (next) goTo(next.id, editing);
+      else {
+        editing = false;
+        showReview();
+      }
+    }
+    document.querySelector("#save-step").addEventListener("click", () => commitStep(false));
+    document.querySelector("#question-form").addEventListener("submit", event => {
+      event.preventDefault();
+      commitStep(true);
     });
     document.querySelector("#back").addEventListener("click", () => {
       if (editing) {
