@@ -31,18 +31,28 @@
   <dialog id="live-dialog" class="panel" aria-labelledby="live-title"></dialog>
   <dialog id="settings-dialog" class="panel model-dialog" aria-labelledby="settings-title">
     <h2 id="settings-title">Settings</h2>
-    <label class="autosave-option"><input type="checkbox" role="switch" data-autosave aria-describedby="autosave-help"> Autosave</label>
-    <p id="autosave-help" class="muted">Save valid answers automatically when you leave a question.</p>
+    <label class="autosave-option">
+      <span class="autosave-copy"><strong>Autosave</strong><span id="autosave-help">Save valid answers when you leave a question.</span></span>
+      <span class="autosave-switch">
+        <input type="checkbox" role="switch" data-autosave aria-label="Autosave" aria-describedby="autosave-help">
+        <span class="autosave-track" aria-hidden="true"></span>
+      </span>
+    </label>
     <form method="dialog" class="dialog-actions"><button class="button gold">Done</button></form>
   </dialog>
   <dialog id="unsaved-dialog" class="panel model-dialog" aria-labelledby="unsaved-title" aria-describedby="unsaved-help">
-    <h2 id="unsaved-title">Save your changes?</h2>
-    <p id="unsaved-help" class="muted">Save this answer before opening another question or leaving the editor.</p>
-    <label class="autosave-option"><input type="checkbox" role="switch" data-autosave aria-describedby="unsaved-autosave-help"> Autosave</label>
-    <p id="unsaved-autosave-help" class="muted">Save valid answers automatically when you leave a question.</p>
-    <form method="dialog" class="dialog-actions">
+    <h2 id="unsaved-title">Save this answer?</h2>
+    <p id="unsaved-help" class="muted">You have unsaved changes to <strong id="unsaved-question"></strong>.</p>
+    <label class="autosave-option">
+      <span class="autosave-copy"><strong>Autosave</strong><span id="unsaved-autosave-help">Save valid answers when you leave a question.</span></span>
+      <span class="autosave-switch">
+        <input type="checkbox" role="switch" data-autosave aria-label="Autosave" aria-describedby="unsaved-autosave-help">
+        <span class="autosave-track" aria-hidden="true"></span>
+      </span>
+    </label>
+    <form method="dialog" class="dialog-actions unsaved-actions">
+      <button class="text-button" value="discard">Discard changes</button>
       <button class="button secondary" value="stay" autofocus>Stay here</button>
-      <button class="button secondary" value="discard">Discard changes</button>
       <button class="button gold" value="save">Save and continue</button>
     </form>
   </dialog>
