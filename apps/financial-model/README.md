@@ -1,25 +1,30 @@
-# Financial Model Builder
+# Peebee Financial Model
 
-Open `index.html` in Chrome, Edge, or Firefox. The planner runs in the browser and has no install step or connection to Peebee accounts. The current draft is saved when browser storage is available. Use **Download model CSV** to keep a copy of the assumptions and all outputs outside the app.
+Open `index.html` in Chrome, Edge, or Firefox. A fresh browser opens the review of Peebee’s multichannel assumptions. Edit any assumption from that review, then generate the forecast. Drafts are saved in browser storage when available. **Reset to Peebee defaults** replaces the current draft after confirmation. Existing multichannel drafts open automatically.
 
-Choose **Single-channel** to forecast one business line with multiple revenue sources. Choose **Multi-channel** to set up multiple business lines and forecast each channel’s revenue sources separately. The model selector keeps a separate local draft for each mode.
+The default starts this month in UGX and runs for 36 months. Enter Peebee’s forecast income tax rate before generating a forecast. Revenue volumes, growth, collection terms, operating costs and headcounts start at zero for editing. Add opening cash, receivables, payables, fixed assets and debt from the books. Add capex, financing and equity from the approved plan. The app uses repository defaults and can be used offline.
 
-1. Enter a company name, currency, and forecast period.
-2. Use one screen per category. Add applicable line items from the suggested names or enter your own. Complete all the lines on that screen before continuing.
-3. Review the answers and generate the forecast. Switch between annual and monthly reports, and between scenarios if enabled.
+## Peebee sources
 
-Revenue streams may use units, subscriptions, a monthly sales amount, or a percentage of transaction or payout value. The percentage driver records the fee or share earned as revenue. The transaction or payout volume is shown in supporting schedules.
+| Channel | Repository source |
+| --- | --- |
+| Concierge, Rides, TaxiPress | [Platform settings](../api/src/lib/settings.ts), [car settlement](../api/src/car/service.ts), [TaxiPress settlement](../api/src/taxipress/settlement.ts) |
+| Buy | [Marketplace settings](../api/src/lib/settings.ts), [digital and Learn payment options](../api/src/lib/option-registry.ts), [store plan billing](../api/src/marketplace/routes.ts) |
+| Work and Services | [Platform settings](../api/src/lib/settings.ts), [Work engine](../../docs/work-engine.md), [Services payments](../api/src/services-platform/payments.ts) |
+| Learn | [Platform settings](../api/src/lib/settings.ts), [bundles and school passes](../api/src/education/sales.ts), [school fee payments](../api/src/education/learning.ts), [creator sales routing](../../docs/LEARN_CREATOR_PLATFORM_IMPLEMENTATION.md) |
+| Food, Pharmacy and Gas | [Restaurant orders](../api/src/restaurants/routes.ts), [pharmacy orders](../api/src/pharmacy/routes.ts), [gas outlet settlements](../api/src/gas/routes.ts). Use earned Peebee fees from agreements and settlement records. |
+| Jobs & Talent | [Platform settings](../api/src/lib/settings.ts), [seeded rules and membership plans](../api/src/db/migrations/0110_talent_jobs.sql) |
+| Channels & Ads | [Creator monetization](../../packages/shared/src/channels-config.ts), [ad settings](../api/src/ads/settings.ts) |
+| Wallet | [Wallet service](../api/src/wallet/service.ts). Use fees earned by Peebee and exclude customer balances and transfers. |
 
-The multi-channel **Revenue by channel** report shows monthly and annual source rows, channel subtotals, and consolidated revenue. Costs, working capital schedules, funding, valuation, and financial statements are consolidated at company level. Use external revenue for each channel and exclude internal transfers. The multi-channel example uses fictional assumptions for Peebee Concierge, Buy, Work, Rides, and Learn.
+Check current Admin settings and applicable contracts before entering volumes. Paid activity for features that start off or use free billing is zero until Peebee charges for the feature. The revenue screens describe the base for each percentage fee and where external payment activity should be counted. Count external revenue once, including sales made through Peebee TV and other customer surfaces in the originating channel.
 
-Enter direct costs, payroll roles, and expenses separately. The wizard also supports multiple opening cash accounts, existing receivables and payables, inventory balances by direct cost, existing and new assets, outstanding and planned loans, and equity contributions. The statements and supporting schedules roll the named lines into totals. The overview identifies funding gaps and displays a DCF when you enter valuation assumptions.
+## Reports and exports
 
-The **Analysis** tab shows revenue and earnings, cash and funding, cash flow by activity, profit margins, working capital, operating break-even, and scenario comparisons when scenarios are enabled. Use the monthly or annual view and the From and To controls to select periods. Hover or use the arrow keys on a focused chart to inspect a period. **View chart data** lists the displayed values. In multi-channel models, the revenue mix can show channels or the revenue sources within one channel. **Download analysis CSV** exports the selected window and breakdown.
+Revenue drivers include units, subscriptions, monthly revenue, and a percentage of transaction or payout value. The **Revenue by channel** report contains source rows, channel subtotals and consolidated revenue. Costs, working capital, investment, funding, valuation and financial statements are consolidated for Peebee.
 
-Operating break-even is the revenue needed to cover payroll, overhead and fixed direct costs after percentage-based direct costs. It is undefined when those variable costs consume all revenue.
+The **Analysis** tab covers revenue, cash, funding, profitability, working capital, break-even and scenarios. Select monthly or annual periods and choose a date range. Hover or use the arrow keys on a focused chart to inspect a period. **View chart data** lists the values, and the analysis CSV exports the current selection. Use **Download model CSV** to save a snapshot of all assumptions and reports.
 
-Existing drafts carry their original summary values forward as named line items. Edit or replace a carried-forward line to provide more detail. The example uses fictional inputs.
-
-The supplied workbook informed the structure. The model estimates collections and supplier payments from prior and current sales or purchases on a 30-day basis, with activity spread evenly across each model month. It measures funding needs at month end. The balance sheet shows unmet funding separately from liabilities. Tax is estimated and paid monthly on positive profit. It excludes VAT, historical actuals, and tax loss carryforwards. CSV downloads are snapshots. To recalculate, edit the assumptions in the app.
+The model estimates collections and supplier payments from sales and purchases spread evenly within 30-day model months. It measures funding gaps at month end. Tax is estimated and paid monthly on positive profit. It excludes VAT, historical actuals and tax loss carryforwards. Edit the assumptions in the app to recalculate.
 
 Run the engine checks with `node --test apps/financial-model/model.test.cjs` from the repository root.

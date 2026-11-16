@@ -1,29 +1,27 @@
 (() => {
-  const { questions, sections, example, errorFor, itemError } = globalThis.FinancialAssumptions;
+  const { questions, sections, errorFor, itemError } = globalThis.FinancialAssumptions;
   const { fieldsFor, upgradeDraft } = globalThis.FinancialLineItems;
   const { build, reports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
-  const { questionsFor, consolidate, multiExample } = globalThis.FinancialChannels;
+  const { questionsFor, consolidate } = globalThis.FinancialChannels;
   const { buildAnalysis, renderAnalysis, exportRows } = globalThis.FinancialAnalysis;
-  const multiChannel = new URLSearchParams(location.search).get("model") === "multichannel";
-  document.getElementById(multiChannel ? "multi-model" : "single-model").setAttribute("aria-current", "page");
-  if (multiChannel) document.title = "Multi-channel Financial Model Builder";
+  const { company, catalog, createDefaults } = globalThis.PeebeeDefaults;
+  const dataNote = "The preset uses rates and prices from Peebee’s repository. Confirm current Admin settings. Zero activity, growth and cost values and empty opening balances are placeholders. Enter Peebee’s volumes, costs and balances before relying on the forecast.";
   const app = document.querySelector("#app");
-  const exampleButton = document.querySelector("#example");
-  const newModelButton = document.querySelector("#new-model");
-  const storageKey = multiChannel ? "peebee-financial-model-multichannel-v1" : "peebee-financial-model-v1";
+  const storageKey = "peebee-financial-model-multichannel-v1";
   const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
   const compactFormat = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
   const percentFormat = new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 });
   const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
   const currencyOf = answers => ((answers.currency === "other" ? answers.customCurrency : answers.currency) || "").toUpperCase();
-  const availableQuestions = answers => multiChannel ? questionsFor(questions, answers) : questions;
+  const availableQuestions = answers => questionsFor(questions, answers);
   const activeQuestions = answers => availableQuestions(answers).filter(prompt => !prompt.when || prompt.when(answers));
   const firstMissing = answers => activeQuestions(answers).find(prompt => errorFor(prompt, answers[prompt.id], answers));
   const readDraft = () => {
     try {
       const data = JSON.parse(localStorage.getItem(storageKey));
-      const upgraded = upgradeDraft(data?.answers || {});
-      const answers = {};
+      if (!data?.answers) return { answers: createDefaults(), screen: "review" };
+      const upgraded = upgradeDraft(data.answers);
+      const answers = { company: upgraded.company === "Peebee (illustrative)" ? upgraded.company : company };
       for (const prompt of availableQuestions(upgraded)) {
         const value = upgraded[prompt.id];
         if (prompt.type === "items" && Array.isArray(value)) {
@@ -38,17 +36,12 @@
       }
       return { answers, step: data?.step, screen: data?.screen };
     } catch {
-      return { answers: {} };
+      return { answers: createDefaults(), screen: "review" };
     }
   };
   let { answers, step, screen } = readDraft();
-  const pending = firstMissing(answers);
-  if (pending) {
-    screen = "wizard";
-    if (!activeQuestions(answers).some(prompt => prompt.id === step)) step = pending.id;
-  } else if (screen !== "report") {
-    screen = screen === "wizard" ? "wizard" : "review";
-  }
+  if (screen === "report" && firstMissing(answers)) screen = "review";
+  if (screen !== "report" && screen !== "wizard") screen = "review";
   let editing = false;
   let selectedCase = "Base";
   let selectedReport = "overview";
@@ -63,8 +56,6 @@
   function render(focusId) {
     detachCharts?.();
     detachCharts = null;
-    exampleButton.hidden = screen !== "wizard";
-    newModelButton.hidden = screen === "wizard";
     if (screen === "report") renderReport();
     else if (screen === "review") renderReview();
     else renderQuestion();
@@ -98,7 +89,7 @@
         <div class="progress-head"><span>${prompt.section} · Section ${sectionIndex + 1} of ${sections.length}</span><span>Question ${sectionStep} of ${sectionQuestions.length}</span></div>
         <progress aria-label="Applicable assumptions answered" value="${done}" max="${list.length}"></progress>
         <h1 id="question-title" tabindex="-1">${escape(prompt.label)}</h1>
-        <p class="hint" id="hint">${escape(prompt.hint)}</p>
+        <p class="hint" id="hint">${escape([prompt.hint, prompt.note].filter(Boolean).join(" "))}</p>
         ${input}
         <p id="error" class="error" role="alert" hidden></p>
         ${prompt.suggestion ? `<p class="suggestion"><button type="button" id="suggestion" class="text-button">Use ${escape(prompt.suggestion)}</button></p>` : ""}
@@ -146,6 +137,9 @@
       const current = activeQuestions(answers);
       if (prompt.keyed) {
         const active = new Set(current.map(item => item.id));
+        for (const { key } of inputValue) {
+          answers[`channel-${key}`] ??= structuredClone(catalog.find(channel => channel.key === key)?.streams || []);
+        }
         for (const id of Object.keys(answers)) {
           if (id.startsWith("channel-") && !active.has(id)) delete answers[id];
         }
@@ -194,8 +188,12 @@
 
     const add = (name = "") => {
       const initial = Object.fromEntries(prompt.fields.map(field => [field.id, field.initial || ""]));
-      if (prompt.keyed) initial.key = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join("");
-      rows.push({ ...initial, name });
+      if (prompt.keyed) {
+        const channel = catalog.find(channel => channel.name === name && !rows.some(row => row.key === channel.key));
+        initial.key = channel?.key || Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join("");
+      }
+      const preset = prompt.presetRows?.find(row => row.name === name);
+      rows.push({ ...initial, ...preset, name });
       remember(snapshot());
       const first = name ? fieldsFor(prompt, rows.at(-1))[1]?.id || "name" : "name";
       draw(`item-${rows.length - 1}-${first}`);
@@ -250,18 +248,15 @@
   }
 
   function showReview() {
-    const missing = firstMissing(answers);
-    if (missing) {
-      goTo(missing.id);
-      return;
-    }
     screen = "review";
     save();
     render("review-title");
   }
 
   function displayAnswer(prompt, value) {
+    if (prompt.type === "items" && !Array.isArray(value)) return "Enter line items";
     if (prompt.type === "items") return value.length ? `${value.length} ${value.length === 1 ? "line item" : "line items"}` : "None";
+    if (!value) return "Enter value";
     if (prompt.type === "select") return prompt.choices.find(([id]) => id === value)?.[1] || "";
     if (prompt.type !== "number") return value;
     const unit = prompt.unit === "currency" ? currencyOf(answers) : prompt.unit;
@@ -274,15 +269,18 @@
     const list = activeQuestions(answers);
     app.innerHTML = `<div class="review-head"><div><h1 id="review-title" tabindex="-1">Review assumptions</h1><p class="muted">${escape(answers.company)} · ${escape(currencyOf(answers))}</p></div>
       <button type="button" id="generate" class="button gold">Generate forecast <span aria-hidden="true">→</span></button></div>
+      <p class="notice">${escape(dataNote)}</p>
       ${forecastError ? `<p class="notice" id="forecast-error" role="alert" tabindex="-1">${escape(forecastError)}</p>` : ""}
       <div class="review-grid">${sections.map(section => `<section class="panel"><h2>${section}</h2><dl>${list.filter(prompt => prompt.section === section).map(prompt =>
         `<div class="review-answer"><dt>${escape(prompt.label)}</dt><dd><button class="text-button" data-edit="${prompt.id}" aria-label="${escape("Edit: " + prompt.label)}">${escape(displayAnswer(prompt, answers[prompt.id]))}</button></dd>
-          ${prompt.type === "items" && answers[prompt.id].length ? `<dd class="review-lines"><details><summary>View line items</summary>
+          ${prompt.type === "items" && answers[prompt.id]?.length ? `<dd class="review-lines"><details><summary>View line items</summary>
+            ${prompt.note ? `<p class="muted">${escape(prompt.note)}</p>` : ""}
             <ul>${answers[prompt.id].map(row => `<li><strong>${escape(row.name)}</strong><ul>${fieldsFor(prompt, row).filter(field => field.id !== "name").map(field =>
               `<li>${escape(field.label)} · ${escape(displayAnswer(field, row[field.id]))}</li>`).join("")}</ul></li>`).join("")}</ul></details></dd>` : ""}</div>`).join("")}</dl></section>`).join("")}</div>`;
     app.querySelectorAll("[data-edit]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.edit, true)));
     document.querySelector("#generate").addEventListener("click", () => {
-      if (firstMissing(answers)) return showReview();
+      const missing = firstMissing(answers);
+      if (missing) return goTo(missing.id, true);
       screen = "report";
       outcomes = null;
       selectedReport = "overview";
@@ -295,7 +293,7 @@
   }
 
   function modelAnswers() {
-    return Object.fromEntries(activeQuestions(answers).map(prompt => [prompt.id, answers[prompt.id]]));
+    return { company: answers.company, ...Object.fromEntries(activeQuestions(answers).map(prompt => [prompt.id, answers[prompt.id]])) };
   }
 
   const lineValue = (row, field) => typeof field === "function" ? field(row) : row[field];
@@ -339,7 +337,8 @@
         <div><dt>Equity value after opening cash and debt</dt><dd>${escape(money(model.valuation.equity))}</dd></div>
       </dl></section>` : ""}
       <details class="panel"><summary>Model methodology</summary>
-        ${multiChannel ? '<p class="muted">Channel revenue includes external sales. Expenses, funding and the financial statements are calculated for the company as a whole.</p>' : ""}
+        <p class="muted">Channel revenue includes external sales. Expenses, funding and the financial statements are calculated for the company as a whole.</p>
+        <p class="muted">${escape(dataNote)}</p>
         <p class="muted">Each revenue stream grows from its own driver. Payroll and operating expenses change on the anniversary of each line’s start month. Receivables and payables roll forward from sales and purchases already forecast, spread evenly within 30-day model months. Inventory targets use direct costs. Opening receivables and payables settle in the months entered.</p>
         <p class="muted">Fixed assets depreciate straight-line. Debt uses equal principal payments. Opening equity is derived from opening assets and liabilities. Corporate income tax is paid monthly on positive profit. The model excludes VAT, historical statements, and tax loss carryforwards.</p>
         <p class="muted">Annual flows sum the included months. Balance sheet values use the final month of each calendar year shown. Reports display up to two decimal places. Totals use unrounded values. Cash shortfalls are measured at month end before additional funding. The balance sheet shows the unmet funding need as a separate amount.</p>
@@ -347,10 +346,8 @@
   }
 
   function renderReport() {
-    const inputs = modelAnswers();
-    const channelModel = multiChannel ? consolidate(inputs) : null;
-    const forecastAnswers = channelModel?.answers || inputs;
-    const forecastReports = channelModel ? [channelModel.report, ...reports] : reports;
+    const { answers: forecastAnswers, groups, report: channelReport } = consolidate(modelAnswers());
+    const forecastReports = [channelReport, ...reports];
     const reportOptions = [{ id: "overview", name: "Overview" }, { id: "analysis", name: "Analysis" }, ...forecastReports];
     try {
       outcomes ||= build(forecastAnswers);
@@ -367,13 +364,13 @@
     const rows = frequency === "Annual" ? model.annual : model.months;
     const currency = currencyOf(answers);
     const analysis = selectedReport === "analysis" ? buildAnalysis({
-      model, outcomes, rows, frequency, answers: forecastAnswers, groups: channelModel?.groups,
+      model, outcomes, rows, frequency, answers: forecastAnswers, groups,
       state: { ...analysisState, ...analysisState.windows[frequency] },
     }) : null;
     const options = [`<div class="segmented" role="group" aria-label="Scenario">${radio(outcomes.map(item => [item.name, item.name]), selectedCase, "case")}</div>`,
       report || analysis ? `<div class="segmented" role="group" aria-label="Reporting period">${radio([["Annual", "Annual"], ["Monthly", "Monthly"]], frequency, "frequency")}</div>` : ""];
     app.innerHTML = `<div class="report-head"><div><h1 id="report-title" tabindex="-1">${escape(answers.company)}</h1>
-        <p class="muted">${multiChannel ? "Consolidated financial forecast" : "Financial forecast"} · ${escape(currencyOf(answers))} · ${model.months[0].period} to ${model.months.at(-1).period}</p></div>
+        <p class="muted">Consolidated financial forecast · ${escape(currencyOf(answers))} · ${model.months[0].period} to ${model.months.at(-1).period}</p></div>
         <div class="toolbar"><button type="button" id="review" class="button secondary">Edit assumptions</button>
         <button type="button" id="download" class="button gold">Download model CSV <span aria-hidden="true">↓</span></button></div></div>
       <nav class="report-nav" aria-label="Financial reports">${radio(reportOptions.map(item => [item.id, item.name]), selectedReport, "report")}</nav>
@@ -431,10 +428,10 @@
     const inputValue = (field, value) => field.type === "number" ? Number(value) : displayAnswer(field, value);
     const inputUnit = field => field.unit === "currency" ? currencyOf(answers) : field.unit || "";
     const rows = [["Company", answers.company], ["Currency", currencyOf(answers)],
+      ["Model type", "Multi-channel"], ["Revenue basis", "External revenue consolidated across channels"], ["Input basis", dataNote],
       ["Cash shortfall basis", "Month-end cash before additional funding"],
       ["Trade balance basis", "Sales and purchases spread evenly within 30-day model months"],
       [], ["Assumption or category", "Value or line item", "Field", "Line item value", "Unit"]];
-    if (multiChannel) rows.splice(2, 0, ["Model type", "Multi-channel"], ["Revenue basis", "External revenue consolidated across channels"]);
     for (const prompt of activeQuestions(answers)) {
       const answer = answers[prompt.id];
       const label = prompt.exportLabel || prompt.label;
@@ -442,6 +439,7 @@
         rows.push([prompt.label, inputValue(prompt, answer), "", "", inputUnit(prompt)]);
         continue;
       }
+      if (prompt.note) rows.push([label, "Input guidance", prompt.note]);
       if (!answer.length) rows.push([prompt.label, "None"]);
       for (const item of answer) {
         const fields = fieldsFor(prompt, item).filter(field => field.id !== "name");
@@ -459,7 +457,7 @@
         for (const report of forecastReports) rows.push(...csvTable(report, periods, forecastAnswers), []);
       }
     }
-    download(rows, multiChannel ? "multichannel-financial-model" : "financial-model");
+    download(rows, "financial-model");
   }
 
   function download(rows, suffix) {
@@ -480,17 +478,12 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  newModelButton.addEventListener("click", () => {
-    if (!window.confirm("Start a new model and replace the current draft?")) return;
-    answers = {};
-    outcomes = null;
-    goTo("company");
-  });
-
-  exampleButton.addEventListener("click", () => {
-    if (Object.values(answers).some(Boolean) && !window.confirm("Replace the current draft with the example?")) return;
-    answers = { ...(multiChannel ? multiExample : example) };
+  document.querySelector("#reset-model").addEventListener("click", () => {
+    if (!window.confirm("Replace this draft with Peebee’s default assumptions?")) return;
+    answers = createDefaults();
     editing = false;
+    step = undefined;
+    outcomes = null;
     showReview();
   });
 

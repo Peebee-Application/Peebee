@@ -1,5 +1,5 @@
 (() => {
-  const { byId, fieldsFor, upgradeDraft } = globalThis.FinancialLineItems;
+  const { byId, fieldsFor } = globalThis.FinancialLineItems;
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const question = (id, section, label, hint, options = {}) => ({ id, section, label, hint, ...options });
@@ -19,14 +19,13 @@
 
   const sections = ["Company", "Revenue", "Costs", "Working capital", "Investment", "Funding", "Scenarios"];
   const questions = [
-    question("company", "Company", "What is your company name?", "This name appears on your forecast and exports.", { type: "text", placeholder: "e.g. Acacia Studio" }),
     choice("currency", "Company", "Which currency do you plan in?", "Use this currency for every amount you enter.",
       [["UGX", "UGX · Ugandan shilling"], ["USD", "USD · US dollar"], ["KES", "KES · Kenyan shilling"], ["TZS", "TZS · Tanzanian shilling"], ["RWF", "RWF · Rwandan franc"], ["EUR", "EUR · Euro"], ["GBP", "GBP · British pound"], ["ZAR", "ZAR · South African rand"], ["NGN", "NGN · Nigerian naira"], ["CAD", "CAD · Canadian dollar"], ["AUD", "AUD · Australian dollar"], ["other", "Another currency"]]),
     question("customCurrency", "Company", "What is the three-letter currency code?", "For example, GHS for Ghanaian cedi.", { type: "text", pattern: "[A-Za-z]{3}", when: is("currency", "other") }),
     question("start", "Company", "When should the forecast begin?", "Choose the first month you want to forecast.", { type: "month", suggestion: currentMonth }),
     number("months", "Company", "How far ahead do you want to plan?", "Enter 1 to 84 months. Annual columns group months by calendar year.", { ...period, suggestion: "36" }),
     byId.streams, byId.directCosts, byId.staff, byId.expenses,
-    percent("tax", "Costs", "What income tax rate should the model use?", "The model estimates and pays tax on positive profit monthly. Enter 0 if exempt."),
+    percent("tax", "Costs", "What income tax rate should the model use?", "Enter the income tax rate Peebee should forecast on positive profit. Use 0 if exempt."),
     byId.accounts, byId.receivables, byId.payables,
     byId.ownedAssets, byId.investments,
     byId.existingLoans, byId.newLoans, byId.contributions,
@@ -37,32 +36,6 @@
     percent("discountRate", "Scenarios", "What annual discount rate should be used?", "Enter the weighted average cost of capital you want to use in the DCF.", yes("valuation")),
     amount("exitValue", "Scenarios", "What is the enterprise exit value?", "Enter the value at the end of the forecast, or 0 to value forecast cash flows alone.", yes("valuation")),
   ];
-
-  const example = upgradeDraft({
-    company: "Acacia Studio", currency: "USD", start: currentMonth, months: "36",
-    streams: [
-      { name: "Product sales", method: "units", units: "500", price: "45", growth: "3", days: "14" },
-      { name: "Design services", method: "direct", amount: "4500", growth: "3", days: "30" },
-    ],
-    directCosts: [
-      { name: "Materials", basis: "rate", rate: "31", stock: "6000", inventoryDays: "25", payableDays: "20" },
-      { name: "Payment fees", basis: "rate", rate: "5", stock: "0", inventoryDays: "0", payableDays: "0" },
-    ],
-    staff: [
-      { name: "Production", headcount: "4", amount: "1500", burden: "10", month: "1", growth: "8" },
-      { name: "Operations", headcount: "1", amount: "2600", burden: "0", month: "1", growth: "8" },
-    ],
-    expenses: [
-      { name: "Rent", amount: "1800", month: "1", growth: "5" },
-      { name: "Software", amount: "400", month: "1", growth: "5" },
-      { name: "Marketing", amount: "1300", month: "1", growth: "5" },
-      { name: "Professional fees", amount: "300", month: "1", growth: "5" },
-    ],
-    tax: "25", cash: "25000", openingAR: "3000", openingAP: "2000", openingAssets: "12000", openingLife: "36",
-    capex: "18000", capexMonth: "4", capexLife: "48", openingDebt: "0",
-    loan: "10000", loanMonth: "4", loanRate: "12", loanTerm: "24", funding: "0",
-    scenarios: "yes", downside: "2", upside: "1", valuation: "yes", discountRate: "15", exitValue: "0",
-  });
 
   function itemError(prompt, rows, answers) {
     const names = new Set();
@@ -98,5 +71,5 @@
     return "";
   }
 
-  globalThis.FinancialAssumptions = { questions, sections, example, errorFor, itemError };
+  globalThis.FinancialAssumptions = { questions, sections, currentMonth, errorFor, itemError };
 })();
