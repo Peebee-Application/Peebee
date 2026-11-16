@@ -304,7 +304,7 @@ export function WalletScreen() {
   if (loading) return <div className="p-6 text-sm text-ink-500" aria-busy="true">{t("wallet_loading")}</div>;
   if (loadError || !wallet) {
     return (
-      <div className="space-y-4 px-6 py-16 text-center">
+      <div className="wallet-root space-y-4 px-6 py-16 text-center">
         <p className="text-lg font-extrabold text-ink">{t("wallet_load_error")}</p>
         {loadError && <p className="text-sm text-ink-500">{loadError}</p>}
         <button type="button" onClick={() => { setLoading(true); void load(); }} className="w-pill w-pill-send mx-auto px-6">{t("wallet_retry")}</button>
@@ -317,7 +317,7 @@ export function WalletScreen() {
   const cardDirect = cardAvailable && !!payOptions?.card.direct;
 
   return (
-    <div className="relative min-h-[calc(100dvh-4rem)] bg-cream pb-36 text-ink">
+    <div className="wallet-root relative min-h-[calc(100dvh-4rem)] bg-cream pb-36 text-ink">
       {tab === "home" && (
         <div className="w-pop">
           <section className="w-hero">
@@ -609,7 +609,7 @@ export function WalletScreen() {
       </SheetFrame>}
 
       {result && (
-        <div className={`w-full ${result.kind === "failed" ? "bg-cream text-ink" : "bg-green text-white"}`} onClick={() => result.kind !== "processing" && setResult(null)}>
+        <div className={`wallet-result ${result.kind === "failed" ? "bg-cream text-ink" : "bg-green text-white"}`} onClick={() => result.kind !== "processing" && setResult(null)}>
           {result.kind === "processing" && <p className="text-xl font-extrabold">{result.title}</p>}
           {result.kind === "success" && <>
             <span className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-white text-green"><Check size={48} /></span>
