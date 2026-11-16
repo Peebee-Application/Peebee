@@ -123,7 +123,9 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.5rem); letter-spacing: -.058em; li
 .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .metric { padding: 18px; display: grid; gap: 8px; align-content: start; }
 .metric > span, .metric small { font-size: .85rem; color: var(--quiet); }
-.metric strong { font-variant-numeric: tabular-nums; font-size: clamp(1.12rem, 2.1vw, 1.8rem); letter-spacing: -.05em; overflow-wrap: anywhere; }
+.metric-value { display: grid; gap: 3px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.metric-value strong { font-size: clamp(1.85rem, 3vw, 2.65rem); line-height: 1.08; letter-spacing: -.05em; }
+.metric-amount { font-size: .78rem; color: var(--quiet); }
 .plot { display: grid; gap: 10px; list-style: none; padding: 0; margin: 0; }
 .plot li { display: grid; grid-template-columns: 105px minmax(0, 1fr) minmax(85px, auto); gap: 12px; align-items: center; font-size: .86rem; }
 .plot strong { text-align: right; overflow-wrap: anywhere; }
@@ -141,13 +143,18 @@ tr.total > * { background: rgb(var(--surface-muted)); font-weight: 700; }
 .assumptions-note { margin: 16px 0 0; font-size: .86rem; }
 .stack { display: grid; gap: 16px; }
 .notice { padding: 14px 18px; border: 1px solid rgb(var(--color-gold) / .48); background: rgb(var(--color-gold) / .12); border-radius: 11px; line-height: 1.5; margin: 0 0 18px; }
+@media (max-width: 960px) {
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 420px) {
+  .metrics { grid-template-columns: 1fr; }
+}
 @media (max-width: 800px) {
   .layout { grid-template-columns: 1fr; gap: 12px; }
   .rail { display: none; }
   .mobile-steps { display: block; }
   .mobile-steps summary { cursor: pointer; padding: 8px 0; font-size: .9rem; font-weight: 650; }
   .shell { padding-top: 30px; }
-  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 540px) {
   .masthead-inner, .shell, .footer { padding-left: 16px; padding-right: 16px; }
