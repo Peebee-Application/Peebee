@@ -1,7 +1,7 @@
 (() => {
   const { questions, sections, errorFor, itemError } = globalThis.FinancialAssumptions;
   const { fieldsFor, upgradeDraft } = globalThis.FinancialLineItems;
-  const { build, reports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
+  const { build, reports, revenueDrivers, scheduleReports, statementReports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
   const { questionsFor, consolidate } = globalThis.FinancialChannels;
   const { buildAnalysis, renderAnalysis, exportRows } = globalThis.FinancialAnalysis;
   const { company, catalog, createDefaults, loadStarterRevenue } = globalThis.PeebeeDefaults;
@@ -455,14 +455,42 @@
         <p class="muted">${escape(dataNote)}</p>
         <p class="muted">Each revenue stream grows from its own driver. Payroll and operating expenses change on the anniversary of each line’s start month. Receivables and payables roll forward from sales and purchases already forecast, spread evenly within 30-day model months. Inventory targets use direct costs. Opening receivables and payables settle in the months entered.</p>
         <p class="muted">Fixed assets depreciate straight-line. Debt uses equal principal payments. Opening equity is derived from opening assets and liabilities. Corporate income tax is paid monthly on positive profit. The model excludes VAT, historical statements, and tax loss carryforwards.</p>
+        <p class="muted">The workbook-style financial statement views floor EBITDA margin at zero and omit monthly net margin in loss periods.</p>
         <p class="muted">Annual flows sum the included months. Balance sheet values use the final month of each calendar year shown. Reports display up to two decimal places. Totals use unrounded values. Cash shortfalls are measured at month end before additional funding. The balance sheet shows the unmet funding need as a separate amount.</p>
       </details></div>`;
   }
 
+  function workbookSettings() {
+    const ids = new Set(["currency", "customCurrency", "start", "months", "tax", "accounts", "ownedAssets", "receivables", "payables", "existingLoans"]);
+    const entries = activeQuestions(answers).filter(prompt => ids.has(prompt.id));
+    return `<section class="panel workbook-view"><h2>Settings</h2><dl>
+      <div><dt>Company</dt><dd>${escape(answers.company)}</dd></div>
+      ${entries.map(prompt => `<div><dt>${escape(stepLabel(prompt))}</dt><dd>
+        <button class="text-button" data-edit-setting="${prompt.id}" aria-label="${escape("Edit " + stepLabel(prompt))}">
+          ${escape(displayAnswer(prompt, answers[prompt.id]))}</button></dd></div>`).join("")}
+    </dl></section>`;
+  }
+
+  function workbookIntro() {
+    return `<section class="panel workbook-view">
+      <h2>About this forecast</h2>
+      <p>Settings and assumptions feed the revenue, COGS, expenses, staff, and working capital schedules. FS-Month and FS-Annual show the income statement, balance sheet, and cash flow together.</p>
+      <p class="muted">These views use your Peebee assumptions. The reference workbook has other controls for account acquisition, staffing schedules, inventory orders, automatic asset replacement, loan payments, VAT, and fiscal-year tax settlement. Peebee uses its own assumptions and timing in those areas.</p>
+    </section>`;
+  }
+
   function renderReport() {
     const { answers: forecastAnswers, groups, report: channelReport } = consolidate(modelAnswers());
-    const forecastReports = [channelReport, ...reports];
-    const reportOptions = [{ id: "overview", name: "Overview" }, { id: "analysis", name: "Analysis" }, ...forecastReports];
+    const revenueReport = {
+      ...channelReport, name: "Revenue",
+      note: "Revenue adds the amounts earned across channels. Review quantities, prices, subscriber movements, and fee rates behind the totals.",
+      sections: [{ ...channelReport, name: "Revenue by channel" }, { name: "Revenue drivers", lines: revenueDrivers }],
+    };
+    const forecastReports = [revenueReport, ...scheduleReports, ...statementReports, ...reports];
+    const reportOptions = [
+      { id: "intro", name: "Intro" }, { id: "workbook-settings", name: "Settings" }, { id: "assumptions", name: "Assumptions" },
+      { id: "overview", name: "Dashboard" }, ...forecastReports, { id: "analysis", name: "Analysis" },
+    ];
     try {
       outcomes ||= build(forecastAnswers);
     } catch (error) {
@@ -475,14 +503,21 @@
     }
     const model = outcomes.find(item => item.name === selectedCase);
     const report = forecastReports.find(item => item.id === selectedReport);
-    const rows = frequency === "Annual" ? model.annual : model.months;
+    const reportFrequency = report?.frequency || frequency;
+    const rows = reportFrequency === "Annual" ? model.annual : model.months;
     const currency = currencyOf(answers);
     const analysis = selectedReport === "analysis" ? buildAnalysis({
       model, outcomes, rows, frequency, answers: forecastAnswers, groups,
       state: { ...analysisState, ...analysisState.windows[frequency] },
     }) : null;
     const options = [`<div class="segmented" role="group" aria-label="Scenario">${radio(outcomes.map(item => [item.name, item.name]), selectedCase, "case")}</div>`,
-      report || analysis ? `<div class="segmented" role="group" aria-label="Reporting period">${radio([["Annual", "Annual"], ["Monthly", "Monthly"]], frequency, "frequency")}</div>` : ""];
+      (report && !report.frequency) || analysis ? `<div class="segmented" role="group" aria-label="Reporting period">${radio([["Annual", "Annual"], ["Monthly", "Monthly"]], frequency, "frequency")}</div>` : ""];
+    const renderTable = section => table(section.name, rows.map(row => row.period), linesFor(section, forecastAnswers).map(([label, field, style]) =>
+      [label, rows.map(row => format(lineValue(row, field), style)), style]));
+    const reportBody = report ? `<section class="stack workbook-view">
+      ${report.note ? `<p class="muted">${escape(report.note)}</p>` : ""}
+      ${(report.sections || [report]).map(renderTable).join("")}
+    </section>` : "";
     app.innerHTML = `<div class="report-head"><div><h1 id="report-title" tabindex="-1">${escape(answers.company)}</h1>
         <p class="muted">Consolidated financial forecast · ${escape(currencyOf(answers))} · ${model.months[0].period} to ${model.months.at(-1).period}</p></div>
         <div class="toolbar"><button type="button" id="review" class="button secondary">Edit assumptions</button>
@@ -490,14 +525,15 @@
       <nav class="report-nav" aria-label="Financial reports">${radio(reportOptions.map(item => [item.id, item.name]), selectedReport, "report")}</nav>
       ${outcomes.length > 1 || report || analysis ? `<div class="toolbar">${options.slice(outcomes.length > 1 ? 0 : 1).join("")}
         ${report ? '<button type="button" id="download-report" class="button secondary small">Download this view</button>' : ""}</div>` : ""}
-      ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? table(report.name, rows.map(row => row.period), linesFor(report, forecastAnswers).map(([label, field, style]) =>
-        [label, rows.map(row => format(lineValue(row, field), style)), style])) : overview(model)}`;
+      ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? reportBody
+        : selectedReport === "intro" ? workbookIntro() : selectedReport === "workbook-settings" ? workbookSettings() : overview(model)}`;
     document.querySelector("#review").addEventListener("click", showReview);
     if (analysis) bindAnalysis(analysis, currency);
+    app.querySelectorAll("[data-edit-setting]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.editSetting, true)));
     document.querySelector("#download").addEventListener("click", () => downloadAll(forecastReports, forecastAnswers));
     document.querySelector("#download-report")?.addEventListener("click", () => {
-      download([["Company", answers.company], ["Currency", currencyOf(answers)], ["Scenario", model.name], ...csvTable(report, rows, forecastAnswers)],
-        `${model.name.toLowerCase()}-${frequency.toLowerCase()}-${report.id}`);
+      download([["Company", answers.company], ["Currency", currencyOf(answers)], ["Scenario", model.name], ...reportCsv(report, rows, forecastAnswers)],
+        `${model.name.toLowerCase()}-${reportFrequency.toLowerCase()}-${report.id}`);
     });
     for (const [type, select] of [
       ["case", value => { selectedCase = value; }],
@@ -505,6 +541,7 @@
       ["frequency", value => { frequency = value; }],
     ]) {
       app.querySelectorAll(`[data-${type}]`).forEach(button => button.addEventListener("click", () => {
+        if (type === "report" && button.dataset.report === "assumptions") return showReview();
         select(button.dataset[type]);
         render(button.id);
       }));
@@ -538,6 +575,10 @@
       })])];
   }
 
+  function reportCsv(report, rows, answers) {
+    return (report.sections || [report]).flatMap(section => [...csvTable(section, rows, answers), []]);
+  }
+
   function downloadAll(forecastReports, forecastAnswers) {
     const inputValue = (field, value) => field.type === "number" ? Number(value) : displayAnswer(field, value);
     const inputUnit = field => field.unit === "currency" ? currencyOf(answers) : field.unit || "";
@@ -568,7 +609,9 @@
         ["DCF enterprise value", model.valuation.enterprise], ["DCF equity value", model.valuation.equity]);
       for (const [label, periods] of [["Annual", model.annual], ["Monthly", model.months]]) {
         rows.push([], [label]);
-        for (const report of forecastReports) rows.push(...csvTable(report, periods, forecastAnswers), []);
+        for (const report of forecastReports) {
+          if (!report.frequency || report.frequency === label) rows.push(...reportCsv(report, periods, forecastAnswers));
+        }
       }
     }
     download(rows, "financial-model");
