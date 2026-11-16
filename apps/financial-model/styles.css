@@ -213,12 +213,18 @@ tr.total > * { background: rgb(var(--surface-muted)); font-weight: 700; }
 .line-list { display: grid; gap: 14px; margin-top: 20px; }
 .line-item { min-width: 0; margin: 0; padding: 13px 16px 10px; border: 1px solid var(--border); border-radius: 13px; }
 .line-item legend { padding: 0 6px; font-weight: 650; font-size: .85rem; }
-.line-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px 16px; }
+.line-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(9rem, (100% - 16px) / 2)), 1fr));
+  gap: 13px 16px;
+}
 .channel-list .line-fields { grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 801px) {
+  .line-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); }
   .channel-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); }
 }
-.line-field { min-width: 0; display: grid; gap: 6px; align-content: start; }
+.line-field { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; align-content: start; }
+.line-field:first-child, .line-field:has(> select) { grid-column: 1 / -1; }
 .line-field label { font-size: .85rem; color: var(--ink); font-weight: 620; }
 .line-field .field-box, .line-field select { min-height: 44px; }
 .line-field input, .line-field select { padding: 10px 11px; }
