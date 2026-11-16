@@ -24,19 +24,22 @@
   function consolidate(answers) {
     const streams = [];
     const lines = [];
+    const groups = [];
     for (const channel of channelRows(answers)) {
-      const indices = [];
+      const sources = [];
       for (const stream of answers[channelKey(channel)] || []) {
         const index = streams.length;
         streams.push({ ...stream, name: `${channel.name} · ${stream.name}` });
-        indices.push(index);
+        sources.push({ name: stream.name, index });
         lines.push([`${channel.name} · ${stream.name}`, row => row.details.streams[index].revenue, "detail"]);
       }
-      lines.push([`${channel.name} total`, row => indices.reduce((total, i) => total + row.details.streams[i].revenue, 0), "total"]);
+      groups.push({ key: channel.key, name: channel.name, streams: sources });
+      lines.push([`${channel.name} total`, row => sources.reduce((total, source) => total + row.details.streams[source.index].revenue, 0), "total"]);
     }
     lines.push(["Consolidated revenue", "revenue", "total"]);
     return {
       answers: { ...answers, streams },
+      groups,
       report: { id: "channel-revenue", name: "Revenue by channel", lines },
     };
   }

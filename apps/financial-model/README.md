@@ -14,6 +14,10 @@ The multi-channel **Revenue by channel** report shows monthly and annual source 
 
 Enter direct costs, payroll roles, and expenses separately. The wizard also supports multiple opening cash accounts, existing receivables and payables, inventory balances by direct cost, existing and new assets, outstanding and planned loans, and equity contributions. The statements and supporting schedules roll the named lines into totals. The overview identifies funding gaps and displays a DCF when you enter valuation assumptions.
 
+The **Analysis** tab shows revenue and earnings, cash and funding, cash flow by activity, profit margins, working capital, operating break-even, and scenario comparisons when scenarios are enabled. Use the monthly or annual view and the From and To controls to select periods. Hover or use the arrow keys on a focused chart to inspect a period. **View chart data** lists the displayed values. In multi-channel models, the revenue mix can show channels or the revenue sources within one channel. **Download analysis CSV** exports the selected window and breakdown.
+
+Operating break-even is the revenue needed to cover payroll, overhead and fixed direct costs after percentage-based direct costs. It is undefined when those variable costs consume all revenue.
+
 Existing drafts carry their original summary values forward as named line items. Edit or replace a carried-forward line to provide more detail. The example uses fictional inputs.
 
 The supplied workbook informed the structure. The model estimates collections and supplier payments from prior and current sales or purchases on a 30-day basis, with activity spread evenly across each model month. It measures funding needs at month end. The balance sheet shows unmet funding separately from liabilities. Tax is estimated and paid monthly on positive profit. It excludes VAT, historical actuals, and tax loss carryforwards. CSV downloads are snapshots. To recalculate, edit the assumptions in the app.

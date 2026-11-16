@@ -244,3 +244,60 @@ test("channel subtotals roll up only recognized revenue in every scenario", () =
   assert.ok(downside.months[1].revenue < feb.revenue);
   assert.ok(upside.months[1].revenue > feb.revenue);
 });
+
+test("analysis uses the selected rows, reconciles revenue mix, and computes break-even from fixed and variable costs", () => {
+  require("./analysis.js");
+  require("./channels.js");
+  const { buildAnalysis, exportRows } = globalThis.FinancialAnalysis;
+  const { consolidate } = globalThis.FinancialChannels;
+  const { answers, groups } = consolidate({
+    start: "2026-12", months: "3", scenarios: "yes", downside: "5", upside: "5",
+    channels: [{ key: "concierge", name: "Concierge" }, { key: "buy", name: "Buy" }],
+    "channel-concierge": [
+      { name: "Fees", method: "direct", amount: "150", growth: "0", days: "0" },
+      { name: "Subscriptions", method: "direct", amount: "50", growth: "0", days: "0" },
+    ],
+    "channel-buy": [{ name: "Marketplace", method: "direct", amount: "100", growth: "0", days: "0" }],
+    directCosts: [
+      { name: "Payment fees", basis: "rate", rate: "20", stock: "0", inventoryDays: "0", payableDays: "0" },
+      { name: "Hosting", basis: "fixed", amount: "20", growth: "0", stock: "0", inventoryDays: "0", payableDays: "0" },
+    ],
+    staff: [{ name: "Operations", amount: "70", headcount: "1", burden: "0", growth: "0", month: "1" }],
+    expenses: [{ name: "Rent", amount: "30", growth: "0", month: "1" }],
+  });
+  const outcomes = build(answers);
+  const model = outcomes[1];
+  const run = ({ frequency = "Monthly", ...state } = {}) => buildAnalysis({
+    model, outcomes, frequency, rows: frequency === "Monthly" ? model.months : model.annual, answers, groups, state,
+  });
+  const monthly = run({ from: 1, to: 2, metric: "revenue", group: "concierge" });
+  assert.deepEqual(monthly.periods, ["2027-01", "2027-02"]);
+  assert.equal(monthly.totalRevenue, 400);
+  assert.deepEqual(monthly.mix, [{ name: "Fees", value: 300, share: 0.75 }, { name: "Subscriptions", value: 100, share: 0.25 }]);
+  const chart = (analysis, id) => analysis.charts.find(item => item.id === id);
+  near(chart(monthly, "earnings").series[2].values[0], 120);
+  near(chart(monthly, "margins").series[1].values[0], 0.4);
+  near(chart(monthly, "break-even").series[1].values[0], 150);
+  near(chart(monthly, "scenarios").series[2].values[0], 315);
+
+  const annual = run({ frequency: "Annual" });
+  assert.deepEqual(annual.periods, ["2026 (1 mo.)", "2027 (2 mo.)"]);
+  near(chart(annual, "break-even").series[1].values[1], 300);
+  near(annual.mix.reduce((total, item) => total + item.value, 0), 900);
+  assert.ok(exportRows(monthly, "UGX").some(row => row[0] === "Fees" && row[2] === 75));
+});
+
+test("analysis leaves undefined margins and break-even values blank", () => {
+  require("./analysis.js");
+  const answers = {
+    start: "2026-01", months: "1",
+    streams: [{ name: "Sales", method: "direct", amount: "0", growth: "0", days: "0" }],
+    directCosts: [{ name: "Fees", basis: "rate", rate: "100", stock: "0", inventoryDays: "0", payableDays: "0" }],
+  };
+  const outcomes = build(answers);
+  const [model] = outcomes;
+  const analysis = globalThis.FinancialAnalysis.buildAnalysis({ model, outcomes, rows: model.months, frequency: "Monthly", answers, state: {} });
+  assert.equal(analysis.mix[0].share, null);
+  assert.equal(analysis.charts.find(item => item.id === "break-even").series[1].values[0], null);
+  assert.deepEqual(analysis.charts.find(item => item.id === "margins").series.map(series => series.values[0]), [null, null, null]);
+});
