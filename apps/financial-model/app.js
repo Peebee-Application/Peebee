@@ -473,6 +473,7 @@
     const ids = new Set(["currency", "customCurrency", "start", "months", "tax", "accounts", "ownedAssets", "receivables", "payables", "existingLoans"]);
     const entries = activeQuestions(answers).filter(prompt => ids.has(prompt.id));
     return `<section class="panel workbook-view"><h2>Settings</h2><dl>
+      <div><dt>Appearance</dt><dd><button class="text-button" id="appearance-settings" type="button">Change theme</button></dd></div>
       <div><dt>Company</dt><dd>${escape(answers.company)}</dd></div>
       ${entries.map(prompt => `<div><dt>${escape(stepLabel(prompt))}</dt><dd>
         <button class="text-button" data-edit-setting="${prompt.id}" aria-label="${escape("Edit " + stepLabel(prompt))}">
@@ -538,6 +539,10 @@
         : selectedReport === "intro" ? workbookIntro() : selectedReport === "workbook-settings" ? workbookSettings() : overview(model)}`;
     document.querySelector("#review").addEventListener("click", showReview);
     if (analysis) bindAnalysis(analysis, currency);
+    app.querySelector("#appearance-settings")?.addEventListener("click", () => {
+      settingsDialog.showModal();
+      settingsDialog.querySelector("#appearance-mode").focus();
+    });
     app.querySelectorAll("[data-edit-setting]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.editSetting, true)));
     document.querySelector("#download").addEventListener("click", () => downloadAll(forecastReports, forecastAnswers));
     document.querySelector("#download-report")?.addEventListener("click", () => {

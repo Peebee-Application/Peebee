@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Build a consolidated forecast for Peebee's business channels.">
   <title>Peebee Financial Model</title>
+  <script src="appearance.js"></script>
   <link rel="stylesheet" href="styles.css">
   <script defer src="line-items.js"></script>
   <script defer src="assumptions.js"></script>
@@ -31,6 +32,16 @@
   <dialog id="live-dialog" class="panel" aria-labelledby="live-title"></dialog>
   <dialog id="settings-dialog" class="panel model-dialog" aria-labelledby="settings-title">
     <h2 id="settings-title">Settings</h2>
+    <div class="appearance-option">
+      <label for="appearance-mode">Appearance</label>
+      <select id="appearance-mode" aria-describedby="appearance-help">
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+        <option value="system" selected>System</option>
+        <option value="auto">Auto</option>
+      </select>
+      <span id="appearance-help" class="muted">System follows your device. Auto uses light from 7 a.m. to 7 p.m. in your local time.</span>
+    </div>
     <label class="autosave-option">
       <span class="autosave-copy"><strong>Autosave</strong><span id="autosave-help">Save valid answers when you leave a question.</span></span>
       <span class="autosave-switch">
