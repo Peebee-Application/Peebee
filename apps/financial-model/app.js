@@ -1,6 +1,7 @@
 (() => {
-  const { questions, sections, example, errorFor } = globalThis.FinancialAssumptions;
-  const { build, reports, sum } = globalThis.FinancialModel;
+  const { questions, sections, example, errorFor, itemError } = globalThis.FinancialAssumptions;
+  const { fieldsFor, upgradeDraft } = globalThis.FinancialLineItems;
+  const { build, reports, linesFor, sum } = globalThis.FinancialModel;
   const app = document.querySelector("#app");
   const exampleButton = document.querySelector("#example");
   const newModelButton = document.querySelector("#new-model");
@@ -9,15 +10,25 @@
   const compactFormat = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
   const percentFormat = new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 });
   const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
-  const currencyOf = answers => (answers.currency === "other" ? answers.customCurrency : answers.currency || "").toUpperCase();
+  const currencyOf = answers => ((answers.currency === "other" ? answers.customCurrency : answers.currency) || "").toUpperCase();
   const reportOptions = [{ id: "overview", name: "Overview" }, ...reports];
   const activeQuestions = answers => questions.filter(prompt => !prompt.when || prompt.when(answers));
   const firstMissing = answers => activeQuestions(answers).find(prompt => errorFor(prompt, answers[prompt.id], answers));
   const readDraft = () => {
     try {
       const data = JSON.parse(localStorage.getItem(storageKey));
-      const answers = Object.fromEntries(questions.filter(q => typeof data?.answers?.[q.id] === "string")
-        .map(q => [q.id, data.answers[q.id].slice(0, 160)]));
+      const upgraded = upgradeDraft(data?.answers || {});
+      const answers = {};
+      for (const prompt of questions) {
+        const value = upgraded[prompt.id];
+        if (prompt.type === "items" && Array.isArray(value)) {
+          answers[prompt.id] = value.filter(row => row && typeof row === "object").map(row => Object.fromEntries(
+            prompt.fields.filter(field => typeof row[field.id] === "string")
+              .map(field => [field.id, row[field.id].slice(0, 160)])));
+        } else if (typeof value === "string") {
+          answers[prompt.id] = value.slice(0, 160);
+        }
+      }
       return { answers, step: data?.step, screen: data?.screen };
     } catch {
       return { answers: {} };
@@ -60,7 +71,8 @@
     const done = list.filter(item => !errorFor(item, answers[item.id], answers)).length;
     const value = answers[step] || "";
     const unit = prompt.unit === "currency" ? currencyOf(answers) : prompt.unit;
-    const input = prompt.type === "select"
+    const isItems = prompt.type === "items";
+    const input = isItems ? '<div id="line-editor"></div>' : prompt.type === "select"
       ? `<select id="answer" aria-labelledby="question-title" aria-describedby="hint error"><option value="">Select an option</option>${prompt.choices.map(([id, label]) => `<option value="${id}" ${id === value ? "selected" : ""}>${escape(label)}</option>`).join("")}</select>`
       : `<div class="field-box"><input id="answer" type="${prompt.type}" autocomplete="off" aria-labelledby="question-title" aria-describedby="hint error${unit ? " unit" : ""}" ${prompt.type === "text" ? 'maxlength="160"' : ""} ${prompt.type === "number" ? `min="${prompt.min}" max="${prompt.withinForecast ? Number(answers.months) : prompt.max}" step="${prompt.step || "any"}"` : ""}
         value="${escape(value)}" placeholder="${escape(prompt.placeholder ?? "")}">${unit ? `<span id="unit">${escape(unit)}</span>` : ""}</div>`;
@@ -71,10 +83,10 @@
           return `<li><button type="button" data-section="${i}" ${i === sectionIndex ? 'aria-current="step"' : ""} ${i > sectionIndex ? "disabled" : ""}><span aria-hidden="true" class="dot">${complete ? "✓" : i + 1}</span>${section}</button></li>`;
         }).join("")}
       </ol></nav>
-      <form class="question" id="question-form" novalidate>
+      <form class="question${isItems ? " item-question" : ""}" id="question-form" novalidate>
         <div class="progress-head"><span>${prompt.section} · Section ${sectionIndex + 1} of ${sections.length}</span><span>Question ${sectionStep} of ${sectionQuestions.length}</span></div>
         <progress aria-label="Applicable assumptions answered" value="${done}" max="${list.length}"></progress>
-        <h1 id="question-title">${escape(prompt.label)}</h1>
+        <h1 id="question-title" tabindex="-1">${escape(prompt.label)}</h1>
         <p class="hint" id="hint">${escape(prompt.hint)}</p>
         ${input}
         <p id="error" class="error" role="alert" hidden></p>
@@ -84,15 +96,20 @@
       </form></div>`;
     const field = document.querySelector("#answer");
     const error = document.querySelector("#error");
-    const capturedValue = () => field.value.trim();
-    field.addEventListener("input", () => {
-      field.removeAttribute("aria-invalid");
+    const clearError = () => {
+      app.querySelector('[aria-invalid="true"]')?.removeAttribute("aria-invalid");
       error.hidden = true;
+    };
+    const remember = answer => {
+      clearError();
       if (!editing) {
-        answers[step] = capturedValue();
+        answers[step] = answer;
         save();
       }
-    });
+    };
+    const readItems = isItems ? editItems(prompt, value, remember) : null;
+    const capturedValue = () => isItems ? readItems() : field.value.trim();
+    field?.addEventListener("input", () => remember(capturedValue()));
     document.querySelector("#suggestion")?.addEventListener("click", () => {
       field.value = prompt.suggestion;
       field.dispatchEvent(new Event("input"));
@@ -105,8 +122,11 @@
       if (issue) {
         error.textContent = issue;
         error.hidden = false;
-        field.setAttribute("aria-invalid", "true");
-        field.focus();
+        const invalid = isItems
+          ? document.getElementById(itemError(prompt, inputValue, answers)?.id) || document.querySelector("#add-line")
+          : field;
+        invalid.setAttribute("aria-invalid", "true");
+        invalid.focus();
         return;
       }
       answers[step] = inputValue;
@@ -129,12 +149,86 @@
     }));
   }
 
+  function editItems(prompt, value, remember) {
+    const editor = document.querySelector("#line-editor");
+    let rows = Array.isArray(value) ? value.map(row => ({ ...row })) : [];
+    const snapshot = () => rows.map(row => ({ ...row }));
+    const updatePresets = () => {
+      for (const button of editor.querySelectorAll("[data-preset]")) {
+        const label = prompt.presets[Number(button.dataset.preset)];
+        const added = rows.some(row => (row.name || "").toLowerCase() === label.toLowerCase());
+        button.textContent = `${added ? "✓" : "+"} ${label}`;
+        button.disabled = added;
+        button.setAttribute("aria-label", added ? `${label} added` : `Add ${label}`);
+      }
+    };
+
+    const draw = (focusId) => {
+      editor.innerHTML = `<div class="line-actions" aria-label="Add ${escape(prompt.item)}">${prompt.presets.map((preset, index) =>
+        `<button type="button" class="button secondary small" data-preset="${index}" title="Add ${escape(preset)}">+ ${escape(preset)}</button>`).join("")}
+        <button type="button" id="add-line" class="button secondary small">+ Add ${prompt.presets.length ? "custom " : ""}${escape(prompt.item)}</button></div>
+        ${rows.length ? `<div class="line-list">${rows.map((row, index) => `<fieldset class="line-item"><legend>${escape(prompt.item[0].toUpperCase() + prompt.item.slice(1))} ${index + 1}</legend>
+          <div class="line-fields">${fieldsFor(prompt, row).map(field => lineField(field, row, index)).join("")}</div>
+          <button type="button" class="text-button remove-line" id="remove-line-${index}" data-remove="${index}" aria-label="${escape("Remove " + (row.name || prompt.item + " " + (index + 1)))}">Remove</button>
+          </fieldset>`).join("")}</div>` : `<p class="empty-items muted">${prompt.required ? "Add a line item to continue." : "No line items added. Continue if this category does not apply."}</p>`}`;
+      updatePresets();
+      if (focusId) document.getElementById(focusId)?.focus();
+    };
+
+    const add = (name = "") => {
+      const initial = Object.fromEntries(prompt.fields.map(field => [field.id, field.initial || ""]));
+      rows.push({ ...initial, name });
+      remember(snapshot());
+      const first = name ? fieldsFor(prompt, rows.at(-1))[1].id : "name";
+      draw(`item-${rows.length - 1}-${first}`);
+    };
+    editor.addEventListener("click", event => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      if (button.id === "add-line") add();
+      else if (button.hasAttribute("data-preset")) add(prompt.presets[Number(button.dataset.preset)]);
+      else if (button.hasAttribute("data-remove")) {
+        rows.splice(Number(button.dataset.remove), 1);
+        remember(snapshot());
+        draw("add-line");
+      }
+    });
+    editor.addEventListener("input", event => {
+      const field = event.target;
+      const row = rows[Number(field.dataset.line)];
+      if (!row) return;
+      row[field.dataset.field] = field.value.trim();
+      remember(snapshot());
+      if (field.tagName === "SELECT") draw(field.id);
+      else if (field.dataset.field === "name") {
+        updatePresets();
+        const remove = document.getElementById(`remove-line-${field.dataset.line}`);
+        remove.setAttribute("aria-label", "Remove " + (row.name || prompt.item + " " + (Number(field.dataset.line) + 1)));
+      }
+    });
+    draw();
+    return snapshot;
+  }
+
+  function lineField(field, row, index) {
+    const id = `item-${index}-${field.id}`;
+    const attrs = `id="${id}" data-line="${index}" data-field="${field.id}" aria-describedby="error"`;
+    const value = row[field.id] ?? "";
+    const unit = field.unit === "currency" ? currencyOf(answers) : field.unit;
+    const control = field.type === "select" ? `<select ${attrs}><option value="">Select an option</option>${field.choices.map(([key, label]) =>
+      `<option value="${key}" ${key === value ? "selected" : ""}>${escape(label)}</option>`).join("")}</select>`
+      : `<div class="field-box"><input ${attrs} type="${field.type}" value="${escape(value)}" autocomplete="off"
+        ${field.type === "number" ? `min="${field.min}" max="${field.withinForecast ? Number(answers.months) : field.max}" step="${field.step || "any"}"` : 'maxlength="160"'}>
+        ${unit ? `<span aria-hidden="true">${escape(unit)}</span>` : ""}</div>`;
+    return `<div class="line-field"><label for="${id}">${escape(field.label)}${unit ? `<span class="sr-only"> (${escape(unit)})</span>` : ""}</label>${control}</div>`;
+  }
+
   function goTo(id, edit = false) {
     editing = edit;
     step = id;
     screen = "wizard";
     save();
-    render("answer");
+    render(questions.find(prompt => prompt.id === id)?.type === "items" ? "question-title" : "answer");
   }
 
   function showReview() {
@@ -149,6 +243,7 @@
   }
 
   function displayAnswer(prompt, value) {
+    if (prompt.type === "items") return value.length ? `${value.length} ${value.length === 1 ? "line item" : "line items"}` : "None";
     if (prompt.type === "select") return prompt.choices.find(([id]) => id === value)?.[1] || "";
     if (prompt.type !== "number") return value;
     const unit = prompt.unit === "currency" ? currencyOf(answers) : prompt.unit;
@@ -160,7 +255,10 @@
     app.innerHTML = `<div class="review-head"><div><h1 id="review-title" tabindex="-1">Review assumptions</h1><p class="muted">${escape(answers.company)} · ${escape(currencyOf(answers))}</p></div>
       <button type="button" id="generate" class="button gold">Generate forecast <span aria-hidden="true">→</span></button></div>
       <div class="review-grid">${sections.map(section => `<section class="panel"><h2>${section}</h2><dl>${list.filter(prompt => prompt.section === section).map(prompt =>
-        `<div><dt>${escape(prompt.label)}</dt><dd><button class="text-button" data-edit="${prompt.id}" aria-label="${escape("Edit: " + prompt.label)}">${escape(displayAnswer(prompt, answers[prompt.id]))}</button></dd></div>`).join("")}</dl></section>`).join("")}</div>`;
+        `<div class="review-answer"><dt>${escape(prompt.label)}</dt><dd><button class="text-button" data-edit="${prompt.id}" aria-label="${escape("Edit: " + prompt.label)}">${escape(displayAnswer(prompt, answers[prompt.id]))}</button></dd>
+          ${prompt.type === "items" && answers[prompt.id].length ? `<dd class="review-lines"><details><summary>View line items</summary>
+            <ul>${answers[prompt.id].map(row => `<li><strong>${escape(row.name)}</strong><ul>${fieldsFor(prompt, row).filter(field => field.id !== "name").map(field =>
+              `<li>${escape(field.label)} · ${escape(displayAnswer(field, row[field.id]))}</li>`).join("")}</ul></li>`).join("")}</ul></details></dd>` : ""}</div>`).join("")}</dl></section>`).join("")}</div>`;
     app.querySelectorAll("[data-edit]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.edit, true)));
     document.querySelector("#generate").addEventListener("click", () => {
       if (firstMissing(answers)) return showReview();
@@ -183,7 +281,7 @@
   const money = value => `${currencyOf(answers)} ${format(value)}`;
   const table = (name, columns, rows) => `<div class="table-wrap" tabindex="0" role="region" aria-label="${escape(name)}">
     <table aria-label="${escape(name)}"><thead><tr><th scope="col">${escape(name)}</th>${columns.map(label => `<th scope="col">${escape(label)}</th>`).join("")}</tr></thead>
-    <tbody>${rows.map(([label, cells, total]) => `<tr${total ? ' class="total"' : ""}><th scope="row">${escape(label)}</th>${cells.map(value => `<td>${escape(value)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    <tbody>${rows.map(([label, cells, style]) => `<tr${style === "total" || style === "detail" ? ` class="${style}"` : ""}><th scope="row">${escape(label)}</th>${cells.map(value => `<td>${escape(value)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
   const metric = (label, value, context) => `<div class="panel metric"><span>${label}</span><strong>${escape(value)}</strong><small>${escape(context)}</small></div>`;
   const radio = (items, selected, type) => items.map(([id, label]) =>
     `<button type="button" id="${type}-${id}" data-${type}="${id}" aria-pressed="${id === selected}">${escape(label)}</button>`).join("");
@@ -194,7 +292,7 @@
     const last = model.months.at(-1);
     const maxRevenue = Math.max(1, ...model.annual.map(row => row.revenue));
     const comparison = [
-      ["Monthly sales growth", item => format(item.growth, "rate")],
+      ["Sales growth adjustment (percentage points)", item => format(item.growthAdjustment * 100)],
       ["Total forecast revenue", item => money(sum(item.months, "revenue"))],
       ["Total forecast EBITDA", item => money(sum(item.months, "ebitda"))],
       ["Ending cash", item => money(item.months.at(-1).cash)],
@@ -219,14 +317,10 @@
         <div><dt>Equity value after opening cash and debt</dt><dd>${escape(money(model.valuation.equity))}</dd></div>
       </dl></section>` : ""}
       <details class="panel"><summary>Model methodology</summary>
-        <p class="muted">Revenue grows monthly from one sales driver. Payroll and overhead change at forecast anniversaries. Receivables use sales, inventory uses direct costs, and payables use purchases on a 30-day basis. Purchases stay at or above zero, so inventory above target runs down through sales.</p>
+        <p class="muted">Each revenue stream grows from its own driver. Payroll and operating expenses change on the anniversary of each line’s start month. Receivables use each stream’s sales and payment terms. Inventory and payables use each direct cost’s terms on a 30-day basis. Opening receivables and payables settle in the months entered.</p>
         <p class="muted">Fixed assets depreciate straight-line. Debt uses equal principal payments. Opening equity is derived from opening assets and liabilities. Corporate income tax is paid monthly on positive profit. The model excludes VAT, historical statements, and tax loss carryforwards.</p>
         <p class="muted">Annual flows sum the included months. Balance sheet values use the final month of each calendar year shown. Any cash shortfall remains visible until funding or operating cash flow covers it.</p>
       </details></div>`;
-  }
-
-  function visibleLines(report) {
-    return report.lines.filter(([, , , method]) => !method || method === answers.revenueMethod);
   }
 
   function renderReport() {
@@ -243,8 +337,8 @@
       <nav class="report-nav" aria-label="Financial reports">${radio(reportOptions.map(item => [item.id, item.name]), selectedReport, "report")}</nav>
       ${outcomes.length > 1 || report ? `<div class="toolbar">${options.slice(outcomes.length > 1 ? 0 : 1).join("")}
         ${report ? '<button type="button" id="download-report" class="button secondary small">Download this view</button>' : ""}</div>` : ""}
-      ${report ? table(report.name, rows.map(row => row.period), visibleLines(report).map(([label, field, style]) =>
-        [label, rows.map(row => format(lineValue(row, field), style)), style === "total"])) : overview(model)}`;
+      ${report ? table(report.name, rows.map(row => row.period), linesFor(report, answers).map(([label, field, style]) =>
+        [label, rows.map(row => format(lineValue(row, field), style)), style])) : overview(model)}`;
     document.querySelector("#review").addEventListener("click", showReview);
     document.querySelector("#download").addEventListener("click", downloadAll);
     document.querySelector("#download-report")?.addEventListener("click", () => {
@@ -264,7 +358,7 @@
   }
 
   function csvTable(report, rows) {
-    return [[report.name, ...rows.map(row => row.period)], ...visibleLines(report).map(([label, field, style]) =>
+    return [[report.name, ...rows.map(row => row.period)], ...linesFor(report, answers).map(([label, field, style]) =>
       [style === "rate" ? `${label} (%)` : label, ...rows.map(row => {
         const value = lineValue(row, field);
         return value === null ? "" : Number((style === "rate" ? value * 100 : value).toFixed(6));
@@ -272,10 +366,22 @@
   }
 
   function downloadAll() {
-    const rows = [["Company", answers.company], ["Currency", currencyOf(answers)], [], ["Assumptions", "Value"]];
-    for (const prompt of activeQuestions(answers)) rows.push([prompt.label, displayAnswer(prompt, answers[prompt.id])]);
+    const rows = [["Company", answers.company], ["Currency", currencyOf(answers)], [], ["Assumption or category", "Value or line item", "Line item field", "Line item value"]];
+    for (const prompt of activeQuestions(answers)) {
+      const answer = answers[prompt.id];
+      if (prompt.type !== "items") {
+        rows.push([prompt.label, displayAnswer(prompt, answer)]);
+        continue;
+      }
+      if (!answer.length) rows.push([prompt.label, "None"]);
+      for (const item of answer) {
+        for (const field of fieldsFor(prompt, item)) {
+          if (field.id !== "name") rows.push([prompt.label, item.name, field.label, displayAnswer(field, item[field.id])]);
+        }
+      }
+    }
     for (const model of outcomes) {
-      rows.push([], ["Scenario", model.name], ["Monthly sales growth (%)", model.growth * 100], ["Peak funding gap", model.fundingGap],
+      rows.push([], ["Scenario", model.name], ["Sales growth adjustment (percentage points)", model.growthAdjustment * 100], ["Peak funding gap", model.fundingGap],
         ["First negative cash month", model.shortfall?.period || ""], ["Lowest cash month", model.lowCash.period]);
       if (model.valuation) rows.push(["Present value of forecast cash flows", model.valuation.pvFlows], ["Present value of exit value", model.valuation.pvExit],
         ["DCF enterprise value", model.valuation.enterprise], ["DCF equity value", model.valuation.equity]);

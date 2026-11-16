@@ -1,69 +1,168 @@
 (() => {
-  function forecast(answers, name = "Base", growthAdjustment = 0) {
+  const { upgradeDraft, byId } = globalThis.FinancialLineItems;
+  const sum = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
+  const total = rows => sum(rows, "amount");
+  const amounts = answers => Object.fromEntries(Object.keys(byId).map(id => [id, (answers[id] || []).map(row =>
+    Object.fromEntries(Object.entries(row).map(([key, value]) =>
+      [key, ["name", "method", "basis"].includes(key) ? value : Number(value || 0)])))]));
+  const numeric = (row, key) => row[key] || 0;
+  const stockAfter = (opening, cogs, days) => Math.max(opening - cogs, cogs * days / 30);
+  const scheduled = (rows, month) => rows.map(row => ({ amount: row.month === month ? row.amount : 0 }));
+  const outstanding = (rows, month) => rows.map(row => ({
+    amount: row.month > month ? row.amount : 0,
+    settled: row.month === month ? row.amount : 0,
+  }));
+
+  function sale(line, prior, elapsed, adjustment) {
+    const { method, price, days } = line;
+    const rate = Math.max(-1, (numeric(line, "growth") + adjustment) / 100);
+    const scale = (1 + rate) ** elapsed;
+    const units = method === "units" ? line.units * scale : 0;
+    const joining = method === "subscription" ? line.newSubscribers * scale : 0;
+    const opening = prior?.active ?? numeric(line, "active");
+    const leaving = method === "subscription" ? opening * line.churn / 100 : 0;
+    const active = opening + joining - leaving;
+    const revenue = method === "direct" ? line.amount * scale : (method === "units" ? units : active) * price;
+    return { revenue, units, joining, leaving, active, price, ar: revenue * numeric(line, "days") / 30 };
+  }
+
+  function directCost(line, prior, revenue, elapsed) {
+    const cogs = line.basis === "fixed" ? line.amount * (1 + line.growth / 100) ** Math.floor(elapsed / 12) : revenue * line.rate / 100;
+    const opening = prior?.stock ?? numeric(line, "stock");
+    const stock = stockAfter(opening, cogs, numeric(line, "inventoryDays"));
+    const purchases = Math.max(0, cogs + stock - opening);
+    return { cogs, stock, purchases, ap: purchases * numeric(line, "payableDays") / 30 };
+  }
+
+  function expense(line, month, staffing) {
+    const elapsed = month - line.month;
+    const active = elapsed >= 0;
+    const base = active ? line.amount * (1 + line.growth / 100) ** Math.floor(elapsed / 12) : 0;
+    const headcount = active && staffing ? line.headcount : 0;
+    const wages = base * headcount;
+    const benefits = staffing ? wages * line.burden / 100 : 0;
+    return { amount: staffing ? wages + benefits : base, headcount, wages, benefits };
+  }
+
+  function asset(line, prior, month, existing) {
+    const capex = !existing && line.month === month ? line.amount : 0;
+    const opening = prior?.assets ?? (existing ? line.amount : 0);
+    const available = opening + capex;
+    const elapsed = month - (existing ? 1 : line.month);
+    const depreciation = elapsed < 0 || elapsed >= line.life ? 0
+      : elapsed === line.life - 1 ? available : Math.min(available, line.amount / line.life);
+    return { capex, depreciation, assets: available - depreciation };
+  }
+
+  function loan(line, prior, month, existing) {
+    const opening = prior?.debt ?? (existing ? line.amount : 0);
+    const draw = !existing && line.month === month ? line.amount : 0;
+    const elapsed = month - (existing ? 0 : line.month);
+    const principal = elapsed > 0 ? (elapsed >= line.term ? opening : Math.min(opening, line.amount / line.term)) : 0;
+    return { draw, principal, debt: opening + draw - principal, interest: (opening + draw) * line.rate / 1200 };
+  }
+
+  const detailFlows = {
+    streams: ["revenue", "units", "joining", "leaving"],
+    directCosts: ["cogs", "purchases"],
+    staff: ["amount", "wages", "benefits"],
+    expenses: ["amount"],
+    accounts: ["amount"],
+    receivables: ["settled"],
+    payables: ["settled"],
+    ownedAssets: ["depreciation"],
+    investments: ["capex", "depreciation"],
+    existingLoans: ["principal", "interest"],
+    newLoans: ["draw", "principal", "interest"],
+    contributions: ["amount"],
+  };
+  const flows = ["revenue", "cogs", "gross", "payroll", "overhead", "ebitda", "depreciation", "ebit", "interest",
+    "pretax", "tax", "profit", "deltaAR", "deltaStock", "deltaAP", "deltaWC", "purchases", "operating", "investing",
+    "financing", "netCash", "capex", "draw", "principal", "equityRaised", "freeCash"];
+
+  function toAnnual(months) {
+    return [...new Set(months.map(row => row.year))].map(year => {
+      const rows = months.filter(row => row.year === year);
+      const last = rows.at(-1);
+      const period = rows.length === 12 ? String(year) : `${year} (${rows.length} mo.)`;
+      const details = Object.fromEntries(Object.entries(last.details).map(([id, list]) => [id,
+        list.map((item, i) => {
+          const result = { ...item };
+          for (const key of detailFlows[id]) result[key] = rows.reduce((value, row) => value + row.details[id][i][key], 0);
+          return result;
+        })]));
+      const annual = { ...last, details, period, openingCash: rows[0].openingCash };
+      for (const key of flows) annual[key] = sum(rows, key);
+      return annual;
+    });
+  }
+
+  function forecast(answers, items, name = "Base", growthAdjustment = 0) {
     const n = id => Number(answers[id] || 0);
     const startMonth = Number(answers.start.slice(5, 7)) - 1;
     const startYear = Number(answers.start.slice(0, 4));
-    const growth = Math.max(-1, (n("growth") + growthAdjustment) / 100);
     const taxRate = n("tax") / 100;
-    const method = answers.revenueMethod;
-    const openingEquity = n("cash") + n("openingAR") + n("openingInventory") + n("openingAssets") - n("openingAP") - n("openingDebt");
-    let previous = {
-      cash: n("cash"), ar: n("openingAR"), stock: n("openingInventory"), ap: n("openingAP"),
-      assets: n("openingAssets"), oldDebt: n("openingDebt"), newDebt: 0,
-      retained: 0, capital: openingEquity, active: n("active"),
-    };
+    const initialCash = total(items.accounts);
+    const initialDebt = total(items.existingLoans);
+    const stockAtOpen = items.directCosts.reduce((value, row) => value + numeric(row, "stock"), 0);
+    const initialAR = total(items.receivables);
+    const initialAP = total(items.payables);
+    const openingEquity = initialCash + initialAR + stockAtOpen + total(items.ownedAssets) - initialAP - initialDebt;
+    let previous = { cash: initialCash, ar: initialAR, stock: stockAtOpen, ap: initialAP, retained: 0, capital: openingEquity, details: {} };
     const months = [];
     for (let i = 0; i < n("months"); i++) {
       const month = i + 1;
       const year = startYear + Math.floor((startMonth + i) / 12);
       const period = `${year}-${String((startMonth + i) % 12 + 1).padStart(2, "0")}`;
-      const scale = (1 + growth) ** i;
-      const units = method === "units" ? n("units") * scale : 0;
-      const newSubscribers = method === "subscription" ? n("newSubscribers") * scale : 0;
-      const churned = method === "subscription" ? previous.active * n("churn") / 100 : 0;
-      const active = previous.active + newSubscribers - churned;
-      const revenue = method === "direct" ? n("revenue") * scale : (method === "units" ? units : active) * n("price");
-      const cogs = revenue * n("cogsRate") / 100;
+      const current = (group, evaluate) => items[group].map((line, index) => evaluate(line, previous.details[group]?.[index]));
+      const streams = current("streams", (line, prior) => sale(line, prior, i, growthAdjustment));
+      const revenue = sum(streams, "revenue");
+      const directCosts = current("directCosts", (line, prior) => directCost(line, prior, revenue, i));
+      const cogs = sum(directCosts, "cogs");
+      const staff = current("staff", line => expense(line, month, true));
+      const expenses = current("expenses", line => expense(line, month, false));
+      const payroll = total(staff);
+      const overhead = total(expenses);
       const gross = revenue - cogs;
-      const payroll = n("payroll") * (1 + n("payrollGrowth") / 100) ** Math.floor(i / 12);
-      const overhead = n("overhead") * (1 + n("overheadGrowth") / 100) ** Math.floor(i / 12);
       const ebitda = gross - payroll - overhead;
-      const capex = month === n("capexMonth") ? n("capex") : 0;
-      const oldDep = month <= n("openingLife") ? n("openingAssets") / n("openingLife") : 0;
-      const newDep = month >= n("capexMonth") && month < n("capexMonth") + n("capexLife") ? n("capex") / n("capexLife") : 0;
-      const depreciation = Math.min(previous.assets + capex, oldDep + newDep);
-      const assets = Math.max(0, previous.assets + capex - depreciation);
+      const ownedAssets = current("ownedAssets", (line, prior) => asset(line, prior, month, true));
+      const investments = current("investments", (line, prior) => asset(line, prior, month, false));
+      const fixed = ownedAssets.concat(investments);
+      const capex = sum(fixed, "capex");
+      const depreciation = sum(fixed, "depreciation");
+      const assets = sum(fixed, "assets");
       const ebit = ebitda - depreciation;
-
-      const draw = month === n("loanMonth") ? n("loan") : 0;
-      const oldPrincipal = previous.oldDebt > 0
-        ? (month >= n("openingTerm") ? previous.oldDebt : Math.min(previous.oldDebt, n("openingDebt") / n("openingTerm"))) : 0;
-      const elapsed = month - n("loanMonth");
-      const newPrincipal = elapsed > 0 && previous.newDebt > 0
-        ? (elapsed >= n("loanTerm") ? previous.newDebt : Math.min(previous.newDebt, n("loan") / n("loanTerm"))) : 0;
-      const oldDebt = previous.oldDebt - oldPrincipal;
-      const newDebt = previous.newDebt + draw - newPrincipal;
-      const debt = oldDebt + newDebt;
-      const interest = (previous.oldDebt * n("openingRate") + (previous.newDebt + draw) * n("loanRate")) / 1200;
-      const principal = oldPrincipal + newPrincipal;
+      const existingLoans = current("existingLoans", (line, prior) => loan(line, prior, month, true));
+      const newLoans = current("newLoans", (line, prior) => loan(line, prior, month, false));
+      const debtLines = existingLoans.concat(newLoans);
+      const draw = sum(debtLines, "draw");
+      const debt = sum(debtLines, "debt");
+      const interest = sum(debtLines, "interest");
+      const principal = sum(debtLines, "principal");
       const pretax = ebit - interest;
       const tax = Math.max(0, pretax) * taxRate;
       const profit = pretax - tax;
 
-      const ar = revenue * n("arDays") / 30;
-      const stock = Math.max(previous.stock - cogs, cogs * n("inventoryDays") / 30);
-      const purchases = Math.max(0, cogs + stock - previous.stock);
-      const ap = purchases * n("apDays") / 30;
+      const receivables = outstanding(items.receivables, month);
+      const payables = outstanding(items.payables, month);
+      const ar = sum(streams, "ar") + total(receivables);
+      const stock = sum(directCosts, "stock");
+      const purchases = sum(directCosts, "purchases");
+      const ap = sum(directCosts, "ap") + total(payables);
       const wc = ar + stock - ap;
-      const deltaWC = wc - (previous.ar + previous.stock - previous.ap);
+      const deltaAR = ar - previous.ar;
+      const deltaStock = stock - previous.stock;
+      const deltaAP = ap - previous.ap;
+      const deltaWC = deltaAR + deltaStock - deltaAP;
       const operating = profit + depreciation - deltaWC;
       const investing = -capex;
-      const equityRaised = month === n("fundingMonth") ? n("funding") : 0;
+      const accounts = items.accounts.map(line => ({ amount: month === 1 ? line.amount : 0 }));
+      const contributions = scheduled(items.contributions, month);
+      const equityRaised = total(contributions);
       const financing = equityRaised + draw - principal;
       const netCash = operating + investing + financing;
       const openingCash = previous.cash;
       const cash = openingCash + netCash;
-
       const retained = previous.retained + profit;
       const capital = previous.capital + equityRaised;
       const equity = capital + retained;
@@ -72,75 +171,90 @@
       const liabilities = ap + debt;
       const check = totalAssets - liabilities - equity;
       const freeCash = ebit - Math.max(0, ebit) * taxRate + depreciation - deltaWC - capex;
-      months.push({ period, year, revenue, units, active, newSubscribers, churned, cogs, gross, payroll, overhead,
-        ebitda, depreciation, ebit, interest, pretax, tax, profit, ar, stock, ap, wc, deltaWC, purchases, assets,
-        currentAssets, totalAssets, oldDebt, newDebt, debt, liabilities, capital, retained, equity, check,
-        operating, investing, financing, netCash, openingCash, cash, capex, draw, principal, equityRaised, freeCash });
-      previous = { cash, ar, stock, ap, assets, oldDebt, newDebt, retained, capital, active };
+      const details = { streams, directCosts, staff, expenses, accounts, receivables, payables, ownedAssets, investments, existingLoans, newLoans, contributions };
+      const row = { period, year, revenue, cogs, gross, payroll, overhead, ebitda, depreciation, ebit, interest, pretax, tax, profit,
+        ar, stock, ap, wc, deltaAR, deltaStock, deltaAP, deltaWC, purchases, assets, currentAssets, totalAssets, debt, liabilities,
+        capital, retained, equity, check, operating, investing, financing, netCash, openingCash, cash, capex, draw,
+        principal, equityRaised, freeCash, details };
+      months.push(row);
+      previous = row;
     }
-
-    const flows = ["units", "newSubscribers", "churned", "revenue", "cogs", "gross", "payroll", "overhead", "ebitda",
-      "depreciation", "ebit", "interest", "pretax", "tax", "profit", "deltaWC", "purchases", "operating", "investing",
-      "financing", "netCash", "capex", "draw", "principal", "equityRaised", "freeCash"];
-    const annual = [...new Set(months.map(row => row.year))].map(year => {
-      const rows = months.filter(row => row.year === year);
-      const period = rows.length === 12 ? String(year) : `${year} (${rows.length} mo.)`;
-      const result = { ...rows.at(-1), period, openingCash: rows[0].openingCash };
-      for (const key of flows) result[key] = sum(rows, key);
-      return result;
-    });
     const lowCash = months.reduce((low, row) => row.cash < low.cash ? row : low);
     const shortfall = months.find(row => row.cash < -0.005);
     const rate = n("discountRate") / 100;
-    const pvFlows = months.reduce((total, row, i) => total + row.freeCash / (1 + rate) ** ((i + 1) / 12), 0);
+    const pvFlows = months.reduce((value, row, i) => value + row.freeCash / (1 + rate) ** ((i + 1) / 12), 0);
     const pvExit = n("exitValue") / (1 + rate) ** (months.length / 12);
     return {
-      name, growth, months, annual, lowCash, shortfall, fundingGap: Math.max(0, -lowCash.cash),
-      valuation: answers.valuation === "yes" ? { pvFlows, pvExit, enterprise: pvFlows + pvExit, equity: pvFlows + pvExit + n("cash") - n("openingDebt") } : null,
+      name, growthAdjustment: growthAdjustment / 100, months, annual: toAnnual(months), lowCash, shortfall, fundingGap: Math.max(0, -lowCash.cash),
+      valuation: answers.valuation === "yes" ? { pvFlows, pvExit, enterprise: pvFlows + pvExit, equity: pvFlows + pvExit + initialCash - initialDebt } : null,
     };
   }
 
-  const sum = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
   const margin = key => row => row.revenue ? row[key] / row.revenue : null;
+  const detail = (group, key, prefix, style = "detail", filter = () => true) => ({ group, key, prefix, style, filter });
+  const assetLines = (key, prefix) => [detail("ownedAssets", key, prefix), detail("investments", key, prefix)];
+  const loanLines = (key, prefix, sign = 1) => [detail("existingLoans", key, prefix), detail("newLoans", key, prefix)].map(line => ({ ...line, sign }));
   const reports = [
     { id: "income", name: "Income statement", lines: [
-      ["Revenue", "revenue", "total"], ["Direct costs", "cogs"], ["Gross profit", "gross", "total"], ["Gross margin", margin("gross"), "rate"],
-      ["Payroll", "payroll"], ["Operating expenses", "overhead"], ["EBITDA", "ebitda", "total"], ["EBITDA margin", margin("ebitda"), "rate"],
-      ["Depreciation", "depreciation"], ["Operating profit", "ebit", "total"], ["Interest expense", "interest"],
+      detail("streams", "revenue", "Sales"), ["Revenue", "revenue", "total"],
+      detail("directCosts", "cogs", "Direct cost"), ["Direct costs", "cogs", "total"], ["Gross profit", "gross", "total"], ["Gross margin", margin("gross"), "rate"],
+      detail("staff", "amount", "Payroll"), ["Payroll", "payroll", "total"], detail("expenses", "amount", "Operating expense"), ["Operating expenses", "overhead", "total"],
+      ["EBITDA", "ebitda", "total"], ["EBITDA margin", margin("ebitda"), "rate"],
+      ...assetLines("depreciation", "Depreciation"), ["Depreciation", "depreciation", "total"], ["Operating profit", "ebit", "total"],
+      ...loanLines("interest", "Interest"), ["Interest expense", "interest", "total"],
       ["Profit before tax", "pretax"], ["Income tax", "tax"], ["Net income", "profit", "total"], ["Net margin", margin("profit"), "rate"],
     ] },
     { id: "balance", name: "Balance sheet", lines: [
-      ["Cash before additional financing", "cash"], ["Accounts receivable", "ar"], ["Inventory", "stock"], ["Current assets", "currentAssets", "total"],
-      ["Net fixed assets", "assets"], ["Total assets", "totalAssets", "total"], ["Accounts payable", "ap"], ["Debt outstanding", "debt"],
-      ["Total liabilities", "liabilities", "total"], ["Opening equity and contributions", "capital"], ["Forecast retained earnings", "retained"],
-      ["Total equity", "equity", "total"], ["Total liabilities and equity", row => row.liabilities + row.equity, "total"],
-      ["Balance sheet difference", "check"],
+      ["Cash before additional financing", "cash"],
+      detail("streams", "ar", "Forecast receivable"), detail("receivables", "amount", "Opening receivable"), ["Accounts receivable", "ar", "total"],
+      detail("directCosts", "stock", "Stock", "detail", row => Number(row.stock) > 0 || Number(row.inventoryDays) > 0), ["Inventory", "stock", "total"],
+      ["Current assets", "currentAssets", "total"], ...assetLines("assets", "Book value"), ["Net fixed assets", "assets", "total"], ["Total assets", "totalAssets", "total"],
+      detail("directCosts", "ap", "Forecast payable", "detail", row => Number(row.payableDays) > 0), detail("payables", "amount", "Opening payable"), ["Accounts payable", "ap", "total"],
+      ...loanLines("debt", "Loan balance"), ["Debt outstanding", "debt", "total"], ["Total liabilities", "liabilities", "total"],
+      ["Opening equity and contributions", "capital"], ["Forecast retained earnings", "retained"], ["Total equity", "equity", "total"],
+      ["Total liabilities and equity", row => row.liabilities + row.equity, "total"], ["Balance sheet difference", "check"],
     ] },
     { id: "cashflow", name: "Cash flow", lines: [
       ["Opening cash", "openingCash", "total"], ["Net income", "profit"], ["Depreciation add-back", "depreciation"],
-      ["Working capital cash impact", row => -row.deltaWC], ["Operating cash flow", "operating", "total"],
-      ["Capital expenditure", row => -row.capex], ["Investing cash flow", "investing", "total"],
-      ["Equity raised", "equityRaised"], ["Loan proceeds", "draw"], ["Principal repaid", row => -row.principal],
-      ["Financing cash flow", "financing", "total"], ["Net change in cash", "netCash", "total"], ["Ending cash", "cash", "total"],
+      ["Cash impact of change in receivables", row => -row.deltaAR], ["Cash impact of change in inventory", row => -row.deltaStock],
+      ["Cash impact of change in payables", "deltaAP"], ["Working capital cash impact", row => -row.deltaWC, "total"], ["Operating cash flow", "operating", "total"],
+      { ...detail("investments", "capex", "Purchase"), sign: -1 }, ["Capital expenditure", row => -row.capex, "total"], ["Investing cash flow", "investing", "total"],
+      detail("contributions", "amount", "Equity"), ["Equity raised", "equityRaised", "total"],
+      detail("newLoans", "draw", "Loan draw"), ["Loan proceeds", "draw", "total"], ...loanLines("principal", "Principal payment", -1),
+      ["Principal repaid", row => -row.principal, "total"], ["Financing cash flow", "financing", "total"],
+      ["Net change in cash", "netCash", "total"], ["Ending cash", "cash", "total"],
     ] },
     { id: "schedules", name: "Supporting schedules", lines: [
-      ["Units sold", "units", "count", "units"], ["New subscribers", "newSubscribers", "count", "subscription"],
-      ["Subscribers lost", "churned", "count", "subscription"], ["Closing subscribers", "active", "count", "subscription"],
-      ["Revenue", "revenue", "total"], ["Direct costs", "cogs"], ["Payroll", "payroll"], ["Operating expenses", "overhead"],
-      ["Accounts receivable", "ar"], ["Inventory", "stock"], ["Purchases", "purchases"], ["Accounts payable", "ap"],
-      ["Net working capital", "wc", "total"], ["Change in working capital", "deltaWC"],
-      ["Capital expenditure", "capex"], ["Depreciation", "depreciation"], ["Closing net fixed assets", "assets", "total"],
-      ["Opening loan balance remaining", "oldDebt"], ["New borrowing balance remaining", "newDebt"], ["Closing debt", "debt", "total"],
-      ["Interest expense", "interest"], ["Principal repaid", "principal"], ["Unlevered free cash flow", "freeCash", "total"],
+      detail("streams", "units", "Units sold", "count", row => row.method === "units"),
+      detail("streams", "joining", "New subscribers", "count", row => row.method === "subscription"),
+      detail("streams", "leaving", "Subscribers lost", "count", row => row.method === "subscription"),
+      detail("streams", "active", "Closing subscribers", "count", row => row.method === "subscription"),
+      detail("streams", "price", "Price per unit or subscriber", "detail", row => row.method !== "direct"),
+      detail("streams", "revenue", "Sales"), ["Revenue", "revenue", "total"],
+      detail("directCosts", "cogs", "Direct cost"), detail("directCosts", "purchases", "Purchases"), ["Total purchases", "purchases", "total"],
+      detail("staff", "headcount", "Closing headcount", "count"), detail("staff", "wages", "Wages"), detail("staff", "benefits", "Employer taxes and benefits"),
+      ["Payroll", "payroll", "total"], detail("expenses", "amount", "Operating expense"), ["Operating expenses", "overhead", "total"],
+      detail("accounts", "amount", "Opening cash account"), detail("receivables", "settled", "Collection of opening balance"),
+      detail("payables", "settled", "Payment of opening balance"), ["Net working capital", "wc", "total"], ["Change in working capital", "deltaWC"],
+      detail("investments", "capex", "Asset purchase"), ...assetLines("depreciation", "Depreciation"), ...assetLines("assets", "Remaining book value"),
+      ...loanLines("interest", "Interest"), ...loanLines("principal", "Principal payment"), ...loanLines("debt", "Loan balance"),
+      detail("contributions", "amount", "Equity"), ["Unlevered free cash flow", "freeCash", "total"],
     ] },
   ];
 
-  function build(answers) {
-    const base = forecast(answers);
+  function linesFor(report, answers) {
+    return report.lines.flatMap(line => Array.isArray(line) ? [line] : (answers[line.group] || []).flatMap((item, index) =>
+      line.filter(item) ? [[`${line.prefix} · ${item.name}`, row => (line.sign ?? 1) * row.details[line.group][index][line.key], line.style]] : []));
+  }
+
+  function build(rawAnswers) {
+    const answers = upgradeDraft(rawAnswers);
+    const items = amounts(answers);
+    const base = forecast(answers, items);
     return answers.scenarios === "yes" ? [
-      forecast(answers, "Downside", -Number(answers.downside)), base, forecast(answers, "Upside", Number(answers.upside)),
+      forecast(answers, items, "Downside", -Number(answers.downside)), base, forecast(answers, items, "Upside", Number(answers.upside)),
     ] : [base];
   }
 
-  globalThis.FinancialModel = { build, reports, sum };
+  globalThis.FinancialModel = { build, reports, linesFor, sum };
 })();
