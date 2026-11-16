@@ -233,6 +233,42 @@ const DEFAULTS = {
   /** Ceiling on a single top-up request, independent of the balance cap —
    * stops one oversized top-up from being the only thing that matters. */
   wallet_max_topup: "1000000",
+  /** How many accounts one customer may hold, counting Main. */
+  wallet_max_accounts: "5",
+  /** Comma-separated names offered when someone creates an account. */
+  wallet_suggested_names: "Home,Office,Travel,Family Expenses,Personal Savings,Groceries,Emergency Fund",
+  /** Peer transfers per customer per hour. */
+  wallet_transfer_per_hour: "10",
+  /** Recipient name lookups per customer per hour. */
+  wallet_lookup_per_hour: "20",
+  /** Share invites per customer per hour. */
+  wallet_share_invite_per_hour: "10",
+  /** Customers may freeze an account. Existing freezes stay enforced either way. */
+  wallet_freeze_enabled: "1",
+  /** A shared account (someone else's) can be the source of a send. Default off: orders only. */
+  wallet_send_from_shared: "0",
+  wallet_contacts_max: "50",
+  /** Saved contacts may carry a nickname. */
+  wallet_contacts_nicknames: "1",
+  /** The home total includes the customer's own frozen accounts. Shared accounts are never included. */
+  wallet_include_frozen_in_total: "1",
+  wallet_requests_enabled: "1",
+  /** Hours before an unpaid request expires. */
+  wallet_request_expiry_hours: "168",
+  /** Open requests (including snoozed) one customer may have out at once. */
+  wallet_request_max_open: "10",
+  /** Requests may only be sent to saved contacts. */
+  wallet_request_contacts_only: "0",
+  wallet_request_allow_cancel: "1",
+  /** The requester can see that a request was declined, not only that it closed. */
+  wallet_request_declines_visible: "1",
+  /** How long "Later" snoozes a request before it is highlighted again. */
+  wallet_request_later_hours: "24",
+  /** Highlight incoming requests. There is no separate push provider; this is the in-app badge. */
+  wallet_request_notify: "1",
+  wallet_request_per_hour: "10",
+  /** How long a successful transfer key is remembered, in hours. */
+  wallet_idempotency_hours: "24",
   /** Floor a rider's own withdrawal always leaves behind in their wallet
    * (UGX) — "presumed to keep the account active" per the admin who asked
    * for this. Only a normal withdrawal respects it; closing the account
@@ -1549,6 +1585,65 @@ export async function getWalletSettings(): Promise<{ unverifiedCap: number; veri
     unverifiedCap: Number(unverified) || Number(DEFAULTS.wallet_unverified_cap),
     verifiedCap: Number(verified) || Number(DEFAULTS.wallet_verified_cap),
     maxTopup: Number(maxTopup) || Number(DEFAULTS.wallet_max_topup),
+  };
+}
+
+function clampInt(value: string, fallback: string, min: number, max: number): number {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n)) return Math.floor(Number(fallback));
+  return Math.min(max, Math.max(min, n));
+}
+
+/** Every admin-controlled rule for accounts, contacts, requests and sends. */
+export async function getWalletAccountSettings() {
+  const [
+    maxAccounts, suggested, transferPerHour, lookupPerHour, sharePerHour, freezeEnabled, sendFromShared,
+    contactsMax, nicknames, includeFrozen, requestsEnabled, expiryHours, maxOpen, contactsOnly, allowCancel,
+    declinesVisible, laterHours, notify, requestPerHour, idempotencyHours,
+  ] = await Promise.all([
+    getSetting("wallet_max_accounts"),
+    getSetting("wallet_suggested_names"),
+    getSetting("wallet_transfer_per_hour"),
+    getSetting("wallet_lookup_per_hour"),
+    getSetting("wallet_share_invite_per_hour"),
+    getSetting("wallet_freeze_enabled"),
+    getSetting("wallet_send_from_shared"),
+    getSetting("wallet_contacts_max"),
+    getSetting("wallet_contacts_nicknames"),
+    getSetting("wallet_include_frozen_in_total"),
+    getSetting("wallet_requests_enabled"),
+    getSetting("wallet_request_expiry_hours"),
+    getSetting("wallet_request_max_open"),
+    getSetting("wallet_request_contacts_only"),
+    getSetting("wallet_request_allow_cancel"),
+    getSetting("wallet_request_declines_visible"),
+    getSetting("wallet_request_later_hours"),
+    getSetting("wallet_request_notify"),
+    getSetting("wallet_request_per_hour"),
+    getSetting("wallet_idempotency_hours"),
+  ]);
+  const names = suggested.split(",").map((n) => n.trim()).filter(Boolean).slice(0, 20);
+  return {
+    maxAccounts: clampInt(maxAccounts, DEFAULTS.wallet_max_accounts, 1, 20),
+    suggestedNames: names.length ? names : DEFAULTS.wallet_suggested_names.split(","),
+    transferPerHour: clampInt(transferPerHour, DEFAULTS.wallet_transfer_per_hour, 1, 500),
+    lookupPerHour: clampInt(lookupPerHour, DEFAULTS.wallet_lookup_per_hour, 1, 500),
+    sharePerHour: clampInt(sharePerHour, DEFAULTS.wallet_share_invite_per_hour, 1, 500),
+    freezeEnabled: freezeEnabled !== "0",
+    sendFromShared: sendFromShared === "1",
+    contactsMax: clampInt(contactsMax, DEFAULTS.wallet_contacts_max, 1, 500),
+    nicknames: nicknames !== "0",
+    includeFrozenInTotal: includeFrozen !== "0",
+    requestsEnabled: requestsEnabled !== "0",
+    requestExpiryHours: clampInt(expiryHours, DEFAULTS.wallet_request_expiry_hours, 1, 24 * 90),
+    requestMaxOpen: clampInt(maxOpen, DEFAULTS.wallet_request_max_open, 1, 100),
+    requestContactsOnly: contactsOnly === "1",
+    requestAllowCancel: allowCancel !== "0",
+    requestDeclinesVisible: declinesVisible !== "0",
+    requestLaterHours: clampInt(laterHours, DEFAULTS.wallet_request_later_hours, 1, 24 * 30),
+    requestNotify: notify !== "0",
+    requestPerHour: clampInt(requestPerHour, DEFAULTS.wallet_request_per_hour, 1, 500),
+    idempotencyHours: clampInt(idempotencyHours, DEFAULTS.wallet_idempotency_hours, 1, 24 * 30),
   };
 }
 

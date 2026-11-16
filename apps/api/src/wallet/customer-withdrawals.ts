@@ -18,6 +18,7 @@ import { hasTable } from "../lib/schema.js";
 import { getPlatformEnvironment, type PlatformEnvironment } from "../lib/settings.js";
 import { getCreditConfig } from "../offers/config.js";
 import { checkPaymentStatus, initiateDisbursement, paymentProviderErrorResponse, paymentProviderHttpStatus, UnsupportedNetworkError } from "../payments/service.js";
+import { frozenBody, walletIsFrozen } from "./freeze.js";
 import { creditWallet, debitWallet } from "./service.js";
 
 type Row = Record<string, unknown>;
@@ -90,9 +91,13 @@ customerWithdrawalRoutes.post("/wallet/withdraw", requireAuth, requireRole("cust
     review = bonus.rows.length > 0;
   }
 
+  if (await walletIsFrozen(user.sub)) return c.json(frozenBody(), 409);
   // Take the money first, atomically, so two requests can't spend the same balance.
   const balance = await debitWallet(user.sub, amount, { type: "adjustment", environment: env, note: review ? "Withdrawal (awaiting review)" : "Withdrawal to mobile money" });
-  if (balance === null) return c.json({ error: "insufficient_wallet_balance" }, 409);
+  if (balance === null) {
+    if (await walletIsFrozen(user.sub)) return c.json(frozenBody(), 409);
+    return c.json({ error: "insufficient_wallet_balance" }, 409);
+  }
   const id = newId("cwd");
   await db.execute({
     sql: `INSERT INTO customer_withdrawals (id, user_id, amount, msisdn, status, review_reason, environment) VALUES (?, ?, ?, ?, ?, ?, ?)`,

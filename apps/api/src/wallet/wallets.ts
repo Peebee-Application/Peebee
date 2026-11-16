@@ -12,7 +12,11 @@ import { z } from "zod";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
-import { getPlatformEnvironment } from "../lib/settings.js";
+import { hasColumn } from "../lib/schema.js";
+import { getPlatformEnvironment, getWalletAccountSettings } from "../lib/settings.js";
+import { frozenBody, walletIsFrozen } from "./freeze.js";
+import { runIdempotentTransfer } from "./idempotency.js";
+import { loadLedger } from "./ledger-view.js";
 import { transferBetweenOwnWallets } from "./service.js";
 
 export const walletsRoutes = new Hono();
@@ -26,22 +30,15 @@ walletsRoutes.use("/wallets/*", requireAuth, requireRole("customer"));
 
 type Row = Record<string, unknown>;
 
-const MAX_WALLETS = 5;
-const MAX_SECONDARY_WALLETS = MAX_WALLETS - 1;
-
-/** Client-suggested names, purely a UI convenience — nothing server-side
- * depends on a name matching one of these, a customer can type anything. */
+/** Fallback names if the admin setting is empty. The live list is wallet_suggested_names. */
 export const SUGGESTED_WALLET_NAMES = [
+  "Home",
+  "Office",
+  "Travel",
   "Family Expenses",
-  "Office Supplies",
   "Personal Savings",
-  "Rent & Bills",
-  "Travel Fund",
   "Groceries",
   "Emergency Fund",
-  "Kids' Allowance",
-  "Business Expenses",
-  "Gifts & Events",
 ];
 
 walletsRoutes.get("/wallets", async (c) => {
@@ -50,32 +47,55 @@ walletsRoutes.get("/wallets", async (c) => {
   const column = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
   const walletColumn = environment === "sandbox" ? "balance_sandbox" : "balance";
 
+  const settings = await getWalletAccountSettings();
+  const [primaryFrozenCol, namedFrozenCol] = await Promise.all([
+    hasColumn("users", "primary_wallet_frozen_at"),
+    hasColumn("wallets", "frozen_at"),
+  ]);
   const [userRes, walletsRes] = await Promise.all([
-    db.execute({ sql: `SELECT ${column} as balance, primary_wallet_name FROM users WHERE id = ?`, args: [user.sub] }),
     db.execute({
-      sql: `SELECT id, name, ${walletColumn} as balance, created_at FROM wallets WHERE owner_id = ? ORDER BY created_at ASC`,
+      sql: `SELECT ${column} as balance, primary_wallet_name${primaryFrozenCol ? ", primary_wallet_frozen_at" : ""} FROM users WHERE id = ?`,
+      args: [user.sub],
+    }),
+    db.execute({
+      sql: `SELECT id, name, ${walletColumn} as balance, created_at${namedFrozenCol ? ", frozen_at" : ""} FROM wallets WHERE owner_id = ? ORDER BY created_at ASC`,
       args: [user.sub],
     }),
   ]);
   const userRow = userRes.rows[0] as Row | undefined;
+  const named = (walletsRes.rows as Row[]).map((w) => ({
+    id: w.id as string,
+    name: w.name as string,
+    balance: Number(w.balance ?? 0),
+    isPrimary: false,
+    frozen: namedFrozenCol ? !!w.frozen_at : false,
+  }));
+  const primary = {
+    id: "primary",
+    name: (userRow?.primary_wallet_name as string | null) ?? "Main Wallet",
+    balance: Number(userRow?.balance ?? 0),
+    isPrimary: true,
+    frozen: primaryFrozenCol ? !!userRow?.primary_wallet_frozen_at : false,
+  };
+  const own = [primary, ...named];
+  const total = own.filter((w) => settings.includeFrozenInTotal || !w.frozen).reduce((sum, w) => sum + w.balance, 0);
 
   return c.json({
-    wallets: [
-      {
-        id: "primary",
-        name: (userRow?.primary_wallet_name as string | null) ?? "Main Wallet",
-        balance: Number(userRow?.balance ?? 0),
-        isPrimary: true,
-      },
-      ...(walletsRes.rows as Row[]).map((w) => ({
-        id: w.id as string,
-        name: w.name as string,
-        balance: Number(w.balance ?? 0),
-        isPrimary: false,
-      })),
-    ],
-    suggestedNames: SUGGESTED_WALLET_NAMES,
-    maxWallets: MAX_WALLETS,
+    wallets: own,
+    suggestedNames: settings.suggestedNames,
+    maxWallets: settings.maxAccounts,
+    total,
+    includeFrozenInTotal: settings.includeFrozenInTotal,
+    features: {
+      freeze: settings.freezeEnabled && (primaryFrozenCol || namedFrozenCol),
+      requests: settings.requestsEnabled,
+      sendFromShared: settings.sendFromShared,
+      nicknames: settings.nicknames,
+      contactsMax: settings.contactsMax,
+      requestContactsOnly: settings.requestContactsOnly,
+      requestAllowCancel: settings.requestAllowCancel,
+      requestNotify: settings.requestNotify,
+    },
   });
 });
 
@@ -86,9 +106,10 @@ walletsRoutes.post("/wallets", async (c) => {
   const parsed = z.object({ name: nameSchema }).safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
 
+  const settings = await getWalletAccountSettings();
   const count = await db.execute({ sql: "SELECT COUNT(*) as n FROM wallets WHERE owner_id = ?", args: [user.sub] });
-  if (Number((count.rows[0] as Row).n) >= MAX_SECONDARY_WALLETS) {
-    return c.json({ error: "wallet_limit_reached", message: `You can have up to ${MAX_WALLETS} wallets` }, 409);
+  if (Number((count.rows[0] as Row).n) >= settings.maxAccounts - 1) {
+    return c.json({ error: "wallet_limit_reached", message: `You can have up to ${settings.maxAccounts} accounts` }, 409);
   }
 
   const id = newId("wal");
@@ -102,9 +123,44 @@ walletsRoutes.post("/wallets", async (c) => {
 walletsRoutes.patch("/wallets/:id", async (c) => {
   const user = c.get("user");
   const id = c.req.param("id");
-  const parsed = z.object({ name: nameSchema }).safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  const parsed = z.object({
+    name: nameSchema.optional(),
+    frozen: z.boolean().optional(),
+    confirm: z.boolean().optional(),
+  }).safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success || (parsed.data.name == null && parsed.data.frozen == null)) {
+    return c.json({ error: "invalid_body", issues: parsed.success ? [] : parsed.error.issues }, 400);
+  }
 
+  if (parsed.data.frozen != null) {
+    const settings = await getWalletAccountSettings();
+    if (!settings.freezeEnabled) return c.json({ error: "freeze_off", message: "Freezing accounts is turned off." }, 403);
+    if (parsed.data.frozen === false && parsed.data.confirm !== true) {
+      return c.json({ error: "confirm_required", message: "Confirm to unfreeze this account." }, 400);
+    }
+    const stamp = parsed.data.frozen ? new Date().toISOString().slice(0, 19).replace("T", " ") : null;
+    if (id === "primary") {
+      if (!(await hasColumn("users", "primary_wallet_frozen_at"))) {
+        return c.json({ error: "migration_pending", message: "Apply migration 0161_wallet_accounts.sql before freezing an account." }, 503);
+      }
+      await db.execute({
+        sql: "UPDATE users SET primary_wallet_frozen_at = ?, updated_at = datetime('now') WHERE id = ?",
+        args: [stamp, user.sub],
+      });
+    } else {
+      if (!(await hasColumn("wallets", "frozen_at"))) {
+        return c.json({ error: "migration_pending", message: "Apply migration 0161_wallet_accounts.sql before freezing an account." }, 503);
+      }
+      const res = await db.execute({
+        sql: "UPDATE wallets SET frozen_at = ?, updated_at = datetime('now') WHERE id = ? AND owner_id = ?",
+        args: [stamp, id, user.sub],
+      });
+      if ((res.rowsAffected ?? 0) === 0) return c.json({ error: "not_found" }, 404);
+    }
+    if (parsed.data.name == null) return c.json({ ok: true, frozen: parsed.data.frozen });
+  }
+
+  if (parsed.data.name == null) return c.json({ ok: true });
   if (id === "primary") {
     await db.execute({
       sql: "UPDATE users SET primary_wallet_name = ?, updated_at = datetime('now') WHERE id = ?",
@@ -150,6 +206,7 @@ const transferBetweenSchema = z.object({
   fromWalletId: walletRefSchema,
   toWalletId: walletRefSchema,
   amount: z.number().int().positive(),
+  idempotencyKey: z.string().min(8).max(80).optional(),
 });
 
 /** Moving funds between two of your own wallets — distinct from
@@ -172,17 +229,33 @@ walletsRoutes.post("/wallets/transfer", async (c) => {
   }
 
   const environment = await getPlatformEnvironment();
-  const result = await transferBetweenOwnWallets({
-    ownerId: user.sub,
-    fromWalletId: fromWalletId === "primary" ? undefined : fromWalletId,
-    toWalletId: toWalletId === "primary" ? undefined : toWalletId,
-    amount,
-    environment,
-    note: "Between own wallets",
-  });
-  if (!result) return c.json({ error: "insufficient_balance", message: "Not enough in that wallet" }, 409);
-
-  return c.json({ fromBalance: result.fromBalance, toBalance: result.toBalance });
+  const sourceId = fromWalletId === "primary" ? undefined : fromWalletId;
+  if (await walletIsFrozen(user.sub, sourceId)) return c.json(frozenBody(), 409);
+  const result = await runIdempotentTransfer(
+    user.sub,
+    parsed.data.idempotencyKey,
+    "move",
+    { toUserId: user.sub, amount, environment, note: "Between own accounts", fromWalletId: sourceId ?? null, toWalletId: toWalletId === "primary" ? null : toWalletId },
+    async () => {
+      const moved = await transferBetweenOwnWallets({
+        ownerId: user.sub,
+        fromWalletId: sourceId,
+        toWalletId: toWalletId === "primary" ? undefined : toWalletId,
+        amount,
+        environment,
+        note: "Between own accounts",
+        idempotencyKey: parsed.data.idempotencyKey,
+      });
+      if (!moved) {
+        const frozen = await walletIsFrozen(user.sub, sourceId);
+        return frozen
+          ? { status: 409, body: frozenBody() }
+          : { status: 409, body: { error: "insufficient_balance", message: "Not enough in that account" } };
+      }
+      return { status: 200, body: { fromBalance: moved.fromBalance, toBalance: moved.toBalance } };
+    },
+  );
+  return c.json(result.body, result.status as 200);
 });
 
 /** A wallet's own activity — same shape as GET /wallet's ledger, just
@@ -197,16 +270,14 @@ walletsRoutes.get("/wallets/:id/ledger", async (c) => {
     if (owned.rows.length === 0) return c.json({ error: "not_found" }, 404);
   }
 
-  const res = await db.execute({
-    sql: `SELECT wl.*, actor.name as actor_name, cp.name as counterparty_name
-          FROM wallet_ledger wl
-          LEFT JOIN users actor ON actor.id = wl.actor_id
-          LEFT JOIN users cp ON cp.id = wl.counterparty_id
-          WHERE wl.user_id = ? AND wl.environment = ? AND wl.wallet_id ${id === "primary" ? "IS NULL" : "= ?"}
-          ORDER BY wl.created_at DESC LIMIT 100`,
-    args: id === "primary" ? [user.sub, environment] : [user.sub, environment, id],
+  const ledger = await loadLedger({
+    userId: user.sub,
+    environment,
+    walletId: id === "primary" ? null : id,
+    q: c.req.query("q"),
+    limit: 100,
   });
-  return c.json({ ledger: res.rows });
+  return c.json({ ledger });
 });
 
 const REPORT_PERIODS = ["week", "month", "all"] as const;

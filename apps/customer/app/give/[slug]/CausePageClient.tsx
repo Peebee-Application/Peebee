@@ -8,6 +8,7 @@ import { ProgressBar } from "../../../components/channels/CauseCard";
 import { Avatar } from "../../../components/channels/PostParts";
 import { PublicFrame } from "../../../components/channels/PublicFrame";
 import { ShareButton } from "../../../components/ShareButton";
+import { SwipeToConfirm } from "../../../components/SwipeToConfirm";
 import { api, errorMessage } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth-context";
 import { timeAgo, ugx, useChannelsConfig } from "../../../lib/channels";
@@ -32,6 +33,8 @@ export function CausePageClient({ slug }: { slug: string }) {
   const [msisdn, setMsisdn] = useState("");
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+  const giveLock = useRef(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const poll = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -68,8 +71,15 @@ export function CausePageClient({ slug }: { slug: string }) {
     return () => { if (poll.current) clearInterval(poll.current); };
   }, [receipt, slug, load]);
 
-  async function give(e: React.FormEvent) {
-    e.preventDefault();
+  async function give(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!reviewing) {
+      setReviewing(true);
+      setFormError(null);
+      return;
+    }
+    if (giveLock.current) return;
+    giveLock.current = true;
     setBusy(true);
     setFormError(null);
     try {
@@ -78,11 +88,14 @@ export function CausePageClient({ slug }: { slug: string }) {
       setReceipt(next);
       try { window.sessionStorage.setItem(`${RECEIPT_KEY}:${slug}`, JSON.stringify(next)); } catch { /* ignore */ }
       setOpen(false);
+      setReviewing(false);
       if (r.redirectUrl) window.location.href = r.redirectUrl;
       else if (r.status === "successful") void load();
     } catch (err) {
       setFormError(errorMessage(err));
+      throw err;
     } finally {
+      giveLock.current = false;
       setBusy(false);
     }
   }
@@ -178,8 +191,17 @@ export function CausePageClient({ slug }: { slug: string }) {
                 <span className="field-box border border-[var(--border-faint)] mt-1 flex items-center rounded-2xl px-4"><input type="tel" inputMode="tel" required autoComplete="tel" placeholder="07XX XXX XXX" value={msisdn} onChange={(e) => setMsisdn(e.target.value)} className="h-12 w-full text-base text-ink outline-none" /></span>
               </label>
             )}
-            {formError && <p role="alert" className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
-            <button type="submit" disabled={busy} className="min-h-12 w-full rounded-full bg-gold text-base font-bold text-ink-gold disabled:opacity-60">{busy ? "Please wait…" : `Give ${ugx(amount + tip)}`}</button>
+            {formError && <p role="alert" className="rounded-2xl bg-danger/10 p-3 text-sm text-danger-ink">{formError}</p>}
+            {reviewing ? (
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-ink">Review gift · {ugx(amount + tip)}{tip > 0 ? ` (includes ${ugx(tip)} tip)` : ""} · {method === "wallet" ? "Peebee wallet" : "Mobile money"} · {cause.title}</p>
+                <SwipeToConfirm tone="ink" commitAt={0.6} label={`Swipe to give UGX ${(amount + tip).toLocaleString("en-UG")}`} disabled={busy} onConfirm={() => give()} />
+                <button type="button" disabled={busy} onClick={() => void give().catch(() => undefined)} className="min-h-12 w-full rounded-full border border-[var(--border-faint)] text-base font-bold text-ink disabled:opacity-60">{busy ? "Please wait…" : `Give UGX ${(amount + tip).toLocaleString("en-UG")} without swiping`}</button>
+                <button type="button" onClick={() => setReviewing(false)} className="w-full text-sm font-semibold text-ink-500">Edit</button>
+              </div>
+            ) : (
+              <button type="submit" className="min-h-12 w-full rounded-full bg-gold text-base font-bold text-ink-gold">Review gift</button>
+            )}
             <p className="text-center text-xs text-ink-500">Money raised is held safely and released to the creator after checks.</p>
           </form>
         </div>

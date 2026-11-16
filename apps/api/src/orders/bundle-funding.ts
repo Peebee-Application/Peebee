@@ -13,6 +13,7 @@ import {
   UnsupportedNetworkError,
 } from "../payments/service.js";
 import { notifyUser } from "../lib/webpush.js";
+import { walletIsFrozen } from "../wallet/freeze.js";
 import { payBundleFromWallet } from "../wallet/service.js";
 import type { CardDetails, PaymentNextAction } from "../payments/gateway.js";
 
@@ -233,6 +234,9 @@ export async function fundBundle(input: {
       if (owned.rows.length === 0) return c.json({ error: "not_found", message: "That wallet doesn't exist" }, 404);
     }
     const sharedSpend = walletOwnerId !== user.sub;
+    if (await walletIsFrozen(walletOwnerId, walletId)) {
+      return c.json({ error: "account_frozen", message: "This account is frozen. Unfreeze it to pay. Money can still come in." }, 409);
+    }
     if (!(await reserve("Fund", "escrow"))) return changed();
     const paymentIds = await payBundleFromWallet({
       userId: walletOwnerId,

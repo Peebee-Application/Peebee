@@ -6,6 +6,7 @@ import { newId } from "../lib/ids.js";
 import { hasTable } from "../lib/schema.js";
 import { getPlatformEnvironment, type PlatformEnvironment } from "../lib/settings.js";
 import { checkPaymentStatus, initiateCollection, initiateDisbursement, paymentProviderErrorResponse, UnsupportedNetworkError } from "../payments/service.js";
+import { walletIsFrozen } from "../wallet/freeze.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
 import { absUrl, addDays, ChannelsError, requireChannels, sqlTime, type Row } from "./common.js";
 import { getChannelById, getMyChannel } from "./channels.js";
@@ -256,6 +257,7 @@ export async function donate(input: DonateInput) {
   if (input.method === "wallet") {
     if (!cfg.causes.allowWalletPayment) throw new ChannelsError("method_off", "Paying from the wallet is not available.", 400);
     if (!input.donorId) throw new ChannelsError("sign_in_required", "Sign in to pay from your wallet.", 401);
+    if (await walletIsFrozen(input.donorId)) throw new ChannelsError("account_frozen", "Your Main account is frozen. Unfreeze it to give from your wallet.", 409);
     await db.execute({ sql: "INSERT INTO donations (id, cause_id, code, donor_id, donor_name, anonymous, message, amount_ugx, tip_ugx, method, status, environment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'wallet', 'pending', ?)", args: [...common, env] });
     const balance = await debitWallet(input.donorId, total, { type: "transfer_out", environment: env, note: `Donation: ${cause.title}` });
     if (balance === null) {

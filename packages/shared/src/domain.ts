@@ -885,6 +885,26 @@ export type DeliverySettings = {
   walletUnverifiedCap: number;
   walletVerifiedCap: number;
   walletMaxTopup: number;
+  walletMaxAccounts: number;
+  walletSuggestedNames: string;
+  walletTransferPerHour: number;
+  walletLookupPerHour: number;
+  walletShareInvitePerHour: number;
+  walletFreezeEnabled: boolean;
+  walletSendFromShared: boolean;
+  walletContactsMax: number;
+  walletContactNicknames: boolean;
+  walletIncludeFrozenInTotal: boolean;
+  walletRequestsEnabled: boolean;
+  walletRequestExpiryHours: number;
+  walletRequestMaxOpen: number;
+  walletRequestContactsOnly: boolean;
+  walletRequestAllowCancel: boolean;
+  walletRequestDeclinesVisible: boolean;
+  walletRequestLaterHours: number;
+  walletRequestNotify: boolean;
+  walletRequestPerHour: number;
+  walletIdempotencyHours: number;
   /** How long any voice recording may run before it auto-stops — a shopping
    * list, an order note, a fee-proposal reason, or a chat voice message. */
   voiceNoteMaxSeconds: number;
@@ -2196,6 +2216,10 @@ export type WalletLedgerEntry = {
   actor_name: string | null;
   note: string | null;
   created_at: string;
+  merchant_name?: string | null;
+  merchant_logo?: string | null;
+  masked_phone?: string | null;
+  wallet_id?: string | null;
 };
 
 /** One top-up attempt — mirrors WalletWithdrawal's shape on the rider side. */
@@ -2219,6 +2243,9 @@ export type CustomerWallet = {
   balance: number;
   cap: number;
   verified: boolean;
+  frozen?: boolean;
+  credit?: number;
+  total?: number;
   ledger: WalletLedgerEntry[];
 };
 
@@ -2231,6 +2258,7 @@ export type WalletShareGranted = {
   id: string;
   grantee_id: string;
   grantee_name: string;
+  masked_phone?: string | null;
   status: WalletShareStatus;
   created_at: string;
   responded_at: string | null;
@@ -2247,6 +2275,7 @@ export type WalletShareReceived = {
   id: string;
   owner_id: string;
   owner_name: string;
+  masked_phone?: string | null;
   status: WalletShareStatus;
   created_at: string;
   responded_at: string | null;
@@ -2268,12 +2297,64 @@ export type CustomerWalletSummary = {
   name: string;
   balance: number;
   isPrimary: boolean;
+  frozen?: boolean;
+};
+
+export type WalletAccountFeatures = {
+  freeze: boolean;
+  requests: boolean;
+  sendFromShared: boolean;
+  nicknames: boolean;
+  contactsMax: number;
+  requestContactsOnly: boolean;
+  requestAllowCancel: boolean;
+  requestNotify: boolean;
+};
+
+export type WalletContact = {
+  id: string;
+  recipientId: string;
+  name: string;
+  nickname: string | null;
+  maskedPhone: string;
+};
+
+export type WalletMoneyRequest = {
+  id: string;
+  amount: number;
+  note: string | null;
+  status: string;
+  intoWalletId: string;
+  expiresAt: string;
+  snoozeUntil: string | null;
+  createdAt: string;
+  direction: "incoming" | "outgoing";
+  personName: string;
+  maskedPhone: string;
+  recipientId: string;
+};
+
+export type WalletSpending = {
+  period: "week" | "month" | "all";
+  totalIn: number;
+  totalOut: number;
+  merchants: { id: string; name: string; logo: string | null }[];
+};
+
+export type RecipientLookup = {
+  recipientId: string;
+  name: string;
+  nickname?: string | null;
+  maskedPhone: string;
 };
 
 export type CustomerWalletsResponse = {
   wallets: CustomerWalletSummary[];
   suggestedNames: string[];
   maxWallets: number;
+  total?: number;
+  includeFrozenInTotal?: boolean;
+  features?: WalletAccountFeatures;
 };
 
 export type WalletUsageReport = {

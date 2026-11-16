@@ -48,6 +48,7 @@ import {
   getRiderReserveSettings,
   getVoiceNoteMaxSeconds,
   getVslaSettings,
+  getWalletAccountSettings,
   getWalletSettings,
   setActiveCallProvider,
   setActiveMapsProvider,
@@ -157,6 +158,7 @@ async function fullSettings() {
     mapsTomtomApiKey = (await getMapsCredential("tomtom", "apiKey")) ?? null;
   }
 
+  const walletAccounts = await getWalletAccountSettings();
   return {
     shoppingUnits: await getShoppingUnitSettings(),
     shoppingFeatures: await getShoppingFeatureSettings(),
@@ -191,6 +193,26 @@ async function fullSettings() {
     walletUnverifiedCap: wallet.unverifiedCap,
     walletVerifiedCap: wallet.verifiedCap,
     walletMaxTopup: wallet.maxTopup,
+    walletMaxAccounts: walletAccounts.maxAccounts,
+    walletSuggestedNames: walletAccounts.suggestedNames.join(", "),
+    walletTransferPerHour: walletAccounts.transferPerHour,
+    walletLookupPerHour: walletAccounts.lookupPerHour,
+    walletShareInvitePerHour: walletAccounts.sharePerHour,
+    walletFreezeEnabled: walletAccounts.freezeEnabled,
+    walletSendFromShared: walletAccounts.sendFromShared,
+    walletContactsMax: walletAccounts.contactsMax,
+    walletContactNicknames: walletAccounts.nicknames,
+    walletIncludeFrozenInTotal: walletAccounts.includeFrozenInTotal,
+    walletRequestsEnabled: walletAccounts.requestsEnabled,
+    walletRequestExpiryHours: walletAccounts.requestExpiryHours,
+    walletRequestMaxOpen: walletAccounts.requestMaxOpen,
+    walletRequestContactsOnly: walletAccounts.requestContactsOnly,
+    walletRequestAllowCancel: walletAccounts.requestAllowCancel,
+    walletRequestDeclinesVisible: walletAccounts.requestDeclinesVisible,
+    walletRequestLaterHours: walletAccounts.requestLaterHours,
+    walletRequestNotify: walletAccounts.requestNotify,
+    walletRequestPerHour: walletAccounts.requestPerHour,
+    walletIdempotencyHours: walletAccounts.idempotencyHours,
     voiceNoteMaxSeconds,
     platformEnvironment,
     practiceModeEnabled: practiceModeEnabled === "1",
@@ -564,6 +586,26 @@ const updateSchema = z.object({
   walletUnverifiedCap: z.number().int().positive().max(100_000_000).optional(),
   walletVerifiedCap: z.number().int().positive().max(100_000_000).optional(),
   walletMaxTopup: z.number().int().positive().max(100_000_000).optional(),
+  walletMaxAccounts: z.number().int().min(1).max(20).optional(),
+  walletSuggestedNames: z.string().max(400).optional(),
+  walletTransferPerHour: z.number().int().min(1).max(500).optional(),
+  walletLookupPerHour: z.number().int().min(1).max(500).optional(),
+  walletShareInvitePerHour: z.number().int().min(1).max(500).optional(),
+  walletFreezeEnabled: z.boolean().optional(),
+  walletSendFromShared: z.boolean().optional(),
+  walletContactsMax: z.number().int().min(1).max(500).optional(),
+  walletContactNicknames: z.boolean().optional(),
+  walletIncludeFrozenInTotal: z.boolean().optional(),
+  walletRequestsEnabled: z.boolean().optional(),
+  walletRequestExpiryHours: z.number().int().min(1).max(24 * 90).optional(),
+  walletRequestMaxOpen: z.number().int().min(1).max(100).optional(),
+  walletRequestContactsOnly: z.boolean().optional(),
+  walletRequestAllowCancel: z.boolean().optional(),
+  walletRequestDeclinesVisible: z.boolean().optional(),
+  walletRequestLaterHours: z.number().int().min(1).max(24 * 30).optional(),
+  walletRequestNotify: z.boolean().optional(),
+  walletRequestPerHour: z.number().int().min(1).max(500).optional(),
+  walletIdempotencyHours: z.number().int().min(1).max(24 * 30).optional(),
   voiceNoteMaxSeconds: z.number().int().positive().max(600).optional(),
   riderMinimumBalanceEnabled: z.boolean().optional(),
   riderMinimumBalanceAmount: z.number().int().nonnegative().max(1_000_000).optional(),
@@ -633,6 +675,26 @@ const PAYMENTS_FIELDS = [
   "walletUnverifiedCap",
   "walletVerifiedCap",
   "walletMaxTopup",
+  "walletMaxAccounts",
+  "walletSuggestedNames",
+  "walletTransferPerHour",
+  "walletLookupPerHour",
+  "walletShareInvitePerHour",
+  "walletFreezeEnabled",
+  "walletSendFromShared",
+  "walletContactsMax",
+  "walletContactNicknames",
+  "walletIncludeFrozenInTotal",
+  "walletRequestsEnabled",
+  "walletRequestExpiryHours",
+  "walletRequestMaxOpen",
+  "walletRequestContactsOnly",
+  "walletRequestAllowCancel",
+  "walletRequestDeclinesVisible",
+  "walletRequestLaterHours",
+  "walletRequestNotify",
+  "walletRequestPerHour",
+  "walletIdempotencyHours",
   "riderMinimumBalanceEnabled",
   "riderMinimumBalanceAmount",
   "deliveryCommissionEnabled",
@@ -803,6 +865,26 @@ settingsRoutes.put(
     if (parsed.data.walletMaxTopup != null) {
       await setSetting("wallet_max_topup", String(parsed.data.walletMaxTopup));
     }
+    if (parsed.data.walletMaxAccounts != null) await setSetting("wallet_max_accounts", String(parsed.data.walletMaxAccounts));
+    if (parsed.data.walletSuggestedNames != null) await setSetting("wallet_suggested_names", parsed.data.walletSuggestedNames);
+    if (parsed.data.walletTransferPerHour != null) await setSetting("wallet_transfer_per_hour", String(parsed.data.walletTransferPerHour));
+    if (parsed.data.walletLookupPerHour != null) await setSetting("wallet_lookup_per_hour", String(parsed.data.walletLookupPerHour));
+    if (parsed.data.walletShareInvitePerHour != null) await setSetting("wallet_share_invite_per_hour", String(parsed.data.walletShareInvitePerHour));
+    if (parsed.data.walletFreezeEnabled != null) await setSetting("wallet_freeze_enabled", parsed.data.walletFreezeEnabled ? "1" : "0");
+    if (parsed.data.walletSendFromShared != null) await setSetting("wallet_send_from_shared", parsed.data.walletSendFromShared ? "1" : "0");
+    if (parsed.data.walletContactsMax != null) await setSetting("wallet_contacts_max", String(parsed.data.walletContactsMax));
+    if (parsed.data.walletContactNicknames != null) await setSetting("wallet_contacts_nicknames", parsed.data.walletContactNicknames ? "1" : "0");
+    if (parsed.data.walletIncludeFrozenInTotal != null) await setSetting("wallet_include_frozen_in_total", parsed.data.walletIncludeFrozenInTotal ? "1" : "0");
+    if (parsed.data.walletRequestsEnabled != null) await setSetting("wallet_requests_enabled", parsed.data.walletRequestsEnabled ? "1" : "0");
+    if (parsed.data.walletRequestExpiryHours != null) await setSetting("wallet_request_expiry_hours", String(parsed.data.walletRequestExpiryHours));
+    if (parsed.data.walletRequestMaxOpen != null) await setSetting("wallet_request_max_open", String(parsed.data.walletRequestMaxOpen));
+    if (parsed.data.walletRequestContactsOnly != null) await setSetting("wallet_request_contacts_only", parsed.data.walletRequestContactsOnly ? "1" : "0");
+    if (parsed.data.walletRequestAllowCancel != null) await setSetting("wallet_request_allow_cancel", parsed.data.walletRequestAllowCancel ? "1" : "0");
+    if (parsed.data.walletRequestDeclinesVisible != null) await setSetting("wallet_request_declines_visible", parsed.data.walletRequestDeclinesVisible ? "1" : "0");
+    if (parsed.data.walletRequestLaterHours != null) await setSetting("wallet_request_later_hours", String(parsed.data.walletRequestLaterHours));
+    if (parsed.data.walletRequestNotify != null) await setSetting("wallet_request_notify", parsed.data.walletRequestNotify ? "1" : "0");
+    if (parsed.data.walletRequestPerHour != null) await setSetting("wallet_request_per_hour", String(parsed.data.walletRequestPerHour));
+    if (parsed.data.walletIdempotencyHours != null) await setSetting("wallet_idempotency_hours", String(parsed.data.walletIdempotencyHours));
     if (parsed.data.voiceNoteMaxSeconds != null) {
       await setSetting("voice_note_max_seconds", String(parsed.data.voiceNoteMaxSeconds));
     }

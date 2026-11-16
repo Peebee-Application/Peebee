@@ -2013,11 +2013,50 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       return request<{ topup: WalletTopup }>(`/v1/wallet/topups/${id}/refresh`);
     },
     /** Sends money straight into another customer's wallet by phone/email. */
-    async transferWallet(input: { recipient: string; amount: number; note?: string }) {
-      return request<{ balance: number; recipientName: string }>("/v1/wallet/transfer", {
+    async transferWallet(input: { recipient?: string; recipientId?: string; amount: number; note?: string; fromWalletId?: string; idempotencyKey?: string }) {
+      return request<{ balance: number; recipientName: string; replay?: boolean }>("/v1/wallet/transfer", {
         method: "POST",
         body: JSON.stringify(input),
       });
+    },
+    async lookupRecipient(q: string) {
+      return request<import("./domain.js").RecipientLookup>(`/v1/wallet/lookup?q=${encodeURIComponent(q)}`);
+    },
+    async getWalletContacts() {
+      return request<{ contacts: import("./domain.js").WalletContact[]; available: boolean }>("/v1/wallet/contacts");
+    },
+    async saveWalletContact(input: { recipient?: string; recipientId?: string; nickname?: string }) {
+      return request<{ contact: import("./domain.js").WalletContact }>("/v1/wallet/contacts", { method: "POST", body: JSON.stringify(input) });
+    },
+    async renameWalletContact(id: string, nickname: string) {
+      return request<{ ok: true }>(`/v1/wallet/contacts/${id}`, { method: "PATCH", body: JSON.stringify({ nickname }) });
+    },
+    async deleteWalletContact(id: string) {
+      return request<{ ok: true }>(`/v1/wallet/contacts/${id}`, { method: "DELETE" });
+    },
+    async getWalletRequests() {
+      return request<{ requests: import("./domain.js").WalletMoneyRequest[]; incomingOpen: number; available: boolean; enabled?: boolean }>("/v1/wallet/requests");
+    },
+    async createWalletRequest(input: { payer?: string; recipientId?: string; amount: number; note?: string; intoWalletId?: string }) {
+      return request<{ id: string; amount: number; personName: string; maskedPhone: string; notified: boolean }>("/v1/wallet/requests", { method: "POST", body: JSON.stringify(input) });
+    },
+    async payWalletRequest(id: string, input: { fromWalletId?: string; idempotencyKey?: string }) {
+      return request<{ status: string; balance?: number; recipientName?: string; amount?: number; replay?: boolean }>(`/v1/wallet/requests/${id}/pay`, { method: "POST", body: JSON.stringify(input) });
+    },
+    async declineWalletRequest(id: string) {
+      return request<{ status: string }>(`/v1/wallet/requests/${id}/decline`, { method: "POST" });
+    },
+    async laterWalletRequest(id: string) {
+      return request<{ status: string }>(`/v1/wallet/requests/${id}/later`, { method: "POST" });
+    },
+    async cancelWalletRequest(id: string) {
+      return request<{ status: string }>(`/v1/wallet/requests/${id}/cancel`, { method: "POST" });
+    },
+    async getWalletSpending(period: "week" | "month" | "all" = "month") {
+      return request<import("./domain.js").WalletSpending>(`/v1/wallet/spending?period=${period}`);
+    },
+    async setWalletFrozen(id: string, frozen: boolean, confirm?: boolean) {
+      return request<{ ok: true; frozen?: boolean }>(`/v1/wallets/${id}`, { method: "PATCH", body: JSON.stringify({ frozen, confirm }) });
     },
     /** Invites another customer to spend from this wallet on their own
      * orders. `walletId` omitted (or "primary") shares the original wallet. */
@@ -2055,12 +2094,15 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async renameWallet(id: string, name: string) {
       return request<{ ok: true }>(`/v1/wallets/${id}`, { method: "PATCH", body: JSON.stringify({ name }) });
     },
+    async renameWalletAccount(id: string, name: string) {
+      return this.renameWallet(id, name);
+    },
     async deleteWallet(id: string) {
       return request<{ ok: true }>(`/v1/wallets/${id}`, { method: "DELETE" });
     },
     /** Moves funds between two of your own wallets — "primary" refers to
      * the original wallet on either side. */
-    async transferBetweenWallets(input: { fromWalletId: string; toWalletId: string; amount: number }) {
+    async transferBetweenWallets(input: { fromWalletId: string; toWalletId: string; amount: number; idempotencyKey?: string }) {
       return request<{ fromBalance: number; toBalance: number }>("/v1/wallets/transfer", {
         method: "POST",
         body: JSON.stringify(input),

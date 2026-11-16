@@ -10,7 +10,9 @@ import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import type { CreditModule } from "@peebee/shared";
 import { creditPaidForOrder, grantCredit, payWithCreditAndCash } from "../offers/credit.js";
+import { hasColumn } from "../lib/schema.js";
 import { getWalletSettings, type PlatformEnvironment } from "../lib/settings.js";
+import { walletIsFrozen } from "./freeze.js";
 
 type Row = Record<string, unknown>;
 
@@ -49,9 +51,14 @@ async function recordLedgerEntry(input: {
   note?: string;
   actorId?: string;
   walletId?: string;
+  idempotencyKey?: string;
 }): Promise<void> {
+  const withKey = !!input.idempotencyKey && (await hasColumn("wallet_ledger", "idempotency_key"));
   await db.execute({
-    sql: `INSERT INTO wallet_ledger (id, user_id, type, amount, balance_after, order_id, topup_id, counterparty_id, note, actor_id, environment, wallet_id)
+    sql: withKey
+      ? `INSERT INTO wallet_ledger (id, user_id, type, amount, balance_after, order_id, topup_id, counterparty_id, note, actor_id, environment, wallet_id, idempotency_key)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      : `INSERT INTO wallet_ledger (id, user_id, type, amount, balance_after, order_id, topup_id, counterparty_id, note, actor_id, environment, wallet_id)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       newId("wl"),
@@ -66,6 +73,7 @@ async function recordLedgerEntry(input: {
       input.actorId ?? null,
       input.environment,
       input.walletId ?? null,
+      ...(withKey ? [input.idempotencyKey ?? null] : []),
     ],
   });
 }
@@ -87,6 +95,7 @@ export async function creditWallet(
     note?: string;
     actorId?: string;
     walletId?: string;
+    idempotencyKey?: string;
   },
 ): Promise<number> {
   const column = balanceColumn(info.environment);
@@ -129,6 +138,7 @@ export async function debitWallet(
     note?: string;
     actorId?: string;
     walletId?: string;
+    idempotencyKey?: string;
   },
 ): Promise<number | null> {
   const balance = await applyDebit(userId, amount, info.environment, info.walletId);
@@ -158,6 +168,7 @@ export async function debitWalletAllowNegative(
 
 /** The atomic balance check-and-subtract shared by every debit; returns the balance afterward, or null if it did not cover `amount`. */
 async function applyDebit(userId: string, amount: number, environment: PlatformEnvironment, walletId?: string): Promise<number | null> {
+  if (await walletIsFrozen(userId, walletId)) return null;
   const column = balanceColumn(environment);
   if (walletId) {
     const walletColumn = column === "wallet_balance_sandbox" ? "balance_sandbox" : "balance";
@@ -206,6 +217,7 @@ export async function payFromWallet(input: {
   actorId?: string;
   walletId?: string;
 }): Promise<string | null> {
+  if (await walletIsFrozen(input.userId, input.walletId)) return null;
   const balance = await debitWallet(input.userId, input.amount, {
     type: "order_payment",
     environment: input.environment,
@@ -242,6 +254,7 @@ export async function payFromWalletWithCredit(input: {
   creditModule: CreditModule;
   partnerId?: string | null;
 }): Promise<string | null> {
+  if (await walletIsFrozen(input.userId, input.walletId)) return null;
   const column = balanceColumn(input.environment);
   const cashRes = await db.execute({ sql: `SELECT ${column} AS balance FROM users WHERE id = ?`, args: [input.userId] });
   const paid = await payWithCreditAndCash({
@@ -282,6 +295,7 @@ export async function payBundleFromWallet(input: {
   actorId?: string;
   walletId?: string;
 }): Promise<string[] | null> {
+  if (await walletIsFrozen(input.userId, input.walletId)) return null;
   const total = input.parts.reduce((sum, part) => sum + part.amount, 0);
   const balanceAfter = await applyDebit(input.userId, total, input.environment, input.walletId);
   if (balanceAfter === null) return null;
@@ -406,12 +420,22 @@ export async function transferWallet(input: {
   amount: number;
   environment: PlatformEnvironment;
   note?: string;
+  /** Omitted means the sender's original (Main) account. */
+  fromWalletId?: string;
+  /** Omitted means the recipient's original (Main) account. Money in is allowed even when that account is frozen. */
+  toWalletId?: string;
+  /** Set when the sender is spending an account someone shared with them. */
+  actorId?: string;
+  idempotencyKey?: string;
 }): Promise<{ fromBalance: number; toBalance: number } | null> {
   const fromBalance = await debitWallet(input.fromUserId, input.amount, {
     type: "transfer_out",
     environment: input.environment,
     counterpartyId: input.toUserId,
     note: input.note,
+    walletId: input.fromWalletId,
+    actorId: input.actorId,
+    idempotencyKey: input.idempotencyKey,
   });
   if (fromBalance === null) return null;
 
@@ -420,6 +444,8 @@ export async function transferWallet(input: {
     environment: input.environment,
     counterpartyId: input.fromUserId,
     note: input.note,
+    walletId: input.toWalletId,
+    idempotencyKey: input.idempotencyKey,
   });
   return { fromBalance, toBalance };
 }
@@ -438,6 +464,7 @@ export async function transferBetweenOwnWallets(input: {
   amount: number;
   environment: PlatformEnvironment;
   note?: string;
+  idempotencyKey?: string;
 }): Promise<{ fromBalance: number; toBalance: number } | null> {
   const fromBalance = await debitWallet(input.ownerId, input.amount, {
     type: "transfer_out",
@@ -445,6 +472,7 @@ export async function transferBetweenOwnWallets(input: {
     counterpartyId: input.ownerId,
     note: input.note,
     walletId: input.fromWalletId,
+    idempotencyKey: input.idempotencyKey,
   });
   if (fromBalance === null) return null;
 
@@ -454,6 +482,7 @@ export async function transferBetweenOwnWallets(input: {
     counterpartyId: input.ownerId,
     note: input.note,
     walletId: input.toWalletId,
+    idempotencyKey: input.idempotencyKey,
   });
   return { fromBalance, toBalance };
 }

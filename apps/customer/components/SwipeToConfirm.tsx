@@ -9,6 +9,10 @@ interface SwipeToConfirmProps {
   onConfirm: () => Promise<void> | void;
   disabled?: boolean;
   className?: string;
+  /** Fraction of the track that commits. Wallet sends use 0.6; other callers stay at 0.7. */
+  commitAt?: number;
+  /** Ink track matches the wallet review screen. */
+  tone?: "muted" | "ink";
 }
 
 export function SwipeToConfirm({
@@ -17,7 +21,11 @@ export function SwipeToConfirm({
   onConfirm,
   disabled = false,
   className = "",
+  commitAt = 0.7,
+  tone = "muted",
 }: SwipeToConfirmProps) {
+  const commitAtRef = useRef(commitAt);
+  useEffect(() => { commitAtRef.current = commitAt; }, [commitAt]);
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -131,8 +139,7 @@ export function SwipeToConfirm({
       const maxDrag = maxDragRef.current;
       const currentDrag = dragXRef.current;
 
-      // 70% threshold for smooth completion across screen sizes
-      if (maxDrag > 0 && currentDrag >= maxDrag * 0.7) {
+      if (maxDrag > 0 && currentDrag >= maxDrag * commitAtRef.current) {
         dragXRef.current = maxDrag;
         setDragX(maxDrag);
         // triggerConfirm rethrows so the caller's own error state (which
@@ -169,6 +176,8 @@ export function SwipeToConfirm({
     }
   };
 
+  // The track width is measured from the DOM; the drag math already keeps a ref copy up to date.
+  // eslint-disable-next-line react-hooks/refs -- existing measurement of the track element
   const maxDrag = getMaxDrag();
   const progress = maxDrag > 0 ? dragX / maxDrag : 0;
 
@@ -187,10 +196,12 @@ export function SwipeToConfirm({
         boxShadow: "var(--shadow-inner-track)",
         touchAction: "none",
       }}
-      className={`relative flex h-14 w-full select-none items-center overflow-hidden rounded-full p-1 transition-colors duration-300 touch-none focus:outline-none focus:ring-2 focus:ring-gold/50 ${
+      className={`relative flex w-full select-none items-center overflow-hidden rounded-full p-1 transition-colors duration-300 touch-none focus:outline-none focus:ring-2 focus:ring-gold/50 ${
         isConfirmed
-          ? "bg-green text-white"
-          : "bg-[rgb(var(--surface-muted))] border border-[var(--border-faint)]"
+          ? "h-14 bg-green text-white"
+          : tone === "ink"
+            ? "h-[66px] border border-white/10 bg-gradient-to-br from-black-700 to-ink text-cream shadow-[0_10px_24px_-8px_rgba(0,0,0,.45)]"
+            : "h-14 bg-[rgb(var(--surface-muted))] border border-[var(--border-faint)]"
       } ${disabled ? "opacity-50 pointer-events-none" : ""} ${className}`}
     >
       {/* Dynamic Gold Fill Track responding to drag progress */}
@@ -209,7 +220,7 @@ export function SwipeToConfirm({
         className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-bold tracking-wide transition-opacity duration-200 select-none"
         style={{
           opacity: isConfirmed ? 1 : Math.max(0, 1 - progress * 1.6),
-          color: isConfirmed ? "#FFFFFF" : "rgb(var(--color-ink))",
+          color: isConfirmed ? "#FFFFFF" : tone === "ink" ? "rgb(var(--color-cream))" : "rgb(var(--color-ink))",
         }}
       >
         {isConfirmed ? (

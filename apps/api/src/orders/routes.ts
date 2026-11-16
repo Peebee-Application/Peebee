@@ -69,6 +69,7 @@ import {
 } from "../payments/service.js";
 import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
 import { appBaseUrl } from "../verify/service.js";
+import { walletIsFrozen } from "../wallet/freeze.js";
 import { payFromWallet, payFromWalletWithCredit } from "../wallet/service.js";
 import { platformDiscountOf, releaseOffers, reserveOffers, resolveOrderOffer } from "../offers/service.js";
 import { afterRideSettled, settleOffersForOrder } from "../offers/settle.js";
@@ -2078,6 +2079,9 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
       if (owned.rows.length === 0) return c.json({ error: "not_found", message: "That wallet doesn't exist" }, 404);
     }
     const sharedSpend = walletOwnerId !== user.sub;
+    if (await walletIsFrozen(walletOwnerId, walletId)) {
+      return c.json({ error: "account_frozen", message: "This account is frozen. Unfreeze it to pay. Money can still come in." }, 409);
+    }
 
     // Reserve funding before debiting; cancellation and duplicate funding
     // requests cannot race a wallet payment.
