@@ -341,3 +341,29 @@ test("the rounding switch: saved by the admin, applied to quotes, previewed befo
     setRoundingRule(DEFAULT_ROUNDING_RULE);
   }
 });
+
+test("financial model snapshot requires Admin access and reads only live aggregates", async () => {
+  const client = await freshDb();
+  await setSetting("monetization_delivery_commission_enabled", "1");
+  await setSetting("monetization_delivery_commission_parcel_percent", "12");
+  await client.execute(`INSERT INTO payment_splits
+    (id, order_id, module, rail, environment, gross, commission, service_fee, created_at)
+    VALUES ('live1', 'order1', 'delivery_parcel', 'cash', 'live', 25000, 3000, 1000, datetime('now', '-1 day')),
+           ('sandbox1', 'order2', 'delivery_parcel', 'cash', 'sandbox', 99999, 9999, 0, datetime('now', '-1 day')),
+           ('old1', 'order3', 'delivery_parcel', 'cash', 'live', 99999, 9999, 0, datetime('now', '-31 days'))`);
+  const { adminRoutes } = await import("../admin/routes.js");
+  const app = new Hono().route("/v1", adminRoutes);
+  const request = caller(app, await tokens());
+  const url = "/admin/financial-model";
+  assert.equal((await app.request(`/v1${url}`)).status, 401);
+  assert.equal((await request("cust", "GET", url)).status, 403);
+  const response = await request("admin", "GET", url);
+  assert.equal(response.status, 200);
+  assert.equal(response.body.rates.find((rate: { name: string }) => rate.name === "Parcel delivery commission").value, 12);
+  assert.deepEqual(response.body.activity[0].rows, [{ name: "delivery_parcel", orders: 1, volume: 25000, fees: 4000 }]);
+  await client.execute("DROP TABLE payment_splits");
+  resetSchemaCache();
+  const withoutSplits = await request("admin", "GET", url);
+  assert.equal(withoutSplits.status, 200);
+  assert.equal(withoutSplits.body.activity[0].available, false);
+});

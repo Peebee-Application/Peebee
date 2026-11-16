@@ -2,7 +2,7 @@
 
 Open `index.html` in Chrome, Edge, or Firefox. A fresh browser opens the review of Peebee’s multichannel assumptions. Edit any assumption from that review, then generate the forecast. Drafts are saved in browser storage when available. **Reset to Peebee defaults** replaces the current draft after confirmation. Existing multichannel drafts open automatically.
 
-The default starts this month in UGX and runs for 36 months. Enter Peebee’s forecast income tax rate before generating a forecast. Revenue volumes, growth, collection terms, operating costs and headcounts start at zero for editing. Add opening cash, receivables, payables, fixed assets and debt from the books. Add capex, financing and equity from the approved plan. The app uses repository defaults and can be used offline.
+The default starts this month in UGX and runs for 36 months. Enter Peebee’s forecast income tax rate before generating a forecast. The Concierge forecast starts with illustrative parcel and shopping order estimates. Edit order counts and average eligible delivery fees directly. Other revenue volumes, growth, collection terms, operating costs and headcounts start at zero for editing. Add opening cash, receivables, payables, fixed assets and debt from the books. Add capex, financing and equity from the approved plan. The local file works offline.
 
 ## Peebee sources
 
@@ -18,6 +18,14 @@ The default starts this month in UGX and runs for 36 months. Enter Peebee’s fo
 | Wallet | [Wallet service](../api/src/wallet/service.ts). Use fees earned by Peebee and exclude customer balances and transfers. |
 
 Check current Admin settings and applicable contracts before entering volumes. Paid activity for features that start off or use free billing is zero until Peebee charges for the feature. The revenue screens describe the base for each percentage fee and where external payment activity should be counted. Count external revenue once, including sales made through Peebee TV and other customer surfaces in the originating channel.
+
+## Live Admin data
+
+Open https://financials.peebee.online and select **Live Admin data**. Sign in with a Peebee Admin account with Payments management and statistics access. Refresh to retrieve current configured fees and recent live settlement totals, including recorded order counts and average values where the source has those fields. The source list covers order splits, TaxiPress, Work, Learn, Talent, and selected platform ledger fees. The report shows only mapped sources. Review the recorded values before using them as forecasts.
+
+**Apply live fees to forecast** updates compatible rates and prices on matching UGX lines. Order estimates, growth and other assumptions are editable. Applying fees saves the updated assumptions to the local draft. Live data and the Admin session stay in the open tab.
+
+Cloudflare serves the site on the Peebee API Worker under the financials domain. The live endpoint uses Admin authorization and returns aggregate live data. The normal API deployment includes changes to the financial model assets.
 
 ## Reports and exports
 

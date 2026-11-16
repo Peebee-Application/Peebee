@@ -17,6 +17,7 @@ import {
   requirePermission,
   requireSuperAdmin,
 } from "./permissions.js";
+import { financialModelPermissions, financialModelSnapshot } from "./financial-model.js";
 import { countSuperAdmins, inviteStaff, listStaff, resetStaffPassword } from "./staff.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { refundOrderToWallet } from "../wallet/service.js";
@@ -32,6 +33,11 @@ export const adminRoutes = new Hono();
 adminRoutes.use("/admin/*", requireAuth, requireRole("admin"));
 
 type Row = Record<string, unknown>;
+
+adminRoutes.get("/admin/financial-model", ...financialModelPermissions, async (c) => {
+  c.header("Cache-Control", "private, no-store");
+  return c.json(await financialModelSnapshot());
+});
 
 const previewPermissions = { riders: "riders.view", customers: "customers.view", restaurants: "restaurants.view", merchants: "merchants.view" } as const;
 adminRoutes.get("/admin/people/:kind/:id/photo", async (c, next) => {

@@ -73,13 +73,13 @@ jobs:
               CHANGED=$(git diff --name-only origin/main...HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
             fi
 
-            # Shared code, lockfile, workspace, scripts, or deploy workflow changes affect every app
-            if [ -z "$CHANGED" ] || echo "$CHANGED" | grep -qE '^(packages/|pnpm-lock\.yaml|package\.json|pnpm-workspace\.yaml|\.npmrc|scripts/|\.github/workflows/deploy\.yml)'; then
+            # Shared code, lockfile, workspace, or shared scripts affect every app
+            if [ -z "$CHANGED" ] || echo "$CHANGED" | grep -qE '^(packages/|pnpm-lock\.yaml|package\.json|pnpm-workspace\.yaml|\.npmrc|scripts/)'; then
               APPS="$ALL"
             else
               APPS=""
               for a in $ALL; do
-                if echo "$CHANGED" | grep -q "^apps/$a/"; then
+                if echo "$CHANGED" | grep -q "^apps/$a/" || { [ "$a" = "api" ] && echo "$CHANGED" | grep -q "^apps/financial-model/"; }; then
                   APPS="$APPS $a"
                 fi
               done

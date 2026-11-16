@@ -5,7 +5,7 @@
   const { questionsFor, consolidate } = globalThis.FinancialChannels;
   const { buildAnalysis, renderAnalysis, exportRows } = globalThis.FinancialAnalysis;
   const { company, catalog, createDefaults } = globalThis.PeebeeDefaults;
-  const dataNote = "The preset uses rates and prices from Peebee’s repository. Confirm current Admin settings. Zero activity, growth and cost values and empty opening balances are placeholders. Enter Peebee’s volumes, costs and balances before relying on the forecast.";
+  const dataNote = "The preset uses rates and prices from Peebee’s repository. Confirm current Admin settings. The opening Concierge volumes and average delivery fees are planning estimates. Zero values and empty opening balances are placeholders. Enter Peebee’s volumes, costs and balances before relying on the forecast.";
   const app = document.querySelector("#app");
   const storageKey = "peebee-financial-model-multichannel-v1";
   const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
@@ -180,6 +180,7 @@
         <button type="button" id="add-line" class="button secondary small">+ Add ${prompt.presets.length ? "custom " : ""}${escape(prompt.item)}</button></div>
         ${rows.length ? `<div class="line-list">${rows.map((row, index) => `<fieldset class="line-item"><legend>${escape(prompt.item[0].toUpperCase() + prompt.item.slice(1))} ${index + 1}</legend>
           <div class="line-fields">${fieldsFor(prompt, row).map(field => lineField(field, row, index)).join("")}</div>
+          ${row.method === "orders" ? `<output class="muted order-estimate" data-estimate="${index}">${orderEstimate(row)}</output>` : ""}
           <button type="button" class="text-button remove-line" id="remove-line-${index}" data-remove="${index}" aria-label="${escape("Remove " + (row.name || prompt.item + " " + (index + 1)))}">Remove</button>
           </fieldset>`).join("")}</div>` : `<p class="empty-items muted">${prompt.required ? "Add a line item to continue." : "No line items added. Continue if this category does not apply."}</p>`}`;
       updatePresets();
@@ -215,6 +216,8 @@
       if (!row) return;
       row[field.dataset.field] = field.value.trim();
       remember(snapshot());
+      const estimate = editor.querySelector(`[data-estimate="${field.dataset.line}"]`);
+      if (estimate) estimate.textContent = orderEstimate(row);
       if (field.tagName === "SELECT") draw(field.id);
       else if (field.dataset.field === "name") {
         updatePresets();
@@ -224,6 +227,11 @@
     });
     draw();
     return snapshot;
+  }
+
+  function orderEstimate(row) {
+    const volume = Number(row.orders) * Number(row.orderValue);
+    return `Month-one eligible value ${money(volume)} · Peebee revenue ${money(volume * Number(row.rate) / 100)}`;
   }
 
   function lineField(field, row, index) {
@@ -486,6 +494,16 @@
     outcomes = null;
     showReview();
   });
+
+  globalThis.FinancialLive.mount({ escape, format, applyRates(rates) {
+    if (currencyOf(answers) !== "UGX") return "Set the model currency to UGX before applying live fees.";
+    const updated = globalThis.FinancialLive.applyRates(answers, rates);
+    if (!updated) return "No compatible fee lines changed.";
+    editing = false;
+    outcomes = null;
+    showReview();
+    return `Updated ${updated} fee lines. Volumes and other forecast inputs are preserved.`;
+  } });
 
   render();
 })();
