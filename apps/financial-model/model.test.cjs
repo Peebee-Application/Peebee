@@ -337,15 +337,17 @@ test("Peebee defaults cover the platform, remain editable, and require a tax ass
   draft.tax = "0";
   const channelModel = consolidate(draft);
   const [baseline] = build(channelModel.answers);
-  assert.ok(baseline.months.every(row => row.revenue === 0 && row.cash === 0));
+  const first = baseline.months[0];
+  const channelTotals = channelModel.report.lines.filter(([label]) => draft.channels.some(channel => label === `${channel.name} total`));
+  assert.equal(channelTotals.length, 13);
+  assert.ok(channelTotals.every(([, getTotal]) => getTotal(first) > 0));
 
-  draft["channel-buy"][0].transactionValue = "1000000";
-  draft["channel-rides"][2].amount = "25000";
+  draft["channel-buy"][0].orders = "501";
+  draft["channel-rides"][2].orders = "9";
   const edited = consolidate(draft);
   const [forecast] = build(edited.answers);
-  assert.equal(forecast.months[0].revenue, 125000);
-  assert.equal(edited.report.lines.find(([label]) => label === "Peebee Buy total")[1](forecast.months[0]), 100000);
-  assert.equal(createDefaults()["channel-buy"][0].transactionValue, "0");
+  assert.equal(forecast.months[0].revenue - first.revenue, 15_500);
+  assert.equal(createDefaults()["channel-buy"][0].orders, "500");
 });
 
 test("order estimates use eligible order value and preserve assumptions when applying live fees", () => {
@@ -365,4 +367,28 @@ test("order estimates use eligible order value and preserve assumptions when app
   assert.equal(first.units, 300);
   assert.equal(first.volume, 1_500_000);
   assert.equal(first.revenue, 180_000);
+});
+
+test("loading starter revenue into a saved draft preserves custom lines and other assumptions", () => {
+  const custom = { name: "Existing partner fee", method: "direct", amount: "50000", growth: "0", days: "5" };
+  const draft = {
+    channels: [{ key: "buy", name: "Renamed Buy" }, { key: "custom", name: "Other" }],
+    "channel-buy": [
+      { name: "Standard marketplace commission", method: "percentage", transactionValue: "0", growth: "4", days: "15", rate: "10" },
+      custom,
+    ],
+    "channel-custom": [custom],
+    tax: "30",
+    expenses: [{ name: "Hosting", amount: "200000" }],
+  };
+  globalThis.PeebeeDefaults.loadStarterRevenue(draft);
+  assert.equal(draft["channel-buy"][0].method, "orders");
+  assert.equal(draft["channel-buy"][0].orders, "500");
+  assert.equal(draft["channel-buy"][0].growth, "4");
+  assert.equal(draft["channel-buy"][0].days, "15");
+  assert.deepEqual(draft["channel-buy"][1], custom);
+  assert.ok(draft["channel-buy"].some(row => row.name === "Elite marketplace commission"));
+  assert.deepEqual(draft["channel-custom"], [custom]);
+  assert.equal(draft.tax, "30");
+  assert.equal(draft.expenses[0].amount, "200000");
 });

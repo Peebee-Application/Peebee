@@ -3,95 +3,99 @@
   const { currentMonth } = globalThis.FinancialAssumptions;
   const company = "Peebee";
   const stream = (name, method, fields) => ({ name, method, ...fields, growth: "0", days: "0" });
-  const share = (name, rate) => stream(name, "percentage", { transactionValue: "0", rate: String(rate) });
   const orders = (name, count, orderValue, rate) => stream(name, "orders", {
     orders: String(count), orderValue: String(orderValue), rate: String(rate),
   });
-  const subscription = (name, price) => stream(name, "subscription", {
-    active: "0", newSubscribers: "0", churn: "0", price: String(price),
+  const subscription = (name, active, newSubscribers, price) => stream(name, "subscription", {
+    active: String(active), newSubscribers: String(newSubscribers), churn: "5", price: String(price),
   });
-  const units = (name, price) => stream(name, "units", { units: "0", price: String(price) });
-  const monthly = name => stream(name, "direct", { amount: "0" });
+  const units = (name, count, price) => stream(name, "units", { units: String(count), price: String(price) });
   const cost = name => ({ name, amount: "0", month: "1", growth: "0" });
   const direct = name => ({ ...cost(name), basis: "fixed", stock: "0", inventoryDays: "0", payableDays: "0" });
 
-  // Forecast inputs mirror repository defaults. The planner is standalone and does not read or change Admin settings.
+  // Starter estimates describe a launch scenario. Volumes and unverified prices are editable forecast assumptions.
   const catalog = [
     {
       key: "concierge", name: "Peebee Concierge",
-      streams: [orders("Parcel delivery commission", 300, 5000, 0), orders("Shopping delivery commission", 150, 3000, 0),
-        units("Concierge service fees", 0), share("Processing fees retained by Peebee", 0)],
-      note: "The starting parcel and shopping counts and average delivery fees are illustrative planning estimates. For delivery commission, enter the delivery fee per order, excluding the value of goods. Delivery commission, service fees and processing fees start off in Monetization.",
+      streams: [orders("Parcel delivery commission", 300, 5000, 8), orders("Shopping delivery commission", 150, 3000, 8),
+        units("Concierge service fees", 450, 500), orders("Processing fees retained by Peebee", 180, 8000, 1)],
+      note: "Use the delivery fee per order as the commission base and exclude the value of goods. The starter assumes order fees are enabled and applies processing fees only to eligible paid transactions.",
     },
     {
       key: "buy", name: "Peebee Buy",
-      streams: [share("Standard marketplace commission", 10), share("Elite marketplace commission", 5),
-        share("Digital sales commission", 5), monthly("Marketplace promotion fees retained"),
-        subscription("Pro Store monthly plans", 35000), subscription("Pro Live monthly plans", 75000),
-        subscription("Elite monthly plans", 150000), monthly("Annual plan fees collected")],
-      note: "Use separate sales volumes for standard, Elite and digital orders. Admin has a 5% promotion fee setting. Use the amount actually retained in the promotion fee line. Store plans default to free billing. The displayed plan prices apply only in paid mode. Count paying stores only.",
+      streams: [orders("Standard marketplace commission", 500, 35000, 10), orders("Elite marketplace commission", 160, 55000, 5),
+        orders("Digital sales commission", 60, 20000, 5), units("Marketplace promotion fees retained", 8, 5000),
+        subscription("Pro Store monthly plans", 12, 2, 35000), subscription("Pro Live monthly plans", 4, 1, 75000),
+        subscription("Elite monthly plans", 3, 1, 150000), units("Annual plan fees collected", 1, 350000)],
+      note: "Use separate sales volumes for standard, Elite and digital orders. The starter assumes paid billing. Count only paying stores and keep annual plan sales separate from monthly subscribers. For promotions enter the average fee Peebee retains.",
     },
     {
       key: "work", name: "Peebee Work",
-      streams: [share("Home services commission", 15), share("Laundry provider commission", 15), units("Laundry customer fees", 0)],
-      note: "Home services can override the default commission by service. Apply the laundry rate to provider earnings for the laundry work. Laundry customer fees default to off.",
+      streams: [orders("Home services commission", 90, 50000, 15), orders("Laundry provider commission", 140, 24000, 15),
+        units("Laundry customer fees", 140, 500)],
+      note: "Home services can override the default commission by service. Apply the laundry rate to provider earnings for the laundry work. The starter assumes laundry customer fees are enabled in addition to provider commission.",
     },
     {
       key: "rides", name: "Peebee Rides",
-      streams: [share("Boda fare commission", 0), share("Car platform share", 10), monthly("Self-drive rental fees retained by Peebee"),
-        subscription("Recurring rider access subscriptions", 0), subscription("Recurring Rider Pro subscriptions", 0),
-        monthly("One-time rider access and Pro fees")],
-      note: "Use the car settlement pool as the base for the default platform share. Vehicle category and rental terms can differ. Self-drive defaults to off with no agreed platform rate. Rider access and Pro billing default to off. Enter a monthly equivalent when a recurring plan bills weekly.",
+      streams: [orders("Boda fare commission", 800, 6500, 5), orders("Car platform share", 180, 24000, 10),
+        orders("Self-drive rental fees retained by Peebee", 8, 120000, 10),
+        subscription("Recurring rider access subscriptions", 30, 4, 10000), subscription("Recurring Rider Pro subscriptions", 12, 2, 15000),
+        units("One-time rider access and Pro fees", 5, 10000)],
+      note: "Use the car settlement pool as the base for the default platform share. Vehicle category and rental terms can differ. The starter assumes self-drive and rider subscriptions are enabled and uses an illustrative rental take rate. Separate one-time buyers from recurring subscribers.",
     },
     {
       key: "learn", name: "Peebee Learn",
-      streams: [share("Course and masterclass commission", 10), share("Bundle commission", 10),
-        share("School pass commission", 10), share("School fee commission", 10)],
+      streams: [orders("Course and masterclass commission", 100, 35000, 10), orders("Bundle commission", 30, 60000, 10),
+        orders("School pass commission", 40, 25000, 10), orders("School fee commission", 35, 90000, 10)],
       note: "Use the Learn payment path for the Learn rate. Count a course sold through digital checkout under Buy only. Include TV-assisted enrolments with their original Learn sale.",
     },
     {
       key: "food", name: "Peebee Food",
-      streams: [monthly("Food fees retained by Peebee")],
-      note: "Enter the fees Peebee earns from food orders. Confirm collection terms in the restaurant agreement or settlement data.",
+      streams: [orders("Food fees retained by Peebee", 420, 24000, 8)],
+      note: "The fees use an illustrative restaurant order commission. Replace the rate with the agreed terms.",
     },
     {
       key: "pharmacy", name: "Peebee Pharmacy",
-      streams: [monthly("Pharmacy fees retained by Peebee")],
-      note: "Enter Peebee's earned fees from pharmacy orders. Prescription receipts belong to the pharmacy unless Peebee is the seller.",
+      streams: [orders("Pharmacy fees retained by Peebee", 90, 32000, 5)],
+      note: "The starter uses an illustrative commission on partner pharmacy orders. Only Peebee’s fee counts as revenue.",
     },
     {
       key: "gas", name: "Peebee Gas",
-      streams: [monthly("Gas partner fees retained by Peebee")],
-      note: "Use the Peebee fees in partner agreements. Fuel sales in the Gas app are outlet turnover.",
+      streams: [orders("Gas partner fees retained by Peebee", 140, 45000, 2)],
+      note: "The starter applies an illustrative fee to eligible partner transactions. Fuel sales belong to the outlet.",
     },
     {
       key: "taxipress", name: "TaxiPress",
-      streams: [share("Digital seat commission", 0), share("Cash seat commission", 0), units("Seat-choice fees", 0)],
-      note: "Cash and digital fare commission default to 0%. If Admin uses flat commission, change the driver to units and use booked seats and the flat fee.",
+      streams: [orders("Digital seat commission", 220, 12000, 4), orders("Cash seat commission", 320, 12000, 3),
+        units("Seat-choice fees", 45, 500)],
+      note: "The starter assumes cash and digital fares have separate commissions. For flat pricing, use booked seats and the fee per seat.",
     },
     {
       key: "talent", name: "Peebee Jobs & Talent",
-      streams: [share("Employer gig and project commission", 3), share("Worker gig commission", 10), share("Worker project commission", 8),
-        units("Project listing fees", 2000), units("Hiring listing fees", 20000), units("Boost fees", 5000),
-        units("Contact unlock fees", 1000), units("Application fees", 500), monthly("Placement and other hiring fees"),
-        subscription("Worker Pro plans", 15000), subscription("Employer Pro plans", 40000)],
-      note: "Jobs & Talent starts off and its migration-seeded fee rules start inactive. Count only paid activity after activation, including any free allowances and plan discounts. Placement fees use a minimum and maximum, so enter the monthly amount earned.",
+      streams: [orders("Employer gig and project commission", 65, 90000, 3), orders("Worker gig commission", 50, 66000, 10),
+        orders("Worker project commission", 15, 170000, 8), units("Project listing fees", 18, 2000),
+        units("Hiring listing fees", 8, 20000), units("Boost fees", 15, 5000),
+        units("Contact unlock fees", 30, 1000), units("Application fees", 70, 500),
+        units("Placement and other hiring fees", 3, 50000),
+        subscription("Worker Pro plans", 20, 5, 15000), subscription("Employer Pro plans", 8, 2, 40000)],
+      note: "The starter assumes paid services are enabled. Employer and worker commissions apply to opposite sides of the same contract. Use chargeable events after free allowances and discounts. Placement uses the average fee earned per placement.",
     },
     {
       key: "services", name: "Peebee Services",
-      streams: [share("Services platform commission", 5)],
+      streams: [orders("Services platform commission", 65, 85000, 5)],
       note: "Apply the commission to service payments handled by the Services platform. Work bookings use their own row under Peebee Work.",
     },
     {
       key: "creator-media", name: "Peebee Channels & Ads",
-      streams: [share("Creator membership share", 15), share("Paid post share", 20),
-        share("Tips share", 10), share("Live gift share", 10), share("Fundraising fee", 0), share("Ad revenue after creator share", 45)],
-      note: "Creator monetization, fundraising and ads default to off. Use paid activity only after activation. The ad share assumes the configured 55% creator share. Track merchant promotion fees only once.",
+      streams: [orders("Creator membership share", 120, 8000, 15), orders("Paid post share", 180, 3000, 20),
+        orders("Tips share", 70, 4000, 10), orders("Live gift share", 110, 2500, 10),
+        orders("Fundraising fee", 35, 20000, 0), orders("Ad revenue after creator share", 200, 3000, 45)],
+      note: "The starter assumes creator monetization and ads are enabled. Ad units represent groups of 1,000 paid impressions at an illustrative CPM. Donations carry a 0% take rate. Track merchant promotion fees only once.",
     },
     {
       key: "wallet", name: "Peebee Wallet",
-      streams: [monthly("Wallet fees retained by Peebee")],
-      note: "Use net fees earned by Peebee from wallet activity. Customer balances, top-ups and withdrawals are movements of funds.",
+      streams: [units("Wallet fees retained by Peebee", 280, 500)],
+      note: "Use the net fee Peebee earns per chargeable wallet transaction. Wallet balances and transfer principal are movements of funds.",
     },
   ];
 
@@ -110,5 +114,22 @@
     });
   }
 
-  globalThis.PeebeeDefaults = { company, catalog, createDefaults };
+  function loadStarterRevenue(answers) {
+    for (const channel of answers.channels || []) {
+      const starter = catalog.find(item => item.key === channel.key || item.name === channel.name);
+      if (!starter) continue;
+      const id = `channel-${channel.key}`;
+      const rows = answers[id] || [];
+      const byName = new Map(starter.streams.map(row => [row.name, row]));
+      const updated = rows.map(row => {
+        const preset = byName.get(row.name);
+        if (!preset) return row;
+        byName.delete(row.name);
+        return { ...preset, growth: row.growth || preset.growth, days: row.days || preset.days };
+      });
+      answers[id] = [...updated, ...Array.from(byName.values(), row => ({ ...row }))];
+    }
+  }
+
+  globalThis.PeebeeDefaults = { company, catalog, createDefaults, loadStarterRevenue };
 })();

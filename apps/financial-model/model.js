@@ -281,7 +281,7 @@
     ] },
     { id: "schedules", name: "Supporting schedules", lines: [
       detail("streams", "units", "Units sold", "count", row => row.method === "units"),
-      detail("streams", "units", "Estimated orders", "count", row => row.method === "orders"),
+      detail("streams", "units", "Estimated orders or transactions", "count", row => row.method === "orders"),
       detail("streams", "joining", "New subscribers", "count", row => row.method === "subscription"),
       detail("streams", "leaving", "Subscribers lost", "count", row => row.method === "subscription"),
       detail("streams", "active", "Closing subscribers", "count", row => row.method === "subscription"),

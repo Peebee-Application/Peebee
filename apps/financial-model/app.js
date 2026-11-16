@@ -4,8 +4,8 @@
   const { build, reports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
   const { questionsFor, consolidate } = globalThis.FinancialChannels;
   const { buildAnalysis, renderAnalysis, exportRows } = globalThis.FinancialAnalysis;
-  const { company, catalog, createDefaults } = globalThis.PeebeeDefaults;
-  const dataNote = "The preset uses rates and prices from Peebee’s repository. Confirm current Admin settings. The opening Concierge volumes and average delivery fees are planning estimates. Zero values and empty opening balances are placeholders. Enter Peebee’s volumes, costs and balances before relying on the forecast.";
+  const { company, catalog, createDefaults, loadStarterRevenue } = globalThis.PeebeeDefaults;
+  const dataNote = "Starter estimates model a launch scenario across all channels. Volumes, average values and unverified fees are illustrative. The scenario includes features that may be off in Admin. Apply available Admin fees to matching lines, and enter Peebee’s costs and opening balances.";
   const app = document.querySelector("#app");
   const storageKey = "peebee-financial-model-multichannel-v1";
   const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
@@ -276,7 +276,9 @@
   function renderReview(forecastError = "") {
     const list = activeQuestions(answers);
     app.innerHTML = `<div class="review-head"><div><h1 id="review-title" tabindex="-1">Review assumptions</h1><p class="muted">${escape(answers.company)} · ${escape(currencyOf(answers))}</p></div>
-      <button type="button" id="generate" class="button gold">Generate forecast <span aria-hidden="true">→</span></button></div>
+      <div class="toolbar">
+        ${currencyOf(answers) === "UGX" ? '<button type="button" id="starter-revenue" class="button secondary">Load starter revenue estimates</button>' : ""}
+        <button type="button" id="generate" class="button gold">Generate forecast <span aria-hidden="true">→</span></button></div></div>
       <p class="notice">${escape(dataNote)}</p>
       ${forecastError ? `<p class="notice" id="forecast-error" role="alert" tabindex="-1">${escape(forecastError)}</p>` : ""}
       <div class="review-grid">${sections.map(section => `<section class="panel"><h2>${section}</h2><dl>${list.filter(prompt => prompt.section === section).map(prompt =>
@@ -286,6 +288,11 @@
             <ul>${answers[prompt.id].map(row => `<li><strong>${escape(row.name)}</strong><ul>${fieldsFor(prompt, row).filter(field => field.id !== "name").map(field =>
               `<li>${escape(field.label)} · ${escape(displayAnswer(field, row[field.id]))}</li>`).join("")}</ul></li>`).join("")}</ul></details></dd>` : ""}</div>`).join("")}</dl></section>`).join("")}</div>`;
     app.querySelectorAll("[data-edit]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.edit, true)));
+    document.querySelector("#starter-revenue")?.addEventListener("click", () => {
+      if (!window.confirm("Replace standard Peebee revenue drivers, volumes and fees with the starter estimates? Custom revenue lines, growth assumptions and costs will be kept.")) return;
+      loadStarterRevenue(answers);
+      showReview();
+    });
     document.querySelector("#generate").addEventListener("click", () => {
       const missing = firstMissing(answers);
       if (missing) return goTo(missing.id, true);

@@ -16,7 +16,7 @@
     group("streams", "Revenue", "What are your revenue streams?", "Add each product, service or income stream and enter how it earns revenue. Collection days estimate the sales still owed at month end.", "revenue stream", [
       select("method", "Revenue driver", [["units", "Units × price"], ["subscription", "Subscriptions × monthly price"], ["direct", "Monthly sales amount"], ["orders", "Orders × average value × fee rate"], ["percentage", "Percentage of transaction or payout"]], "units"),
       num("units", "Units sold in first month", { when: row => row.method === "units" }),
-      num("orders", "Estimated orders in month one", { step: 1, initial: "0", when: row => row.method === "orders" }),
+      num("orders", "Estimated orders or transactions in month one", { step: 1, initial: "0", when: row => row.method === "orders" }),
       amount("orderValue", "Average eligible value per order", { initial: "0", when: row => row.method === "orders" }),
       num("active", "Subscribers before month one", { when: row => row.method === "subscription", initial: "0" }),
       num("newSubscribers", "New subscribers in first month", { when: row => row.method === "subscription" }),
