@@ -21,12 +21,10 @@
   <header class="masthead">
     <div class="masthead-inner">
       <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span> Peebee Financial Model</div>
-      <div class="toolbar">
-        <button class="button secondary small" id="live-data" type="button" hidden>Live Admin data</button>
-        <button class="button secondary small" id="open-settings" type="button">Settings</button>
-        <button class="button secondary small" id="reset-model" type="button">Reset to Peebee defaults</button>
-      </div>
+      <nav id="primary-nav" class="primary-nav" aria-label="Forecast sections"></nav>
+      <button class="button secondary small" id="open-settings" type="button" aria-haspopup="dialog">Settings</button>
     </div>
+    <nav id="secondary-nav" class="secondary-nav" aria-label="Forecast views"></nav>
   </header>
   <main id="app" class="shell"></main>
   <dialog id="live-dialog" class="panel" aria-labelledby="live-title"></dialog>
@@ -49,7 +47,20 @@
         <span class="autosave-track" aria-hidden="true"></span>
       </span>
     </label>
+    <section class="settings-actions" aria-labelledby="settings-data-title">
+      <h3 id="settings-data-title">Data and reset</h3>
+      <button class="button secondary" id="live-data" type="button" aria-haspopup="dialog" hidden>Live Admin data</button>
+      <button class="button secondary" id="reset-model" type="button" aria-haspopup="dialog">Reset to Peebee defaults</button>
+    </section>
     <form method="dialog" class="dialog-actions"><button class="button gold">Done</button></form>
+  </dialog>
+  <dialog id="confirm-action" class="panel model-dialog" role="alertdialog" aria-labelledby="confirm-action-title" aria-describedby="confirm-action-detail">
+    <h2 id="confirm-action-title"></h2>
+    <p id="confirm-action-detail" class="notice"></p>
+    <form method="dialog" class="dialog-actions">
+      <button class="button secondary" value="cancel" autofocus>Cancel</button>
+      <button class="button gold" id="confirm-action-submit" value="confirm"></button>
+    </form>
   </dialog>
   <dialog id="unsaved-dialog" class="panel model-dialog" aria-labelledby="unsaved-title" aria-describedby="unsaved-help">
     <h2 id="unsaved-title">Save this answer?</h2>

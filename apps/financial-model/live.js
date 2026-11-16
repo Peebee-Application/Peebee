@@ -19,7 +19,7 @@
     return updated;
   }
 
-  function mount({ escape, format, beforeApply, applyRates: importRates }) {
+  function mount({ escape, format, confirmAction, open, beforeApply, applyRates: importRates }) {
     if (location.hostname !== "financials.peebee.online") return;
     const launch = document.querySelector("#live-data");
     const dialog = document.querySelector("#live-dialog");
@@ -91,11 +91,15 @@
       dialog.querySelector("#live-refresh")?.addEventListener("click", () => refresh());
       dialog.querySelector("#live-signout")?.addEventListener("click", signOut);
       dialog.querySelector("#live-apply")?.addEventListener("click", () => {
-        if (!window.confirm("Replace the fee values on matching forecast lines with current Admin values?")) return;
-        beforeApply(() => {
-          status = importRates(snapshot.rates);
-          dialog.querySelector("#live-status").textContent = status;
-        }, dialog);
+        confirmAction(
+          "Overwrite forecast fees with live rates?",
+          "This replaces the fees you entered on matching forecast lines with the current production Admin rates. It does not change volumes or write anything to Admin. Cancel to keep your current fee assumptions.",
+          "Overwrite matching fees",
+          () => beforeApply(() => {
+            status = importRates(snapshot.rates);
+            dialog.querySelector("#live-status").textContent = status;
+          }, dialog)
+        );
       });
     }
 
@@ -134,10 +138,10 @@
     }
 
     launch.hidden = false;
-    launch.addEventListener("click", () => {
+    launch.addEventListener("click", () => open(() => {
       draw();
       dialog.showModal();
-    });
+    }));
   }
 
   globalThis.FinancialLive = { mount, applyRates };
