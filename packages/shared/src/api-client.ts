@@ -3279,6 +3279,21 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async adminListStaff() {
       return request<{ staff: StaffMember[] }>("/v1/admin/staff");
     },
+    async adminSetStaffFinancialAccess(userId: string, enabled: boolean) {
+      return request<{ ok: true }>(`/v1/admin/staff/${encodeURIComponent(userId)}/financial-access`, {
+        method: "PUT",
+        body: JSON.stringify({ enabled }),
+      });
+    },
+    async adminFinancialAccessRequests() {
+      return request<{ requests: Array<{ id: string; email: string; note: string; createdAt: number }> }>("/v1/admin/financial-model/requests");
+    },
+    async adminReviewFinancialAccessRequest(id: string, approve: boolean) {
+      return request<{ link: string | null }>(`/v1/admin/financial-model/requests/${encodeURIComponent(id)}`, {
+        method: "POST",
+        body: JSON.stringify({ approve }),
+      });
+    },
     async adminStaffRoles() {
       return request<{ roles: Array<{ role: AdminRole; label: string; description: string }> }>(
         "/v1/admin/staff/roles",

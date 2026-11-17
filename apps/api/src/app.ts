@@ -6,6 +6,7 @@ import { cors } from "hono/cors";
 import { verifyToken } from "./auth/jwt.js";
 import { mobileNumberRoutes } from "./account/mobile-numbers.js";
 import { adminRoutes } from "./admin/routes.js";
+import { financialGuestRoutes } from "./admin/financial-guests.js";
 import { platformMapRoutes } from "./admin/platform-map.js";
 import { segmentRoutes } from "./admin/segments.js";
 import { financialRoutes } from "./marketplace/financial-routes.js";
@@ -377,6 +378,7 @@ app.route("/v1", merchantRoutes);
 // inherited the admin-only check.
 app.route("/v1", voiceRoutes);
 app.route("/v1", adminRoutes);
+app.route("/v1/forecast-guest", financialGuestRoutes);
 app.route("/v1", platformMapRoutes);
 app.route("/v1", segmentRoutes);
 app.route("/v1", financialRoutes);

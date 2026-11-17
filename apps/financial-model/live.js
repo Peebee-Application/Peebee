@@ -39,8 +39,8 @@
           `<div class="table-wrap" tabindex="0"><table><thead><tr><th scope="col">Category</th><th scope="col">Orders</th><th scope="col">Recorded value</th><th scope="col">Average value</th><th scope="col">Recorded fees</th></tr></thead>
             <tbody>${source.rows.map(row => `<tr><th scope="row">${escape(row.name.replaceAll("_", " "))}</th><td>${number(row.orders)}</td><td>${ugx(row.volume)}</td><td>${ugx(row.orders ? row.volume / row.orders : null)}</td><td>${ugx(row.fees)}</td></tr>`).join("")}</tbody></table></div>`}
         </details>`).join("");
-      dialog.innerHTML = `<div class="toolbar"><h2 id="live-title">Live Admin data</h2>
-        <button class="button secondary small" id="live-close" type="button">Close</button></div>
+      dialog.innerHTML = `<button class="dialog-x" id="live-close" type="button" aria-label="Close dialog">×</button>
+        <h2 id="live-title">Live Admin data</h2>
         <p id="live-status" class="muted" role="status" tabindex="-1">${escape(status)}</p>
         <button class="button secondary small" id="live-refresh" type="button" ${busy ? "disabled" : ""}>Refresh</button>
         ${snapshot ? `<p class="muted">Live activity from ${escape(timestamp(snapshot.from))} to ${escape(timestamp(snapshot.to))} (Kampala time).</p>

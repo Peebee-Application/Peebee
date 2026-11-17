@@ -21,6 +21,7 @@ import {
 import { draftInput, getFinancialDraft, saveFinancialDraft } from "./financial-draft.js";
 import { getFinancialPreferences, preferencesPatch, saveFinancialPreferences } from "./financial-preferences.js";
 import { financialModelPermissions, financialModelSnapshot } from "./financial-model.js";
+import { financialInviteRoutes, financialRequestRoutes } from "./financial-guests.js";
 import { countSuperAdmins, inviteStaff, listStaff, resetStaffPassword } from "./staff.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { refundOrderToWallet } from "../wallet/service.js";
@@ -36,6 +37,9 @@ export const adminRoutes = new Hono();
 adminRoutes.use("/admin/*", requireAuth, requireRole("admin"));
 
 type Row = Record<string, unknown>;
+
+adminRoutes.route("/admin/financial-model/invites", financialInviteRoutes);
+adminRoutes.route("/admin/financial-model/requests", financialRequestRoutes);
 
 adminRoutes.get("/admin/financial-model", ...financialModelPermissions, async (c) => {
   c.header("Cache-Control", "private, no-store");

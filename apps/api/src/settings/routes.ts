@@ -6,7 +6,8 @@ import { z } from "zod";
 import { describeOptions, setOptions } from "../lib/option-settings.js";
 import { logActivity } from "../admin/activity.js";
 import { getWorkSettings, setWorkSettings, WORK_MATCHING_MODES, WORK_PRICING_MODES, WORK_PROVIDER_KINDS, WORK_SERVICE_TYPES } from "../work/settings.js";
-import { hasPermission, requirePermission } from "../admin/permissions.js";
+import { hasPermission, requirePermission, requireSuperAdmin } from "../admin/permissions.js";
+import { financialAccessKey } from "../admin/financial-access.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { db } from "../db/client.js";
 import { clientIp } from "../lib/ratelimit.js";
@@ -96,6 +97,32 @@ import { getRideTrackingSettings, rideTrackingSchema } from "./ride-tracking.js"
 import { verificationAvailable } from "../account/number-verification.js";
 
 export const settingsRoutes = new Hono();
+
+settingsRoutes.put("/admin/staff/:id/financial-access", requireAuth, requireRole("admin"), requireSuperAdmin(), async c => {
+  const parsed = z.object({ enabled: z.boolean() }).strict().safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid_setting", message: "Choose whether to grant Financials access." }, 400);
+  const id = c.req.param("id") ?? "";
+  const key = financialAccessKey + id;
+  const staff = (await db.execute({
+    sql: `SELECT u.admin_role, access.value FROM users u
+          LEFT JOIN settings access ON access.key = ?
+          WHERE u.id = ? AND u.role = 'admin'`,
+    args: [key, id],
+  })).rows[0];
+  if (!staff) return c.json({ error: "not_found", message: "Staff account not found." }, 404);
+  if (staff.admin_role === "super_admin") return c.json({ error: "forbidden", message: "Super Admins have Financials access." }, 403);
+  const { enabled } = parsed.data;
+  await db.execute(enabled ? {
+    sql: "INSERT INTO settings (key, value) VALUES (?, '1') ON CONFLICT(key) DO UPDATE SET value = '1', updated_at = datetime('now')",
+    args: [key],
+  } : { sql: "DELETE FROM settings WHERE key = ?", args: [key] });
+  await logActivity({
+    actor: c.get("user"), action: "financial_model.staff_access", entityType: "user", entityId: id,
+    summary: enabled ? "Granted staff Financials access" : "Revoked staff Financials access",
+    before: { enabled: staff.value === "1" }, after: { enabled },
+  }).catch(error => console.error("Could not log Financials staff access change", error));
+  return c.json({ ok: true });
+});
 
 async function fullSettings() {
   const [delivery, matching, activeProviders, demoMode, flwDirectMobileMoney, flwDirectCard, paymentsPendingTimeout, paymentsLateWatch, requireVerifiedNumbers, wallet, voiceNoteMaxSeconds, monetization, platformEnvironment, practiceModeEnabled, riderReserve, callsActiveProvider, mapsActiveProvider, navMode, merchantPayments, merchantSandbox, merchantCustody, merchantFrozen, vsla, lugandaAudio, pro, services] =

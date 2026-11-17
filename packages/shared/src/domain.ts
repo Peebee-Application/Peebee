@@ -2417,6 +2417,7 @@ export type CreateListResponse = {
 
 /** A staff account, as listed on the admin Staff page. */
 export type StaffMember = {
+  financial_access?: number;
   id: string;
   name: string;
   phone: string | null;

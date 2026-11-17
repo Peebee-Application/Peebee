@@ -10,6 +10,7 @@ import { signToken } from "../auth/jwt.js";
 import { setD1Binding, type D1Database } from "../db/client.js";
 import { splitSqlStatements } from "../db/split-sql.js";
 import { resetSchemaCache } from "../lib/schema.js";
+import { setEmailSenderForTests } from "../lib/email-gateway.js";
 import { getSetting, setPlatformEnvironment, setSetting } from "../lib/settings.js";
 import { getCreditConfig, saveConfig } from "../offers/config.js";
 import { offersAdminRoutes } from "../offers/admin-routes.js";
@@ -413,4 +414,93 @@ test("financial preferences follow the authenticated admin and preserve concurre
   assert.deepEqual(saves.map(result => result.status), [200, 200]);
   assert.deepEqual((await request("admin", "GET", path)).body.preferences, { appearance: "dark", autosave: true });
   assert.deepEqual((await request("other", "GET", path)).body.preferences, defaults);
+});
+
+test("Financials guest invitations verify email ownership and restrict forecast access", async () => {
+  const client = await freshDb();
+  await client.execute("UPDATE users SET role = 'admin', admin_role = 'customer_manager' WHERE id = 'rider'");
+  const { adminRoutes } = await import("../admin/routes.js");
+  const { financialGuestRoutes } = await import("../admin/financial-guests.js");
+  const { settingsRoutes } = await import("../settings/routes.js");
+  const guestPath = "/v1/forecast-guest";
+  const app = new Hono().route("/v1", adminRoutes).route("/v1", settingsRoutes).route(guestPath, financialGuestRoutes);
+  const staff = await signToken({ sub: "rider", role: "admin" });
+  const request = caller(app, { ...await tokens(), staff });
+  const finance = "/admin/financial-model";
+  const permission = "/admin/staff/rider/financial-access";
+  const answers = { company: "Peebee", tax: "30" };
+  const sent: Array<{ email: string; code: string }> = [];
+  setEmailSenderForTests(async (email, _subject, message) => {
+    sent.push({ email, code: message.match(/\b\d{6}\b/)?.[0] ?? "" });
+  });
+  const publicRequest = (path: string, body?: unknown, cookie?: string) => app.request(path, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  try {
+    assert.equal((await request("staff", "GET", finance + "/draft")).status, 403);
+    assert.equal((await request("staff", "PUT", permission, { enabled: true })).status, 403);
+    assert.equal((await request("admin", "PUT", permission, { enabled: true })).status, 200);
+    assert.equal((await request("staff", "GET", finance + "/draft")).status, 200);
+    assert.equal((await request("admin", "PUT", finance + "/draft", { revision: null, answers })).status, 200);
+    const created = await request("staff", "POST", finance + "/invites", { email: "Guest@example.test", days: 7, passwordRequired: true });
+    assert.equal(created.status, 201);
+    const { link, password } = created.body;
+    const invite = new URL(link).searchParams.get("guest");
+    const email = "guest@example.test";
+    const draftPath = guestPath + "/draft?invite=" + invite;
+    assert.equal((await publicRequest(draftPath)).status, 401);
+    assert.equal((await publicRequest(guestPath + "/code", { invite, email: "else@example.test" })).status, 200);
+    assert.equal(sent.length, 0);
+    assert.equal((await publicRequest(guestPath + "/code", { invite, email })).status, 200);
+    assert.equal((await publicRequest(guestPath + "/code", { invite, email })).status, 200);
+    assert.deepEqual(sent.map(message => message.email), [email]);
+    const code = sent[0].code;
+    const verify = (password: string) => publicRequest(guestPath + "/verify", { invite, email, code, password });
+    assert.equal((await verify("wrong-password")).status, 401);
+    const verified = await verify(password);
+    assert.equal(verified.status, 200);
+    assert.equal((await verify(password)).status, 401);
+    const cookieHeader = verified.headers.get("set-cookie") ?? "";
+    assert.match(cookieHeader, /HttpOnly/i);
+    assert.match(cookieHeader, /Secure/i);
+    const cookie = cookieHeader.split(";")[0];
+    const forecast = await publicRequest(draftPath, undefined, cookie);
+    assert.equal(forecast.status, 200);
+    assert.deepEqual((await forecast.json()).draft.answers, answers);
+    assert.equal((await app.request("/v1" + finance + "/draft", { method: "PUT", headers: { Cookie: cookie } })).status, 401);
+    assert.equal((await request("staff", "DELETE", finance + "/invites/" + invite)).status, 200);
+    assert.equal((await publicRequest(draftPath, undefined, cookie)).status, 401);
+    assert.equal((await request("admin", "PUT", permission, { enabled: false })).status, 200);
+    assert.equal((await request("staff", "GET", finance + "/invites")).status, 403);
+
+    const access = { email: "reader@example.test", note: "Review the forecast" };
+    assert.equal((await publicRequest(guestPath + "/request", access)).status, 200);
+    assert.equal((await publicRequest(guestPath + "/request", access)).status, 200);
+    assert.equal((await request("staff", "GET", finance + "/requests")).status, 403);
+    const pending = await request("admin", "GET", finance + "/requests");
+    assert.equal(pending.body.requests.length, 1);
+    const review = finance + "/requests/" + pending.body.requests[0].id;
+    const approved = await request("admin", "POST", review, { approve: true });
+    assert.equal(approved.status, 200);
+    assert.equal((await request("admin", "POST", review, { approve: true })).status, 404);
+    const approvedInvite = new URL(approved.body.link).searchParams.get("guest");
+    assert.equal((await publicRequest(guestPath + "/code", { invite: approvedInvite, email: access.email })).status, 200);
+    const approvedCode = sent.at(-1)?.code;
+    const approvedSession = await publicRequest(guestPath + "/verify", { invite: approvedInvite, email: access.email, code: approvedCode });
+    assert.equal(approvedSession.status, 200);
+    const approvedCookie = approvedSession.headers.get("set-cookie")?.split(";")[0];
+    const approvedDraft = guestPath + "/draft?invite=" + approvedInvite;
+    assert.equal((await publicRequest(approvedDraft, undefined, approvedCookie)).status, 200);
+    await client.execute({ sql: "UPDATE financial_guest_invites SET expires_at = 0 WHERE id = ?", args: [approvedInvite] });
+    assert.equal((await publicRequest(approvedDraft, undefined, approvedCookie)).status, 401);
+
+    await client.execute("DROP TABLE financial_guest_requests");
+    resetSchemaCache();
+    assert.equal((await publicRequest(guestPath + "/request", access)).status, 503);
+    assert.equal((await request("admin", "GET", finance + "/draft")).status, 200);
+  } finally {
+    setEmailSenderForTests(null);
+  }
 });

@@ -71,7 +71,7 @@ function bindEnv(env: WorkerEnv): void {
 export default {
   fetch(request: Request, env: WorkerEnv, ctx: CfExecutionContext): Response | Promise<Response> {
     const url = new URL(request.url);
-    if (url.hostname === "financials.peebee.online") {
+    if (url.hostname === "financials.peebee.online" && !url.pathname.startsWith("/v1/forecast-guest/")) {
       return serveFinancialAssets(request, env.FINANCIAL_ASSETS);
     }
     bindEnv(env);
