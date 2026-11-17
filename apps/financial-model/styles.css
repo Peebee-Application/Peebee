@@ -184,7 +184,51 @@ select:disabled { cursor: default; }
 .review-head .muted, .report-head .muted { margin: 9px 0 0; }
 .report-actions { display: grid; justify-items: end; gap: 10px; }
 .report-actions .toolbar { justify-content: flex-end; margin-bottom: 0; }
-.review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.review-workspace { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 26px; align-items: start; }
+.review-sections { position: sticky; top: 20px; display: grid; gap: 6px; }
+.review-sections button {
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 650;
+  text-align: start;
+}
+.review-sections button:hover { background: rgb(var(--surface-muted)); }
+.review-sections button[aria-pressed="true"] {
+  border-color: rgb(var(--color-gold) / .45);
+  background: rgb(var(--color-gold) / .14);
+}
+.review-search { display: grid; gap: 6px; font-size: .9rem; font-weight: 700; }
+.review-search input {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: rgb(var(--surface-input));
+  color: var(--ink);
+}
+#review-search-status { margin: 0; font-size: .9rem; }
+.review-data-note summary { cursor: pointer; font-weight: 650; }
+.review-data-note p { margin: 8px 0 0; }
+.review-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px; }
+.review-section-head h2 { margin: 0; }
+.review-module-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 14px; align-items: start; }
+.review-module {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: rgb(var(--surface-muted));
+  overflow-wrap: anywhere;
+}
+.review-module h3 { margin: 0; font-size: 1rem; }
+.review-module > p { margin: 6px 0 12px; font-size: .85rem; }
+.review-module .review-lines { margin-top: 12px; font-size: .85rem; }
+.review-lines summary { cursor: pointer; }
 .panel { padding: 21px; min-width: 0; }
 .panel h2 { font-size: 1.1rem; margin: 0 0 15px; letter-spacing: -.02em; }
 .panel dl { margin: 0; display: grid; gap: 10px; }
@@ -279,6 +323,8 @@ tfoot tr.total:last-child > * {
   .metrics { grid-template-columns: 1fr; }
 }
 @media (max-width: 800px) {
+  .review-workspace { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .review-sections { position: static; display: flex; flex-wrap: wrap; }
   .layout { grid-template-columns: 1fr; gap: 12px; }
   .rail { display: none; }
   .mobile-steps { display: block; }
@@ -290,7 +336,6 @@ tfoot tr.total:last-child > * {
   .masthead-inner { gap: 8px; }
   .brand { font-size: .91rem; }
   .question { border-radius: 16px; }
-  .review-grid { grid-template-columns: 1fr; }
   .plot li { grid-template-columns: 78px minmax(0, 1fr) minmax(70px, auto); gap: 8px; }
   .metric, .panel { padding: 15px; }
   th:first-child { min-width: 129px; }
@@ -370,6 +415,12 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 .legend-swatch.swatch-2 { border-top: 3px dotted var(--quiet); }
 .legend-swatch.swatch-3 { border-top: 4px double var(--ink); }
 .chart-legend-bars .legend-swatch { border-top-style: solid; }
+.analysis-card:has([data-chart="monthly-earnings"]) {
+  --chart-expense: color-mix(in srgb, var(--quiet) 60%, rgb(var(--surface-card)));
+}
+.chart-legend-stacked .swatch-1 { border-top: 3px solid var(--quiet); }
+.chart-legend-stacked .swatch-2 { border-top: 3px solid var(--chart-expense); }
+.chart-legend-stacked .swatch-3 { border-top: 3px dotted var(--ink); }
 .forecast-chart { display: block; width: 100%; height: 236px; cursor: crosshair; }
 .chart-readout { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 10px; padding: 10px 12px; min-height: 60px; background: rgb(var(--surface-muted)); border-radius: 8px; font-size: .8rem; font-variant-numeric: tabular-nums; }
 .chart-readout strong { flex-basis: 100%; }

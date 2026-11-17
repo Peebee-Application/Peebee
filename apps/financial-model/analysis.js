@@ -87,25 +87,45 @@
     return rows;
   }
 
+  function monthlyEarnings(rows, currency) {
+    const measures = [
+      measure("revenue", "Revenue"),
+      ["Cost of goods sold", row => -row.cogs],
+      ["Expenses", row => -(row.payroll + row.overhead + row.depreciation + row.interest + row.tax)],
+      measure("profit", "Net income"),
+    ];
+    return {
+      id: "monthly-earnings",
+      title: "Revenue and expenses",
+      description: `Monthly forecast in ${currency}. Expenses include payroll, overhead, depreciation, interest, and tax.`,
+      type: "stacked",
+      periods: rows.map(row => row.period),
+      series: measures.map(([label, read]) => ({ label, values: rows.map(read) })),
+    };
+  }
+
+  function renderChart(chart, { escape, format, table }, controls = "") {
+    const data = chart.periods.map((period, index) => [period, chart.series.map(item => format(item.values[index], chart.unit))]);
+    return `<section class="panel analysis-card">
+      <h2 id="analysis-heading-${chart.id}">${escape(chart.title)}</h2>
+      <p class="muted">${escape(chart.description)}</p>
+      ${controls}
+      <ul class="chart-legend${chart.type ? ` chart-legend-${chart.type}` : ""}">${chart.series.map((series, i) => `<li><span class="legend-swatch swatch-${i}" aria-hidden="true"></span>${escape(series.label)}</li>`).join("")}</ul>
+      <canvas class="forecast-chart" data-chart="${chart.id}" tabindex="0" aria-label="${escape(chart.title)}. Use the arrow keys to inspect forecast periods." aria-describedby="chart-readout-${chart.id}"></canvas>
+      <div class="chart-readout" id="chart-readout-${chart.id}" aria-live="polite"></div>
+      <details class="chart-data"><summary>View chart data</summary>
+        ${table("Period", chart.series.map(item => item.label), data)}
+      </details>
+    </section>`;
+  }
+
   function renderAnalysis(analysis, { escape, format, table, currency }) {
     const { charts, rows, from, to, mix, group, groups, totalRevenue } = analysis;
     const options = (items, selected) => items.map(([key, label]) => `<option value="${escape(key)}" ${key === selected ? "selected" : ""}>${escape(label)}</option>`).join("");
     const periods = rows.map((row, index) => [index, row.period]);
     const select = (id, label, items, selected) => `<label class="analysis-control" for="${id}"><span>${label}</span><select id="${id}">${options(items, selected)}</select></label>`;
-    const chartsHtml = charts.map(chart => {
-      const data = chart.periods.map((period, index) => [period, chart.series.map(item => format(item.values[index], chart.unit))]);
-      return `<section class="panel analysis-card">
-        <h2 id="analysis-heading-${chart.id}">${chart.title}</h2>
-        <p class="muted">${chart.description}</p>
-        ${chart.metric ? select("analysis-metric", "Compare", comparisonMetrics, chart.metric) : ""}
-        <ul class="chart-legend${chart.type === "bars" ? " chart-legend-bars" : ""}">${chart.series.map((series, i) => `<li><span class="legend-swatch swatch-${i}" aria-hidden="true"></span>${escape(series.label)}</li>`).join("")}</ul>
-        <canvas class="forecast-chart" data-chart="${chart.id}" tabindex="0" aria-label="${chart.title}. Use the arrow keys to inspect forecast periods." aria-describedby="chart-readout-${chart.id}"></canvas>
-        <div class="chart-readout" id="chart-readout-${chart.id}" aria-live="polite"></div>
-        <details class="chart-data"><summary>View chart data</summary>
-          ${table("Period", chart.series.map(item => item.label), data)}
-        </details>
-      </section>`;
-    });
+    const chartsHtml = charts.map(chart => renderChart(chart, { escape, format, table },
+      chart.metric ? select("analysis-metric", "Compare", comparisonMetrics, chart.metric) : ""));
     const mixHtml = `<section class="panel analysis-card">
       <h2>Revenue mix</h2>
       <p class="muted">Share of ${group ? "the selected channel’s" : "total"} revenue in the selected window.</p>
@@ -123,5 +143,5 @@
     </section>`;
   }
 
-  globalThis.FinancialAnalysis = { buildAnalysis, renderAnalysis, exportRows };
+  globalThis.FinancialAnalysis = { buildAnalysis, renderAnalysis, renderChart, monthlyEarnings, exportRows };
 })();
