@@ -31,7 +31,9 @@ Cloudflare serves the site on the Peebee API Worker under the financials domain.
 
 ## Forecast modules
 
-Use **Home → Dashboard → Forecast modules** to include or exclude whole revenue channels and their parts. An excluded channel keeps its individual selections and saved assumptions. Rides groups Boda, Car, Rideshare, self-drive and rider plans. Enabling Rideshare without an existing revenue line creates an editable zero-value assumption. The switches apply to forecast revenue and to costs calculated as a percentage of revenue. Company-wide costs remain part of the forecast.
+Use **Home → Dashboard → Forecast modules** to include or exclude whole revenue channels and their parts. An excluded channel keeps its individual selections and saved assumptions. Rides groups Boda, Car, Rideshare, self-drive and rider plans. Enabling Rideshare without an existing revenue line creates an editable zero-value assumption.
+
+Use **Applies to** on a direct cost, staff role, operating expense, existing asset, or planned purchase to assign it to one or more modules. The line stays in the forecast while any assigned module is on. A percentage-based direct cost uses the revenue of its active assigned modules. Lines with no assignment are company-wide.
 
 ## Technology costs
 

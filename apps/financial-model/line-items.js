@@ -46,9 +46,9 @@
       pct("rate", "Percentage earned", { initial: "0", when: row => row.method === "percentage" || row.method === "orders" }),
       growth("Monthly sales growth"), days("days", "Customer payment days"),
     ], ["Product sales", "Services", "Subscriptions", "Transaction fees", "Revenue share"], true),
-    group("directCosts", "Costs", "What does it cost to deliver your sales?", "Add production, delivery and payment costs. Each line can be a share of total sales or a monthly amount. Include stock and supplier terms where they apply.", "direct cost", [
-      select("basis", "Cost basis", [["rate", "Percentage of total revenue"], ["fixed", "Monthly amount"]], "rate"),
-      pct("rate", "Share of total revenue", { when: row => row.basis === "rate" }),
+    group("directCosts", "Costs", "What does it cost to deliver your sales?", "Add production, delivery and payment costs as a share of revenue or a monthly amount. Include stock and supplier terms where they apply.", "direct cost", [
+      select("basis", "Cost basis", [["rate", "Percentage of applicable revenue"], ["fixed", "Monthly amount"]], "rate"),
+      pct("rate", "Share of applicable revenue", { when: row => row.basis === "rate" }),
       amount("amount", "Starting monthly cost", { when: row => row.basis === "fixed" }),
       { ...growth("Annual cost change"), when: row => row.basis === "fixed" },
       amount("stock", "Opening inventory at cost", { initial: "0" }),

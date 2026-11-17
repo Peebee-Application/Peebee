@@ -2,7 +2,8 @@
   const { questions, sections, errorFor, itemError } = globalThis.FinancialAssumptions;
   const { fieldsFor, upgradeDraft } = globalThis.FinancialLineItems;
   const { build, firstMonthSale, expensePreview, reports, revenueDrivers, scheduleReports, statementReports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
-  const { questionsFor, consolidate, included, scopeMetadata, forecastModules } = globalThis.FinancialChannels;
+  const { questionsFor, consolidate, included, scopeMetadata, forecastModules,
+    scopedCostGroups, moduleScope, activeModuleKeys, costIsActive } = globalThis.FinancialChannels;
   const { buildAnalysis, renderAnalysis, renderChart, monthlyEarnings, exportRows } = globalThis.FinancialAnalysis;
   const { company, catalog, technologyCosts, infrastructureRows, createDefaults, loadStarterRevenue } = globalThis.PeebeeDefaults;
   const dataNote = "Starter estimates model a launch scenario across all channels. Volumes, average values and unverified fees are illustrative. The scenario includes features that may be off in Admin. Apply available Admin fees to matching lines, and enter Peebee’s costs and opening balances.";
@@ -139,8 +140,12 @@
   const availableQuestions = answers => questionsFor(questions, answers);
   const activeQuestions = answers => availableQuestions(answers).filter(prompt => !prompt.when || prompt.when(answers));
   function firstMissing(answers) {
+    const activeModules = activeModuleKeys(answers);
     return activeQuestions(answers).find(prompt => {
       const value = answers[prompt.id];
+      if (scopedCostGroups.has(prompt.id) && Array.isArray(value)) {
+        return errorFor(prompt, value.filter(row => costIsActive(row, activeModules)), answers);
+      }
       if (!prompt.channelId) return errorFor(prompt, value, answers);
       if (!included(answers.channels.find(channel => channel.key === prompt.channelId))) return false;
       const active = Array.isArray(value) ? value.filter(included) : value;
@@ -162,6 +167,9 @@
             const fields = Object.fromEntries(prompt.fields.filter(field => typeof row[field.id] === "string")
               .map(field => [field.id, row[field.id].slice(0, 160)]));
             if (prompt.keyed) return { ...fields, key: row.key, ...scopeMetadata(prompt.id, row) };
+            if (scopedCostGroups.has(prompt.id) && typeof row.moduleScope === "string") {
+              fields.moduleScope = [...new Set(moduleScope(row))].slice(0, 250).join(",");
+            }
             return prompt.channelId ? { ...fields, ...scopeMetadata(prompt.id, row) } : fields;
           });
         } else if (typeof value === "string") {
@@ -832,6 +840,9 @@
     const snapshot = () => rows.map(row => ({ ...row }));
     const hasRevenuePreview = prompt.fields.some(field => field.id === "method");
     const expenses = prompt.id === "expenses";
+    const scoped = scopedCostGroups.has(prompt.id);
+    const activeModules = activeModuleKeys(answers);
+    const moduleOptions = new Map((answers.channels || []).map(channel => [channel.key, channel.name]));
     const costInfo = expenses ? new Map(technologyCosts.map(item => [item[0], item])) : null;
     const missingCosts = () => infrastructureRows(currencyOf(answers)).filter(cost => !rows.some(row => row.name === cost.name));
     const phaseName = " · next phase";
@@ -851,8 +862,10 @@
         <button type="button" id="add-line" class="button secondary small">+ Add ${prompt.presets.length ? "custom " : ""}${escape(prompt.item)}</button>
         ${expenses ? `<button type="button" id="add-infrastructure" class="button secondary small"${missingCosts().length ? "" : " disabled"}>+ Add discovered technology costs</button>` : ""}</div>
         ${expenses ? '<p class="muted cost-help">Vendor prices are public benchmarks. Enter billed usage and your exchange rate, or choose Monthly bill for a known invoice. Review any grouped technology budgets before entering the same cost separately. To plan a change, set the last month of this phase and select Add next phase.</p>' : ""}
+        ${scoped ? '<p class="muted cost-help">Assign a line to specific modules, or leave it company-wide. A shared amount stays in the forecast while any assigned module is on.</p>' : ""}
         ${rows.length ? `<div class="line-list${prompt.id === "channels" ? " channel-list" : ""}">${rows.map((row, index) => `<fieldset class="line-item"><legend>${escape(prompt.item[0].toUpperCase() + prompt.item.slice(1))} ${index + 1}</legend>
           <div class="line-fields">${fieldsFor(prompt, row).map(field => lineField(field, row, index)).join("")}</div>
+          ${scoped ? moduleAssignment(row, index) : ""}
           ${hasRevenuePreview ? `<output class="revenue-estimate" data-estimate="${index}">${revenueEstimateMarkup(prompt, row)}</output>` : ""}
           ${expenses ? expenseCardExtras(row, index) : ""}
           <button type="button" class="text-button remove-line" id="remove-line-${index}" data-remove="${index}" aria-label="${escape("Remove " + (row.name || prompt.item + " " + (index + 1)))}">Remove</button>
@@ -860,6 +873,22 @@
       updatePresets();
       if (focusId) document.getElementById(focusId)?.focus();
     };
+
+    function moduleAssignment(row, index) {
+      const assigned = new Set(moduleScope(row));
+      const options = new Map(moduleOptions);
+      for (const key of assigned) {
+        if (!options.has(key)) options.set(key, `Removed module (${key})`);
+      }
+      return `<details class="cost-module-assignment">
+        <summary>Applies to <strong data-assigned-count="${index}">${assigned.size ? `${assigned.size} ${assigned.size === 1 ? "module" : "modules"}` : "Company-wide"}</strong></summary>
+        <p class="muted">With no modules selected, this line is company-wide.${prompt.id === "directCosts" ? " A percentage uses only revenue from the selected modules." : ""}</p>
+        <div class="cost-module-options">${[...options].map(([key, name]) => `<label>
+          <input type="checkbox" data-assign-line="${index}" value="${escape(key)}" ${assigned.has(key) ? "checked" : ""}>
+          <span>${escape(name)}${moduleOptions.has(key) && !activeModules.has(key) ? " · Off" : ""}</span>
+        </label>`).join("")}</div>
+      </details><p class="muted cost-module-status" data-assigned-status="${index}" role="status">${costIsActive(row, activeModules) ? "" : "Excluded from the current forecast."}</p>`;
+    }
 
     const add = (name = "") => {
       const initial = Object.fromEntries(prompt.fields.map(field => [field.id, field.initial || ""]));
@@ -879,7 +908,7 @@
       const details = source
         ? `<p class="muted cost-help">${source[1] ? `Billing unit: ${escape(source[1])}. ` : ""}
             ${escape(source[5])} ${source[4] ? `<a href="${escape(source[4])}" target="_blank" rel="noopener noreferrer">Vendor pricing</a>` : ""}</p>` : "";
-      return `${details}<output class="revenue-estimate" data-cost-estimate="${index}">${expenseEstimateMarkup(prompt, row)}</output>
+      return `${details}<output class="revenue-estimate" data-cost-estimate="${index}">${expenseEstimateMarkup(prompt, row, activeModules)}</output>
         <button type="button" class="text-button remove-line next-phase" data-phase="${index}">Add next phase</button>
         <p class="cost-help muted phase-status" data-phase-status="${index}" role="status"></p>`;
     }
@@ -929,6 +958,25 @@
     });
     editor.addEventListener("input", event => {
       const field = event.target;
+      if (field.hasAttribute("data-assign-line")) {
+        const index = Number(field.dataset.assignLine);
+        const keys = [...field.closest(".cost-module-options").querySelectorAll("input:checked")].map(input => input.value);
+        if (keys.length > 250) {
+          field.checked = false;
+          editor.querySelector(`[data-assigned-status="${index}"]`).textContent = "Select up to 250 modules.";
+          return;
+        }
+        if (keys.length) rows[index].moduleScope = keys.join(",");
+        else delete rows[index].moduleScope;
+        editor.querySelector(`[data-assigned-count="${index}"]`).textContent = keys.length
+          ? `${keys.length} ${keys.length === 1 ? "module" : "modules"}` : "Company-wide";
+        editor.querySelector(`[data-assigned-status="${index}"]`).textContent = costIsActive(rows[index], activeModules)
+          ? "" : "Excluded from the current forecast.";
+        const estimate = editor.querySelector(`[data-cost-estimate="${index}"]`);
+        if (estimate) estimate.innerHTML = expenseEstimateMarkup(prompt, rows[index], activeModules);
+        remember();
+        return;
+      }
       const row = rows[Number(field.dataset.line)];
       if (!row) return;
       row[field.dataset.field] = field.value.trim();
@@ -947,7 +995,7 @@
         }
         const costEstimate = editor.querySelector(`[data-cost-estimate="${field.dataset.line}"]`);
         if (costEstimate) {
-          const markup = expenseEstimateMarkup(prompt, row);
+          const markup = expenseEstimateMarkup(prompt, row, activeModules);
           if (costEstimate.innerHTML !== markup) costEstimate.innerHTML = markup;
         }
       }
@@ -956,7 +1004,8 @@
     return snapshot;
   }
 
-  function expenseEstimateMarkup(prompt, row) {
+  function expenseEstimateMarkup(prompt, row, activeModules) {
+    if (!costIsActive(row, activeModules)) return '<span>Projected expense</span><strong>Excluded from this forecast</strong>';
     const errorRow = { ...row, name: "Expense" };
     if (itemError(prompt, [errorRow], answers)) return '<span>Complete the cost inputs to see projected expenses.</span>';
     const start = Number(row.month);
@@ -1052,7 +1101,8 @@
     const preview = prompt => lineItems(prompt).length ? `<details class="review-lines"><summary>View line items</summary>
       ${prompt.note ? `<p class="muted">${escape(prompt.note)}</p>` : ""}
       <ul>${lineItems(prompt).map(row => `<li><strong>${escape(row.name)}</strong><ul>${fieldsFor(prompt, row).filter(field => field.id !== "name").map(field =>
-        `<li>${escape(field.label)} · ${escape(displayAnswer(field, row[field.id]))}</li>`).join("")}</ul></li>`).join("")}</ul>
+        `<li>${escape(field.label)} · ${escape(displayAnswer(field, row[field.id]))}</li>`).join("")}
+        ${scopedCostGroups.has(prompt.id) ? `<li>Applies to · ${escape(costScopeLabel(row))}</li>` : ""}</ul></li>`).join("")}</ul>
     </details>` : "";
     const moduleCard = prompt => {
       const channel = answers.channels.find(row => row.key === prompt.channelId);
@@ -1154,6 +1204,11 @@
     return { company: answers.company, ...Object.fromEntries(activeQuestions(answers).map(prompt => [prompt.id, answers[prompt.id]])) };
   }
 
+  function costScopeLabel(row) {
+    const keys = moduleScope(row);
+    return keys.length ? keys.map(key => answers.channels.find(channel => channel.key === key)?.name || `Removed module (${key})`).join(", ") : "Company-wide";
+  }
+
   const lineValue = (row, field) => typeof field === "function" ? field(row) : row[field];
   const format = (value, style) => value === null ? "—" : (style === "rate" ? percentFormat : numberFormat).format(value === 0 || (style !== "rate" && Math.abs(value) < halfCent) ? 0 : value);
   const money = value => `${currencyOf(answers)} ${format(value)}`;
@@ -1197,7 +1252,7 @@
         <span class="scope-toggle-icon" aria-hidden="true"></span><span class="scope-toggle-label">Forecast modules</span>
       </button></h2>
       <div id="scope-content" ${moduleSidebarOpen ? "" : "hidden"}>
-      <p class="muted">${guestMode ? "Module selections in the saved forecast." : "Choose which revenue to include in the shared forecast. Percentage-based direct costs follow revenue. Company-wide costs stay in the forecast."}</p>
+      <p class="muted">${guestMode ? "Module selections in the saved forecast." : "Choose which modules to include. Linked costs and investments stay active while any assigned module is on. Company-wide costs stay in the forecast."}</p>
       <p class="scope-status" role="status">${escape(scopeMessage)}</p>
       <div class="forecast-modules">
         ${guestMode ? "" : `<div class="forecast-module forecast-module-line">
@@ -1459,6 +1514,7 @@
   function downloadAll(forecastReports, forecastAnswers) {
     const inputValue = (field, value) => field.type === "number" ? Number(value) : displayAnswer(field, value);
     const inputUnit = field => field.unit === "currency" ? currencyOf(answers) : field.unit || "";
+    const activeModules = activeModuleKeys(answers);
     const rows = [["Company", answers.company], ["Currency", currencyOf(answers)],
       ["Model type", "Multi-channel"], ["Revenue basis", "External revenue consolidated across channels"], ["Input basis", dataNote],
       ["Cash shortfall basis", "Month-end cash before additional funding"],
@@ -1476,6 +1532,10 @@
       const parent = prompt.channelId && answers.channels.find(channel => channel.key === prompt.channelId);
       for (const item of answer || []) {
         if (prompt.keyed || parent) rows.push([label, item.name, "Included in forecast", included(item) && (!parent || included(parent)) ? "Yes" : "No"]);
+        if (scopedCostGroups.has(prompt.id)) {
+          rows.push([label, item.name, "Applies to", costScopeLabel(item)]);
+          rows.push([label, item.name, "Included in forecast", costIsActive(item, activeModules) ? "Yes" : "No"]);
+        }
         const fields = fieldsFor(prompt, item).filter(field => field.id !== "name");
         if (!fields.length) rows.push([label, item.name]);
         for (const field of fields) rows.push([label, item.name, field.label, inputValue(field, item[field.id]), inputUnit(field)]);
@@ -1553,7 +1613,10 @@
       if (!prompt) throw new Error("The backup contains an unrecognized assumption.");
       if (prompt.type === "items") {
         if (!Array.isArray(value) || value.length > 250 || !value.every(row => isRecord(row) &&
-            Object.entries(row).every(([field, answer]) => field.length <= 64 && isAnswer(answer)))) {
+            Object.entries(row).every(([field, answer]) => field.length <= 64 &&
+              (field === "moduleScope" && scopedCostGroups.has(id)
+                ? typeof answer === "string" && /^(?:[a-z0-9-]{1,64}(?:,[a-z0-9-]{1,64}){0,249})?$/.test(answer)
+                : isAnswer(answer))))) {
           throw new Error(`The backup contains invalid line items for ${stepLabel(prompt)}.`);
         }
       } else if (!isAnswer(value)) {

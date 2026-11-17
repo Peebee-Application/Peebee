@@ -6,6 +6,14 @@
     .filter(row => typeof row?.key === "string" && /^[a-z0-9-]{1,64}$/.test(row.key));
 
   const included = row => row?.enabled !== "no";
+  const scopedCostGroups = new Set(["directCosts", "staff", "expenses", "ownedAssets", "investments"]);
+  const moduleScope = row => (typeof row?.moduleScope === "string" ? row.moduleScope.split(",") : [])
+    .filter(key => /^[a-z0-9-]{1,64}$/.test(key));
+  const activeModuleKeys = answers => new Set(channelRows(answers).filter(included).map(channel => channel.key));
+  function costIsActive(row, active) {
+    const keys = moduleScope(row);
+    return !keys.length || keys.some(key => active.has(key));
+  }
   const ridesGroups = [
     ["boda", "Boda"], ["car", "Car"], ["rideshare", "Rideshare"],
     ["self-drive", "Self-drive"], ["rider-plans", "Rider plans"], ["other", "Other Rides revenue"],
@@ -72,12 +80,22 @@
       lines.push([`${channel.name} total`, row => sources.reduce((total, source) => total + row.details.streams[source.index].revenue, 0), "total"]);
     }
     lines.push(["Consolidated revenue", "revenue", "footer"]);
+    const active = new Set(groups.map(group => group.key));
+    const streamIndexes = new Map(groups.map(group => [group.key, group.streams.map(stream => stream.index)]));
+    const costs = Object.fromEntries([...scopedCostGroups].map(id => [
+      id, (answers[id] || []).filter(row => costIsActive(row, active)).map(row => {
+        const keys = [...new Set(moduleScope(row))];
+        if (id !== "directCosts" || row.basis !== "rate" || !keys.length) return row;
+        return { ...row, revenueStreamIndexes: keys.flatMap(key => streamIndexes.get(key) || []) };
+      }),
+    ]));
     return {
-      answers: { ...answers, streams },
+      answers: { ...answers, ...costs, streams },
       groups,
       report: { id: "channel-revenue", name: "Revenue by channel", lines },
     };
   }
 
-  globalThis.FinancialChannels = { questionsFor, consolidate, included, scopeMetadata, forecastModules };
+  globalThis.FinancialChannels = { questionsFor, consolidate, included, scopeMetadata, forecastModules,
+    scopedCostGroups, moduleScope, activeModuleKeys, costIsActive };
 })();
