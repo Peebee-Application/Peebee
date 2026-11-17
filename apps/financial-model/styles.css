@@ -651,6 +651,7 @@ body:has(.financial-landing) > :is(.masthead, .footer) { display: none; }
 .cost-module-options input { margin: 2px 0 0; accent-color: var(--gold); }
 .cost-module-status { margin: 0 0 8px; font-size: .85rem; }
 .cost-module-status:empty { display: none; }
+.cost-card-switch { display: flex; justify-content: flex-end; margin-bottom: 8px; }
 
 
 .forecast-dashboard { display: grid; gap: 55px; align-items: start; }

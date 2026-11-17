@@ -1,5 +1,5 @@
 (() => {
-  const { byId, fieldsFor } = globalThis.FinancialLineItems;
+  const { byId, fieldsFor, scopedCostGroups } = globalThis.FinancialLineItems;
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const question = (id, section, label, hint, options = {}) => ({ id, section, label, hint, ...options });
@@ -40,6 +40,7 @@
   function itemError(prompt, rows, answers) {
     const names = new Set();
     for (const [index, row] of rows.entries()) {
+      if (scopedCostGroups.has(prompt.id) && row.enabled === "no") continue;
       for (const field of fieldsFor(prompt, row)) {
         const issue = errorFor(field, row[field.id], answers);
         if (issue) return { id: `item-${index}-${field.id}`, message: `Line ${index + 1}, ${field.label}: ${issue}` };

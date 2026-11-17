@@ -1,18 +1,17 @@
 (() => {
-  const { channels, channelStreams } = globalThis.FinancialLineItems;
+  const { channels, channelStreams, scopedCostGroups } = globalThis.FinancialLineItems;
   const defaults = new Map(globalThis.PeebeeDefaults.catalog.map(channel => [channel.key, channel]));
   const channelKey = row => `channel-${row.key}`;
   const channelRows = answers => (Array.isArray(answers.channels) ? answers.channels : [])
     .filter(row => typeof row?.key === "string" && /^[a-z0-9-]{1,64}$/.test(row.key));
 
   const included = row => row?.enabled !== "no";
-  const scopedCostGroups = new Set(["directCosts", "staff", "expenses", "ownedAssets", "investments"]);
   const moduleScope = row => (typeof row?.moduleScope === "string" ? row.moduleScope.split(",") : [])
     .filter(key => /^[a-z0-9-]{1,64}$/.test(key));
   const activeModuleKeys = answers => new Set(channelRows(answers).filter(included).map(channel => channel.key));
   function costIsActive(row, active) {
     const keys = moduleScope(row);
-    return !keys.length || keys.some(key => active.has(key));
+    return included(row) && (!keys.length || keys.some(key => active.has(key)));
   }
   const ridesGroups = [
     ["boda", "Boda"], ["car", "Car"], ["rideshare", "Rideshare"],
