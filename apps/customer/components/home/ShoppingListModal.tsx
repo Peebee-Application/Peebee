@@ -4,7 +4,7 @@ import { useRegisterNavPrimaryAction, useRegisterNavBack } from "../../lib/nav-p
 import { DEFAULT_SHOPPING_UNIT_SETTINGS, roundFare, serializeShoppingItem, shoppingItemTotal, type ShoppingUnitSettings } from "@peebee/shared";
 import { List, Mic, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal } from "../Modal";
 import { PlaceFlow } from "../PlaceFlow";
 import { api, errorMessage } from "../../lib/api";
@@ -12,6 +12,7 @@ import { useTranslate } from "../../lib/i18n";
 import { placeFields, type Place } from "../../lib/places";
 import { RouteSummary } from "./RouteSummary";
 import { ListItemLine, blankItem, type Item } from "./ListItemLine";
+import { OrderPhotosPicker, settledPhotos, type PhotoDraft } from "./OrderPhotosPicker";
 import { OrderVoiceNoteRecorder } from "./OrderVoiceNoteRecorder";
 
 /** "list": type each item with its own cost — today's flow. "voice": speak
@@ -40,6 +41,19 @@ export function ShoppingListModal({ onClose, initialItems }: { onClose: () => vo
   const [voiceNote, setVoiceNote] = useState<Blob | null>(null);
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [unitSettings, setUnitSettings] = useState<ShoppingUnitSettings>(DEFAULT_SHOPPING_UNIT_SETTINGS);
+  // Photos for the rider: uploaded as they're added, attached once the order exists.
+  // Hidden until the API says the order_photos table is there.
+  const [photoMax, setPhotoMax] = useState(0);
+  const [photos, setPhotos] = useState<PhotoDraft[]>([]);
+  const photosRef = useRef<PhotoDraft[]>([]);
+  const changePhotos = useCallback((fn: (prev: PhotoDraft[]) => PhotoDraft[]) => {
+    setPhotos((prev) => {
+      const next = fn(prev);
+      photosRef.current = next;
+      return next;
+    });
+  }, []);
+  const uploadPhoto = useCallback((blob: Blob) => api.uploadOrderPhoto(blob), []);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +63,10 @@ export function ShoppingListModal({ onClose, initialItems }: { onClose: () => vo
       .getSettings()
       .then((res) => { setDeliveryFee(roundFare(res.settings.shoppingDeliveryFee)); setUnitSettings(res.settings.shoppingUnits ?? DEFAULT_SHOPPING_UNIT_SETTINGS); })
       .catch(() => {});
+    api
+      .orderPhotosConfig()
+      .then((c) => setPhotoMax(c.available ? c.maxPhotos : 0))
+      .catch(() => setPhotoMax(0));
   }, []);
 
   const listTotal = items.reduce((sum, it) => sum + shoppingItemTotal(it), 0);
@@ -62,8 +80,19 @@ export function ShoppingListModal({ onClose, initialItems }: { onClose: () => vo
     setItems((prev) => [...prev, blankItem()]);
   }
   function removeItem(i: number) {
+    // Photos link to items by their place among the named items: keep links pointing at the same item.
+    if (items[i]?.name.trim()) {
+      const gone = namedIndex(i);
+      changePhotos((prev) => prev.map((p) => (p.itemIndex == null || p.itemIndex < gone ? p : { ...p, itemIndex: p.itemIndex === gone ? null : p.itemIndex - 1 })));
+    }
     setItems((prev) => prev.filter((_, idx) => idx !== i));
   }
+  /** Position of items[i] among the items that have a name (the ones sent to the API). */
+  function namedIndex(i: number) {
+    return items.slice(0, i).filter((it) => it.name.trim()).length;
+  }
+  const namedItems = items.filter((it) => it.name.trim()).map((it) => it.name.trim());
+  const linkedItems = new Set(photos.map((p) => p.itemIndex).filter((i): i is number => i != null));
 
   function goToLocation() {
     if (mode === "list") {
@@ -120,6 +149,12 @@ export function ShoppingListModal({ onClose, initialItems }: { onClose: () => vo
       });
       if (voiceNote) {
         api.uploadOrderVoiceNote(order.id, voiceNote).catch(() => {});
+      }
+      if (photosRef.current.length) {
+        // Uploads already ran while they wrote the list; wait for any still going, then attach.
+        // Item links only apply to a written list (voice mode has no items).
+        const ready = await settledPhotos(() => photosRef.current, (i) => (mode === "list" && i < cleanItems.length ? i : null));
+        if (ready.length) await api.attachOrderPhotos(order.id, ready).catch(() => {});
       }
       onClose();
       router.push(`/orders/${order.id}/pay`);
@@ -179,6 +214,7 @@ export function ShoppingListModal({ onClose, initialItems }: { onClose: () => vo
                   onChange={(patch) => updateItem(i, patch)}
                   onRemove={() => removeItem(i)}
                   onComplete={() => i === items.length - 1 && addItem()}
+                  hasPhoto={!!item.name.trim() && linkedItems.has(namedIndex(i))}
                 />
               ))}
               {items[items.length - 1].stage === 3 && (
@@ -207,6 +243,16 @@ export function ShoppingListModal({ onClose, initialItems }: { onClose: () => vo
                 />
               </div>
             </div>
+          )}
+
+          {photoMax > 0 && (
+            <OrderPhotosPicker
+              photos={photos}
+              onChange={changePhotos}
+              maxPhotos={photoMax}
+              items={mode === "list" ? namedItems : undefined}
+              upload={uploadPhoto}
+            />
           )}
 
           <div className="space-y-2 rounded-2xl bg-[rgb(var(--surface-muted))] px-5 py-4">

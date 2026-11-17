@@ -721,6 +721,20 @@ orderRoutes.post("/orders/:id/resend", async (c) => {
     const created = (await response.clone().json()) as { order?: { id?: string } };
     if (created.order?.id) await touchOrder(created.order.id, { voice_note_key: old.voice_note_key as string });
   }
+  // Photos too: same list, so their item links still hold. Skipped until migration 0163 is applied.
+  if (response.status === 201 && (await orderPhotosAvailable())) {
+    const created = (await response.clone().json()) as { order?: { id?: string } };
+    const newOrderId = created.order?.id;
+    if (newOrderId) {
+      const photos = await db.execute({ sql: "SELECT r2_key, note, list_item_id, position FROM order_photos WHERE order_id = ? ORDER BY position", args: [String(old.id)] });
+      for (const p of photos.rows) {
+        await db.execute({
+          sql: "INSERT INTO order_photos (id, order_id, r2_key, note, list_item_id, position) VALUES (?, ?, ?, ?, ?, ?)",
+          args: [newId("oph"), newOrderId, p.r2_key, p.note, p.list_item_id, p.position],
+        });
+      }
+    }
+  }
   return response;
 });
 
@@ -907,6 +921,170 @@ orderRoutes.get("/orders/:id/voice-note", async (c) => {
 
   return new Response(object.body, {
     headers: uploadResponseHeaders(object.httpMetadata?.contentType, "audio/webm"),
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Order photos — pictures the customer attaches so the rider buys exactly the
+// right thing (the empty pack, a label, a screenshot). Uploaded first (so the
+// app can show progress and retry before the order exists), then attached to
+// the order. Same visibility as the voice note: customer, assigned rider, admin.
+// Needs migration 0163_order_photos.sql; until it's applied, config reports
+// unavailable and the app hides the photos tile.
+// ---------------------------------------------------------------------------
+
+export const ORDER_PHOTOS_MAX = 4;
+const MAX_ORDER_PHOTO_BYTES = 6 * 1024 * 1024;
+const ORDER_PHOTO_NOTE_MAX = 80;
+const ORDER_PHOTO_UPLOADS_PER_HOUR = 40;
+const ALLOWED_ORDER_PHOTO_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+/** The bytes decide what the file is, not the browser's claim. */
+function detectImage(bytes: Uint8Array): { ext: string; type: string } | null {
+  const startsWith = (...sig: number[]) => sig.every((b, i) => bytes[i] === b);
+  if (startsWith(0xff, 0xd8, 0xff)) return { ext: "jpg", type: "image/jpeg" };
+  if (startsWith(0x89, 0x50, 0x4e, 0x47)) return { ext: "png", type: "image/png" };
+  if (startsWith(0x52, 0x49, 0x46, 0x46) && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+    return { ext: "webp", type: "image/webp" };
+  }
+  return null;
+}
+
+async function orderPhotosAvailable(): Promise<boolean> {
+  return hasTable("order_photos");
+}
+
+/** Validates and stores one image under the customer's own upload prefix; returns its key or an error response. */
+async function storeOrderPhoto(c: Context, userId: string, file: unknown, prefix: string): Promise<{ key: string } | Response> {
+  if (!(file instanceof File)) return c.json({ error: "missing_file", message: "Choose a photo." }, 400);
+  if (file.size > MAX_ORDER_PHOTO_BYTES) return c.json({ error: "file_too_large", message: "Photos can be up to 6 MB." }, 400);
+  if (!ALLOWED_ORDER_PHOTO_MIME.has(baseMimeType(file.type))) {
+    return c.json({ error: "unsupported_file_type", message: "Use a JPEG, PNG or WebP photo." }, 400);
+  }
+  const limit = await consume(`order-photos:${userId}`, ORDER_PHOTO_UPLOADS_PER_HOUR, 60 * 60);
+  if (!limit.allowed) return tooManyRequests(c, limit, "You've uploaded a lot of photos — please try again later.");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const detected = detectImage(bytes);
+  if (!detected) return c.json({ error: "unsupported_file_type", message: "That file isn't a valid photo." }, 400);
+  const key = `${prefix}/${crypto.randomUUID()}.${detected.ext}`;
+  await getR2Bucket().put(key, bytes, { httpMetadata: { contentType: detected.type } });
+  return { key };
+}
+
+function canSeeOrder(order: Row, user: { sub: string; role: string }) {
+  return order.customer_id === user.sub || order.rider_id === user.sub || user.role === "admin";
+}
+
+orderRoutes.get("/order-photos/config", async (c) => {
+  return c.json({ available: await orderPhotosAvailable(), maxPhotos: ORDER_PHOTOS_MAX, maxMb: MAX_ORDER_PHOTO_BYTES / (1024 * 1024), noteMax: ORDER_PHOTO_NOTE_MAX });
+});
+
+/** Step 1: upload a photo before the order exists. Returns a key to attach later. */
+orderRoutes.post("/order-photos/uploads", async (c) => {
+  const user = c.get("user");
+  if (!(await orderPhotosAvailable())) return c.json({ error: "photos_unavailable", message: "Photos aren't available yet." }, 503);
+  const form = await c.req.formData().catch(() => null);
+  const stored = await storeOrderPhoto(c, user.sub, form?.get("file"), `order-photos/${user.sub}`);
+  if (stored instanceof Response) return stored;
+  return c.json({ key: stored.key }, 201);
+});
+
+const attachPhotosSchema = z.object({
+  photos: z
+    .array(
+      z.object({
+        key: z.string().min(1).max(200),
+        note: z.string().max(ORDER_PHOTO_NOTE_MAX).optional(),
+        /** Position of the linked item in the list as it was sent to POST /lists. */
+        itemIndex: z.number().int().min(0).max(500).optional(),
+      }),
+    )
+    .min(1)
+    .max(ORDER_PHOTOS_MAX),
+});
+
+type OrderPhotoRow = { id: string; note: string | null; list_item_id: string | null; position: number };
+
+async function listOrderPhotos(orderId: string): Promise<OrderPhotoRow[]> {
+  const res = await db.execute({
+    sql: "SELECT id, note, list_item_id, position FROM order_photos WHERE order_id = ? ORDER BY position, created_at",
+    args: [orderId],
+  });
+  return res.rows.map((r) => ({ id: String(r.id), note: (r.note as string | null) ?? null, list_item_id: (r.list_item_id as string | null) ?? null, position: Number(r.position) }));
+}
+
+/** Step 2: attach uploaded photos to the order (JSON), or — for a guest whose
+ * sign-in only exists once the order does — upload and attach one photo in a
+ * single multipart request (fields: file, note?, itemIndex?). */
+orderRoutes.post("/orders/:id/photos", async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  if (!(await orderPhotosAvailable())) return c.json({ error: "photos_unavailable", message: "Photos aren't available yet." }, 503);
+  const order = await getOrder(id);
+  if (!order) return c.json({ error: "not_found" }, 404);
+  if (order.customer_id !== user.sub) return c.json({ error: "forbidden" }, 403);
+
+  let entries: Array<{ key: string; note?: string; itemIndex?: number }>;
+  if ((c.req.header("content-type") ?? "").includes("multipart/form-data")) {
+    const form = await c.req.formData().catch(() => null);
+    const stored = await storeOrderPhoto(c, user.sub, form?.get("file"), `order-photos/${user.sub}`);
+    if (stored instanceof Response) return stored;
+    const note = String(form?.get("note") ?? "").trim().slice(0, ORDER_PHOTO_NOTE_MAX);
+    const rawIndex = form?.get("itemIndex");
+    const itemIndex = rawIndex != null && rawIndex !== "" && Number.isInteger(Number(rawIndex)) ? Number(rawIndex) : undefined;
+    entries = [{ key: stored.key, note: note || undefined, itemIndex }];
+  } else {
+    const parsed = attachPhotosSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+    entries = parsed.data.photos;
+    // Only photos this customer uploaded can be attached.
+    for (const p of entries) {
+      if (!p.key.startsWith(`order-photos/${user.sub}/`) || p.key.includes("..")) return c.json({ error: "forbidden", message: "That photo isn't yours." }, 403);
+    }
+  }
+
+  const existing = await listOrderPhotos(id);
+  if (existing.length + entries.length > ORDER_PHOTOS_MAX) {
+    return c.json({ error: "too_many_photos", message: `You can attach up to ${ORDER_PHOTOS_MAX} photos.` }, 400);
+  }
+  const items = await db.execute({ sql: "SELECT id FROM list_items WHERE list_id = ? ORDER BY rowid", args: [order.list_id as string] });
+  const itemIds = items.rows.map((r) => String(r.id));
+  const bucket = getR2Bucket();
+  let position = existing.length;
+  for (const p of entries) {
+    if (bucket.head && !(await bucket.head(p.key))) return c.json({ error: "not_found", message: "That photo didn't finish uploading. Try again." }, 404);
+    await db.execute({
+      sql: "INSERT INTO order_photos (id, order_id, r2_key, note, list_item_id, position) VALUES (?, ?, ?, ?, ?, ?)",
+      args: [newId("oph"), id, p.key, p.note?.trim() || null, p.itemIndex != null ? itemIds[p.itemIndex] ?? null : null, position++],
+    });
+  }
+  await logEvent(id, order.stage as string, `Customer attached ${entries.length} photo${entries.length === 1 ? "" : "s"}`, user.sub);
+  return c.json({ photos: await listOrderPhotos(id) }, 201);
+});
+
+orderRoutes.get("/orders/:id/photos", async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const order = await getOrder(id);
+  if (!order) return c.json({ error: "not_found" }, 404);
+  if (!canSeeOrder(order, user)) return c.json({ error: "forbidden" }, 403);
+  if (!(await orderPhotosAvailable())) return c.json({ photos: [], available: false });
+  return c.json({ photos: await listOrderPhotos(id), available: true });
+});
+
+orderRoutes.get("/orders/:id/photos/:photoId", async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const order = await getOrder(id);
+  if (!order) return c.json({ error: "not_found" }, 404);
+  if (!canSeeOrder(order, user)) return c.json({ error: "forbidden" }, 403);
+  if (!(await orderPhotosAvailable())) return c.json({ error: "not_found" }, 404);
+  const row = (await db.execute({ sql: "SELECT r2_key FROM order_photos WHERE id = ? AND order_id = ?", args: [c.req.param("photoId"), id] })).rows[0];
+  if (!row) return c.json({ error: "not_found" }, 404);
+  const object = await getR2Bucket().get(String(row.r2_key));
+  if (!object) return c.json({ error: "not_found" }, 404);
+  return new Response(object.body, {
+    headers: { ...uploadResponseHeaders(object.httpMetadata?.contentType, "image/jpeg"), "Cache-Control": "private, max-age=3600" },
   });
 });
 

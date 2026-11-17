@@ -2,7 +2,7 @@
 
 import { DEFAULT_SHOPPING_UNIT_SETTINGS, SHOPPING_UNITS, shoppingItemTotal, shoppingNamePatch, suggestShoppingUnits, type ShoppingUnit, type ShoppingUnitSettings } from "@peebee/shared";
 
-import { ArrowRight, Check, X } from "lucide-react";
+import { ArrowRight, Check, Image as ImageIcon, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslate } from "../../lib/i18n";
 import { ShoppingUnitPicker } from "./ShoppingUnitPicker";
@@ -36,6 +36,7 @@ export function ListItemLine({
   onRemove,
   onComplete,
   unitSettings = DEFAULT_SHOPPING_UNIT_SETTINGS,
+  hasPhoto = false,
 }: {
   item: Item;
   canRemove: boolean;
@@ -43,6 +44,8 @@ export function ListItemLine({
   onRemove: () => void;
   onComplete: () => void;
   unitSettings?: ShoppingUnitSettings;
+  /** A photo for the rider is linked to this item: show a small photo icon. */
+  hasPhoto?: boolean;
 }) {
   const t = useTranslate();
   const nameRef = useRef<HTMLInputElement>(null);
@@ -67,6 +70,7 @@ export function ListItemLine({
           className="flex min-w-0 flex-1 items-baseline gap-2 text-left"
         >
           <span className="truncate text-sm font-semibold text-ink">{item.name}</span>
+          {hasPhoto && <ImageIcon className="h-3.5 w-3.5 shrink-0 self-center text-gold" strokeWidth={2} aria-label="Has a photo" />}
           <span className="max-w-[55%] truncate text-xs text-ink-500">
             {item.unit === "budget" ? t("list_budget_short") : qtyLabel(item)}
             {price > 0 && item.unit !== "budget" && ` × ${money(price)}`}

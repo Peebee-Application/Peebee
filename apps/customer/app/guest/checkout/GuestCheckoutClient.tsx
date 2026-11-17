@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { LocationPicker, emptyPoint, resolvePoint, type PointState } from "../../../components/LocationPicker";
+import { OrderPhotosPicker, type PhotoDraft } from "../../../components/home/OrderPhotosPicker";
 import { OrderVoiceNoteRecorder } from "../../../components/home/OrderVoiceNoteRecorder";
 import { api, errorMessage } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth-context";
@@ -32,6 +33,8 @@ export function GuestCheckoutClient() {
   const [point, setPoint] = useState<PointState>(emptyPoint);
   const [landmark, setLandmark] = useState("");
   const [voice, setVoice] = useState<Blob | null>(null);
+  // Photos stay on the phone until the order exists (the guest token comes with it).
+  const [photos, setPhotos] = useState<PhotoDraft[]>([]);
   const [createAccount, setCreateAccount] = useState(true);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -87,6 +90,9 @@ export function GuestCheckoutClient() {
       });
       saveGuestSession({ orderId: result.orderId, trackingCode: result.trackingCode, token: result.token, item: product.title, phone: phone.trim() });
       if (voice) await guestClient(result.token).uploadOrderVoiceNote(result.orderId, voice).catch(() => {});
+      for (const photo of photos) {
+        await guestClient(result.token).uploadOrderPhotoToOrder(result.orderId, photo.blob, { note: photo.note.trim() || undefined }).catch(() => {});
+      }
       // They chose to make an account: they are signed in already, and the guest page still works for this order.
       if (result.sessionToken && result.user) setSession(result.sessionToken, result.user);
       router.replace(`/guest/order/${result.orderId}`);
@@ -170,6 +176,7 @@ export function GuestCheckoutClient() {
         <h2 className="text-lg font-bold">Tell the rider <span className="text-sm font-normal text-ink-500">(optional)</span></h2>
         <p className="text-sm text-ink-500">Record a short voice note: how to find you, or anything about the order.</p>
         <OrderVoiceNoteRecorder blob={voice} onChange={setVoice} />
+        {config.photosAvailable && <OrderPhotosPicker photos={photos} onChange={setPhotos} maxPhotos={4} />}
       </section>
 
       {config.suggestAccount && (

@@ -42,6 +42,8 @@ guestRoutes.get("/guest/config", async (c) => {
   }
   return c.json({
     enabled: ready.ok,
+    /** Photos for the rider (needs migration 0163); the guest checkout hides its photos tile until then. */
+    photosAvailable: await hasTable("order_photos"),
     browsingEnabled: settings.browsingEnabled,
     cardAvailable,
     maxQuantity: settings.maxQuantity,

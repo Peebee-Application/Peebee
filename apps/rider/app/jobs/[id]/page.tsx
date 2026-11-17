@@ -2,13 +2,14 @@
 
 import { isPracticeMode, isProSubscriptionCurrent, type MerchantPayment, type OrderDetail } from "@peebee/shared";
 import { codeFromScan } from "@peebee/shared/qr";
-import { Crown, Ellipsis, HandCoins, MapPin, MessageCircle, Pencil, QrCode as QrIcon, ShoppingCart, X } from "lucide-react";
+import { Crown, Ellipsis, HandCoins, Image as ImageIcon, MapPin, MessageCircle, Pencil, QrCode as QrIcon, ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Accordion } from "../../../components/Accordion";
 import { CodeQr } from "../../../components/CodeQr";
 import { CustomerAvatar } from "../../../components/CustomerAvatar";
+import { CustomerPhotos, useOrderPhotos } from "../../../components/CustomerPhotos";
 import { DeliveryNavigation } from "../../../components/DeliveryNavigation";
 import { FeeProposalVoicePlayer } from "../../../components/FeeProposalVoicePlayer";
 import { LugandaListPlayer } from "../../../components/LugandaListPlayer";
@@ -32,6 +33,7 @@ export default function JobDetailPage() {
   const { rider } = useAuth();
   const params = useParams<{ id: string }>();
   const orderId = params.id;
+  const customerPhotos = useOrderPhotos(orderId);
   const router = useRouter();
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [busy, setBusy] = useState(false);
@@ -328,6 +330,9 @@ export default function JobDetailPage() {
                     <span className="min-w-0 flex-1">
                       <span className={`block ${edit ? "text-ink-500 line-through" : ""}`}>
                         {item.quantity}× {item.name}
+                        {customerPhotos.some((p) => p.list_item_id === item.id) && (
+                          <ImageIcon className="ml-1 inline h-3.5 w-3.5 align-[-2px] text-gold" strokeWidth={2} aria-label="Has a photo" />
+                        )}
                         {item.unit_price != null && (
                           <span className="text-ink-500"> · {t("job_est_each", { amount: formatUgx(item.unit_price) })}</span>
                         )}
@@ -443,6 +448,8 @@ export default function JobDetailPage() {
           <span>{formatUgx(order.delivery_fee ?? order.final_total ?? order.estimated_total)}</span>
         </section>
       )}
+
+      <CustomerPhotos photos={customerPhotos} itemName={(id) => items.find((it) => it.id === id)?.name} customerName={order.customer_name?.split(" ")[0]} />
 
       {canProposeFee && (
         <Accordion title={t("job_delivery_fee")} icon={HandCoins} summary={formatUgx(order.delivery_fee ?? order.final_total ?? order.estimated_total)}>
