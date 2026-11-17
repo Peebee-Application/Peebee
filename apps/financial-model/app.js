@@ -979,7 +979,7 @@
       ["Peak funding gap", item => money(item.fundingGap)],
     ];
     if (model.valuation) comparison.push(["DCF enterprise value", item => money(item.valuation.enterprise)]);
-    return `<div class="forecast-dashboard">${moduleControls()}<section class="forecast-overview" aria-label="Forecast results" tabindex="0"><div class="metrics">
+    return `<div class="forecast-dashboard">${moduleControls()}<section class="forecast-overview" aria-label="Forecast results"><div class="metrics">
       ${metric("Revenue", sum(yearOne, "revenue"), yearOneLabel)}
       ${metric("EBITDA", sum(yearOne, "ebitda"), yearOneLabel)}
       ${metric("Ending cash", last.cash, last.period)}
@@ -1067,8 +1067,6 @@
       ${report.note ? `<p class="muted">${escape(report.note)}</p>` : ""}
       ${(report.sections || [report]).map(renderTable).join("")}
     </section>` : "";
-    const moduleScroll = app.querySelector("#scope-content")?.scrollTop ?? 0;
-    const overviewScroll = app.querySelector(".forecast-overview")?.scrollTop ?? 0;
     app.innerHTML = `<div class="report-head"><div><h1 id="report-title" tabindex="-1">${escape(answers.company)}</h1>
         <p class="muted">Consolidated financial forecast · ${escape(currencyOf(answers))} · ${model.months[0].period} to ${model.months.at(-1).period}</p></div>
         <div class="report-actions">${scenarioControl}
@@ -1080,11 +1078,7 @@
       ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? reportBody : overview(model)}`;
     document.querySelector("#review").addEventListener("click", showReview);
     if (analysis) bindAnalysis(analysis, currency);
-    if (!analysis && !report) {
-      bindModuleControls();
-      app.querySelector("#scope-content").scrollTop = moduleScroll;
-      app.querySelector(".forecast-overview").scrollTop = overviewScroll;
-    }
+    if (!analysis && !report) bindModuleControls();
     document.querySelector("#download").addEventListener("click", () => downloadAll(forecastReports, forecastAnswers));
     document.querySelector("#download-report")?.addEventListener("click", () => {
       download([["Company", answers.company], ["Currency", currencyOf(answers)], ["Scenario", model.name], ...reportCsv(report, rows, forecastAnswers)],
