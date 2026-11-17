@@ -193,6 +193,7 @@
   let outcomes;
   let analysisState = { windows: {} };
   let detachCharts;
+  let dashboardObserver;
   const save = () => {
     if (session) {
       if (!sharedReady) return false;
@@ -469,6 +470,8 @@
     if (!queuedAnswers) window.removeEventListener("beforeunload", beforeUnload);
     detachCharts?.();
     detachCharts = null;
+    dashboardObserver?.disconnect();
+    dashboardObserver = null;
     if (screen === "report") renderReport();
     else if (screen === "review") renderReview();
     else if (screen === "intro") app.innerHTML = workbookIntro();
@@ -1078,7 +1081,20 @@
       ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? reportBody : overview(model)}`;
     document.querySelector("#review").addEventListener("click", showReview);
     if (analysis) bindAnalysis(analysis, currency);
-    if (!analysis && !report) bindModuleControls();
+    if (!analysis && !report) {
+      bindModuleControls();
+      const dashboard = app.querySelector(".forecast-dashboard");
+      dashboardObserver = new ResizeObserver(entries => {
+        const pageTop = dashboard.getBoundingClientRect().top + window.scrollY;
+        dashboard.style.setProperty("--dashboard-page-top", `${pageTop}px`);
+        for (const { target, borderBoxSize } of entries) {
+          target.style.setProperty("--dashboard-column-height", `${borderBoxSize[0].blockSize}px`);
+        }
+      });
+      Array.from(dashboard.children).forEach(column => {
+        dashboardObserver.observe(column, { box: "border-box" });
+      });
+    }
     document.querySelector("#download").addEventListener("click", () => downloadAll(forecastReports, forecastAnswers));
     document.querySelector("#download-report")?.addEventListener("click", () => {
       download([["Company", answers.company], ["Currency", currencyOf(answers)], ["Scenario", model.name], ...reportCsv(report, rows, forecastAnswers)],
