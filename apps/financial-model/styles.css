@@ -614,6 +614,7 @@ body:has(.financial-landing) > :is(.masthead, .footer) { display: none; }
 .forecast-switch-state { color: var(--quiet); font-size: .77rem; }
 .forecast-switch .autosave-switch { margin: 0; }
 .forecast-switch input:not(:checked) + .autosave-track::before { background: var(--ink); }
+.forecast-switch input:indeterminate + .autosave-track::before { transform: translateX(9px); }
 .forecast-switch input:disabled { cursor: default; }
 .forecast-switch:has(input:disabled) { opacity: .58; }
 
