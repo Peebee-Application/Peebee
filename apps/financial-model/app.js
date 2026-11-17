@@ -972,14 +972,146 @@
       return '"' + sanitized.replaceAll('"', '""') + '"';
     };
     const csv = rows.map(row => row.map(csvCell).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));
+    const name = answers.company.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 72) || "company";
+    downloadFile(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }), `${name}-${suffix}.csv`);
+  }
+
+  function downloadFile(blob, name) {
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${answers.company.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 72) || "company"}-${suffix}.csv`;
+    link.download = name;
     document.body.append(link);
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  const backupFormat = "peebee-financial-assumptions";
+  const backupVersion = 1;
+  const maxAssumptionBytes = 120_000;
+  const downloadBackup = document.querySelector("#backup-download");
+  const uploadBackup = document.querySelector("#backup-upload");
+  const backupFile = document.querySelector("#backup-file");
+  const backupStatus = document.querySelector("#backup-status");
+  let restoringBackup = false;
+  const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value);
+  const isAnswer = value => typeof value === "string" && value.length <= 160;
+
+  function readBackup(fileText) {
+    const backup = JSON.parse(fileText);
+    if (!isRecord(backup) || backup.format !== backupFormat) {
+      throw new Error("Choose a JSON backup downloaded from the Peebee Financial Model.");
+    }
+    if (backup.version !== backupVersion) throw new Error("This backup version is not supported.");
+    const input = backup.answers;
+    if (!isRecord(input) || !["Peebee", "Peebee (illustrative)"].includes(input.company) ||
+        Object.keys(input).length > 300 || new TextEncoder().encode(JSON.stringify(input)).byteLength > maxAssumptionBytes) {
+      throw new Error("The backup assumptions are invalid or exceed the file size limit.");
+    }
+    if (Object.hasOwn(input, "channels")) {
+      const rows = input.channels;
+      if (!Array.isArray(rows) || !rows.every(row => isRecord(row) && typeof row.key === "string" && /^[a-z0-9-]{1,64}$/.test(row.key)) ||
+          new Set(rows.map(row => row.key)).size !== rows.length) throw new Error("The backup contains invalid or duplicate channel IDs.");
+    }
+    const prompts = new Map(availableQuestions(input).map(prompt => [prompt.id, prompt]));
+    for (const [id, value] of Object.entries(input)) {
+      if (id === "company") continue;
+      const prompt = prompts.get(id);
+      if (!prompt) throw new Error("The backup contains an unrecognized assumption.");
+      if (prompt.type === "items") {
+        if (!Array.isArray(value) || value.length > 250 || !value.every(row => isRecord(row) &&
+            Object.entries(row).every(([field, answer]) => field.length <= 64 && isAnswer(answer)))) {
+          throw new Error(`The backup contains invalid line items for ${stepLabel(prompt)}.`);
+        }
+      } else if (!isAnswer(value)) {
+        throw new Error(`The backup contains an invalid value for ${stepLabel(prompt)}.`);
+      }
+    }
+    return input;
+  }
+
+  downloadBackup.addEventListener("click", async () => {
+    downloadBackup.disabled = true;
+    backupStatus.textContent = "Preparing saved assumptions…";
+    try {
+      const data = session ? (await session.request("load")).draft : readLocal();
+      const stored = data?.answers ?? createDefaults();
+      const backup = JSON.stringify({ format: backupFormat, version: backupVersion, answers: stored });
+      const date = new Intl.DateTimeFormat("sv-SE", { timeZone: "Africa/Kampala", dateStyle: "short" }).format(new Date());
+      downloadFile(new Blob([backup], { type: "application/json" }), `peebee-assumptions-${date}.json`);
+      backupStatus.textContent = "Assumptions backup downloaded.";
+    } catch (error) {
+      backupStatus.textContent = error.message;
+    } finally {
+      downloadBackup.disabled = false;
+    }
+  });
+
+  uploadBackup.addEventListener("click", () => backupFile.click());
+  backupFile.addEventListener("change", async () => {
+    const file = backupFile.files[0];
+    backupFile.value = "";
+    if (!file) return;
+    backupStatus.textContent = "";
+    try {
+      if (file.size > 128_000) throw new Error("This assumptions backup is too large.");
+      const backup = readBackup(await file.text());
+      if (!settingsDialog.open) return;
+      confirmAction(
+        "Replace current assumptions?",
+        `${file.name} will replace ${session ? "the shared assumptions for all authorized admins" : "the assumptions on this device"}. Unsaved edits in this tab will be discarded.`,
+        "Replace assumptions",
+        () => void restoreBackup(backup)
+      );
+    } catch (error) {
+      backupStatus.textContent = error instanceof SyntaxError ? "The file is not valid JSON." : error.message;
+    }
+  });
+
+  settingsDialog.addEventListener("cancel", event => {
+    if (restoringBackup) event.preventDefault();
+  });
+
+  async function restoreBackup(backup) {
+    if (saving || queuedAnswers) {
+      backupStatus.textContent = "Finish saving your pending forecast changes before uploading a backup.";
+      return;
+    }
+    const restored = readDraft({ answers: backup }).answers;
+    const target = firstMissing(restored) ? "review" : "report";
+    const controls = [...settingsDialog.querySelectorAll("button:enabled, input:enabled, select:enabled")];
+    restoringBackup = true;
+    controls.forEach(control => control.disabled = true);
+    backupStatus.textContent = "Replacing assumptions…";
+    try {
+      if (session) {
+        const { draft } = await session.request("save", { revision, answers: backup });
+        revision = draft.revision;
+        savedAnswers = JSON.stringify(restored);
+        publishLocal.hidden = true;
+        showSaveStatus("Assumptions restored to the shared forecast.");
+      } else {
+        localStorage.setItem(storageKey, JSON.stringify({ answers: backup, screen: target }));
+      }
+      answers = restored;
+      screen = target;
+      step = undefined;
+      editing = false;
+      selectedReport = "overview";
+      selectedCase = "Base";
+      outcomes = null;
+      analysisState = { windows: {} };
+      settingsDialog.close();
+      render(screen === "report" ? "report-title" : "review-title");
+      backupStatus.textContent = "Assumptions restored.";
+    } catch (error) {
+      backupStatus.textContent = error.message;
+      if (error.status === 409) showSaveStatus(error.message, error);
+    } finally {
+      restoringBackup = false;
+      controls.forEach(control => control.disabled = false);
+    }
   }
 
   publishLocal.addEventListener("click", () => confirmAction(

@@ -63,6 +63,10 @@
     <section class="settings-actions" aria-labelledby="settings-data-title">
       <h3 id="settings-data-title">Data and reset</h3>
       <button class="button secondary" id="live-data" type="button" aria-haspopup="dialog" hidden>Live Admin data</button>
+      <button class="button secondary" id="backup-download" type="button">Download saved assumptions</button>
+      <button class="button secondary" id="backup-upload" type="button">Upload assumptions backup</button>
+      <input id="backup-file" type="file" accept=".json,application/json" aria-label="Assumptions backup file" hidden>
+      <p class="muted" id="backup-status" role="status"></p>
       <button class="button secondary" id="publish-local" type="button" hidden>Use this browser’s draft</button>
       <button class="button secondary" id="reset-model" type="button" aria-haspopup="dialog">Reset to Peebee defaults</button>
     </section>

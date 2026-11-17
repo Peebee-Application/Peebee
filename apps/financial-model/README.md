@@ -29,6 +29,10 @@ In **Settings → Live Admin data**, use your existing Admin session to retrieve
 
 Cloudflare serves the site on the Peebee API Worker under the financials domain. The live endpoint uses Admin authorization and returns aggregate live data. The normal API deployment includes changes to the financial model assets.
 
+## Assumptions backups
+
+Use **Settings → Download saved assumptions** to save the current forecast inputs as a JSON file. **Upload assumptions backup** replaces the current assumptions after confirmation. The app recalculates a complete forecast immediately and opens incomplete drafts for review. In the shared app, the replacement applies to all authorized editors. If another editor saves first, reload the shared version before trying the upload again.
+
 ## Reports and exports
 
 Revenue drivers include units, subscriptions, monthly revenue, and a percentage of transaction or payout value. The **Revenue by channel** report contains source rows, channel subtotals and consolidated revenue. Costs, working capital, investment, funding, valuation and financial statements are consolidated for Peebee.

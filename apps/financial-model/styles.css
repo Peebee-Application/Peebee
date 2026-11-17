@@ -403,3 +403,6 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 .account-form .button { justify-self: start; }
 #preference-status:empty, #account-status:empty, #login-status:empty, #autosave-save-status:empty { display: none; }
 #preference-status, #account-status, #login-status { font-size: .9rem; }
+
+#backup-status { margin: 0; font-size: .85rem; }
+#backup-status:empty { display: none; }
