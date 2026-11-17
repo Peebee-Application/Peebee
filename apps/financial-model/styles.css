@@ -178,6 +178,8 @@ select:disabled { cursor: default; }
 .review-head, .report-head, .toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; flex-wrap: wrap; }
 .review-head, .report-head { margin-bottom: 24px; }
 .review-head .muted, .report-head .muted { margin: 9px 0 0; }
+.report-actions { display: grid; justify-items: end; gap: 10px; }
+.report-actions .toolbar { justify-content: flex-end; margin-bottom: 0; }
 .review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .panel { padding: 21px; min-width: 0; }
 .panel h2 { font-size: 1.1rem; margin: 0 0 15px; letter-spacing: -.02em; }
@@ -506,8 +508,7 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 .forecast-dashboard { display: grid; gap: 20px; align-items: start; }
 .forecast-overview { min-width: 0; }
 .forecast-overview .metric-amount { white-space: normal; overflow-wrap: anywhere; }
-.forecast-scope { padding: 12px; }
-.forecast-scope > h2 { margin: 0; }
+.forecast-scope > h2 { margin: 0; font-size: 1.1rem; letter-spacing: -.02em; }
 #scope-toggle {
   display: flex;
   width: 100%;
@@ -559,23 +560,39 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 .forecast-switch:has(input:disabled) { opacity: .58; }
 
 @media (min-width: 901px) {
-  .forecast-dashboard { grid-template-columns: clamp(270px, 25vw, 310px) minmax(0, 1fr); }
+  body:has(.forecast-dashboard) {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 38rem;
+  }
+  .shell:has(> .forecast-dashboard) {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    padding-block: 24px 12px;
+  }
+  body:has(.forecast-dashboard) .footer { width: 100%; }
+  .forecast-dashboard {
+    grid-template-columns: clamp(270px, 25vw, 310px) minmax(0, 1fr);
+    align-items: stretch;
+  }
   .forecast-dashboard:has(> .forecast-scope #scope-toggle[aria-expanded="false"]) {
     grid-template-columns: 56px minmax(0, 1fr);
   }
   .forecast-scope {
-    position: sticky;
-    top: 20px;
     display: flex;
     flex-direction: column;
-    max-height: calc(100dvh - 40px);
+    min-height: 0;
   }
-  #scope-content {
-    padding: 0 3px 4px;
+  #scope-content, .forecast-overview {
+    min-height: 0;
     overflow-y: auto;
     scrollbar-width: thin;
   }
-  .forecast-scope:has(#scope-toggle[aria-expanded="false"]) { padding: 6px; }
+  #scope-content { padding: 0 4px 4px; }
   #scope-toggle[aria-expanded="false"] { justify-content: center; }
   #scope-toggle[aria-expanded="false"] .scope-toggle-label { display: none; }
   #scope-toggle .scope-toggle-icon::before { transform: rotate(-45deg); }
