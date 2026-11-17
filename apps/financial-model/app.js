@@ -879,9 +879,10 @@
 
   function moduleControls() {
     const modules = forecastModules(answers);
-    const toggle = (id, label, checked, disabled, data) =>
-      `<label class="forecast-switch"><span class="forecast-switch-state" aria-hidden="true">${checked ? "On" : "Off"}</span>
-        <span class="autosave-switch"><input type="checkbox" role="switch" id="${escape(id)}" aria-label="${escape(label)}"
+    const enabled = modules.filter(({ channel }) => included(channel)).length;
+    const toggle = (id, label, checked, disabled, data, mixed = false) =>
+      `<label class="forecast-switch"><span class="forecast-switch-state" aria-hidden="true">${mixed ? "Mixed" : checked ? "On" : "Off"}</span>
+        <span class="autosave-switch"><input type="checkbox" ${id === "scope-all" ? "" : 'role="switch"'} id="${escape(id)}" aria-label="${escape(label)}"
           ${data} ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}><span class="autosave-track" aria-hidden="true"></span></span></label>`;
     return `<aside class="forecast-scope" aria-labelledby="scope-toggle">
       <h2><button id="scope-toggle" type="button" aria-label="Forecast modules" aria-controls="scope-content"
@@ -891,7 +892,13 @@
       <div id="scope-content" ${moduleSidebarOpen ? "" : "hidden"}>
       <p class="muted">Choose which revenue to include in the shared forecast. Percentage-based direct costs follow revenue. Company-wide costs stay in the forecast.</p>
       <p class="scope-status" role="status">${escape(scopeMessage)}</p>
-      <div class="forecast-modules">${modules.map(({ channel, parts }) => {
+      <div class="forecast-modules">
+        <div class="forecast-module forecast-module-line">
+          <strong>All modules</strong>
+          ${toggle("scope-all", "All modules", enabled > 0 && enabled === modules.length, !modules.length,
+            "data-scope-all", enabled > 0 && enabled < modules.length)}
+        </div>
+        ${modules.map(({ channel, parts }) => {
         const on = included(channel);
         const count = parts.filter(part => part.entries.some(({ row }) => included(row))).length;
         const { key, name } = channel;
@@ -915,6 +922,8 @@
     if (!panel) return;
     const toggle = panel.querySelector("#scope-toggle");
     const content = panel.querySelector("#scope-content");
+    const allModules = panel.querySelector("#scope-all");
+    allModules.indeterminate = panel.querySelector("input[data-scope-channel]:not([data-scope-part]):checked") !== null && !allModules.checked;
     toggle.addEventListener("click", () => {
       moduleSidebarOpen = !moduleSidebarOpen;
       toggle.setAttribute("aria-expanded", moduleSidebarOpen);
@@ -922,29 +931,33 @@
       content.hidden = !moduleSidebarOpen;
     });
     panel.addEventListener("change", event => {
-      const input = event.target.closest("input[data-scope-channel]");
+      const input = event.target.closest("input[data-scope-channel], input[data-scope-all]");
       if (!input) return;
-      const { scopeChannel: key, scopePart } = input.dataset;
-      const streamKey = `channel-${key}`;
-      const next = { ...answers, channels: answers.channels.map(row => ({ ...row })), [streamKey]: (answers[streamKey] || []).map(row => ({ ...row })) };
-      const module = forecastModules(next).find(item => item.channel.key === key);
-      if (!module) return;
+      const next = { ...answers, channels: answers.channels.map(row => ({ ...row })) };
+      const setIncluded = row => {
+        if (input.checked) delete row.enabled;
+        else row.enabled = "no";
+      };
       let addedRideshare = false;
-      if (scopePart === undefined) {
-        if (input.checked) delete module.channel.enabled;
-        else module.channel.enabled = "no";
+      const { scopeChannel: key, scopePart } = input.dataset;
+      if (input === allModules) {
+        next.channels.forEach(setIncluded);
+      } else if (scopePart === undefined) {
+        const channel = next.channels.find(row => row.key === key);
+        if (!channel) return;
+        setIncluded(channel);
       } else {
-        if (!included(module.channel)) return;
+        const streamKey = `channel-${key}`;
+        next[streamKey] = (answers[streamKey] || []).map(row => ({ ...row }));
+        const module = forecastModules(next).find(item => item.channel.key === key);
+        if (!module || !included(module.channel)) return;
         const part = module.parts.find(item => item.key === scopePart);
         if (!part) return;
         if (input.checked && !part.entries.length && key === "rides" && part.key === "rideshare") {
           addedRideshare = true;
           next[streamKey].push({ name: "Rideshare commission", method: "direct", amount: "0", growth: "0", days: "0", forecastGroup: "rideshare" });
         }
-        for (const { row } of part.entries) {
-          if (input.checked) delete row.enabled;
-          else row.enabled = "no";
-        }
+        for (const { row } of part.entries) setIncluded(row);
       }
       expandedModules = new Set([...panel.querySelectorAll("details[open]")].map(detail => detail.dataset.scopeDetails));
       const missing = firstMissing(next);
