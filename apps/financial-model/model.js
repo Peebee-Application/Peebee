@@ -18,7 +18,7 @@
   const sum = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
   const total = rows => sum(rows, "amount");
   const numericLine = row => Object.fromEntries(Object.entries(row).map(([key, value]) =>
-    [key, ["name", "method", "basis", "priceCurrency", "cadence"].includes(key) ? value : Number(value || 0)]));
+    [key, ["name", "method", "basis", "priceCurrency", "cadence", "revenueStreamIndexes"].includes(key) ? value : Number(value || 0)]));
   const amounts = answers => Object.fromEntries(Object.keys(byId).map(id => [id, (answers[id] || []).map(numericLine)]));
   const numeric = (row, key) => row[key] || 0;
   const stockAfter = (opening, cogs, days) => Math.max(opening - cogs, cogs * days / 30);
@@ -170,7 +170,10 @@
       });
       const revenue = sum(streams, "revenue");
       const directCosts = current("directCosts", (line, prior, index) => {
-        const result = directCost(line, prior, revenue, i);
+        const eligibleRevenue = line.revenueStreamIndexes
+          ? line.revenueStreamIndexes.reduce((amount, stream) => amount + streams[stream].revenue, 0)
+          : revenue;
+        const result = directCost(line, prior, eligibleRevenue, i);
         const ap = tradeBalance(result.purchases, numeric(line, "payableDays"), months, "directCosts", index, "purchases");
         return { ...result, ap };
       });

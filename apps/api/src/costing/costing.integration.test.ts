@@ -385,7 +385,10 @@ test("shared forecast requires finance permissions and rejects stale writes", as
   assert.equal(first.status, 200);
   const revision = first.body.draft.revision;
   assert.equal((await request("admin", "PUT", path, { revision: null, answers })).status, 409);
-  const update = { ...answers, tax: "28" };
+  const moduleScope = Array.from({ length: 25 }, (_, index) => `module-key-${index}`).join(",");
+  const update = { ...answers, tax: "28", directCosts: [{ name: "Fees", moduleScope }] };
+  const invalidScope = { ...update, directCosts: [{ name: "Fees", moduleScope: "rides,,buy" }] };
+  assert.equal((await request("admin", "PUT", path, { revision, answers: invalidScope })).status, 400);
   assert.equal((await request("admin", "PUT", path, { revision, answers: update })).status, 200);
   assert.equal((await request("admin", "PUT", path, { revision, answers })).status, 409);
   const latest = await request("admin", "GET", path);

@@ -427,3 +427,43 @@ test("forecast scope excludes selected channels and streams without removing ass
   assert.equal(input["channel-rides"][0].amount, "120");
   assert.equal(input["channel-buy"][0].amount, "900");
 });
+
+test("module assignments scope costs, staffing and assets throughout the forecast", () => {
+  const { consolidate } = globalThis.FinancialChannels;
+  const sale = (name, amount) => ({ name, method: "direct", amount, growth: "0", days: "0" });
+  const input = {
+    ...forecastFixture, months: "2", scenarios: "no", valuation: "no",
+    channels: [{ key: "rides", name: "Rides" }, { key: "buy", name: "Buy" }, { key: "work", name: "Work" }],
+    "channel-rides": [sale("Car", "100")], "channel-buy": [sale("Sales", "200")], "channel-work": [sale("Bookings", "300")],
+    directCosts: [
+      { name: "Gateway", basis: "rate", rate: "10", moduleScope: "rides,buy" },
+      { name: "Fleet contract", basis: "fixed", amount: "12", growth: "0", inventoryDays: "30", payableDays: "30", moduleScope: "rides" },
+    ],
+    staff: [
+      { name: "Dispatch", amount: "20", headcount: "2", burden: "0", growth: "0", month: "1", moduleScope: "rides,buy" },
+      { name: "Finance", amount: "90", headcount: "1", burden: "0", growth: "0", month: "1" },
+    ],
+    expenses: [{ name: "Tools", basis: "fixed", amount: "60", month: "1", growth: "0", moduleScope: "buy" }],
+    ownedAssets: [{ name: "Fleet", amount: "120", life: "12", moduleScope: "rides" }],
+    investments: [{ name: "Vehicle", amount: "240", life: "12", month: "1", moduleScope: "rides" }],
+  };
+  const month = (...on) => {
+    const scoped = { ...input, channels: input.channels.map(channel => ({ ...channel, enabled: on.includes(channel.key) ? "yes" : "no" })) };
+    const { answers } = consolidate(scoped);
+    const model = build(answers)[0];
+    assert.equal(model.annual[0].cogs, sum(model.months, "cogs"));
+    return model.months[0];
+  };
+  const all = month("rides", "buy", "work");
+  assert.deepEqual([all.revenue, all.cogs, all.payroll, all.overhead, all.capex, all.depreciation], [600, 42, 130, 60, 240, 30]);
+  const noRides = month("buy", "work");
+  assert.deepEqual([noRides.revenue, noRides.cogs, noRides.payroll, noRides.overhead, noRides.capex, noRides.depreciation],
+    [500, 20, 130, 60, 0, 0]);
+  assert.equal(noRides.stock, 0);
+  assert.ok(all.stock > 0);
+  assert.ok(all.ap > noRides.ap);
+  const work = month("work");
+  assert.deepEqual([work.revenue, work.cogs, work.payroll, work.overhead, work.capex], [300, 0, 90, 0, 0]);
+  assert.equal(month().payroll, 90);
+  assert.equal(input.investments[0].moduleScope, "rides");
+});

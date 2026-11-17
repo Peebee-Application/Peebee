@@ -2,7 +2,10 @@ import { z } from "zod";
 import { db } from "../db/client.js";
 
 const key = "financial_model_shared_draft";
-const line = z.record(z.string().max(64), z.string().max(160));
+const line = z.record(z.string().max(64), z.string().max(16_249)).refine(row =>
+  Object.entries(row).every(([field, value]) => field === "moduleScope"
+    ? /^(?:[a-z0-9-]{1,64}(?:,[a-z0-9-]{1,64}){0,249})?$/.test(value)
+    : value.length <= 160));
 export const draftInput = z.object({
   revision: z.string().uuid().nullable(),
   answers: z.record(z.string().max(80), z.union([z.string().max(160), z.array(line).max(250)]))
