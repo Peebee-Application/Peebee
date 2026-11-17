@@ -420,10 +420,10 @@ test("Financials guest invitations verify email ownership and restrict forecast 
   const client = await freshDb();
   await client.execute("UPDATE users SET role = 'admin', admin_role = 'customer_manager' WHERE id = 'rider'");
   const { adminRoutes } = await import("../admin/routes.js");
-  const { financialGuestRoutes } = await import("../admin/financial-guests.js");
   const { settingsRoutes } = await import("../settings/routes.js");
+  const { default: publicApp } = await import("../app.js");
   const guestPath = "/v1/forecast-guest";
-  const app = new Hono().route("/v1", adminRoutes).route("/v1", settingsRoutes).route(guestPath, financialGuestRoutes);
+  const app = new Hono().route("/v1", adminRoutes).route("/v1", settingsRoutes);
   const staff = await signToken({ sub: "rider", role: "admin" });
   const request = caller(app, { ...await tokens(), staff });
   const finance = "/admin/financial-model";
@@ -433,7 +433,7 @@ test("Financials guest invitations verify email ownership and restrict forecast 
   setEmailSenderForTests(async (email, _subject, message) => {
     sent.push({ email, code: message.match(/\b\d{6}\b/)?.[0] ?? "" });
   });
-  const publicRequest = (path: string, body?: unknown, cookie?: string) => app.request(path, {
+  const publicRequest = (path: string, body?: unknown, cookie?: string) => publicApp.request(path, {
     method: body === undefined ? "GET" : "POST",
     headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),

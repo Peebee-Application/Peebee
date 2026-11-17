@@ -293,6 +293,9 @@ app.use("/v1/*", async (_c, next) => {
 });
 // Phones check/download updates without a user token; publishing uses its own token.
 // Register before shared /v1 routers with catch-all sign-in middleware.
+// Financial guest access authenticates with its own invite session. Register it
+// before the authenticated routers mounted on the shared /v1 prefix.
+app.route("/v1/forecast-guest", financialGuestRoutes);
 app.route("/v1", appUpdatesRoutes);
 app.route("/v1/auth", authRoutes);
 app.route("/v1", onboardingRoutes);
@@ -378,7 +381,6 @@ app.route("/v1", merchantRoutes);
 // inherited the admin-only check.
 app.route("/v1", voiceRoutes);
 app.route("/v1", adminRoutes);
-app.route("/v1/forecast-guest", financialGuestRoutes);
 app.route("/v1", platformMapRoutes);
 app.route("/v1", segmentRoutes);
 app.route("/v1", financialRoutes);
