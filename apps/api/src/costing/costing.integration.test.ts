@@ -393,3 +393,24 @@ test("shared forecast requires finance permissions and rejects stale writes", as
   assert.equal((await request("admin", "GET", path)).status, 403);
   assert.equal((await request("admin", "PUT", path, { revision, answers })).status, 403);
 });
+
+test("financial preferences follow the authenticated admin and preserve concurrent fields", async () => {
+  const client = await freshDb();
+  await client.execute("UPDATE users SET role = 'admin' WHERE id = 'rider'");
+  const { adminRoutes } = await import("../admin/routes.js");
+  const app = new Hono().route("/v1", adminRoutes);
+  const request = caller(app, { ...await tokens(), other: await signToken({ sub: "rider", role: "admin" }) });
+  const path = "/admin/financial-model/preferences";
+  const defaults = { appearance: "system", autosave: false };
+  assert.equal((await app.request(`/v1${path}`)).status, 401);
+  assert.equal((await request("cust", "GET", path)).status, 403);
+  assert.equal((await request("admin", "PUT", path, { appearance: "blue" })).status, 400);
+  assert.equal((await request("admin", "PUT", path, { autosave: true, userId: "rider" })).status, 400);
+  const saves = await Promise.all([
+    request("admin", "PUT", path, { appearance: "dark" }),
+    request("admin", "PUT", path, { autosave: true }),
+  ]);
+  assert.deepEqual(saves.map(result => result.status), [200, 200]);
+  assert.deepEqual((await request("admin", "GET", path)).body.preferences, { appearance: "dark", autosave: true });
+  assert.deepEqual((await request("other", "GET", path)).body.preferences, defaults);
+});

@@ -8,9 +8,10 @@
   let mode = "system";
   let control;
   let timer;
+  const accountSettings = location.hostname === "financials.peebee.online";
   try {
     const saved = localStorage.getItem(key);
-    if (modes.has(saved)) mode = saved;
+    if (!accountSettings && modes.has(saved)) mode = saved;
   } catch { /* The selected mode still applies in this tab. */ }
 
   function update() {
@@ -32,13 +33,20 @@
     document.dispatchEvent(new Event("appearancechange"));
   }
 
+  globalThis.ForecastAppearance = {
+    set(value) {
+      if (!modes.has(value)) return;
+      mode = value;
+      update();
+    },
+  };
   update();
   system.addEventListener("change", update);
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) update();
   });
   addEventListener("storage", event => {
-    if (event.key !== key && event.key !== null) return;
+    if (accountSettings || (event.key !== key && event.key !== null)) return;
     mode = modes.has(event.newValue) ? event.newValue : "system";
     update();
   });
@@ -48,7 +56,11 @@
     control.addEventListener("change", () => {
       if (!modes.has(control.value)) return;
       mode = control.value;
-      try { localStorage.setItem(key, mode); } catch { /* Keep the mode in this tab. */ }
+      if (accountSettings) {
+        document.dispatchEvent(new CustomEvent("appearancepreference", { detail: mode }));
+      } else {
+        try { localStorage.setItem(key, mode); } catch { /* Keep the mode in this tab. */ }
+      }
       update();
     });
   });

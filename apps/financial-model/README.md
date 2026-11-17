@@ -1,6 +1,6 @@
 # Peebee Financial Model
 
-Open https://financials.peebee.online in a browser signed in to Peebee Admin. The site opens one shared forecast for Admin users with Payments management and statistics access. Changes to assumptions save to the shared forecast. If someone saves first, reload their version before editing again. If the shared forecast is empty, an authorized user with an existing browser draft can initialize it from **Settings → Use this browser’s draft**.
+Open https://financials.peebee.online and sign in with your Peebee Admin account, or continue with an existing Admin session. The Account menu shows your Admin identity and supports changing your password or signing out. Appearance and autosave follow your account across browsers. The site opens one shared forecast for Admin users with Payments management and statistics access. Changes to assumptions save to the shared forecast. If someone saves first, reload their version before editing again. If the shared forecast is empty, an authorized user with an existing browser draft can initialize it from **Settings → Use this browser’s draft**.
 
 Open `index.html` directly for offline development. In that mode, the forecast uses local browser storage.
 

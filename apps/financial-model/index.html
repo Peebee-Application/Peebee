@@ -23,6 +23,7 @@
     <div class="masthead-inner">
       <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span> Peebee Financial Model</div>
       <nav id="primary-nav" class="primary-nav" aria-label="Forecast sections"></nav>
+      <button class="button secondary small" id="open-account" type="button" aria-haspopup="dialog" hidden>Account</button>
       <button class="button secondary settings-icon" id="open-settings" type="button" aria-label="Settings" title="Settings" aria-haspopup="dialog">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="3"></circle>
@@ -58,6 +59,7 @@
         <span class="autosave-track" aria-hidden="true"></span>
       </span>
     </label>
+    <p id="preference-status" class="muted" role="status"></p>
     <section class="settings-actions" aria-labelledby="settings-data-title">
       <h3 id="settings-data-title">Data and reset</h3>
       <button class="button secondary" id="live-data" type="button" aria-haspopup="dialog" hidden>Live Admin data</button>
@@ -65,6 +67,22 @@
       <button class="button secondary" id="reset-model" type="button" aria-haspopup="dialog">Reset to Peebee defaults</button>
     </section>
     <form method="dialog" class="dialog-actions"><button class="button gold">Done</button></form>
+  </dialog>
+  <dialog id="account-dialog" class="panel model-dialog account-panel" aria-labelledby="account-title">
+    <h2 id="account-title">Account</h2>
+    <p class="muted" id="account-identity"></p>
+    <form id="password-form" class="account-form">
+      <h3>Change Admin password</h3>
+      <label>Current password<input name="currentPassword" type="password" autocomplete="current-password" required></label>
+      <label>New password<input name="newPassword" type="password" autocomplete="new-password" minlength="6" maxlength="100" required></label>
+      <label>Confirm new password<input name="confirmation" type="password" autocomplete="new-password" minlength="6" maxlength="100" required></label>
+      <button class="button gold" type="submit">Change password</button>
+    </form>
+    <p id="account-status" role="status"></p>
+    <div class="dialog-actions">
+      <button class="button secondary" id="sign-out" type="button">Sign out</button>
+      <form method="dialog"><button class="button secondary">Done</button></form>
+    </div>
   </dialog>
   <dialog id="confirm-action" class="panel model-dialog" role="alertdialog" aria-labelledby="confirm-action-title" aria-describedby="confirm-action-detail">
     <h2 id="confirm-action-title"></h2>
@@ -84,6 +102,7 @@
         <span class="autosave-track" aria-hidden="true"></span>
       </span>
     </label>
+    <p id="autosave-save-status" class="muted" role="status"></p>
     <form method="dialog" class="dialog-actions unsaved-actions">
       <button class="text-button" value="discard">Discard changes</button>
       <button class="button secondary" value="stay" autofocus>Stay here</button>
