@@ -115,6 +115,49 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.5rem); letter-spacing: -.058em; li
 .field-box { display: flex; align-items: center; }
 .field-box:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
 .field-box input, select { color: var(--ink); padding: 14px 16px; }
+select {
+  appearance: none;
+  padding-inline-end: 36px;
+  background-image: linear-gradient(45deg, transparent 48%, var(--quiet) 50% 67%, transparent 69%),
+    linear-gradient(135deg, transparent 48%, var(--quiet) 50% 67%, transparent 69%);
+  background-position: right 19px center, right 13px center;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+select:hover { border-color: rgb(var(--color-gold) / .55); }
+select:disabled { cursor: default; }
+@media (hover: hover) and (forced-colors: none) {
+  @supports (appearance: base-select) and selector(select::picker(select)) {
+    select, select::picker(select) { appearance: base-select; }
+    select { background-image: none; padding-inline-end: 15px; }
+    select::picker-icon {
+      content: "";
+      width: 8px;
+      height: 8px;
+      margin-inline-start: auto;
+      border: solid var(--quiet);
+      border-width: 0 2px 2px 0;
+      transform: translateY(-2px) rotate(45deg);
+    }
+    select:open::picker-icon { border-color: var(--gold); transform: translateY(2px) rotate(225deg); }
+    select::picker(select) {
+      max-block-size: min(18rem, 55dvh);
+      padding: 5px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgb(var(--surface-input));
+      color: var(--ink);
+      box-shadow: 0 8px 24px rgb(var(--color-ink-gold) / .18);
+    }
+    select option { padding: 9px 12px; border-radius: 6px; white-space: normal; }
+    select option:checked { background: rgb(var(--color-gold) / .14); font-weight: 650; }
+    select option:hover, select option:focus-visible { background: rgb(var(--surface-muted)); }
+  }
+}
+@media (forced-colors: active) {
+  select { appearance: auto; background-image: none; }
+}
 .field-box input { background: transparent; border: 0; min-width: 0; flex: 1; outline: 0; }
 .field-box span { margin: 0 16px 0 0; color: var(--quiet); font-size: .82rem; text-align: right; }
 .error { margin: 10px 0 0; font-size: .9rem; font-weight: 650; }
@@ -264,14 +307,16 @@ tr.total > * { background: rgb(var(--surface-muted)); font-weight: 700; }
 }
 .channel-list .line-fields { grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 801px) {
-  .line-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); }
+  .line-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 30px; }
+  .line-item { padding: 30px; }
   .channel-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); }
 }
 .line-field { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; align-content: start; }
 .line-field:first-child, .line-field:has(> select) { grid-column: 1 / -1; }
 .line-field label { font-size: .85rem; color: var(--ink); font-weight: 620; }
 .line-field .field-box, .line-field select { min-height: 44px; }
-.line-field input, .line-field select { padding: 10px 11px; }
+.line-field input { padding: 10px 11px; }
+.line-field select { padding-block: 10px; padding-inline-start: 11px; }
 .line-field .field-box span { margin-right: 10px; }
 .remove-line { margin-top: 10px; }
 .empty-items { font-size: .88rem; margin: 16px 0 0; }
@@ -298,7 +343,7 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 .analysis-head p { margin: 0; font-size: .87rem; }
 .analysis-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
 .analysis-control { display: inline-grid; gap: 4px; font-size: .82rem; color: var(--quiet); min-width: 0; }
-.analysis-control select { min-height: 42px; padding: 6px 10px; max-width: 100%; min-width: min(110px, 100%); }
+.analysis-control select { min-height: 42px; padding-block: 6px; padding-inline-start: 10px; max-width: 100%; min-width: min(110px, 100%); }
 .analysis-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .analysis-card { padding: clamp(16px, 3vw, 24px); }
 .analysis-card h2 { margin-bottom: 5px; font-size: 1.13rem; }
@@ -371,7 +416,7 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 }
 .appearance-option { display: grid; gap: 7px; margin-top: 20px; }
 .appearance-option label { font-weight: 700; font-size: .92rem; }
-.appearance-option select { min-height: 44px; padding: 9px 12px; }
+.appearance-option select { min-height: 44px; padding-block: 9px; padding-inline-start: 12px; }
 .appearance-option .muted { font-size: .83rem; }
 #settings-dialog .autosave-option { margin-top: 16px; }
 .settings-actions { display: grid; gap: 8px; border-top: 1px solid var(--border); margin-top: 20px; padding-top: 14px; }
