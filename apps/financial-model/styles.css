@@ -572,10 +572,12 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
   .forecast-dashboard:has(> .forecast-scope #scope-toggle[aria-expanded="false"]) {
     grid-template-columns: 56px minmax(0, 1fr);
   }
-  .forecast-scope:has(#scope-toggle[aria-expanded="false"]) {
+  .forecast-dashboard > * {
     position: sticky;
-    top: 0;
+    /* Pin at the viewport bottom without shifting a short column down on load. */
+    top: min(var(--dashboard-page-top, 0px), calc(100dvh - var(--dashboard-column-height, 100dvh)));
   }
+  .forecast-scope:has(#scope-toggle[aria-expanded="false"]) { top: 0; }
   .forecast-scope > h2 {
     position: sticky;
     top: 0;
