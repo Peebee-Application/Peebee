@@ -17,9 +17,9 @@
 
   const sum = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
   const total = rows => sum(rows, "amount");
-  const amounts = answers => Object.fromEntries(Object.keys(byId).map(id => [id, (answers[id] || []).map(row =>
-    Object.fromEntries(Object.entries(row).map(([key, value]) =>
-      [key, ["name", "method", "basis"].includes(key) ? value : Number(value || 0)])))]));
+  const numericLine = row => Object.fromEntries(Object.entries(row).map(([key, value]) =>
+    [key, ["name", "method", "basis"].includes(key) ? value : Number(value || 0)]));
+  const amounts = answers => Object.fromEntries(Object.keys(byId).map(id => [id, (answers[id] || []).map(numericLine)]));
   const numeric = (row, key) => row[key] || 0;
   const stockAfter = (opening, cogs, days) => Math.max(opening - cogs, cogs * days / 30);
   const scheduled = (rows, month) => rows.map(row => ({ amount: row.month === month ? row.amount : 0 }));
@@ -54,6 +54,10 @@
     const revenue = (method === "percentage" || method === "orders") ? volume * feeRate
       : method === "direct" ? line.amount * scale : (method === "units" ? units : active) * price;
     return { revenue, units, joining, leaving, active, price, volume, feeRate, orderValue: numeric(line, "orderValue") };
+  }
+
+  function firstMonthSale(row) {
+    return sale(numericLine(row), null, 0, 0);
   }
 
   function directCost(line, prior, revenue, elapsed) {
@@ -367,5 +371,5 @@
     ] : [base];
   }
 
-  globalThis.FinancialModel = { build, reports, revenueDrivers, scheduleReports, statementReports: statementReports(), linesFor, sum, halfCent, ForecastRangeError };
+  globalThis.FinancialModel = { build, firstMonthSale, reports, revenueDrivers, scheduleReports, statementReports: statementReports(), linesFor, sum, halfCent, ForecastRangeError };
 })();
