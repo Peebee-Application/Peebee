@@ -466,4 +466,12 @@ test("module assignments scope costs, staffing and assets throughout the forecas
   assert.deepEqual([work.revenue, work.cogs, work.payroll, work.overhead, work.capex], [300, 0, 90, 0, 0]);
   assert.equal(month().payroll, 90);
   assert.equal(input.investments[0].moduleScope, "rides");
+  input.staff[1].enabled = "no";
+  input.investments[0].enabled = "no";
+  const cardsOff = month("rides", "buy", "work");
+  assert.deepEqual([cardsOff.payroll, cardsOff.capex, cardsOff.depreciation], [40, 0, 10]);
+  delete input.staff[1].enabled;
+  delete input.investments[0].enabled;
+  const restored = month("rides", "buy", "work");
+  assert.deepEqual([restored.payroll, restored.capex, restored.depreciation], [130, 240, 30]);
 });

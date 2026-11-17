@@ -167,8 +167,9 @@
             const fields = Object.fromEntries(prompt.fields.filter(field => typeof row[field.id] === "string")
               .map(field => [field.id, row[field.id].slice(0, 160)]));
             if (prompt.keyed) return { ...fields, key: row.key, ...scopeMetadata(prompt.id, row) };
-            if (scopedCostGroups.has(prompt.id) && typeof row.moduleScope === "string") {
-              fields.moduleScope = [...new Set(moduleScope(row))].slice(0, 250).join(",");
+            if (scopedCostGroups.has(prompt.id)) {
+              if (!included(row)) fields.enabled = "no";
+              if (typeof row.moduleScope === "string") fields.moduleScope = [...new Set(moduleScope(row))].slice(0, 250).join(",");
             }
             return prompt.channelId ? { ...fields, ...scopeMetadata(prompt.id, row) } : fields;
           });
@@ -862,8 +863,10 @@
         <button type="button" id="add-line" class="button secondary small">+ Add ${prompt.presets.length ? "custom " : ""}${escape(prompt.item)}</button>
         ${expenses ? `<button type="button" id="add-infrastructure" class="button secondary small"${missingCosts().length ? "" : " disabled"}>+ Add discovered technology costs</button>` : ""}</div>
         ${expenses ? '<p class="muted cost-help">Vendor prices are public benchmarks. Enter billed usage and your exchange rate, or choose Monthly bill for a known invoice. Review any grouped technology budgets before entering the same cost separately. To plan a change, set the last month of this phase and select Add next phase.</p>' : ""}
-        ${scoped ? '<p class="muted cost-help">Assign a line to specific modules, or leave it company-wide. A shared amount stays in the forecast while any assigned module is on.</p>' : ""}
+        ${scoped ? '<p class="muted cost-help">Turn a card off to keep its inputs and exclude it from the forecast. A card assigned to multiple modules applies while any assigned module is on.</p>' : ""}
         ${rows.length ? `<div class="line-list${prompt.id === "channels" ? " channel-list" : ""}">${rows.map((row, index) => `<fieldset class="line-item"><legend>${escape(prompt.item[0].toUpperCase() + prompt.item.slice(1))} ${index + 1}</legend>
+          ${scoped ? `<div class="cost-card-switch">${forecastSwitch(`cost-card-${index}`, cardLabel(row, index), included(row), false,
+            `data-toggle-cost-card="${index}"`)}</div>` : ""}
           <div class="line-fields">${fieldsFor(prompt, row).map(field => lineField(field, row, index)).join("")}</div>
           ${scoped ? moduleAssignment(row, index) : ""}
           ${hasRevenuePreview ? `<output class="revenue-estimate" data-estimate="${index}">${revenueEstimateMarkup(prompt, row)}</output>` : ""}
@@ -887,7 +890,22 @@
           <input type="checkbox" data-assign-line="${index}" value="${escape(key)}" ${assigned.has(key) ? "checked" : ""}>
           <span>${escape(name)}${moduleOptions.has(key) && !activeModules.has(key) ? " · Off" : ""}</span>
         </label>`).join("")}</div>
-      </details><p class="muted cost-module-status" data-assigned-status="${index}" role="status">${costIsActive(row, activeModules) ? "" : "Excluded from the current forecast."}</p>`;
+      </details><p class="muted cost-module-status" data-assigned-status="${index}" role="status">${costStatus(row)}</p>`;
+    }
+
+    function cardLabel(row, index) {
+      return `Include ${row.name || prompt.item + " " + (index + 1)} in forecast`;
+    }
+
+    function costStatus(row) {
+      if (!included(row)) return "Card is off.";
+      return costIsActive(row, activeModules) ? "" : "Excluded from the current forecast.";
+    }
+
+    function updateCostStatus(index) {
+      editor.querySelector(`[data-assigned-status="${index}"]`).textContent = costStatus(rows[index]);
+      const estimate = editor.querySelector(`[data-cost-estimate="${index}"]`);
+      if (estimate) estimate.innerHTML = expenseEstimateMarkup(prompt, rows[index], activeModules);
     }
 
     const add = (name = "") => {
@@ -958,6 +976,15 @@
     });
     editor.addEventListener("input", event => {
       const field = event.target;
+      if (field.hasAttribute("data-toggle-cost-card")) {
+        const index = Number(field.dataset.toggleCostCard);
+        if (field.checked) delete rows[index].enabled;
+        else rows[index].enabled = "no";
+        field.closest(".forecast-switch").querySelector(".forecast-switch-state").textContent = field.checked ? "On" : "Off";
+        updateCostStatus(index);
+        remember();
+        return;
+      }
       if (field.hasAttribute("data-assign-line")) {
         const index = Number(field.dataset.assignLine);
         const keys = [...field.closest(".cost-module-options").querySelectorAll("input:checked")].map(input => input.value);
@@ -970,10 +997,7 @@
         else delete rows[index].moduleScope;
         editor.querySelector(`[data-assigned-count="${index}"]`).textContent = keys.length
           ? `${keys.length} ${keys.length === 1 ? "module" : "modules"}` : "Company-wide";
-        editor.querySelector(`[data-assigned-status="${index}"]`).textContent = costIsActive(rows[index], activeModules)
-          ? "" : "Excluded from the current forecast.";
-        const estimate = editor.querySelector(`[data-cost-estimate="${index}"]`);
-        if (estimate) estimate.innerHTML = expenseEstimateMarkup(prompt, rows[index], activeModules);
+        updateCostStatus(index);
         remember();
         return;
       }
@@ -987,6 +1011,7 @@
         updatePresets();
         const remove = document.getElementById(`remove-line-${field.dataset.line}`);
         remove.setAttribute("aria-label", "Remove " + (row.name || prompt.item + " " + (Number(field.dataset.line) + 1)));
+        document.getElementById(`cost-card-${field.dataset.line}`)?.setAttribute("aria-label", cardLabel(row, Number(field.dataset.line)));
       } else {
         const estimate = editor.querySelector(`[data-estimate="${field.dataset.line}"]`);
         if (estimate) {
@@ -1102,7 +1127,7 @@
       ${prompt.note ? `<p class="muted">${escape(prompt.note)}</p>` : ""}
       <ul>${lineItems(prompt).map(row => `<li><strong>${escape(row.name)}</strong><ul>${fieldsFor(prompt, row).filter(field => field.id !== "name").map(field =>
         `<li>${escape(field.label)} · ${escape(displayAnswer(field, row[field.id]))}</li>`).join("")}
-        ${scopedCostGroups.has(prompt.id) ? `<li>Applies to · ${escape(costScopeLabel(row))}</li>` : ""}</ul></li>`).join("")}</ul>
+        ${scopedCostGroups.has(prompt.id) ? `<li>Applies to · ${escape(costScopeLabel(row))}</li>${included(row) ? "" : "<li>Card is off.</li>"}` : ""}</ul></li>`).join("")}</ul>
     </details>` : "";
     const moduleCard = prompt => {
       const channel = answers.channels.find(row => row.key === prompt.channelId);
@@ -1239,13 +1264,15 @@
   let moduleSidebarOpen = matchMedia("(min-width: 901px)").matches;
   let scopeMessage = "";
 
+  function forecastSwitch(id, label, checked, disabled, data, mixed = false) {
+    return `<label class="forecast-switch"><span class="forecast-switch-state" aria-hidden="true">${mixed ? "Mixed" : checked ? "On" : "Off"}</span>
+      <span class="autosave-switch"><input type="checkbox" ${id === "scope-all" ? "" : 'role="switch"'} id="${escape(id)}" aria-label="${escape(label)}"
+        ${data} ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}><span class="autosave-track" aria-hidden="true"></span></span></label>`;
+  }
+
   function moduleControls() {
     const modules = forecastModules(answers);
     const enabled = modules.filter(({ channel }) => included(channel)).length;
-    const toggle = (id, label, checked, disabled, data, mixed = false) =>
-      `<label class="forecast-switch"><span class="forecast-switch-state" aria-hidden="true">${mixed ? "Mixed" : checked ? "On" : "Off"}</span>
-        <span class="autosave-switch"><input type="checkbox" ${id === "scope-all" ? "" : 'role="switch"'} id="${escape(id)}" aria-label="${escape(label)}"
-          ${data} ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}><span class="autosave-track" aria-hidden="true"></span></span></label>`;
     return `<aside class="forecast-scope" aria-labelledby="scope-toggle">
       <h2><button id="scope-toggle" type="button" aria-label="Forecast modules" aria-controls="scope-content"
         aria-expanded="${moduleSidebarOpen}" title="${moduleSidebarOpen ? "Hide forecast modules" : "Show forecast modules"}">
@@ -1257,7 +1284,7 @@
       <div class="forecast-modules">
         ${guestMode ? "" : `<div class="forecast-module forecast-module-line">
           <strong>All modules</strong>
-          ${toggle("scope-all", "All modules", enabled > 0 && enabled === modules.length, !modules.length,
+          ${forecastSwitch("scope-all", "All modules", enabled > 0 && enabled === modules.length, !modules.length,
             "data-scope-all", enabled > 0 && enabled < modules.length)}
         </div>`}
         ${modules.map(({ channel, parts }) => {
@@ -1266,12 +1293,12 @@
         const { key, name } = channel;
         return `<div class="forecast-module">
           <div class="forecast-module-line"><strong>${escape(name)}</strong>
-            ${toggle(`scope-module-${key}`, name, on, guestMode, `data-scope-channel="${escape(key)}"`)}</div>
+            ${forecastSwitch(`scope-module-${key}`, name, on, guestMode, `data-scope-channel="${escape(key)}"`)}</div>
           ${parts.length ? `<details data-scope-details="${escape(key)}" ${expandedModules.has(key) ? "open" : ""}>
             <summary>${count} of ${parts.length} ${on ? "included" : "selected"}<span class="sr-only"> in ${escape(name)}</span></summary>
             <div class="forecast-module-parts">${parts.map(part => `<div class="forecast-module-line">
               <span>${escape(part.name)}</span>
-              ${toggle(`scope-part-${key}-${part.key}`, `${name} · ${part.name}`, part.entries.some(({ row }) => included(row)), guestMode || !on,
+              ${forecastSwitch(`scope-part-${key}-${part.key}`, `${name} · ${part.name}`, part.entries.some(({ row }) => included(row)), guestMode || !on,
                 `data-scope-channel="${escape(key)}" data-scope-part="${escape(part.key)}"`)}
             </div>`).join("")}</div></details>` : ""}
         </div>`;

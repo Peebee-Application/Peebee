@@ -132,5 +132,6 @@
     return answers;
   }
 
-  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft };
+  const scopedCostGroups = new Set(["directCosts", "staff", "expenses", "ownedAssets", "investments"]);
+  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft, scopedCostGroups };
 })();
