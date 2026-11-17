@@ -3,7 +3,7 @@
   const { fieldsFor, upgradeDraft } = globalThis.FinancialLineItems;
   const { build, firstMonthSale, expensePreview, reports, revenueDrivers, scheduleReports, statementReports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
   const { questionsFor, consolidate, included, scopeMetadata, forecastModules } = globalThis.FinancialChannels;
-  const { buildAnalysis, renderAnalysis, exportRows } = globalThis.FinancialAnalysis;
+  const { buildAnalysis, renderAnalysis, renderChart, monthlyEarnings, exportRows } = globalThis.FinancialAnalysis;
   const { company, catalog, technologyCosts, infrastructureRows, createDefaults, loadStarterRevenue } = globalThis.PeebeeDefaults;
   const dataNote = "Starter estimates model a launch scenario across all channels. Volumes, average values and unverified fees are illustrative. The scenario includes features that may be off in Admin. Apply available Admin fees to matching lines, and enter Peebee’s costs and opening balances.";
   const stepLabels = {
@@ -1040,27 +1040,102 @@
     return `${shown}${unit === "%" ? "%" : unit ? " " + unit : ""}`;
   }
 
+  let reviewSection = "Revenue";
+  let reviewSearch = "";
+
   function renderReview(forecastError = "") {
     const list = activeQuestions(answers);
+    const missing = firstMissing(answers);
+    const lineItems = prompt => Array.isArray(answers[prompt.id]) ? answers[prompt.id] : [];
+    const searchText = prompt => escape([prompt.section, prompt.label, ...lineItems(prompt).map(row => row.name)].join(" "));
+    const editLabel = prompt => escape(`Edit ${prompt.title || prompt.label}`);
+    const preview = prompt => lineItems(prompt).length ? `<details class="review-lines"><summary>View line items</summary>
+      ${prompt.note ? `<p class="muted">${escape(prompt.note)}</p>` : ""}
+      <ul>${lineItems(prompt).map(row => `<li><strong>${escape(row.name)}</strong><ul>${fieldsFor(prompt, row).filter(field => field.id !== "name").map(field =>
+        `<li>${escape(field.label)} · ${escape(displayAnswer(field, row[field.id]))}</li>`).join("")}</ul></li>`).join("")}</ul>
+    </details>` : "";
+    const moduleCard = prompt => {
+      const channel = answers.channels.find(row => row.key === prompt.channelId);
+      const count = lineItems(prompt).length;
+      return `<article class="review-module" data-review-item data-search="${searchText(prompt)}">
+        <h3>${escape(prompt.title)}</h3>
+        <p class="muted">${count} ${count === 1 ? "revenue stream" : "revenue streams"} · ${included(channel) ? "Included" : "Excluded"}</p>
+        <button type="button" class="button secondary small" data-edit="${escape(prompt.id)}" aria-label="${editLabel(prompt)}">Edit revenue</button>
+        ${preview(prompt)}
+      </article>`;
+    };
+    const reviewRow = prompt => `<div class="review-answer" data-review-item data-search="${searchText(prompt)}">
+      <dt>${escape(prompt.label)}</dt><dd><button class="text-button" type="button" data-edit="${escape(prompt.id)}" aria-label="${editLabel(prompt)}">${escape(displayAnswer(prompt, answers[prompt.id]))} <span aria-hidden="true">↗</span></button></dd>
+      ${lineItems(prompt).length ? `<dd class="review-lines">${preview(prompt)}</dd>` : ""}
+    </div>`;
+    const sectionPanels = sections.map((section, index) => {
+      const prompts = list.filter(prompt => prompt.section === section);
+      const revenue = section === "Revenue";
+      return `<section class="panel review-section" data-review-section="${escape(section)}" aria-labelledby="review-section-${index}">
+        <div class="review-section-head"><h2 id="review-section-${index}">${revenue ? "Revenue modules" : escape(section)}</h2>
+        ${revenue ? '<button type="button" class="button secondary small" data-edit="channels" data-review-item data-search="Revenue modules channels manage add remove">Manage channels</button>' : ""}</div>
+        ${revenue ? `<div class="review-module-grid">${prompts.filter(prompt => prompt.channelId).map(moduleCard).join("")}</div>` : `<dl>${prompts.map(reviewRow).join("")}</dl>`}
+      </section>`;
+    }).join("");
     app.innerHTML = `<div class="review-head"><div><h1 id="review-title" tabindex="-1">Review assumptions</h1><p class="muted">${escape(answers.company)} · ${escape(currencyOf(answers))}</p></div>
       <div class="toolbar">
         ${currencyOf(answers) === "UGX" ? '<button type="button" id="starter-revenue" class="button secondary">Load starter revenue estimates</button>' : ""}
         <button type="button" id="generate" class="button gold">Generate forecast <span aria-hidden="true">→</span></button></div></div>
-      <p class="notice">${escape(dataNote)}</p>
+      <details class="notice review-data-note"><summary>About starter estimates</summary><p>${escape(dataNote)}</p></details>
       ${forecastError ? `<p class="notice" id="forecast-error" role="alert" tabindex="-1">${escape(forecastError)}</p>` : ""}
-      <div class="review-grid">${sections.map(section => `<section class="panel"><h2>${section}</h2><dl>${list.filter(prompt => prompt.section === section).map(prompt =>
-        `<div class="review-answer"><dt>${escape(prompt.label)}</dt><dd><button class="text-button" data-edit="${prompt.id}" aria-label="${escape("Edit: " + prompt.label)}">${escape(displayAnswer(prompt, answers[prompt.id]))}</button></dd>
-          ${prompt.type === "items" && answers[prompt.id]?.length ? `<dd class="review-lines"><details><summary>View line items</summary>
-            ${prompt.note ? `<p class="muted">${escape(prompt.note)}</p>` : ""}
-            <ul>${answers[prompt.id].map(row => `<li><strong>${escape(row.name)}</strong><ul>${fieldsFor(prompt, row).filter(field => field.id !== "name").map(field =>
-              `<li>${escape(field.label)} · ${escape(displayAnswer(field, row[field.id]))}</li>`).join("")}</ul></li>`).join("")}</ul></details></dd>` : ""}</div>`).join("")}</dl></section>`).join("")}</div>`;
-    app.querySelectorAll("[data-edit]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.edit, true)));
-    document.querySelector("#starter-revenue")?.addEventListener("click", () => {
-      if (!window.confirm("Replace standard Peebee revenue drivers, volumes and fees with the starter estimates? Custom revenue lines, growth assumptions and costs will be kept.")) return;
-      loadStarterRevenue(answers);
-      outcomes = null;
-      showReview();
+      ${missing ? `<p class="notice">Required before generating the forecast <button type="button" class="text-button" data-edit="${escape(missing.id)}">${escape(stepLabel(missing))}</button></p>` : ""}
+      <div class="review-workspace">
+        <nav class="review-sections" aria-label="Assumption sections">
+          ${sections.map(section => `<button type="button" data-review-tab="${escape(section)}">${section === "Revenue" ? "Revenue modules" : escape(section)}</button>`).join("")}
+        </nav>
+        <div class="stack review-content">
+          <label class="review-search">Search assumptions<input type="search" id="review-search" placeholder="Search modules, settings or line items" value="${escape(reviewSearch)}"></label>
+          <p class="muted" id="review-search-status" role="status" hidden></p>
+          ${sectionPanels}
+        </div>
+      </div>`;
+    const search = app.querySelector("#review-search");
+    const searchStatus = app.querySelector("#review-search-status");
+    const tabs = [...app.querySelectorAll("[data-review-tab]")];
+    const panels = [...app.querySelectorAll("[data-review-section]")];
+    function updateReview() {
+      const words = reviewSearch.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const filtering = words.length > 0;
+      let matches = 0;
+      for (const panel of panels) {
+        let count = 0;
+        for (const item of panel.querySelectorAll("[data-review-item]")) {
+          item.hidden = filtering && !words.every(word => item.dataset.search.toLowerCase().includes(word));
+          if (!item.hidden) count++;
+        }
+        panel.hidden = filtering ? count === 0 : panel.dataset.reviewSection !== reviewSection;
+        if (!panel.hidden) matches += count;
+      }
+      for (const tab of tabs) tab.setAttribute("aria-pressed", String(!filtering && tab.dataset.reviewTab === reviewSection));
+      searchStatus.hidden = !filtering;
+      searchStatus.textContent = matches ? `${matches} ${matches === 1 ? "result" : "results"}` : "No matching assumptions.";
+    }
+    search.addEventListener("input", () => {
+      reviewSearch = search.value;
+      updateReview();
     });
+    tabs.forEach(tab => tab.addEventListener("click", () => {
+      reviewSection = tab.dataset.reviewTab;
+      reviewSearch = search.value = "";
+      updateReview();
+    }));
+    updateReview();
+    app.querySelectorAll("[data-edit]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.edit, true)));
+    document.querySelector("#starter-revenue")?.addEventListener("click", () => confirmAction(
+      "Load starter revenue estimates?",
+      "This replaces standard Peebee revenue drivers, volumes, and fees. Custom revenue lines, growth assumptions, and costs are kept.",
+      "Load starter estimates",
+      () => {
+        loadStarterRevenue(answers);
+        outcomes = null;
+        showReview();
+      }
+    ));
     document.querySelector("#generate").addEventListener("click", () => {
       const missing = firstMissing(answers);
       if (missing) return goTo(missing.id, true);
@@ -1207,7 +1282,7 @@
     });
   }
 
-  function overview(model) {
+  function overview(model, chart) {
     const yearOne = model.months.slice(0, 12);
     const yearOneLabel = `First ${yearOne.length} ${yearOne.length === 1 ? "month" : "months"}`;
     const last = model.months.at(-1);
@@ -1230,6 +1305,7 @@
       <div class="stack"><section class="panel"><h2>Revenue by calendar year</h2><ul class="plot">
         ${model.annual.map(row => `<li><span>${row.period}</span><span class="track" aria-hidden="true"><span class="bar" style="width:${100 * row.revenue / maxRevenue}%"></span></span><strong title="${escape(money(row.revenue))}">${escape(compactFormat.format(row.revenue))}</strong></li>`).join("")}
       </ul></section>
+      ${renderChart(chart, { escape, format, table })}
       ${outcomes.length > 1 ? `<section class="panel"><h2>Scenario comparison</h2>${table("Metric", outcomes.map(item => item.name), comparison.map(([label, read]) => [label, outcomes.map(read)]))}</section>` : ""}
       ${model.valuation ? `<section class="panel"><h2>Discounted cash flow</h2><dl>
         <div><dt>Present value of forecast cash flows</dt><dd>${escape(money(model.valuation.pvFlows))}</dd></div>
@@ -1292,6 +1368,7 @@
     const reportFrequency = report?.frequency || frequency;
     const rows = reportFrequency === "Annual" ? model.annual : model.months;
     const currency = currencyOf(answers);
+    const overviewChart = !report && selectedReport !== "analysis" ? monthlyEarnings(model.months, currency) : null;
     const analysis = selectedReport === "analysis" ? buildAnalysis({
       model, outcomes, rows, frequency, answers: forecastAnswers, groups,
       state: { ...analysisState, ...analysisState.windows[frequency] },
@@ -1312,10 +1389,11 @@
         </div></div>
       ${report || analysis ? `<div class="toolbar">${periodControl}
         ${report && !guestMode ? '<button type="button" id="download-report" class="button secondary small">Download this view</button>' : ""}</div>` : ""}
-      ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? reportBody : overview(model)}`;
+      ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? reportBody : overview(model, overviewChart)}`;
     document.querySelector("#review")?.addEventListener("click", showReview);
     if (analysis) bindAnalysis(analysis, currency);
     if (!analysis && !report) {
+      detachCharts = globalThis.ForecastCharts.mount(app, { charts: [overviewChart] }, format);
       bindModuleControls();
       const dashboard = app.querySelector(".forecast-dashboard");
       dashboardObserver = new ResizeObserver(entries => {

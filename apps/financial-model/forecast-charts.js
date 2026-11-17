@@ -30,8 +30,18 @@
     if (!ctx) return () => {};
     const dashes = [[], [7, 3], [2, 4], [10, 4, 2, 4]];
     const data = chart.series.flatMap(series => series.values.filter(Number.isFinite));
-    const axis = scale(data, chart.unit);
     const length = chart.periods.length;
+    const stacked = chart.type === "stacked";
+    const bars = stacked ? chart.series.slice(0, -1) : chart.type === "bars" ? chart.series : [];
+    const lines = chart.series.slice(bars.length);
+    if (stacked) {
+      chart.periods.forEach((_, index) => {
+        const values = bars.map(series => series.values[index]);
+        data.push(values.reduce((sum, value) => sum + Math.max(0, value), 0));
+        data.push(values.reduce((sum, value) => sum + Math.min(0, value), 0));
+      });
+    }
+    const axis = scale(data, chart.unit);
     let selected = length - 1;
     let plot;
 
@@ -52,7 +62,9 @@
       if (!width || !height) return;
       const colors = getComputedStyle(canvas);
       const ink = colors.getPropertyValue("--ink").trim();
-      const palette = [colors.getPropertyValue("--gold").trim(), ink, colors.getPropertyValue("--quiet").trim(), ink];
+      const gold = colors.getPropertyValue("--gold").trim();
+      const quiet = colors.getPropertyValue("--quiet").trim();
+      const palette = stacked ? [gold, quiet, colors.getPropertyValue("--chart-expense").trim(), ink] : [gold, ink, quiet, ink];
       const ratio = Math.min(2, devicePixelRatio || 1);
       const pixels = [Math.round(width * ratio), Math.round(height * ratio)];
       if (canvas.width !== pixels[0]) canvas.width = pixels[0];
@@ -71,7 +83,7 @@
       const y = value => bottom - (bottom - top) * ((value - axis.min) / (axis.max - axis.min));
       ctx.textBaseline = "middle";
       ctx.textAlign = "right";
-      ctx.fillStyle = palette[2];
+      ctx.fillStyle = quiet;
       axis.ticks.forEach((value, index) => {
         const position = y(value);
         ctx.lineWidth = 1;
@@ -101,41 +113,58 @@
       ctx.lineTo(x(selected), bottom);
       ctx.stroke();
       ctx.globalAlpha = 1;
-      if (chart.type === "bars") {
-        const bar = Math.min(stride * 0.76 / chart.series.length, 24);
-        chart.series.forEach((series, i) => {
+      if (stacked) {
+        const bar = Math.min(stride * 0.64, 24);
+        chart.periods.forEach((_, index) => {
+          let positive = 0;
+          let negative = 0;
+          bars.forEach((series, i) => {
+            const value = series.values[index];
+            const start = value < 0 ? negative : positive;
+            const end = start + value;
+            ctx.fillStyle = palette[i];
+            ctx.globalAlpha = index === selected ? 1 : 0.85;
+            ctx.fillRect(x(index) - bar / 2, Math.min(y(start), y(end)), bar, Math.abs(y(start) - y(end)));
+            if (value < 0) negative = end;
+            else positive = end;
+          });
+        });
+      } else if (bars.length) {
+        const bar = Math.min(stride * 0.76 / bars.length, 24);
+        bars.forEach((series, i) => {
           ctx.fillStyle = palette[i];
           series.values.forEach((value, index) => {
             ctx.globalAlpha = index === selected ? 1 : 0.75;
             const base = y(0);
             const end = y(value);
-            ctx.fillRect(x(index) + (i - chart.series.length / 2) * bar, Math.min(base, end), Math.max(0.35, bar * 0.82), Math.abs(base - end));
-          });
-        });
-      } else {
-        chart.series.forEach((series, i) => {
-          ctx.strokeStyle = palette[i];
-          ctx.fillStyle = palette[i];
-          ctx.lineWidth = 2;
-          ctx.setLineDash(dashes[i]);
-          ctx.beginPath();
-          let connected = false;
-          series.values.forEach((value, index) => {
-            if (value === null) { connected = false; return; }
-            if (connected) ctx.lineTo(x(index), y(value));
-            else ctx.moveTo(x(index), y(value));
-            connected = true;
-          });
-          ctx.stroke();
-          ctx.setLineDash([]);
-          series.values.forEach((value, index) => {
-            if (value === null || (index !== selected && length > 14)) return;
-            ctx.beginPath();
-            ctx.arc(x(index), y(value), index === selected ? 4 : 2, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillRect(x(index) + (i - bars.length / 2) * bar, Math.min(base, end), Math.max(0.35, bar * 0.82), Math.abs(base - end));
           });
         });
       }
+      ctx.globalAlpha = 1;
+      lines.forEach((series, index) => {
+        const i = index + bars.length;
+        ctx.strokeStyle = palette[i];
+        ctx.fillStyle = palette[i];
+        ctx.lineWidth = 2;
+        ctx.setLineDash(stacked ? [2, 4] : dashes[i]);
+        ctx.beginPath();
+        let connected = false;
+        series.values.forEach((value, index) => {
+          if (value === null) { connected = false; return; }
+          if (connected) ctx.lineTo(x(index), y(value));
+          else ctx.moveTo(x(index), y(value));
+          connected = true;
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+        series.values.forEach((value, index) => {
+          if (value === null || (index !== selected && length > 14)) return;
+          ctx.beginPath();
+          ctx.arc(x(index), y(value), index === selected ? 4 : 2, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      });
       ctx.restore();
     }
 
