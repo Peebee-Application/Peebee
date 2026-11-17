@@ -15,6 +15,8 @@
   --gold: rgb(var(--color-gold));
   --table-heading-fill: color-mix(in srgb, var(--ink) 76%, rgb(var(--surface-card)));
   --table-heading-text: rgb(var(--color-cream));
+  --table-footer-fill: color-mix(in srgb, var(--gold) 13%, rgb(var(--surface-card)));
+  --table-total-text: color-mix(in srgb, var(--gold) 52%, var(--ink));
   font-family: "Instrument Sans", system-ui, sans-serif;
   background: rgb(var(--color-cream-100));
   color: var(--ink);
@@ -30,6 +32,7 @@
   --surface-input: 36 36 36;
   --table-heading-fill: rgb(var(--surface-muted));
   --table-heading-text: var(--ink);
+  --table-total-text: var(--gold);
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
@@ -254,6 +257,8 @@ tfoot tr:last-child > * { border-bottom: 0; }
 tbody th { font-weight: 500; }
 tbody td, tfoot td { white-space: nowrap; }
 tr.total > * { background: rgb(var(--surface-muted)); font-weight: 700; }
+tfoot, tfoot tr.total > * { background: var(--table-footer-fill); }
+tfoot tr.total > td { color: var(--table-total-text); }
 .assumptions-note { margin: 16px 0 0; font-size: .86rem; }
 .stack { display: grid; gap: 16px; }
 .notice { padding: 14px 18px; border: 1px solid rgb(var(--color-gold) / .48); background: rgb(var(--color-gold) / .12); border-radius: 11px; line-height: 1.5; margin: 0 0 18px; }
@@ -460,6 +465,7 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 
 .workbook-view > .muted { margin: 0; }
 .workbook-view .table-wrap { margin-top: 0; }
+.workbook-view:has(> .table-wrap + .table-wrap) { row-gap: 45px; }
 
 .shared-save {
   max-width: 1280px;
