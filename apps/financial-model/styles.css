@@ -440,3 +440,9 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 
 #backup-status { margin: 0; font-size: .85rem; }
 #backup-status:empty { display: none; }
+
+.cost-help { margin: 12px 0 0; font-size: .85rem; }
+.cost-help a { color: var(--ink); text-underline-offset: 3px; }
+.next-phase { margin-inline-end: 12px; }
+
+.phase-status:empty { display: none; }

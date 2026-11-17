@@ -1,10 +1,10 @@
 (() => {
   const { questions, sections, errorFor, itemError } = globalThis.FinancialAssumptions;
   const { fieldsFor, upgradeDraft } = globalThis.FinancialLineItems;
-  const { build, firstMonthSale, reports, revenueDrivers, scheduleReports, statementReports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
+  const { build, firstMonthSale, expensePreview, reports, revenueDrivers, scheduleReports, statementReports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
   const { questionsFor, consolidate } = globalThis.FinancialChannels;
   const { buildAnalysis, renderAnalysis, exportRows } = globalThis.FinancialAnalysis;
-  const { company, catalog, createDefaults, loadStarterRevenue } = globalThis.PeebeeDefaults;
+  const { company, catalog, technologyCosts, infrastructureRows, createDefaults, loadStarterRevenue } = globalThis.PeebeeDefaults;
   const dataNote = "Starter estimates model a launch scenario across all channels. Volumes, average values and unverified fees are illustrative. The scenario includes features that may be off in Admin. Apply available Admin fees to matching lines, and enter Peebee’s costs and opening balances.";
   const stepLabels = {
     currency: "Currency", customCurrency: "Currency code", start: "Forecast start", months: "Forecast length",
@@ -595,6 +595,10 @@
     let rows = Array.isArray(value) ? value.map(row => ({ ...row })) : [];
     const snapshot = () => rows.map(row => ({ ...row }));
     const hasRevenuePreview = prompt.fields.some(field => field.id === "method");
+    const expenses = prompt.id === "expenses";
+    const costInfo = expenses ? new Map(technologyCosts.map(item => [item[0], item])) : null;
+    const missingCosts = () => infrastructureRows(currencyOf(answers)).filter(cost => !rows.some(row => row.name === cost.name));
+    const phaseName = " · next phase";
     const updatePresets = () => {
       for (const button of editor.querySelectorAll("[data-preset]")) {
         const label = prompt.presets[Number(button.dataset.preset)];
@@ -608,10 +612,13 @@
     const draw = (focusId) => {
       editor.innerHTML = `<div class="line-actions" aria-label="Add ${escape(prompt.item)}">${prompt.presets.map((preset, index) =>
         `<button type="button" class="button secondary small" data-preset="${index}" title="Add ${escape(preset)}">+ ${escape(preset)}</button>`).join("")}
-        <button type="button" id="add-line" class="button secondary small">+ Add ${prompt.presets.length ? "custom " : ""}${escape(prompt.item)}</button></div>
+        <button type="button" id="add-line" class="button secondary small">+ Add ${prompt.presets.length ? "custom " : ""}${escape(prompt.item)}</button>
+        ${expenses ? `<button type="button" id="add-infrastructure" class="button secondary small"${missingCosts().length ? "" : " disabled"}>+ Add discovered technology costs</button>` : ""}</div>
+        ${expenses ? '<p class="muted cost-help">Vendor prices are public benchmarks. Enter billed usage and your exchange rate, or choose Monthly bill for a known invoice. Review any grouped technology budgets before entering the same cost separately. To plan a change, set the last month of this phase and select Add next phase.</p>' : ""}
         ${rows.length ? `<div class="line-list${prompt.id === "channels" ? " channel-list" : ""}">${rows.map((row, index) => `<fieldset class="line-item"><legend>${escape(prompt.item[0].toUpperCase() + prompt.item.slice(1))} ${index + 1}</legend>
           <div class="line-fields">${fieldsFor(prompt, row).map(field => lineField(field, row, index)).join("")}</div>
           ${hasRevenuePreview ? `<output class="revenue-estimate" data-estimate="${index}">${revenueEstimateMarkup(prompt, row)}</output>` : ""}
+          ${expenses ? expenseCardExtras(row, index) : ""}
           <button type="button" class="text-button remove-line" id="remove-line-${index}" data-remove="${index}" aria-label="${escape("Remove " + (row.name || prompt.item + " " + (index + 1)))}">Remove</button>
           </fieldset>`).join("")}</div>` : `<p class="empty-items muted">${prompt.required ? "Add a line item to continue." : "No line items added. Continue if this category does not apply."}</p>`}`;
       updatePresets();
@@ -630,10 +637,52 @@
       const first = name ? fieldsFor(prompt, rows.at(-1))[1]?.id || "name" : "name";
       draw(`item-${rows.length - 1}-${first}`);
     };
+    function expenseCardExtras(row, index) {
+      const source = costInfo.get(row.name) ?? costInfo.get(row.name?.split(phaseName)[0]);
+      const details = source
+        ? `<p class="muted cost-help">${source[1] ? `Billing unit: ${escape(source[1])}. ` : ""}
+            ${escape(source[5])} ${source[4] ? `<a href="${escape(source[4])}" target="_blank" rel="noopener noreferrer">Vendor pricing</a>` : ""}</p>` : "";
+      return `${details}<output class="revenue-estimate" data-cost-estimate="${index}">${expenseEstimateMarkup(prompt, row)}</output>
+        <button type="button" class="text-button remove-line next-phase" data-phase="${index}">Add next phase</button>
+        <p class="cost-help muted phase-status" data-phase-status="${index}" role="status"></p>`;
+    }
+
+    function addPhase(index) {
+      const row = rows[index];
+      const status = editor.querySelector(`[data-phase-status="${index}"]`);
+      const end = Number(row.endMonth || row.month);
+      const validMonth = Number.isInteger(end) && end >= Number(row.month) && end < Number(answers.months);
+      if (!validMonth) {
+        status.textContent = "Choose a last month before the end of the forecast to add another phase.";
+        return;
+      }
+      const nextMonth = end + 1;
+      const nextName = row.name.split(phaseName)[0].slice(0, 138) + phaseName;
+      if (rows.some(other => other !== row && other.name === nextName && Number(other.month) === nextMonth)) {
+        status.textContent = "A phase already starts in that month. Edit the next card to change it.";
+        return;
+      }
+      const projected = expensePreview({ ...row, endMonth: "" }, nextMonth);
+      row.endMonth = String(end);
+      const next = { ...row, month: String(nextMonth), endMonth: "", name: nextName };
+      if (row.basis === "usage" && Number.isFinite(projected.quantity)) next.quantity = String(projected.quantity);
+      if (row.basis !== "usage" && Number.isFinite(projected.amount)) next.amount = String(projected.amount);
+      rows.splice(index + 1, 0, next);
+      remember();
+      draw(`item-${index + 1}-amount`);
+    }
+
     editor.addEventListener("click", event => {
       const button = event.target.closest("button");
       if (!button) return;
       if (button.id === "add-line") add();
+      else if (button.id === "add-infrastructure") {
+        const added = missingCosts();
+        const start = rows.length;
+        rows.push(...added);
+        remember();
+        draw(`item-${start}-name`);
+      } else if (button.hasAttribute("data-phase")) addPhase(Number(button.dataset.phase));
       else if (button.hasAttribute("data-preset")) add(prompt.presets[Number(button.dataset.preset)]);
       else if (button.hasAttribute("data-remove")) {
         rows.splice(Number(button.dataset.remove), 1);
@@ -646,6 +695,7 @@
       const row = rows[Number(field.dataset.line)];
       if (!row) return;
       row[field.dataset.field] = field.value.trim();
+      if (expenses) editor.querySelector(`[data-phase-status="${field.dataset.line}"]`).textContent = "";
       remember();
       if (field.tagName === "SELECT") draw(field.id);
       else if (field.dataset.field === "name") {
@@ -658,10 +708,26 @@
           const markup = revenueEstimateMarkup(prompt, row);
           if (estimate.innerHTML !== markup) estimate.innerHTML = markup;
         }
+        const costEstimate = editor.querySelector(`[data-cost-estimate="${field.dataset.line}"]`);
+        if (costEstimate) {
+          const markup = expenseEstimateMarkup(prompt, row);
+          if (costEstimate.innerHTML !== markup) costEstimate.innerHTML = markup;
+        }
       }
     });
     draw();
     return snapshot;
+  }
+
+  function expenseEstimateMarkup(prompt, row) {
+    const errorRow = { ...row, name: "Expense" };
+    if (itemError(prompt, [errorRow], answers)) return '<span>Complete the cost inputs to see projected expenses.</span>';
+    const start = Number(row.month);
+    const horizon = Number(answers.months);
+    const end = Math.min(Number(row.endMonth || horizon), horizon);
+    const sample = [...new Set([start, Math.min(start + 1, end), Math.min(start + 11, end), end])];
+    const amounts = sample.map(month => `Month ${month}: ${money(expensePreview(row, month).amount)}`);
+    return `<span>Projected expense</span><strong>${escape(amounts.join(" · "))}</strong>`;
   }
 
   function revenueEstimateMarkup(prompt, row) {

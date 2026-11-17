@@ -392,3 +392,21 @@ test("loading starter revenue into a saved draft preserves custom lines and othe
   assert.equal(draft.tax, "30");
   assert.equal(draft.expenses[0].amount, "200000");
 });
+
+test("technology expenses apply monthly growth, billed usage and later phases without overlap", () => {
+  const expenses = [
+    { name: "Hosting", amount: "100", month: "1", endMonth: "3", cadence: "monthly", growth: "10" },
+    { name: "Hosting next phase", amount: "150", month: "4", cadence: "monthly", growth: "0" },
+    { name: "Storage", basis: "usage", amount: "10", month: "2", endMonth: "4", cadence: "monthly", growth: "100",
+      quantity: "5", included: "8", unitCost: "2", priceCurrency: "USD", fx: "4" },
+    { name: "Legacy", amount: "20", month: "1", growth: "25" },
+  ];
+  const input = upgradeDraft({ ...forecastFixture, expenses, scenarios: "no" });
+  const [result] = build(input);
+  for (const [index, expected] of [120, 140, 167, 276, 170].entries()) near(result.months[index].overhead, expected);
+  near(result.months[12].overhead, 175);
+  near(result.annual.reduce((total, year) => total + year.overhead, 0), sum(result.months, "overhead"));
+  const prompt = questions.find(question => question.id === "expenses");
+  assert.match(errorFor(prompt, input.expenses.map((row, i) => i === 2 ? { ...row, fx: "" } : row), input), /exchange rate/);
+  assert.match(errorFor(prompt, input.expenses.map((row, i) => i === 2 ? { ...row, endMonth: "1" } : row), input), /Last expense month/);
+});

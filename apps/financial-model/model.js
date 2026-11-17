@@ -18,7 +18,7 @@
   const sum = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
   const total = rows => sum(rows, "amount");
   const numericLine = row => Object.fromEntries(Object.entries(row).map(([key, value]) =>
-    [key, ["name", "method", "basis"].includes(key) ? value : Number(value || 0)]));
+    [key, ["name", "method", "basis", "priceCurrency", "cadence"].includes(key) ? value : Number(value || 0)]));
   const amounts = answers => Object.fromEntries(Object.keys(byId).map(id => [id, (answers[id] || []).map(numericLine)]));
   const numeric = (row, key) => row[key] || 0;
   const stockAfter = (opening, cogs, days) => Math.max(opening - cogs, cogs * days / 30);
@@ -68,14 +68,28 @@
     return { cogs, stock, purchases };
   }
 
-  function expense(line, month, staffing) {
+  function operatingExpense(line, month) {
+    const elapsed = month - line.month;
+    const active = elapsed >= 0 && (!line.endMonth || month <= line.endMonth);
+    if (!active) return { amount: 0, quantity: 0, base: 0 };
+    const periods = line.cadence === "monthly" ? elapsed : Math.floor(elapsed / 12);
+    const scale = (1 + line.growth / 100) ** periods;
+    if (line.basis !== "usage") return { amount: line.amount * scale, quantity: 0, base: line.amount * scale };
+    const quantity = line.quantity * scale;
+    const variable = Math.max(0, quantity - line.included) * line.unitCost * (line.priceCurrency === "USD" ? (line.fx || 0) : 1);
+    return { amount: line.amount + variable, quantity, base: line.amount };
+  }
+
+  const expensePreview = (row, month) => operatingExpense(numericLine(row), month);
+
+  function staffExpense(line, month) {
     const elapsed = month - line.month;
     const active = elapsed >= 0;
     const base = active ? line.amount * (1 + line.growth / 100) ** Math.floor(elapsed / 12) : 0;
-    const headcount = active && staffing ? line.headcount : 0;
+    const headcount = active ? line.headcount : 0;
     const wages = base * headcount;
-    const benefits = staffing ? wages * line.burden / 100 : 0;
-    return { amount: staffing ? wages + benefits : base, headcount, wages, benefits };
+    const benefits = wages * line.burden / 100;
+    return { amount: wages + benefits, headcount, wages, benefits };
   }
 
   function asset(line, prior, month, existing) {
@@ -161,8 +175,8 @@
         return { ...result, ap };
       });
       const cogs = sum(directCosts, "cogs");
-      const staff = current("staff", line => expense(line, month, true));
-      const expenses = current("expenses", line => expense(line, month, false));
+      const staff = current("staff", line => staffExpense(line, month));
+      const expenses = current("expenses", line => operatingExpense(line, month));
       const payroll = total(staff);
       const overhead = total(expenses);
       const gross = revenue - cogs;
@@ -371,5 +385,5 @@
     ] : [base];
   }
 
-  globalThis.FinancialModel = { build, firstMonthSale, reports, revenueDrivers, scheduleReports, statementReports: statementReports(), linesFor, sum, halfCent, ForecastRangeError };
+  globalThis.FinancialModel = { build, firstMonthSale, expensePreview, reports, revenueDrivers, scheduleReports, statementReports: statementReports(), linesFor, sum, halfCent, ForecastRangeError };
 })();
