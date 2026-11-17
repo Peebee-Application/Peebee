@@ -23,14 +23,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(USER_KEY);
-      if (raw) setUser(JSON.parse(raw) as AuthUser);
-    } catch {
-      // ignore corrupt storage
-    } finally {
-      setReady(true);
+    function readSession() {
+      try {
+        const raw = window.localStorage.getItem(USER_KEY);
+        setUser(raw && window.localStorage.getItem(TOKEN_KEY) ? JSON.parse(raw) as AuthUser : null);
+      } catch {
+        setUser(null);
+      } finally {
+        setReady(true);
+      }
     }
+    readSession();
+    const sync = (event: StorageEvent) => {
+      if (event.key !== USER_KEY && event.key !== null) return;
+      resetNotificationSnapshots();
+      navigator.serviceWorker?.controller?.postMessage("clear-runtime-cache");
+      readSession();
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
   }, []);
 
   const persist = useCallback((token: string, nextUser: AuthUser) => {

@@ -19,6 +19,7 @@ import {
   requireSuperAdmin,
 } from "./permissions.js";
 import { draftInput, getFinancialDraft, saveFinancialDraft } from "./financial-draft.js";
+import { getFinancialPreferences, preferencesPatch, saveFinancialPreferences } from "./financial-preferences.js";
 import { financialModelPermissions, financialModelSnapshot } from "./financial-model.js";
 import { countSuperAdmins, inviteStaff, listStaff, resetStaffPassword } from "./staff.js";
 import { clientIp } from "../lib/ratelimit.js";
@@ -58,6 +59,19 @@ adminRoutes.put("/admin/financial-model/draft", ...financialModelPermissions, bo
     entityType: "financial_model", entityId: "peebee", after: { revision: draft.revision },
   }).catch(error => console.error("Could not log financial model save", error));
   return c.json({ draft });
+});
+
+adminRoutes.get("/admin/financial-model/preferences", ...financialModelPermissions, async c => {
+  c.header("Cache-Control", "private, no-store");
+  return c.json({ preferences: await getFinancialPreferences(c.get("user").sub) });
+});
+
+adminRoutes.put("/admin/financial-model/preferences", ...financialModelPermissions, bodyLimit({ maxSize: 2048 }), async c => {
+  c.header("Cache-Control", "private, no-store");
+  const parsed = preferencesPatch.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid_preferences", message: "Invalid financial model preferences." }, 400);
+  await saveFinancialPreferences(c.get("user").sub, parsed.data);
+  return c.json({ ok: true });
 });
 
 const previewPermissions = { riders: "riders.view", customers: "customers.view", restaurants: "restaurants.view", merchants: "merchants.view" } as const;

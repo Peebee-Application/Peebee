@@ -21,14 +21,23 @@
   const settingsDialog = document.querySelector("#settings-dialog");
   const unsavedDialog = document.querySelector("#unsaved-dialog");
   const autosaveControls = document.querySelectorAll("[data-autosave]");
+  const online = location.hostname === "financials.peebee.online";
   let autosave = false;
-  try { autosave = localStorage.getItem(autosaveKey) === "true"; } catch { /* This tab still supports the preference. */ }
+  if (!online) {
+    try { autosave = localStorage.getItem(autosaveKey) === "true"; } catch { /* This tab still supports the preference. */ }
+  }
+  function setAutosave(value) {
+    autosave = value;
+    for (const toggle of autosaveControls) toggle.checked = value;
+  }
+  setAutosave(autosave);
   for (const control of autosaveControls) {
-    control.checked = autosave;
     control.addEventListener("change", () => {
-      autosave = control.checked;
-      for (const toggle of autosaveControls) toggle.checked = autosave;
-      try { localStorage.setItem(autosaveKey, String(autosave)); } catch { /* Keep the preference in this tab. */ }
+      if (online) void savePreference("autosave", control.checked);
+      else {
+        setAutosave(control.checked);
+        try { localStorage.setItem(autosaveKey, String(autosave)); } catch { /* Keep the preference in this tab. */ }
+      }
     });
   }
   document.querySelector("#open-settings").addEventListener("click", () => settingsDialog.showModal());
@@ -159,7 +168,8 @@
   let saveError;
   let sharedReady = !session;
   let loadingShared = false;
-  let signInRequired = false;
+  let account;
+  let preferences;
   const statusBar = document.querySelector("#shared-save");
   const sharedStatus = document.querySelector("#shared-status");
   const retrySave = document.querySelector("#retry-save");
@@ -236,12 +246,139 @@
     () => void loadShared()
   ));
 
+  const accountButton = document.querySelector("#open-account");
+  const accountDialog = document.querySelector("#account-dialog");
+  const accountStatus = document.querySelector("#account-status");
+  const passwordForm = document.querySelector("#password-form");
+  const preferenceStatus = document.querySelector("#preference-status");
+  const appearanceControl = document.querySelector("#appearance-mode");
+
+  function updateAccount(user) {
+    account = user;
+    accountButton.hidden = false;
+    accountDialog.querySelector("#account-identity").textContent =
+      [user.name, user.email || user.phone, "Peebee Admin"].filter(Boolean).join(" · ");
+  }
+
+  accountButton.addEventListener("click", () => {
+    passwordForm.reset();
+    accountStatus.textContent = "";
+    accountDialog.showModal();
+  });
+
+  passwordForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    const { currentPassword, newPassword, confirmation } = Object.fromEntries(new FormData(passwordForm));
+    if (newPassword !== confirmation) {
+      accountStatus.textContent = "The new passwords do not match.";
+      return;
+    }
+    const button = passwordForm.querySelector("button");
+    button.disabled = true;
+    accountStatus.textContent = "Changing password…";
+    try {
+      const { user } = await session.request("password", { currentPassword, newPassword });
+      const wasRequired = account.forcePasswordChange;
+      updateAccount(user);
+      passwordForm.reset();
+      accountStatus.textContent = "Your Peebee Admin password was changed.";
+      if (wasRequired) void loadShared();
+    } catch (error) {
+      accountStatus.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+  accountDialog.addEventListener("close", () => passwordForm.reset());
+
+  function restartSession() {
+    sharedReady = false;
+    window.removeEventListener("beforeunload", beforeUnload);
+    location.reload();
+  }
+
+  document.querySelector("#sign-out").addEventListener("click", () => confirmAction(
+    "Sign out of Peebee?",
+    "This signs you out of Financials and Admin in this browser. Any unsaved changes will be lost.",
+    "Sign out",
+    async () => {
+      try { await session.request("logout"); restartSession(); }
+      catch (error) { accountStatus.textContent = error.message; }
+    }
+  ));
+
+  async function savePreference(key, value) {
+    if (!preferences) return;
+    const controls = key === "autosave" ? [...autosaveControls] : [appearanceControl];
+    if (key === "autosave") setAutosave(value);
+    controls.forEach(control => control.disabled = true);
+    preferenceStatus.textContent = "Saving to your account…";
+    try {
+      await session.request("savePreferences", { [key]: value });
+      preferences[key] = value;
+      preferenceStatus.textContent = "Saved to your account.";
+    } catch (error) {
+      if (key === "autosave") setAutosave(preferences.autosave);
+      else globalThis.ForecastAppearance.set(preferences.appearance);
+      preferenceStatus.textContent = error.message;
+      if (unsavedDialog.open) unsavedDialog.querySelector("#autosave-save-status").textContent = error.message;
+    } finally {
+      controls.forEach(control => control.disabled = false);
+    }
+  }
+
+  document.addEventListener("appearancepreference", event => void savePreference("appearance", event.detail));
+
+  function renderLogin() {
+    app.innerHTML = `<section class="panel account-panel"><h1>Sign in</h1>
+      <p class="muted">Use your Peebee Admin account to open the shared forecast.</p>
+      <form id="financial-login" class="account-form">
+        <label>Email or phone<input name="identifier" autocomplete="username" minlength="3" maxlength="160" required></label>
+        <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+        <button class="button gold" type="submit">Sign in</button>
+        <p id="login-status" role="status"></p>
+      </form>
+    </section>`;
+    const form = app.querySelector("#financial-login");
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      const button = form.querySelector("button");
+      const status = form.querySelector("#login-status");
+      button.disabled = true;
+      status.textContent = "Signing in…";
+      try {
+        const { identifier, password } = Object.fromEntries(new FormData(form));
+        const { user } = await session.request("login", { identifier: identifier.trim(), password });
+        updateAccount(user);
+        form.reset();
+        await loadShared();
+      } catch (error) {
+        form.elements.password.value = "";
+        status.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+
   async function loadShared() {
     if (loadingShared) return;
     loadingShared = true;
-    signInRequired = false;
     if (!sharedReady) app.innerHTML = '<p role="status">Connecting to Peebee Admin…</p>';
     try {
+      if (!account) {
+        const { user } = await session.request("account");
+        updateAccount(user);
+      }
+      if (account.forcePasswordChange) {
+        app.innerHTML = '<section class="panel account-panel"><h1>Set your Admin password</h1><p>Use Account to change the temporary password before opening the forecast.</p></section>';
+        return;
+      }
+      if (!preferences) {
+        ({ preferences } = await session.request("preferences"));
+        setAutosave(preferences.autosave);
+        globalThis.ForecastAppearance.set(preferences.appearance);
+      }
       const { draft } = await session.request("load");
       revision = draft?.revision ?? null;
       ({ answers, step, screen, editing = false } = readDraft(draft ? { answers: draft.answers, screen: "report" } : null));
@@ -257,19 +394,24 @@
       render();
     } catch (error) {
       if (sharedReady) return showSaveStatus(error.message, saveError || error);
-      signInRequired = error.status === 401;
-      app.innerHTML = `<section class="panel"><h1>Peebee Financial Model</h1><p class="muted" role="status">${escape(error.message)}</p>
-        <div class="toolbar"><a class="button gold" href="https://admin.peebee.online/login" target="_blank" rel="noopener">Open Peebee Admin</a>
-        <button class="button secondary" id="connect-shared" type="button">Retry connection</button></div></section>`;
+      if (error.status === 401) {
+        account = undefined;
+        preferences = undefined;
+        setAutosave(false);
+        globalThis.ForecastAppearance.set("system");
+        accountButton.hidden = true;
+        renderLogin();
+        return;
+      }
+      app.innerHTML = `<section class="panel account-panel"><h1>Peebee Financial Model</h1><p class="muted" role="status">${escape(error.message)}</p>
+        <button class="button secondary" id="connect-shared" type="button">Retry connection</button></section>`;
       app.querySelector("#connect-shared").addEventListener("click", () => void loadShared());
     } finally {
       loadingShared = false;
     }
   }
 
-  if (session) window.addEventListener("focus", () => {
-    if (signInRequired) void loadShared();
-  });
+  if (session) window.addEventListener("adminaccountchange", restartSession);
 
   let activeEdit;
   let pendingNavigation;
@@ -299,6 +441,7 @@
       pendingNavigation = action;
       unsavedDialog.querySelector("#unsaved-question").textContent = activeEdit.label;
       unsavedDialog.returnValue = "";
+      unsavedDialog.querySelector("#autosave-save-status").textContent = "";
       unsavedDialog.showModal();
     }
   }
