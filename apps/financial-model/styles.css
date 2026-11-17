@@ -259,6 +259,10 @@ tbody td, tfoot td { white-space: nowrap; }
 tr.total > * { background: rgb(var(--surface-muted)); font-weight: 700; }
 tfoot, tfoot tr.total > * { background: var(--table-footer-fill); }
 tfoot tr.total > td { color: var(--table-total-text); }
+tfoot tr.total:last-child > * {
+  background: var(--gold);
+  color: rgb(var(--color-ink-gold));
+}
 .assumptions-note { margin: 16px 0 0; font-size: .86rem; }
 .stack { display: grid; gap: 16px; }
 .notice { padding: 14px 18px; border: 1px solid rgb(var(--color-gold) / .48); background: rgb(var(--color-gold) / .12); border-radius: 11px; line-height: 1.5; margin: 0 0 18px; }
