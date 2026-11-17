@@ -465,6 +465,7 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 
 .workbook-view > .muted { margin: 0; }
 .workbook-view .table-wrap { margin-top: 0; }
+.workbook-view:has(> .table-wrap + .table-wrap) { row-gap: 45px; }
 
 .shared-save {
   max-width: 1280px;
