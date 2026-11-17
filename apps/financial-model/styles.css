@@ -509,7 +509,7 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 .phase-status:empty { display: none; }
 
 
-.forecast-dashboard { display: grid; gap: 20px; align-items: start; }
+.forecast-dashboard { display: grid; gap: 55px; align-items: start; }
 .forecast-overview { min-width: 0; }
 .forecast-overview .table-wrap { max-height: none; }
 .forecast-overview .metric-amount { white-space: normal; overflow-wrap: anywhere; }
@@ -554,6 +554,9 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
   border-radius: 12px;
   background: rgb(var(--surface-muted));
   color: var(--ink);
+}
+:root:not([data-theme="dark"]) .forecast-module {
+  background: color-mix(in srgb, rgb(var(--surface-muted)) 88%, var(--ink));
 }
 .forecast-module-line { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 36px; }
 .forecast-module-line > :first-child { overflow-wrap: anywhere; }
