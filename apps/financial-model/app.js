@@ -879,6 +879,7 @@
     `<button type="button" id="${type}-${id}" data-${type}="${id}" aria-pressed="${id === selected}">${escape(label)}</button>`).join("");
 
   let expandedModules = new Set(["rides"]);
+  let moduleSidebarOpen = matchMedia("(min-width: 901px)").matches;
   let scopeMessage = "";
 
   function moduleControls() {
@@ -887,8 +888,12 @@
       `<label class="forecast-switch"><span class="forecast-switch-state" aria-hidden="true">${checked ? "On" : "Off"}</span>
         <span class="autosave-switch"><input type="checkbox" role="switch" id="${escape(id)}" aria-label="${escape(label)}"
           ${data} ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}><span class="autosave-track" aria-hidden="true"></span></span></label>`;
-    return `<section class="panel forecast-scope" aria-labelledby="scope-title">
-      <h2 id="scope-title">Forecast modules</h2>
+    return `<aside class="panel forecast-scope" aria-labelledby="scope-toggle">
+      <h2><button id="scope-toggle" type="button" aria-label="Forecast modules" aria-controls="scope-content"
+        aria-expanded="${moduleSidebarOpen}" title="${moduleSidebarOpen ? "Hide forecast modules" : "Show forecast modules"}">
+        <span class="scope-toggle-icon" aria-hidden="true"></span><span class="scope-toggle-label">Forecast modules</span>
+      </button></h2>
+      <div id="scope-content" ${moduleSidebarOpen ? "" : "hidden"}>
       <p class="muted">Choose which revenue to include in the shared forecast. Percentage-based direct costs follow revenue. Company-wide costs stay in the forecast.</p>
       <p class="scope-status" role="status">${escape(scopeMessage)}</p>
       <div class="forecast-modules">${modules.map(({ channel, parts }) => {
@@ -906,13 +911,21 @@
                 `data-scope-channel="${escape(key)}" data-scope-part="${escape(part.key)}"`)}
             </div>`).join("")}</div></details>` : ""}
         </div>`;
-      }).join("")}</div>
-    </section>`;
+      }).join("")}</div></div>
+    </aside>`;
   }
 
   function bindModuleControls() {
     const panel = app.querySelector(".forecast-scope");
     if (!panel) return;
+    const toggle = panel.querySelector("#scope-toggle");
+    const content = panel.querySelector("#scope-content");
+    toggle.addEventListener("click", () => {
+      moduleSidebarOpen = !moduleSidebarOpen;
+      toggle.setAttribute("aria-expanded", moduleSidebarOpen);
+      toggle.title = moduleSidebarOpen ? "Hide forecast modules" : "Show forecast modules";
+      content.hidden = !moduleSidebarOpen;
+    });
     panel.addEventListener("change", event => {
       const input = event.target.closest("input[data-scope-channel]");
       if (!input) return;
@@ -966,14 +979,14 @@
       ["Peak funding gap", item => money(item.fundingGap)],
     ];
     if (model.valuation) comparison.push(["DCF enterprise value", item => money(item.valuation.enterprise)]);
-    return `<div class="metrics">
+    return `<div class="forecast-dashboard">${moduleControls()}<div class="forecast-overview"><div class="metrics">
       ${metric("Revenue", sum(yearOne, "revenue"), yearOneLabel)}
       ${metric("EBITDA", sum(yearOne, "ebitda"), yearOneLabel)}
       ${metric("Ending cash", last.cash, last.period)}
       ${metric("Peak funding gap", model.fundingGap, model.shortfall ? `Lowest cash in ${model.lowCash.period}` : "No month-end shortfall at report precision")}
       </div>
       ${model.shortfall ? `<p class="notice">The first month-end cash shortfall is in <strong>${model.shortfall.period}</strong>. The forecast shows the shortfall before any additional financing.</p>` : ""}
-      <div class="stack">${moduleControls()}<section class="panel"><h2>Revenue by calendar year</h2><ul class="plot">
+      <div class="stack"><section class="panel"><h2>Revenue by calendar year</h2><ul class="plot">
         ${model.annual.map(row => `<li><span>${row.period}</span><span class="track" aria-hidden="true"><span class="bar" style="width:${100 * row.revenue / maxRevenue}%"></span></span><strong title="${escape(money(row.revenue))}">${escape(compactFormat.format(row.revenue))}</strong></li>`).join("")}
       </ul></section>
       ${outcomes.length > 1 ? `<section class="panel"><h2>Scenario comparison</h2>${table("Metric", outcomes.map(item => item.name), comparison.map(([label, read]) => [label, outcomes.map(read)]))}</section>` : ""}
@@ -990,7 +1003,7 @@
         <p class="muted">Fixed assets depreciate straight-line. Debt uses equal principal payments. Opening equity is derived from opening assets and liabilities. Corporate income tax is paid monthly on positive profit. The model excludes VAT, historical statements, and tax loss carryforwards.</p>
         <p class="muted">The workbook-style financial statement views floor EBITDA margin at zero and omit monthly net margin in loss periods.</p>
         <p class="muted">Annual flows sum the included months. Balance sheet values use the final month of each calendar year shown. Reports display up to two decimal places. Totals use unrounded values. Cash shortfalls are measured at month end before additional funding. The balance sheet shows the unmet funding need as a separate amount.</p>
-      </details></div>`;
+      </details></div></div></div>`;
   }
 
   function renderWorkbookSettings() {
@@ -1054,6 +1067,7 @@
       ${report.note ? `<p class="muted">${escape(report.note)}</p>` : ""}
       ${(report.sections || [report]).map(renderTable).join("")}
     </section>` : "";
+    const moduleScroll = app.querySelector("#scope-content")?.scrollTop ?? 0;
     app.innerHTML = `<div class="report-head"><div><h1 id="report-title" tabindex="-1">${escape(answers.company)}</h1>
         <p class="muted">Consolidated financial forecast · ${escape(currencyOf(answers))} · ${model.months[0].period} to ${model.months.at(-1).period}</p></div>
         <div class="toolbar"><button type="button" id="review" class="button secondary">Edit assumptions</button>
@@ -1063,7 +1077,10 @@
       ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? reportBody : overview(model)}`;
     document.querySelector("#review").addEventListener("click", showReview);
     if (analysis) bindAnalysis(analysis, currency);
-    if (!analysis && !report) bindModuleControls();
+    if (!analysis && !report) {
+      bindModuleControls();
+      app.querySelector("#scope-content").scrollTop = moduleScroll;
+    }
     document.querySelector("#download").addEventListener("click", () => downloadAll(forecastReports, forecastAnswers));
     document.querySelector("#download-report")?.addEventListener("click", () => {
       download([["Company", answers.company], ["Currency", currencyOf(answers)], ["Scenario", model.name], ...reportCsv(report, rows, forecastAnswers)],
