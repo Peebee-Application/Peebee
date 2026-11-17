@@ -12,6 +12,25 @@
   const name = text("name", "Line item name");
   const group = (id, section, label, hint, item, fields, presets = [], required = false) =>
     ({ id, section, label, hint, item, fields: [name, ...fields], presets, required, type: "items" });
+  const metered = row => row.basis === "usage";
+  const expenseFields = [
+    select("basis", "Cost basis", [["fixed", "Monthly bill"], ["usage", "Base bill + metered usage"]], "fixed"),
+    amount("amount", "Monthly bill or base fee", { initial: "0" }),
+    { ...select("priceCurrency", "Unit price currency", [["model", "Forecast currency"], ["USD", "USD"]], "model"), when: metered },
+    num("unitCost", "Price per billable unit", { initial: "0", when: metered }),
+    num("quantity", "Usage in the first active month", { initial: "0", when: metered }),
+    num("included", "Units included each month", { initial: "0", when: metered }),
+    num("fx", "Forecast currency per USD", { min: 0.000001, optional: true, when: row => metered(row) && row.priceCurrency === "USD" }),
+    month("month", "First expense month", "1"),
+    num("endMonth", "Last expense month (optional)", { min: 1, max: 84, step: 1, optional: true }),
+    select("cadence", "Apply growth", [["annual", "Annually"], ["monthly", "Monthly"]], "annual"),
+    growth("Cost or usage growth per interval"),
+  ];
+
+  function expenseDefaults(row) {
+    return { basis: "fixed", priceCurrency: "model", cadence: "annual", ...row };
+  }
+
   const groups = [
     group("streams", "Revenue", "What are your revenue streams?", "Add each product, service or income stream and enter how it earns revenue. Collection days estimate the sales still owed at month end.", "revenue stream", [
       select("method", "Revenue driver", [["units", "Units × price"], ["subscription", "Subscriptions × monthly price"], ["direct", "Monthly sales amount"], ["orders", "Orders × average value × fee rate"], ["percentage", "Percentage of transaction or payout"]], "units"),
@@ -41,9 +60,8 @@
       pct("burden", "Employer taxes and benefits", { initial: "0" }), month("month", "First paid month", "1"),
       growth("Annual pay change"),
     ], ["Operations and support", "Engineering and product", "Sales and partner onboarding", "Finance and administration"]),
-    group("expenses", "Costs", "What are your operating expenses?", "Add a separate line for each expense. Each line has its own amount, start month and annual change.", "expense", [
-      amount("amount", "Monthly amount"), month("month", "First expense month", "1"), growth("Annual cost change"),
-    ], ["Hosting, storage and video", "Maps and routing", "Messaging and verification", "Marketing", "Rent and utilities", "Professional fees and compliance", "Insurance"]),
+    group("expenses", "Costs", "What are your operating expenses?", "Enter an invoice amount or forecast usage above a monthly allowance. Choose monthly growth for a gradual ramp, or end a line and add a later phase for a planned change in price or usage.", "expense",
+      expenseFields, ["Marketing", "Rent and utilities", "Professional fees and compliance", "Insurance"]),
     group("accounts", "Working capital", "Where is your opening cash held?", "Add the opening amount for each bank account, cash balance, or cash equivalent.", "cash account", [
       amount("amount", "Opening cash balance"),
     ], ["Operating bank account", "Peebee-owned mobile money", "Cash on hand"]),
@@ -110,6 +128,7 @@
       ["newLoans", "loan", "New loan", { month: old.loanMonth, rate: old.loanRate, term: old.loanTerm }],
       ["contributions", "funding", "Equity contribution", { month: old.fundingMonth }],
     ]) carry(id, [key], Number(old[key]) > 0, { name: label, amount: old[key], ...fields });
+    if (Array.isArray(answers.expenses)) answers.expenses = answers.expenses.map(expenseDefaults);
     return answers;
   }
 

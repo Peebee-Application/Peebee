@@ -29,6 +29,12 @@ In **Settings → Live Admin data**, use your existing Admin session to retrieve
 
 Cloudflare serves the site on the Peebee API Worker under the financials domain. The live endpoint uses Admin authorization and returns aggregate live data. The normal API deployment includes changes to the financial model assets.
 
+## Technology costs
+
+In **Model → Assumptions → Costs → Operating expenses**, select **Add discovered technology costs** for an existing forecast. New forecasts include the same lines. The list covers Cloudflare hosting, D1, R2, Stream, Realtime and Workers AI, plus the other video providers, Gemini, email, SMS, WhatsApp, maps, domains, and GitHub builds. Each card identifies the billing unit and links to vendor pricing where available. Integration support does not confirm an active paid plan. Public rates were checked on November 17, 2026. Starting usage and invoice amounts are left at zero until supplied. Use a **Monthly bill** for known invoices and **Base bill + metered usage** for variable charges. Set an exchange rate on each USD meter that has projected paid usage.
+
+For a gradual ramp, set an annual or monthly growth rate. Usage charges increase with volume above the included allowance. For a planned price or volume change, set the last month of the current phase and select **Add next phase**. It starts the following month with the projected amount or usage carried forward. Edit the new phase for the changed plan. Use the same start and end month for a one-off charge. The SG&A monthly schedule shows each phase in its applicable months.
+
 ## Assumptions backups
 
 Use **Settings → Download saved assumptions** to save the current forecast inputs as a JSON file. **Upload assumptions backup** replaces the current assumptions after confirmation. The app recalculates a complete forecast immediately and opens incomplete drafts for review. In the shared app, the replacement applies to all authorized editors. If another editor saves first, reload the shared version before trying the upload again.

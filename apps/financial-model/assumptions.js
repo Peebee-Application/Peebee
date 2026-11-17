@@ -44,6 +44,15 @@
         const issue = errorFor(field, row[field.id], answers);
         if (issue) return { id: `item-${index}-${field.id}`, message: `Line ${index + 1}, ${field.label}: ${issue}` };
       }
+      if (prompt.id === "expenses") {
+        if (row.endMonth && Number(row.endMonth) < Number(row.month)) {
+          return { id: `item-${index}-endMonth`, message: `Line ${index + 1}: Last expense month must be on or after the first month.` };
+        }
+        if (row.basis === "usage" && row.priceCurrency === "USD" && Number(row.unitCost) > 0 &&
+            Number(row.quantity) > 0 && !row.fx) {
+          return { id: `item-${index}-fx`, message: `Line ${index + 1}: Enter the exchange rate to convert your USD unit price.` };
+        }
+      }
       if (prompt.keyed) {
         const name = row.name.toLowerCase();
         if (names.has(name)) return { id: `item-${index}-name`, message: "Give each channel a distinct name." };
@@ -59,7 +68,7 @@
       if (prompt.required && !value.length) return `Add at least one ${prompt.item}.`;
       return itemError(prompt, value, answers)?.message || "";
     }
-    if (typeof value !== "string" || !value.trim()) return "Enter an answer to continue.";
+    if (typeof value !== "string" || !value.trim()) return prompt.optional ? "" : "Enter an answer to continue.";
     if (prompt.type === "select" && !prompt.choices.some(([id]) => id === value)) return "Choose one of the listed options.";
     if (prompt.type === "month" && !/^(?:19|20|21)\d{2}-(?:0[1-9]|1[0-2])$/.test(value)) return "Enter a valid month between 1900 and 2199.";
     if (prompt.pattern && !new RegExp(`^${prompt.pattern}$`).test(value.trim())) return "Enter a three-letter currency code.";

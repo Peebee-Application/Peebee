@@ -99,6 +99,52 @@
     },
   ];
 
+  const workers = "https://developers.cloudflare.com/workers/platform/pricing/";
+  const d1 = "https://developers.cloudflare.com/d1/platform/pricing/";
+  const r2 = "https://developers.cloudflare.com/r2/pricing/";
+  const streamPricing = "https://developers.cloudflare.com/stream/pricing/";
+  const technologyCosts = [
+    ["Cloudflare Workers paid plan", "account subscriptions", "5", "0", workers, "$5/month minimum if the account is on Workers Paid. Enter 1 subscription if applicable."],
+    ["Cloudflare Workers requests", "million requests", "0.30", "10", workers, "Enter dynamic Worker requests before subtracting the included allowance."],
+    ["Cloudflare Workers CPU", "million CPU milliseconds", "0.02", "30", workers, "Workers Paid CPU duration. Use the monthly billing metric."],
+    ["Cloudflare D1 reads", "million rows read", "0.001", "25000", d1, "Workers Paid allowance. Enter rows read, including scans."],
+    ["Cloudflare D1 writes", "million rows written", "1", "50", d1, "Workers Paid allowance across D1 databases."],
+    ["Cloudflare D1 storage", "GB-month", "0.75", "5", d1, "Workers Paid database storage."],
+    ["Cloudflare R2 storage", "GB-month", "0.015", "10", r2, "Standard storage pricing."],
+    ["Cloudflare R2 writes and lists", "million Class A operations", "4.50", "1", r2, "Standard storage operation pricing."],
+    ["Cloudflare R2 reads", "million Class B operations", "0.36", "10", r2, "Standard storage operation pricing."],
+    ["Cloudflare Stream storage", "blocks of 1,000 stored minutes", "5", "0", streamPricing, "Enter the number of prepaid 1,000-minute blocks, rounded up."],
+    ["Cloudflare Stream delivery", "thousand viewer-minutes", "1", "0", streamPricing, "Video on demand and live viewing billed by delivered minutes."],
+    ["Cloudflare Realtime calls", "GB of metered egress", "0.05", "1000", "https://developers.cloudflare.com/realtime/sfu/platform/pricing/", "Cloudflare SFU and TURN share one allowance. Use the aggregate for both."],
+    ["Cloudflare Workers AI", "thousand billable Neurons", "0.011", "0", "https://developers.cloudflare.com/workers-ai/platform/pricing/", "Enter only Neurons billed above the daily allowance. Covers Cloudflare AI calls such as voice transcription and interpretation."],
+    ["Gemini 2.5 Flash text and image input", "million paid input tokens", "0.30", "0", "https://aistudio.google.com/docs/pricing#gemini-2.5-flash", "Standard text, image and video input. Google says this model changes to 3.5 Flash-Lite rates on December 1, 2026."],
+    ["Gemini 2.5 Flash output", "million paid output tokens", "2.50", "0", "https://aistudio.google.com/docs/pricing#gemini-2.5-flash", "Standard output including thinking tokens. Set a new phase for the published December 1 change."],
+    ["Gemini speech synthesis input", "million paid text tokens", "0.50", "0", "https://aistudio.google.com/docs/pricing#gemini-2.5-flash-preview-tts", "2.5 Flash Preview TTS input used for voice generation."],
+    ["Gemini speech synthesis output", "million paid audio tokens", "10", "0", "https://aistudio.google.com/docs/pricing#gemini-2.5-flash-preview-tts", "2.5 Flash Preview TTS audio output. Confirm the model used for the month."],
+    ["Self-hosted TURN relay", "", "", "", "", "Optional fallback for direct WebRTC calls. Enter the server or managed relay bill only if Peebee uses it."],
+    ["Cloudinary media", "monthly Plus subscriptions", "99", "0", "https://cloudinary.com/pricing", "Plus list price benchmark. Enter 1 only if billed on that plan."],
+    ["Bunny Stream", "", "", "", "https://bunny.net/pricing/stream/", "Optional video provider. Enter the storage and CDN bill for the regions used."],
+    ["Mux video", "", "", "", "https://www.mux.com/docs/pricing/video", "Optional video provider. Enter the invoice or model input, storage and delivery separately by resolution."],
+    ["Livepeer video", "", "", "", "https://livepeer.studio/pricing", "Optional video provider. Growth has a $100 monthly minimum; the invoice also depends on usage."],
+    ["Resend email", "monthly Pro subscriptions", "20", "0", "https://resend.com/pricing", "Pro list price benchmark. Confirm the active plan and any email or domain overage."],
+    ["Africa’s Talking SMS and verification", "", "", "", "https://help.africastalking.com/en/", "Enter the Ugandan invoice or contracted rate for the sending route and destination."],
+    ["Twilio SMS to Uganda", "outbound SMS segments", "0.3289", "0", "https://www.twilio.com/en-us/sms/pricing/ug", "Optional provider. Published outbound base rate; carrier and number fees can be separate."],
+    ["WhatsApp Business messaging", "", "", "", "https://developers.facebook.com/documentation/business-messaging/whatsapp/overview/", "Optional activation channel. Enter the invoice or rate for the message category and destination."],
+    ["Maps, routing and geocoding", "", "", "", "https://www.mapbox.com/pricing", "Admin can select OpenStreetMap, Google, Mapbox, MapTiler, Stadia, Thunderforest, Jawg or TomTom. Enter the active vendor’s bill."],
+    ["Domain renewals", "", "", "", "", "Enter the registrar invoice. Set the same first and last expense month for a one-time renewal."],
+    ["GitHub builds and artifacts", "", "", "", "https://docs.github.com/en/billing/concepts/product-billing/github-actions", "Confirm plan, runner minutes, storage and any included usage."],
+    ["Payment gateway and payout fees", "", "", "", "", "Model fees borne by Peebee under Direct costs. Add a line here only for a separate fixed plan charge."],
+  ];
+
+  function infrastructureRows(currency) {
+    return technologyCosts.map(([name, unit, unitCost, included]) => {
+      const fixed = { ...cost(name), basis: "fixed", priceCurrency: "model", cadence: "annual" };
+      if (!unit) return fixed;
+      return { ...fixed, basis: "usage", priceCurrency: "USD", unitCost, included, quantity: "0",
+        fx: currency === "USD" ? "1" : "", cadence: "monthly" };
+    });
+  }
+
   function createDefaults() {
     return structuredClone({
       company, currency: "UGX", start: currentMonth, months: "36",
@@ -108,8 +154,9 @@
       directCosts: ["Payment provider fees borne by Peebee", "Fulfilment costs borne by Peebee", "Promotions and credits funded by Peebee"].map(direct),
       staff: ["Operations and support", "Engineering and product", "Sales and partner onboarding", "Finance and administration"]
         .map(name => ({ ...cost(name), headcount: "0", burden: "0" })),
-      expenses: ["Hosting, storage and video", "Maps and routing", "Messaging and verification",
-        "Marketing", "Rent and utilities", "Professional fees and compliance", "Insurance"].map(cost),
+      expenses: [...infrastructureRows("UGX"),
+        ...["Marketing", "Rent and utilities", "Professional fees and compliance", "Insurance"].map(name =>
+          ({ ...cost(name), basis: "fixed", priceCurrency: "model", cadence: "annual" }))],
       scenarios: "no", valuation: "no",
     });
   }
@@ -131,5 +178,5 @@
     }
   }
 
-  globalThis.PeebeeDefaults = { company, catalog, createDefaults, loadStarterRevenue };
+  globalThis.PeebeeDefaults = { company, catalog, technologyCosts, infrastructureRows, createDefaults, loadStarterRevenue };
 })();
