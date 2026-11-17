@@ -5,6 +5,7 @@ import { ArrowLeft, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { OrderPhotos } from "../../../components/OrderPhotos";
 import { api, errorMessage } from "../../../lib/api";
 import { formatDate, formatUgx, orderTitle, stageLabel } from "../../../lib/order-display";
 
@@ -74,6 +75,8 @@ export default function AdminOrderDetailPage() {
           </ul>
         </section>
       )}
+
+      <OrderPhotos orderId={orderId} itemName={(id) => items.find((it) => it.id === id)?.name} />
 
       <section className="home-card flex justify-between text-sm font-semibold">
         <span>Total</span>

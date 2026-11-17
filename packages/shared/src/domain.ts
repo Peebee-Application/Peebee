@@ -3498,7 +3498,11 @@ export type GuestSettings = {
   whatsappTemplate: string;
 };
 
-export type GuestConfig = { enabled: boolean; browsingEnabled: boolean; cardAvailable: boolean; maxQuantity: number; suggestAccount: boolean; codeStatusEnabled: boolean };
+export type GuestConfig = { enabled: boolean; /** Order photos (migration 0163) are ready. */ photosAvailable?: boolean; browsingEnabled: boolean; cardAvailable: boolean; maxQuantity: number; suggestAccount: boolean; codeStatusEnabled: boolean };
+
+/** A photo the customer attached to an order (migration 0163). */
+export type OrderPhoto = { id: string; note: string | null; list_item_id: string | null; position: number };
+export type OrderPhotosConfig = { available: boolean; maxPhotos: number; maxMb: number; noteMax: number };
 
 export type GuestCheckoutInput = {
   productId: string;

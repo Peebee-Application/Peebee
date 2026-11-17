@@ -50,6 +50,8 @@ function guestMayCall(method: string, path: string, orderId: string): boolean {
   if (path === `${own}/chat`) return method === "GET" || method === "POST";
   if (path === `${own}/chat/read`) return method === "POST";
   if (path === `${own}/voice-note`) return method === "POST" || method === "GET";
+  if (path === `${own}/photos`) return method === "POST" || method === "GET";
+  if (path.startsWith(`${own}/photos/`) && /^[\w-]+$/.test(path.slice(own.length + 8))) return method === "GET";
   if (/^\/v1\/payments\/[\w-]+\/refresh$/.test(path)) return method === "GET";
   if (path === "/v1/push/subscribe") return method === "POST";
   return false;

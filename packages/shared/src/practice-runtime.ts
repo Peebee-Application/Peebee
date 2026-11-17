@@ -1811,6 +1811,10 @@ export function createPracticeFetch(role: PracticeRole, realFetch: typeof fetch 
       if (method === "GET") return jsonResponse({ error: "channels_unavailable", message: "Channels are not part of practice mode." }, 503);
       return jsonResponse({ error: "channels_unavailable", message: "Channels are not part of practice mode." }, 503);
     }
+    // Order photos: practice keeps them on the phone. Uploads "succeed" without leaving the device.
+    if (url.pathname === "/v1/order-photos/config") return jsonResponse({ available: true, maxPhotos: 4, maxMb: 6, noteMax: 80 });
+    if (url.pathname === "/v1/order-photos/uploads" && method === "POST") return jsonResponse({ key: `order-photos/practice/${Math.random().toString(36).slice(2)}.jpg` }, 201);
+    if (/^\/v1\/orders\/[^/]+\/photos$/.test(url.pathname)) return method === "POST" ? jsonResponse({ photos: [] }, 201) : jsonResponse({ photos: [], available: true });
     const sample = handlePracticeRequest(role, url.pathname, method, parseBody(init), url.searchParams);
     // Taxipress's routes and taxis are the sample's, but the options staff control (luggage, assistance, languages, cash, limits)
     // are the platform's real settings, so what admin changes shows up here too.

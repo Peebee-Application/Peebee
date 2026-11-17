@@ -106,6 +106,8 @@ import type {
   StoreEliteAnalytics,
   GuestSettings,
   GuestConfig,
+  OrderPhoto,
+  OrderPhotosConfig,
   GuestCheckoutInput,
   GuestCheckoutResult,
   GuestTrack,
@@ -914,6 +916,39 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
         body: form,
       });
       return json<{ order: OrderRow }>(res);
+    },
+    /** Whether order photos are switched on (migration 0163) and their limits. */
+    async orderPhotosConfig() {
+      return request<OrderPhotosConfig>("/v1/order-photos/config");
+    },
+    /** Uploads one photo before the order exists; attach the returned key with attachOrderPhotos. */
+    async uploadOrderPhoto(photo: Blob) {
+      const form = new FormData();
+      form.append("file", photo, photo instanceof File ? photo.name : "photo.jpg");
+      const res = await f(`${root}/v1/order-photos/uploads`, { method: "POST", headers: authHeaders(), body: form });
+      return json<{ key: string }>(res);
+    },
+    /** Attaches uploaded photos to the order. itemIndex is the item's position in the list sent to createList. */
+    async attachOrderPhotos(orderId: string, photos: Array<{ key: string; note?: string; itemIndex?: number }>) {
+      return request<{ photos: OrderPhoto[] }>(`/v1/orders/${orderId}/photos`, { method: "POST", body: JSON.stringify({ photos }) });
+    },
+    /** Uploads and attaches one photo in a single step (guest checkout, whose sign-in only exists once the order does). */
+    async uploadOrderPhotoToOrder(orderId: string, photo: Blob, extra: { note?: string; itemIndex?: number } = {}) {
+      const form = new FormData();
+      form.append("file", photo, photo instanceof File ? photo.name : "photo.jpg");
+      if (extra.note) form.append("note", extra.note);
+      if (extra.itemIndex != null) form.append("itemIndex", String(extra.itemIndex));
+      const res = await f(`${root}/v1/orders/${orderId}/photos`, { method: "POST", headers: authHeaders(), body: form });
+      return json<{ photos: OrderPhoto[] }>(res);
+    },
+    async orderPhotos(orderId: string) {
+      return request<{ photos: OrderPhoto[]; available: boolean }>(`/v1/orders/${orderId}/photos`);
+    },
+    /** One attached photo as a Blob (the image needs the sign-in header, so it can't be a plain <img src>). */
+    async orderPhotoBlob(orderId: string, photoId: string): Promise<Blob> {
+      const res = await f(`${root}/v1/orders/${orderId}/photos/${encodeURIComponent(photoId)}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error(`API ${res.status}: failed to load photo`);
+      return res.blob();
     },
     /** Fetches the order's voice note as a Blob (not JSON — raw fetch, mirrors adminRiderIdDocumentBlob). */
     async orderVoiceNoteBlob(orderId: string): Promise<Blob> {

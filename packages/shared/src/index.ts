@@ -143,6 +143,8 @@ export type {
   StoreEliteAnalytics,
   GuestSettings,
   GuestConfig,
+  OrderPhoto,
+  OrderPhotosConfig,
   GuestCheckoutInput,
   GuestCheckoutResult,
   GuestTrack,
