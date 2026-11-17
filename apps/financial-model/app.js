@@ -2,7 +2,7 @@
   const { questions, sections, errorFor, itemError } = globalThis.FinancialAssumptions;
   const { fieldsFor, upgradeDraft } = globalThis.FinancialLineItems;
   const { build, firstMonthSale, expensePreview, reports, revenueDrivers, scheduleReports, statementReports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
-  const { questionsFor, consolidate } = globalThis.FinancialChannels;
+  const { questionsFor, consolidate, included, scopeMetadata, forecastModules } = globalThis.FinancialChannels;
   const { buildAnalysis, renderAnalysis, exportRows } = globalThis.FinancialAnalysis;
   const { company, catalog, technologyCosts, infrastructureRows, createDefaults, loadStarterRevenue } = globalThis.PeebeeDefaults;
   const dataNote = "Starter estimates model a launch scenario across all channels. Volumes, average values and unverified fees are illustrative. The scenario includes features that may be off in Admin. Apply available Admin fees to matching lines, and enter Peebee’s costs and opening balances.";
@@ -127,7 +127,15 @@
   const currencyOf = answers => ((answers.currency === "other" ? answers.customCurrency : answers.currency) || "").toUpperCase();
   const availableQuestions = answers => questionsFor(questions, answers);
   const activeQuestions = answers => availableQuestions(answers).filter(prompt => !prompt.when || prompt.when(answers));
-  const firstMissing = answers => activeQuestions(answers).find(prompt => errorFor(prompt, answers[prompt.id], answers));
+  function firstMissing(answers) {
+    return activeQuestions(answers).find(prompt => {
+      const value = answers[prompt.id];
+      if (!prompt.channelId) return errorFor(prompt, value, answers);
+      if (!included(answers.channels.find(channel => channel.key === prompt.channelId))) return false;
+      const active = Array.isArray(value) ? value.filter(included) : value;
+      return Array.isArray(value) && value.length && !active.length ? false : errorFor(prompt, active, answers);
+    });
+  }
   const readLocal = () => {
     try { return JSON.parse(localStorage.getItem(storageKey)); } catch { return null; }
   };
@@ -142,7 +150,8 @@
           answers[prompt.id] = value.filter(row => row && typeof row === "object").map(row => {
             const fields = Object.fromEntries(prompt.fields.filter(field => typeof row[field.id] === "string")
               .map(field => [field.id, row[field.id].slice(0, 160)]));
-            return prompt.keyed ? { ...fields, key: row.key } : fields;
+            if (prompt.keyed) return { ...fields, key: row.key, ...scopeMetadata(prompt.id, row) };
+            return prompt.channelId ? { ...fields, ...scopeMetadata(prompt.id, row) } : fields;
           });
         } else if (typeof value === "string") {
           answers[prompt.id] = value.slice(0, 160);
@@ -592,7 +601,7 @@
 
   function editItems(prompt, value, remember) {
     const editor = document.querySelector("#line-editor");
-    let rows = Array.isArray(value) ? value.map(row => ({ ...row })) : [];
+    let rows = Array.isArray(value) ? value.map(row => ({ ...row, ...(prompt.channelId ? scopeMetadata(prompt.id, row) : {}) })) : [];
     const snapshot = () => rows.map(row => ({ ...row }));
     const hasRevenuePreview = prompt.fields.some(field => field.id === "method");
     const expenses = prompt.id === "expenses";
@@ -632,7 +641,8 @@
         initial.key = channel?.key || Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join("");
       }
       const preset = prompt.presetRows?.find(row => row.name === name);
-      rows.push({ ...initial, ...preset, name });
+      const row = { ...initial, ...preset, name };
+      rows.push(prompt.channelId && name ? { ...row, ...scopeMetadata(prompt.id, row) } : row);
       remember();
       const first = name ? fieldsFor(prompt, rows.at(-1))[1]?.id || "name" : "name";
       draw(`item-${rows.length - 1}-${first}`);
@@ -868,6 +878,81 @@
   const radio = (items, selected, type) => items.map(([id, label]) =>
     `<button type="button" id="${type}-${id}" data-${type}="${id}" aria-pressed="${id === selected}">${escape(label)}</button>`).join("");
 
+  let expandedModules = new Set(["rides"]);
+  let scopeMessage = "";
+
+  function moduleControls() {
+    const modules = forecastModules(answers);
+    const toggle = (id, label, checked, disabled, data) =>
+      `<label class="forecast-switch"><span class="forecast-switch-state" aria-hidden="true">${checked ? "On" : "Off"}</span>
+        <span class="autosave-switch"><input type="checkbox" role="switch" id="${escape(id)}" aria-label="${escape(label)}"
+          ${data} ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}><span class="autosave-track" aria-hidden="true"></span></span></label>`;
+    return `<section class="panel forecast-scope" aria-labelledby="scope-title">
+      <h2 id="scope-title">Forecast modules</h2>
+      <p class="muted">Choose which revenue to include in the shared forecast. Percentage-based direct costs follow revenue. Company-wide costs stay in the forecast.</p>
+      <p class="scope-status" role="status">${escape(scopeMessage)}</p>
+      <div class="forecast-modules">${modules.map(({ channel, parts }) => {
+        const on = included(channel);
+        const count = parts.filter(part => part.entries.some(({ row }) => included(row))).length;
+        const { key, name } = channel;
+        return `<div class="forecast-module">
+          <div class="forecast-module-line"><strong>${escape(name)}</strong>
+            ${toggle(`scope-module-${key}`, name, on, false, `data-scope-channel="${escape(key)}"`)}</div>
+          ${parts.length ? `<details data-scope-details="${escape(key)}" ${expandedModules.has(key) ? "open" : ""}>
+            <summary>${count} of ${parts.length} ${on ? "included" : "selected"}<span class="sr-only"> in ${escape(name)}</span></summary>
+            <div class="forecast-module-parts">${parts.map(part => `<div class="forecast-module-line">
+              <span>${escape(part.name)}</span>
+              ${toggle(`scope-part-${key}-${part.key}`, `${name} · ${part.name}`, part.entries.some(({ row }) => included(row)), !on,
+                `data-scope-channel="${escape(key)}" data-scope-part="${escape(part.key)}"`)}
+            </div>`).join("")}</div></details>` : ""}
+        </div>`;
+      }).join("")}</div>
+    </section>`;
+  }
+
+  function bindModuleControls() {
+    const panel = app.querySelector(".forecast-scope");
+    if (!panel) return;
+    panel.addEventListener("change", event => {
+      const input = event.target.closest("input[data-scope-channel]");
+      if (!input) return;
+      const { scopeChannel: key, scopePart } = input.dataset;
+      const streamKey = `channel-${key}`;
+      const next = { ...answers, channels: answers.channels.map(row => ({ ...row })), [streamKey]: (answers[streamKey] || []).map(row => ({ ...row })) };
+      const module = forecastModules(next).find(item => item.channel.key === key);
+      if (!module) return;
+      let addedRideshare = false;
+      if (scopePart === undefined) {
+        if (input.checked) delete module.channel.enabled;
+        else module.channel.enabled = "no";
+      } else {
+        if (!included(module.channel)) return;
+        const part = module.parts.find(item => item.key === scopePart);
+        if (!part) return;
+        if (input.checked && !part.entries.length && key === "rides" && part.key === "rideshare") {
+          addedRideshare = true;
+          next[streamKey].push({ name: "Rideshare commission", method: "direct", amount: "0", growth: "0", days: "0", forecastGroup: "rideshare" });
+        }
+        for (const { row } of part.entries) {
+          if (input.checked) delete row.enabled;
+          else row.enabled = "no";
+        }
+      }
+      expandedModules = new Set([...panel.querySelectorAll("details[open]")].map(detail => detail.dataset.scopeDetails));
+      const missing = firstMissing(next);
+      if (missing) {
+        scopeMessage = `Review ${stepLabel(missing)} in Assumptions before including it.`;
+        render(input.id);
+        return;
+      }
+      scopeMessage = addedRideshare ? "Rideshare is on. Enter its expected revenue under Assumptions." : "";
+      answers = next;
+      outcomes = null;
+      if (!save()) scopeMessage = "The forecast was updated for this session. Browser storage is unavailable.";
+      render(input.id);
+    });
+  }
+
   function overview(model) {
     const yearOne = model.months.slice(0, 12);
     const yearOneLabel = `First ${yearOne.length} ${yearOne.length === 1 ? "month" : "months"}`;
@@ -888,7 +973,7 @@
       ${metric("Peak funding gap", model.fundingGap, model.shortfall ? `Lowest cash in ${model.lowCash.period}` : "No month-end shortfall at report precision")}
       </div>
       ${model.shortfall ? `<p class="notice">The first month-end cash shortfall is in <strong>${model.shortfall.period}</strong>. The forecast shows the shortfall before any additional financing.</p>` : ""}
-      <div class="stack"><section class="panel"><h2>Revenue by calendar year</h2><ul class="plot">
+      <div class="stack">${moduleControls()}<section class="panel"><h2>Revenue by calendar year</h2><ul class="plot">
         ${model.annual.map(row => `<li><span>${row.period}</span><span class="track" aria-hidden="true"><span class="bar" style="width:${100 * row.revenue / maxRevenue}%"></span></span><strong title="${escape(money(row.revenue))}">${escape(compactFormat.format(row.revenue))}</strong></li>`).join("")}
       </ul></section>
       ${outcomes.length > 1 ? `<section class="panel"><h2>Scenario comparison</h2>${table("Metric", outcomes.map(item => item.name), comparison.map(([label, read]) => [label, outcomes.map(read)]))}</section>` : ""}
@@ -901,7 +986,7 @@
       <details class="panel"><summary>Model methodology</summary>
         <p class="muted">Channel revenue includes external sales. Expenses, funding and the financial statements are calculated for the company as a whole.</p>
         <p class="muted">${escape(dataNote)}</p>
-        <p class="muted">Each revenue stream grows from its own driver. Payroll and operating expenses change on the anniversary of each line’s start month. Receivables and payables roll forward from sales and purchases already forecast, spread evenly within 30-day model months. Inventory targets use direct costs. Opening receivables and payables settle in the months entered.</p>
+        <p class="muted">Each revenue stream grows from its own driver. Payroll changes on the anniversary of each line’s start month. Operating expenses follow their growth intervals and scheduled phases. Receivables and payables roll forward from sales and purchases already forecast, spread evenly within 30-day model months. Inventory targets use direct costs. Opening receivables and payables settle in the months entered.</p>
         <p class="muted">Fixed assets depreciate straight-line. Debt uses equal principal payments. Opening equity is derived from opening assets and liabilities. Corporate income tax is paid monthly on positive profit. The model excludes VAT, historical statements, and tax loss carryforwards.</p>
         <p class="muted">The workbook-style financial statement views floor EBITDA margin at zero and omit monthly net margin in loss periods.</p>
         <p class="muted">Annual flows sum the included months. Balance sheet values use the final month of each calendar year shown. Reports display up to two decimal places. Totals use unrounded values. Cash shortfalls are measured at month end before additional funding. The balance sheet shows the unmet funding need as a separate amount.</p>
@@ -978,6 +1063,7 @@
       ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? reportBody : overview(model)}`;
     document.querySelector("#review").addEventListener("click", showReview);
     if (analysis) bindAnalysis(analysis, currency);
+    if (!analysis && !report) bindModuleControls();
     document.querySelector("#download").addEventListener("click", () => downloadAll(forecastReports, forecastAnswers));
     document.querySelector("#download-report")?.addEventListener("click", () => {
       download([["Company", answers.company], ["Currency", currencyOf(answers)], ["Scenario", model.name], ...reportCsv(report, rows, forecastAnswers)],
@@ -1041,8 +1127,10 @@
         continue;
       }
       if (prompt.note) rows.push([label, "Input guidance", prompt.note]);
-      if (!answer.length) rows.push([prompt.label, "None"]);
-      for (const item of answer) {
+      if (!answer?.length) rows.push([prompt.label, "None"]);
+      const parent = prompt.channelId && answers.channels.find(channel => channel.key === prompt.channelId);
+      for (const item of answer || []) {
+        if (prompt.keyed || parent) rows.push([label, item.name, "Included in forecast", included(item) && (!parent || included(parent)) ? "Yes" : "No"]);
         const fields = fieldsFor(prompt, item).filter(field => field.id !== "name");
         if (!fields.length) rows.push([label, item.name]);
         for (const field of fields) rows.push([label, item.name, field.label, inputValue(field, item[field.id]), inputUnit(field)]);
