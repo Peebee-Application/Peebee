@@ -195,7 +195,7 @@ export function ShoppingListModal({ onClose, initialItems }: { onClose: () => vo
           ) : (
             <div className="space-y-3">
               <p className="text-xs text-ink-500">{t("list_record_desc")}</p>
-              <OrderVoiceNoteRecorder blob={voiceNote} onChange={setVoiceNote} />
+              <OrderVoiceNoteRecorder blob={voiceNote} onChange={setVoiceNote} onWriteInstead={() => setMode("list")} />
               <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-ink-500">{t("list_total_amount")}</label>
                 <input
