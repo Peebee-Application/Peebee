@@ -590,7 +590,7 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
   #scope-content, .forecast-overview {
     min-height: 0;
     overflow-y: auto;
-    scrollbar-width: thin;
+    scrollbar-width: none;
   }
   #scope-content { padding: 0 4px 4px; }
   #scope-toggle[aria-expanded="false"] { justify-content: center; }
