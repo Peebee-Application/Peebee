@@ -18,12 +18,12 @@
   background: rgb(var(--color-cream-100));
   color: var(--ink);
 }
-:root, .forecast-module {
+:root, .forecast-module, .financial-intro {
   --border: rgb(var(--color-ink) / .13);
   --quiet: rgb(var(--color-ink-500));
   --ink: rgb(var(--color-ink));
 }
-:root[data-theme="dark"], .forecast-module {
+:root[data-theme="dark"], .forecast-module, .financial-intro {
   color-scheme: dark;
   --color-ink: 245 245 245;
   --color-ink-500: 170 170 170;
@@ -496,6 +496,54 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 .account-form label { display: grid; gap: 6px; font-size: .9rem; font-weight: 650; }
 .account-form input { min-width: 0; min-height: 44px; padding: 9px 12px; color: var(--ink); border: 1px solid var(--border); border-radius: 9px; }
 .account-form .button { justify-self: start; }
+body:has(.financial-landing) > :is(.masthead, .footer) { display: none; }
+.shell:has(> .financial-landing) {
+  min-height: 100dvh;
+  display: grid;
+  align-content: center;
+}
+.financial-landing {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  overflow: clip;
+  background: rgb(var(--surface-card));
+  box-shadow: 0 20px 60px rgb(var(--color-ink-gold) / .12);
+}
+.financial-intro, .landing-login { padding: clamp(28px, 5vw, 68px); }
+.financial-intro {
+  display: grid;
+  gap: clamp(24px, 4vw, 48px);
+  align-content: space-between;
+  background: radial-gradient(ellipse at top right, rgb(var(--color-gold) / .19), transparent 65%), rgb(var(--color-ink-gold));
+  color: var(--ink);
+}
+.landing-brand { display: flex; align-items: center; gap: 10px; font-size: 1.5rem; font-weight: 750; letter-spacing: -.04em; }
+.landing-brand img { display: block; }
+.landing-copy { line-height: 1.55; }
+.landing-tagline { color: var(--gold); font-weight: 700; }
+.landing-copy details { font-size: .9rem; }
+.landing-copy summary { cursor: pointer; }
+.landing-contact {
+  display: grid;
+  gap: 6px;
+  padding-top: 18px;
+  border-top: 1px solid rgb(var(--color-gold) / .38);
+  font-size: .88rem;
+  font-style: normal;
+}
+.landing-contact a { justify-self: start; color: var(--gold); text-underline-offset: 3px; }
+.landing-login { align-self: center; }
+.landing-login h2 { margin: 0; font-size: clamp(1.75rem, 3vw, 2.5rem); letter-spacing: -.04em; }
+.landing-login .muted { margin: 8px 0 24px; }
+.landing-login .account-form { gap: 16px; }
+.landing-login input { background: rgb(var(--surface-input)); }
+.landing-login .button { justify-self: stretch; }
+.landing-login #login-status { margin: 0; }
+@media (max-width: 760px) {
+  .financial-landing { grid-template-columns: minmax(0, 1fr); }
+}
 #preference-status:empty, #account-status:empty, #login-status:empty, #autosave-save-status:empty { display: none; }
 #preference-status, #account-status, #login-status { font-size: .9rem; }
 
