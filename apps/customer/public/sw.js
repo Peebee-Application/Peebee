@@ -8,9 +8,17 @@
 const ASSET_CACHE = "peebee-assets-v1";
 // How long a page waits for the server before showing the stored copy.
 const PAGE_WAIT_MS = 4000;
-const PAGE_CACHE = "peebee-pages-v12";
-const RUNTIME_CACHE = "peebee-runtime-v11";
+// v13 drops HTML and RSC saved before the wallet CSS fix. v12 of the runtime
+// cache drops API reads from that same visit. Activate deletes every name
+// that is not in KEEP_CACHES.
+const PAGE_CACHE = "peebee-pages-v13";
+const RUNTIME_CACHE = "peebee-runtime-v12";
 const KEEP_CACHES = [ASSET_CACHE, PAGE_CACHE, RUNTIME_CACHE];
+// Wallet CSS from before a8cece2 defined an unscoped `.w-full` (z-index 60).
+// That file is content-hashed, so ASSET_CACHE would keep serving it to a
+// stale page. The asset cache name stays v1 so every other hashed chunk an
+// offline page still needs remains; only these copies are removed.
+const STALE_WALLET_CSS = ["5a1d05881399c121.css"];
 const OFFLINE_URL = "/offline.html";
 // The app moved from customer.peebee.online to app.peebee.online. A phone that visited the old address still has this
 // worker and cached pages there, so it would keep showing the old copy and never meet the server's redirect. On the
@@ -86,11 +94,37 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
+function isLeakedWalletCss(url, css) {
+  if (STALE_WALLET_CSS.some((name) => String(url).includes(name))) return true;
+  // The fixed sheet uses `.wallet-root .wallet-result`, not a bare `.w-full`.
+  return typeof css === "string" && /\.w-full\s*[,{][^}]*z-index\s*:\s*60/.test(css);
+}
+
+async function evictLeakedWalletCss() {
+  const cache = await caches.open(ASSET_CACHE);
+  if (typeof cache.keys !== "function") return;
+  const keys = await cache.keys();
+  await Promise.all(keys.map(async (request) => {
+    const url = typeof request === "string" ? request : request.url;
+    if (!String(url).includes(".css") && !STALE_WALLET_CSS.some((name) => String(url).includes(name))) return;
+    try {
+      if (STALE_WALLET_CSS.some((name) => String(url).includes(name))) {
+        await cache.delete(request);
+        return;
+      }
+      const hit = await cache.match(request);
+      if (hit && isLeakedWalletCss(url, await hit.text())) await cache.delete(request);
+    } catch { /* The fetch path still refuses to serve the leak. */ }
+  }));
+}
+
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => ON_OLD_HOST || !KEEP_CACHES.includes(k)).map((k) => caches.delete(k)))),
-  );
-  self.clients.claim();
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => ON_OLD_HOST || !KEEP_CACHES.includes(k)).map((k) => caches.delete(k)));
+    if (!ON_OLD_HOST) await evictLeakedWalletCss();
+    await self.clients.claim();
+  })());
 });
 
 // A logged-out user's cached responses shouldn't leak to whoever logs in
@@ -125,9 +159,21 @@ function isApiGet(url) {
 
 async function cacheFirst(request, cacheName) {
   const cached = await caches.match(request);
-  if (cached) return cached;
+  if (cached) {
+    let leaked = false;
+    if (cacheName === ASSET_CACHE) {
+      const url = request.url || "";
+      leaked = STALE_WALLET_CSS.some((name) => url.includes(name));
+      if (!leaked && url.includes(".css")) {
+        try { leaked = isLeakedWalletCss(url, await cached.clone().text()); } catch { leaked = false; }
+      }
+    }
+    if (!leaked) return cached;
+    const cache = await caches.open(cacheName);
+    await cache.delete(request).catch(() => {});
+  }
   const response = await fetch(request);
-  if (response.ok) {
+  if (response.ok && !STALE_WALLET_CSS.some((name) => (request.url || "").includes(name))) {
     const cache = await caches.open(cacheName);
     cache.put(request, response.clone());
   }
