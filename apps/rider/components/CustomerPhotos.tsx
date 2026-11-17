@@ -55,7 +55,7 @@ export function CustomerPhotos({ photos, itemName, customerName }: { photos: Loa
       </div>
       <PhotoProvider
         loop={photos.length > 1}
-        maskOpacity={0.96}
+        maskOpacity={1}
         overlayRender={({ index, onIndexChange }) => {
           const p = photos[index];
           if (!p) return null;

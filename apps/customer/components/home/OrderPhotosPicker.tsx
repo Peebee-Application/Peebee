@@ -183,6 +183,7 @@ export function OrderPhotosPicker({
   // Ctrl/Cmd+V anywhere on the screen, and long-press → Paste on phones that deliver a paste event.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
+      if (e.defaultPrevented) return; // the paste field in the sheet already took it
       const target = e.target as HTMLElement | null;
       if (target && target.closest("input, textarea, [contenteditable='true']") && !target.closest("[data-photo-paste]")) return;
       const file = imageFromPaste(e);
