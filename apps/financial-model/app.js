@@ -60,7 +60,7 @@
 
   const reportLinks = reports.map(({ id, name }) => [id, name]);
   const navigation = [
-    { id: "home", name: "Home", views: [["overview", "Dashboard"], ["intro", "Intro"], ["analysis", "Analysis"]] },
+    { id: "home", name: "Home", views: [["overview", "Dashboard"], ["analysis", "Analysis"]] },
     { id: "model", name: "Model", views: [["assumptions", "Assumptions"], ["workbook-settings", "Forecast settings"]] },
     { id: "schedules", name: "Schedules", views: [["channel-revenue", "Revenue"], ...scheduleReports.map(({ id, name }) => [id, name]),
       ...reportLinks.filter(([id]) => id === "schedules")] },
@@ -73,7 +73,7 @@
 
   function currentView() {
     if (screen === "report") return selectedReport;
-    if (screen === "intro" || screen === "workbook-settings") return screen;
+    if (screen === "workbook-settings") return screen;
     return "assumptions";
   }
 
@@ -88,7 +88,7 @@
     if (view === currentView() && screen !== "wizard") return;
     navigate(() => {
       if (view === "assumptions") return showReview();
-      if (view === "intro" || view === "workbook-settings") {
+      if (view === "workbook-settings") {
         screen = view;
       } else {
         const missing = firstMissing(answers);
@@ -157,7 +157,8 @@
           answers[prompt.id] = value.slice(0, 160);
         }
       }
-      return { answers, step: data.step, screen: data.screen, editing: data.screen === "wizard" && data.editing === true };
+      const screen = data.screen === "intro" ? (firstMissing(answers) ? "review" : "report") : data.screen;
+      return { answers, step: data.step, screen, editing: screen === "wizard" && data.editing === true };
     } catch {
       return { answers: createDefaults(), screen: "review" };
     }
@@ -186,7 +187,7 @@
   const publishLocal = document.querySelector("#publish-local");
   document.querySelector("#open-settings").hidden = !!session;
   if (screen === "report" && firstMissing(answers)) screen = "review";
-  if (!["report", "wizard", "intro", "workbook-settings"].includes(screen)) screen = "review";
+  if (!["report", "wizard", "workbook-settings"].includes(screen)) screen = "review";
   let selectedCase = "Base";
   let selectedReport = "overview";
   let frequency = "Annual";
@@ -340,15 +341,7 @@
   document.addEventListener("appearancepreference", event => void savePreference("appearance", event.detail));
 
   function renderLogin() {
-    app.innerHTML = `<section class="panel account-panel"><h1>Sign in</h1>
-      <p class="muted">Use your Peebee Admin account to open the shared forecast.</p>
-      <form id="financial-login" class="account-form">
-        <label>Email or phone<input name="identifier" autocomplete="username" minlength="3" maxlength="160" required></label>
-        <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
-        <button class="button gold" type="submit">Sign in</button>
-        <p id="login-status" role="status"></p>
-      </form>
-    </section>`;
+    app.replaceChildren(document.querySelector("#financial-landing").content.cloneNode(true));
     const form = app.querySelector("#financial-login");
     form.addEventListener("submit", async event => {
       event.preventDefault();
@@ -474,7 +467,6 @@
     dashboardObserver = null;
     if (screen === "report") renderReport();
     else if (screen === "review") renderReview();
-    else if (screen === "intro") app.innerHTML = workbookIntro();
     else if (screen === "workbook-settings") renderWorkbookSettings();
     else renderQuestion();
     renderNavigation();
@@ -1024,14 +1016,6 @@
       settingsDialog.querySelector("#appearance-mode").focus();
     });
     app.querySelectorAll("[data-edit-setting]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.editSetting, true)));
-  }
-
-  function workbookIntro() {
-    return `<section class="panel workbook-view">
-      <h1>About this forecast</h1>
-      <p>Settings and assumptions feed the revenue, COGS, expenses, staff, and working capital schedules. FS-Month and FS-Annual show the income statement, balance sheet, and cash flow together.</p>
-      <p class="muted">These views use your Peebee assumptions. The reference workbook has other controls for account acquisition, staffing schedules, inventory orders, automatic asset replacement, loan payments, VAT, and fiscal-year tax settlement. Peebee uses its own assumptions and timing in those areas.</p>
-    </section>`;
   }
 
   function renderReport() {

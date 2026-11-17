@@ -39,6 +39,39 @@
     <button class="text-button" id="reload-shared" type="button" hidden>Reload shared version</button>
   </div>
   <main id="app" class="shell"></main>
+  <template id="financial-landing">
+    <div class="financial-landing">
+      <section class="financial-intro" aria-labelledby="financial-intro-title">
+        <div class="landing-brand">
+          <img src="peebee-brand-white.png" width="48" height="48" alt="">
+          <span>Peebee</span>
+        </div>
+        <div class="landing-copy">
+          <h1 id="financial-intro-title">Peebee Financial Model</h1>
+          <p class="landing-tagline">One app and one wallet for everyday Uganda.</p>
+          <p>Settings and assumptions feed the revenue, COGS, expenses, staff, and working capital schedules. FS-Month and FS-Annual show the income statement, balance sheet, and cash flow together.</p>
+          <details>
+            <summary>About the reference workbook</summary>
+            <p>The reference workbook has other controls for account acquisition, staffing schedules, inventory orders, automatic asset replacement, loan payments, VAT, and fiscal-year tax settlement. Peebee uses its own assumptions and timing in those areas.</p>
+          </details>
+        </div>
+        <address class="landing-contact">
+          <span>Plot 15, Mugula Road, Entebbe</span>
+          <a href="mailto:support@peebee.online">support@peebee.online</a>
+        </address>
+      </section>
+      <section class="landing-login" aria-labelledby="financial-login-title">
+        <h2 id="financial-login-title">Sign in</h2>
+        <p class="muted">Use your Peebee Admin account to open the shared forecast.</p>
+        <form id="financial-login" class="account-form" method="post">
+          <label>Email or phone<input name="identifier" autocomplete="username" minlength="3" maxlength="160" required></label>
+          <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+          <button class="button gold" type="submit">Sign in</button>
+          <p id="login-status" role="status"></p>
+        </form>
+      </section>
+    </div>
+  </template>
   <dialog id="live-dialog" class="panel" aria-labelledby="live-title"></dialog>
   <dialog id="settings-dialog" class="panel model-dialog" aria-labelledby="settings-title">
     <h2 id="settings-title">Settings</h2>
