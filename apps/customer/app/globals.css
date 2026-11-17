@@ -1725,3 +1725,10 @@ select:focus {
   :root:not([data-theme="light"]) .select-card:has(input:checked) .select-card__icon { color: rgb(var(--color-gold-400)); }
 }
 @media (prefers-reduced-motion: reduce) { .select-card { transition: none; } }
+
+/* Voice note card play button: black with a gold icon, gold in dark mode. */
+.voice-note-play { background: #0a0a0a; color: rgb(var(--color-gold)); transition: transform .15s ease; }
+.voice-note-play:active { transform: scale(.95); }
+:root[data-theme="dark"] .voice-note-play { background: rgb(var(--color-gold)); color: rgb(var(--color-ink-gold)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .voice-note-play { background: rgb(var(--color-gold)); color: rgb(var(--color-ink-gold)); } }
+@media (prefers-reduced-motion: reduce) { .voice-note-play, .voice-note-card button { transition: none; } }
