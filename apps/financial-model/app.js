@@ -1,7 +1,7 @@
 (() => {
   const { questions, sections, errorFor, itemError } = globalThis.FinancialAssumptions;
   const { fieldsFor, upgradeDraft } = globalThis.FinancialLineItems;
-  const { build, reports, revenueDrivers, scheduleReports, statementReports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
+  const { build, firstMonthSale, reports, revenueDrivers, scheduleReports, statementReports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
   const { questionsFor, consolidate } = globalThis.FinancialChannels;
   const { buildAnalysis, renderAnalysis, exportRows } = globalThis.FinancialAnalysis;
   const { company, catalog, createDefaults, loadStarterRevenue } = globalThis.PeebeeDefaults;
@@ -594,6 +594,7 @@
     const editor = document.querySelector("#line-editor");
     let rows = Array.isArray(value) ? value.map(row => ({ ...row })) : [];
     const snapshot = () => rows.map(row => ({ ...row }));
+    const hasRevenuePreview = prompt.fields.some(field => field.id === "method");
     const updatePresets = () => {
       for (const button of editor.querySelectorAll("[data-preset]")) {
         const label = prompt.presets[Number(button.dataset.preset)];
@@ -610,7 +611,7 @@
         <button type="button" id="add-line" class="button secondary small">+ Add ${prompt.presets.length ? "custom " : ""}${escape(prompt.item)}</button></div>
         ${rows.length ? `<div class="line-list${prompt.id === "channels" ? " channel-list" : ""}">${rows.map((row, index) => `<fieldset class="line-item"><legend>${escape(prompt.item[0].toUpperCase() + prompt.item.slice(1))} ${index + 1}</legend>
           <div class="line-fields">${fieldsFor(prompt, row).map(field => lineField(field, row, index)).join("")}</div>
-          ${row.method === "orders" ? `<output class="muted order-estimate" data-estimate="${index}">${orderEstimate(row)}</output>` : ""}
+          ${hasRevenuePreview ? `<output class="revenue-estimate" data-estimate="${index}">${revenueEstimateMarkup(prompt, row)}</output>` : ""}
           <button type="button" class="text-button remove-line" id="remove-line-${index}" data-remove="${index}" aria-label="${escape("Remove " + (row.name || prompt.item + " " + (index + 1)))}">Remove</button>
           </fieldset>`).join("")}</div>` : `<p class="empty-items muted">${prompt.required ? "Add a line item to continue." : "No line items added. Continue if this category does not apply."}</p>`}`;
       updatePresets();
@@ -646,22 +647,54 @@
       if (!row) return;
       row[field.dataset.field] = field.value.trim();
       remember();
-      const estimate = editor.querySelector(`[data-estimate="${field.dataset.line}"]`);
-      if (estimate) estimate.textContent = orderEstimate(row);
       if (field.tagName === "SELECT") draw(field.id);
       else if (field.dataset.field === "name") {
         updatePresets();
         const remove = document.getElementById(`remove-line-${field.dataset.line}`);
         remove.setAttribute("aria-label", "Remove " + (row.name || prompt.item + " " + (Number(field.dataset.line) + 1)));
+      } else {
+        const estimate = editor.querySelector(`[data-estimate="${field.dataset.line}"]`);
+        if (estimate) {
+          const markup = revenueEstimateMarkup(prompt, row);
+          if (estimate.innerHTML !== markup) estimate.innerHTML = markup;
+        }
       }
     });
     draw();
     return snapshot;
   }
 
-  function orderEstimate(row) {
-    const volume = Number(row.orders) * Number(row.orderValue);
-    return `Month-one eligible value ${money(volume)} · Peebee revenue ${money(volume * Number(row.rate) / 100)}`;
+  function revenueEstimateMarkup(prompt, row) {
+    const method = prompt.fields.find(field => field.id === "method");
+    if (errorFor(method, row.method, answers)) return '<span>Choose a revenue driver to see the estimate.</span>';
+
+    const drivers = fieldsFor(prompt, row).filter(field => field.type === "number" && field.id !== "growth" && field.id !== "days");
+    if (drivers.some(field => errorFor(field, row[field.id], answers))) {
+      return '<span>Complete the revenue inputs to see the month-one estimate.</span>';
+    }
+
+    const estimated = firstMonthSale(row);
+    const { revenue, units, price, volume, feeRate, orderValue, joining, leaving, active } = estimated;
+    const percent = format(feeRate, "rate");
+    const count = value => numberFormat.format(value);
+    let formula;
+    switch (row.method) {
+      case "units":
+        formula = `${count(units)} units × ${money(price)}`;
+        break;
+      case "orders":
+        formula = `${count(units)} orders × ${money(orderValue)} = ${money(volume)} eligible value · ${percent} fee`;
+        break;
+      case "percentage":
+        formula = `${money(volume)} eligible value × ${percent} fee`;
+        break;
+      case "subscription":
+        formula = `(${count(Number(row.active))} opening − ${count(leaving)} churned + ${count(joining)} new) = ${count(active)} subscribers · ${money(price)} each`;
+        break;
+      default:
+        formula = "Entered first-month sales amount";
+    }
+    return `<span>${escape(formula)}</span><strong>Month-one Peebee revenue ${escape(money(revenue))}</strong>`;
   }
 
   function lineField(field, row, index) {
