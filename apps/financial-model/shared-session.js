@@ -1,5 +1,5 @@
 (() => {
-  if (location.hostname !== "financials.peebee.online") return;
+  if (location.hostname !== "financials.peebee.online" || new URLSearchParams(location.search).has("guest")) return;
   const admin = "https://admin.peebee.online";
   const frame = document.createElement("iframe");
   frame.hidden = true;

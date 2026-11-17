@@ -1,4 +1,4 @@
-import { requirePermission } from "./permissions.js";
+import { requireFinancialAccess } from "./financial-access.js";
 import { getAdsConfig } from "../ads/settings.js";
 import { getChannelsConfig } from "../channels/settings.js";
 import { getMoneyFlowConfig } from "../costing/config.js";
@@ -149,7 +149,7 @@ async function recordedActivity(from: string, to: string) {
   }));
 }
 
-export const financialModelPermissions = [requirePermission("payments.manage"), requirePermission("stats.view")] as const;
+export const financialModelPermissions = [requireFinancialAccess] as const;
 
 export async function financialModelSnapshot() {
   const now = Date.now();

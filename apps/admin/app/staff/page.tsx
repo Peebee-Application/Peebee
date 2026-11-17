@@ -154,6 +154,19 @@ function StaffRow({ member, onChanged }: { member: StaffMember; onChanged: () =>
     }
   }
 
+  async function toggleFinancialAccess() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.adminSetStaffFinancialAccess(member.id, !member.financial_access);
+      onChanged();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function resetPassword() {
     setBusy(true);
     setError(null);
@@ -200,6 +213,13 @@ function StaffRow({ member, onChanged }: { member: StaffMember; onChanged: () =>
           </option>
         ))}
       </Select>
+
+      {member.admin_role !== "super_admin" && (
+        <label className="flex min-h-10 items-center justify-between gap-3 text-sm font-semibold text-ink">
+          Financial model access
+          <input type="checkbox" checked={!!member.financial_access} disabled={busy} onChange={() => void toggleFinancialAccess()} />
+        </label>
+      )}
 
       <div className="flex items-center gap-3 text-xs text-ink-500">
         <span>Invited {formatDate(member.invited_at)}</span>

@@ -11,17 +11,20 @@ import { sendStaffInviteEmail } from "../verify/email.js";
 import { appBaseUrl } from "../verify/service.js";
 import { ensureAccountCode } from "../lib/profile-codes.js";
 import { ADMIN_ROLE_LABELS, type AdminRole } from "./permissions.js";
+import { financialAccessKey } from "./financial-access.js";
 
 type Row = Record<string, unknown>;
 
 export async function listStaff(): Promise<Row[]> {
   const res = await db.execute(
-    `SELECT u.id, u.name, u.phone, u.email, u.status, u.admin_role, u.force_password_change,
-            u.invited_at, u.last_login_at, inviter.name as invited_by_name
+    { sql: `SELECT u.id, u.name, u.phone, u.email, u.status, u.admin_role, u.force_password_change,
+            u.invited_at, u.last_login_at, inviter.name as invited_by_name,
+            CASE WHEN u.admin_role = 'super_admin' OR access.value = '1' THEN 1 ELSE 0 END AS financial_access
      FROM users u
      LEFT JOIN users inviter ON inviter.id = u.invited_by
+     LEFT JOIN settings access ON access.key = ? || u.id
      WHERE u.role = 'admin'
-     ORDER BY u.created_at ASC`,
+     ORDER BY u.created_at ASC`, args: [financialAccessKey] },
   );
   return res.rows as Row[];
 }

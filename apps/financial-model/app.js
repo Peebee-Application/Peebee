@@ -22,6 +22,17 @@
   const unsavedDialog = document.querySelector("#unsaved-dialog");
   const autosaveControls = document.querySelectorAll("[data-autosave]");
   const online = location.hostname === "financials.peebee.online";
+  const guestInvite = online ? new URLSearchParams(location.search).get("guest") : null;
+  const guestMode = guestInvite !== null;
+  for (const dialog of document.querySelectorAll("dialog:not(#live-dialog)")) {
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "dialog-x";
+    close.setAttribute("aria-label", "Close dialog");
+    close.textContent = "×";
+    close.addEventListener("click", () => dialog.close("cancel"));
+    dialog.prepend(close);
+  }
   let autosave = false;
   if (!online) {
     try { autosave = localStorage.getItem(autosaveKey) === "true"; } catch { /* This tab still supports the preference. */ }
@@ -61,7 +72,7 @@
   const reportLinks = reports.map(({ id, name }) => [id, name]);
   const navigation = [
     { id: "home", name: "Home", views: [["overview", "Dashboard"], ["analysis", "Analysis"]] },
-    { id: "model", name: "Model", views: [["assumptions", "Assumptions"], ["workbook-settings", "Forecast settings"]] },
+    ...(!guestMode ? [{ id: "model", name: "Model", views: [["assumptions", "Assumptions"], ["workbook-settings", "Forecast settings"]] }] : []),
     { id: "schedules", name: "Schedules", views: [["channel-revenue", "Revenue"], ...scheduleReports.map(({ id, name }) => [id, name]),
       ...reportLinks.filter(([id]) => id === "schedules")] },
     { id: "statements", name: "Statements", views: [...statementReports.map(({ id, name }) => [id, name]),
@@ -164,13 +175,13 @@
     }
   };
   const session = globalThis.SharedForecastSession;
-  if (!session && location.hostname === "financials.peebee.online") {
+  if (!session && online && !guestMode) {
     document.querySelector("#open-settings").hidden = true;
     app.innerHTML = '<p class="notice" role="alert">The Admin session could not load. Refresh the page to try again.</p>';
     return;
   }
   const localDraft = readLocal();
-  let { answers, step, screen, editing = false } = readDraft(session ? null : localDraft);
+  let { answers, step, screen, editing = false } = readDraft(session || guestMode ? null : localDraft);
   let revision = null;
   let savedAnswers;
   let queuedAnswers;
@@ -185,7 +196,7 @@
   const retrySave = document.querySelector("#retry-save");
   const reloadShared = document.querySelector("#reload-shared");
   const publishLocal = document.querySelector("#publish-local");
-  document.querySelector("#open-settings").hidden = !!session;
+  document.querySelector("#open-settings").hidden = online;
   if (screen === "report" && firstMissing(answers)) screen = "review";
   if (!["report", "wizard", "workbook-settings"].includes(screen)) screen = "review";
   let selectedCase = "Base";
@@ -196,6 +207,7 @@
   let detachCharts;
   let dashboardObserver;
   const save = () => {
+    if (guestMode) return false;
     if (session) {
       if (!sharedReady) return false;
       const value = JSON.stringify(answers);
@@ -343,6 +355,14 @@
   function renderLogin() {
     app.replaceChildren(document.querySelector("#financial-landing").content.cloneNode(true));
     const form = app.querySelector("#financial-login");
+    app.querySelector("#request-guest-access").addEventListener("click", () => accessRequestDialog.showModal());
+    if (guestMode) {
+      form.hidden = true;
+      app.querySelector(".landing-login > .muted").hidden = true;
+      app.querySelector("#financial-login-title").textContent = "Guest sign in";
+      mountGuestLogin();
+      return;
+    }
     form.addEventListener("submit", async event => {
       event.preventDefault();
       const button = form.querySelector("button");
@@ -363,6 +383,217 @@
       }
     });
   }
+
+  async function guestRequest(path, body) {
+    const response = await fetch(`/v1/forecast-guest/${path}`, body === undefined ? { cache: "no-store" } : {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), cache: "no-store",
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data) {
+      throw Object.assign(new Error(data?.message || "Guest access is temporarily unavailable. Try again."), { status: response.status });
+    }
+    return data;
+  }
+
+  let guestRevision = null;
+  let guestActive = false;
+  let checkingGuest = false;
+  let guestLeaving = false;
+  const guestExit = document.querySelector("#guest-sign-out");
+
+  function showGuestLanding(message) {
+    guestActive = false;
+    guestRevision = null;
+    guestExit.hidden = true;
+    primaryNav.replaceChildren();
+    secondaryNav.replaceChildren();
+    renderLogin();
+    if (message) app.querySelector("#guest-status").textContent = message;
+  }
+
+  async function loadGuest() {
+    if (checkingGuest || guestLeaving) return;
+    checkingGuest = true;
+    try {
+      const { draft } = await guestRequest(`draft?invite=${encodeURIComponent(guestInvite)}`);
+      if (guestLeaving || (guestActive && guestRevision === draft?.revision)) return;
+      const read = readDraft(draft);
+      if (!draft || firstMissing(read.answers)) {
+        showGuestLanding("There is no completed forecast to preview yet.");
+        return;
+      }
+      if (!guestActive) selectedReport = "overview";
+      guestActive = true;
+      guestRevision = draft.revision;
+      guestExit.hidden = false;
+      answers = read.answers;
+      screen = "report";
+      outcomes = null;
+      render();
+    } catch (error) {
+      if (guestLeaving) return;
+      if (!guestActive || error.status === 401) showGuestLanding(guestActive || error.status !== 401 ? error.message : "");
+    } finally {
+      checkingGuest = false;
+    }
+  }
+
+  guestExit.addEventListener("click", async () => {
+    guestLeaving = true;
+    showGuestLanding("Closing guest preview…");
+    try {
+      await guestRequest("logout", {});
+      location.replace("/");
+    } catch (error) {
+      guestLeaving = false;
+      showGuestLanding(error.message);
+    }
+  });
+
+  function mountGuestLogin() {
+    app.querySelector("#guest-entry").hidden = false;
+    const emailForm = app.querySelector("#guest-email-form");
+    const codeForm = app.querySelector("#guest-code-form");
+    const status = app.querySelector("#guest-status");
+    let email;
+    emailForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const button = emailForm.querySelector("button");
+      button.disabled = true;
+      status.textContent = "Requesting a passcode…";
+      try {
+        email = emailForm.elements.email.value.trim();
+        await guestRequest("code", { invite: guestInvite, email });
+        emailForm.hidden = true;
+        codeForm.hidden = false;
+        status.textContent = "If this email matches the invitation, a passcode will arrive by email.";
+        codeForm.elements.code.focus();
+      } catch (error) {
+        status.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+    codeForm.querySelector("#guest-reset-email").addEventListener("click", () => {
+      codeForm.reset();
+      codeForm.hidden = true;
+      emailForm.hidden = false;
+      status.textContent = "";
+      emailForm.elements.email.focus();
+    });
+    codeForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const button = codeForm.querySelector('button[type="submit"]');
+      button.disabled = true;
+      status.textContent = "Checking your passcode…";
+      try {
+        const { code, password } = Object.fromEntries(new FormData(codeForm));
+        await guestRequest("verify", { invite: guestInvite, email, code, password });
+        await loadGuest();
+      } catch (error) {
+        codeForm.elements.password.value = "";
+        status.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+
+  const accessRequestDialog = document.querySelector("#guest-access-request");
+  const accessRequestForm = accessRequestDialog.querySelector("form");
+  accessRequestDialog.addEventListener("close", () => {
+    accessRequestForm.reset();
+    accessRequestDialog.querySelector("#guest-request-status").textContent = "";
+  });
+  accessRequestForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = accessRequestForm.querySelector("button");
+    const status = accessRequestDialog.querySelector("#guest-request-status");
+    button.disabled = true;
+    status.textContent = "Sending request…";
+    try {
+      await guestRequest("request", Object.fromEntries(new FormData(accessRequestForm)));
+      accessRequestForm.reset();
+      status.textContent = "Request submitted. A Peebee Super Admin will review it.";
+    } catch (error) {
+      status.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  const invitesDialog = document.querySelector("#guest-invites");
+  const invitesForm = document.querySelector("#guest-invite-form");
+  const inviteStatus = document.querySelector("#guest-invite-status");
+  const inviteResult = document.querySelector("#guest-invite-result");
+  const inviteLink = document.querySelector("#guest-invite-link");
+  const invitePassword = document.querySelector("#guest-invite-password");
+  const expiryFormat = new Intl.DateTimeFormat("en-UG", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Kampala" });
+  [inviteLink, invitePassword].forEach(field => field.addEventListener("focus", () => field.select()));
+
+  async function refreshGuestInvites() {
+    const { invites } = await session.request("guestInvites");
+    const list = document.querySelector("#guest-invite-list");
+    list.innerHTML = invites.length ? `<h3>Saved invitations</h3>${invites.map(invite => `
+      <section class="guest-invite-item">
+        <strong>${escape(invite.email)}</strong>
+        <div class="muted">${invite.revokedAt ? "Revoked" : `Expires ${escape(expiryFormat.format(invite.expiresAt * 1000))}`}
+          ${invite.passwordRequired ? " · Password required" : ""}</div>
+        ${invite.revokedAt ? "" : `<label>Invitation link<input type="url" readonly value="${escape(invite.link)}"></label>
+          <button class="text-button" type="button" data-revoke-invite="${escape(invite.id)}">Revoke access</button>`}
+      </section>`).join("")}` : '<p class="muted">No active invitations.</p>';
+    list.querySelectorAll("input").forEach(field => field.addEventListener("focus", () => field.select()));
+  }
+
+  document.querySelector("#open-guest-invites").addEventListener("click", () => {
+    accountDialog.close();
+    inviteStatus.textContent = "";
+    invitesDialog.showModal();
+    void refreshGuestInvites().catch(error => { inviteStatus.textContent = error.message; });
+  });
+  invitesDialog.addEventListener("close", () => {
+    inviteResult.hidden = true;
+    inviteLink.value = "";
+    invitePassword.value = "";
+  });
+  invitesForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    const { email, days, passwordRequired } = Object.fromEntries(new FormData(invitesForm));
+    const button = invitesForm.querySelector("button");
+    button.disabled = true;
+    inviteStatus.textContent = "Creating invitation…";
+    try {
+      const result = await session.request("createGuestInvite", { email, days: Number(days), passwordRequired: !!passwordRequired });
+      if (invitesDialog.open) {
+        inviteLink.value = result.link;
+        invitePassword.value = result.password || "";
+        document.querySelector("#guest-invite-password-label").hidden = !result.password;
+        document.querySelector("#guest-invite-password-note").hidden = !result.password;
+        inviteResult.hidden = false;
+        inviteLink.focus();
+      }
+      inviteStatus.textContent = "Invitation created. Share the link with the invited guest.";
+      invitesForm.reset();
+      await refreshGuestInvites();
+    } catch (error) {
+      inviteStatus.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+  document.querySelector("#guest-invite-list").addEventListener("click", event => {
+    const button = event.target.closest("[data-revoke-invite]");
+    if (!button) return;
+    confirmAction("Revoke guest access?", "This closes the invitation and blocks further access to the saved forecast.", "Revoke access", async () => {
+      try {
+        await session.request("revokeGuestInvite", { id: button.dataset.revokeInvite });
+        await refreshGuestInvites();
+        inviteStatus.textContent = "Guest access revoked.";
+      } catch (error) {
+        inviteStatus.textContent = error.message;
+      }
+    });
+  });
 
   async function loadShared() {
     if (loadingShared) return;
@@ -391,6 +622,7 @@
       saveError = undefined;
       outcomes = null;
       sharedReady = true;
+      document.querySelector("#open-guest-invites").hidden = false;
       document.querySelector("#open-settings").hidden = false;
       publishLocal.hidden = !!draft || !localDraft?.answers;
       showSaveStatus(draft ? "Shared forecast" : "Shared forecast · Peebee defaults");
@@ -890,26 +1122,26 @@
         <span class="scope-toggle-icon" aria-hidden="true"></span><span class="scope-toggle-label">Forecast modules</span>
       </button></h2>
       <div id="scope-content" ${moduleSidebarOpen ? "" : "hidden"}>
-      <p class="muted">Choose which revenue to include in the shared forecast. Percentage-based direct costs follow revenue. Company-wide costs stay in the forecast.</p>
+      <p class="muted">${guestMode ? "Module selections in the saved forecast." : "Choose which revenue to include in the shared forecast. Percentage-based direct costs follow revenue. Company-wide costs stay in the forecast."}</p>
       <p class="scope-status" role="status">${escape(scopeMessage)}</p>
       <div class="forecast-modules">
-        <div class="forecast-module forecast-module-line">
+        ${guestMode ? "" : `<div class="forecast-module forecast-module-line">
           <strong>All modules</strong>
           ${toggle("scope-all", "All modules", enabled > 0 && enabled === modules.length, !modules.length,
             "data-scope-all", enabled > 0 && enabled < modules.length)}
-        </div>
+        </div>`}
         ${modules.map(({ channel, parts }) => {
         const on = included(channel);
         const count = parts.filter(part => part.entries.some(({ row }) => included(row))).length;
         const { key, name } = channel;
         return `<div class="forecast-module">
           <div class="forecast-module-line"><strong>${escape(name)}</strong>
-            ${toggle(`scope-module-${key}`, name, on, false, `data-scope-channel="${escape(key)}"`)}</div>
+            ${toggle(`scope-module-${key}`, name, on, guestMode, `data-scope-channel="${escape(key)}"`)}</div>
           ${parts.length ? `<details data-scope-details="${escape(key)}" ${expandedModules.has(key) ? "open" : ""}>
             <summary>${count} of ${parts.length} ${on ? "included" : "selected"}<span class="sr-only"> in ${escape(name)}</span></summary>
             <div class="forecast-module-parts">${parts.map(part => `<div class="forecast-module-line">
               <span>${escape(part.name)}</span>
-              ${toggle(`scope-part-${key}-${part.key}`, `${name} · ${part.name}`, part.entries.some(({ row }) => included(row)), !on,
+              ${toggle(`scope-part-${key}-${part.key}`, `${name} · ${part.name}`, part.entries.some(({ row }) => included(row)), guestMode || !on,
                 `data-scope-channel="${escape(key)}" data-scope-part="${escape(part.key)}"`)}
             </div>`).join("")}</div></details>` : ""}
         </div>`;
@@ -923,13 +1155,14 @@
     const toggle = panel.querySelector("#scope-toggle");
     const content = panel.querySelector("#scope-content");
     const allModules = panel.querySelector("#scope-all");
-    allModules.indeterminate = panel.querySelector("input[data-scope-channel]:not([data-scope-part]):checked") !== null && !allModules.checked;
+    if (allModules) allModules.indeterminate = panel.querySelector("input[data-scope-channel]:not([data-scope-part]):checked") !== null && !allModules.checked;
     toggle.addEventListener("click", () => {
       moduleSidebarOpen = !moduleSidebarOpen;
       toggle.setAttribute("aria-expanded", moduleSidebarOpen);
       toggle.title = moduleSidebarOpen ? "Hide forecast modules" : "Show forecast modules";
       content.hidden = !moduleSidebarOpen;
     });
+    if (guestMode) return;
     panel.addEventListener("change", event => {
       const input = event.target.closest("input[data-scope-channel], input[data-scope-all]");
       if (!input) return;
@@ -1043,6 +1276,10 @@
       outcomes ||= build(forecastAnswers);
     } catch (error) {
       if (!(error instanceof ForecastRangeError)) throw error;
+      if (guestMode) {
+        showGuestLanding("This forecast is currently unavailable for preview.");
+        return;
+      }
       screen = "review";
       save();
       renderReview(error.message);
@@ -1070,13 +1307,13 @@
     app.innerHTML = `<div class="report-head"><div><h1 id="report-title" tabindex="-1">${escape(answers.company)}</h1>
         <p class="muted">Consolidated financial forecast · ${escape(currencyOf(answers))} · ${model.months[0].period} to ${model.months.at(-1).period}</p></div>
         <div class="report-actions">${scenarioControl}
-          <div class="toolbar"><button type="button" id="review" class="button secondary">Edit assumptions</button>
-          <button type="button" id="download" class="button gold">Download model CSV <span aria-hidden="true">↓</span></button></div>
+          ${guestMode ? '<span class="muted">Read-only guest preview</span>' : `<div class="toolbar"><button type="button" id="review" class="button secondary">Edit assumptions</button>
+          <button type="button" id="download" class="button gold">Download model CSV <span aria-hidden="true">↓</span></button></div>`}
         </div></div>
       ${report || analysis ? `<div class="toolbar">${periodControl}
-        ${report ? '<button type="button" id="download-report" class="button secondary small">Download this view</button>' : ""}</div>` : ""}
+        ${report && !guestMode ? '<button type="button" id="download-report" class="button secondary small">Download this view</button>' : ""}</div>` : ""}
       ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? reportBody : overview(model)}`;
-    document.querySelector("#review").addEventListener("click", showReview);
+    document.querySelector("#review")?.addEventListener("click", showReview);
     if (analysis) bindAnalysis(analysis, currency);
     if (!analysis && !report) {
       bindModuleControls();
@@ -1092,7 +1329,7 @@
         dashboardObserver.observe(column, { box: "border-box" });
       });
     }
-    document.querySelector("#download").addEventListener("click", () => downloadAll(forecastReports, forecastAnswers));
+    document.querySelector("#download")?.addEventListener("click", () => downloadAll(forecastReports, forecastAnswers));
     document.querySelector("#download-report")?.addEventListener("click", () => {
       download([["Company", answers.company], ["Currency", currencyOf(answers)], ["Scenario", model.name], ...reportCsv(report, rows, forecastAnswers)],
         `${model.name.toLowerCase()}-${reportFrequency.toLowerCase()}-${report.id}`);
@@ -1121,7 +1358,9 @@
         render(id);
       });
     }
-    document.getElementById("analysis-download").addEventListener("click", () => {
+    const analysisDownload = document.getElementById("analysis-download");
+    analysisDownload.hidden = guestMode;
+    analysisDownload.addEventListener("click", () => {
       download([["Company", answers.company], ...exportRows(analysis, currency)],
         `analysis-${selectedCase.toLowerCase()}-${frequency.toLowerCase()}`);
     });
@@ -1379,6 +1618,10 @@
     return `Updated ${updated} fee lines. Volumes and other forecast inputs are preserved.`;
   } });
 
-  if (session) void loadShared();
+  if (guestMode) {
+    app.innerHTML = '<p role="status">Checking guest access…</p>';
+    void loadGuest();
+    window.setInterval(() => { if (guestActive) void loadGuest(); }, 30000);
+  } else if (session) void loadShared();
   else render();
 })();

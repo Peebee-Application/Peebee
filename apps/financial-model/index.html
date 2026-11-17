@@ -24,6 +24,7 @@
       <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span> Peebee Financial Model</div>
       <nav id="primary-nav" class="primary-nav" aria-label="Forecast sections"></nav>
       <button class="button secondary small" id="open-account" type="button" aria-haspopup="dialog" hidden>Account</button>
+      <button class="button secondary small" id="guest-sign-out" type="button" hidden>Exit preview</button>
       <button class="button secondary settings-icon" id="open-settings" type="button" aria-label="Settings" title="Settings" aria-haspopup="dialog">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="3"></circle>
@@ -69,6 +70,22 @@
           <button class="button gold" type="submit">Sign in</button>
           <p id="login-status" role="status"></p>
         </form>
+        <div id="guest-entry" hidden>
+          <p class="muted">Verify the email on your invitation to open a read-only forecast.</p>
+          <form id="guest-email-form" class="account-form" method="post">
+            <label>Guest email<input type="email" name="email" autocomplete="email" maxlength="160" required></label>
+            <button class="button gold" type="submit">Email me a passcode</button>
+          </form>
+          <form id="guest-code-form" class="account-form" method="post" hidden>
+            <label>Guest passcode<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+            <label>Temporary password (if required)<input type="password" name="password" autocomplete="current-password" maxlength="80"></label>
+            <button class="button gold" type="submit">Open guest preview</button>
+            <button class="text-button" id="guest-reset-email" type="button">Change email or resend passcode</button>
+          </form>
+          <p id="guest-status" role="status"></p>
+          <a class="text-button" href="/">Sign in as Admin</a>
+        </div>
+        <button class="text-button landing-access-request" id="request-guest-access" type="button" aria-haspopup="dialog">Request guest access</button>
       </section>
     </div>
   </template>
@@ -117,9 +134,37 @@
     </form>
     <p id="account-status" role="status"></p>
     <div class="dialog-actions">
+      <button class="button secondary" id="open-guest-invites" type="button" aria-haspopup="dialog" hidden>Guest invitations</button>
       <button class="button secondary" id="sign-out" type="button">Sign out</button>
       <form method="dialog"><button class="button secondary">Done</button></form>
     </div>
+  </dialog>
+  <dialog id="guest-invites" class="panel model-dialog" aria-labelledby="guest-invites-title">
+    <h2 id="guest-invites-title">Guest invitations</h2>
+    <p class="muted">Guests can view the saved forecast after verifying their invited email.</p>
+    <form id="guest-invite-form" class="account-form" method="post">
+      <label>Guest email<input name="email" type="email" maxlength="160" required></label>
+      <label>Link expires after (days)<input name="days" type="number" min="1" max="30" value="7" required></label>
+      <label class="guest-password-option"><input type="checkbox" name="passwordRequired"> Require a temporary password</label>
+      <button class="button gold" type="submit">Create invitation link</button>
+    </form>
+    <div class="account-form" id="guest-invite-result" hidden>
+      <label>Invitation link<input id="guest-invite-link" type="url" readonly></label>
+      <label id="guest-invite-password-label" hidden>Temporary password<input id="guest-invite-password" readonly></label>
+      <p class="muted" id="guest-invite-password-note" hidden>Share the temporary password separately. It is shown only here.</p>
+    </div>
+    <p id="guest-invite-status" role="status"></p>
+    <div class="stack" id="guest-invite-list"></div>
+  </dialog>
+  <dialog id="guest-access-request" class="panel model-dialog" aria-labelledby="guest-access-title">
+    <h2 id="guest-access-title">Request guest access</h2>
+    <p class="muted">A Peebee Super Admin will review your request.</p>
+    <form id="guest-access-form" class="account-form" method="post">
+      <label>Email<input name="email" type="email" autocomplete="email" maxlength="160" required></label>
+      <label>Reason for access (optional)<textarea name="note" maxlength="500" rows="3"></textarea></label>
+      <button class="button gold" type="submit">Send access request</button>
+    </form>
+    <p id="guest-request-status" role="status"></p>
   </dialog>
   <dialog id="confirm-action" class="panel model-dialog" role="alertdialog" aria-labelledby="confirm-action-title" aria-describedby="confirm-action-detail">
     <h2 id="confirm-action-title"></h2>

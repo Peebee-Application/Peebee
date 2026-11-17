@@ -13,6 +13,9 @@
     load: ["GET", "/v1/admin/financial-model/draft"],
     save: ["PUT", "/v1/admin/financial-model/draft"],
     activity: ["GET", "/v1/admin/financial-model"],
+    guestInvites: ["GET", "/v1/admin/financial-model/invites"],
+    createGuestInvite: ["POST", "/v1/admin/financial-model/invites"],
+    revokeGuestInvite: ["DELETE", "/v1/admin/financial-model/invites"],
   };
   if (window.parent === window) return;
   window.addEventListener("storage", event => {
@@ -37,7 +40,9 @@
           accountId !== JSON.parse(localStorage.getItem(userKey))?.id) {
         return reply(401, { message: "Your Admin account changed. Sign in again to continue." });
       }
-      const [method, path] = endpoints[action];
+      const [method, endpoint] = endpoints[action];
+      if (action === "revokeGuestInvite" && (typeof body?.id !== "string" || !/^[0-9a-f-]{36}$/i.test(body.id))) return reply(400);
+      const path = action === "revokeGuestInvite" ? `${endpoint}/${encodeURIComponent(body.id)}` : endpoint;
       const headers = {};
       if (token && action !== "login") headers.Authorization = `Bearer ${token}`;
       if (method !== "GET") headers["Content-Type"] = "application/json";
