@@ -11,6 +11,7 @@ const PAGE_WAIT_MS = 4000;
 // v13 drops HTML and RSC saved before the wallet CSS fix. v12 of the runtime
 // cache drops API reads from that same visit. Activate deletes every name
 // that is not in KEEP_CACHES.
+// Release marker: publishing this file ships peebee-pages-v13.
 const PAGE_CACHE = "peebee-pages-v13";
 const RUNTIME_CACHE = "peebee-runtime-v12";
 const KEEP_CACHES = [ASSET_CACHE, PAGE_CACHE, RUNTIME_CACHE];
