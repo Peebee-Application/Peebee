@@ -499,20 +499,47 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 .phase-status:empty { display: none; }
 
 
-.forecast-scope > h2 { margin-bottom: 6px; }
-.forecast-scope > .muted { margin: 0; font-size: .9rem; }
+.forecast-dashboard { display: grid; gap: 20px; align-items: start; }
+.forecast-overview { min-width: 0; }
+.forecast-overview .metric-amount { white-space: normal; overflow-wrap: anywhere; }
+.forecast-scope { padding: 12px; }
+.forecast-scope > h2 { margin: 0; }
+#scope-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 700;
+  text-align: start;
+}
+#scope-toggle:hover { background: rgb(var(--surface-muted)); }
+.scope-toggle-icon { display: grid; place-items: center; width: 18px; flex: none; }
+.scope-toggle-icon::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+#scope-toggle[aria-expanded="true"] .scope-toggle-icon::before { transform: rotate(225deg); }
+#scope-content > .muted { margin: 4px 8px 0; font-size: .85rem; }
 .scope-status { margin: 10px 0 0; font-size: .87rem; }
 .scope-status:empty { margin: 0; }
 .forecast-modules {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
-  gap: 12px;
-  align-items: start;
-  margin-top: 15px;
+  gap: 8px;
+  margin-top: 12px;
 }
 .forecast-module {
   min-width: 0;
-  padding: 12px 14px;
+  padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: rgb(var(--surface-muted));
@@ -526,3 +553,32 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 .forecast-switch .autosave-switch { margin: 0; }
 .forecast-switch input:disabled { cursor: default; }
 .forecast-switch:has(input:disabled) { opacity: .58; }
+
+@media (min-width: 901px) {
+  .forecast-dashboard { grid-template-columns: clamp(270px, 25vw, 310px) minmax(0, 1fr); }
+  .forecast-dashboard:has(> .forecast-scope #scope-toggle[aria-expanded="false"]) {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+  .forecast-scope {
+    position: sticky;
+    top: 20px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 40px);
+  }
+  #scope-content {
+    padding: 0 3px 4px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .forecast-scope:has(#scope-toggle[aria-expanded="false"]) { padding: 6px; }
+  #scope-toggle[aria-expanded="false"] { justify-content: center; }
+  #scope-toggle[aria-expanded="false"] .scope-toggle-label { display: none; }
+  #scope-toggle .scope-toggle-icon::before { transform: rotate(-45deg); }
+  #scope-toggle[aria-expanded="true"] .scope-toggle-icon::before { transform: rotate(135deg); }
+}
+@media (min-width: 901px) and (max-width: 1150px) {
+  .forecast-dashboard:has(#scope-toggle[aria-expanded="true"]) .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
