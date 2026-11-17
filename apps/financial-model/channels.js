@@ -5,6 +5,36 @@
   const channelRows = answers => (Array.isArray(answers.channels) ? answers.channels : [])
     .filter(row => typeof row?.key === "string" && /^[a-z0-9-]{1,64}$/.test(row.key));
 
+  const included = row => row?.enabled !== "no";
+  const ridesGroups = [
+    ["boda", "Boda"], ["car", "Car"], ["rideshare", "Rideshare"],
+    ["self-drive", "Self-drive"], ["rider-plans", "Rider plans"], ["other", "Other Rides revenue"],
+  ];
+  const ridesPresets = new Map([
+    ["Boda fare commission", "boda"], ["Car platform share", "car"],
+    ["Self-drive rental fees retained by Peebee", "self-drive"], ["Recurring rider access subscriptions", "rider-plans"],
+    ["Recurring Rider Pro subscriptions", "rider-plans"], ["One-time rider access and Pro fees", "rider-plans"],
+  ]);
+
+  function scopeMetadata(id, row) {
+    const flags = row.enabled === "no" ? { enabled: "no" } : {};
+    if (id !== "channel-rides") return flags;
+    if (ridesGroups.some(([key]) => key === row.forecastGroup)) return { ...flags, forecastGroup: row.forecastGroup };
+    const group = ridesPresets.get(row.name) || (/ride[ -]?share|car[ -]?pool/i.test(row.name || "") ? "rideshare" : "other");
+    return { ...flags, forecastGroup: group };
+  }
+
+  function forecastModules(answers) {
+    return channelRows(answers).map(channel => {
+      const streams = answers[channelKey(channel)] || [];
+      const parts = channel.key === "rides" ? ridesGroups.flatMap(([key, name]) => {
+        const entries = streams.flatMap((row, index) => scopeMetadata("channel-rides", row).forecastGroup === key ? [{ row, index }] : []);
+        return entries.length || key === "rideshare" ? [{ key, name, entries }] : [];
+      }) : streams.map((row, index) => ({ key: String(index), name: row.name || `Revenue stream ${index + 1}`, entries: [{ row, index }] }));
+      return { channel, parts };
+    });
+  }
+
   function questionsFor(questions, answers) {
     return questions.flatMap(prompt => prompt.id !== "streams" ? [prompt] : [
       { ...channels, presets: [...defaults.values()].map(channel => channel.name) },
@@ -16,6 +46,7 @@
           presets: defaults.get(row.key)?.streams.map(stream => stream.name) || channelStreams.presets,
           presetRows: defaults.get(row.key)?.streams,
           id: channelKey(row),
+          channelId: row.key,
           label: `Revenue streams for ${name}`,
           title: name,
           subtitle: "Revenue streams",
@@ -29,9 +60,9 @@
     const streams = [];
     const lines = [];
     const groups = [];
-    for (const channel of channelRows(answers)) {
+    for (const channel of channelRows(answers).filter(included)) {
       const sources = [];
-      for (const stream of answers[channelKey(channel)] || []) {
+      for (const stream of (answers[channelKey(channel)] || []).filter(included)) {
         const index = streams.length;
         streams.push({ ...stream, name: `${channel.name} · ${stream.name}` });
         sources.push({ name: stream.name, index });
@@ -48,5 +79,5 @@
     };
   }
 
-  globalThis.FinancialChannels = { questionsFor, consolidate };
+  globalThis.FinancialChannels = { questionsFor, consolidate, included, scopeMetadata, forecastModules };
 })();

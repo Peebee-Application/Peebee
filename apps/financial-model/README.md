@@ -29,6 +29,10 @@ In **Settings → Live Admin data**, use your existing Admin session to retrieve
 
 Cloudflare serves the site on the Peebee API Worker under the financials domain. The live endpoint uses Admin authorization and returns aggregate live data. The normal API deployment includes changes to the financial model assets.
 
+## Forecast modules
+
+Use **Home → Dashboard → Forecast modules** to include or exclude whole revenue channels and their parts. An excluded channel keeps its individual selections and saved assumptions. Rides groups Boda, Car, Rideshare, self-drive and rider plans. Enabling Rideshare without an existing revenue line creates an editable zero-value assumption. The switches apply to forecast revenue and to costs calculated as a percentage of revenue. Company-wide costs remain part of the forecast.
+
 ## Technology costs
 
 In **Model → Assumptions → Costs → Operating expenses**, select **Add discovered technology costs** for an existing forecast. New forecasts include the same lines. The list covers Cloudflare hosting, D1, R2, Stream, Realtime and Workers AI, plus the other video providers, Gemini, email, SMS, WhatsApp, maps, domains, and GitHub builds. Each card identifies the billing unit and links to vendor pricing where available. Integration support does not confirm an active paid plan. Public rates were checked on November 17, 2026. Starting usage and invoice amounts are left at zero until supplied. Use a **Monthly bill** for known invoices and **Base bill + metered usage** for variable charges. Set an exchange rate on each USD meter that has projected paid usage.

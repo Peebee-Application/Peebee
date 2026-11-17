@@ -491,3 +491,32 @@ tr.detail > th { padding-left: 22px; font-weight: 450; }
 .next-phase { margin-inline-end: 12px; }
 
 .phase-status:empty { display: none; }
+
+
+.forecast-scope > h2 { margin-bottom: 6px; }
+.forecast-scope > .muted { margin: 0; font-size: .9rem; }
+.scope-status { margin: 10px 0 0; font-size: .87rem; }
+.scope-status:empty { margin: 0; }
+.forecast-modules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 12px;
+  align-items: start;
+  margin-top: 15px;
+}
+.forecast-module {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgb(var(--surface-muted));
+}
+.forecast-module-line { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 36px; }
+.forecast-module-line > :first-child { overflow-wrap: anywhere; }
+.forecast-module summary { cursor: pointer; margin-top: 5px; color: var(--quiet); font-size: .83rem; }
+.forecast-module-parts { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 5px; font-size: .86rem; }
+.forecast-switch { display: flex; align-items: center; gap: 7px; flex: none; }
+.forecast-switch-state { color: var(--quiet); font-size: .77rem; }
+.forecast-switch .autosave-switch { margin: 0; }
+.forecast-switch input:disabled { cursor: default; }
+.forecast-switch:has(input:disabled) { opacity: .58; }

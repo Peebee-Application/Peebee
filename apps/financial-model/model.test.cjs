@@ -410,3 +410,20 @@ test("technology expenses apply monthly growth, billed usage and later phases wi
   assert.match(errorFor(prompt, input.expenses.map((row, i) => i === 2 ? { ...row, fx: "" } : row), input), /exchange rate/);
   assert.match(errorFor(prompt, input.expenses.map((row, i) => i === 2 ? { ...row, endMonth: "1" } : row), input), /Last expense month/);
 });
+
+test("forecast scope excludes selected channels and streams without removing assumptions", () => {
+  const { consolidate, forecastModules } = globalThis.FinancialChannels;
+  const input = { ...forecastFixture, channels: [
+    { key: "rides", name: "Peebee Rides" }, { key: "buy", name: "Peebee Buy", enabled: "no" },
+  ], "channel-rides": [
+    { name: "Renamed Boda service", forecastGroup: "boda", method: "direct", amount: "120", growth: "0", days: "0", enabled: "no" },
+    { name: "Car platform share", method: "direct", amount: "300", growth: "0", days: "0" },
+  ], "channel-buy": [{ name: "Marketplace sales", method: "direct", amount: "900", growth: "0", days: "0" }] };
+  const { answers, groups } = consolidate(input);
+  assert.deepEqual(groups.map(group => group.key), ["rides"]);
+  assert.equal(build(answers)[1].months[0].revenue, 300);
+  assert.deepEqual(forecastModules(input)[0].parts.map(part => [part.key, part.entries.length]),
+    [["boda", 1], ["car", 1], ["rideshare", 0]]);
+  assert.equal(input["channel-rides"][0].amount, "120");
+  assert.equal(input["channel-buy"][0].amount, "900");
+});
