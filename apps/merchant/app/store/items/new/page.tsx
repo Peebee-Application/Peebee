@@ -665,10 +665,18 @@ export default function NewItemWizard() {
               <p className={`${label} pt-2`}><Building2 className="h-4 w-4" /> Outlets</p>
               {elite ? (
                 outlets.length ? outlets.map((o) => (
-                  <div key={o.id} className="flex min-h-[76px] items-center gap-3 rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4">
-                    <span className="min-w-0 flex-1 truncate text-base font-bold text-ink">{o.name}</span>
-                    {o.on && <Stepper2 value={o.qty} onChange={(qty) => setOutlets((l) => l.map((x) => (x.id === o.id ? { ...x, qty } : x)))} />}
-                    <Toggle on={o.on} onChange={(on) => setOutlets((l) => l.map((x) => (x.id === o.id ? { ...x, on } : x)))} label={`Sell at ${o.name}`} />
+                  <div key={o.id} className="space-y-3 rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4">
+                    <div className="flex min-h-11 items-center gap-3">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold"><Building2 className="h-6 w-6" /></span>
+                      <span className="min-w-0 flex-1 break-words text-base font-bold text-ink">{o.name}</span>
+                      <Toggle on={o.on} onChange={(on) => setOutlets((l) => l.map((x) => (x.id === o.id ? { ...x, on } : x)))} label={`Sell at ${o.name}`} />
+                    </div>
+                    {o.on && (
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="flex items-center gap-1.5 text-sm font-bold text-ink-500"><PackageOpen className="h-4 w-4" /> Stock</span>
+                        <Stepper2 value={o.qty} onChange={(qty) => setOutlets((l) => l.map((x) => (x.id === o.id ? { ...x, qty } : x)))} />
+                      </div>
+                    )}
                   </div>
                 )) : <p className="rounded-3xl bg-[rgb(var(--surface-muted))] p-4 text-sm font-bold text-ink-500">No outlets yet.</p>
               ) : (

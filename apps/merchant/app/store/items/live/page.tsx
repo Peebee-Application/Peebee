@@ -67,7 +67,7 @@ export default function LiveInBuy() {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={s.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
         ) : <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[rgb(var(--surface-muted))] text-ink-500">{s.type === "service" ? <CalendarCheck className="h-6 w-6" /> : <Package className="h-6 w-6" />}</span>}
-        <span className="min-w-0 flex-1"><span className="block truncate text-lg font-bold text-ink">{s.title}</span><span className="text-base font-black text-gold">{ugx(s.price)}</span></span>
+        <span className="min-w-0 flex-1"><span className="line-clamp-2 break-words text-lg font-bold leading-snug text-ink">{s.title}</span><span className="text-base font-black text-gold">{ugx(s.price)}</span></span>
         <ExternalLink className="h-6 w-6 text-ink-500" />
       </a>
 
@@ -78,7 +78,7 @@ export default function LiveInBuy() {
       </div>
 
       <BottomBar aboveNav>
-        <GhostButton onClick={() => window.open(url, "_blank", "noopener")}><Eye className="h-5 w-5" /> View</GhostButton>
+        <GhostButton square label="View" onClick={() => window.open(url, "_blank", "noopener")}><Eye className="h-6 w-6" /></GhostButton>
         <PrimaryButton testId="add-another" onClick={() => { sessionStorage.removeItem("peebee_last_item"); router.push("/store/items/new"); }}><Plus className="h-5 w-5" /> Add another</PrimaryButton>
       </BottomBar>
     </div>
