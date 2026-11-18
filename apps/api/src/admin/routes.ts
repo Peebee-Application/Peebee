@@ -20,7 +20,7 @@ import {
 } from "./permissions.js";
 import { draftInput, getFinancialDraft, saveFinancialDraft } from "./financial-draft.js";
 import { getFinancialPreferences, preferencesPatch, saveFinancialPreferences } from "./financial-preferences.js";
-import { financialModelPermissions, financialModelSnapshot } from "./financial-model.js";
+import { financialModelDefaults, financialModelPermissions, financialModelSnapshot } from "./financial-model.js";
 import { financialInviteRoutes, financialRequestRoutes } from "./financial-guests.js";
 import { countSuperAdmins, inviteStaff, listStaff, resetStaffPassword } from "./staff.js";
 import { clientIp } from "../lib/ratelimit.js";
@@ -48,7 +48,11 @@ adminRoutes.get("/admin/financial-model", ...financialModelPermissions, async (c
 
 adminRoutes.get("/admin/financial-model/draft", ...financialModelPermissions, async (c) => {
   c.header("Cache-Control", "private, no-store");
-  return c.json({ draft: await getFinancialDraft() });
+  const [draft, defaults] = await Promise.all([getFinancialDraft(), financialModelDefaults().catch(error => {
+    console.error("Financial model defaults unavailable", error);
+    return null;
+  })]);
+  return c.json({ draft, defaults });
 });
 
 adminRoutes.put("/admin/financial-model/draft", ...financialModelPermissions, bodyLimit({ maxSize: 128_000 }), async (c) => {

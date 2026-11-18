@@ -12,6 +12,7 @@ import { generateCode, generateLinkToken, hashCode } from "../verify/otp.js";
 import { logActivity } from "./activity.js";
 import { requireFinancialAccess } from "./financial-access.js";
 import { getFinancialDraft } from "./financial-draft.js";
+import { withFinancialDefaults } from "./financial-model.js";
 import { requireSuperAdmin } from "./permissions.js";
 
 const cookie = "__Host-peebee-financial-guest";
@@ -226,7 +227,8 @@ financialGuestRoutes.get("/draft", guestStorage("financial_guest_invites"), asyn
   const draft = await getFinancialDraft();
   if (!draft) return c.json({ draft: null });
   const { actuals: _actuals, ...answers } = draft.answers;
-  return c.json({ draft: { ...draft, answers } });
+  const resolved = await withFinancialDefaults(answers).catch(() => answers);
+  return c.json({ draft: { ...draft, answers: resolved } });
 });
 
 financialGuestRoutes.post("/logout", guestStorage("financial_guest_invites"), async c => {

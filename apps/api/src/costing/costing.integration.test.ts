@@ -380,7 +380,13 @@ test("shared forecast requires finance permissions and rejects stale writes", as
   assert.equal((await request("cust", "GET", path)).status, 403);
   assert.equal((await request("admin", "PUT", path, { revision: null, answers: { company: [] } })).status, 400);
   const empty = await request("admin", "GET", path);
-  assert.deepEqual(empty.body, { draft: null });
+  assert.equal(empty.body.draft, null);
+  assert.equal(empty.body.defaults.currency, "UGX");
+  await setSetting("monetization_delivery_commission_enabled", "1");
+  await setSetting("monetization_delivery_commission_parcel_percent", "12");
+  const synced = await request("admin", "GET", path);
+  assert.equal(synced.body.draft, null);
+  assert.equal(synced.body.defaults.rates.find((row: { name: string }) => row.name === "Parcel delivery commission").value, 12);
   const first = await request("admin", "PUT", path, { revision: null, answers });
   assert.equal(first.status, 200);
   const revision = first.body.draft.revision;
@@ -432,7 +438,11 @@ test("Financials guest invitations verify email ownership and restrict forecast 
   const finance = "/admin/financial-model";
   const permission = "/admin/staff/rider/financial-access";
   const answers = { company: "Peebee", tax: "30" };
-  const historicalDraft = { ...answers, actuals: [{ name: "January", period: "2026-01", revenue: "100" }] };
+  await setSetting("monetization_delivery_commission_enabled", "1");
+  await setSetting("monetization_delivery_commission_parcel_percent", "12");
+  const inheritedRow = { name: "Parcel delivery commission", method: "orders", rate: "8", adminFee: "follow" };
+  const forecastAnswers = { ...answers, "channel-concierge": [inheritedRow] };
+  const historicalDraft = { ...forecastAnswers, actuals: [{ name: "January", period: "2026-01", revenue: "100" }] };
   const sent: Array<{ email: string; code: string }> = [];
   setEmailSenderForTests(async (email, _subject, message) => {
     sent.push({ email, code: message.match(/\b\d{6}\b/)?.[0] ?? "" });
@@ -473,7 +483,11 @@ test("Financials guest invitations verify email ownership and restrict forecast 
     const cookie = cookieHeader.split(";")[0];
     const forecast = await publicRequest(draftPath, undefined, cookie);
     assert.equal(forecast.status, 200);
-    assert.deepEqual((await forecast.json()).draft.answers, answers);
+    const guestForecast = await forecast.json();
+    assert.equal(guestForecast.defaults, undefined);
+    assert.deepEqual(guestForecast.draft.answers, {
+      ...forecastAnswers, "channel-concierge": [{ ...inheritedRow, rate: "12" }],
+    });
     assert.equal((await app.request("/v1" + finance + "/draft", { method: "PUT", headers: { Cookie: cookie } })).status, 401);
     assert.equal((await request("staff", "DELETE", finance + "/invites/" + invite)).status, 200);
     assert.equal((await publicRequest(draftPath, undefined, cookie)).status, 401);

@@ -1,18 +1,48 @@
 (() => {
+  const followField = field => field === "vatRate" ? "adminVat" : "adminFee";
+
+  function rateField(row, rate, currency) {
+    if (!rate || rate.referenceOnly || !Number.isFinite(rate.value) || rate.value < 0) return null;
+    if (["orders", "percentage"].includes(row.method) && rate.kind === "percent" && rate.value <= 100) return "rate";
+    if (currency === "UGX" && ((row.method === "units" && rate.kind === "flat") ||
+        (row.method === "subscription" && rate.kind === "monthly"))) return "price";
+    return null;
+  }
+
+  function settingsIndex(snapshot) {
+    return new Map((snapshot?.rates || []).filter(rate => !rate.referenceOnly).map(rate => [JSON.stringify([rate.channel, rate.name]), rate]));
+  }
+
+  function settingFor(index, channel, row) {
+    return index.get(JSON.stringify([channel, row.adminSource || row.name]));
+  }
+
+  function defaultValues(row, rate, currency) {
+    const result = {};
+    const field = rateField(row, rate, currency);
+    if (field) result[field] = String(Number(rate.value.toFixed(4)));
+    if (!rate?.referenceOnly && Number.isFinite(rate?.vatRate) && rate.vatRate >= 0 && rate.vatRate <= 100) result.vatRate = String(rate.vatRate);
+    return result;
+  }
+
+  function effectiveRow(row, rate, currency) {
+    const defaults = defaultValues(row, rate, currency);
+    const inherited = Object.fromEntries(Object.entries(defaults).filter(([field]) => row[followField(field)] === "follow"));
+    return { ...row, ...inherited };
+  }
+
   function applyRates(answers, rates) {
-    const byLine = new Map(rates.map(rate => [JSON.stringify([rate.channel, rate.name]), rate]));
+    const byLine = settingsIndex({ rates });
     let updated = 0;
     for (const channel of answers.channels || []) {
       for (const line of answers[`channel-${channel.key}`] || []) {
-        const setting = byLine.get(JSON.stringify([channel.key, line.name]));
-        if (!setting || !Number.isFinite(setting.value) || setting.value < 0) continue;
-        const percentage = line.method === "orders" || line.method === "percentage";
-        const field = percentage && setting.kind === "percent" && setting.value <= 100 ? "rate"
-          : (line.method === "units" && setting.kind === "flat") || (line.method === "subscription" && setting.kind === "monthly") ? "price" : null;
+        const setting = settingFor(byLine, channel.key, line);
+        const field = rateField(line, setting, "UGX");
         if (!field) continue;
         const value = String(Number(setting.value.toFixed(4)));
         if (line[field] === value) continue;
         line[field] = value;
+        line.adminFee = "override";
         updated++;
       }
     }
@@ -94,5 +124,5 @@
     }));
   }
 
-  globalThis.FinancialLive = { mount, applyRates };
+  globalThis.FinancialLive = { mount, applyRates, settingsIndex, settingFor, defaultValues, effectiveRow, followField };
 })();
