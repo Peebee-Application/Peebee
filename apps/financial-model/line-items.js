@@ -201,5 +201,5 @@
   }
 
   const scopedCostGroups = new Set(["directCosts", "staff", "expenses", "ownedAssets", "investments"]);
-  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft, scopedCostGroups, expenseGroups, expenseDefaults, acquisition };
+  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft, scopedCostGroups, expenseGroups, expenseDefaults, acquisition, staffDepartments };
 })();

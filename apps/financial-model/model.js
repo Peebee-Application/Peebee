@@ -1,5 +1,5 @@
 (() => {
-  const { upgradeDraft, byId, expenseGroups, acquisition } = globalThis.FinancialLineItems;
+  const { upgradeDraft, byId, expenseGroups, acquisition, staffDepartments } = globalThis.FinancialLineItems;
   const halfCent = 0.005;
   const maxPreciseAmount = Number.MAX_SAFE_INTEGER / 100;
 
@@ -18,7 +18,7 @@
   const sum = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
   const total = rows => sum(rows, "amount");
   const numericLine = row => Object.fromEntries(Object.entries(row).map(([key, value]) =>
-    [key, ["name", "method", "basis", "priceCurrency", "cadence", "roleType", "salaryBasis", "category", "orderForecast", "revenueStreamIndexes"].includes(key) ? value : Number(value || 0)]));
+    [key, ["name", "method", "basis", "priceCurrency", "cadence", "roleType", "department", "salaryBasis", "category", "orderForecast", "revenueStreamIndexes"].includes(key) ? value : Number(value || 0)]));
   const amounts = answers => Object.fromEntries(Object.keys(byId).map(id => [id, (answers[id] || []).map(numericLine)]));
   const numeric = (row, key) => row[key] || 0;
   const stockAfter = (opening, cogs, days) => Math.max(opening - cogs, cogs * days / 30);
@@ -204,7 +204,7 @@
         return { ...result, vat, grossPurchases, ap };
       });
       const cogs = sum(directCosts, "cogs");
-      const staff = current("staff", line => staffExpense(line, month));
+      const staff = current("staff", line => ({ ...staffExpense(line, month), department: line.department }));
       const expenses = current("expenses", line => {
         const result = operatingExpense(line, month);
         return { ...result, category: line.category, vat: vatOn(result.amount, line) };
@@ -406,10 +406,16 @@
       ["SG&A as a share of revenue", row => row.revenue ? (row.payroll + row.overhead) / row.revenue : null, "rate"],
     ] },
     { id: "staff-schedule", name: "SG&A > Staff", note: "Payroll follows each role’s hiring plan, pay dates, annual raises and employer costs. Annual headcount shows the last forecast month of the year.", lines: [
-      detail("staff", "headcount", "Closing headcount", "count"), ["Total closing headcount", row => sum(row.details.staff, "headcount"), "footer"],
+      detail("staff", "headcount", "Closing headcount", "count"),
+      ...staffDepartments.map(([department]) => [department + " · Closing headcount",
+        row => sum(row.details.staff.filter(role => role.department === department), "headcount"), "count"]),
+      ["Total closing headcount", "headcount", "footer"],
       ["Net headcount additions", "headcountAdded", "count"],
       detail("staff", "wages", "Wages"), detail("staff", "benefits", "Payroll taxes and benefits"),
-      detail("staff", "amount", "Total cost by role"), ["Total staff and payroll", "payroll", "footer"],
+      detail("staff", "amount", "Total cost by role"),
+      ...staffDepartments.map(([department]) => [department + " · Payroll",
+        row => total(row.details.staff.filter(role => role.department === department)), "total"]),
+      ["Total staff and payroll", "payroll", "footer"],
     ] },
     { id: "working-capex", name: "WK + CAPEX", note: "Working capital adds receivables and inventory and subtracts payables. Fixed assets roll forward from opening book value plus purchases less straight-line depreciation.", lines: [
       detail("streams", "ar", "Forecast receivable"), detail("receivables", "amount", "Outstanding opening receivable"),
