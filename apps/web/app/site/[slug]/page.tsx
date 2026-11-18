@@ -14,7 +14,7 @@ async function loadStore(slug: string): Promise<{ initial: StorefrontInitial | n
     if (body?.store?.web_store_enabled === 0 || body?.store?.web_store_enabled === false) return { initial: null, gone: true };
     // Merchant-rendered pages follow the admin's rendering option; the client path still works without it.
     if (body?.storefront?.renderMode === "client_only") return { initial: null, gone: false };
-    const productsRes = await fetch(`${API_BASE}/v1/marketplace/stores/${encodeURIComponent(slug)}/products`, { next: { revalidate: 60 } }).catch(() => null);
+    const productsRes = await fetch(`${API_BASE}/v1/marketplace/stores/${encodeURIComponent(slug)}/products?channel=web`, { next: { revalidate: 60 } }).catch(() => null);
     const products = productsRes?.ok ? ((await productsRes.json()).products ?? []) : [];
     return {
       gone: false,

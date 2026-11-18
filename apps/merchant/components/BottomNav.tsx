@@ -23,6 +23,8 @@ export function BottomNav() {
   const moduleOn = useModules();
 
   if (pathname === "/login" || pathname === "/apply" || pathname === "/activate") return null;
+  // Step-by-step flows use the whole screen; their own bar sits at the bottom.
+  if (pathname.startsWith("/store/plans/checkout") || pathname.startsWith("/store/items/new")) return null;
 
   const visibleTabs =
     filterByModule(merchant?.member_role === "cashier" ? tabs.filter((tab) => tab.href !== "/wallet") : tabs, moduleOn);

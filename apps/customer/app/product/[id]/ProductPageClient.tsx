@@ -10,12 +10,14 @@ import {
   ChevronRight,
   Heart,
   Minus,
+  Play,
   Plus,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
   Store,
   Truck,
+  Zap,
 } from "lucide-react";
 import { api, errorMessage } from "../../../lib/api";
 import { ProductImage } from "../../../components/ProductImage";
@@ -49,6 +51,10 @@ interface ProductData {
   compare_at_price?: number | null;
   badge?: string | null;
   image_url?: string | null;
+  /** The full photo gallery from the add-item wizard; the first one is image_url. */
+  images?: string[];
+  video_url?: string | null;
+  delivery?: { delivery?: boolean; pickup?: boolean; sameDay?: boolean; readyInDays?: number; returnsDays?: number } | null;
   category_name?: string | null;
   inventory_quantity?: number;
   has_variants?: number | boolean;
@@ -85,6 +91,7 @@ export function ProductPageClient() {
   const [addedToast, setAddedToast] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
 
   const { totalQuantity } = useCart();
 
@@ -134,6 +141,10 @@ export function ProductPageClient() {
   }, [productId]);
 
   const activePrice = selectedVariant ? selectedVariant.price : (product?.price ?? 0);
+  const media: { kind: "image" | "video"; src: string }[] = [
+    ...(product?.images?.length ? product.images : product?.image_url ? [product.image_url] : []).map((src) => ({ kind: "image" as const, src })),
+    ...(product?.video_url ? [{ kind: "video" as const, src: product.video_url }] : []),
+  ];
   const activeCompareAt = selectedVariant
     ? selectedVariant.compare_at_price
     : product?.compare_at_price;
@@ -210,13 +221,24 @@ export function ProductPageClient() {
         ========================================================================= */}
         <div className="px-4 pt-4">
         <div data-product-hero="" className="relative w-full aspect-[4/5] sm:aspect-[1/1] overflow-hidden rounded-[32px] bg-[rgb(var(--surface-muted))] shadow-[var(--shadow-card-hover)]" data-reel-vt={reelArmedFor(product.id) ? "" : undefined}>
-          <ProductImage
-            src={selectedVariant?.image_url || product.image_url}
-            alt={product.title}
-            category={product.category_name || undefined}
-            priority
-            className="w-full h-full object-cover"
-          />
+          {media[photoIndex]?.kind === "video" ? (
+            <video src={media[photoIndex].src} className="w-full h-full object-cover" controls playsInline autoPlay muted />
+          ) : (
+            <ProductImage
+              src={photoIndex === 0 ? selectedVariant?.image_url || media[0]?.src || product.image_url : media[photoIndex]?.src}
+              alt={product.title}
+              category={product.category_name || undefined}
+              priority
+              className="w-full h-full object-cover"
+            />
+          )}
+          {media.length > 1 && (
+            <div className="absolute bottom-4 inset-x-0 flex justify-center gap-1.5 z-10" aria-hidden="true">
+              {media.map((m, i) => (
+                <span key={m.src} className={`h-1.5 rounded-full transition-all ${i === photoIndex ? "w-5 bg-gold" : "w-1.5 bg-white/70"}`} />
+              ))}
+            </div>
+          )}
 
           {/* Floating Top Nav (Back Button & Favorite Button) */}
           <div className="buy-rise absolute top-4 inset-x-4 flex items-center justify-between z-20">
@@ -272,6 +294,26 @@ export function ProductPageClient() {
           </div>
 
         </div>
+        {media.length > 1 && (
+          <div data-product-gallery="" className="flex gap-2 overflow-x-auto pt-3 pb-1 [scrollbar-width:none]">
+            {media.map((m, i) => (
+              <button
+                key={m.src}
+                type="button"
+                onClick={() => setPhotoIndex(i)}
+                aria-label={m.kind === "video" ? "Play video" : `Photo ${i + 1}`}
+                aria-pressed={i === photoIndex}
+                className={`relative shrink-0 w-16 h-16 rounded-2xl overflow-hidden border-2 bg-[rgb(var(--surface-muted))] ${i === photoIndex ? "border-gold" : "border-transparent"}`}
+              >
+                {m.kind === "video" ? (
+                  <span className="absolute inset-0 flex items-center justify-center text-ink"><Play className="w-6 h-6" /></span>
+                ) : (
+                  <ProductImage src={m.src} alt="" className="w-full h-full object-cover" />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
         </div>
 
         {/* =========================================================================
@@ -348,6 +390,36 @@ export function ProductPageClient() {
                 >
                   {showFullDesc ? "Show less" : "Read more"}
                 </button>
+              )}
+            </div>
+          )}
+
+          {product.delivery && (
+            <div data-product-delivery="" className="flex flex-wrap gap-2">
+              {product.delivery.delivery !== false && (
+                <span className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-[rgb(var(--surface-muted))] text-xs font-semibold text-ink">
+                  <Truck className="w-4 h-4 text-gold" /> Delivery
+                </span>
+              )}
+              {product.delivery.pickup !== false && (
+                <span className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-[rgb(var(--surface-muted))] text-xs font-semibold text-ink">
+                  <Store className="w-4 h-4 text-gold" /> Pickup
+                </span>
+              )}
+              {product.delivery.sameDay && (
+                <span className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-[rgb(var(--surface-muted))] text-xs font-semibold text-ink">
+                  <Zap className="w-4 h-4 text-gold" /> Same day
+                </span>
+              )}
+              {!product.delivery.sameDay && (product.delivery.readyInDays ?? 0) > 0 && (
+                <span className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-[rgb(var(--surface-muted))] text-xs font-semibold text-ink">
+                  Ready in {product.delivery.readyInDays} {product.delivery.readyInDays === 1 ? "day" : "days"}
+                </span>
+              )}
+              {(product.delivery.returnsDays ?? 0) > 0 && (
+                <span className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-[rgb(var(--surface-muted))] text-xs font-semibold text-ink">
+                  <ShieldCheck className="w-4 h-4 text-gold" /> {product.delivery.returnsDays}-day returns
+                </span>
               )}
             </div>
           )}

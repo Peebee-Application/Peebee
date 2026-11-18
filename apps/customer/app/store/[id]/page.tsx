@@ -11,6 +11,7 @@ import { ProductImage } from "../../../components/ProductImage";
 import { addToCart } from "../../../lib/cart";
 import { CartDrawer, CartDrawerTrigger } from "../../../components/CartDrawer";
 import { DigitalShelf } from "../../../components/marketplace/DigitalShelf";
+import { ServiceShelf, type ServiceItem } from "../../../components/marketplace/ServiceShelf";
 import { useCustomerLocation, formatDistanceKm, haversineKm } from "../../../lib/location";
 
 interface StoreDetail {
@@ -72,6 +73,7 @@ export default function StoreDetailPage() {
   const [store, setStore] = useState<StoreDetail | null>(null);
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [digitalItems, setDigitalItems] = useState<any[]>([]);
+  const [serviceItems, setServiceItems] = useState<ServiceItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   // "All", "Deals" (badged or discounted items) or one of the store's categories.
   const [activeChip, setActiveChip] = useState<string>("All");
@@ -112,6 +114,7 @@ export default function StoreDetailPage() {
           }
           setStore(loadedStore);
           setDigitalItems((storeRes as { digitalProducts?: any[] }).digitalProducts ?? []);
+          setServiceItems((storeRes as { services?: ServiceItem[] }).services ?? []);
         } else {
           setError("Store not found");
         }
@@ -395,6 +398,7 @@ export default function StoreDetailPage() {
       </section>
 
       <DigitalShelf items={digitalItems} />
+      <ServiceShelf items={serviceItems} />
 
       {/* Slide-in Shopping Cart Drawer */}
       <CartDrawer

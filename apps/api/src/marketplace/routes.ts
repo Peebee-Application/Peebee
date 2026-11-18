@@ -1,6 +1,6 @@
 import { primeDemoAccounts, ridersForThisWorld } from "../practice/people.js";
 import { isModuleLive, liveModules } from "../lib/modules.js";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { db, executeBatch, requireChangedRow, type DbStatement } from "../db/client.js";
@@ -29,6 +29,9 @@ import { recordLoyaltyForOrder, settleLoyalty } from "./loyalty.js";
 import { sendStoreSms } from "./sms.js";
 import { createStoreForMerchant } from "./store-create.js";
 import { eliteOnly, planLimits, storePlan } from "./plans.js";
+import { PLAN_LABEL, PLAN_RANK, applyPlanPurchase, periodDays, planPrice } from "./plan-purchase.js";
+import { planCheckoutRoutes } from "./plan-checkout.js";
+import { storeItemRoutes } from "./store-items.js";
 import { cleanSections, parseSections } from "./sections.js";
 import { soldOutLicenseProducts } from "./digital-sales.js";
 import { proofIsValid } from "../lib/phone-proof.js";
@@ -37,6 +40,8 @@ export const marketplaceRoutes = new Hono();
 // Team roles are checked before any merchant route (including the digital and learning ones mounted below) runs.
 marketplaceRoutes.use("/merchants/me/*", merchantRoleGuard);
 marketplaceRoutes.route("/", digitalLmsRoutes);
+marketplaceRoutes.route("/", planCheckoutRoutes);
+marketplaceRoutes.route("/", storeItemRoutes);
 
 type Row = Record<string, unknown>;
 
@@ -1265,16 +1270,17 @@ marketplaceRoutes.post("/merchants/me/store/domain/verify", requireAuth, async (
   });
 });
 
-// 3b. Buy or renew a plan (Pro Store / Pro Live / Elite)
+// 3b. Buy or renew a plan directly. Every real plan change now goes through the verified checkout
+// (./plan-checkout.ts: review, payment, SMS code). This one-step route is kept only for local development and tests.
 const upgradeTierSchema = z.object({
   tier: z.enum(["pro_store", "pro_live", "elite"]),
   billingCycle: z.enum(["monthly", "yearly"]).default("monthly"),
 });
 
-const PLAN_RANK: Record<string, number> = { merchant: 0, pro_store: 1, pro_live: 2, elite: 3 };
-const PLAN_LABEL: Record<string, string> = { pro_store: "Merchant Pro (Store)", pro_live: "Merchant Pro (Live)", elite: "Merchant Elite" };
-
 marketplaceRoutes.post("/merchants/me/store/tier", requireAuth, async (c) => {
+  if ((process.env.ENVIRONMENT ?? "development") !== "development") {
+    return c.json({ error: "verification_required", message: "Open Store, then Plans, to change your plan. Every change is confirmed with a code." }, 409);
+  }
   const user = c.get("user");
   const memberRes = await db.execute({
     sql: "SELECT merchant_id, role FROM merchant_members WHERE user_id = ? AND status = 'active' AND (? IS NULL OR merchant_id = ?) ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 WHEN 'finance' THEN 2 ELSE 3 END LIMIT 1",
@@ -1303,60 +1309,19 @@ marketplaceRoutes.post("/merchants/me/store/tier", requireAuth, async (c) => {
     return c.json({ error: "already_on_higher_plan", message: `You're on ${PLAN_LABEL[current.plan] ?? "a higher plan"}. It stays until it ends; you can switch after that.` }, 409);
   }
 
-  const days = billingCycle === "yearly" ? 365 : 30;
-  const basePrice = tier === "elite" ? settings.elitePriceUgx : tier === "pro_live" ? settings.proLivePriceUgx : settings.proStorePriceUgx;
-  const amount = settings.proPricingMode === "free" ? 0 : billingCycle === "yearly" ? basePrice * 10 : basePrice;
+  const days = periodDays(billingCycle);
+  const amount = planPrice(settings, tier, billingCycle);
 
   // Renewing the plan you have adds to its end; anything else starts today.
   const startFrom = current.plan === tier && current.expiresAt && Date.parse(current.expiresAt) > Date.now() ? Date.parse(current.expiresAt) : Date.now();
   const expiresAt = new Date(startFrom + days * 86400000).toISOString();
 
   const environment = await getPlatformEnvironment();
-  const hasEliteCol = await hasColumn("stores", "elite_tier");
-  const subId = newId("sub");
-  const label = PLAN_LABEL[tier];
-
-  if (amount > 0) {
-    const balance = await debitWallet(user.sub, amount, { type: "order_payment", environment, note: `Peebee plan: ${label} (${billingCycle})` });
-    if (balance === null) {
-      return c.json({ error: "insufficient_wallet", neededUgx: amount, message: `Add UGX ${amount.toLocaleString("en-UG")} to your Peebee wallet to switch to ${label}.` }, 402);
+  const result = await applyPlanPurchase({ store, merchantId, userId: user.sub, tier, billingCycle, amount, expiresAt, environment });
+  if (!result.ok) {
+    if (result.error === "insufficient_wallet") {
+      return c.json({ error: "insufficient_wallet", neededUgx: amount, message: `Add UGX ${amount.toLocaleString("en-UG")} to your Peebee wallet to switch to ${PLAN_LABEL[tier]}.` }, 402);
     }
-  }
-
-  const statements: DbStatement[] = [];
-  if (tier === "elite") {
-    statements.push(hasEliteCol
-      ? { sql: "UPDATE stores SET pro_tier = 'pro_live', pro_expires_at = ?, elite_tier = 1, elite_expires_at = ?, updated_at = datetime('now') WHERE id = ?", args: [expiresAt, expiresAt, String(store.id)] }
-      : { sql: "UPDATE stores SET pro_tier = 'pro_live', pro_expires_at = ?, updated_at = datetime('now') WHERE id = ?", args: [expiresAt, String(store.id)] });
-  } else {
-    statements.push(hasEliteCol
-      ? { sql: "UPDATE stores SET pro_tier = ?, pro_expires_at = ?, elite_tier = 0, updated_at = datetime('now') WHERE id = ?", args: [tier, expiresAt, String(store.id)] }
-      : { sql: "UPDATE stores SET pro_tier = ?, pro_expires_at = ?, updated_at = datetime('now') WHERE id = ?", args: [tier, expiresAt, String(store.id)] });
-  }
-  // store_subscriptions.tier can only hold the two Pro tiers, so Elite is filed under pro_live and named in `plan`.
-  const subTier = tier === "elite" ? "pro_live" : tier;
-  statements.push((await hasColumn("store_subscriptions", "plan"))
-    ? { sql: `INSERT INTO store_subscriptions (id, store_id, merchant_id, tier, plan, amount_paid, billing_cycle, status, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)`, args: [subId, String(store.id), merchantId, subTier, tier, amount, billingCycle, expiresAt] }
-    : { sql: `INSERT INTO store_subscriptions (id, store_id, merchant_id, tier, amount_paid, billing_cycle, status, expires_at) VALUES (?, ?, ?, ?, ?, ?, 'active', ?)`, args: [subId, String(store.id), merchantId, subTier, amount, billingCycle, expiresAt] });
-
-  try {
-    if (amount > 0) {
-      // The money, the ledger entry, the new plan and the receipt are written together or not at all.
-      await postLedgerTransaction({
-        kind: "merchant_plan", idempotencyKey: `merchant-plan:${subId}`, environment,
-        referenceType: "store_subscription", referenceId: subId, description: `Peebee plan: ${label}`, actorId: user.sub,
-        postings: [
-          { ownerType: "customer", ownerId: user.sub, purpose: "wallet_payable", environment, amount: -amount },
-          { ownerType: "platform", ownerId: "peebee", purpose: "merchant_plan_revenue", environment, amount },
-        ],
-        additionalStatements: statements,
-      });
-    } else {
-      await executeBatch(statements);
-    }
-  } catch (err) {
-    if (amount > 0) await creditWallet(user.sub, amount, { type: "refund", environment, note: `Refund: ${label}` }).catch(() => undefined);
-    console.error("plan purchase failed", err);
     return c.json({ error: "plan_change_failed", message: "We couldn't switch your plan, and you were not charged. Please try again." }, 503);
   }
 
@@ -3484,6 +3449,8 @@ marketplaceRoutes.get("/marketplace/stores/:id", async (c) => {
     courses = crsRes.rows as Row[];
   }
 
+  const services = await storeServices(store);
+
   return c.json({
     store: toPublicStore(store),
     collections,
@@ -3493,6 +3460,7 @@ marketplaceRoutes.get("/marketplace/stores/:id", async (c) => {
     outlets,
     digitalProducts,
     courses,
+    services,
     channels: {
       customerAppUrl: `https://app.peebee.online/store/${slug}`,
       dedicatedStorefrontUrl: `https://${slug}.peebee.online`,
@@ -3615,6 +3583,33 @@ marketplaceRoutes.post("/marketplace/stores/:id/b2b-inquiry", async (c) => {
   return c.json({ ok: true, id: draftId, total: subtotal }, 201);
 });
 
+/**
+ * Where a product shows (migration 0164): the customer app (Buy) reads show_in_app, the store website asks with
+ * ?channel=web and reads show_on_web. Before the migration every active product shows everywhere, as before.
+ */
+async function channelFilter(c: Context, alias = ""): Promise<string> {
+  const web = c.req.query("channel") === "web";
+  const column = web ? "show_on_web" : "show_in_app";
+  return (await hasColumn("store_products", column)) ? ` AND COALESCE(${alias}${column}, 1) = 1` : "";
+}
+
+/** The services a store's owner sells through the services platform, so Buy can show and book them next to products. */
+async function storeServices(store: Row): Promise<Row[]> {
+  if (!store.merchant_id || !(await hasTable("service_businesses")) || !(await hasTable("service_offerings"))) return [];
+  const image = (await hasColumn("service_offerings", "image_url")) ? "o.image_url" : "'' AS image_url";
+  const res = await db.execute({
+    sql: `SELECT o.id, o.title, o.slug, o.description, o.pricing_type, o.price_ugx, o.compare_at_price_ugx, o.duration_minutes,
+                 o.location_type, ${image}, b.slug AS business_slug, b.name AS business_name
+          FROM service_offerings o
+          JOIN service_businesses b ON b.id = o.business_id
+          WHERE o.is_active = 1 AND b.status = 'active'
+            AND b.owner_id IN (SELECT user_id FROM merchant_members WHERE merchant_id = ? AND role = 'owner' AND status = 'active')
+          ORDER BY o.created_at DESC LIMIT 50`,
+    args: [String(store.merchant_id)],
+  });
+  return (res.rows as Row[]).map((r) => ({ ...r, booking_url: `https://peebee.online/services/${String(r.business_slug)}` }));
+}
+
 marketplaceRoutes.get("/marketplace/stores/:id/products", async (c) => {
   const id = c.req.param("id")!;
   const publicStore = await findPublicStore(id);
@@ -3624,7 +3619,7 @@ marketplaceRoutes.get("/marketplace/stores/:id/products", async (c) => {
   if (await storeOffline((publicStore ?? DEMO_MARKETPLACE_STORES.find((s) => s.id === realStoreId))?.category)) return c.json({ products: [] });
 
   const productsRes = await db.execute({
-    sql: "SELECT * FROM store_products WHERE store_id = ? AND status = 'active' ORDER BY sort_order, created_at DESC",
+    sql: `SELECT * FROM store_products WHERE store_id = ? AND status = 'active'${await channelFilter(c)} ORDER BY sort_order, created_at DESC`,
     args: [realStoreId],
   });
 
@@ -3659,7 +3654,7 @@ marketplaceRoutes.get("/marketplace/products/:id", async (c) => {
   // 1. Try database lookup
   const prodRes = await db.execute({
     sql: `SELECT p.* FROM store_products p JOIN stores s ON s.id = p.store_id
-          WHERE (p.id = ? OR p.slug = ?) AND p.status = 'active' AND s.status = 'active' AND s.environment = ?
+          WHERE (p.id = ? OR p.slug = ?) AND p.status = 'active' AND s.status = 'active' AND s.environment = ?${await channelFilter(c, "p.")}
           ORDER BY CASE WHEN p.id = ? THEN 0 ELSE 1 END LIMIT 1`,
     args: [id, id, await getPlatformEnvironment(), id],
   });
@@ -3747,7 +3742,7 @@ async function loadLiveMarketplaceSpotlight() {
           FROM stores s
           JOIN store_products p ON p.id = (
             SELECT p2.id FROM store_products p2
-            WHERE p2.store_id = s.id AND p2.status = 'active'
+            WHERE p2.store_id = s.id AND p2.status = 'active'${(await hasColumn("store_products", "show_in_app")) ? " AND COALESCE(p2.show_in_app, 1) = 1" : ""}
             ORDER BY CASE
               WHEN p2.compare_at_price IS NOT NULL AND p2.compare_at_price > p2.price THEN 0
               WHEN p2.badge IS NOT NULL AND p2.badge != '' THEN 1

@@ -456,6 +456,8 @@ const createOfferingSchema = z.object({
   location_type: z.enum(["in_facility", "client_site", "virtual"]).default("in_facility"),
   virtual_meeting_url: httpsUrl(500).optional().default(""),
   deliverables: z.array(z.string().max(200)).max(20).default([]),
+  /** A photo for the service (migration 0164), shown in Buy next to the store's products. */
+  image_url: httpsUrl(500).optional().default(""),
 });
 
 servicesPlatformRoutes.post("/offerings", requireAuth, async (c) => {
@@ -513,6 +515,9 @@ servicesPlatformRoutes.post("/offerings", requireAuth, async (c) => {
         JSON.stringify(data.deliverables || []),
       ],
     });
+    if (data.image_url && (await hasColumn("service_offerings", "image_url"))) {
+      await db.execute({ sql: "UPDATE service_offerings SET image_url = ? WHERE id = ?", args: [data.image_url, offeringId] });
+    }
   }
 
   return c.json({
