@@ -475,3 +475,70 @@ test("module assignments scope costs, staffing and assets throughout the forecas
   const restored = month("rides", "buy", "work");
   assert.deepEqual([restored.payroll, restored.capex, restored.depreciation], [130, 240, 30]);
 });
+
+test("workbook hiring modes preserve legacy payroll and roll equipment through both treatments", () => {
+  const base = { start: "2027-01", months: "18", tax: "0", hireEquipmentCost: "120", hireEquipmentLife: "2", staff: [
+    { name: "Senior Sales", roleType: "single", salaryBasis: "annual", annualSalary: "12000", burden: "5", month: "2", endMonth: "4", growth: "10" },
+    { name: "Junior Sales", roleType: "scaling", salaryBasis: "monthly", amount: "100", burden: "10", month: "2", endMonth: "15",
+      growth: "10", hiresPerPeriod: "2", hiringInterval: "3", maxTeamSize: "5" },
+    { name: "Disabled", roleType: "disabled", amount: "5000", month: "1" },
+    { name: "Legacy staff", headcount: "4", amount: "200", burden: "0", month: "1", growth: "0" },
+  ] };
+  assert.equal(errorFor(questions.find(item => item.id === "staff"), upgradeDraft(base).staff, base), "");
+  const [{ months, annual }] = build({ ...base, hireEquipment: "capital" });
+  assert.deepEqual(months.slice(0, 9).map(row => row.headcount), [4, 7, 7, 7, 8, 8, 8, 9, 9]);
+  assert.deepEqual(months.slice(0, 9).map(row => row.equipmentCapex), [480, 360, 0, 0, 120, 0, 0, 120, 0]);
+  assert.deepEqual(months.slice(0, 4).map(row => row.equipmentDepreciation), [240, 420, 180, 0]);
+  near(months[1].payroll, 2070);
+  near(months[13].payroll, 1405);
+  near(months[15].payroll, 800);
+  assert.equal(annual[0].headcountAdded, 9);
+  assert.equal(annual[0].headcount, 9);
+  months.forEach(row => near(row.check, 0));
+  const [expense] = build({ ...base, hireEquipment: "expense" });
+  assert.equal(expense.months[1].overhead, 360);
+  assert.equal(expense.months[1].capex, 0);
+  const [legacy] = build(base);
+  assert.equal(legacy.months[1].overhead, 0);
+});
+
+test("expense rollups and VAT reconcile the cash ledger through a quarter boundary", () => {
+  const { linesFor, scheduleReports } = globalThis.FinancialModel;
+  const answers = upgradeDraft({ start: "2027-03", months: "3", tax: "0", vatCadence: "quarterly", vatYearEnd: "12", openingVAT: "-5",
+    streams: [{ name: "Sales", method: "direct", amount: "100", days: "30", vatRate: "10", growth: "0" }],
+    directCosts: [{ name: "Supplier", basis: "fixed", amount: "20", growth: "0", payableDays: "30", vatRate: "10" }],
+    expenses: [
+      { name: "Google Ads", amount: "10", month: "1", growth: "0", vatRate: "10" },
+      { name: "Office rent", amount: "5", month: "1", growth: "0", vatRate: "20" },
+    ],
+  });
+  const [{ months, annual }] = build(answers);
+  assert.deepEqual(months.map(row => row.vatPayment), [0, 1, 0]);
+  assert.deepEqual(months.map(row => row.vatPayable), [1, 6, 12]);
+  assert.deepEqual(months.map(row => row.cash), [-17, 53, 124]);
+  months.forEach(row => near(row.check, 0));
+  const sga = linesFor(scheduleReports.find(report => report.id === "sga"), answers);
+  assert.equal(sga.find(([label]) => label === "Marketing & Growth")[1](annual[0]), 30);
+  assert.equal(sga.find(([label]) => label === "Recoverable VAT · Rent")[1](annual[0]), 3);
+  assert.equal(build({ ...answers, vatCadence: "off" })[0].months[0].vatPayable, 0);
+});
+
+test("acquisition forecasts use one paid budget for order volume and SG&A", () => {
+  const [forecast] = build({
+    start: "2027-01", months: "2", tax: "0", streams: [{
+      name: "Delivery", method: "orders", orderForecast: "acquisition", openingCustomers: "20",
+      organicTraffic: "100", growth: "20", organicConversion: "10", marketingBudget: "100", marketingGrowth: "50",
+      signupCost: "5", customerActivation: "50", customerChurn: "10", ordersPerCustomer: "2",
+      orderValue: "50", rate: "10", days: "0",
+    }],
+  });
+  const [first, next] = forecast.months;
+  assert.equal(first.details.streams[0].paidSignups, 20);
+  assert.equal(first.details.streams[0].customers, 33);
+  assert.equal(first.revenue, 330);
+  assert.equal(first.overhead, 100);
+  near(next.details.streams[0].customers, 50.7);
+  near(next.revenue, 507);
+  assert.equal(next.overhead, 150);
+  near(next.check, 0);
+});

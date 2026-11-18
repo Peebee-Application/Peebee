@@ -25,7 +25,23 @@
     question("start", "Company", "When should the forecast begin?", "Choose the first month you want to forecast.", { type: "month", suggestion: currentMonth }),
     number("months", "Company", "How far ahead do you want to plan?", "Enter 1 to 84 months. Annual columns group months by calendar year.", { ...period, suggestion: "36" }),
     byId.streams, byId.directCosts, byId.staff, byId.expenses,
+    choice("hireEquipment", "Costs", "How should equipment for new hires be recorded?",
+      "Buys one unit for each increase in forecast headcount, including the opening month. Choose where to record the purchase.",
+      [["none", "No hiring equipment"], ["expense", "Operating expense"], ["capital", "Capital expenditure"]], { optional: true }),
+    amount("hireEquipmentCost", "Costs", "What does equipment cost per added employee?", "Enter the cost of one unit of equipment.",
+      { when: answers => ["expense", "capital"].includes(answers.hireEquipment) }),
+    number("hireEquipmentLife", "Costs", "How long will the equipment be used?", "Use months. Straight-line depreciation starts in the purchase month.",
+      { min: 1, max: 600, step: 1, unit: "months", when: is("hireEquipment", "capital") }),
     percent("tax", "Costs", "What income tax rate should the model use?", "Enter the income tax rate Peebee should forecast on positive profit. Use 0 if exempt."),
+    choice("vatCadence", "Costs", "When should the forecast pay VAT?",
+      "Enter sales and costs before VAT and set the VAT rates on their cards. Payments settle the previous period’s positive VAT balance. Credits carry forward.",
+      [["off", "VAT excluded"], ["monthly", "After each month"], ["quarterly", "After each quarter"], ["annual", "After the fiscal year"]], { optional: true }),
+    choice("vatYearEnd", "Costs", "When does the VAT reporting year end?", "The payment is scheduled for the following month. Quarterly boundaries use the same year end.",
+      Array.from({ length: 12 }, (_, index) => [String(index + 1), new Intl.DateTimeFormat("en-UG", { timeZone: "UTC", month: "long" }).format(Date.UTC(2026, index, 1))]),
+      { when: answers => ["quarterly", "annual"].includes(answers.vatCadence) }),
+    amount("openingVAT", "Working capital", "What VAT balance is carried into the forecast?",
+      "Enter a positive amount for tax owed or a negative amount for a credit.",
+      { min: -1e12, optional: true, when: answers => Boolean(answers.vatCadence && answers.vatCadence !== "off") }),
     byId.accounts, byId.receivables, byId.payables,
     byId.ownedAssets, byId.investments,
     byId.existingLoans, byId.newLoans, byId.contributions,
@@ -44,6 +60,9 @@
       for (const field of fieldsFor(prompt, row)) {
         const issue = errorFor(field, row[field.id], answers);
         if (issue) return { id: `item-${index}-${field.id}`, message: `Line ${index + 1}, ${field.label}: ${issue}` };
+      }
+      if (prompt.id === "staff" && row.roleType !== "disabled" && row.endMonth && Number(row.endMonth) < Number(row.month)) {
+        return { id: `item-${index}-endMonth`, message: `Line ${index + 1}: Last paid month must be on or after the first paid month.` };
       }
       if (prompt.id === "expenses") {
         if (row.endMonth && Number(row.endMonth) < Number(row.month)) {
