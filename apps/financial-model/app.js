@@ -167,8 +167,8 @@
             const fields = Object.fromEntries(prompt.fields.filter(field => typeof row[field.id] === "string")
               .map(field => [field.id, row[field.id].slice(0, 160)]));
             if (prompt.keyed) return { ...fields, key: row.key, ...scopeMetadata(prompt.id, row) };
+            if (!included(row)) fields.enabled = "no";
             if (scopedCostGroups.has(prompt.id)) {
-              if (!included(row)) fields.enabled = "no";
               if (typeof row.moduleScope === "string") fields.moduleScope = [...new Set(moduleScope(row))].slice(0, 250).join(",");
             }
             return prompt.channelId ? { ...fields, ...scopeMetadata(prompt.id, row) } : fields;
@@ -768,10 +768,19 @@
       if (activeEdit.dirty()) window.addEventListener("beforeunload", beforeUnload);
       else if (!queuedAnswers) window.removeEventListener("beforeunload", beforeUnload);
     };
-    const readItems = isItems ? editItems(prompt, value, remember) : null;
+    const readItems = isItems ? editItems(prompt, value, remember, saveTitle) : null;
     const capturedValue = () => isItems ? readItems() : field.value.trim();
-    const original = JSON.stringify(capturedValue());
-    const dirty = () => JSON.stringify(capturedValue()) !== original;
+    const original = capturedValue();
+    const dirty = () => JSON.stringify(capturedValue()) !== JSON.stringify(original);
+
+    function saveTitle(index, name) {
+      if (index === undefined) return;
+      original[index].name = name;
+      answers[prompt.id] = original.map(row => ({ ...row }));
+      outcomes = null;
+      const persisted = save();
+      if (!session) saveStatus.textContent = persisted ? "Title saved." : "Title saved for this session. Browser storage is unavailable.";
+    }
     const issueFor = () => errorFor(prompt, capturedValue(), answers);
     activeEdit = { label: stepLabel(prompt), dirty, issue: issueFor, commit };
     field?.addEventListener("input", remember);
@@ -835,9 +844,10 @@
     }));
   }
 
-  function editItems(prompt, value, remember) {
+  function editItems(prompt, value, remember, saveTitle) {
     const editor = document.querySelector("#line-editor");
-    let rows = Array.isArray(value) ? value.map(row => ({ ...row, ...(prompt.channelId ? scopeMetadata(prompt.id, row) : {}) })) : [];
+    const rows = Array.isArray(value) ? value.map(row => ({ ...row, ...(prompt.channelId ? scopeMetadata(prompt.id, row) : {}) })) : [];
+    const originalIndexes = new Map(rows.map((row, index) => [row, index]));
     const snapshot = () => rows.map(row => ({ ...row }));
     const hasRevenuePreview = prompt.fields.some(field => field.id === "method");
     const expenses = prompt.id === "expenses";
@@ -870,10 +880,16 @@
         ${expenses ? `<button type="button" id="add-infrastructure" class="button secondary small"${missingCosts().length ? "" : " disabled"}>+ Add discovered technology costs</button>` : ""}</div>
         ${expenses ? '<p class="muted cost-help">Vendor prices are public benchmarks. Enter billed usage and your exchange rate, or choose Monthly bill for a known invoice. Review any grouped technology budgets before entering the same cost separately. To plan a change, set the last month of this phase and select Add next phase.</p>' : ""}
         ${scoped ? '<p class="muted cost-help">Turn a card off to keep its inputs and exclude it from the forecast. A card assigned to multiple modules applies while any assigned module is on.</p>' : ""}
-        ${rows.length ? `<div class="line-list${prompt.id === "channels" ? " channel-list" : ""}">${rows.map((row, index) => `<fieldset class="line-item"><legend>${escape(prompt.item[0].toUpperCase() + prompt.item.slice(1))} ${index + 1}</legend>
-          ${scoped && row.roleType !== "disabled" ? `<div class="cost-card-switch">${forecastSwitch(`cost-card-${index}`, cardLabel(row, index), included(row), false,
-            `data-toggle-cost-card="${index}"`)}</div>` : ""}
-          <div class="line-fields">${fieldsFor(prompt, row).map(field => lineField(field, row, index)).join("")}</div>
+        ${rows.length ? `<div class="line-list${prompt.id === "channels" ? " channel-list" : ""}">${rows.map((row, index) => `<fieldset class="line-item" aria-labelledby="item-${index}-name">
+          <div class="line-card-header">
+            <div class="line-card-name">
+              <button type="button" class="line-card-title" id="item-${index}-name" data-edit-title="${index}" title="Edit line item name">${escape(cardName(row, index))}</button>
+              <div class="field-box" hidden><input data-title-input="${index}" type="text" maxlength="160" autocomplete="off" aria-label="Line item name" value="${escape(row.name)}"></div>
+            </div>
+            ${forecastSwitch(`line-card-${index}`, cardLabel(row, index), included(row) && row.roleType !== "disabled", row.roleType === "disabled",
+              `data-toggle-line-card="${index}"`)}
+          </div>
+          ${prompt.keyed ? "" : `<div class="line-fields">${fieldsFor(prompt, row).filter(field => field.id !== "name").map(field => lineField(field, row, index)).join("")}</div>`}
           ${scoped ? moduleAssignment(row, index) : ""}
           ${hasRevenuePreview ? `<output class="revenue-estimate" data-estimate="${index}">${revenueEstimateMarkup(prompt, row)}</output>` : ""}
           ${expenses ? expenseCardExtras(row, index) : ""}
@@ -900,8 +916,51 @@
       </details><p class="muted cost-module-status" data-assigned-status="${index}" role="status">${costStatus(row)}</p>`;
     }
 
+    function cardName(row, index) {
+      return row.name || `Untitled ${prompt.item} ${index + 1}`;
+    }
+
     function cardLabel(row, index) {
-      return `Include ${row.name || prompt.item + " " + (index + 1)} in forecast`;
+      return `Include ${cardName(row, index)} in forecast`;
+    }
+
+    function openTitle(button) {
+      const box = button.nextElementSibling;
+      const input = box.querySelector("input");
+      button.hidden = true;
+      box.hidden = false;
+      input.focus();
+      input.select();
+    }
+
+    function closeTitle(input, cancel = false) {
+      const index = Number(input.dataset.titleInput);
+      const row = rows[index];
+      const box = input.parentElement;
+      if (!row || box.hidden) return;
+      const button = box.previousElementSibling;
+      const name = input.value.trim();
+      const originalIndex = originalIndexes.get(row);
+      if (!cancel && name && name !== row.name) {
+        const duplicate = prompt.keyed && (rows.some(other => other !== row && (other.name || "").toLowerCase() === name.toLowerCase())
+          || (answers[prompt.id] || []).some((other, i) => i !== originalIndex && (other.name || "").toLowerCase() === name.toLowerCase()));
+        if (duplicate) {
+          const error = document.querySelector("#error");
+          error.textContent = "Give each channel a distinct name.";
+          error.hidden = false;
+        } else {
+          row.name = name;
+          button.textContent = name;
+          document.getElementById(`line-card-${index}`).setAttribute("aria-label", cardLabel(row, index));
+          document.getElementById(`remove-line-${index}`).setAttribute("aria-label", "Remove " + name);
+          updatePresets();
+          remember();
+          saveTitle(originalIndex, name);
+        }
+      }
+      input.value = row.name || "";
+      box.hidden = true;
+      button.hidden = false;
     }
 
     function costStatus(row) {
@@ -932,6 +991,7 @@
       remember();
       const first = name ? fieldsFor(prompt, rows.at(-1))[1]?.id || "name" : "name";
       draw(`item-${rows.length - 1}-${first}`);
+      if (!name) openTitle(document.getElementById(`item-${rows.length - 1}-name`));
     };
     function expenseCardExtras(row, index) {
       const source = costInfo.get(row.name) ?? costInfo.get(row.name?.split(phaseName)[0]);
@@ -971,7 +1031,8 @@
     editor.addEventListener("click", event => {
       const button = event.target.closest("button");
       if (!button) return;
-      if (button.id === "add-line") add();
+      if (button.hasAttribute("data-edit-title")) openTitle(button);
+      else if (button.id === "add-line") add();
       else if (button.id === "add-infrastructure") {
         const added = missingCosts();
         const start = rows.length;
@@ -986,14 +1047,25 @@
         draw("add-line");
       }
     });
+    editor.addEventListener("focusout", event => {
+      if (event.target.hasAttribute("data-title-input")) closeTitle(event.target);
+    });
+    editor.addEventListener("keydown", event => {
+      const input = event.target;
+      if (!input.hasAttribute("data-title-input") || event.isComposing || !["Enter", "Escape"].includes(event.key)) return;
+      event.preventDefault();
+      closeTitle(input, event.key === "Escape");
+      document.getElementById(`item-${input.dataset.titleInput}-name`).focus();
+    });
     editor.addEventListener("input", event => {
       const field = event.target;
-      if (field.hasAttribute("data-toggle-cost-card")) {
-        const index = Number(field.dataset.toggleCostCard);
+      if (field.hasAttribute("data-toggle-line-card")) {
+        const index = Number(field.dataset.toggleLineCard);
         if (field.checked) delete rows[index].enabled;
         else rows[index].enabled = "no";
         field.closest(".forecast-switch").querySelector(".forecast-switch-state").textContent = field.checked ? "On" : "Off";
-        updateCostStatus(index);
+        if (scoped) updateCostStatus(index);
+        if (hasRevenuePreview) editor.querySelector(`[data-estimate="${index}"]`).innerHTML = revenueEstimateMarkup(prompt, rows[index]);
         remember();
         return;
       }
@@ -1029,12 +1101,7 @@
         remember();
         draw(field.id);
       }
-      else if (field.dataset.field === "name") {
-        updatePresets();
-        const remove = document.getElementById(`remove-line-${field.dataset.line}`);
-        remove.setAttribute("aria-label", "Remove " + (row.name || prompt.item + " " + (Number(field.dataset.line) + 1)));
-        document.getElementById(`cost-card-${field.dataset.line}`)?.setAttribute("aria-label", cardLabel(row, Number(field.dataset.line)));
-      } else {
+      else {
         const estimate = editor.querySelector(`[data-estimate="${field.dataset.line}"]`);
         if (estimate) {
           const markup = revenueEstimateMarkup(prompt, row);
@@ -1081,6 +1148,7 @@
   }
 
   function revenueEstimateMarkup(prompt, row) {
+    if (!included(row)) return '<span>Revenue stream is off.</span><strong>Excluded from this forecast</strong>';
     const method = prompt.fields.find(field => field.id === "method");
     if (errorFor(method, row.method, answers)) return '<span>Choose a revenue driver to see the estimate.</span>';
 
@@ -1169,7 +1237,8 @@
       ${prompt.note ? `<p class="muted">${escape(prompt.note)}</p>` : ""}
       <ul>${lineItems(prompt).map(row => `<li><strong>${escape(row.name)}</strong><ul>${fieldsFor(prompt, row).filter(field => field.id !== "name").map(field =>
         `<li>${escape(field.label)} · ${escape(displayAnswer(field, row[field.id]))}</li>`).join("")}
-        ${scopedCostGroups.has(prompt.id) ? `<li>Applies to · ${escape(costScopeLabel(row))}</li>${included(row) ? "" : "<li>Card is off.</li>"}` : ""}</ul></li>`).join("")}</ul>
+        ${scopedCostGroups.has(prompt.id) ? `<li>Applies to · ${escape(costScopeLabel(row))}</li>` : ""}
+        ${included(row) ? "" : "<li>Card is off.</li>"}</ul></li>`).join("")}</ul>
     </details>` : "";
     const moduleCard = prompt => {
       const channel = answers.channels.find(row => row.key === prompt.channelId);
@@ -1600,11 +1669,10 @@
       if (!answer?.length) rows.push([prompt.label, "None"]);
       const parent = prompt.channelId && answers.channels.find(channel => channel.key === prompt.channelId);
       for (const item of answer || []) {
-        if (prompt.keyed || parent) rows.push([label, item.name, "Included in forecast", included(item) && (!parent || included(parent)) ? "Yes" : "No"]);
-        if (scopedCostGroups.has(prompt.id)) {
-          rows.push([label, item.name, "Applies to", costScopeLabel(item)]);
-          rows.push([label, item.name, "Included in forecast", costIsActive(item, activeModules) ? "Yes" : "No"]);
-        }
+        const scoped = scopedCostGroups.has(prompt.id);
+        if (scoped) rows.push([label, item.name, "Applies to", costScopeLabel(item)]);
+        const active = scoped ? costIsActive(item, activeModules) : included(item) && (!parent || included(parent));
+        rows.push([label, item.name, "Included in forecast", active ? "Yes" : "No"]);
         const fields = fieldsFor(prompt, item).filter(field => field.id !== "name");
         if (!fields.length) rows.push([label, item.name]);
         for (const field of fields) rows.push([label, item.name, field.label, inputValue(field, item[field.id]), inputUnit(field)]);
