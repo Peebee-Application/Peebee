@@ -224,6 +224,7 @@ export default function JobsHomePage() {
   const pageCount = Math.max(1, Math.ceil(visibleJobs.length / PAGE_SIZE));
   const pageNow = Math.min(page, pageCount - 1);
   const pageJobs = visibleJobs.slice(pageNow * PAGE_SIZE, pageNow * PAGE_SIZE + PAGE_SIZE);
+  const shownCount = visibleJobs.length + relayLegs.length;
   const nextSort = () => {
     setSortOrder(SORT_CYCLE[(SORT_CYCLE.indexOf(sortOrder) + 1) % SORT_CYCLE.length]);
     setPage(0);
@@ -233,11 +234,12 @@ export default function JobsHomePage() {
 
   return (
     <div className="space-y-4 px-4 pb-6 pt-4">
-      <header className="flex items-center gap-3">
-        <h1 className="min-w-0 flex-1 truncate text-2xl font-extrabold tracking-tight text-ink">
+      <header className="flex flex-col gap-4">
+        <h1 className="break-words text-2xl font-extrabold leading-tight tracking-tight text-ink">
           {t("home_hi")}
           {user?.name ? `, ${user.name.trim().split(/\s+/)[0]}` : ""}
         </h1>
+        <div className="flex items-center gap-4">
         <Link href="/fuel" aria-label="Peebee Gas" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
           <Fuel className="h-6 w-6" aria-hidden />
         </Link>
@@ -248,20 +250,21 @@ export default function JobsHomePage() {
           aria-label={t("home_availability")}
           disabled={busy || !online}
           onClick={toggleOnline}
-          className={`flex h-14 shrink-0 items-center gap-2 rounded-full pl-4 pr-2 text-base font-bold disabled:opacity-50 ${
+          className={`flex h-14 min-w-0 flex-1 items-center justify-between gap-2 rounded-full pl-5 pr-2 text-lg font-bold disabled:opacity-50 ${
             riderOnline ? "bg-green/15 text-green-600" : "bg-[rgb(var(--surface-muted))] text-ink"
           }`}
         >
           {riderOnline ? t("home_online") : t("home_offline")}
-          <span aria-hidden className={`flex h-8 w-14 items-center rounded-full p-1 ${riderOnline ? "justify-end bg-green" : "justify-start bg-ink-500"}`}>
+          <span aria-hidden className={`flex h-8 w-14 shrink-0 items-center rounded-full p-1 ${riderOnline ? "justify-end bg-green" : "justify-start bg-ink-500"}`}>
             <span className="h-6 w-6 rounded-full bg-white" />
           </span>
         </button>
+        </div>
       </header>
 
       {error && <p role="alert" className="rounded-xl bg-gold/10 px-4 py-3 text-base text-ink">{error}</p>}
 
-      <div role="tablist" aria-label="Jobs" className="grid grid-cols-2 gap-1 rounded-2xl bg-[rgb(var(--surface-muted))] p-1">
+      <div role="tablist" aria-label="Jobs" className="grid grid-cols-2 gap-2 rounded-2xl bg-[rgb(var(--surface-muted))] p-1.5">
         {([
           { id: "jobs", label: t("nav_jobs"), icon: Briefcase, count: riderOnline ? availableJobs.length + relayLegs.length : 0 },
           { id: "mine", label: t("home_your_jobs"), icon: ClipboardList, count: activeOrders.length },
@@ -272,17 +275,17 @@ export default function JobsHomePage() {
             role="tab"
             aria-selected={tab === id}
             onClick={() => setTab(id)}
-            className={`flex min-h-14 items-center justify-center gap-2 rounded-xl text-lg font-bold ${tab === id ? "bg-gold text-ink-gold shadow-sm" : "text-ink-500"}`}
+            className={`flex min-h-16 min-w-0 items-center justify-center gap-2 rounded-xl px-2.5 text-[17px] font-bold ${tab === id ? "bg-gold text-ink-gold shadow-sm" : "text-ink-500"}`}
           >
-            <Icon className="h-6 w-6" aria-hidden />
-            <span className="truncate">{label}</span>
-            {count > 0 && <span className="rounded-full bg-ink/10 px-2 text-sm tabular-nums">{count}</span>}
+            <Icon className="h-6 w-6 shrink-0" aria-hidden />
+            <span className="min-w-0 leading-tight">{label}</span>
+            {count > 0 && <span className="shrink-0 rounded-full bg-ink/10 px-2 text-sm leading-5 tabular-nums">{count}</span>}
           </button>
         ))}
       </div>
 
       {tab === "jobs" && (
-        <section className="space-y-3" role="tabpanel" aria-label={t("home_available_jobs")}>
+        <section className="space-y-4" role="tabpanel" aria-label={t("home_available_jobs")}>
           {!riderOnline ? (
             <div className="home-card flex flex-col items-center gap-3 py-8 text-center">
               <Power className="h-12 w-12 text-ink-500" aria-hidden />
@@ -294,43 +297,60 @@ export default function JobsHomePage() {
           ) : (
             <>
               {availableJobs.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <div role="group" aria-label={t("home_categories")} className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
-                    {(["all", "ride", "parcel", "shopping", "food"] as const).map((cat) => {
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-base font-bold text-ink-500">
+                      {t(shownCount === 1 ? "home_job_count_one" : "home_job_count", { count: String(shownCount) })}
+                    </p>
+                    <button type="button" onClick={nextSort} aria-label={`${t("home_sort")}: ${SORT_LABELS[sortOrder]}`} className="flex h-14 shrink-0 items-center gap-2 rounded-2xl bg-[rgb(var(--surface-muted))] px-4 text-base font-bold text-ink">
+                      <ArrowUpDown className="h-6 w-6" aria-hidden /> {SORT_LABELS[sortOrder]}
+                    </button>
+                  </div>
+                  {/* Equal-column tiles (5 across, 3+2 when narrow). Count badges sit ON each tile's top-right
+                      corner, so the grid keeps room above and to the right and nothing clips them. */}
+                  <div role="group" aria-label={t("home_categories")} className="grid grid-cols-6 gap-4 overflow-visible pr-3 pt-3 min-[400px]:grid-cols-5">
+                    {(["all", "ride", "parcel", "shopping", "food"] as const).map((cat, i) => {
                       const Icon = cat === "all" ? LayoutGrid : CATEGORY_ICONS[cat];
                       const count = cat === "all" ? availableJobs.length : categoryCounts[cat];
+                      const label = cat === "all" ? t("home_all") : JOB_CATEGORY_LABELS[cat];
+                      const narrowPlacement = i === 3 ? "col-start-2" : i === 4 ? "col-start-4" : "";
                       return (
                         <button
                           key={cat}
                           type="button"
                           aria-pressed={categoryFilter === cat}
-                          aria-label={`${cat === "all" ? t("home_all") : JOB_CATEGORY_LABELS[cat]} (${count})`}
+                          aria-label={`${label} (${count})`}
                           onClick={() => { setCategoryFilter(cat); setPage(0); }}
-                          className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
+                          className={`relative col-span-2 flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-1 overflow-visible rounded-2xl px-1.5 pb-3 pt-4 min-[400px]:col-span-1 min-[400px]:col-start-auto min-[400px]:px-1 ${narrowPlacement} ${
                             categoryFilter === cat ? "bg-gold text-ink-gold" : "bg-[rgb(var(--surface-muted))] text-ink-500"
                           }`}
                         >
-                          <Icon className="h-6 w-6" aria-hidden />
-                          {count > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-5 rounded-full bg-ink px-1 text-center text-[11px] font-bold leading-5 text-cream">{count}</span>}
+                          <Icon className="h-[26px] w-[26px] shrink-0" strokeWidth={2} aria-hidden />
+                          <span className="max-w-full text-center text-xs font-bold leading-tight min-[400px]:text-[11px]">{label}</span>
+                          {count > 0 && (
+                            <span
+                              aria-hidden
+                              className="pointer-events-none absolute right-0 top-0 h-6 min-w-6 -translate-y-1/2 translate-x-1/2 rounded-full bg-ink px-1.5 text-center text-xs font-bold leading-6 tabular-nums text-cream ring-2 ring-cream"
+                            >
+                              {count}
+                            </span>
+                          )}
                         </button>
                       );
                     })}
                   </div>
-                  <button type="button" onClick={nextSort} aria-label={`${t("home_sort")}: ${SORT_LABELS[sortOrder]}`} className="flex h-14 shrink-0 items-center gap-1.5 rounded-2xl bg-[rgb(var(--surface-muted))] px-3 text-base font-bold text-ink">
-                    <ArrowUpDown className="h-5 w-5" aria-hidden /> {SORT_LABELS[sortOrder]}
-                  </button>
                 </div>
               )}
 
               {pageNow === 0 && relayLegs.map((leg) => (
-                <article key={leg.id} className="home-card space-y-3 !rounded-2xl !p-3.5">
+                <article key={leg.id} className="home-card space-y-4 !rounded-2xl !p-4">
                   <div className="flex items-center gap-3">
                     <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gold/10 text-ink"><Bus className="h-6 w-6" aria-hidden /></span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-lg font-bold text-ink">{leg.vehicle_plate ? `Matatu ${leg.vehicle_plate}` : "Relay pickup"}</span>
+                      <span className="line-clamp-2 block break-words text-lg font-bold leading-snug text-ink">{leg.vehicle_plate ? `Matatu ${leg.vehicle_plate}` : "Relay pickup"}</span>
                       <span className="flex items-center gap-1 truncate text-sm text-ink-500"><MapPin className="h-4 w-4 shrink-0" aria-hidden />{leg.from_name} → {leg.destination_area ?? leg.to_name} · {leg.distance_km} km</span>
                     </span>
-                    <span className="text-xl font-extrabold tabular-nums text-ink">{formatUgx(leg.fee)}</span>
+                    <span className="shrink-0 text-lg font-extrabold tabular-nums text-ink min-[360px]:text-xl">{formatUgx(leg.fee)}</span>
                   </div>
                   <button type="button" onClick={() => claimRelay(leg)} disabled={claimingId === leg.id || !online} className={`${bigButton} bg-gold text-ink-gold`}>
                     <Zap className="h-6 w-6" aria-hidden />
@@ -357,11 +377,11 @@ export default function JobsHomePage() {
                 const biddable = !!job.bidding && job.matching_mode !== "first_to_claim" && !job.applied && !job.fareOffer;
                 const claim = job.matching_mode === "first_to_claim";
                 return (
-                  <article key={job.id} className="home-card space-y-3 !rounded-2xl !p-3.5">
+                  <article key={job.id} className="home-card space-y-4 !rounded-2xl !p-4">
                     <button type="button" onClick={() => setPreviewJobItem(job)} className="flex w-full items-center gap-3 text-left" aria-label={`${jobTitle(job)} — ${t("home_preview")}`}>
                       <CategoryIcon category={jobCategory(job)} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-lg font-bold text-ink">{jobTitle(job)}</span>
+                        <span className="line-clamp-2 block break-words text-lg font-bold leading-snug text-ink">{jobTitle(job)}</span>
                         <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-ink-500">
                           <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" aria-hidden />{job.distanceKm != null ? `${job.distanceKm} km` : "—"}</span>
                           {(job.stop_count ?? 0) > 0 && <span className="rounded-full bg-gold/15 px-2 text-sm font-bold text-ink">+{job.stop_count}</span>}
@@ -369,7 +389,7 @@ export default function JobsHomePage() {
                           {job.outOfServiceRange && <TriangleAlert className="h-4 w-4 text-gold" aria-label={t("home_out_of_range")} />}
                         </span>
                       </span>
-                      <span className="text-xl font-extrabold tabular-nums text-ink">{formatUgx(fee)}</span>
+                      <span className="shrink-0 text-lg font-extrabold tabular-nums text-ink min-[360px]:text-xl">{formatUgx(fee)}</span>
                     </button>
 
                     {job.fareOffer && !job.applied && (
@@ -446,7 +466,7 @@ export default function JobsHomePage() {
       )}
 
       {tab === "mine" && (
-        <section className="space-y-3" role="tabpanel" aria-label={t("home_your_jobs")}>
+        <section className="space-y-4" role="tabpanel" aria-label={t("home_your_jobs")}>
           {activeOrders.length === 0 && (
             <div className="home-card flex flex-col items-center gap-2 py-10 text-center">
               <ClipboardList className="h-12 w-12 text-ink-500" aria-hidden />
@@ -454,10 +474,10 @@ export default function JobsHomePage() {
             </div>
           )}
           {activeOrders.map((order) => (
-            <Link key={order.id} href={`/jobs/${order.id}`} className="home-card flex items-center gap-3 !rounded-2xl !p-3.5">
+            <Link key={order.id} href={`/jobs/${order.id}`} className="home-card flex items-center gap-3 !rounded-2xl !p-4">
               <CategoryIcon category={jobCategory(order)} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-lg font-bold text-ink">{jobTitle(order)}</span>
+                <span className="line-clamp-2 block break-words text-lg font-bold leading-snug text-ink">{jobTitle(order)}</span>
                 <span className="mt-0.5 inline-block rounded-full bg-gold/15 px-3 py-0.5 text-sm font-bold text-ink">{stageLabel(order.stage, order.type, !!order.is_ride)}</span>
               </span>
               <ChevronRight className="h-6 w-6 shrink-0 text-ink-500" aria-hidden />
