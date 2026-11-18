@@ -36,6 +36,8 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   home_offline: { en: "Offline", lg: "Tali ku layini" },
   home_available_jobs: { en: "Available jobs", lg: "Emirimu Egiriwo" },
   home_all: { en: "All", lg: "Byonna" },
+  home_job_count: { en: "{count} jobs", lg: "Emirimu {count}" },
+  home_job_count_one: { en: "1 job", lg: "Omulimu 1" },
   home_sort: { en: "Sort", lg: "Longoosa" },
   home_sort_nearest: { en: "Nearest first", lg: "Ebikumpi mu maaso" },
   home_sort_price_high: { en: "Price: high to low", lg: "Omuwendo: waggulu okugenda wansi" },
