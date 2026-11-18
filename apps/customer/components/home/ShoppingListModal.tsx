@@ -182,15 +182,17 @@ export function ShoppingListModal({ onClose, initialItems }: { onClose: () => vo
   return (
     <Modal withMap heroImage={step === "items" ? "/brand/auth-illustration.webp" : undefined} title={step === "items" ? t("list_title") : t("list_delivery_location")} onClose={onClose}>
       {step === "items" ? (
-        <div className="space-y-4">
-          <div className="flex rounded-full bg-[rgb(var(--surface-muted))] p-1">
+        <div className="space-y-2">
+          {/* Black track in both themes: gold active pill, white inactive text. */}
+          <div className="flex rounded-full bg-[#0a0a0a] p-1 dark:border dark:border-white/10 dark:bg-black">
             {(["list", "voice"] as const).map((m) => (
               <button
                 key={m}
                 type="button"
                 onClick={() => setMode(m)}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-2.5 text-sm font-bold transition-colors ${
-                  mode === m ? "bg-gold text-ink-gold shadow-sm" : "text-ink-500"
+                aria-pressed={mode === m}
+                className={`flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-bold transition-colors ${
+                  mode === m ? "bg-gold text-[#0a0a0a] shadow-[0_1px_3px_rgb(0_0_0/0.25)]" : "text-white"
                 }`}
               >
                 {m === "list" ? (
@@ -203,7 +205,9 @@ export function ShoppingListModal({ onClose, initialItems }: { onClose: () => vo
             ))}
           </div>
 
+          {/* One photo set shared by both tabs: under the list, or above the voice card. */}
           {mode === "list" ? (
+            <div className="space-y-2">
             <div className="space-y-1.5">
               {items.map((item, i) => (
                 <ListItemLine
@@ -228,9 +232,11 @@ export function ShoppingListModal({ onClose, initialItems }: { onClose: () => vo
                 </button>
               )}
             </div>
+            {photoMax > 0 && <OrderPhotosPicker photos={photos} onChange={changePhotos} maxPhotos={photoMax} items={mode === "list" ? namedItems : undefined} upload={uploadPhoto} />}
+            </div>
           ) : (
-            <div className="space-y-3">
-              <p className="text-xs text-ink-500">{t("list_record_desc")}</p>
+            <div className="space-y-2">
+              {photoMax > 0 && <OrderPhotosPicker photos={photos} onChange={changePhotos} maxPhotos={photoMax} upload={uploadPhoto} />}
               <OrderVoiceNoteRecorder blob={voiceNote} onChange={setVoiceNote} onWriteInstead={() => setMode("list")} />
               <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-ink-500">{t("list_total_amount")}</label>
@@ -245,28 +251,24 @@ export function ShoppingListModal({ onClose, initialItems }: { onClose: () => vo
             </div>
           )}
 
-          {photoMax > 0 && (
-            <OrderPhotosPicker
-              photos={photos}
-              onChange={changePhotos}
-              maxPhotos={photoMax}
-              items={mode === "list" ? namedItems : undefined}
-              upload={uploadPhoto}
+          {/* Totals: black card with a soft gold glow in both themes. */}
+          <div className="relative overflow-hidden rounded-[18px] bg-[#0a0a0a] px-[18px] pb-[11px] pt-2.5 text-[15px] text-white/70 dark:border dark:border-white/[0.08] dark:bg-[#161616]">
+            <span
+              className="pointer-events-none absolute -top-[55%] right-[-18%] h-[130%] w-[70%]"
+              style={{ background: "radial-gradient(circle, rgb(var(--color-gold) / .28), rgb(var(--color-gold) / .08) 42%, transparent 70%)" }}
+              aria-hidden
             />
-          )}
-
-          <div className="space-y-2 rounded-2xl bg-[rgb(var(--surface-muted))] px-5 py-4">
-            <div className="flex items-center justify-between text-base text-ink-500">
+            <div className="relative flex items-center justify-between py-[3px]">
               <span>{t("list_items_total")}</span>
               <span>{currency(itemsTotal)}</span>
             </div>
-            <div className="flex items-center justify-between text-base text-ink-500">
+            <div className="relative flex items-center justify-between py-[3px]">
               <span>{t("list_delivery_fee")}</span>
               <span>{currency(deliveryFee)}</span>
             </div>
-            <div className="flex items-center justify-between border-t border-[var(--border-faint)] pt-2">
-              <span className="text-lg font-semibold text-ink">{t("list_youll_pay")}</span>
-              <span className="text-xl font-bold text-ink">{currency(total)}</span>
+            <div className="relative mt-1.5 flex items-center justify-between border-t border-white/[0.12] pt-2.5">
+              <span className="text-[17px] font-semibold text-white">{t("list_youll_pay")}</span>
+              <span className="text-xl font-extrabold text-gold">{currency(total)}</span>
             </div>
           </div>
 

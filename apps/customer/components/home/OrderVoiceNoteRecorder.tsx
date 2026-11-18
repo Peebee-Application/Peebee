@@ -1,6 +1,6 @@
 "use client";
 
-import { AudioLines, CircleCheck, List, Lock, Mic, MicOff, Pause, Play, RotateCcw, Square, Trash2, X } from "lucide-react";
+import { CircleCheck, List, Lock, Mic, MicOff, Pause, Play, RotateCcw, Square, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useVoiceNoteMaxSeconds } from "../../lib/useVoiceNoteMaxSeconds";
 
@@ -366,10 +366,6 @@ export function OrderVoiceNoteRecorder({
             </div>
             <span className="text-[11px] font-bold text-ink-500">Tap to record</span>
           </div>
-          <p className="mt-2.5 flex items-start gap-2 text-xs text-ink-500">
-            <AudioLines className="h-[15px] w-[15px] shrink-0" strokeWidth={2} aria-hidden />
-            <span>Say each item, how much and any brand. The bars follow your voice.</span>
-          </p>
         </>
       )}
 
