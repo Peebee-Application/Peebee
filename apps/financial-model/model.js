@@ -1,5 +1,5 @@
 (() => {
-  const { upgradeDraft, byId, expenseGroups, acquisition, staffDepartments, assetCategories } = globalThis.FinancialLineItems;
+  const { upgradeDraft, byId, expenseGroups, acquisition, staffDepartments, assetCategories, directCostCategories } = globalThis.FinancialLineItems;
   const halfCent = 0.005;
   const maxPreciseAmount = Number.MAX_SAFE_INTEGER / 100;
 
@@ -18,8 +18,41 @@
   const sum = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
   const total = rows => sum(rows, "amount");
   const numericLine = row => Object.fromEntries(Object.entries(row).map(([key, value]) =>
-    [key, ["name", "method", "basis", "priceCurrency", "cadence", "roleType", "department", "salaryBasis", "category", "assetClass", "replacement", "repayment", "inventoryCode", "inventoryDemand", "openingUnitCost", "movement", "orderForecast", "revenueStreamIndexes"].includes(key) ? value : Number(value || 0)]));
-  const amounts = answers => Object.fromEntries(Object.keys(byId).map(id => [id, (answers[id] || []).map(numericLine)]));
+    [key, ["name", "method", "basis", "priceCurrency", "cadence", "roleType", "department", "salaryBasis", "category", "assetClass", "replacement", "repayment", "inventoryCode", "inventoryDemand", "openingUnitCost", "movement", "budgetScaling", "orderForecast", "revenueStreamIndexes"].includes(key) ? value : Number(value || 0)]));
+  const assetLife = (answers, assetClass) => Number(answers["assetLife_" + (assetClass || "other")] ||
+    assetCategories.find(([id]) => id === assetClass)?.[2] || assetCategories.at(-1)[2]);
+  const definedValue = (override, fallback) => override == null || override === "" ? fallback : override;
+
+  function resolvedLine(id, row, answers) {
+    const line = numericLine(row);
+    if (id === "streams") {
+      if (row.marketingCap === "") delete line.marketingCap;
+      line.marketingVATRate = Number(definedValue(row.marketingVATRate, answers.vatSgaDefault || 0));
+    }
+    if (id === "ownedAssets" || id === "investments") {
+      const life = assetLife(answers, row.assetClass);
+      if (id === "investments") line.life = Number(definedValue(row.life, life));
+      line.replacementLife = Number(definedValue(row.replacementLife, life));
+      line.assetInflation = Number(definedValue(row.assetInflation, answers.assetInflationDefault || 0));
+    }
+    if (id === "existingLoans" || id === "newLoans") {
+      line.rate = Number(definedValue(row.rate, answers.loanRateDefault || 0));
+      line.term = Number(definedValue(row.term, answers.loanTermDefault || 24));
+    }
+    if (id === "expenses" || id === "directCosts") {
+      line.vatRate = Number(definedValue(row.vatRate, (id === "expenses" ? answers.vatSgaDefault : answers.vatCogsDefault) || 0));
+    }
+    if (id === "directCosts" && row.basis === "inventory") {
+      line.unitCost = Number(definedValue(row.unitCost, answers.inventoryCostDefault || 0));
+      line.minOrder = Number(definedValue(row.minOrder, answers.inventoryMinDefault || 1));
+      line.leadMonths = Number(definedValue(row.leadMonths, answers.inventoryLeadDefault || 0));
+    }
+    return line;
+  }
+
+  const amounts = answers => Object.fromEntries(Object.keys(byId).map(id => [
+    id, (answers[id] || []).map(row => resolvedLine(id, row, answers)),
+  ]));
   const numeric = (row, key) => row[key] || 0;
   const stockAfter = (opening, cogs, days) => Math.max(opening - cogs, cogs * days / 30);
   const scheduled = (rows, month) => rows.map(row => ({ amount: row.month === month ? row.amount : 0 }));
@@ -40,20 +73,32 @@
   }
 
   function sale(line, prior, elapsed, adjustment) {
+    const modelMonth = elapsed + 1;
+    const launch = line.launchMonth || 1;
+    const launched = modelMonth >= launch;
+    const useAcquisition = acquisition(line);
+    if (!launched && !useAcquisition) return { revenue: 0, units: 0, joining: 0, leaving: 0, active: 0, price: line.price,
+      volume: 0, feeRate: 0, orderValue: numeric(line, "orderValue"), marketingSpend: 0, paidSignups: 0,
+      organicVisits: 0, organicSignups: 0, customerStarts: 0, customerLosses: 0, customers: 0 };
+    if (modelMonth === launch && !useAcquisition) prior = null;
+    elapsed = Math.max(0, modelMonth - launch);
     const { method, price } = line;
     const rate = Math.max(-1, (numeric(line, "growth") + adjustment) / 100);
-    const scale = (1 + rate) ** elapsed;
-    const useAcquisition = acquisition(line);
-    const marketingSpend = useAcquisition ? line.marketingBudget * (1 + line.marketingGrowth / 100) ** elapsed : 0;
+    const scale = launched ? (1 + rate) ** elapsed : 0;
+    const campaignElapsed = modelMonth - (line.campaignMonth || launch);
+    const uncappedBudget = !useAcquisition || campaignElapsed < 0 ? 0 : line.budgetScaling === "amount"
+      ? line.marketingBudget + campaignElapsed * line.marketingStep
+      : line.marketingBudget * (1 + line.marketingGrowth / 100) ** campaignElapsed;
+    const marketingSpend = Math.min(line.marketingCap ?? Infinity, uncappedBudget);
     const paidSignups = useAcquisition ? marketingSpend / line.signupCost : 0;
     const organicVisits = useAcquisition ? line.organicTraffic * scale : 0;
     const organicSignups = useAcquisition ? organicVisits * line.organicConversion / 100 : 0;
     const customerStarts = useAcquisition ? (organicSignups + paidSignups) * line.customerActivation / 100 : 0;
     const openingCustomers = useAcquisition ? prior?.customers ?? line.openingCustomers : 0;
-    const customerLosses = useAcquisition ? openingCustomers * line.customerChurn / 100 : 0;
+    const customerLosses = useAcquisition && (launched || campaignElapsed >= 0) ? openingCustomers * line.customerChurn / 100 : 0;
     const customers = openingCustomers - customerLosses + customerStarts;
     const units = method === "units" ? line.units * scale
-      : method !== "orders" ? 0 : useAcquisition ? customers * line.ordersPerCustomer : line.orders * scale;
+      : method !== "orders" || !launched ? 0 : useAcquisition ? customers * line.ordersPerCustomer : line.orders * scale;
     const joining = method === "subscription" ? line.newSubscribers * scale : 0;
     const opening = prior?.active ?? numeric(line, "active");
     const churn = method === "subscription" ? line.churn / 100 : 0;
@@ -68,7 +113,12 @@
   }
 
   function firstMonthSale(row) {
-    return sale(numericLine(row), null, 0, 0);
+    const line = resolvedLine("streams", row, {});
+    const launch = line.launchMonth || 1;
+    const first = acquisition(line) ? Math.min(line.campaignMonth || launch, launch) : launch;
+    let result;
+    for (let month = first; month <= launch; month++) result = sale(line, result, month - 1, 0);
+    return result;
   }
 
   function directCost(line, prior, revenue, elapsed) {
@@ -169,8 +219,8 @@
       assetClass: line.assetClass || "other" };
   }
 
-  function assetPreview(row, horizon, existing) {
-    const line = numericLine(row);
+  function assetPreview(row, horizon, existing, answers = {}) {
+    const line = resolvedLine(existing ? "ownedAssets" : "investments", row, answers);
     let prior;
     return Array.from({ length: horizon }, (_, i) => {
       prior = asset(line, prior, i + 1, existing);
@@ -207,7 +257,7 @@
     contributions: ["amount"],
   };
   const flows = ["vatSales", "vatPurchases", "vatExpenses", "vatMarketing", "vatPayment", "deltaVAT", "paidMarketing", "headcountAdded", "equipmentExpense", "equipmentPurchase", "equipmentReplacement", "equipmentCapex", "equipmentDepreciation", "revenue", "cogs", "gross", "payroll", "overhead", "ebitda", "depreciation", "ebit", "interest",
-    "pretax", "tax", "profit", "deltaAR", "deltaStock", "deltaAP", "deltaWC", "purchases", "operating", "investing",
+    "pretax", "tax", "incomeTaxPayment", "profit", "deltaAR", "deltaStock", "deltaAP", "deltaWC", "purchases", "operating", "investing",
     "financing", "netCash", "capex", "draw", "principal", "equityRaised", "freeCash"];
 
   function toAnnual(months) {
@@ -251,9 +301,17 @@
     const initialAR = total(items.receivables);
     const initialAP = total(items.payables);
     const openingVATBalance = vatCadence ? n("openingVAT") : 0;
-    const openingEquity = initialCash + initialAR + stockAtOpen + total(items.ownedAssets) - initialAP - initialDebt - openingVATBalance;
+    const openingIncomeTax = n("openingIncomeTax");
+    const openingEquity = initialCash + initialAR + stockAtOpen + total(items.ownedAssets) - initialAP - initialDebt - openingVATBalance - openingIncomeTax;
+    const openingCapital = Number(definedValue(answers.openingCapital, openingEquity));
+    const fiscalTax = answers.incomeTaxTiming === "fiscal";
+    const fiscalStart = n("fiscalStart") || 1;
+    let fiscalProfit = 0;
+    let fiscalAccrued = 0;
+    let fiscalPaid = 0;
+    let incomeTaxCarry = 0;
     let previous = { cash: initialCash, ar: initialAR, stock: stockAtOpen, ap: initialAP, vatBalance: openingVATBalance,
-      retained: 0, capital: openingEquity, details: {} };
+      retained: openingEquity - openingCapital, capital: openingCapital, incomeTaxBalance: openingIncomeTax, details: {} };
     const months = [];
     for (let i = 0; i < n("months"); i++) {
       const month = i + 1;
@@ -277,7 +335,8 @@
         const vat = vatOn(result.purchases, line);
         const grossPurchases = result.purchases + vat;
         const ap = tradeBalance(grossPurchases, numeric(line, "payableDays"), months, "directCosts", index, "grossPurchases");
-        return { ...result, vat, grossPurchases, ap };
+        return { ...result, vat, grossPurchases, ap,
+          category: line.category || (line.name === "Payment provider fees borne by Peebee" ? "processing" : "other") };
       });
       const cogs = sum(directCosts, "cogs");
       const staff = current("staff", line => ({ ...staffExpense(line, month), department: line.department }));
@@ -330,7 +389,30 @@
       const interest = sum(debtLines, "interest");
       const principal = sum(debtLines, "principal");
       const pretax = ebit - interest;
-      const tax = Math.max(0, pretax) * taxRate;
+      const fiscalMonth = (calendarMonth - fiscalStart + 12) % 12;
+      if (fiscalTax && fiscalMonth === 0) {
+        incomeTaxCarry += fiscalAccrued - fiscalPaid;
+        fiscalProfit = fiscalAccrued = fiscalPaid = 0;
+      }
+      fiscalProfit += pretax;
+      const fiscalEstimate = Math.max(0, fiscalProfit) * taxRate;
+      const tax = fiscalTax ? fiscalEstimate - fiscalAccrued : Math.max(0, pretax) * taxRate;
+      fiscalAccrued = fiscalEstimate;
+      let regularTaxPayment = fiscalTax ? 0 : tax;
+      if (fiscalTax && calendarMonth === n("taxSettlementMonth")) {
+        regularTaxPayment = Math.max(0, incomeTaxCarry);
+        incomeTaxCarry -= regularTaxPayment;
+      }
+      if (fiscalTax && answers.taxInstallments === "quarterly" && [2, 5, 8].includes(fiscalMonth)) {
+        const installment = Math.max(0, fiscalEstimate - fiscalPaid);
+        regularTaxPayment += installment;
+        fiscalPaid += installment;
+      }
+      const priorTaxPayment = month === (n("openingIncomeTaxMonth") || 1) ? openingIncomeTax : 0;
+      const incomeTaxPayment = regularTaxPayment + priorTaxPayment;
+      const incomeTaxBalance = previous.incomeTaxBalance + tax - incomeTaxPayment;
+      const incomeTaxPayable = Math.max(0, incomeTaxBalance);
+      const incomeTaxReceivable = Math.max(0, -incomeTaxBalance);
       const profit = pretax - tax;
 
       const receivables = outstanding(items.receivables, month);
@@ -344,7 +426,7 @@
       const deltaStock = stock - previous.stock;
       const deltaAP = ap - previous.ap;
       const deltaWC = deltaAR + deltaStock - deltaAP + deltaVAT;
-      const operating = profit + depreciation - deltaWC;
+      const operating = profit + depreciation - deltaWC + tax - incomeTaxPayment;
       const investing = -capex;
       const accounts = items.accounts.map(line => ({ amount: month === 1 ? line.amount : 0 }));
       const contributions = scheduled(items.contributions, month);
@@ -358,15 +440,15 @@
       const equity = capital + retained;
       const cashAsset = Math.max(0, cash);
       const cashShortfall = Math.max(0, -cash);
-      const currentAssets = cashAsset + ar + stock + vatReceivable;
+      const currentAssets = cashAsset + ar + stock + vatReceivable + incomeTaxReceivable;
       const totalAssets = currentAssets + assets;
-      const liabilities = ap + debt + vatPayable;
+      const liabilities = ap + debt + vatPayable + incomeTaxPayable;
       const totalSources = liabilities + equity + cashShortfall;
       const check = totalAssets - totalSources;
       const freeCash = ebit - Math.max(0, ebit) * taxRate + depreciation - deltaWC - capex;
       const details = { streams, directCosts, staff, expenses, accounts, receivables, payables, ownedAssets, investments, existingLoans, newLoans, contributions };
       const row = { period, year, headcount, headcountAdded, equipmentExpense, equipmentPurchase, equipmentReplacement, equipmentCapex, equipmentDepreciation, equipmentAssets,
-        paidMarketing, vatSales, vatPurchases, vatExpenses, vatMarketing, vatBalance, vatPayment, vatReceivable, vatPayable, deltaVAT, revenue, cogs, gross, payroll, overhead, ebitda, depreciation, ebit, interest, pretax, tax, profit,
+        paidMarketing, vatSales, vatPurchases, vatExpenses, vatMarketing, vatBalance, vatPayment, vatReceivable, vatPayable, deltaVAT, revenue, cogs, gross, payroll, overhead, ebitda, depreciation, ebit, interest, pretax, tax, incomeTaxPayment, incomeTaxBalance, incomeTaxPayable, incomeTaxReceivable, profit,
         ar, stock, ap, wc, deltaAR, deltaStock, deltaAP, deltaWC, purchases, assets, cashAsset, cashShortfall, currentAssets, totalAssets, debt, liabilities, totalSources,
         capital, retained, equity, check, operating, investing, financing, netCash, openingCash, cash, capex, draw,
         principal, equityRaised, freeCash, details };
@@ -433,17 +515,17 @@
     { id: "balance", name: "Balance sheet", lines: [
       ["Cash and cash equivalents", "cashAsset"],
       detail("streams", "ar", "Forecast receivable"), detail("receivables", "amount", "Opening receivable"), ["Accounts receivable", "ar", "total"],
-      detail("directCosts", "stock", "Stock", "detail", row => row.basis === "inventory" || Number(row.stock) > 0 || Number(row.inventoryDays) > 0), ["Inventory", "stock", "total"], ["VAT receivable", "vatReceivable"],
+      detail("directCosts", "stock", "Stock", "detail", row => row.basis === "inventory" || Number(row.stock) > 0 || Number(row.inventoryDays) > 0), ["Inventory", "stock", "total"], ["VAT receivable", "vatReceivable"], ["Income tax receivable", "incomeTaxReceivable"],
       ["Current assets", "currentAssets", "total"], ...assetLines("assets", "Book value"), ["Book value · Hiring equipment", "equipmentAssets"], ["Net fixed assets", "assets", "total"], ["Total assets", "totalAssets", "footer"],
       detail("directCosts", "ap", "Forecast payable", "detail", row => Number(row.payableDays) > 0), detail("payables", "amount", "Opening payable"), ["Accounts payable", "ap", "total"],
-      ...loanLines("debt", "Loan balance"), ["Debt outstanding", "debt", "total"], ["VAT payable", "vatPayable"], ["Total liabilities", "liabilities", "total"],
-      ["Opening equity and contributions", "capital"], ["Forecast retained earnings", "retained"], ["Total equity", "equity", "total"],
+      ...loanLines("debt", "Loan balance"), ["Debt outstanding", "debt", "total"], ["VAT payable", "vatPayable"], ["Income tax payable", "incomeTaxPayable"], ["Total liabilities", "liabilities", "total"],
+      ["Invested capital and contributions", "capital"], ["Retained earnings", "retained"], ["Total equity", "equity", "total"],
       ["Unfunded cash shortfall", "cashShortfall"], ["Total liabilities, equity and unfunded cash shortfall", "totalSources", "footer"], ["Balance sheet difference", row => Math.abs(row.check) < halfCent ? 0 : row.check],
     ] },
     { id: "cashflow", name: "Cash flow", lines: [
       ["Opening cash", "openingCash", "total"], ["Net income", "profit"], ["Depreciation add-back", "depreciation"],
       ["Cash impact of change in receivables", row => -row.deltaAR], ["Cash impact of change in inventory", row => -row.deltaStock],
-      ["Cash impact of change in payables", "deltaAP"], ["Cash impact of change in VAT", row => -row.deltaVAT], ["Working capital cash impact", row => -row.deltaWC, "total"], ["Operating cash flow", "operating", "total"],
+      ["Cash impact of change in payables", "deltaAP"], ["Cash impact of change in VAT", row => -row.deltaVAT], ["Working capital cash impact", row => -row.deltaWC, "total"], ["Income tax accrual less payments", row => row.tax - row.incomeTaxPayment], ["Operating cash flow", "operating", "total"],
       ...assetLines("capex", "Purchase or replacement").map(line => ({ ...line, sign: -1 })), ["Hiring equipment purchases", row => -row.equipmentCapex], ["Capital expenditure", row => -row.capex, "total"], ["Investing cash flow", "investing", "total"],
       detail("contributions", "amount", "Equity"), ["Equity raised", "equityRaised", "total"],
       detail("newLoans", "draw", "Loan draw"), ["Loan proceeds", "draw", "total"], ...loanLines("principal", "Principal payment", -1),
@@ -467,7 +549,10 @@
 
   const scheduleReports = [
     { id: "cogs", name: "COGS (Costs)", note: "COGS feeds gross profit in the financial statements. Peebee calculates each cost from its monthly expense or its share of revenue. Purchases and closing inventory reflect inventory targets.", lines: [
-      detail("directCosts", "cogs", "Cost of goods sold"), ["Total COGS", "cogs", "footer"],
+      detail("directCosts", "cogs", "Cost of goods sold"),
+      ...directCostCategories.map(([id, label]) => [label, row =>
+        sum(row.details.directCosts.filter(cost => cost.category === id), "cogs"), "total"]),
+      ["Total COGS", "cogs", "footer"],
       detail("directCosts", "purchases", "Inventory and supply purchases"), ["Total purchases", "purchases", "footer"],
       detail("directCosts", "stock", "Closing inventory"), ["Recoverable VAT on purchases", "vatPurchases"], ["Total closing inventory", "stock", "footer"],
     ] },
@@ -496,6 +581,13 @@
       ...staffDepartments.map(([department]) => [department + " · Payroll",
         row => total(row.details.staff.filter(role => role.department === department)), "total"]),
       ["Total staff and payroll", "payroll", "footer"],
+    ] },
+    { id: "taxes", name: "Taxes", lines: [
+      ["Income tax expense", "tax"], ["Income tax paid", "incomeTaxPayment"],
+      ["Closing income tax payable", "incomeTaxPayable"], ["Closing income tax receivable", "incomeTaxReceivable"],
+      ["VAT charged on sales", "vatSales"], ["Recoverable VAT on purchases", "vatPurchases"],
+      ["Recoverable VAT on operating expenses", "vatExpenses"], ["VAT paid", "vatPayment"],
+      ["Closing VAT payable", "vatPayable"], ["Closing VAT receivable", "vatReceivable"],
     ] },
     { id: "working-capex", name: "WK + CAPEX",
       note: "Fixed assets roll forward from opening book value plus purchases less depreciation. Inventory orders become payables or cash costs on receipt. The debt schedule separates draws, interest and principal.",
