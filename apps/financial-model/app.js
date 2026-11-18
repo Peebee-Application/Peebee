@@ -1575,6 +1575,7 @@
     if (!outcomes.some(item => item.name === selectedCase)) selectedCase = "Base";
     const model = outcomes.find(item => item.name === selectedCase);
     const report = forecastReports.find(item => item.id === selectedReport);
+    const pageTitle = navigation.flatMap(group => group.views).find(([id]) => id === selectedReport)?.[1] ?? report?.name ?? "Dashboard";
     const reportFrequency = report?.frequency || frequency;
     const rows = reportFrequency === "Annual" ? model.annual : model.months;
     const currency = currencyOf(answers);
@@ -1591,8 +1592,8 @@
       ${report.note ? `<p class="muted">${escape(report.note)}</p>` : ""}
       ${(report.sections || [report]).map(renderTable).join("")}
     </section>` : "";
-    app.innerHTML = `<div class="report-head"><div><h1 id="report-title" tabindex="-1">${escape(answers.company)}</h1>
-        <p class="muted">Consolidated financial forecast · ${escape(currencyOf(answers))} · ${model.months[0].period} to ${model.months.at(-1).period}</p></div>
+    app.innerHTML = `<div class="report-head"><div><h1 id="report-title" tabindex="-1">${escape(pageTitle)}</h1>
+        <p class="muted">${escape(answers.company)} · Consolidated financial forecast · ${escape(currencyOf(answers))} · ${model.months[0].period} to ${model.months.at(-1).period}</p></div>
         <div class="report-actions">${scenarioControl}
           ${guestMode ? '<span class="muted">Read-only guest preview</span>' : `<div class="toolbar"><button type="button" id="review" class="button secondary">Edit assumptions</button>
           <button type="button" id="download" class="button gold">Download model CSV <span aria-hidden="true">↓</span></button></div>`}
