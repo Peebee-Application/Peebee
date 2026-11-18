@@ -1,5 +1,5 @@
 (() => {
-  const { upgradeDraft, byId, expenseGroups } = globalThis.FinancialLineItems;
+  const { upgradeDraft, byId, expenseGroups, acquisition } = globalThis.FinancialLineItems;
   const halfCent = 0.005;
   const maxPreciseAmount = Number.MAX_SAFE_INTEGER / 100;
 
@@ -18,7 +18,7 @@
   const sum = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
   const total = rows => sum(rows, "amount");
   const numericLine = row => Object.fromEntries(Object.entries(row).map(([key, value]) =>
-    [key, ["name", "method", "basis", "priceCurrency", "cadence", "roleType", "salaryBasis", "category", "revenueStreamIndexes"].includes(key) ? value : Number(value || 0)]));
+    [key, ["name", "method", "basis", "priceCurrency", "cadence", "roleType", "salaryBasis", "category", "orderForecast", "revenueStreamIndexes"].includes(key) ? value : Number(value || 0)]));
   const amounts = answers => Object.fromEntries(Object.keys(byId).map(id => [id, (answers[id] || []).map(numericLine)]));
   const numeric = (row, key) => row[key] || 0;
   const stockAfter = (opening, cogs, days) => Math.max(opening - cogs, cogs * days / 30);
@@ -43,7 +43,17 @@
     const { method, price } = line;
     const rate = Math.max(-1, (numeric(line, "growth") + adjustment) / 100);
     const scale = (1 + rate) ** elapsed;
-    const units = method === "units" ? line.units * scale : method === "orders" ? line.orders * scale : 0;
+    const useAcquisition = acquisition(line);
+    const marketingSpend = useAcquisition ? line.marketingBudget * (1 + line.marketingGrowth / 100) ** elapsed : 0;
+    const paidSignups = useAcquisition ? marketingSpend / line.signupCost : 0;
+    const organicVisits = useAcquisition ? line.organicTraffic * scale : 0;
+    const organicSignups = useAcquisition ? organicVisits * line.organicConversion / 100 : 0;
+    const customerStarts = useAcquisition ? (organicSignups + paidSignups) * line.customerActivation / 100 : 0;
+    const openingCustomers = useAcquisition ? prior?.customers ?? line.openingCustomers : 0;
+    const customerLosses = useAcquisition ? openingCustomers * line.customerChurn / 100 : 0;
+    const customers = openingCustomers - customerLosses + customerStarts;
+    const units = method === "units" ? line.units * scale
+      : method !== "orders" ? 0 : useAcquisition ? customers * line.ordersPerCustomer : line.orders * scale;
     const joining = method === "subscription" ? line.newSubscribers * scale : 0;
     const opening = prior?.active ?? numeric(line, "active");
     const churn = method === "subscription" ? line.churn / 100 : 0;
@@ -53,7 +63,8 @@
     const feeRate = (method === "percentage" || method === "orders") ? line.rate / 100 : 0;
     const revenue = (method === "percentage" || method === "orders") ? volume * feeRate
       : method === "direct" ? line.amount * scale : (method === "units" ? units : active) * price;
-    return { revenue, units, joining, leaving, active, price, volume, feeRate, orderValue: numeric(line, "orderValue") };
+    return { revenue, units, joining, leaving, active, price, volume, feeRate, orderValue: numeric(line, "orderValue"),
+      marketingSpend, paidSignups, organicVisits, organicSignups, customerStarts, customerLosses, customers };
   }
 
   function firstMonthSale(row) {
@@ -117,7 +128,7 @@
   }
 
   const detailFlows = {
-    streams: ["revenue", "units", "joining", "leaving", "volume"],
+    streams: ["revenue", "units", "joining", "leaving", "volume", "marketingSpend", "paidSignups", "organicVisits", "organicSignups", "customerStarts", "customerLosses"],
     directCosts: ["cogs", "purchases", "vat"],
     staff: ["amount", "wages", "benefits"],
     expenses: ["amount", "vat"],
@@ -130,7 +141,7 @@
     newLoans: ["draw", "principal", "interest"],
     contributions: ["amount"],
   };
-  const flows = ["vatSales", "vatPurchases", "vatExpenses", "vatPayment", "deltaVAT", "headcountAdded", "equipmentExpense", "equipmentCapex", "equipmentDepreciation", "revenue", "cogs", "gross", "payroll", "overhead", "ebitda", "depreciation", "ebit", "interest",
+  const flows = ["vatSales", "vatPurchases", "vatExpenses", "vatMarketing", "vatPayment", "deltaVAT", "paidMarketing", "headcountAdded", "equipmentExpense", "equipmentCapex", "equipmentDepreciation", "revenue", "cogs", "gross", "payroll", "overhead", "ebitda", "depreciation", "ebit", "interest",
     "pretax", "tax", "profit", "deltaAR", "deltaStock", "deltaAP", "deltaWC", "purchases", "operating", "investing",
     "financing", "netCash", "capex", "draw", "principal", "equityRaised", "freeCash"];
 
@@ -200,7 +211,9 @@
       });
       const vatSales = sum(streams, "vat");
       const vatPurchases = sum(directCosts, "vat");
-      const vatExpenses = sum(expenses, "vat");
+      const vatMarketing = items.streams.reduce((value, line, index) => value +
+        (vatCadence ? streams[index].marketingSpend * numeric(line, "marketingVATRate") / 100 : 0), 0);
+      const vatExpenses = sum(expenses, "vat") + vatMarketing;
       const openingVAT = previous.vatBalance || 0;
       const vatPayment = vatCadence && (calendarMonth - 1 - n("vatYearEnd")) % vatCadence === 0 ? Math.max(0, openingVAT) : 0;
       const vatBalance = openingVAT + vatSales - vatPurchases - vatExpenses - vatPayment;
@@ -213,7 +226,8 @@
       const equipmentSpend = headcountAdded * n("hireEquipmentCost");
       const equipmentExpense = answers.hireEquipment === "expense" ? equipmentSpend : 0;
       const equipmentCapex = answers.hireEquipment === "capital" ? equipmentSpend : 0;
-      const overhead = total(expenses) + equipmentExpense;
+      const paidMarketing = sum(streams, "marketingSpend");
+      const overhead = total(expenses) + paidMarketing + equipmentExpense;
       const gross = revenue - cogs;
       const ebitda = gross - payroll - overhead;
       const ownedAssets = current("ownedAssets", (line, prior) => asset(line, prior, month, true));
@@ -272,7 +286,7 @@
       const freeCash = ebit - Math.max(0, ebit) * taxRate + depreciation - deltaWC - capex;
       const details = { streams, directCosts, staff, expenses, accounts, receivables, payables, ownedAssets, investments, existingLoans, newLoans, contributions };
       const row = { period, year, headcount, headcountAdded, equipmentExpense, equipmentCapex, equipmentDepreciation, equipmentAssets,
-        vatSales, vatPurchases, vatExpenses, vatBalance, vatPayment, vatReceivable, vatPayable, deltaVAT, revenue, cogs, gross, payroll, overhead, ebitda, depreciation, ebit, interest, pretax, tax, profit,
+        paidMarketing, vatSales, vatPurchases, vatExpenses, vatMarketing, vatBalance, vatPayment, vatReceivable, vatPayable, deltaVAT, revenue, cogs, gross, payroll, overhead, ebitda, depreciation, ebit, interest, pretax, tax, profit,
         ar, stock, ap, wc, deltaAR, deltaStock, deltaAP, deltaWC, purchases, assets, cashAsset, cashShortfall, currentAssets, totalAssets, debt, liabilities, totalSources,
         capital, retained, equity, check, operating, investing, financing, netCash, openingCash, cash, capex, draw,
         principal, equityRaised, freeCash, details };
@@ -309,6 +323,13 @@
   const assetLines = (key, prefix) => [detail("ownedAssets", key, prefix), detail("investments", key, prefix)];
   const loanLines = (key, prefix, sign = 1) => [detail("existingLoans", key, prefix), detail("newLoans", key, prefix)].map(line => ({ ...line, sign }));
   const revenueDrivers = [
+      detail("streams", "organicVisits", "Organic visits", "count", acquisition),
+      detail("streams", "organicSignups", "Organic signups", "count", acquisition),
+      detail("streams", "paidSignups", "Paid signups", "count", acquisition),
+      detail("streams", "customerStarts", "New active customers", "count", acquisition),
+      detail("streams", "customerLosses", "Customers lost", "count", acquisition),
+      detail("streams", "customers", "Closing active customers", "count", acquisition),
+      detail("streams", "marketingSpend", "Paid acquisition budget", "detail", acquisition),
       detail("streams", "units", "Units sold", "count", row => row.method === "units"),
       detail("streams", "units", "Estimated orders or transactions", "count", row => row.method === "orders"),
       detail("streams", "joining", "New subscribers", "count", row => row.method === "subscription"),
@@ -323,7 +344,7 @@
     { id: "income", name: "Income statement", lines: [
       detail("streams", "revenue", "Sales"), ["Revenue", "revenue", "total"],
       detail("directCosts", "cogs", "Direct cost"), ["Direct costs", "cogs", "total"], ["Gross profit", "gross", "total"], ["Gross margin", margin("gross"), "rate"],
-      detail("staff", "amount", "Payroll"), ["Payroll", "payroll", "total"], detail("expenses", "amount", "Operating expense"), ["Equipment expensed for hires", "equipmentExpense"], ["Operating expenses", "overhead", "total"],
+      detail("staff", "amount", "Payroll"), ["Payroll", "payroll", "total"], detail("expenses", "amount", "Operating expense"), ["Equipment expensed for hires", "equipmentExpense"], ["Paid customer acquisition", "paidMarketing"], ["Operating expenses", "overhead", "total"],
       ["EBITDA", "ebitda", "footer"], ["EBITDA margin", margin("ebitda"), "rate"],
       ...assetLines("depreciation", "Depreciation"), ["Depreciation · Hiring equipment", "equipmentDepreciation"], ["Depreciation", "depreciation", "total"], ["Operating profit", "ebit", "total"],
       ...loanLines("interest", "Interest"), ["Interest expense", "interest", "total"],
@@ -354,7 +375,7 @@
       detail("streams", "revenue", "Sales"), ["Revenue", "revenue", "total"],
       detail("directCosts", "cogs", "Direct cost"), detail("directCosts", "purchases", "Purchases"), ["Total purchases", "purchases", "total"],
       detail("staff", "headcount", "Closing headcount", "count"), detail("staff", "wages", "Wages"), detail("staff", "benefits", "Employer taxes and benefits"),
-      ["Payroll", "payroll", "total"], detail("expenses", "amount", "Operating expense"), ["Equipment expensed for hires", "equipmentExpense"], ["Operating expenses", "overhead", "total"],
+      ["Payroll", "payroll", "total"], detail("expenses", "amount", "Operating expense"), ["Equipment expensed for hires", "equipmentExpense"], ["Paid customer acquisition", "paidMarketing"], ["Operating expenses", "overhead", "total"],
       detail("accounts", "amount", "Opening cash account"), detail("receivables", "settled", "Collection of opening balance"),
       detail("payables", "settled", "Payment of opening balance"), ["Net working capital", "wc", "total"], ["Change in working capital", "deltaWC"],
       detail("investments", "capex", "Asset purchase"), ...assetLines("depreciation", "Depreciation"), ...assetLines("assets", "Remaining book value"),
@@ -374,10 +395,12 @@
       ["Staff and payroll", "payroll"],
       ...expenseGroups.flatMap(([id, label]) => [
         detail("expenses", "amount", label, "detail", row => (row.category || "other") === id),
+        ...(id === "marketing" ? [detail("streams", "marketingSpend", "Paid acquisition", "detail", acquisition)] : []),
         ...(id === "other" ? [["Equipment expensed for hires", "equipmentExpense"]] : []),
         [label, row => row.details.expenses.reduce((total, expense) => total + (expense.category === id ? expense.amount : 0),
-          id === "other" ? row.equipmentExpense : 0), "total"],
-        ["Recoverable VAT · " + label, row => sum(row.details.expenses.filter(expense => expense.category === id), "vat")],
+          id === "other" ? row.equipmentExpense : id === "marketing" ? row.paidMarketing : 0), "total"],
+        ["Recoverable VAT · " + label, row => sum(row.details.expenses.filter(expense => expense.category === id), "vat")
+          + (id === "marketing" ? row.vatMarketing : 0)],
       ]),
       ["Total operating expenses", "overhead", "total"], ["Recoverable VAT paid on operating expenses", "vatExpenses"], ["Total SG&A", row => row.payroll + row.overhead, "footer"],
       ["SG&A as a share of revenue", row => row.revenue ? (row.payroll + row.overhead) / row.revenue : null, "rate"],

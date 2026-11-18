@@ -1,6 +1,6 @@
 (() => {
   const { questions, sections, errorFor, itemError } = globalThis.FinancialAssumptions;
-  const { fieldsFor, upgradeDraft } = globalThis.FinancialLineItems;
+  const { fieldsFor, upgradeDraft, acquisition } = globalThis.FinancialLineItems;
   const { build, firstMonthSale, expensePreview, staffPreview, reports, revenueDrivers, scheduleReports, statementReports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
   const { questionsFor, consolidate, included, scopeMetadata, forecastModules,
     scopedCostGroups, moduleScope, activeModuleKeys, costIsActive } = globalThis.FinancialChannels;
@@ -1022,7 +1022,13 @@
       }
       if (expenses) editor.querySelector(`[data-phase-status="${field.dataset.line}"]`).textContent = "";
       remember();
-      if (field.tagName === "SELECT") draw(field.id);
+      if (field.tagName === "SELECT") {
+        for (const visible of fieldsFor(prompt, row)) {
+          if (row[visible.id] === undefined && visible.initial != null) row[visible.id] = visible.initial;
+        }
+        remember();
+        draw(field.id);
+      }
       else if (field.dataset.field === "name") {
         updatePresets();
         const remove = document.getElementById(`remove-line-${field.dataset.line}`);
@@ -1084,7 +1090,7 @@
     }
 
     const estimated = firstMonthSale(row);
-    const { revenue, units, price, volume, feeRate, orderValue, joining, leaving, active } = estimated;
+    const { revenue, units, price, volume, feeRate, orderValue, joining, leaving, active, marketingSpend, paidSignups, organicSignups, customers } = estimated;
     const percent = format(feeRate, "rate");
     const count = value => numberFormat.format(value);
     let formula;
@@ -1094,6 +1100,9 @@
         break;
       case "orders":
         formula = `${count(units)} orders × ${money(orderValue)} = ${money(volume)} eligible value · ${percent} fee`;
+        if (acquisition(row)) {
+          formula = `${count(organicSignups)} organic + ${count(paidSignups)} paid signups · ${count(customers)} active customers · ${formula}. ${money(marketingSpend)} in Marketing & Growth.`;
+        }
         break;
       case "percentage":
         formula = `${money(volume)} eligible value × ${percent} fee`;

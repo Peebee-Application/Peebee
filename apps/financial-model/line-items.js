@@ -52,13 +52,26 @@
     ["Customer Support", ["Head of Customer Support", "Senior Customer Support", "Junior Customer Support"]],
     ["Finance and Administration", []],
   ];
+  const acquisition = row => row.method === "orders" && row.orderForecast === "acquisition";
   const paidRole = row => row.roleType !== "disabled";
   const scalingTeam = row => row.roleType === "scaling";
   const groups = [
     group("streams", "Revenue", "What are your revenue streams?", "Add each product, service or income stream and enter how it earns revenue. Collection days estimate the sales still owed at month end.", "revenue stream", [
       select("method", "Revenue driver", [["units", "Units × price"], ["subscription", "Subscriptions × monthly price"], ["direct", "Monthly sales amount"], ["orders", "Orders × average value × fee rate"], ["percentage", "Percentage of transaction or payout"]], "units"),
       num("units", "Units sold in first month", { when: row => row.method === "units" }),
-      num("orders", "Estimated orders or transactions in month one", { step: 1, initial: "0", when: row => row.method === "orders" }),
+      { ...select("orderForecast", "Forecast orders from", [["growth", "Starting orders and growth"], ["acquisition", "Customer acquisition and retention"]], "growth"),
+        optional: true, when: row => row.method === "orders" },
+      num("orders", "Estimated orders or transactions in month one", { step: 1, initial: "0", when: row => row.method === "orders" && !acquisition(row) }),
+      num("openingCustomers", "Active customers before month one", { initial: "0", when: acquisition }),
+      num("organicTraffic", "Organic visits in month one", { initial: "0", when: acquisition }),
+      pct("organicConversion", "Organic visits that become signups", { initial: "0", when: acquisition }),
+      amount("marketingBudget", "First-month paid marketing budget", { initial: "0", when: acquisition }),
+      pct("marketingVATRate", "Recoverable VAT on paid marketing (optional)", { optional: true, when: acquisition }),
+      pct("marketingGrowth", "Monthly marketing budget change", { min: -100, initial: "0", when: acquisition }),
+      amount("signupCost", "Cost per paid signup", { min: 0.000001, initial: "1", when: acquisition }),
+      pct("customerActivation", "Signups that become active customers", { initial: "0", when: acquisition }),
+      pct("customerChurn", "Monthly active customer churn", { initial: "0", when: acquisition }),
+      num("ordersPerCustomer", "Monthly orders per active customer", { initial: "1", when: acquisition }),
       amount("orderValue", "Average eligible value per order", { initial: "0", when: row => row.method === "orders" }),
       num("active", "Subscribers before month one", { when: row => row.method === "subscription", initial: "0" }),
       num("newSubscribers", "New subscribers in first month", { when: row => row.method === "subscription" }),
@@ -67,7 +80,9 @@
       amount("amount", "First-month revenue", { when: row => row.method === "direct" }),
       amount("transactionValue", "First-month transaction or payout value", { when: row => row.method === "percentage" }),
       pct("rate", "Percentage earned", { initial: "0", when: row => row.method === "percentage" || row.method === "orders" }),
-      growth("Monthly sales growth"), days("days", "Customer payment days"), vat("VAT charged on sales (optional)"),
+      { ...growth("Monthly sales growth"), when: row => !acquisition(row) },
+      { ...pct("growth", "Monthly organic traffic growth", { min: -100, initial: "0", when: acquisition }) },
+      days("days", "Customer payment days"), vat("VAT charged on sales (optional)"),
     ], ["Product sales", "Services", "Subscriptions", "Transaction fees", "Revenue share"], true),
     group("directCosts", "Costs", "What does it cost to deliver your sales?", "Add production, delivery and payment costs as a share of revenue or a monthly amount. Include stock and supplier terms where they apply.", "direct cost", [
       select("basis", "Cost basis", [["rate", "Percentage of applicable revenue"], ["fixed", "Monthly amount"]], "rate"),
@@ -186,5 +201,5 @@
   }
 
   const scopedCostGroups = new Set(["directCosts", "staff", "expenses", "ownedAssets", "investments"]);
-  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft, scopedCostGroups, expenseGroups, expenseDefaults };
+  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft, scopedCostGroups, expenseGroups, expenseDefaults, acquisition };
 })();

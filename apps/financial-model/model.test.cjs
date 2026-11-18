@@ -522,3 +522,23 @@ test("expense rollups and VAT reconcile the cash ledger through a quarter bounda
   assert.equal(sga.find(([label]) => label === "Recoverable VAT · Rent")[1](annual[0]), 3);
   assert.equal(build({ ...answers, vatCadence: "off" })[0].months[0].vatPayable, 0);
 });
+
+test("acquisition forecasts use one paid budget for order volume and SG&A", () => {
+  const [forecast] = build({
+    start: "2027-01", months: "2", tax: "0", streams: [{
+      name: "Delivery", method: "orders", orderForecast: "acquisition", openingCustomers: "20",
+      organicTraffic: "100", growth: "20", organicConversion: "10", marketingBudget: "100", marketingGrowth: "50",
+      signupCost: "5", customerActivation: "50", customerChurn: "10", ordersPerCustomer: "2",
+      orderValue: "50", rate: "10", days: "0",
+    }],
+  });
+  const [first, next] = forecast.months;
+  assert.equal(first.details.streams[0].paidSignups, 20);
+  assert.equal(first.details.streams[0].customers, 33);
+  assert.equal(first.revenue, 330);
+  assert.equal(first.overhead, 100);
+  near(next.details.streams[0].customers, 50.7);
+  near(next.revenue, 507);
+  assert.equal(next.overhead, 150);
+  near(next.check, 0);
+});
