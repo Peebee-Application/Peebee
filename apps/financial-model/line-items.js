@@ -153,6 +153,17 @@
       presetRows: [...presetExpenseCategories].map(([name, category]) => ({ name, category })),
       presetGroups: expenseGroups.map(([, label, names]) => [label, names]),
     },
+    group("actuals", "Working capital", "Which historical months do you want to record?",
+      "Enter one line per month from the books. These entries appear on the Actuals sheet.", "historical month", [
+        { id: "period", label: "Historical month", type: "month" },
+        amount("revenue", "Revenue", { initial: "0", min: -1e12 }),
+        amount("cogs", "Cost of goods sold", { initial: "0" }),
+        amount("payroll", "Payroll", { initial: "0" }),
+        amount("overhead", "Other operating expenses", { initial: "0" }),
+        amount("netIncome", "Net income", { initial: "0", min: -1e12 }),
+        amount("capex", "Capital expenditure", { initial: "0" }),
+        amount("cash", "Closing cash", { initial: "0", min: -1e12 }),
+      ]),
     group("inventoryMovements", "Working capital", "What extra orders or inventory losses should be planned?",
       "Use the inventory code from its direct cost card. Extra orders arrive after that plan’s lead time. Write-offs apply in the selected month.", "inventory movement", [
         inventoryCode, select("movement", "Movement", [["order", "Extra order"], ["loss", "Inventory write-off"]], "order"),
@@ -207,7 +218,7 @@
   const fieldsFor = (group, row) => group.fields.filter(field => !field.when || field.when(row));
 
   function upgradeDraft(old) {
-    const answers = { hireEquipment: "none", vatCadence: "off", inventoryMovements: [], ...old };
+    const answers = { hireEquipment: "none", vatCadence: "off", inventoryMovements: [], actuals: [], ...old };
     const carry = (id, keys, used, row) => {
       if (Array.isArray(old[id]) || !keys.some(key => old[key] != null && old[key] !== "")) return;
       answers[id] = used ? [row] : [];

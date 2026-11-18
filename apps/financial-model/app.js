@@ -10,7 +10,7 @@
   const stepLabels = {
     currency: "Currency", customCurrency: "Currency code", start: "Forecast start", months: "Forecast length",
     channels: "Revenue channels", directCosts: "Direct costs", staff: "Staffing", expenses: "Operating expenses", hireEquipment: "Hiring equipment", hireEquipmentCost: "Equipment cost", hireEquipmentLife: "Equipment useful life", hireEquipmentReplacement: "Hiring equipment replacements", hireEquipmentInflation: "Hiring equipment price change", tax: "Income tax", vatCadence: "VAT payment timing", vatYearEnd: "VAT reporting year end",
-    accounts: "Opening cash", receivables: "Receivables", payables: "Payables", inventoryMovements: "Inventory orders and write-offs", ownedAssets: "Existing assets", investments: "Asset purchases",
+    accounts: "Opening cash", receivables: "Receivables", payables: "Payables", inventoryMovements: "Inventory orders and write-offs", actuals: "Historical results", ownedAssets: "Existing assets", investments: "Asset purchases",
     existingLoans: "Outstanding loans", newLoans: "New loans", contributions: "Equity contributions",
     scenarios: "Scenario comparison", downside: "Downside growth", upside: "Upside growth",
     valuation: "DCF valuation", discountRate: "Discount rate", exitValue: "Exit value",
@@ -70,61 +70,97 @@
     if (confirmation.returnValue === "confirm") action?.();
   });
 
+  const workbookSheets = [
+    ["workbook-intro", "Intro", "Start here to see how to set up and read the Peebee financial forecast."],
+    ["assumptions", "Assumptions", "Review and edit the inputs that drive the forecast across all Peebee channels."],
+    ["overview", "Dashboard", "Review projected revenue, earnings, cash and funding needs, and choose which modules to include."],
+    ["workbook-settings", "Settings", "Manage company details, opening balances, taxes and shared defaults for the forecast."],
+    ["workbook-actuals", "Actuals", "Record historical financial results by month and review the figures from your books."],
+    ["channel-revenue", "Revenue", "See how orders, subscriptions, transaction values and fees drive revenue across channels."],
+    ["cogs", "COGS", "Review direct costs, inventory purchases and the cost of delivering sales."],
+    ["staff-schedule", "SG&A > Staff", "Review headcount, hiring, wages and employer costs by role and department."],
+    ["sga", "SG&A", "Review operating expenses by category and see how they combine with payroll to produce total SG&A."],
+    ["capex", "CAPEX", "Review inventory, planned asset purchases, replacements, depreciation and loan repayments."],
+    ["fs-monthly", "FS-Month", "Review the income statement, balance sheet and cash flow month by month."],
+    ["fs-annual", "FS-Annual", "Review annual earnings, year-end balances and cash flows for each year of the forecast."],
+    ["pitch-deck", "Pitch Deck Output", "Review a compact set of annual revenue, profitability and margin figures for presentations."],
+    ["workbook-exports", "Data Exports", "Download the financial forecast, historical entries or a backup of the saved assumptions."],
+    ["workbook-map", "Model Map", "Find every workbook sheet and see how forecast inputs flow into reports."],
+    ["workbook-changes", "Change Log", "Review changes to the Peebee Financial Model and its calculation schedules."],
+    ["monthly-summary", "FS-Month (AI Summary)", "Choose a month to see a summary of its financial statement and cash position."],
+    ["taxes", "Taxes", "Review income tax and VAT accruals, payments and closing balances."],
+    ["consolidated-models", "Consolidated models", "Compare the enabled channels and see how their revenue streams roll up to Peebee’s total."],
+    ["analysis", "Dashboard Charts", "Explore the forecast through charts for revenue, expenses, cash and break-even."],
+  ];
+  const workbookById = new Map(workbookSheets.map(sheet => [sheet[0], sheet]));
+  const workbookUtilities = new Set(["workbook-intro", "workbook-actuals", "workbook-exports", "workbook-map", "workbook-changes"]);
+  const privateSheets = new Set(["assumptions", "workbook-settings", "workbook-actuals", "workbook-exports"]);
   const reportLinks = reports.map(({ id, name }) => [id, name]);
   const navigation = [
-    { id: "home", name: "Home", views: [["overview", "Dashboard"], ["analysis", "Analysis"]] },
+    { id: "home", name: "Home", views: [["overview", "Dashboard"], ["analysis", "Dashboard Charts"]] },
     ...(!guestMode ? [{ id: "model", name: "Model", views: [["assumptions", "Assumptions"], ["workbook-settings", "Forecast settings"]] }] : []),
     { id: "schedules", name: "Schedules", views: [["channel-revenue", "Revenue"], ...scheduleReports.map(({ id, name }) => [id, name]),
       ...reportLinks.filter(([id]) => id === "schedules")] },
     { id: "statements", name: "Statements", views: [...statementReports.map(({ id, name }) => [id, name]),
-      ...reportLinks.filter(([id]) => id !== "schedules")] },
+      ["monthly-summary", "FS-Month (AI Summary)"], ["pitch-deck", "Pitch Deck Output"], ...reportLinks.filter(([id]) => id !== "schedules")] },
+    { id: "workbook", name: "Workbook", views: [
+      ...["workbook-map", "workbook-intro", "workbook-actuals", "workbook-exports", "workbook-changes", "consolidated-models"]
+        .filter(id => !guestMode || !privateSheets.has(id)).map(id => workbookById.get(id).slice(0, 2)),
+    ] },
   ];
   const primaryNav = document.querySelector("#primary-nav");
   const secondaryNav = document.querySelector("#secondary-nav");
-  let menuGroup;
 
   function currentView() {
-    if (screen === "report") return selectedReport;
+    if (screen === "report" || screen === "workbook-sheet") return selectedReport;
     if (screen === "workbook-settings") return screen;
     return "assumptions";
   }
 
   function renderNavigation() {
     const view = currentView();
-    const group = navigation.find(item => item.id === menuGroup) || navigation.find(item => item.views.some(([id]) => id === view));
+    const group = navigation.find(item => item.views.some(([id]) => id === view)) || navigation[0];
     primaryNav.innerHTML = radio(navigation.map(item => [item.id, item.name]), group.id, "primary");
     secondaryNav.innerHTML = radio(group.views, view, "view");
   }
 
-  function openView(view, focusId) {
+  function addressView() {
+    const hash = location.hash;
+    const view = hash.startsWith("#forecast-setting-") ? "workbook-settings"
+      : hash.startsWith("#sheet/") ? hash.slice("#sheet/".length) : "";
+    return navigation.some(group => group.views.some(([id]) => id === view)) ? view : "";
+  }
+
+  function selectView(view) {
+    if (view === "assumptions") screen = "review";
+    else if (view === "workbook-settings") screen = view;
+    else screen = workbookUtilities.has(view) ? "workbook-sheet" : "report";
+    selectedReport = view;
+    editing = false;
+  }
+
+  function openView(view, focusId, push = true) {
+    if (!navigation.some(group => group.views.some(([id]) => id === view))) return;
     if (view === currentView() && screen !== "wizard") return;
     navigate(() => {
-      if (view === "assumptions") return showReview();
-      if (view === "workbook-settings") {
-        screen = view;
-      } else {
-        const missing = firstMissing(answers);
-        if (missing) return goTo(missing.id, true);
-        screen = "report";
-        selectedReport = view;
-      }
-      editing = false;
+      selectView(view);
+      if (push && addressView() !== view) history.pushState(null, "", "#sheet/" + view);
       save();
-      render(focusId);
+      render(focusId || (screen === "report" ? "report-title" : undefined));
     });
   }
+
+  window.addEventListener("popstate", () => {
+    if (guestMode ? !guestActive : !sharedReady) return;
+    const view = addressView();
+    if (view) openView(view, undefined, false);
+  });
 
   primaryNav.addEventListener("click", event => {
     const button = event.target.closest("[data-primary]");
     if (!button || button.getAttribute("aria-pressed") === "true") return;
     const group = navigation.find(item => item.id === button.dataset.primary);
     const destination = group.views[0][0];
-    if (destination !== "assumptions" && firstMissing(answers)) {
-      menuGroup = group.id;
-      renderNavigation();
-      document.getElementById(button.id).focus();
-      return;
-    }
     openView(destination, button.id);
   });
   secondaryNav.addEventListener("click", event => {
@@ -432,12 +468,12 @@
         showGuestLanding("There is no completed forecast to preview yet.");
         return;
       }
-      if (!guestActive) selectedReport = "overview";
+      const target = guestActive ? currentView() : addressView() || "overview";
       guestActive = true;
       guestRevision = draft.revision;
       guestExit.hidden = false;
       answers = read.answers;
-      screen = "report";
+      selectView(target);
       outcomes = null;
       render();
     } catch (error) {
@@ -636,6 +672,7 @@
       document.querySelector("#open-settings").hidden = false;
       publishLocal.hidden = !!draft || !localDraft?.answers;
       showSaveStatus(draft ? "Shared forecast" : "Shared forecast · Peebee defaults");
+      if (addressView()) selectView(addressView());
       render();
     } catch (error) {
       if (sharedReady) return showSaveStatus(error.message, saveError || error);
@@ -659,7 +696,7 @@
   if (session) window.addEventListener("adminaccountchange", restartSession);
 
   let activeEdit;
-  let fromForecastSettings = false;
+  let returnSheet = "";
   let pendingNavigation;
 
   function beforeUnload(event) {
@@ -701,7 +738,6 @@
   });
 
   function render(focusId) {
-    menuGroup = undefined;
     activeEdit = undefined;
     if (!queuedAnswers) window.removeEventListener("beforeunload", beforeUnload);
     detachCharts?.();
@@ -709,10 +745,12 @@
     dashboardObserver?.disconnect();
     dashboardObserver = null;
     if (screen === "report") renderReport();
+    else if (screen === "workbook-sheet") renderWorkbookSheet();
     else if (screen === "review") renderReview();
     else if (screen === "workbook-settings") renderWorkbookSettings();
     else renderQuestion();
     renderNavigation();
+    if (screen !== "wizard" && addressView() !== currentView()) history.replaceState(null, "", "#sheet/" + currentView());
     if (focusId) document.getElementById(focusId)?.focus();
   }
 
@@ -753,7 +791,7 @@
         <p id="error" class="error" role="alert" hidden></p>
         ${prompt.suggestion ? `<p class="suggestion"><button type="button" id="suggestion" class="text-button">Use ${escape(prompt.suggestion)}</button></p>` : ""}
         <p id="save-status" class="muted save-status" role="status"></p>
-        <div class="actions"><button type="button" id="back" class="button secondary" ${!index && !editing ? "disabled" : ""}>${fromForecastSettings ? "Back to settings" : editing ? "Back to review" : "Back"}</button>
+        <div class="actions"><button type="button" id="back" class="button secondary" ${!index && !editing ? "disabled" : ""}>${returnSheet ? "Back to " + (returnSheet === "workbook-settings" ? "settings" : workbookById.get(returnSheet)[1]) : editing ? "Back to review" : "Back"}</button>
           <div class="step-actions"><button type="button" class="button secondary" id="save-step">Save</button>
             <button type="submit" class="button gold">Next <span aria-hidden="true">→</span></button></div></div>
       </form></div>`;
@@ -829,22 +867,17 @@
       if (!commit()) return;
       const current = activeQuestions(answers);
       const next = current[current.findIndex(item => item.id === step) + 1];
-      if (next) goTo(next.id, editing, fromForecastSettings);
+      if (next) goTo(next.id, editing, returnSheet);
       else showReview();
     });
     document.querySelector("#back").addEventListener("click", () => {
-      if (fromForecastSettings) navigate(() => {
-        screen = "workbook-settings";
-        fromForecastSettings = false;
-        save();
-        render("forecast-settings-title");
-      });
+      if (returnSheet) openView(returnSheet);
       else if (editing) navigate(showReview);
       else if (index) navigate(() => goTo(list[index - 1].id));
     });
     function openQuestion(questionId) {
       if (questionId !== step) navigate(() => {
-        if (activeQuestions(answers).some(item => item.id === questionId)) goTo(questionId, editing, fromForecastSettings);
+        if (activeQuestions(answers).some(item => item.id === questionId)) goTo(questionId, editing, returnSheet);
       });
     }
     app.querySelectorAll("[data-step]").forEach(button => button.addEventListener("click", () => openQuestion(button.dataset.step)));
@@ -1223,9 +1256,9 @@
     return `<div class="line-field"><label for="${id}">${escape(field.label)}${unit ? `<span class="sr-only"> (${escape(unit)})</span>` : ""}</label>${control}</div>`;
   }
 
-  function goTo(id, edit = false, fromSettings = false) {
+  function goTo(id, edit = false, fromSheet = "") {
     editing = edit;
-    fromForecastSettings = fromSettings;
+    returnSheet = fromSheet;
     step = id;
     screen = "wizard";
     save();
@@ -1234,7 +1267,7 @@
 
   function showReview() {
     editing = false;
-    fromForecastSettings = false;
+    returnSheet = "";
     screen = "review";
     save();
     render("review-title");
@@ -1291,7 +1324,7 @@
         ${revenue ? `<div class="review-module-grid">${prompts.filter(prompt => prompt.channelId).map(moduleCard).join("")}</div>` : `<dl>${prompts.map(reviewRow).join("")}</dl>`}
       </section>`;
     }).join("");
-    app.innerHTML = `<div class="review-head"><div><h1 id="review-title" tabindex="-1">Review assumptions</h1><p class="muted">${escape(answers.company)} · ${escape(currencyOf(answers))}</p></div>
+    app.innerHTML = `<div class="review-head"><div><h1 id="review-title" tabindex="-1">Assumptions</h1><p class="muted">${escape(workbookById.get("assumptions")[2])}</p></div>
       <div class="toolbar">
         ${currencyOf(answers) === "UGX" ? '<button type="button" id="starter-revenue" class="button secondary">Load starter revenue estimates</button>' : ""}
         <button type="button" id="generate" class="button gold">Generate forecast <span aria-hidden="true">→</span></button></div></div>
@@ -1551,7 +1584,7 @@
     const draft = { ...starting };
     const sections = [
       ["general", "General settings", ["companyName", "currency", "customCurrency", "start", "months", "lastActualMonth"]],
-      ["history", "Company history and opening balances", ["openingCapital", "accounts", "openingVAT", "openingIncomeTax", "openingIncomeTaxMonth", "receivables", "payables", "ownedAssets"]],
+      ["history", "Company history and opening balances", ["openingCapital", "accounts", "openingVAT", "openingIncomeTax", "openingIncomeTaxMonth", "receivables", "payables", "ownedAssets", "actuals"]],
       ["taxes", "Income tax, VAT and sales tax", ["tax", "incomeTaxTiming", "fiscalStart", "taxSettlementMonth", "taxInstallments", "vatCadence", "vatYearEnd", "vatSgaDefault", "vatCogsDefault"]],
       ["revenue", "Revenue by channel", ["channels", ...prompts.filter(prompt => prompt.channelId).map(prompt => prompt.id)]],
       ["costs", "Direct costs, staffing and operating expenses", ["directCosts", "staff", "expenses", "hireEquipment", "hireEquipmentCost", "hireEquipmentLife", "hireEquipmentReplacement", "hireEquipmentInflation"]],
@@ -1592,7 +1625,7 @@
           </label>`).join("")}</div></details>`;
       }).join("")}</div>`;
 
-    app.innerHTML = `<div class="forecast-settings-heading"><h1 id="forecast-settings-title" tabindex="-1">Forecast settings</h1>
+    app.innerHTML = `<div class="forecast-settings-heading"><div><h1 id="forecast-settings-title" tabindex="-1">Settings</h1><p class="muted">${escape(workbookById.get("workbook-settings")[2])}</p></div>
       <button class="button secondary" id="appearance-settings" type="button">Appearance and app settings</button></div>
       <div class="forecast-settings-layout">
         <nav class="forecast-settings-nav" aria-label="Settings sections">${sections.map(([id, title]) => `<a href="#forecast-setting-${id}">${escape(title)}</a>`).join("")}</nav>
@@ -1685,17 +1718,140 @@
       settingsDialog.querySelector("#appearance-mode").focus();
     });
     form.querySelectorAll("[data-edit-setting]").forEach(button => button.addEventListener("click", () =>
-      navigate(() => goTo(button.dataset.editSetting, true, true))));
+      navigate(() => goTo(button.dataset.editSetting, true, "workbook-settings"))));
   }
 
-  function renderReport() {
+  function workbookForecast() {
     const { answers: forecastAnswers, groups, report: channelReport } = consolidate(modelAnswers());
     const revenueReport = {
       ...channelReport, name: "Revenue",
-      note: "Revenue adds the amounts earned across channels. Review quantities, prices, subscriber movements, and fee rates behind the totals.",
       sections: [{ ...channelReport, name: "Revenue by channel" }, { name: "Revenue drivers", lines: revenueDrivers }],
     };
-    const forecastReports = [revenueReport, ...scheduleReports, ...statementReports, ...reports];
+    const deck = { id: "pitch-deck", name: "Pitch Deck Output", frequency: "Annual", lines: [
+      ["Revenue", "revenue"], ["Cost of goods sold", "cogs"], ["Gross profit", "gross", "total"],
+      ["Gross margin", row => row.revenue ? row.gross / row.revenue : null, "rate"],
+      ["SG&A", row => row.payroll + row.overhead], ["EBITDA", "ebitda", "total"],
+      ["EBITDA margin", row => row.revenue ? row.ebitda / row.revenue : null, "rate"],
+      ["Net income", "profit", "footer"], ["Net margin", row => row.revenue ? row.profit / row.revenue : null, "rate"],
+    ] };
+    const consolidated = { id: "consolidated-models", name: "Consolidated models", lines: [
+      ...groups.map(group => [group.name, row => group.streams.reduce((total, stream) => total + row.details.streams[stream.index].revenue, 0)]),
+      ["Consolidated revenue", "revenue", "footer"],
+    ] };
+    return { forecastAnswers, groups, forecastReports: [revenueReport, ...scheduleReports, ...statementReports, deck, consolidated, ...reports] };
+  }
+
+  function workbookLink(id, label) {
+    return `<a href="#sheet/${id}" data-sheet-link="${id}">${escape(label || workbookById.get(id)[1])}</a>`;
+  }
+
+  app.addEventListener("click", event => {
+    const link = event.target.closest("[data-sheet-link]");
+    if (!link || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+    event.preventDefault();
+    openView(link.dataset.sheetLink);
+  });
+
+  const actualColumns = [
+    ["Revenue", "revenue"], ["Cost of goods sold", "cogs"], ["Payroll", "payroll"], ["Other operating expenses", "overhead"],
+    ["EBITDA", row => Number(row.revenue) - Number(row.cogs) - Number(row.payroll) - Number(row.overhead)],
+    ["Net income", "netIncome"], ["Capital expenditure", "capex"], ["Closing cash", "cash"],
+  ];
+  const historyRows = () => (answers.actuals || []).filter(included).sort((a, b) => a.period.localeCompare(b.period));
+  const actualValue = (row, field) => typeof field === "function" ? field(row) : Number(row[field]);
+
+  function renderWorkbookSheet() {
+    const [id, title, description] = workbookById.get(selectedReport);
+    const rows = id === "workbook-actuals" ? historyRows() : [];
+    let content;
+    if (id === "workbook-intro") {
+      content = `<section class="panel"><h2>Using the model</h2><ol>
+        ${!guestMode ? `<li>Set the forecast dates, reporting currency and opening balances in ${workbookLink("workbook-settings", "Settings")}.</li>
+        <li>Set revenue drivers, costs, hiring and financing in ${workbookLink("assumptions")}.</li>` : ""}
+        <li>Review results in the ${workbookLink("overview")} and the monthly or annual statements.</li>
+        <li>Use the ${workbookLink("workbook-map")} to trace a figure to its supporting schedule.</li></ol></section>`;
+    } else if (id === "workbook-actuals") {
+      content = `<section class="panel"><div class="toolbar">
+        <button type="button" class="button gold" id="edit-actuals">Edit actuals</button>
+        ${document.querySelector("#live-data").hidden ? "" : '<button type="button" class="button secondary" id="actuals-live">Live Admin data</button>'}</div>
+        <p class="muted">${answers.lastActualMonth ? "Recorded cutoff · " + escape(answers.lastActualMonth) + ". " : ""}Historical entries are shown separately from forecast periods.</p>
+        ${rows.length ? table("Historical results", rows.map(row => row.period), actualColumns.map(([label, field]) =>
+          [label, rows.map(row => format(actualValue(row, field))), label === "EBITDA" || label === "Closing cash" ? "total" : undefined]))
+          : '<p class="muted">No historical months have been entered.</p>'}</section>`;
+    } else if (id === "workbook-exports") {
+      content = `<section class="panel"><h2>Downloads</h2><div class="toolbar">
+        <button type="button" class="button gold" id="export-workbook">Forecast workbook CSV</button>
+        <button type="button" class="button secondary" id="export-actuals"${historyRows().length ? "" : " disabled"}>Historical results CSV</button>
+        <button type="button" class="button secondary" id="export-assumptions">Assumptions backup JSON</button>
+        </div><p class="muted" id="workbook-export-status" role="status"></p></section>`;
+    } else if (id === "workbook-map") {
+      content = `<section class="panel"><h2>Sheet directory</h2><ol class="workbook-sheet-directory">
+        ${workbookSheets.filter(([key]) => !guestMode || !privateSheets.has(key)).map(([key, label, note]) =>
+          `<li>${workbookLink(key, label)}<span class="muted">${escape(note)}</span></li>`).join("")}</ol></section>
+        <section class="panel"><h2>How the forecast flows</h2><p>Revenue, COGS and SG&A feed the income statement. CAPEX feeds depreciation, fixed assets and investing cash flow. Loans and taxes feed both cash flow and the balance sheet.</p></section>`;
+    } else {
+      content = `<section class="panel"><h2>Peebee model releases</h2><ul class="workbook-change-list">
+        <li><strong>Workbook pages</strong><span>Dedicated pages, sheet descriptions, historical results and export tools.</span></li>
+        <li><strong>Forecast settings</strong><span>Fiscal income tax, VAT overrides, shared defaults and campaign schedules.</span></li>
+        <li><strong>CAPEX</strong><span>Asset replacement, inventory orders and fixed loan payments.</span></li>
+        <li><strong>SG&A and staffing</strong><span>Staffing modes, departmental payroll, expense categories and acquisition budgets.</span></li>
+        </ul><p class="muted">Shared forecast saves are tracked separately from these app releases.</p></section>`;
+    }
+    app.innerHTML = `<header class="workbook-sheet-heading"><h1 id="workbook-sheet-title" tabindex="-1">${escape(title)}</h1>
+      <p class="muted">${escape(description)}</p></header><div class="stack">${content}</div>`;
+    app.querySelector("#edit-actuals")?.addEventListener("click", () => goTo("actuals", true, id));
+    app.querySelector("#actuals-live")?.addEventListener("click", () => document.querySelector("#live-data").click());
+    app.querySelector("#export-workbook")?.addEventListener("click", () => {
+      const status = app.querySelector("#workbook-export-status");
+      const missing = firstMissing(answers);
+      if (missing) {
+        status.textContent = "Complete " + stepLabel(missing) + " before exporting the forecast.";
+        return;
+      }
+      try {
+        const { forecastReports, forecastAnswers } = workbookForecast();
+        outcomes ||= build(forecastAnswers);
+        downloadAll(forecastReports, forecastAnswers);
+      } catch (error) {
+        if (!(error instanceof ForecastRangeError)) throw error;
+        status.textContent = error.message;
+      }
+    });
+    app.querySelector("#export-actuals")?.addEventListener("click", () =>
+      download([["Month", ...actualColumns.map(([label]) => label)], ...historyRows().map(row =>
+        [row.period, ...actualColumns.map(([, field]) => actualValue(row, field))])], "actuals"));
+    app.querySelector("#export-assumptions")?.addEventListener("click", () => void exportSavedAssumptions(app.querySelector("#workbook-export-status")));
+  }
+
+  let summaryMonth;
+  function renderMonthlySummary(model) {
+    const selected = model.months.find(row => row.period === summaryMonth) || model.months[0];
+    const prior = model.months[model.months.indexOf(selected) - 1];
+    const delta = prior ? selected.revenue - prior.revenue : 0;
+    const revenueChange = prior ? ` Revenue ${delta < 0 ? "fell" : "rose"} by ${money(Math.abs(delta))} from ${prior.period}.` : "";
+    return `<section class="panel"><label for="summary-month">Forecast month</label>
+      <select id="summary-month">${model.months.map(row => `<option${row === selected ? " selected" : ""}>${escape(row.period)}</option>`).join("")}</select>
+      <p>${escape(model.name)} forecast for ${escape(selected.period)}. Revenue is ${escape(money(selected.revenue))}, EBITDA is ${escape(money(selected.ebitda))},
+        and net income is ${escape(money(selected.profit))}.${delta ? escape(revenueChange) : ""}</p>
+      <p>${selected.cash < 0 ? "Month-end cash shortfall" : "Month-end cash"} is ${escape(money(Math.abs(selected.cash)))}.</p>
+      <p class="muted">Generated directly from the forecast figures.</p>
+      <p>${workbookLink("fs-monthly", "Open the full monthly statements")}</p></section>`;
+  }
+
+  function renderReport() {
+    const page = workbookById.get(selectedReport);
+    const pageTitle = page?.[1] ?? navigation.flatMap(group => group.views).find(([id]) => id === selectedReport)?.[1] ?? "Dashboard";
+    const description = page?.[2] ?? "Review this supporting view of the Peebee financial forecast.";
+    const missing = firstMissing(answers);
+    if (missing) {
+      app.innerHTML = `<header class="workbook-sheet-heading"><h1 id="report-title" tabindex="-1">${escape(pageTitle)}</h1>
+        <p class="muted">${escape(description)}</p></header>
+        <section class="panel"><p>Complete ${escape(stepLabel(missing))} to calculate this sheet.</p>
+        ${guestMode ? "" : '<button id="complete-sheet" type="button" class="button gold">Open assumption</button>'}</section>`;
+      app.querySelector("#complete-sheet")?.addEventListener("click", () => goTo(missing.id, true, page ? selectedReport : ""));
+      return;
+    }
+    const { forecastAnswers, groups, forecastReports } = workbookForecast();
     try {
       outcomes ||= build(forecastAnswers);
     } catch (error) {
@@ -1713,11 +1869,11 @@
     if (!outcomes.some(item => item.name === selectedCase)) selectedCase = "Base";
     const model = outcomes.find(item => item.name === selectedCase);
     const report = forecastReports.find(item => item.id === selectedReport);
-    const pageTitle = navigation.flatMap(group => group.views).find(([id]) => id === selectedReport)?.[1] ?? report?.name ?? "Dashboard";
+    const isSummary = selectedReport === "monthly-summary";
     const reportFrequency = report?.frequency || frequency;
     const rows = reportFrequency === "Annual" ? model.annual : model.months;
     const currency = currencyOf(answers);
-    const overviewChart = !report && selectedReport !== "analysis" ? monthlyEarnings(model.months, currency) : null;
+    const overviewChart = selectedReport === "overview" ? monthlyEarnings(model.months, currency) : null;
     const analysis = selectedReport === "analysis" ? buildAnalysis({
       model, outcomes, rows, frequency, answers: forecastAnswers, groups,
       state: { ...analysisState, ...analysisState.windows[frequency] },
@@ -1727,21 +1883,35 @@
     const renderTable = section => table(section.name, rows.map(row => row.period), linesFor(section, forecastAnswers).map(([label, field, style]) =>
       [label, rows.map(row => format(lineValue(row, field), style)), style]));
     const reportBody = report ? `<section class="stack workbook-view">
+      ${selectedReport === "consolidated-models" ? `<section class="panel"><h2>Revenue drivers</h2><dl>
+        <div><dt>Unit sales</dt><dd>Quantity × unit price.</dd></div>
+        <div><dt>Subscriptions</dt><dd>Active subscribers × price, with additions and churn each month.</dd></div>
+        <div><dt>Orders</dt><dd>Orders × average eligible value × fee rate. Acquisition assumptions can drive order volume.</dd></div>
+        <div><dt>Percentage fees</dt><dd>Transaction or payout value × fee rate.</dd></div>
+        <div><dt>Direct revenue</dt><dd>A monthly amount adjusted by the selected growth assumption.</dd></div>
+      </dl></section>` : ""}
       ${report.note ? `<p class="muted">${escape(report.note)}</p>` : ""}
       ${(report.sections || [report]).map(renderTable).join("")}
     </section>` : "";
+    const editEntry = { "staff-schedule": ["staff", "Edit staffing"], sga: ["expenses", "Edit operating expenses"] }[selectedReport];
     app.innerHTML = `<div class="report-head"><div><h1 id="report-title" tabindex="-1">${escape(pageTitle)}</h1>
+        <p class="muted">${escape(description)}</p>
         <p class="muted">${escape(answers.company)} · Consolidated financial forecast · ${escape(currencyOf(answers))} · ${model.months[0].period} to ${model.months.at(-1).period}</p></div>
         <div class="report-actions">${scenarioControl}
-          ${guestMode ? '<span class="muted">Read-only guest preview</span>' : `<div class="toolbar"><button type="button" id="review" class="button secondary">Edit assumptions</button>
+          ${guestMode ? '<span class="muted">Read-only guest preview</span>' : `<div class="toolbar"><button type="button" id="review" class="button secondary">${editEntry?.[1] || "Edit assumptions"}</button>
           <button type="button" id="download" class="button gold">Download model CSV <span aria-hidden="true">↓</span></button></div>`}
         </div></div>
       ${report || analysis ? `<div class="toolbar">${periodControl}
         ${report && !guestMode ? '<button type="button" id="download-report" class="button secondary small">Download this view</button>' : ""}</div>` : ""}
-      ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? reportBody : overview(model, overviewChart)}`;
-    document.querySelector("#review")?.addEventListener("click", showReview);
+      ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? reportBody : isSummary ? renderMonthlySummary(model) : overview(model, overviewChart)}`;
+    app.querySelector("#review")?.addEventListener("click", () =>
+      editEntry ? goTo(editEntry[0], true, selectedReport) : showReview());
+    app.querySelector("#summary-month")?.addEventListener("change", event => {
+      summaryMonth = event.target.value;
+      render("summary-month");
+    });
     if (analysis) bindAnalysis(analysis, currency);
-    if (!analysis && !report) {
+    if (overviewChart) {
       detachCharts = globalThis.ForecastCharts.mount(app, { charts: [overviewChart] }, format);
       bindModuleControls();
       const dashboard = app.querySelector(".forecast-dashboard");
@@ -1919,22 +2089,24 @@
     return input;
   }
 
-  downloadBackup.addEventListener("click", async () => {
+  async function exportSavedAssumptions(status) {
+    if (downloadBackup.disabled) return;
     downloadBackup.disabled = true;
-    backupStatus.textContent = "Preparing saved assumptions…";
+    status.textContent = "Preparing saved assumptions…";
     try {
       const data = session ? (await session.request("load")).draft : readLocal();
       const stored = data?.answers ?? createDefaults();
       const backup = JSON.stringify({ format: backupFormat, version: backupVersion, answers: stored });
       const date = new Intl.DateTimeFormat("sv-SE", { timeZone: "Africa/Kampala", dateStyle: "short" }).format(new Date());
       downloadFile(new Blob([backup], { type: "application/json" }), `peebee-assumptions-${date}.json`);
-      backupStatus.textContent = "Assumptions backup downloaded.";
+      status.textContent = "Assumptions backup downloaded.";
     } catch (error) {
-      backupStatus.textContent = error.message;
+      status.textContent = error.message;
     } finally {
       downloadBackup.disabled = false;
     }
-  });
+  }
+  downloadBackup.addEventListener("click", () => void exportSavedAssumptions(backupStatus));
 
   uploadBackup.addEventListener("click", () => backupFile.click());
   backupFile.addEventListener("change", async () => {
@@ -2057,5 +2229,8 @@
     void loadGuest();
     window.setInterval(() => { if (guestActive) void loadGuest(); }, 30000);
   } else if (session) void loadShared();
-  else render();
+  else {
+    if (addressView()) selectView(addressView());
+    render();
+  }
 })();

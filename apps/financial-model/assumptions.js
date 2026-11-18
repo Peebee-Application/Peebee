@@ -64,7 +64,7 @@
     amount("openingCapital", "Working capital", "Opening invested capital", "Leave blank to use opening net assets. Entered capital is shown separately from opening retained earnings.", { optional: true }),
     amount("openingIncomeTax", "Working capital", "Opening income tax owed", "Tax owed at forecast start.", { optional: true }),
     number("openingIncomeTaxMonth", "Working capital", "Pay opening income tax in model month", "Use 1 for the first forecast month.", { min: 1, max: 84, step: 1, when: answers => Number(answers.openingIncomeTax) > 0 }),
-    byId.accounts, byId.receivables, byId.payables, byId.inventoryMovements,
+    byId.accounts, byId.receivables, byId.payables, byId.inventoryMovements, byId.actuals,
     ...assetCategories.map(([key, label, life]) => number("assetLife_" + key, "Investment", label + " default useful life",
       "Used when a new purchase or replacement has no useful life override.", { min: 1, max: 600, step: 1, unit: "months", optional: true, suggestion: life })),
     percent("assetInflationDefault", "Investment", "Default annual replacement price change", "Used when an asset has no inflation override.", { min: -100, optional: true }),
@@ -86,6 +86,7 @@
   function itemError(prompt, rows, answers) {
     const names = new Set();
     const inventoryCodes = new Set();
+    const actualPeriods = new Set();
     for (const [index, row] of rows.entries()) {
       if (!prompt.keyed && row.enabled === "no") continue;
       for (const field of fieldsFor(prompt, row)) {
@@ -96,6 +97,11 @@
         const code = row.inventoryCode.toLowerCase();
         if (inventoryCodes.has(code)) return { id: "item-" + index + "-inventoryCode", message: "Give each inventory plan a distinct code." };
         inventoryCodes.add(code);
+      }
+      if (prompt.id === "actuals") {
+        if (actualPeriods.has(row.period)) return { id: "item-" + index + "-period", message: "Use one entry per historical month." };
+        if (answers.start && row.period >= answers.start) return { id: "item-" + index + "-period", message: "Enter a month before the forecast starts." };
+        actualPeriods.add(row.period);
       }
       if (prompt.id === "inventoryMovements" && !(answers.directCosts || []).some(cost =>
         cost.basis === "inventory" && cost.inventoryCode?.toLowerCase() === row.inventoryCode.toLowerCase())) {
