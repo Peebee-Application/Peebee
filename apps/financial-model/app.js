@@ -1388,7 +1388,7 @@
   const radio = (items, selected, type) => items.map(([id, label]) =>
     `<button type="button" id="${type}-${id}" data-${type}="${id}" aria-pressed="${id === selected}">${escape(label)}</button>`).join("");
 
-  let expandedModules = new Set(["rides"]);
+  let expandedModules = new Set();
   let moduleSidebarOpen = matchMedia("(min-width: 901px)").matches;
   let scopeMessage = "";
 
