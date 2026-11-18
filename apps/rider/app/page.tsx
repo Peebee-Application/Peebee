@@ -81,6 +81,8 @@ export default function JobsHomePage() {
         setOrders(o.orders);
         observeNotificationSnapshot("rider-jobs", j.jobs.map((job) => job.id));
         setAvailableJobs(j.jobs);
+        // A type with no jobs left drops out of the filters, so a rider filtered to it goes back to All.
+        setCategoryFilter((prev) => (prev === "all" || j.jobs.some((job) => jobCategory(job) === prev) ? prev : "all"));
         setSubscriptionOk(!s.subscription.required || s.subscription.current);
         setLoaded(true);
       })
@@ -196,9 +198,17 @@ export default function JobsHomePage() {
     return counts;
   }, [availableJobs]);
 
+  // Same counts the badges show; a filter only exists while its type has open jobs.
+  const filterTypes = useMemo(
+    () => (["ride", "parcel", "shopping", "food"] as const).filter((cat) => categoryCounts[cat] > 0),
+    [categoryCounts],
+  );
+  const activeFilter: JobCategory | "all" =
+    categoryFilter !== "all" && categoryCounts[categoryFilter] === 0 ? "all" : categoryFilter;
+
   const visibleJobs = useMemo(() => {
     const filtered =
-      categoryFilter === "all" ? availableJobs : availableJobs.filter((job) => jobCategory(job) === categoryFilter);
+      activeFilter === "all" ? availableJobs : availableJobs.filter((job) => jobCategory(job) === activeFilter);
     const sorted = [...filtered];
     sorted.sort((a, b) => {
       switch (sortOrder) {
@@ -212,7 +222,7 @@ export default function JobsHomePage() {
       }
     });
     return sorted;
-  }, [availableJobs, categoryFilter, sortOrder]);
+  }, [availableJobs, activeFilter, sortOrder]);
 
 
   if (!ready) {
@@ -306,27 +316,43 @@ export default function JobsHomePage() {
                       <ArrowUpDown className="h-6 w-6" aria-hidden /> {SORT_LABELS[sortOrder]}
                     </button>
                   </div>
-                  {/* Equal-column tiles (5 across, 3+2 when narrow). Count badges sit ON each tile's top-right
-                      corner, so the grid keeps room above and to the right and nothing clips them. */}
-                  <div role="group" aria-label={t("home_categories")} className="grid grid-cols-6 gap-4 overflow-visible pr-3 pt-3 min-[400px]:grid-cols-5">
-                    {(["all", "ride", "parcel", "shopping", "food"] as const).map((cat, i) => {
+                  {/* Equal-column tiles for "All" plus only the types that have jobs: 5 across (3+2 when
+                      narrow), 4 across (2+2 when narrow), or 2-3 across. Count badges sit ON each tile's
+                      top-right corner, so the grid keeps room above and to the right and nothing clips them. */}
+                  <div
+                    role="group"
+                    aria-label={t("home_categories")}
+                    className={`grid gap-4 overflow-visible pr-3 pt-3 ${
+                      filterTypes.length === 4
+                        ? "grid-cols-6 min-[400px]:grid-cols-5"
+                        : filterTypes.length === 3
+                          ? "grid-cols-2 min-[400px]:grid-cols-4"
+                          : filterTypes.length === 2
+                            ? "grid-cols-3"
+                            : "grid-cols-2"
+                    }`}
+                  >
+                    {(["all", ...filterTypes] as const).map((cat, i) => {
                       const Icon = cat === "all" ? LayoutGrid : CATEGORY_ICONS[cat];
                       const count = cat === "all" ? availableJobs.length : categoryCounts[cat];
                       const label = cat === "all" ? t("home_all") : JOB_CATEGORY_LABELS[cat];
-                      const narrowPlacement = i === 3 ? "col-start-2" : i === 4 ? "col-start-4" : "";
+                      const five = filterTypes.length === 4;
+                      const narrowPlacement = five ? (i === 3 ? "col-start-2" : i === 4 ? "col-start-4" : "") : "";
                       return (
                         <button
                           key={cat}
                           type="button"
-                          aria-pressed={categoryFilter === cat}
+                          aria-pressed={activeFilter === cat}
                           aria-label={`${label} (${count})`}
                           onClick={() => { setCategoryFilter(cat); setPage(0); }}
-                          className={`relative col-span-2 flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-1 overflow-visible rounded-2xl px-1.5 pb-3 pt-4 min-[400px]:col-span-1 min-[400px]:col-start-auto min-[400px]:px-1 ${narrowPlacement} ${
-                            categoryFilter === cat ? "bg-gold text-ink-gold" : "bg-[rgb(var(--surface-muted))] text-ink-500"
+                          className={`relative flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-1 overflow-visible rounded-2xl px-1.5 pb-3 pt-4 ${
+                            five ? `col-span-2 min-[400px]:col-span-1 min-[400px]:col-start-auto min-[400px]:px-1 ${narrowPlacement}` : ""
+                          } ${
+                            activeFilter === cat ? "bg-gold text-ink-gold" : "bg-[rgb(var(--surface-muted))] text-ink-500"
                           }`}
                         >
                           <Icon className="h-[26px] w-[26px] shrink-0" strokeWidth={2} aria-hidden />
-                          <span className="max-w-full text-center text-xs font-bold leading-tight min-[400px]:text-[11px]">{label}</span>
+                          <span className={`max-w-full text-center text-xs font-bold leading-tight ${five ? "min-[400px]:text-[11px]" : ""}`}>{label}</span>
                           {count > 0 && (
                             <span
                               aria-hidden
@@ -368,7 +394,7 @@ export default function JobsHomePage() {
               )}
               {availableJobs.length > 0 && visibleJobs.length === 0 && (
                 <p className="py-6 text-center text-base text-ink-500">
-                  {t("home_no_category_jobs", { category: JOB_CATEGORY_LABELS[categoryFilter as JobCategory]?.toLowerCase() ?? "" })}
+                  {t("home_no_category_jobs", { category: JOB_CATEGORY_LABELS[activeFilter as JobCategory]?.toLowerCase() ?? "" })}
                 </p>
               )}
 
