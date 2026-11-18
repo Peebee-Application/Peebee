@@ -66,14 +66,16 @@
   const assetClass = { ...select("assetClass", "Asset category", assetCategories.map(([id, label]) => [id, label]), "other"), optional: true };
   const replacement = { ...select("replacement", "Replacement schedule", [["none", "No automatic replacement"], ["cycle", "Replace at end of useful life"]], "none"), optional: true };
   const replaces = row => row.replacement === "cycle";
-  const assetInflation = { ...pct("assetInflation", "Annual replacement price change", { min: -100, initial: "0" }), when: replaces };
-  const assetGroups = assetCategories.map(([assetClass, name, life]) => ({ assetClass, name, life, replacementLife: life }));
+  const assetInflation = { ...pct("assetInflation", "Annual replacement price change", { min: -100, optional: true }), when: replaces };
+  const assetGroups = assetCategories.map(([assetClass, name]) => ({ assetClass, name }));
   const stocked = row => row.basis === "inventory";
+  const directCostCategories = [["technology", "Server and infrastructure"], ["processing", "Payment processing"], ["other", "Other direct costs"]];
   const manualDemand = row => stocked(row) && row.inventoryDemand !== "sales";
   const inventoryCode = { ...text("inventoryCode", "Inventory code"), pattern: "[A-Za-z0-9_-]{1,40}", patternError: "Use 1 to 40 letters, numbers, hyphens or underscores." };
   const repayment = { ...select("repayment", "Repayment method", [["principal", "Equal principal"], ["payment", "Fixed monthly payment"]], "principal"), optional: true };
   const groups = [
     group("streams", "Revenue", "What are your revenue streams?", "Add each product, service or income stream and enter how it earns revenue. Collection days estimate the sales still owed at month end.", "revenue stream", [
+      num("launchMonth", "Launch month override", { optional: true, min: 1, max: 84, step: 1 }),
       select("method", "Revenue driver", [["units", "Units × price"], ["subscription", "Subscriptions × monthly price"], ["direct", "Monthly sales amount"], ["orders", "Orders × average value × fee rate"], ["percentage", "Percentage of transaction or payout"]], "units"),
       num("units", "Units sold in first month", { when: row => row.method === "units" }),
       { ...select("orderForecast", "Forecast orders from", [["growth", "Starting orders and growth"], ["acquisition", "Customer acquisition and retention"]], "growth"),
@@ -82,9 +84,14 @@
       num("openingCustomers", "Active customers before month one", { initial: "0", when: acquisition }),
       num("organicTraffic", "Organic visits in month one", { initial: "0", when: acquisition }),
       pct("organicConversion", "Organic visits that become signups", { initial: "0", when: acquisition }),
+      num("campaignMonth", "Campaign start month override", { optional: true, min: 1, max: 84, step: 1, when: acquisition }),
+      { ...select("budgetScaling", "Paid budget growth", [["percent", "Monthly percentage"], ["amount", "Fixed amount per month"]], "percent"),
+        optional: true, when: acquisition },
+      amount("marketingStep", "Monthly increase in budget", { when: row => acquisition(row) && row.budgetScaling === "amount" }),
+      amount("marketingCap", "Maximum monthly budget", { optional: true, when: acquisition }),
       amount("marketingBudget", "First-month paid marketing budget", { initial: "0", when: acquisition }),
       pct("marketingVATRate", "Recoverable VAT on paid marketing (optional)", { optional: true, when: acquisition }),
-      pct("marketingGrowth", "Monthly marketing budget change", { min: -100, initial: "0", when: acquisition }),
+      pct("marketingGrowth", "Monthly marketing budget change", { min: -100, initial: "0", when: row => acquisition(row) && row.budgetScaling !== "amount" }),
       amount("signupCost", "Cost per paid signup", { min: 0.000001, initial: "1", when: acquisition }),
       pct("customerActivation", "Signups that become active customers", { initial: "0", when: acquisition }),
       pct("customerChurn", "Monthly active customer churn", { initial: "0", when: acquisition }),
@@ -102,6 +109,7 @@
       days("days", "Customer payment days"), vat("VAT charged on sales (optional)"),
     ], ["Product sales", "Services", "Subscriptions", "Transaction fees", "Revenue share"], true),
     group("directCosts", "Costs", "What does it cost to deliver your sales?", "Use a percentage, a monthly cost, or a unit-based inventory plan. Inventory plans track receipts, sales, losses and supplier terms.", "direct cost", [
+      { ...select("category", "COGS category", directCostCategories, "other"), optional: true },
       select("basis", "Cost basis", [["rate", "Percentage of applicable revenue"], ["fixed", "Monthly amount"], ["inventory", "Inventory by units"]], "rate"),
       pct("rate", "Share of applicable revenue", { when: row => row.basis === "rate" }),
       amount("amount", "Starting monthly cost", { when: row => row.basis === "fixed" }),
@@ -114,9 +122,9 @@
       { ...select("inventoryDemand", "Forecast units sold from", [["manual", "Entered unit demand"], ["sales", "Unit-based sales in assigned modules"]], "manual"), when: stocked },
       num("monthlyUnits", "Units sold in model month one", { initial: "0", step: 1, when: manualDemand }),
       { ...pct("unitGrowth", "Monthly unit demand growth", { min: -100, initial: "0" }), when: manualDemand },
-      amount("unitCost", "Manufacturing or landed cost per unit", { initial: "0", when: stocked }),
-      num("minOrder", "Minimum replenishment order", { initial: "1", min: 1, step: 1, when: stocked }),
-      num("leadMonths", "Lead time in months", { initial: "0", max: 84, step: 1, when: stocked }),
+      amount("unitCost", "Manufacturing unit cost override", { optional: true, when: stocked }),
+      num("minOrder", "Minimum order override", { optional: true, min: 1, step: 1, when: stocked }),
+      num("leadMonths", "Lead time override", { optional: true, max: 84, step: 1, when: stocked }),
       days("payableDays", "Supplier payment days"), vat("Recoverable VAT on purchases (optional)"),
     ], ["Payment provider fees borne by Peebee", "Fulfilment costs borne by Peebee", "Promotions and credits funded by Peebee"]),
     {
@@ -164,22 +172,22 @@
         "Enter the opening book value and remaining life. For replacements, enter today’s replacement cost and the useful life of the new asset.", "existing asset", [
         assetClass, amount("amount", "Opening book value"), life("life", "Remaining useful life in months"), replacement,
         amount("replacementCost", "Replacement cost at forecast start", { when: replaces }),
-        { ...life("replacementLife", "Useful life of replacements in months"), when: replaces }, assetInflation,
+        { ...life("replacementLife", "Replacement useful life override"), optional: true, unit: "months", when: replaces }, assetInflation,
       ], assetGroups.map(row => row.name)),
-      presetRows: assetGroups.map(({ life, ...row }) => row),
+      presetRows: assetGroups,
     },
     {
       ...group("investments", "Investment", "What fixed assets will you buy?",
         "Depreciation starts in the purchase month. Turn on replacements to buy the asset again at the end of each useful life.", "purchase", [
-        assetClass, amount("amount", "Purchase cost"), month("month", "Purchase month", "1"), life("life", "Useful life in months"), replacement, assetInflation,
+        assetClass, amount("amount", "Purchase cost"), month("month", "Purchase month", "1"), { ...life("life", "Useful life override"), optional: true, unit: "months" }, replacement, assetInflation,
       ], assetGroups.map(row => row.name)),
-      presetRows: assetGroups.map(({ replacementLife, ...row }) => row),
+      presetRows: assetGroups,
     },
     group("existingLoans", "Funding", "Which loans are already outstanding?", "Enter the remaining principal, annual interest and repayment term. Repayment starts in month one.", "existing loan", [
-      amount("amount", "Opening loan principal"), pct("rate", "Annual interest rate"), life("term", "Months left to repay"), repayment,
+      amount("amount", "Opening loan principal"), pct("rate", "Annual interest rate override", { optional: true }), { ...life("term", "Remaining loan term override"), optional: true }, repayment,
     ]),
     group("newLoans", "Funding", "What new loans will you take out?", "Enter each draw and repayment plan. Fixed payments begin the month after draw. Equal principal plans also accrue interest in the draw month.", "planned loan", [
-      amount("amount", "Loan principal"), month("month", "Draw month", "1"), pct("rate", "Annual interest rate"), life("term", "Repayment term in months"), repayment,
+      amount("amount", "Loan principal"), month("month", "Draw month", "1"), pct("rate", "Annual interest rate override", { optional: true }), { ...life("term", "Loan repayment term override"), optional: true }, repayment,
     ]),
     group("contributions", "Funding", "What equity contributions do you expect?", "List each owner or investor contribution and when it will arrive.", "contribution", [
       amount("amount", "Equity contribution"), month("month", "Contribution month", "1"),
@@ -242,5 +250,5 @@
   }
 
   const scopedCostGroups = new Set(["directCosts", "staff", "expenses", "ownedAssets", "investments"]);
-  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft, scopedCostGroups, expenseGroups, expenseDefaults, acquisition, staffDepartments, assetCategories };
+  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft, scopedCostGroups, expenseGroups, expenseDefaults, acquisition, staffDepartments, assetCategories, directCostCategories };
 })();

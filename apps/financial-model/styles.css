@@ -524,6 +524,29 @@ dialog:has(> .dialog-x) > h2 { padding-inline-end: 28px; }
 .settings-actions h3 { margin: 0 0 4px; font-size: .92rem; }
 .settings-actions .button { white-space: normal; text-align: start; }
 #confirm-action .notice { margin: 14px 0 0; font-size: .9rem; }
+.forecast-settings-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+.forecast-settings-heading h1 { margin: 0; }
+.forecast-settings-layout { display: grid; grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); align-items: start; gap: 30px; }
+.forecast-settings-nav { position: sticky; top: 24px; display: grid; gap: 3px; }
+.forecast-settings-nav a { color: var(--ink); padding: 8px 10px; border-radius: 7px; text-decoration: none; }
+.forecast-settings-nav a:hover { background: rgb(var(--surface-muted)); text-decoration: underline; }
+.forecast-settings-form { display: grid; gap: 18px; min-width: 0; }
+.forecast-settings-form > section { min-width: 0; scroll-margin-top: 20px; }
+.forecast-settings-save { position: sticky; top: 0; z-index: 2; display: flex; justify-content: end; align-items: center; gap: 12px; padding: 8px; background: rgb(var(--surface-card)); border: 1px solid var(--border); border-radius: 10px; }
+.forecast-settings-save p { margin: 0; }
+.forecast-settings-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 18px 20px; }
+.forecast-setting-field { display: grid; align-content: start; gap: 5px; min-width: 0; }
+.forecast-setting-field small { line-height: 1.35; }
+.forecast-setting-items { display: flex; justify-content: space-between; align-items: start; gap: 12px; padding-block: 12px; border-bottom: 1px solid var(--border); }
+.forecast-setting-items:first-of-type { margin-top: 12px; }
+.forecast-setting-items details { margin-top: 5px; }
+.forecast-vat-overrides { margin-top: 22px; }
+.forecast-vat-overrides details { padding-block: 10px; border-block-end: 1px solid var(--border); }
+.forecast-vat-overrides details .forecast-settings-fields { margin-top: 10px; }
+@media (max-width: 800px) {
+  .forecast-settings-layout { grid-template-columns: 1fr; gap: 12px; }
+  .forecast-settings-nav { position: static; display: flex; flex-wrap: wrap; }
+}
 .workbook-view > h1 { margin-bottom: 16px; }
 .autosave-copy { display: grid; gap: 3px; }
 .autosave-copy strong { font-size: .92rem; }

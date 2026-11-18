@@ -624,3 +624,53 @@ test("fixed-payment loan separates the draw from repayment and closes after the 
   near(first.principal + last.principal, 1000);
   model.months.forEach(row => near(row.check, 0));
 });
+
+test("settings defaults feed asset depreciation, inventory, loan terms, and VAT with row overrides", () => {
+  const [model] = build({
+    start: "2027-01", months: "2", tax: "0", vatCadence: "monthly", vatCogsDefault: "10", vatSgaDefault: "20",
+    assetLife_computers: "2", assetInflationDefault: "0", loanRateDefault: "0", loanTermDefault: "2",
+    inventoryMinDefault: "5", inventoryLeadDefault: "1", inventoryCostDefault: "10",
+    directCosts: [{ name: "Stock", basis: "inventory", inventoryCode: "stock", openingUnits: "0", monthlyUnits: "2", unitGrowth: "0" }],
+    expenses: [{ name: "Shared rate", amount: "100", month: "1", growth: "0" }, { name: "Exempt", amount: "100", month: "1", growth: "0", vatRate: "0" }],
+    investments: [{ name: "Computers", assetClass: "computers", amount: "120", month: "1" }],
+    existingLoans: [{ name: "Loan", amount: "200" }],
+  });
+  const [first, second] = model.months;
+  assert.equal(first.depreciation, 60);
+  assert.equal(first.principal, 100);
+  assert.equal(first.purchases, 50);
+  assert.equal(first.vatPurchases, 5);
+  assert.equal(first.vatExpenses, 20);
+  assert.equal(second.assets, 0);
+  model.months.forEach(row => near(row.check, 0));
+});
+
+test("fiscal tax accrual, quarterly payments, opening liability, and April settlement reconcile", () => {
+  const [model] = build({
+    start: "2027-01", months: "16", tax: "20", incomeTaxTiming: "fiscal", fiscalStart: "1", taxSettlementMonth: "4",
+    taxInstallments: "quarterly", openingIncomeTax: "30", openingIncomeTaxMonth: "2",
+    openingCapital: "50", accounts: [{ name: "Bank", amount: "100" }],
+    streams: [{ name: "Sales", method: "direct", amount: "100", growth: "0", days: "0" }],
+  });
+  const { months } = model;
+  assert.equal(months[0].tax, 20);
+  assert.equal(months[0].incomeTaxPayable, 50);
+  assert.equal(months[0].capital, 50);
+  assert.equal(months[1].incomeTaxPayment, 30);
+  assert.equal(months[2].incomeTaxPayment, 60);
+  assert.equal(months[15].incomeTaxPayment, 60);
+  months.forEach(row => near(row.check, 0));
+});
+
+test("revenue starts at launch and an acquisition campaign respects its own start and budget cap", () => {
+  const [model] = build({ start: "2027-01", months: "5", tax: "0", streams: [
+    { name: "Launch", method: "direct", amount: "10", launchMonth: "2", growth: "100", days: "0" },
+    { name: "Acquisition", method: "orders", orderForecast: "acquisition", launchMonth: "2", campaignMonth: "3",
+      marketingBudget: "10", budgetScaling: "amount", marketingStep: "7", marketingCap: "20", signupCost: "1",
+      openingCustomers: "0", organicTraffic: "0", organicConversion: "0", customerActivation: "100", customerChurn: "0",
+      orderValue: "1", ordersPerCustomer: "1", rate: "100", growth: "0", days: "0" },
+  ] });
+  assert.deepEqual(model.months.map(row => row.details.streams[0].revenue), [0, 10, 20, 40, 80]);
+  assert.deepEqual(model.months.map(row => row.paidMarketing), [0, 0, 10, 17, 20]);
+  assert.deepEqual(model.months.map(row => row.details.streams[1].units), [0, 0, 10, 27, 47]);
+});

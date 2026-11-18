@@ -159,7 +159,8 @@
     try {
       if (!data?.answers) return { answers: createDefaults(), screen: "review" };
       const upgraded = upgradeDraft(data.answers);
-      const answers = { company: upgraded.company === "Peebee (illustrative)" ? upgraded.company : company };
+      const savedCompanyName = typeof upgraded.companyName === "string" ? upgraded.companyName.trim().slice(0, 160) : "";
+      const answers = { company: savedCompanyName || (upgraded.company === "Peebee (illustrative)" ? upgraded.company : company) };
       for (const prompt of availableQuestions(upgraded)) {
         const value = upgraded[prompt.id];
         if (prompt.type === "items" && Array.isArray(value)) {
@@ -658,6 +659,7 @@
   if (session) window.addEventListener("adminaccountchange", restartSession);
 
   let activeEdit;
+  let fromForecastSettings = false;
   let pendingNavigation;
 
   function beforeUnload(event) {
@@ -751,7 +753,7 @@
         <p id="error" class="error" role="alert" hidden></p>
         ${prompt.suggestion ? `<p class="suggestion"><button type="button" id="suggestion" class="text-button">Use ${escape(prompt.suggestion)}</button></p>` : ""}
         <p id="save-status" class="muted save-status" role="status"></p>
-        <div class="actions"><button type="button" id="back" class="button secondary" ${!index && !editing ? "disabled" : ""}>${editing ? "Back to review" : "Back"}</button>
+        <div class="actions"><button type="button" id="back" class="button secondary" ${!index && !editing ? "disabled" : ""}>${fromForecastSettings ? "Back to settings" : editing ? "Back to review" : "Back"}</button>
           <div class="step-actions"><button type="button" class="button secondary" id="save-step">Save</button>
             <button type="submit" class="button gold">Next <span aria-hidden="true">→</span></button></div></div>
       </form></div>`;
@@ -804,6 +806,7 @@
       }
       if (dirty()) outcomes = null;
       answers[step] = inputValue;
+      if (step === "companyName") answers.company = inputValue || company;
       if (prompt.keyed) {
         const active = new Set(activeQuestions(answers).map(item => item.id));
         for (const { key } of inputValue) {
@@ -826,16 +829,22 @@
       if (!commit()) return;
       const current = activeQuestions(answers);
       const next = current[current.findIndex(item => item.id === step) + 1];
-      if (next) goTo(next.id, editing);
+      if (next) goTo(next.id, editing, fromForecastSettings);
       else showReview();
     });
     document.querySelector("#back").addEventListener("click", () => {
-      if (editing) navigate(showReview);
+      if (fromForecastSettings) navigate(() => {
+        screen = "workbook-settings";
+        fromForecastSettings = false;
+        save();
+        render("forecast-settings-title");
+      });
+      else if (editing) navigate(showReview);
       else if (index) navigate(() => goTo(list[index - 1].id));
     });
     function openQuestion(questionId) {
       if (questionId !== step) navigate(() => {
-        if (activeQuestions(answers).some(item => item.id === questionId)) goTo(questionId, editing);
+        if (activeQuestions(answers).some(item => item.id === questionId)) goTo(questionId, editing, fromForecastSettings);
       });
     }
     app.querySelectorAll("[data-step]").forEach(button => button.addEventListener("click", () => openQuestion(button.dataset.step)));
@@ -1143,7 +1152,7 @@
     if (!Number(answers.months) || itemError(prompt, [{ ...row, name: "Asset" }], answers)) {
       return '<span>Complete the asset inputs to see the forecast.</span>';
     }
-    const results = assetPreview(row, Number(answers.months), prompt.id === "ownedAssets");
+    const results = assetPreview(row, Number(answers.months), prompt.id === "ownedAssets", answers);
     const active = results.find(period => period.capex || period.opening) || results[0];
     const replacements = results.filter(period => period.replacement).slice(0, 2);
     const timing = replacements.map(period => `Month ${period.month} replacement ${money(period.replacement)}`);
@@ -1198,12 +1207,12 @@
       default:
         formula = "Entered first-month sales amount";
     }
-    return `<span>${escape(formula)}</span><strong>Month-one Peebee revenue ${escape(money(revenue))}</strong>`;
+    return `<span>${escape(formula)}</span><strong>Launch-month Peebee revenue ${escape(money(revenue))}</strong>`;
   }
 
-  function lineField(field, row, index) {
+  function lineField(field, row, index, descriptionId = "error") {
     const id = `item-${index}-${field.id}`;
-    const attrs = `id="${id}" data-line="${index}" data-field="${field.id}" aria-describedby="error"`;
+    const attrs = `id="${id}" data-line="${index}" data-field="${field.id}" aria-describedby="${descriptionId}"`;
     const value = row[field.id] ?? "";
     const unit = field.unit === "currency" ? currencyOf(answers) : field.unit;
     const control = field.type === "select" ? `<select ${attrs}><option value="">Select an option</option>${field.choices.map(([key, label]) =>
@@ -1214,8 +1223,9 @@
     return `<div class="line-field"><label for="${id}">${escape(field.label)}${unit ? `<span class="sr-only"> (${escape(unit)})</span>` : ""}</label>${control}</div>`;
   }
 
-  function goTo(id, edit = false) {
+  function goTo(id, edit = false, fromSettings = false) {
     editing = edit;
+    fromForecastSettings = fromSettings;
     step = id;
     screen = "wizard";
     save();
@@ -1224,6 +1234,7 @@
 
   function showReview() {
     editing = false;
+    fromForecastSettings = false;
     screen = "review";
     save();
     render("review-title");
@@ -1527,27 +1538,154 @@
         <p class="muted">Channel revenue includes external sales. Expenses, funding and the financial statements are calculated for the company as a whole.</p>
         <p class="muted">${escape(dataNote)}</p>
         <p class="muted">Each revenue stream grows from its own driver. Payroll changes on the anniversary of each line’s start month. Operating expenses follow their growth intervals and scheduled phases. Receivables and payables roll forward from sales and purchases already forecast, spread evenly within 30-day model months. Inventory targets use direct costs. Opening receivables and payables settle in the months entered.</p>
-        <p class="muted">Fixed assets depreciate straight-line. Debt uses equal principal payments. Opening equity is derived from opening assets and liabilities. Corporate income tax is paid monthly on positive profit. The model excludes VAT, historical statements, and tax loss carryforwards.</p>
+        <p class="muted">Fixed assets depreciate straight-line. Loans follow the selected repayment method. VAT and income tax use the timing set in Forecast settings. Historical statements and tax loss carryforwards are outside the forecast.</p>
         <p class="muted">The workbook-style financial statement views floor EBITDA margin at zero and omit monthly net margin in loss periods.</p>
         <p class="muted">Annual flows sum the included months. Balance sheet values use the final month of each calendar year shown. Reports display up to two decimal places. Totals use unrounded values. Cash shortfalls are measured at month end before additional funding. The balance sheet shows the unmet funding need as a separate amount.</p>
       </details></div></section></div>`;
   }
 
   function renderWorkbookSettings() {
-    const ids = new Set(["currency", "customCurrency", "start", "months", "tax", "accounts", "ownedAssets", "receivables", "payables", "existingLoans"]);
-    const entries = activeQuestions(answers).filter(prompt => ids.has(prompt.id));
-    app.innerHTML = `<section class="panel workbook-view"><h1>Forecast settings</h1><dl>
-      <div><dt>Appearance</dt><dd><button class="text-button" id="appearance-settings" type="button">Change theme</button></dd></div>
-      <div><dt>Company</dt><dd>${escape(answers.company)}</dd></div>
-      ${entries.map(prompt => `<div><dt>${escape(stepLabel(prompt))}</dt><dd>
-        <button class="text-button" data-edit-setting="${prompt.id}" aria-label="${escape("Edit " + stepLabel(prompt))}">
-          ${escape(displayAnswer(prompt, answers[prompt.id]))}</button></dd></div>`).join("")}
-    </dl></section>`;
+    const prompts = availableQuestions(answers);
+    const byId = new Map(prompts.map(prompt => [prompt.id, prompt]));
+    const starting = { ...answers, companyName: answers.companyName ?? answers.company };
+    const draft = { ...starting };
+    const sections = [
+      ["general", "General settings", ["companyName", "currency", "customCurrency", "start", "months", "lastActualMonth"]],
+      ["history", "Company history and opening balances", ["openingCapital", "accounts", "openingVAT", "openingIncomeTax", "openingIncomeTaxMonth", "receivables", "payables", "ownedAssets"]],
+      ["taxes", "Income tax, VAT and sales tax", ["tax", "incomeTaxTiming", "fiscalStart", "taxSettlementMonth", "taxInstallments", "vatCadence", "vatYearEnd", "vatSgaDefault", "vatCogsDefault"]],
+      ["revenue", "Revenue by channel", ["channels", ...prompts.filter(prompt => prompt.channelId).map(prompt => prompt.id)]],
+      ["costs", "Direct costs, staffing and operating expenses", ["directCosts", "staff", "expenses", "hireEquipment", "hireEquipmentCost", "hireEquipmentLife", "hireEquipmentReplacement", "hireEquipmentInflation"]],
+      ["investment", "CAPEX, depreciation and inventory", [...prompts.filter(prompt => prompt.id.startsWith("assetLife_")).map(prompt => prompt.id),
+        "assetInflationDefault", "investments", "inventoryMinDefault", "inventoryLeadDefault", "inventoryCostDefault", "inventoryMovements"]],
+      ["funding", "Loans and equity funding", ["loanRateDefault", "loanTermDefault", "existingLoans", "newLoans", "contributions"]],
+      ["valuation", "Scenarios and valuation", ["scenarios", "downside", "upside", "valuation", "exitValue", "discountRate"]],
+    ];
+    const itemLink = prompt => {
+      const rows = answers[prompt.id] || [];
+      const channel = answers.channels.find(row => row.key === prompt.channelId);
+      const label = channel?.name || stepLabel(prompt);
+      const details = rows.map(row => {
+        const fields = fieldsFor(prompt, row).filter(field => field.id !== "name");
+        return `<li><strong>${escape(row.name)}</strong>${included(row) ? "" : " · Off"}
+          ${fields.length ? `<ul>${fields.map(field => `<li>${escape(field.label)} · ${escape(displayAnswer(field, row[field.id]))}</li>`).join("")}</ul>` : ""}
+          ${scopedCostGroups.has(prompt.id) ? `<span class="muted">Applies to ${escape(costScopeLabel(row))}</span>` : ""}</li>`;
+      }).join("");
+      return `<div class="forecast-setting-items"><div><strong>${escape(label)}</strong>
+        ${channel && !included(channel) ? '<span class="muted"> · Off</span>' : ""}
+        <span class="muted"> · ${rows.length} ${rows.length === 1 ? "entry" : "entries"}</span>
+        ${details ? `<details><summary>View entries</summary><ul>${details}</ul></details>` : ""}</div>
+        <button class="button secondary small" type="button" data-edit-setting="${escape(prompt.id)}" aria-label="Edit ${escape(label)}">Edit entries</button></div>`;
+    };
+    const scalar = prompt => `<div class="forecast-setting-field" data-setting-row="${escape(prompt.id)}">${lineField({ ...prompt, label: stepLabel(prompt) }, starting, "setting", "setting-hint-" + prompt.id)}
+      <small id="setting-hint-${escape(prompt.id)}" class="muted">${escape(prompt.hint)}</small></div>`;
+    const vatRows = [
+      ...prompts.filter(prompt => prompt.channelId).map(prompt => [prompt.id, prompt.title || stepLabel(prompt)]),
+      ["directCosts", "Direct costs"], ["expenses", "Operating expenses"],
+    ];
+    const vatOverrides = `<div class="forecast-vat-overrides"><h3>VAT by revenue stream and expense</h3>
+      <p class="muted">A blank expense rate inherits its default. Enter 0 for a zero-rated line.</p>
+      ${vatRows.map(([id, label]) => {
+        if (!answers[id]?.length) return "";
+        return `<details><summary>${escape(label)}</summary><div class="forecast-settings-fields">
+          ${answers[id].map((row, index) => `<label class="forecast-setting-field">${escape(row.name)}${included(row) ? "" : " · Off"}
+            <div class="field-box"><input type="number" min="0" max="100" step="any" data-vat-group="${escape(id)}" data-vat-index="${index}" value="${escape(row.vatRate ?? "")}"><span aria-hidden="true">%</span></div>
+          </label>`).join("")}</div></details>`;
+      }).join("")}</div>`;
+
+    app.innerHTML = `<div class="forecast-settings-heading"><h1 id="forecast-settings-title" tabindex="-1">Forecast settings</h1>
+      <button class="button secondary" id="appearance-settings" type="button">Appearance and app settings</button></div>
+      <div class="forecast-settings-layout">
+        <nav class="forecast-settings-nav" aria-label="Settings sections">${sections.map(([id, title]) => `<a href="#forecast-setting-${id}">${escape(title)}</a>`).join("")}</nav>
+        <form id="forecast-settings-form" class="forecast-settings-form" novalidate>
+          <div class="forecast-settings-save"><p id="forecast-settings-status" class="muted" role="status"></p>
+            <button class="button gold" type="submit">Save settings</button></div>
+          ${sections.map(([id, title, ids]) => {
+            const entries = ids.map(key => byId.get(key)).filter(Boolean);
+            const values = entries.filter(entry => entry.type !== "items");
+            return `<section class="panel" id="forecast-setting-${id}"><h2>${escape(title)}</h2>
+              ${values.length ? `<div class="forecast-settings-fields">${values.map(scalar).join("")}</div>` : ""}
+              ${entries.filter(entry => entry.type === "items").map(itemLink).join("")}
+              ${id === "taxes" ? vatOverrides : ""}</section>`;
+          }).join("")}
+        </form>
+      </div>`;
+
+    const form = document.querySelector("#forecast-settings-form");
+    const status = document.querySelector("#forecast-settings-status");
+    const value = (input) => input.value.trim();
+    const editable = [...form.querySelectorAll("[data-field], [data-vat-group]")];
+    const previous = new Map(editable.map(input => [input, value(input)]));
+    function updateVisibility() {
+      for (const input of editable) {
+        const prompt = byId.get(input.dataset.field);
+        if (!prompt) continue;
+        input.disabled = Boolean(prompt.when && !prompt.when(draft));
+        input.closest("[data-setting-row]").hidden = input.disabled;
+      }
+    }
+    updateVisibility();
+    const dirty = () => editable.some(input => value(input) !== previous.get(input));
+    function issue() {
+      for (const input of editable) {
+        const prompt = byId.get(input.dataset.field);
+        const newlyVisible = prompt?.when && !prompt.when(starting);
+        if (input.disabled || (!newlyVisible && value(input) === previous.get(input))) continue;
+        const message = prompt ? errorFor(prompt, value(input), draft)
+          : errorFor({ type: "number", min: 0, max: 100, optional: true }, value(input), draft);
+        if (message) return { input, message };
+      }
+      return null;
+    }
+    function commit() {
+      const error = issue();
+      if (error) {
+        status.textContent = (byId.get(error.input.dataset.field)?.label || "VAT rate") + " · " + error.message;
+        error.input.closest("details")?.setAttribute("open", "");
+        error.input.setAttribute("aria-invalid", "true");
+        error.input.focus();
+        return false;
+      }
+      for (const input of editable) {
+        if (value(input) === previous.get(input)) continue;
+        const group = input.dataset.vatGroup;
+        if (group) {
+          const index = Number(input.dataset.vatIndex);
+          answers[group] = answers[group].map((row, i) => i === index ? { ...row, vatRate: value(input) } : row);
+        } else {
+          answers[input.dataset.field] = value(input);
+          if (input.dataset.field === "companyName") answers.company = value(input) || company;
+        }
+      }
+      outcomes = null;
+      return true;
+    }
+
+    activeEdit = { label: "Forecast settings", dirty, issue, commit };
+    form.addEventListener("input", event => {
+      const input = event.target;
+      if (input.dataset.field) {
+        draft[input.dataset.field] = value(input);
+        updateVisibility();
+      }
+      input.removeAttribute("aria-invalid");
+      status.textContent = "";
+      if (dirty()) window.addEventListener("beforeunload", beforeUnload);
+      else if (!queuedAnswers) window.removeEventListener("beforeunload", beforeUnload);
+    });
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      if (!commit()) return;
+      const saved = save();
+      render();
+      document.querySelector("#forecast-settings-status").textContent = saved ? (session ? "Check shared save status above." : "Settings saved.") : "Settings updated for this session.";
+      document.querySelector("#forecast-settings-form button[type=submit]").focus({ preventScroll: true });
+    });
     app.querySelector("#appearance-settings").addEventListener("click", () => {
       settingsDialog.showModal();
       settingsDialog.querySelector("#appearance-mode").focus();
     });
-    app.querySelectorAll("[data-edit-setting]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.editSetting, true)));
+    form.querySelectorAll("[data-edit-setting]").forEach(button => button.addEventListener("click", () =>
+      navigate(() => goTo(button.dataset.editSetting, true, true))));
   }
 
   function renderReport() {
