@@ -1,5 +1,5 @@
 (() => {
-  const { channels, channelStreams, scopedCostGroups } = globalThis.FinancialLineItems;
+  const { byId, channels, channelStreams, scopedCostGroups } = globalThis.FinancialLineItems;
   const defaults = new Map(globalThis.PeebeeDefaults.catalog.map(channel => [channel.key, channel]));
   const channelKey = row => `channel-${row.key}`;
   const channelRows = answers => (Array.isArray(answers.channels) ? answers.channels : [])
@@ -81,15 +81,15 @@
     lines.push(["Consolidated revenue", "revenue", "footer"]);
     const active = new Set(groups.map(group => group.key));
     const streamIndexes = new Map(groups.map(group => [group.key, group.streams.map(stream => stream.index)]));
-    const costs = Object.fromEntries([...scopedCostGroups].map(id => [
-      id, (answers[id] || []).filter(row => costIsActive(row, active)).map(row => {
+    const forecastItems = Object.fromEntries(Object.keys(byId).filter(id => id !== "streams").map(id => [
+      id, (answers[id] || []).filter(row => scopedCostGroups.has(id) ? costIsActive(row, active) : included(row)).map(row => {
         const keys = [...new Set(moduleScope(row))];
         if (id !== "directCosts" || row.basis !== "rate" || !keys.length) return row;
         return { ...row, revenueStreamIndexes: keys.flatMap(key => streamIndexes.get(key) || []) };
       }),
     ]));
     return {
-      answers: { ...answers, ...costs, streams },
+      answers: { ...answers, ...forecastItems, streams },
       groups,
       report: { id: "channel-revenue", name: "Revenue by channel", lines },
     };

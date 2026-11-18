@@ -542,3 +542,20 @@ test("acquisition forecasts use one paid budget for order volume and SG&A", () =
   assert.equal(next.overhead, 150);
   near(next.check, 0);
 });
+
+test("disabled funding and working-capital cards stay saved but do not enter forecasts", () => {
+  const { consolidate } = globalThis.FinancialChannels;
+  const answers = {
+    start: "2027-01", months: "1", tax: "0",
+    accounts: [{ name: "Bank", amount: "100" }, { name: "Reserve", amount: "200", enabled: "no" }],
+    receivables: [{ name: "Uncollectible", enabled: "no" }],
+    contributions: [{ name: "Investor", amount: "300", month: "1", enabled: "no" }],
+  };
+  const fields = questions.find(prompt => prompt.id === "receivables");
+  assert.equal(errorFor(fields, answers.receivables, answers), "");
+  const [model] = build(consolidate(answers).answers);
+  assert.equal(model.months[0].cash, 100);
+  assert.equal(answers.accounts[1].amount, "200");
+  delete answers.accounts[1].enabled;
+  assert.equal(build(consolidate(answers).answers)[0].months[0].cash, 300);
+});

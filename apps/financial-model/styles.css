@@ -362,7 +362,22 @@ tfoot tr.total:last-child > * {
   background: color-mix(in srgb, rgb(var(--surface-muted)) 35%, rgb(var(--surface-card)));
   box-shadow: 0 2px 5px rgb(var(--color-ink-gold) / .24);
 }
-.line-item legend { padding: 0 6px; font-weight: 650; font-size: .85rem; }
+.line-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.line-card-name { flex: 1; min-width: 0; }
+.line-card-title {
+  max-width: 100%;
+  padding: 3px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 750;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.line-card-title:hover { text-decoration: underline; text-underline-offset: .18em; }
+.line-card-header .forecast-switch { flex: none; }
 .line-fields {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, max(9rem, (100% - 16px) / 2)), 1fr));
@@ -654,7 +669,6 @@ body:has(.financial-landing) > :is(.masthead, .footer) { display: none; }
 .cost-module-options input { margin: 2px 0 0; accent-color: var(--gold); }
 .cost-module-status { margin: 0 0 8px; font-size: .85rem; }
 .cost-module-status:empty { display: none; }
-.cost-card-switch { display: flex; justify-content: flex-end; margin-bottom: 8px; }
 
 
 .forecast-dashboard { display: grid; gap: 55px; align-items: start; }
