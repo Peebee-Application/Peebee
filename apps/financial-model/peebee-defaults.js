@@ -2,7 +2,9 @@
   const { byId } = globalThis.FinancialLineItems;
   const { currentMonth } = globalThis.FinancialAssumptions;
   const company = "Peebee";
-  const stream = (name, method, fields) => ({ name, method, ...fields, growth: "0", days: "0" });
+  const stream = (name, method, fields) => ({
+    name, method, ...fields, growth: "0", days: "0", adminSource: name, adminFee: "follow", adminVat: "follow",
+  });
   const orders = (name, count, orderValue, rate) => stream(name, "orders", {
     orders: String(count), orderValue: String(orderValue), rate: String(rate),
   });
@@ -172,7 +174,8 @@
         const preset = byName.get(row.name);
         if (!preset) return row;
         byName.delete(row.name);
-        return { ...preset, growth: row.growth || preset.growth, days: row.days || preset.days };
+        return { ...preset, growth: row.growth || preset.growth, days: row.days || preset.days,
+          adminFee: row.adminFee || "override", adminVat: row.adminVat || "override", ...(row.vatRate !== undefined ? { vatRate: row.vatRate } : {}) };
       });
       answers[id] = [...updated, ...Array.from(byName.values(), row => ({ ...row }))];
     }

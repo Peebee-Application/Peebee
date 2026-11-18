@@ -793,3 +793,10 @@ body:has(.financial-landing) > :is(.masthead, .footer) { display: none; }
 .workbook-change-list { display: grid; gap: 14px; padding-inline-start: 22px; }
 .workbook-change-list span { display: block; margin-top: 4px; color: var(--quiet); }
 #summary-month { width: auto; margin-inline-start: 8px; }
+
+.admin-default-tile { min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: rgb(var(--surface-muted)); }
+.admin-default-tile h3 { margin: 0 0 6px; font-size: .95rem; }
+.admin-default-tile p { margin: 0 0 4px; font-weight: 650; }
+.admin-default-tile small { display: block; margin-top: 6px; }
+.line-admin-defaults:not(:empty) { display: grid; justify-items: start; gap: 6px; margin-top: 12px; }
+.line-admin-defaults ul { margin: 0; padding-inline-start: 20px; font-size: .85rem; color: var(--quiet); }

@@ -674,3 +674,18 @@ test("revenue starts at launch and an acquisition campaign respects its own star
   assert.deepEqual(model.months.map(row => row.paidMarketing), [0, 0, 10, 17, 20]);
   assert.deepEqual(model.months.map(row => row.details.streams[1].units), [0, 0, 10, 27, 47]);
 });
+
+test("Admin defaults follow compatible rates and VAT independently from saved overrides", () => {
+  const live = globalThis.FinancialLive;
+  const original = { name: "Renamed line", adminSource: "Parcel delivery commission", method: "orders",
+    rate: "8", vatRate: "0", adminFee: "follow", adminVat: "override", orders: "450" };
+  const snapshot = { rates: [{ channel: "concierge", name: original.adminSource, kind: "percent", value: 12, vatRate: 18 }] };
+  const rate = live.settingFor(live.settingsIndex(snapshot), "concierge", original);
+  assert.deepEqual(live.effectiveRow(original, rate, "UGX"), { ...original, rate: "12" });
+  assert.equal(live.effectiveRow({ ...original, adminVat: "follow" }, { ...rate, vatRate: 0 }, "UGX").vatRate, "0");
+  assert.equal(live.effectiveRow(original, { ...rate, referenceOnly: true }, "UGX").rate, "8");
+  assert.equal(live.effectiveRow(original, { ...rate, kind: "flat", value: 500 }, "UGX").rate, "8");
+  assert.deepEqual(live.defaultValues({ method: "units" }, { kind: "flat", value: 500 }, "USD"), {});
+  assert.equal(live.settingFor(live.settingsIndex(snapshot), "buy", original), undefined);
+  assert.equal(original.rate, "8");
+});

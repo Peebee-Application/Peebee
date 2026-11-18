@@ -1,3 +1,4 @@
+import { type MoneyFlowConfig, type MoneyModule } from "@peebee/shared";
 import { requireFinancialAccess } from "./financial-access.js";
 import { getAdsConfig } from "../ads/settings.js";
 import { getChannelsConfig } from "../channels/settings.js";
@@ -8,19 +9,21 @@ import { getOptions } from "../lib/option-settings.js";
 import { hasTable } from "../lib/schema.js";
 import { getCarSettings, getMarketplaceSettings, getMonetizationSettings, getProSettings, getSetting } from "../lib/settings.js";
 import { getServicesPlatformSettings } from "../services-platform/settings.js";
+import { getRule } from "../talent/monetization.js";
+import { getTalentSettings } from "../talent/settings.js";
 import { getTaxipressSettings } from "../taxipress/settings.js";
 import { getLaundrySettings } from "../work/laundry-settings.js";
 import { getWorkSettings } from "../work/settings.js";
 
-type Fee = { channel: string; name: string; kind: "percent" | "flat" | "monthly"; value: number; note?: string };
+type Fee = { channel: string; name: string; kind: "percent" | "flat" | "monthly"; value: number; note?: string; vatRate?: number; vatReference?: string; referenceOnly?: boolean };
 const percent = (channel: string, name: string, value: number, note?: string): Fee => ({ channel, name, kind: "percent", value, note });
 const flat = (channel: string, name: string, value: number): Fee => ({ channel, name, kind: "flat", value });
 const monthly = (channel: string, name: string, value: number): Fee => ({ channel, name, kind: "monthly", value });
 const monthlyEquivalent = (value: number, cadence: string) => value * (cadence === "daily" ? 365 / 12 : cadence === "weekly" ? 52 / 12 : 1);
 
-async function fees(): Promise<Fee[]> {
-  const [monetization, flow, car, pro, market, options, work, laundry, learn, taxi, services, creator, ads, taxiEnabled] = await Promise.all([
-    getMonetizationSettings(), getMoneyFlowConfig(), getCarSettings(), getProSettings(), getMarketplaceSettings(),
+async function fees(flow: MoneyFlowConfig): Promise<Fee[]> {
+  const [monetization, car, pro, market, options, work, laundry, learn, taxi, services, creator, ads, taxiEnabled] = await Promise.all([
+    getMonetizationSettings(), getCarSettings(), getProSettings(), getMarketplaceSettings(),
     getOptions(["digital_commission_percent"]), getWorkSettings(), getLaundrySettings(), getLearnSettings(),
     getTaxipressSettings(), getServicesPlatformSettings(), getChannelsConfig(), getAdsConfig(), getSetting("taxipress_enabled"),
   ]);
@@ -68,6 +71,108 @@ async function fees(): Promise<Fee[]> {
   if (boda.type === "percent") rows.push(percent("rides", "Boda fare commission", boda.percent, "Incentives and rounding may change individual settlements."));
   if (boda.type === "flat") rows.push(flat("rides", "Boda fare commission", boda.flat));
   return rows;
+}
+
+const commissionModules = new Map<string, MoneyModule>([
+  ["Parcel delivery commission", "delivery_parcel"], ["Shopping delivery commission", "delivery_shopping"],
+  ["Boda fare commission", "ride_boda"], ["Car platform share", "ride_car"],
+]);
+
+export async function financialModelDefaults() {
+  const now = new Date();
+  const flow = await getMoneyFlowConfig();
+  const rates = await fees(flow);
+  const day = now.toISOString().slice(0, 10);
+  for (const rate of rates) {
+    const module = commissionModules.get(rate.name);
+    if (!module) continue;
+    if (!flow.modules[module].taxed) {
+      rate.vatRate = 0;
+      continue;
+    }
+    const rules = flow.taxes.filter(rule => rule.enabled && rule.effectiveFrom <= day && /\bvat\b/i.test(rule.name + " " + rule.id)
+      && (!rule.modules.length || rule.modules.includes(module)));
+    if (!rules.length) {
+      rate.vatRate = 0;
+    } else if (rules.length === 1 && rules[0].mode === "on_top" && rules[0].appliesTo === "commission") {
+      rate.vatRate = rules[0].percent;
+    } else {
+      rate.vatReference = rules.map(rule => rule.name + " " + rule.percent + "% · " + rule.mode.replaceAll("_", " ")
+        + " · " + rule.appliesTo.replaceAll("_", " ")).join(" / ");
+      rate.note = [rate.note, "Admin VAT uses a different base, inclusive treatment, or multiple rules."].filter(Boolean).join(" ");
+    }
+  }
+  const references = [
+    ["food", "Food Money Flow commission", "food"], ["pharmacy", "Pharmacy Money Flow commission", "pharmacy"],
+    ["gas", "Gas Money Flow commission", "gas"], ["talent", "Talent Money Flow commission", "talent"],
+  ] as const;
+  for (const [channel, name, module] of references) {
+    const rule = flow.modules[module].commission;
+    if (rule.type !== "flat" && rule.type !== "percent") continue;
+    rates.push({ channel, name, kind: rule.type, value: rule.type === "flat" ? rule.flat : rule.percent,
+      referenceOnly: true, note: "Money Flow reference. The forecast needs a stream-specific rate." });
+  }
+  rates.push(...await talentForecastFees());
+  return { currency: "UGX", syncedAt: now.toISOString(), rates: rates.filter(rate => Number.isFinite(rate.value)) };
+}
+
+async function talentForecastFees(): Promise<Fee[]> {
+  if (!(await hasTable("talent_fee_rules"))) return [];
+  const settings = await getTalentSettings();
+  const definitions = [
+    ["Worker gig commission", "worker_commission", "gig"],
+    ["Worker project commission", "worker_commission", "project"],
+    ["Project listing fees", "listing", "project"],
+    ["Hiring listing fees", "listing", "hiring"],
+    ["Employer gig commission", "employer_commission", "gig"],
+    ["Employer project commission", "employer_commission", "project"],
+  ] as const;
+  const rows = await Promise.all(definitions.map(async ([name, kind, job]): Promise<Fee | null> => {
+    const rule = await getRule(kind, job);
+    if (!rule) return null;
+    const active = settings.enabled && !settings.freeAccess && Number(rule.active) === 1 && rule.model !== "free"
+      && settings.jobTypes.includes(job);
+    const commission = kind.endsWith("_commission");
+    const flatRule = rule.model === "flat" || (!commission && rule.model === "free");
+    return {
+      channel: "talent", name, kind: flatRule ? "flat" : "percent",
+      value: active ? Number(flatRule ? rule.flat_ugx : rule.percent) : 0,
+      referenceOnly: active && (!flatRule && (Number(rule.min_ugx) > 0 || Number(rule.max_ugx) > 0)),
+      note: "Job-type base rule. Allowances and Pro benefits can change the fees charged.",
+    };
+  }));
+  const employer = rows.splice(4).filter((row): row is Fee => row !== null);
+  const combined = employer.length === 2 && employer[0].kind === employer[1].kind
+    && employer[0].value === employer[1].value && employer.every(row => !row.referenceOnly)
+    ? [{ ...employer[0], name: "Employer gig and project commission" }]
+    : employer.map(row => ({ ...row, referenceOnly: true }));
+  return [...rows.filter((row): row is Fee => row !== null), ...combined];
+}
+
+type ForecastAnswers = Record<string, string | Record<string, string>[]>;
+export async function withFinancialDefaults(answers: ForecastAnswers): Promise<ForecastAnswers> {
+  if (!Object.entries(answers).some(([key, rows]) => key.startsWith("channel-") && Array.isArray(rows)
+      && rows.some(row => row.adminFee === "follow" || row.adminVat === "follow"))) return answers;
+  const { rates } = await financialModelDefaults();
+  const index = new Map(rates.filter(rate => !rate.referenceOnly).map(rate => [JSON.stringify([rate.channel, rate.name]), rate]));
+  const ugx = answers.currency === "UGX" || (answers.currency === "other" && answers.customCurrency === "UGX");
+  return Object.fromEntries(Object.entries(answers).map(([key, rows]) => {
+    if (!key.startsWith("channel-") || !Array.isArray(rows)) return [key, rows];
+    return [key, rows.map(row => {
+      const rate = index.get(JSON.stringify([key.slice(8), row.adminSource || row.name]));
+      if (!rate) return row;
+      let resolved = row;
+      if (row.adminFee === "follow" && rate.value >= 0) {
+        const field = rate.kind === "percent" && rate.value <= 100 && ["orders", "percentage"].includes(row.method) ? "rate"
+          : ugx && (row.method === "units" && rate.kind === "flat" || row.method === "subscription" && rate.kind === "monthly") ? "price" : null;
+        if (field) resolved = { ...resolved, [field]: String(Number(rate.value.toFixed(4))) };
+      }
+      if (row.adminVat === "follow" && rate.vatRate !== undefined && rate.vatRate >= 0 && rate.vatRate <= 100) {
+        resolved = { ...resolved, vatRate: String(rate.vatRate) };
+      }
+      return resolved;
+    })];
+  }));
 }
 
 const settlementSources = [
@@ -155,6 +260,6 @@ export async function financialModelSnapshot() {
   const now = Date.now();
   const to = new Date(now).toISOString();
   const from = new Date(now - 30 * 86_400_000).toISOString();
-  const [rates, activity] = await Promise.all([fees(), recordedActivity(from, to)]);
+  const [rates, activity] = await Promise.all([getMoneyFlowConfig().then(fees), recordedActivity(from, to)]);
   return { currency: "UGX", environment: "live", from, to, rates, activity };
 }

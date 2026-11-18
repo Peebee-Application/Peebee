@@ -25,6 +25,11 @@
 
   function scopeMetadata(id, row) {
     const flags = row.enabled === "no" ? { enabled: "no" } : {};
+    const preset = id.startsWith("channel-") && defaults.get(id.slice(8))?.streams.find(stream => stream.name === row.name);
+    if (row.adminSource || preset) flags.adminSource = row.adminSource || preset.name;
+    for (const mode of ["adminFee", "adminVat"]) {
+      if (row[mode] === "follow" || row[mode] === "override") flags[mode] = row[mode];
+    }
     if (id !== "channel-rides") return flags;
     if (ridesGroups.some(([key]) => key === row.forecastGroup)) return { ...flags, forecastGroup: row.forecastGroup };
     const group = ridesPresets.get(row.name) || (/ride[ -]?share|car[ -]?pool/i.test(row.name || "") ? "rideshare" : "other");

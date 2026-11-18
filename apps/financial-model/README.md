@@ -23,6 +23,8 @@ The starter figures are illustrative. Use Admin settings, actual activity and ap
 
 ## Live Admin data
 
+In **Model → Admin defaults**, expand any module to see its revenue streams and current Admin settings. Signed-in Financials sessions refresh these values every minute while visible. Only compatible settings can drive the forecast. Existing saved values remain in place until you choose **Reset to Admin defaults** on a revenue card and save. This restores the mapped fee and VAT fields and lets them follow subsequent Admin changes. Enter a value on a card to override the Admin default for that field.
+
 In **Settings → Live Admin data**, use your existing Admin session to retrieve current configured fees and recent live settlement totals, including recorded order counts and average values where the source has those fields. The source list covers order splits, TaxiPress, Work, Learn, Talent, and selected platform ledger fees. The report shows only mapped sources. Review the recorded values before using them as forecasts.
 
 **Apply live fees to forecast** updates compatible rates and prices on matching UGX lines. Order estimates, growth and other assumptions are editable. Applying fees saves the updated assumptions to the shared forecast. The bearer token stays on the Admin origin.

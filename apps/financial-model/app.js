@@ -4,6 +4,7 @@
   const { build, firstMonthSale, expensePreview, staffPreview, assetPreview, reports, revenueDrivers, scheduleReports, statementReports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
   const { questionsFor, consolidate, included, scopeMetadata, forecastModules,
     scopedCostGroups, moduleScope, activeModuleKeys, costIsActive } = globalThis.FinancialChannels;
+  const { settingsIndex, settingFor, defaultValues, effectiveRow, followField } = globalThis.FinancialLive;
   const { buildAnalysis, renderAnalysis, renderChart, monthlyEarnings, exportRows } = globalThis.FinancialAnalysis;
   const { company, catalog, technologyCosts, infrastructureRows, createDefaults, loadStarterRevenue } = globalThis.PeebeeDefaults;
   const dataNote = "Starter estimates model a launch scenario across all channels. Volumes, average values and unverified fees are illustrative. The scenario includes features that may be off in Admin. Apply available Admin fees to matching lines, and enter Peebee’s costs and opening balances.";
@@ -74,6 +75,7 @@
     ["workbook-intro", "Intro", "Start here to see how to set up and read the Peebee financial forecast."],
     ["assumptions", "Assumptions", "Review and edit the inputs that drive the forecast across all Peebee channels."],
     ["overview", "Dashboard", "Review projected revenue, earnings, cash and funding needs, and choose which modules to include."],
+    ["admin-defaults", "Admin defaults", "Review the live Admin values available to the financial model. Edit the source settings in Admin."],
     ["workbook-settings", "Settings", "Manage company details, opening balances, taxes and shared defaults for the forecast."],
     ["workbook-actuals", "Actuals", "Record historical financial results by month and review the figures from your books."],
     ["channel-revenue", "Revenue", "See how orders, subscriptions, transaction values and fees drive revenue across channels."],
@@ -93,12 +95,12 @@
     ["analysis", "Dashboard Charts", "Explore the forecast through charts for revenue, expenses, cash and break-even."],
   ];
   const workbookById = new Map(workbookSheets.map(sheet => [sheet[0], sheet]));
-  const workbookUtilities = new Set(["workbook-intro", "workbook-actuals", "workbook-exports", "workbook-map", "workbook-changes"]);
-  const privateSheets = new Set(["assumptions", "workbook-settings", "workbook-actuals", "workbook-exports"]);
+  const workbookUtilities = new Set(["admin-defaults", "workbook-intro", "workbook-actuals", "workbook-exports", "workbook-map", "workbook-changes"]);
+  const privateSheets = new Set(["assumptions", "workbook-settings", "admin-defaults", "workbook-actuals", "workbook-exports"]);
   const reportLinks = reports.map(({ id, name }) => [id, name]);
   const navigation = [
     { id: "home", name: "Home", views: [["overview", "Dashboard"], ["analysis", "Dashboard Charts"]] },
-    ...(!guestMode ? [{ id: "model", name: "Model", views: [["assumptions", "Assumptions"], ["workbook-settings", "Forecast settings"]] }] : []),
+    ...(!guestMode ? [{ id: "model", name: "Model", views: [["assumptions", "Assumptions"], ["workbook-settings", "Forecast settings"], ["admin-defaults", "Admin defaults"]] }] : []),
     { id: "schedules", name: "Schedules", views: [["channel-revenue", "Revenue"], ...scheduleReports.map(({ id, name }) => [id, name]),
       ...reportLinks.filter(([id]) => id === "schedules")] },
     { id: "statements", name: "Statements", views: [...statementReports.map(({ id, name }) => [id, name]),
@@ -173,12 +175,49 @@
   const percentFormat = new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 });
   const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
   const currencyOf = answers => ((answers.currency === "other" ? answers.customCurrency : answers.currency) || "").toUpperCase();
+  let adminDefaults;
+  let adminDefaultIndex = settingsIndex();
+  let defaultsRefresh;
+  let defaultsError = false;
+  let refreshCardDefaults;
+
+  function acceptAdminDefaults(snapshot) {
+    defaultsError = !snapshot;
+    if (!snapshot) return false;
+    const changed = JSON.stringify(adminDefaults?.rates) !== JSON.stringify(snapshot.rates);
+    adminDefaults = snapshot;
+    if (changed) {
+      adminDefaultIndex = settingsIndex(snapshot);
+      outcomes = null;
+    }
+    return changed;
+  }
+
+  function effectiveRows(prompt, rows, model = answers) {
+    if (!prompt.channelId || !Array.isArray(rows)) return rows;
+    return rows.map(row => effectiveRow(row, settingFor(adminDefaultIndex, prompt.channelId, row), currencyOf(model)));
+  }
+
+  function refreshAdminDefaults() {
+    if (!session || !sharedReady || !account || account.forcePasswordChange) return;
+    if (defaultsRefresh) return defaultsRefresh;
+    defaultsRefresh = session.request("load").then(({ defaults }) => acceptAdminDefaults(defaults), () => {
+      defaultsError = true;
+      return false;
+    }).then(changed => {
+      if (screen === "workbook-sheet" && selectedReport === "admin-defaults") drawAdminDefaults();
+      else if (changed && (screen === "report" || screen === "review")) render();
+      else if (changed) refreshCardDefaults?.();
+    }).finally(() => { defaultsRefresh = undefined; });
+    return defaultsRefresh;
+  }
+
   const availableQuestions = answers => questionsFor(questions, answers);
   const activeQuestions = answers => availableQuestions(answers).filter(prompt => !prompt.when || prompt.when(answers));
   function firstMissing(answers) {
     const activeModules = activeModuleKeys(answers);
     return activeQuestions(answers).find(prompt => {
-      const value = answers[prompt.id];
+      const value = effectiveRows(prompt, answers[prompt.id], answers);
       if (scopedCostGroups.has(prompt.id) && Array.isArray(value)) {
         return errorFor(prompt, value.filter(row => costIsActive(row, activeModules)), answers);
       }
@@ -462,7 +501,8 @@
     checkingGuest = true;
     try {
       const { draft } = await guestRequest(`draft?invite=${encodeURIComponent(guestInvite)}`);
-      if (guestLeaving || (guestActive && guestRevision === draft?.revision)) return;
+      const signature = draft ? draft.revision + JSON.stringify(draft.answers) : null;
+      if (guestLeaving || (guestActive && guestRevision === signature)) return;
       const read = readDraft(draft);
       if (!draft || firstMissing(read.answers)) {
         showGuestLanding("There is no completed forecast to preview yet.");
@@ -470,7 +510,7 @@
       }
       const target = guestActive ? currentView() : addressView() || "overview";
       guestActive = true;
-      guestRevision = draft.revision;
+      guestRevision = signature;
       guestExit.hidden = false;
       answers = read.answers;
       selectView(target);
@@ -659,7 +699,8 @@
         setAutosave(preferences.autosave);
         globalThis.ForecastAppearance.set(preferences.appearance);
       }
-      const { draft } = await session.request("load");
+      const { draft, defaults } = await session.request("load");
+      acceptAdminDefaults(defaults);
       revision = draft?.revision ?? null;
       ({ answers, step, screen, editing = false } = readDraft(draft ? { answers: draft.answers, screen: "report" } : null));
       if (firstMissing(answers)) screen = "review";
@@ -739,6 +780,7 @@
 
   function render(focusId) {
     activeEdit = undefined;
+    refreshCardDefaults = undefined;
     if (!queuedAnswers) window.removeEventListener("beforeunload", beforeUnload);
     detachCharts?.();
     detachCharts = null;
@@ -821,7 +863,7 @@
       const persisted = save();
       if (!session) saveStatus.textContent = persisted ? "Title saved." : "Title saved for this session. Browser storage is unavailable.";
     }
-    const issueFor = () => errorFor(prompt, capturedValue(), answers);
+    const issueFor = () => errorFor(prompt, effectiveRows(prompt, capturedValue()), answers);
     activeEdit = { label: stepLabel(prompt), dirty, issue: issueFor, commit };
     field?.addEventListener("input", remember);
     document.querySelector("#suggestion")?.addEventListener("click", () => {
@@ -831,12 +873,13 @@
     });
     function commit() {
       const inputValue = capturedValue();
-      const issue = errorFor(prompt, inputValue, answers);
+      const effectiveValue = effectiveRows(prompt, inputValue);
+      const issue = errorFor(prompt, effectiveValue, answers);
       if (issue) {
         error.textContent = issue;
         error.hidden = false;
         const invalid = isItems
-          ? document.getElementById(itemError(prompt, inputValue, answers)?.id) || document.querySelector("#add-line")
+          ? document.getElementById(itemError(prompt, effectiveValue, answers)?.id) || document.querySelector("#add-line")
           : field;
         invalid.setAttribute("aria-invalid", "true");
         invalid.focus();
@@ -892,6 +935,9 @@
     const originalIndexes = new Map(rows.map((row, index) => [row, index]));
     const snapshot = () => rows.map(row => ({ ...row }));
     const hasRevenuePreview = prompt.fields.some(field => field.id === "method");
+    const adminSetting = row => settingFor(adminDefaultIndex, prompt.channelId, row);
+    const compatibleDefaults = row => defaultValues(row, adminSetting(row), currencyOf(answers));
+    const effective = row => effectiveRow(row, adminSetting(row), currencyOf(answers));
     const expenses = prompt.id === "expenses";
     const staffing = prompt.id === "staff";
     const assets = prompt.id === "ownedAssets" || prompt.id === "investments";
@@ -932,9 +978,10 @@
             ${forecastSwitch(`line-card-${index}`, cardLabel(row, index), included(row) && row.roleType !== "disabled", row.roleType === "disabled",
               `data-toggle-line-card="${index}"`)}
           </div>
-          ${prompt.keyed ? "" : `<div class="line-fields">${fieldsFor(prompt, row).filter(field => field.id !== "name").map(field => lineField(field, row, index)).join("")}</div>`}
+          ${prompt.keyed ? "" : `<div class="line-fields">${fieldsFor(prompt, row).filter(field => field.id !== "name").map(field => lineField(field, effective(row), index)).join("")}</div>`}
+          ${prompt.channelId ? `<div class="line-admin-defaults" data-admin-card="${index}">${adminCard(row, index)}</div>` : ""}
           ${scoped ? moduleAssignment(row, index) : ""}
-          ${hasRevenuePreview ? `<output class="revenue-estimate" data-estimate="${index}">${revenueEstimateMarkup(prompt, row)}</output>` : ""}
+          ${hasRevenuePreview ? `<output class="revenue-estimate" data-estimate="${index}">${revenueEstimateMarkup(prompt, effective(row))}</output>` : ""}
           ${expenses ? expenseCardExtras(row, index) : ""}
           ${staffing || assets ? `<output class="revenue-estimate" data-cost-estimate="${index}">${costEstimateMarkup(row)}</output>` : ""}
           <button type="button" class="text-button remove-line" id="remove-line-${index}" data-remove="${index}" aria-label="${escape("Remove " + (row.name || prompt.item + " " + (index + 1)))}">Remove</button>
@@ -942,6 +989,41 @@
       updatePresets();
       if (focusId) document.getElementById(focusId)?.focus();
     };
+
+    function adminCard(row, index) {
+      const rate = adminSetting(row);
+      const defaults = Object.entries(compatibleDefaults(row));
+      if (!rate) return row.adminSource && adminDefaults ? '<small class="muted">No mapped Admin default.</small>' : "";
+      const values = defaults.map(([field, value]) => {
+        const label = field === "vatRate" ? "VAT" : "Fee";
+        const setting = field === "vatRate" || field === "rate" ? value + "%" : money(Number(value));
+        const status = row[followField(field)] === "follow" ? "Using Admin" : "Model value";
+        return `<li>${label} · ${escape(setting)} · ${status}</li>`;
+      });
+      return `${values.length ? `<ul>${values.join("")}</ul>` : ""}
+        ${defaults.length ? `<button type="button" class="button secondary small" data-reset-admin="${index}">Reset to Admin defaults</button>` : ""}
+        ${!defaults.some(([field]) => field !== "vatRate") ? '<small class="muted">The Admin fee uses a different revenue driver or currency.</small>' : ""}`;
+    }
+
+    function updateAdminCard(index) {
+      const row = rows[index];
+      const content = editor.querySelector(`[data-admin-card="${index}"]`);
+      const estimate = editor.querySelector(`[data-estimate="${index}"]`);
+      if (content) {
+        const markup = adminCard(row, index);
+        if (content.innerHTML !== markup) content.innerHTML = markup;
+      }
+      if (estimate) estimate.innerHTML = revenueEstimateMarkup(prompt, effective(row));
+    }
+
+    if (prompt.channelId) refreshCardDefaults = () => rows.forEach((row, index) => {
+      const current = effective(row);
+      for (const field of ["price", "rate", "vatRate"]) {
+        const input = document.getElementById(`item-${index}-${field}`);
+        if (input && row[followField(field)] === "follow") input.value = current[field] ?? "";
+      }
+      updateAdminCard(index);
+    });
 
     function moduleAssignment(row, index) {
       const assigned = new Set(moduleScope(row));
@@ -1076,6 +1158,20 @@
     editor.addEventListener("click", event => {
       const button = event.target.closest("button");
       if (!button) return;
+      if (button.hasAttribute("data-reset-admin")) {
+        const index = Number(button.dataset.resetAdmin);
+        const row = rows[index];
+        const defaults = compatibleDefaults(row);
+        for (const [field, value] of Object.entries(defaults)) {
+          row[field] = value;
+          row[followField(field)] = "follow";
+          const input = document.getElementById(`item-${index}-${field}`);
+          if (input) input.value = value;
+        }
+        remember();
+        updateAdminCard(index);
+        return;
+      }
       if (button.hasAttribute("data-edit-title")) openTitle(button);
       else if (button.id === "add-line") add();
       else if (button.id === "add-infrastructure") {
@@ -1110,7 +1206,7 @@
         else rows[index].enabled = "no";
         field.closest(".forecast-switch").querySelector(".forecast-switch-state").textContent = field.checked ? "On" : "Off";
         if (scoped) updateCostStatus(index);
-        if (hasRevenuePreview) editor.querySelector(`[data-estimate="${index}"]`).innerHTML = revenueEstimateMarkup(prompt, rows[index]);
+        if (hasRevenuePreview) editor.querySelector(`[data-estimate="${index}"]`).innerHTML = revenueEstimateMarkup(prompt, effective(rows[index]));
         remember();
         return;
       }
@@ -1132,7 +1228,12 @@
       }
       const row = rows[Number(field.dataset.line)];
       if (!row) return;
-      row[field.dataset.field] = field.value.trim();
+      const key = field.dataset.field;
+      row[key] = field.value.trim();
+      if (prompt.channelId && ["price", "rate", "vatRate"].includes(key)) {
+        row[followField(key)] = "override";
+        updateAdminCard(Number(field.dataset.line));
+      }
       if (staffing && field.dataset.field === "salaryBasis") {
         if (row.salaryBasis === "annual" && row.amount) row.annualSalary = String(Number(row.amount) * 12);
         if (row.salaryBasis === "monthly" && row.annualSalary) row.amount = String(Number(row.annualSalary) / 12);
@@ -1149,7 +1250,7 @@
       else {
         const estimate = editor.querySelector(`[data-estimate="${field.dataset.line}"]`);
         if (estimate) {
-          const markup = revenueEstimateMarkup(prompt, row);
+          const markup = revenueEstimateMarkup(prompt, effective(row));
           if (estimate.innerHTML !== markup) estimate.innerHTML = markup;
         }
         const costEstimate = editor.querySelector(`[data-cost-estimate="${field.dataset.line}"]`);
@@ -1291,7 +1392,7 @@
   function renderReview(forecastError = "") {
     const list = activeQuestions(answers);
     const missing = firstMissing(answers);
-    const lineItems = prompt => Array.isArray(answers[prompt.id]) ? answers[prompt.id] : [];
+    const lineItems = prompt => Array.isArray(answers[prompt.id]) ? effectiveRows(prompt, answers[prompt.id]) : [];
     const searchText = prompt => escape([prompt.section, prompt.label, ...lineItems(prompt).map(row => row.name)].join(" "));
     const editLabel = prompt => escape(`Edit ${prompt.title || prompt.label}`);
     const preview = prompt => lineItems(prompt).length ? `<details class="review-lines"><summary>View line items</summary>
@@ -1398,7 +1499,7 @@
   }
 
   function modelAnswers() {
-    return { company: answers.company, ...Object.fromEntries(activeQuestions(answers).map(prompt => [prompt.id, answers[prompt.id]])) };
+    return { company: answers.company, ...Object.fromEntries(activeQuestions(answers).map(prompt => [prompt.id, effectiveRows(prompt, answers[prompt.id])])) };
   }
 
   function costScopeLabel(row) {
@@ -1620,7 +1721,7 @@
       ${vatRows.map(([id, label]) => {
         if (!answers[id]?.length) return "";
         return `<details><summary>${escape(label)}</summary><div class="forecast-settings-fields">
-          ${answers[id].map((row, index) => `<label class="forecast-setting-field">${escape(row.name)}${included(row) ? "" : " · Off"}
+          ${effectiveRows(byId.get(id), answers[id]).map((row, index) => `<label class="forecast-setting-field">${escape(row.name)}${included(row) ? "" : " · Off"}
             <div class="field-box"><input type="number" min="0" max="100" step="any" data-vat-group="${escape(id)}" data-vat-index="${index}" value="${escape(row.vatRate ?? "")}"><span aria-hidden="true">%</span></div>
           </label>`).join("")}</div></details>`;
       }).join("")}</div>`;
@@ -1683,7 +1784,8 @@
         const group = input.dataset.vatGroup;
         if (group) {
           const index = Number(input.dataset.vatIndex);
-          answers[group] = answers[group].map((row, i) => i === index ? { ...row, vatRate: value(input) } : row);
+          answers[group] = answers[group].map((row, i) => i === index
+            ? { ...row, vatRate: value(input), ...(group.startsWith("channel-") ? { adminVat: "override" } : {}) } : row);
         } else {
           answers[input.dataset.field] = value(input);
           if (input.dataset.field === "companyName") answers.company = value(input) || company;
@@ -1762,6 +1864,21 @@
 
   function renderWorkbookSheet() {
     const [id, title, description] = workbookById.get(selectedReport);
+    if (id === "admin-defaults") {
+      app.innerHTML = `<header class="workbook-sheet-heading"><h1 id="workbook-sheet-title" tabindex="-1">${escape(title)}</h1>
+        <p class="muted">${escape(description)}</p></header>
+        <section class="panel"><div class="toolbar">${session ? '<button class="button secondary" type="button" id="refresh-admin-defaults">Refresh from Admin</button>' : ""}
+        <p class="muted" id="admin-default-status" role="status"></p></div><div id="admin-default-groups" class="forecast-vat-overrides"></div></section>`;
+      app.querySelector("#refresh-admin-defaults")?.addEventListener("click", async event => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        app.querySelector("#admin-default-status").textContent = "Refreshing from Admin…";
+        await refreshAdminDefaults();
+        button.disabled = false;
+      });
+      drawAdminDefaults();
+      return;
+    }
     const rows = id === "workbook-actuals" ? historyRows() : [];
     let content;
     if (id === "workbook-intro") {
@@ -1821,6 +1938,38 @@
       download([["Month", ...actualColumns.map(([label]) => label)], ...historyRows().map(row =>
         [row.period, ...actualColumns.map(([, field]) => actualValue(row, field))])], "actuals"));
     app.querySelector("#export-assumptions")?.addEventListener("click", () => void exportSavedAssumptions(app.querySelector("#workbook-export-status")));
+  }
+
+  function drawAdminDefaults() {
+    const groupList = app.querySelector("#admin-default-groups");
+    const status = app.querySelector("#admin-default-status");
+    if (!groupList || !status) return;
+    const refreshed = adminDefaults?.syncedAt && new Intl.DateTimeFormat("en-UG", {
+      dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Kampala",
+    }).format(new Date(adminDefaults.syncedAt));
+    status.textContent = !session ? "Sign in to Financials online to sync Admin settings."
+      : refreshed ? (defaultsError ? "Refresh unavailable · Last synced " : "Last synced ") + refreshed + " (Kampala time)"
+      : defaultsError ? "Admin settings are unavailable. Try refreshing." : "Waiting for Admin settings…";
+    const open = new Set([...groupList.querySelectorAll("details[open]")].map(group => group.dataset.channel));
+    const channels = new Map(catalog.map(channel => [channel.key, channel.name]));
+    for (const channel of answers.channels || []) channels.set(channel.key, channel.name);
+    groupList.innerHTML = [...channels].map(([key, name]) => {
+      const streamNames = new Set(catalog.find(channel => channel.key === key)?.streams.map(row => row.name) || []);
+      if (key === "rides") streamNames.add("Rideshare commission");
+      for (const row of answers["channel-" + key] || []) streamNames.add(row.adminSource || row.name);
+      const rates = (adminDefaults?.rates || []).filter(rate => rate.channel === key);
+      const entries = new Map([...streamNames].map(stream => [stream, { name: stream }]));
+      for (const rate of rates) entries.set(rate.name, rate);
+      return `<details data-channel="${escape(key)}"${open.has(key) ? " open" : ""}><summary>${escape(name)}</summary>
+        <div class="forecast-settings-fields">${[...entries.values()].map(rate => {
+          const value = rate.kind === "percent" ? format(rate.value) + "%" : rate.kind ? "UGX " + format(rate.value) + (rate.kind === "monthly" ? " / month" : "")
+            : adminDefaults ? "No mapped Admin value" : "Awaiting sync";
+          return `<article class="admin-default-tile"><h3>${escape(rate.name)}</h3><p>${escape(value)}</p>
+            ${rate.vatRate !== undefined ? `<p>VAT · ${escape(format(rate.vatRate))}%</p>` : ""}
+            ${rate.vatReference ? `<small class="muted">${escape(rate.vatReference)}</small>` : ""}
+            ${rate.note ? `<small class="muted">${escape(rate.note)}</small>` : ""}</article>`;
+        }).join("") || '<p class="muted">No revenue streams configured.</p>'}</div></details>`;
+    }).join("");
   }
 
   let summaryMonth;
@@ -1985,7 +2134,7 @@
       ["Trade balance basis", "Sales and purchases spread evenly within 30-day model months"],
       [], ["Assumption or category", "Value or line item", "Field", "Line item value", "Unit"]];
     for (const prompt of activeQuestions(answers)) {
-      const answer = answers[prompt.id];
+      const answer = effectiveRows(prompt, answers[prompt.id]);
       const label = prompt.exportLabel || prompt.label;
       if (prompt.type !== "items") {
         rows.push([prompt.label, inputValue(prompt, answer), "", "", inputUnit(prompt)]);
@@ -2228,8 +2377,11 @@
     app.innerHTML = '<p role="status">Checking guest access…</p>';
     void loadGuest();
     window.setInterval(() => { if (guestActive) void loadGuest(); }, 30000);
-  } else if (session) void loadShared();
-  else {
+  } else if (session) {
+    void loadShared();
+    window.setInterval(() => { if (!document.hidden) void refreshAdminDefaults(); }, 60000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) void refreshAdminDefaults(); });
+  } else {
     if (addressView()) selectView(addressView());
     render();
   }
