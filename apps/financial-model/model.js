@@ -556,7 +556,7 @@
       detail("directCosts", "purchases", "Inventory and supply purchases"), ["Total purchases", "purchases", "footer"],
       detail("directCosts", "stock", "Closing inventory"), ["Recoverable VAT on purchases", "vatPurchases"], ["Total closing inventory", "stock", "footer"],
     ] },
-    { id: "sga", name: "SG&A (Expenses)", note: "Total SG&A adds payroll and operating expenses. EBITDA is gross profit less SG&A.", lines: [
+    { id: "sga", name: "SG&A", note: "Total SG&A adds payroll and operating expenses. EBITDA is gross profit less SG&A.", lines: [
       ["Staff and payroll", "payroll"],
       ...expenseGroups.flatMap(([id, label]) => [
         detail("expenses", "amount", label, "detail", row => (row.category || "other") === id),
@@ -589,9 +589,7 @@
       ["Recoverable VAT on operating expenses", "vatExpenses"], ["VAT paid", "vatPayment"],
       ["Closing VAT payable", "vatPayable"], ["Closing VAT receivable", "vatReceivable"],
     ] },
-    { id: "working-capex", name: "WK + CAPEX",
-      note: "Fixed assets roll forward from opening book value plus purchases less depreciation. Inventory orders become payables or cash costs on receipt. The debt schedule separates draws, interest and principal.",
-      sections: [{ name: "Working capital", lines: [
+    { id: "working-capex", name: "Working capital", lines: [
         detail("streams", "ar", "Forecast receivable"), detail("receivables", "amount", "Outstanding opening receivable"),
         ["Closing receivables", "ar", "total"], ["Closing inventory", "stock"], detail("directCosts", "ap", "Supplier payable"),
         detail("payables", "amount", "Outstanding opening payable"), ["Closing payables", "ap", "total"],
@@ -599,7 +597,10 @@
         ["Recoverable VAT on operating expenses", "vatExpenses"], ["VAT payments", "vatPayment"],
         ["VAT receivable", "vatReceivable"], ["VAT payable", "vatPayable"],
         ["Closing net working capital", "wc", "footer"], ["Change in net working capital", "deltaWC"], ["Working capital cash impact", row => -row.deltaWC],
-      ] }, { name: "Inventory orders and valuation", lines: [
+    ] },
+    { id: "capex", name: "CAPEX",
+      note: "Fixed assets roll forward from opening book value plus purchases less depreciation. Inventory orders become payables or cash costs on receipt. The debt schedule separates draws, interest and principal.",
+      sections: [{ name: "Inventory orders and valuation", lines: [
         ...[["openingUnits", "Opening inventory units", "count"], ["openingOrders", "Units ordered before forecast", "count"], ["orderUnits", "Units ordered", "count"],
           ["receivedUnits", "Units received", "count"], ["soldUnits", "Units sold", "count"], ["lossUnits", "Units written off", "count"],
           ["closingUnits", "Closing inventory units", "count"], ["pendingUnits", "Units on order at month end", "count"],

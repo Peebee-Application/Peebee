@@ -223,7 +223,10 @@ financialGuestRoutes.get("/draft", guestStorage("financial_guest_invites"), asyn
     args: [id.data, await hashKey(token), now, now],
   });
   if (!rows.length) return denied(c);
-  return c.json({ draft: await getFinancialDraft() });
+  const draft = await getFinancialDraft();
+  if (!draft) return c.json({ draft: null });
+  const { actuals: _actuals, ...answers } = draft.answers;
+  return c.json({ draft: { ...draft, answers } });
 });
 
 financialGuestRoutes.post("/logout", guestStorage("financial_guest_invites"), async c => {

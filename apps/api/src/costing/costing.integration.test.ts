@@ -432,6 +432,7 @@ test("Financials guest invitations verify email ownership and restrict forecast 
   const finance = "/admin/financial-model";
   const permission = "/admin/staff/rider/financial-access";
   const answers = { company: "Peebee", tax: "30" };
+  const historicalDraft = { ...answers, actuals: [{ name: "January", period: "2026-01", revenue: "100" }] };
   const sent: Array<{ email: string; code: string }> = [];
   setEmailSenderForTests(async (email, _subject, message) => {
     sent.push({ email, code: message.match(/\b\d{6}\b/)?.[0] ?? "" });
@@ -446,7 +447,8 @@ test("Financials guest invitations verify email ownership and restrict forecast 
     assert.equal((await request("staff", "PUT", permission, { enabled: true })).status, 403);
     assert.equal((await request("admin", "PUT", permission, { enabled: true })).status, 200);
     assert.equal((await request("staff", "GET", finance + "/draft")).status, 200);
-    assert.equal((await request("admin", "PUT", finance + "/draft", { revision: null, answers })).status, 200);
+    assert.equal((await request("admin", "PUT", finance + "/draft", { revision: null, answers: historicalDraft })).status, 200);
+    assert.deepEqual((await request("staff", "GET", finance + "/draft")).body.draft.answers, historicalDraft);
     const created = await request("staff", "POST", finance + "/invites", { email: "Guest@example.test", days: 7, passwordRequired: true });
     assert.equal(created.status, 201);
     const { link, password } = created.body;
