@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Check, ChevronRight, CircleAlert, ClipboardPaste, ImagePlus, Images, Info, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { Camera, Check, CircleAlert, ClipboardPaste, Images, Pencil, RotateCcw, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { compressImage } from "../../lib/image-compress";
@@ -78,20 +78,9 @@ function PhotoSheet({ label, onClose, children }: { label: string; onClose: () =
   );
 }
 
-function SheetOption({ icon, title, sub, onClick }: { icon: React.ReactNode; title: string; sub: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="mt-2.5 flex w-full items-center gap-3 rounded-[18px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3 text-left">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[15px] bg-gold/15 text-gold">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <b className="block text-[15px] text-ink">{title}</b>
-        <span className="block text-xs text-ink-500">{sub}</span>
-      </span>
-      <ChevronRight className="h-[18px] w-[18px] text-ink-500" strokeWidth={2} aria-hidden />
-    </button>
-  );
-}
 
-/** "Photos for your rider": camera, gallery or clipboard; thumbnails with a note
+/** "Add a picture": camera or gallery (plus a quick-add tile when the clipboard
+ * already holds an image, and paste anywhere); thumbnails with a note
  * and an optional link to a list item. With `upload`, each photo uploads as soon
  * as it's added (progress, retry); without it, photos stay local for the caller
  * to send once the order exists. */
@@ -109,10 +98,8 @@ export function OrderPhotosPicker({
   items?: string[];
   upload?: (blob: Blob) => Promise<{ key: string }>;
 }) {
-  const [sourcesOpen, setSourcesOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [pasteFallback, setPasteFallback] = useState(false);
   const [clip, setClip] = useState<{ blob: Blob; url: string; hash: string } | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -152,10 +139,10 @@ export function OrderPhotosPicker({
       setMessage(null);
       const free = maxPhotos - photosRef.current.length;
       if (free <= 0) {
-        setMessage(`You can add up to ${maxPhotos} photos.`);
+        setMessage(`Max ${maxPhotos} photos.`);
         return;
       }
-      if (blobs.length > free) setMessage(`Only ${maxPhotos} photos fit. Added the first ${free}.`);
+      if (blobs.length > free) setMessage(`Max ${maxPhotos} photos.`);
       const drafts: PhotoDraft[] = [];
       for (const raw of blobs.slice(0, free)) {
         const hash = await hashBlob(raw);
@@ -180,26 +167,25 @@ export function OrderPhotosPicker({
     [maxPhotos, onChange, startUpload, upload],
   );
 
-  // Ctrl/Cmd+V anywhere on the screen, and long-press → Paste on phones that deliver a paste event.
+  // Ctrl/Cmd+V anywhere on the screen, and long-press → Paste on phones that
+  // deliver a paste event. In a text field, a plain-text paste stays text.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
-      if (e.defaultPrevented) return; // the paste field in the sheet already took it
-      const target = e.target as HTMLElement | null;
-      if (target && target.closest("input, textarea, [contenteditable='true']") && !target.closest("[data-photo-paste]")) return;
+      if (e.defaultPrevented) return;
       const file = imageFromPaste(e);
       if (!file) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, [contenteditable='true']") && e.clipboardData?.getData("text/plain")) return;
       e.preventDefault();
-      setPasteFallback(false);
-      setSourcesOpen(false);
       void addBlobs([file]);
     };
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
   }, [addBlobs]);
 
-  // "Paste screenshot?" — only where the browser already lets us read the
-  // clipboard without asking (Chrome/Android after a one-time allow). Safari
-  // and Firefox never grant that, so they only get the Paste option in the sheet.
+  // Quick-add tile: only where the browser already lets us read the clipboard
+  // without asking (Chrome/Android after a one-time allow), and only when it
+  // holds an image we haven't offered yet. Otherwise nothing shows.
   useEffect(() => {
     let alive = true;
     async function check() {
@@ -217,7 +203,7 @@ export function OrderPhotosPicker({
           return { blob, url: URL.createObjectURL(blob), hash };
         });
       } catch {
-        // Not supported or not allowed: no strip.
+        // Not supported or not allowed: no tile.
       }
     }
     void check();
@@ -232,7 +218,7 @@ export function OrderPhotosPicker({
   }, []);
 
   // The sheets sit above the list modal: Escape closes the sheet, not the whole list.
-  const sheetOpen = sourcesOpen || detailId != null;
+  const sheetOpen = detailId != null;
   useEffect(() => {
     if (!sheetOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -240,35 +226,12 @@ export function OrderPhotosPicker({
       e.stopPropagation();
       if (e.key === "Escape") {
         e.preventDefault();
-        setSourcesOpen(false);
-        setPasteFallback(false);
         setDetailId(null);
       }
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [sheetOpen]);
-
-  async function pasteFromClipboard() {
-    setMessage(null);
-    if (!navigator.clipboard?.read) {
-      setPasteFallback(true);
-      return;
-    }
-    try {
-      const blob = await readClipboardImage();
-      if (!blob) {
-        setMessage("There's no image in your clipboard. Copy a photo or screenshot first.");
-        setSourcesOpen(false);
-        return;
-      }
-      setSourcesOpen(false);
-      await addBlobs([blob]);
-    } catch {
-      // Blocked or dismissed: let them long-press and paste instead.
-      setPasteFallback(true);
-    }
-  }
 
   function remove(id: string) {
     onChange((prev) => {
@@ -281,29 +244,24 @@ export function OrderPhotosPicker({
 
   const failed = photos.filter((p) => p.status === "failed");
   const detail = photos.find((p) => p.id === detailId) ?? null;
-  const caption = (p: PhotoDraft) => (p.status === "uploading" ? "Uploading…" : p.status === "failed" ? "Not sent" : p.note || (p.itemIndex != null && items?.[p.itemIndex]) || "");
+
+  const full = room <= 0;
+  const srcBtn =
+    "flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-[14px] border border-[var(--border-faint)] bg-[rgb(var(--surface-muted)/0.7)] text-[13.5px] font-bold text-ink transition-opacity active:opacity-80 disabled:opacity-40";
 
   return (
-    <div className="order-photos rounded-[22px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3.5 shadow-[var(--shadow-card)]">
-      <div className="flex items-center gap-2.5">
-        <span className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-[13px] bg-gold/15 text-gold">
-          <Camera className="h-[19px] w-[19px]" strokeWidth={2} aria-hidden />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[14.5px] font-bold leading-tight text-ink">Photos for your rider</span>
-          <span className="block text-xs text-ink-500">Optional · show the exact brand or pack</span>
-        </span>
-        {photos.length > 0 && <span className="text-xs font-bold tabular-nums text-ink-500">{photos.length}/{maxPhotos}</span>}
-      </div>
-
-      {clip && room > 0 && (
-        <div className="order-photos-clip mt-3 flex items-center gap-2.5 rounded-2xl border border-gold/35 bg-gold/10 p-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={clip.url} alt="Copied image" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
-          <span className="min-w-0 flex-1">
-            <b className="block text-[13.5px] text-ink">Paste screenshot?</b>
-            <span className="block text-[11.5px] text-ink-500">You copied an image</span>
-          </span>
+    <div className="order-photos rounded-[18px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3 pb-2 pt-1.5 shadow-[var(--shadow-card)]">
+      <p className="mb-1.5 text-[13px] font-bold leading-tight text-ink">Add a picture</p>
+      <div className="flex items-stretch gap-2">
+        <button type="button" disabled={full} onClick={() => cameraRef.current?.click()} className={srcBtn}>
+          <Camera className="h-5 w-5" strokeWidth={2} aria-hidden />
+          Camera
+        </button>
+        <button type="button" disabled={full} onClick={() => galleryRef.current?.click()} className={srcBtn}>
+          <Images className="h-5 w-5" strokeWidth={2} aria-hidden />
+          Gallery
+        </button>
+        {clip && !full && (
           <button
             type="button"
             onClick={() => {
@@ -311,113 +269,69 @@ export function OrderPhotosPicker({
               setClip(null);
               void addBlobs([c.blob]);
             }}
-            className="flex h-9 shrink-0 items-center gap-1 rounded-full bg-gold px-3.5 text-[13px] font-extrabold text-ink-gold"
+            className="order-photos-clip relative h-12 w-12 shrink-0 overflow-hidden rounded-[14px] bg-cover bg-center shadow-[0_0_0_2px_rgb(var(--color-gold)/0.75),0_6px_16px_rgb(var(--color-gold)/0.28)]"
+            style={{ backgroundImage: `url(${clip.url})` }}
+            aria-label="Add copied image"
           >
-            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
-            Add
+            <span className="absolute right-[3px] top-[3px] grid h-[18px] w-[18px] place-items-center rounded-full bg-gold text-[#0a0a0a] shadow-[0_1px_3px_rgb(0_0_0/0.35)]">
+              <ClipboardPaste className="h-2.5 w-2.5" strokeWidth={2.4} aria-hidden />
+            </span>
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              seenClipboard.add(clip.hash);
-              URL.revokeObjectURL(clip.url);
-              setClip(null);
-            }}
-            className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full text-ink-500"
-            aria-label="Not now"
-          >
-            <X className="h-4 w-4" strokeWidth={2} />
-          </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      {photos.length === 0 ? (
-        <>
-          <button
-            type="button"
-            onClick={() => setSourcesOpen(true)}
-            className={`mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full text-[13.5px] font-bold ${clip ? "border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-ink" : "bg-gold text-ink-gold"}`}
-          >
-            <ImagePlus className="h-[17px] w-[17px]" strokeWidth={2} aria-hidden />
-            Add photos
-          </button>
-          <p className="mt-2.5 flex items-start gap-2 text-xs text-ink-500">
-            <Info className="h-[15px] w-[15px] shrink-0" strokeWidth={2} aria-hidden />
-            <span>Up to {maxPhotos} photos. Snap the empty pack, a label or a screenshot.</span>
-          </p>
-        </>
-      ) : (
-        <>
-          <ul className="mt-3 flex gap-2.5 overflow-x-auto pt-1.5" aria-label="Attached photos">
-            {photos.map((p) => (
-              <li key={p.id} className="w-[70px] shrink-0">
-                <div className="relative h-[70px] w-[70px]">
-                  <button
-                    type="button"
-                    onClick={() => (p.status === "failed" ? startUpload(p) : setDetailId(p.id))}
-                    className="block h-full w-full overflow-hidden rounded-2xl shadow-[inset_0_0_0_1px_var(--border-faint)]"
-                    aria-label={p.status === "failed" ? "Retry this photo" : "Photo details"}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.url} alt="" className="h-full w-full object-cover" />
-                    {p.status === "uploading" && (
-                      <span className="absolute inset-0 grid place-items-center rounded-2xl bg-black/45" role="progressbar" aria-valuenow={Math.round(p.progress * 100)} aria-valuemin={0} aria-valuemax={100}>
-                        <span className="grid h-[34px] w-[34px] place-items-center rounded-full" style={{ background: `conic-gradient(rgb(var(--color-gold)) ${p.progress * 360}deg, rgb(255 255 255 / .3) 0)` }}>
-                          <span className="grid h-[26px] w-[26px] place-items-center rounded-full bg-black/55 text-[9.5px] font-extrabold text-white">{Math.round(p.progress * 100)}%</span>
-                        </span>
-                      </span>
-                    )}
-                    {p.status === "failed" && (
-                      <span className="absolute inset-0 grid place-items-center rounded-2xl bg-[rgb(200_40_40/0.55)] text-white">
-                        <RotateCcw className="h-[22px] w-[22px]" strokeWidth={2.5} aria-hidden />
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(p.id)}
-                    className="absolute -right-1.5 -top-1.5 grid h-[22px] w-[22px] place-items-center rounded-full border-2 border-[rgb(var(--surface-card))] bg-[#0a0a0a] text-white"
-                    aria-label="Remove photo"
-                  >
-                    <X className="h-3 w-3" strokeWidth={3} />
-                  </button>
-                </div>
-                <span className={`mt-1 block truncate text-[11px] ${caption(p) && p.status !== "uploading" && p.status !== "failed" ? "font-semibold text-ink" : "text-ink-500"}`}>{caption(p) || "Add note"}</span>
-              </li>
-            ))}
-            {room > 0 && (
-              <li className="w-[70px] shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setSourcesOpen(true)}
-                  className="grid h-[70px] w-[70px] place-items-center rounded-2xl border-[1.5px] border-dashed border-gold/70 bg-gold/5 text-gold"
-                  aria-label="Add photos"
-                >
-                  <Plus className="h-6 w-6" strokeWidth={2} />
-                </button>
-                <span className="mt-1 block text-[11px] text-ink-500">Add</span>
-              </li>
-            )}
-          </ul>
-          {failed.length > 0 ? (
-            <div className="mt-3 flex items-center gap-2 rounded-[14px] bg-danger/10 px-3 py-2.5 text-[12.5px] font-semibold text-danger" role="alert">
-              <CircleAlert className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
-              <span className="flex-1">{failed.length} photo{failed.length === 1 ? "" : "s"} didn&apos;t upload</span>
-              <button type="button" onClick={() => failed.forEach(startUpload)} className="flex h-[30px] items-center gap-1 rounded-full bg-gold px-3 text-xs font-extrabold text-ink-gold">
-                <RotateCcw className="h-[13px] w-[13px]" strokeWidth={2.5} aria-hidden />
-                Retry
+      {photos.length > 0 && (
+        <ul className="mt-2.5 flex gap-2.5 overflow-x-auto pb-0.5 pt-1.5" aria-label="Attached photos">
+          {photos.map((p) => (
+            <li key={p.id} className="relative h-16 w-16 shrink-0">
+              <button
+                type="button"
+                onClick={() => (p.status === "failed" ? startUpload(p) : setDetailId(p.id))}
+                className="block h-full w-full overflow-hidden rounded-[14px] shadow-[inset_0_0_0_1px_var(--border-faint)]"
+                aria-label={p.status === "failed" ? "Retry this photo" : "Photo note"}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.url} alt="" className="h-full w-full object-cover" />
+                {p.status === "uploading" && (
+                  <span className="absolute inset-0 grid place-items-center rounded-[14px] bg-black/45" role="progressbar" aria-valuenow={Math.round(p.progress * 100)} aria-valuemin={0} aria-valuemax={100}>
+                    <span className="grid h-[30px] w-[30px] place-items-center rounded-full" style={{ background: `conic-gradient(rgb(var(--color-gold)) ${p.progress * 360}deg, rgb(255 255 255 / .3) 0)` }}>
+                      <span className="block h-[22px] w-[22px] rounded-full bg-black/55" />
+                    </span>
+                  </span>
+                )}
+                {p.status === "failed" && (
+                  <span className="absolute inset-0 grid place-items-center rounded-[14px] bg-[rgb(200_40_40/0.55)] text-white">
+                    <RotateCcw className="h-5 w-5" strokeWidth={2.5} aria-hidden />
+                  </span>
+                )}
+                {p.status !== "uploading" && p.status !== "failed" && (
+                  <span className={`absolute bottom-1 left-1 grid h-[20px] w-[20px] place-items-center rounded-full shadow-[0_1px_3px_rgb(0_0_0/0.35)] ${p.note.trim() || p.itemIndex != null ? "bg-gold text-[#0a0a0a]" : "bg-black/60 text-white"}`} aria-hidden>
+                    <Pencil className="h-2.5 w-2.5" strokeWidth={2.5} />
+                  </span>
+                )}
               </button>
-            </div>
-          ) : (
-            <p className="mt-2.5 flex items-start gap-2 text-xs text-ink-500">
-              <Pencil className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-              <span>{linkable ? "Tap a photo to add a note or link it to an item." : "Tap a photo to add a note."}</span>
-            </p>
-          )}
-        </>
+              <button
+                type="button"
+                onClick={() => remove(p.id)}
+                className="absolute -right-1.5 -top-1.5 grid h-[22px] w-[22px] place-items-center rounded-full border-2 border-[rgb(var(--surface-card))] bg-[#0a0a0a] text-white"
+                aria-label="Remove photo"
+              >
+                <X className="h-3 w-3" strokeWidth={3} />
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
 
-      {message && <p className="mt-2 text-xs font-semibold text-danger" role="status">{message}</p>}
+      {failed.length > 0 && (
+        <button type="button" onClick={() => failed.forEach(startUpload)} className="mt-2 flex h-8 items-center gap-1.5 rounded-full bg-danger/10 px-3 text-xs font-bold text-danger" role="alert">
+          <CircleAlert className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+          Retry
+          <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+        </button>
+      )}
+
+      {message && <p className="mt-1.5 text-xs font-semibold text-danger" role="status">{message}</p>}
 
       <input
         ref={cameraRef}
@@ -435,7 +349,7 @@ export function OrderPhotosPicker({
       <input
         ref={galleryRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/*"
+        accept="image/*"
         multiple
         className="hidden"
         onChange={(e) => {
@@ -445,43 +359,6 @@ export function OrderPhotosPicker({
         }}
         data-testid="photo-gallery-input"
       />
-
-      {sourcesOpen && (
-        <PhotoSheet label="Add photos" onClose={() => { setSourcesOpen(false); setPasteFallback(false); }}>
-            <SheetOption icon={<Camera className="h-[22px] w-[22px]" strokeWidth={2} />} title="Take a photo" sub="Use your camera" onClick={() => { setSourcesOpen(false); cameraRef.current?.click(); }} />
-            <SheetOption icon={<Images className="h-[22px] w-[22px]" strokeWidth={2} />} title="Choose from gallery" sub="Photos, screenshots or files" onClick={() => { setSourcesOpen(false); galleryRef.current?.click(); }} />
-            {pasteFallback ? (
-              <div className="mt-2.5 rounded-[18px] border border-gold/50 bg-[rgb(var(--surface-card))] p-3">
-                <b className="flex items-center gap-2 text-[15px]"><ClipboardPaste className="h-5 w-5 text-gold" strokeWidth={2} aria-hidden />Paste from clipboard</b>
-                <textarea
-                  data-photo-paste
-                  autoFocus
-                  rows={2}
-                  readOnly={false}
-                  value=""
-                  onChange={() => {}}
-                  onPaste={(e) => {
-                    const file = imageFromPaste(e);
-                    e.preventDefault();
-                    if (!file) {
-                      setMessage("There's no image in your clipboard. Copy a photo or screenshot first.");
-                      return;
-                    }
-                    setPasteFallback(false);
-                    setSourcesOpen(false);
-                    void addBlobs([file]);
-                  }}
-                  placeholder="Long-press here and tap Paste"
-                  className="mt-2 w-full resize-none rounded-xl border border-dashed border-[var(--border-faint)] px-3 py-2.5 text-sm"
-                  aria-label="Long-press here and tap Paste"
-                />
-              </div>
-            ) : (
-              <SheetOption icon={<ClipboardPaste className="h-[22px] w-[22px]" strokeWidth={2} />} title="Paste from clipboard" sub="An image or screenshot you copied" onClick={() => void pasteFromClipboard()} />
-            )}
-            <p className="mt-3.5 text-center text-xs text-ink-500">Up to {maxPhotos} photos · JPEG, PNG or WebP</p>
-        </PhotoSheet>
-      )}
 
       {detail && (
         <PhotoSheet label="Photo details" onClose={() => setDetailId(null)}>
