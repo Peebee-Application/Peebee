@@ -11,7 +11,7 @@
   const activeModuleKeys = answers => new Set(channelRows(answers).filter(included).map(channel => channel.key));
   function costIsActive(row, active) {
     const keys = moduleScope(row);
-    return included(row) && (!keys.length || keys.some(key => active.has(key)));
+    return included(row) && row.roleType !== "disabled" && (!keys.length || keys.some(key => active.has(key)));
   }
   const ridesGroups = [
     ["boda", "Boda"], ["car", "Car"], ["rideshare", "Rideshare"],

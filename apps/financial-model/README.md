@@ -51,6 +51,26 @@ Revenue drivers include units, subscriptions, monthly revenue, and a percentage 
 
 The **Analysis** tab covers revenue, cash, funding, profitability, working capital, break-even and scenarios. Select monthly or annual periods and choose a date range. Hover or use the arrow keys on a focused chart to inspect a period. **View chart data** lists the values, and the analysis CSV exports the current selection. Use **Download model CSV** to save a snapshot of all assumptions and reports.
 
-The model estimates collections and supplier payments from sales and purchases spread evenly within 30-day model months. It measures funding gaps at month end. Tax is estimated and paid monthly on positive profit. It excludes VAT, historical actuals and tax loss carryforwards. Edit the assumptions in the app to recalculate.
+The model estimates collections and supplier payments from sales and purchases spread evenly within 30-day model months. It measures funding gaps at month end. Tax is estimated and paid monthly on positive profit. It excludes historical actuals and income tax loss carryforwards. VAT is a separate opt-in forecast. Edit the assumptions in the app to recalculate.
 
 Run the engine checks with `node --test apps/financial-model/model.test.cjs` from the repository root.
+
+
+## Workbook comparison
+
+Reviewed against the saved formulas in the 20-tab reference workbook. The workbook opens with a USD SaaS sample; its example values are not Peebee assumptions.
+
+| Workbook area | Peebee behavior and remaining differences |
+| --- | --- |
+| Intro, Settings, Assumptions | Admin sign-in, forecast dates and currency, editable channel assumptions and module inclusion. Statements use calendar-year groupings. The workbook can set an actuals cutoff and historical company balances for existing tax obligations. Peebee models opening balances, including VAT when enabled; it has no historical cutoff or opening income-tax liability. |
+| Revenue, Consolidated models | Peebee has 13 business channels and editable order, fee, unit, and subscriber drivers. The workbook has organic/paid acquisition, marketing budget and acquisition cost, conversion, churn, and marketplace buyer/seller drivers. Automatic acquisition-to-order and acquisition-to-expense links are still missing. The workbook links staffing to payroll; connecting agents to rider and merchant onboarding is an additional Peebee requirement. Some dormant marketplace branches contain broken references. |
+| COGS | Peebee supports monthly costs, percentage costs scoped to active modules, target inventory, supplier terms, and recoverable VAT. The workbook also calculates drivers such as cost per active customer and per-order fulfillment, and has explicit inventory movements. |
+| SG&A > Staff | Single Hire, Scaling Team, Disabled, and Fixed Team. Scaling starts with one batch, recurs every 1, 3, 6, or 12 months, stops at the cap, and respects the inclusive last paid month. Monthly or annual salary, burden, and annual raises feed the statements. The workbook's Cap Table link has no target sheet in this copy. Equity grants and stock options are outside the staff schedule. |
+| SG&A | Staff & Payroll plus Marketing & Growth, Professional Services, Rent, Tech Support & Services, Insurance, Utilities, and Other Expenses. Each has a rollup and operating expense groups show recoverable VAT. Vendor presets, paid usage, expense growth and later phases are editable. Marketing expense does not yet drive customer acquisition. |
+| CAPEX and funding | Opening assets, scheduled purchases, depreciation, debt and equity. Hiring equipment follows positive increases in total headcount and can be expensed or capitalized. The workbook also models automatic replacement, replacement inflation, additional inventory orders, write-offs and alternative loan timing. |
+| Taxes | Optional VAT charged, credits on supplier purchases and operating expenses, opening VAT balance, and settlement after month, quarter, or fiscal year end. Peebee takes net prices and costs; it computes VAT once at the entered rate. Credits roll forward. Manual tax payments, fiscal-year income tax consolidation, quarterly income-tax installments and income-tax loss carryforwards remain outside the forecast. |
+| Dashboard, FS-Month, FS-Annual, Dashboard Charts | Linked statement views, charts, scenario comparisons, funding gaps and DCF. Peebee does not include workbook-specific milestone rows or other-income and other-expense sections. |
+| Actuals, Data Exports, Pitch Deck Output, FS-Month (AI Summary) | Peebee exports forecast assumptions and statements and separately loads live aggregate Admin data. It does not replace forecast periods with historical GL inputs or have distinct pitch-deck and AI summary formats. |
+| Model Map, Change Log | Workbook support tabs. Peebee has model methodology and a shared, revision-checked forecast. It does not provide a user-facing version history. |
+
+Open **Model → Assumptions → Costs** to edit staffing, expense categories, hiring equipment and VAT timing. Use **Schedules → SG&A > Staff**, **SG&A (Expenses)** and **WK + CAPEX** to trace the results. Existing drafts without a role type retain their fixed headcount, salary and pay timing. Review any generic legacy expenses assigned to Other Expenses and categorize them as needed.

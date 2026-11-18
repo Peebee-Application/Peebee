@@ -4,6 +4,7 @@
   const amount = (id, label, options) => num(id, label, { unit: "currency", ...options });
   const pct = (id, label, options) => num(id, label, { max: 100, unit: "%", ...options });
   const growth = label => pct("growth", label, { min: -100, initial: "0" });
+  const vat = label => pct("vatRate", label, { optional: true });
   const month = (id, label, initial) => num(id, label, { min: 1, withinForecast: true, step: 1, initial });
   const life = (id, label) => num(id, label, { min: 1, max: 600, step: 1 });
   const settlement = label => num("month", label, { min: 1, max: 600, step: 1, initial: "1" });
@@ -13,7 +14,18 @@
   const group = (id, section, label, hint, item, fields, presets = [], required = false) =>
     ({ id, section, label, hint, item, fields: [name, ...fields], presets, required, type: "items" });
   const metered = row => row.basis === "usage";
+  const expenseGroups = [
+    ["marketing", "Marketing & Growth", ["Marketing", "Google Ads", "HubSpot"]],
+    ["professional", "Professional Services", ["Legal", "Professional fees and compliance", "Accounting"]],
+    ["rent", "Rent", ["Office rent", "Equipment rent", "Rent and utilities"]],
+    ["technology", "Tech Support & Services", ["Google Workspace", "IT support"]],
+    ["insurance", "Insurance", ["Insurance", "Employee insurance", "Asset insurance"]],
+    ["utilities", "Utilities", ["Power", "Internet", "Phone"]],
+    ["other", "Other Expenses", ["Bank fees", "Travel"]],
+  ];
+  const presetExpenseCategories = new Map(expenseGroups.flatMap(([id, , names]) => names.map(name => [name, id])));
   const expenseFields = [
+    select("category", "Expense category", expenseGroups.map(([id, label]) => [id, label]), "other"),
     select("basis", "Cost basis", [["fixed", "Monthly bill"], ["usage", "Base bill + metered usage"]], "fixed"),
     amount("amount", "Monthly bill or base fee", { initial: "0" }),
     { ...select("priceCurrency", "Unit price currency", [["model", "Forecast currency"], ["USD", "USD"]], "model"), when: metered },
@@ -24,13 +36,24 @@
     month("month", "First expense month", "1"),
     num("endMonth", "Last expense month (optional)", { min: 1, max: 84, step: 1, optional: true }),
     select("cadence", "Apply growth", [["annual", "Annually"], ["monthly", "Monthly"]], "annual"),
-    growth("Cost or usage growth per interval"),
+    growth("Cost or usage growth per interval"), vat("Recoverable VAT rate (optional)"),
   ];
 
   function expenseDefaults(row) {
-    return { basis: "fixed", priceCurrency: "model", cadence: "annual", ...row };
+    return { basis: "fixed", priceCurrency: "model", cadence: "annual",
+      category: presetExpenseCategories.get(row.name) || "other", ...row };
   }
 
+  const staffDepartments = [
+    ["Operations", ["CEO", "COO", "Office Manager"]],
+    ["Product", ["CTO", "VP of Product", "UI/UX", "Senior developers", "Junior developers"]],
+    ["Sales", ["VP of Sales", "Senior Sales", "Junior Sales"]],
+    ["Marketing", ["VP of Marketing/CMO", "Senior Marketing", "Junior Marketing"]],
+    ["Customer Support", ["Head of Customer Support", "Senior Customer Support", "Junior Customer Support"]],
+    ["Finance and Administration", []],
+  ];
+  const paidRole = row => row.roleType !== "disabled";
+  const scalingTeam = row => row.roleType === "scaling";
   const groups = [
     group("streams", "Revenue", "What are your revenue streams?", "Add each product, service or income stream and enter how it earns revenue. Collection days estimate the sales still owed at month end.", "revenue stream", [
       select("method", "Revenue driver", [["units", "Units × price"], ["subscription", "Subscriptions × monthly price"], ["direct", "Monthly sales amount"], ["orders", "Orders × average value × fee rate"], ["percentage", "Percentage of transaction or payout"]], "units"),
@@ -44,7 +67,7 @@
       amount("amount", "First-month revenue", { when: row => row.method === "direct" }),
       amount("transactionValue", "First-month transaction or payout value", { when: row => row.method === "percentage" }),
       pct("rate", "Percentage earned", { initial: "0", when: row => row.method === "percentage" || row.method === "orders" }),
-      growth("Monthly sales growth"), days("days", "Customer payment days"),
+      growth("Monthly sales growth"), days("days", "Customer payment days"), vat("VAT charged on sales (optional)"),
     ], ["Product sales", "Services", "Subscriptions", "Transaction fees", "Revenue share"], true),
     group("directCosts", "Costs", "What does it cost to deliver your sales?", "Add production, delivery and payment costs as a share of revenue or a monthly amount. Include stock and supplier terms where they apply.", "direct cost", [
       select("basis", "Cost basis", [["rate", "Percentage of applicable revenue"], ["fixed", "Monthly amount"]], "rate"),
@@ -53,15 +76,34 @@
       { ...growth("Annual cost change"), when: row => row.basis === "fixed" },
       amount("stock", "Opening inventory at cost", { initial: "0" }),
       days("inventoryDays", "Target inventory days"),
-      days("payableDays", "Supplier payment days"),
+      days("payableDays", "Supplier payment days"), vat("Recoverable VAT on purchases (optional)"),
     ], ["Payment provider fees borne by Peebee", "Fulfilment costs borne by Peebee", "Promotions and credits funded by Peebee"]),
-    group("staff", "Costs", "Which roles or teams will you pay?", "Enter starting headcount, monthly pay per person, and employer taxes and benefits for each role or team.", "role", [
-      num("headcount", "Headcount", { initial: "1" }), amount("amount", "Monthly pay per person"),
-      pct("burden", "Employer taxes and benefits", { initial: "0" }), month("month", "First paid month", "1"),
-      growth("Annual pay change"),
-    ], ["Operations and support", "Engineering and product", "Sales and partner onboarding", "Finance and administration"]),
-    group("expenses", "Costs", "What are your operating expenses?", "Enter an invoice amount or forecast usage above a monthly allowance. Choose monthly growth for a gradual ramp, or end a line and add a later phase for a planned change in price or usage.", "expense",
-      expenseFields, ["Marketing", "Rent and utilities", "Professional fees and compliance", "Insurance"]),
+    {
+      ...group("staff", "Costs", "Which roles or teams will you pay?",
+        "Choose a single hire, a scaling team, or a fixed team. Disabled roles keep their assumptions. Raises apply every 12 paid months from the first paid month.", "role", [
+        { ...select("department", "Department", staffDepartments.map(([department]) => [department, department]), ""), optional: true },
+        select("roleType", "Role type", [["single", "Single Hire"], ["scaling", "Scaling Team"], ["fixed", "Fixed Team"], ["disabled", "Disabled"]], "single"),
+        num("headcount", "Fixed headcount", { initial: "1", when: row => row.roleType === "fixed" }),
+        { ...select("salaryBasis", "Salary basis", [["monthly", "Monthly"], ["annual", "Annual"]], "monthly"), when: paidRole },
+        amount("amount", "Monthly salary per person", { when: row => paidRole(row) && row.salaryBasis !== "annual" }),
+        amount("annualSalary", "Starting annual salary per person", { when: row => paidRole(row) && row.salaryBasis === "annual" }),
+        pct("burden", "Employer taxes and benefits", { initial: "0", when: paidRole }),
+        { ...month("month", "First paid month", "1"), when: paidRole },
+        num("endMonth", "Last paid month (optional)", { min: 1, max: 84, step: 1, optional: true, when: paidRole }),
+        { ...growth("Annual salary change"), when: paidRole },
+        num("hiresPerPeriod", "Hires per period", { min: 1, step: 1, initial: "1", when: scalingTeam }),
+        { ...select("hiringInterval", "Add hires", [["1", "Every month"], ["3", "Every quarter"], ["6", "Every six months"], ["12", "Every twelve months"]], "3"), when: scalingTeam },
+        num("maxTeamSize", "Maximum team size", { min: 1, step: 1, initial: "5", when: scalingTeam }),
+      ], staffDepartments.flatMap(([, roles]) => roles)),
+      presetRows: staffDepartments.flatMap(([department, roles]) => roles.map(name => ({ name, department }))),
+      presetGroups: staffDepartments.filter(([, roles]) => roles.length),
+    },
+    {
+      ...group("expenses", "Costs", "What are your operating expenses?", "Categorize expenses for the SG&A schedule. Enter an invoice amount or forecast usage above a monthly allowance. Use growth or later phases for changes in price or usage.", "expense",
+        expenseFields, [...presetExpenseCategories.keys()]),
+      presetRows: [...presetExpenseCategories].map(([name, category]) => ({ name, category })),
+      presetGroups: expenseGroups.map(([, label, names]) => [label, names]),
+    },
     group("accounts", "Working capital", "Where is your opening cash held?", "Add the opening amount for each bank account, cash balance, or cash equivalent.", "cash account", [
       amount("amount", "Opening cash balance"),
     ], ["Operating bank account", "Peebee-owned mobile money", "Cash on hand"]),
@@ -101,7 +143,7 @@
   const fieldsFor = (group, row) => group.fields.filter(field => !field.when || field.when(row));
 
   function upgradeDraft(old) {
-    const answers = { ...old };
+    const answers = { hireEquipment: "none", vatCadence: "off", ...old };
     const carry = (id, keys, used, row) => {
       if (Array.isArray(old[id]) || !keys.some(key => old[key] != null && old[key] !== "")) return;
       answers[id] = used ? [row] : [];
@@ -128,10 +170,21 @@
       ["newLoans", "loan", "New loan", { month: old.loanMonth, rate: old.loanRate, term: old.loanTerm }],
       ["contributions", "funding", "Equity contribution", { month: old.fundingMonth }],
     ]) carry(id, [key], Number(old[key]) > 0, { name: label, amount: old[key], ...fields });
-    if (Array.isArray(answers.expenses)) answers.expenses = answers.expenses.map(expenseDefaults);
+    if (Array.isArray(answers.staff)) {
+      answers.staff = answers.staff.filter(row => row && typeof row === "object").map(row => ({
+        roleType: row.headcount === "1" ? "single" : "fixed", salaryBasis: "monthly", ...row,
+      }));
+    }
+    if (Array.isArray(answers.expenses)) {
+      const technologyNames = globalThis.PeebeeDefaults?.technologyCosts.map(([name]) => name) || [];
+      answers.expenses = answers.expenses.filter(row => row && typeof row === "object").map(row => expenseDefaults({
+        ...(technologyNames.some(name => row.name === name || row.name?.startsWith(name + " · next phase")) ? { category: "technology" } : {}),
+        ...row,
+      }));
+    }
     return answers;
   }
 
   const scopedCostGroups = new Set(["directCosts", "staff", "expenses", "ownedAssets", "investments"]);
-  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft, scopedCostGroups };
+  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft, scopedCostGroups, expenseGroups, expenseDefaults };
 })();

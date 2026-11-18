@@ -138,7 +138,7 @@
 
   function infrastructureRows(currency) {
     return technologyCosts.map(([name, unit, unitCost, included]) => {
-      const fixed = { ...cost(name), basis: "fixed", priceCurrency: "model", cadence: "annual" };
+      const fixed = { ...cost(name), category: "technology", basis: "fixed", priceCurrency: "model", cadence: "annual" };
       if (!unit) return fixed;
       return { ...fixed, basis: "usage", priceCurrency: "USD", unitCost, included, quantity: "0",
         fx: currency === "USD" ? "1" : "", cadence: "monthly" };
@@ -153,11 +153,11 @@
       ...Object.fromEntries(Object.keys(byId).filter(id => id !== "streams").map(id => [id, []])),
       directCosts: ["Payment provider fees borne by Peebee", "Fulfilment costs borne by Peebee", "Promotions and credits funded by Peebee"].map(direct),
       staff: ["Operations and support", "Engineering and product", "Sales and partner onboarding", "Finance and administration"]
-        .map(name => ({ ...cost(name), headcount: "0", burden: "0" })),
+        .map(name => ({ ...cost(name), roleType: "fixed", salaryBasis: "monthly", headcount: "0", burden: "0" })),
       expenses: [...infrastructureRows("UGX"),
         ...["Marketing", "Rent and utilities", "Professional fees and compliance", "Insurance"].map(name =>
-          ({ ...cost(name), basis: "fixed", priceCurrency: "model", cadence: "annual" }))],
-      scenarios: "no", valuation: "no",
+          globalThis.FinancialLineItems.expenseDefaults(cost(name)))],
+      hireEquipment: "none", vatCadence: "off", scenarios: "no", valuation: "no",
     });
   }
 

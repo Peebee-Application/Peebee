@@ -344,6 +344,9 @@ tfoot tr.total:last-child > * {
 .item-question { max-width: 910px; }
 .line-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .line-actions .button { white-space: normal; text-align: left; }
+.grouped-presets { flex: 1 1 100%; }
+.grouped-presets summary { cursor: pointer; font-weight: 650; padding-block: 6px; }
+.grouped-presets .line-actions { margin: 4px 0 8px 16px; }
 .line-list { display: grid; gap: 14px; margin-top: 20px; }
 .line-item {
   min-width: 0;
