@@ -559,3 +559,68 @@ test("disabled funding and working-capital cards stay saved but do not enter for
   delete answers.accounts[1].enabled;
   assert.equal(build(consolidate(answers).answers)[0].months[0].cash, 300);
 });
+
+test("CAPEX replacement cohorts reconcile with depreciation, cash and fixed assets", () => {
+  const [model] = build({
+    start: "2027-01", months: "13", tax: "0", accounts: [{ name: "Bank", amount: "5000" }],
+    ownedAssets: [{ name: "Fixtures", amount: "120", life: "2", replacement: "cycle",
+      replacementCost: "240", replacementLife: "3", assetInflation: "0" }],
+    investments: [{ name: "Computers", assetClass: "computers", amount: "100", month: "1", life: "12",
+      replacement: "cycle", assetInflation: "21" }],
+    staff: [{ name: "Staff", amount: "0", headcount: "1", month: "1", growth: "0", burden: "0" }],
+    hireEquipment: "capital", hireEquipmentCost: "60", hireEquipmentLife: "2",
+    hireEquipmentReplacement: "cycle", hireEquipmentInflation: "0",
+  });
+  const { months, annual } = model;
+  near(months[0].capex, 160);
+  near(months[0].assets, 181.66666666666666);
+  near(months[2].capex, 300);
+  near(months[2].details.ownedAssets[0].depreciation, 80);
+  near(months[5].details.ownedAssets[0].replacement, 240);
+  near(months[12].details.investments[0].replacement, 121);
+  near(annual[0].details.ownedAssets[0].opening, 120);
+  months.forEach((row, i) => {
+    near(row.check, 0);
+    near(row.investing, -row.capex);
+    near(row.assets, (months[i - 1]?.assets ?? 120) + row.capex - row.depreciation);
+  });
+});
+
+test("inventory receipts, write-offs and commitments reconcile with moving-average COGS", () => {
+  const [model] = build({
+    start: "2027-01", months: "4", tax: "0", accounts: [{ name: "Bank", amount: "1000" }],
+    directCosts: [{ name: "Product", basis: "inventory", inventoryCode: "product", inventoryDemand: "manual", openingUnits: "4",
+      openingUnitCost: "8", unitCost: "10", monthlyUnits: "3", unitGrowth: "0", minOrder: "5", leadMonths: "2", payableDays: "0" }],
+    inventoryMovements: [
+      { inventoryCode: "PRODUCT", movement: "order", month: "1", units: "2" },
+      { inventoryCode: "product", movement: "loss", month: "2", units: "1" },
+    ],
+  });
+  const [first, second, third] = model.months.map(row => row.details.directCosts[0]);
+  assert.equal(first.openingOrders, 5);
+  assert.equal(first.orderUnits, 2);
+  assert.equal(first.pendingUnits, 7);
+  near(first.cogs, 24);
+  near(first.stock, 8);
+  assert.equal(second.receivedUnits, 5);
+  near(second.lossCost, 58 / 6);
+  assert.equal(third.receivedUnits, 2);
+  model.months.forEach(row => near(row.check, 0));
+  assert.equal(model.annual[0].details.directCosts[0].openingUnits, 4);
+  assert.equal(model.annual[0].details.directCosts[0].soldUnits, 12);
+});
+
+test("fixed-payment loan separates the draw from repayment and closes after the term", () => {
+  const [model] = build({
+    start: "2027-01", months: "4", tax: "0",
+    newLoans: [{ name: "Loan", amount: "1000", rate: "12", repayment: "payment", month: "2", term: "2" }],
+  });
+  const [, draw, first, last] = model.months;
+  near(draw.draw, 1000);
+  near(draw.interest, 0);
+  near(first.interest, 10);
+  near(first.principal + first.interest, last.principal + last.interest);
+  near(last.debt, 0);
+  near(first.principal + last.principal, 1000);
+  model.months.forEach(row => near(row.check, 0));
+});

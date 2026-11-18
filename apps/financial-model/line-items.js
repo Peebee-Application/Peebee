@@ -55,6 +55,23 @@
   const acquisition = row => row.method === "orders" && row.orderForecast === "acquisition";
   const paidRole = row => row.roleType !== "disabled";
   const scalingTeam = row => row.roleType === "scaling";
+  const assetCategories = [
+    ["computers", "Computers", "24"],
+    ["fixtures", "Office fixtures", "120"],
+    ["furniture", "Office furniture", "60"],
+    ["telecom", "Telecom equipment", "60"],
+    ["infrastructure", "Servers and technical infrastructure", "60"],
+    ["other", "Other fixed assets", "60"],
+  ];
+  const assetClass = { ...select("assetClass", "Asset category", assetCategories.map(([id, label]) => [id, label]), "other"), optional: true };
+  const replacement = { ...select("replacement", "Replacement schedule", [["none", "No automatic replacement"], ["cycle", "Replace at end of useful life"]], "none"), optional: true };
+  const replaces = row => row.replacement === "cycle";
+  const assetInflation = { ...pct("assetInflation", "Annual replacement price change", { min: -100, initial: "0" }), when: replaces };
+  const assetGroups = assetCategories.map(([assetClass, name, life]) => ({ assetClass, name, life, replacementLife: life }));
+  const stocked = row => row.basis === "inventory";
+  const manualDemand = row => stocked(row) && row.inventoryDemand !== "sales";
+  const inventoryCode = { ...text("inventoryCode", "Inventory code"), pattern: "[A-Za-z0-9_-]{1,40}", patternError: "Use 1 to 40 letters, numbers, hyphens or underscores." };
+  const repayment = { ...select("repayment", "Repayment method", [["principal", "Equal principal"], ["payment", "Fixed monthly payment"]], "principal"), optional: true };
   const groups = [
     group("streams", "Revenue", "What are your revenue streams?", "Add each product, service or income stream and enter how it earns revenue. Collection days estimate the sales still owed at month end.", "revenue stream", [
       select("method", "Revenue driver", [["units", "Units × price"], ["subscription", "Subscriptions × monthly price"], ["direct", "Monthly sales amount"], ["orders", "Orders × average value × fee rate"], ["percentage", "Percentage of transaction or payout"]], "units"),
@@ -84,13 +101,22 @@
       { ...pct("growth", "Monthly organic traffic growth", { min: -100, initial: "0", when: acquisition }) },
       days("days", "Customer payment days"), vat("VAT charged on sales (optional)"),
     ], ["Product sales", "Services", "Subscriptions", "Transaction fees", "Revenue share"], true),
-    group("directCosts", "Costs", "What does it cost to deliver your sales?", "Add production, delivery and payment costs as a share of revenue or a monthly amount. Include stock and supplier terms where they apply.", "direct cost", [
-      select("basis", "Cost basis", [["rate", "Percentage of applicable revenue"], ["fixed", "Monthly amount"]], "rate"),
+    group("directCosts", "Costs", "What does it cost to deliver your sales?", "Use a percentage, a monthly cost, or a unit-based inventory plan. Inventory plans track receipts, sales, losses and supplier terms.", "direct cost", [
+      select("basis", "Cost basis", [["rate", "Percentage of applicable revenue"], ["fixed", "Monthly amount"], ["inventory", "Inventory by units"]], "rate"),
       pct("rate", "Share of applicable revenue", { when: row => row.basis === "rate" }),
       amount("amount", "Starting monthly cost", { when: row => row.basis === "fixed" }),
       { ...growth("Annual cost change"), when: row => row.basis === "fixed" },
-      amount("stock", "Opening inventory at cost", { initial: "0" }),
-      days("inventoryDays", "Target inventory days"),
+      amount("stock", "Opening inventory at cost", { initial: "0", when: row => !stocked(row) }),
+      { ...days("inventoryDays", "Target inventory days"), when: row => !stocked(row) },
+      { ...inventoryCode, when: stocked },
+      num("openingUnits", "Opening inventory units", { initial: "0", step: 1, when: stocked }),
+      amount("openingUnitCost", "Opening book cost per unit (optional)", { optional: true, when: stocked }),
+      { ...select("inventoryDemand", "Forecast units sold from", [["manual", "Entered unit demand"], ["sales", "Unit-based sales in assigned modules"]], "manual"), when: stocked },
+      num("monthlyUnits", "Units sold in model month one", { initial: "0", step: 1, when: manualDemand }),
+      { ...pct("unitGrowth", "Monthly unit demand growth", { min: -100, initial: "0" }), when: manualDemand },
+      amount("unitCost", "Manufacturing or landed cost per unit", { initial: "0", when: stocked }),
+      num("minOrder", "Minimum replenishment order", { initial: "1", min: 1, step: 1, when: stocked }),
+      num("leadMonths", "Lead time in months", { initial: "0", max: 84, step: 1, when: stocked }),
       days("payableDays", "Supplier payment days"), vat("Recoverable VAT on purchases (optional)"),
     ], ["Payment provider fees borne by Peebee", "Fulfilment costs borne by Peebee", "Promotions and credits funded by Peebee"]),
     {
@@ -119,6 +145,11 @@
       presetRows: [...presetExpenseCategories].map(([name, category]) => ({ name, category })),
       presetGroups: expenseGroups.map(([, label, names]) => [label, names]),
     },
+    group("inventoryMovements", "Working capital", "What extra orders or inventory losses should be planned?",
+      "Use the inventory code from its direct cost card. Extra orders arrive after that plan’s lead time. Write-offs apply in the selected month.", "inventory movement", [
+        inventoryCode, select("movement", "Movement", [["order", "Extra order"], ["loss", "Inventory write-off"]], "order"),
+        month("month", "Order or write-off month", "1"), num("units", "Units", { min: 1, step: 1 }),
+      ]),
     group("accounts", "Working capital", "Where is your opening cash held?", "Add the opening amount for each bank account, cash balance, or cash equivalent.", "cash account", [
       amount("amount", "Opening cash balance"),
     ], ["Operating bank account", "Peebee-owned mobile money", "Cash on hand"]),
@@ -128,17 +159,27 @@
     group("payables", "Working capital", "Who does the business already owe?", "List existing supplier balances and when they will be paid. Balances settling after the forecast stay outstanding. New purchases use each direct cost’s terms.", "payable", [
       amount("amount", "Opening amount due"), settlement("Payment month"),
     ]),
-    group("ownedAssets", "Investment", "Which fixed assets do you already own?", "Use the current book value and remaining useful life for each asset or asset group.", "existing asset", [
-      amount("amount", "Opening book value"), life("life", "Remaining useful life in months"),
-    ], ["Equipment", "Vehicles", "Furniture"]),
-    group("investments", "Investment", "What fixed assets will you buy?", "List planned purchases and enter when each asset goes into use. Straight-line depreciation begins in the purchase month.", "purchase", [
-      amount("amount", "Purchase cost"), month("month", "Purchase month", "1"), life("life", "Useful life in months"),
-    ], ["Equipment", "Vehicles", "Technology"]),
-    group("existingLoans", "Funding", "Which loans are already outstanding?", "Enter the remaining principal, annual interest and repayment term for each loan. Principal is paid in equal installments from month one.", "existing loan", [
-      amount("amount", "Opening loan principal"), pct("rate", "Annual interest rate"), life("term", "Months left to repay"),
+    {
+      ...group("ownedAssets", "Investment", "Which fixed assets do you already own?",
+        "Enter the opening book value and remaining life. For replacements, enter today’s replacement cost and the useful life of the new asset.", "existing asset", [
+        assetClass, amount("amount", "Opening book value"), life("life", "Remaining useful life in months"), replacement,
+        amount("replacementCost", "Replacement cost at forecast start", { when: replaces }),
+        { ...life("replacementLife", "Useful life of replacements in months"), when: replaces }, assetInflation,
+      ], assetGroups.map(row => row.name)),
+      presetRows: assetGroups.map(({ life, ...row }) => row),
+    },
+    {
+      ...group("investments", "Investment", "What fixed assets will you buy?",
+        "Depreciation starts in the purchase month. Turn on replacements to buy the asset again at the end of each useful life.", "purchase", [
+        assetClass, amount("amount", "Purchase cost"), month("month", "Purchase month", "1"), life("life", "Useful life in months"), replacement, assetInflation,
+      ], assetGroups.map(row => row.name)),
+      presetRows: assetGroups.map(({ replacementLife, ...row }) => row),
+    },
+    group("existingLoans", "Funding", "Which loans are already outstanding?", "Enter the remaining principal, annual interest and repayment term. Repayment starts in month one.", "existing loan", [
+      amount("amount", "Opening loan principal"), pct("rate", "Annual interest rate"), life("term", "Months left to repay"), repayment,
     ]),
-    group("newLoans", "Funding", "What new loans will you take out?", "Enter each loan draw. Interest starts in the draw month and equal principal installments start the following month.", "planned loan", [
-      amount("amount", "Loan principal"), month("month", "Draw month", "1"), pct("rate", "Annual interest rate"), life("term", "Repayment term in months"),
+    group("newLoans", "Funding", "What new loans will you take out?", "Enter each draw and repayment plan. Fixed payments begin the month after draw. Equal principal plans also accrue interest in the draw month.", "planned loan", [
+      amount("amount", "Loan principal"), month("month", "Draw month", "1"), pct("rate", "Annual interest rate"), life("term", "Repayment term in months"), repayment,
     ]),
     group("contributions", "Funding", "What equity contributions do you expect?", "List each owner or investor contribution and when it will arrive.", "contribution", [
       amount("amount", "Equity contribution"), month("month", "Contribution month", "1"),
@@ -158,7 +199,7 @@
   const fieldsFor = (group, row) => group.fields.filter(field => !field.when || field.when(row));
 
   function upgradeDraft(old) {
-    const answers = { hireEquipment: "none", vatCadence: "off", ...old };
+    const answers = { hireEquipment: "none", vatCadence: "off", inventoryMovements: [], ...old };
     const carry = (id, keys, used, row) => {
       if (Array.isArray(old[id]) || !keys.some(key => old[key] != null && old[key] !== "")) return;
       answers[id] = used ? [row] : [];
@@ -201,5 +242,5 @@
   }
 
   const scopedCostGroups = new Set(["directCosts", "staff", "expenses", "ownedAssets", "investments"]);
-  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft, scopedCostGroups, expenseGroups, expenseDefaults, acquisition, staffDepartments };
+  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft, scopedCostGroups, expenseGroups, expenseDefaults, acquisition, staffDepartments, assetCategories };
 })();

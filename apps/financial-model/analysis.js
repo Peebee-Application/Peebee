@@ -19,12 +19,12 @@
 
     const fixedCosts = answers.directCosts.flatMap((item, index) => item.basis === "fixed" ? [index] : []);
     const variableRate = answers.directCosts.reduce((total, item) => total + (item.basis === "rate" ? Number(item.rate) / 100 : 0), 0);
-    const scopedRates = answers.directCosts.some(item => item.basis === "rate" && item.revenueStreamIndexes && Number(item.rate) > 0);
+    const useForecastMargin = answers.directCosts.some(item => item.basis === "inventory" || (item.basis === "rate" && item.revenueStreamIndexes && Number(item.rate) > 0));
     const contribution = 1 - variableRate;
     const breakEven = row => {
       const fixedDirectCosts = fixedCosts.reduce((total, index) => total + row.details.directCosts[index].cogs, 0);
-      if (scopedRates && !row.revenue) return null;
-      const margin = scopedRates ? 1 - (row.cogs - fixedDirectCosts) / row.revenue : contribution;
+      if (useForecastMargin && !row.revenue) return null;
+      const margin = useForecastMargin ? 1 - (row.cogs - fixedDirectCosts) / row.revenue : contribution;
       return margin > 1e-12 ? (row.payroll + row.overhead + fixedDirectCosts) / margin : null;
     };
 
@@ -44,8 +44,8 @@
       chart("working-capital", "Working capital", "Compare closing receivables, inventory, payables and net working capital.", [
         measure("ar", "Receivables"), measure("stock", "Inventory"), measure("ap", "Payables"), measure("wc", "Net working capital"),
       ]),
-      chart("break-even", "Operating break-even", scopedRates
-        ? "Break-even revenue uses the projected sales mix in each period to account for module-specific costs."
+      chart("break-even", "Operating break-even", useForecastMargin
+        ? "Break-even revenue uses the forecast contribution margin for each period, including inventory costs and module-specific expenses."
         : contribution > 1e-12
         ? "Revenue needed to cover payroll, overhead and fixed direct costs after variable direct costs."
         : "Sales cannot cover fixed operating costs when variable direct costs consume 100% or more of revenue.", [

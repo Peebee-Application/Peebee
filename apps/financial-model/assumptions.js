@@ -32,6 +32,12 @@
       { when: answers => ["expense", "capital"].includes(answers.hireEquipment) }),
     number("hireEquipmentLife", "Costs", "How long will the equipment be used?", "Use months. Straight-line depreciation starts in the purchase month.",
       { min: 1, max: 600, step: 1, unit: "months", when: is("hireEquipment", "capital") }),
+    choice("hireEquipmentReplacement", "Costs", "Should capitalized hiring equipment be replaced?",
+      "Replace each purchase after its useful life, including equipment purchased for later hires.", [["none", "No automatic replacement"], ["cycle", "Replace at end of useful life"]],
+      { optional: true, when: is("hireEquipment", "capital") }),
+    percent("hireEquipmentInflation", "Costs", "How will hiring equipment replacement prices change each year?",
+      "Enter the annual price change between purchases of the same equipment.",
+      { min: -100, when: answers => answers.hireEquipment === "capital" && answers.hireEquipmentReplacement === "cycle" }),
     percent("tax", "Costs", "What income tax rate should the model use?", "Enter the income tax rate Peebee should forecast on positive profit. Use 0 if exempt."),
     choice("vatCadence", "Costs", "When should the forecast pay VAT?",
       "Enter sales and costs before VAT and set the VAT rates on their cards. Payments settle the previous period’s positive VAT balance. Credits carry forward.",
@@ -42,7 +48,7 @@
     amount("openingVAT", "Working capital", "What VAT balance is carried into the forecast?",
       "Enter a positive amount for tax owed or a negative amount for a credit.",
       { min: -1e12, optional: true, when: answers => Boolean(answers.vatCadence && answers.vatCadence !== "off") }),
-    byId.accounts, byId.receivables, byId.payables,
+    byId.accounts, byId.receivables, byId.payables, byId.inventoryMovements,
     byId.ownedAssets, byId.investments,
     byId.existingLoans, byId.newLoans, byId.contributions,
     confirm("scenarios", "Scenarios", "Would you like to compare scenarios?", "Add a downside and upside forecast by applying an adjustment to each stream’s monthly sales growth."),
@@ -55,11 +61,21 @@
 
   function itemError(prompt, rows, answers) {
     const names = new Set();
+    const inventoryCodes = new Set();
     for (const [index, row] of rows.entries()) {
       if (!prompt.keyed && row.enabled === "no") continue;
       for (const field of fieldsFor(prompt, row)) {
         const issue = errorFor(field, row[field.id], answers);
         if (issue) return { id: `item-${index}-${field.id}`, message: `Line ${index + 1}, ${field.label}: ${issue}` };
+      }
+      if (prompt.id === "directCosts" && row.basis === "inventory") {
+        const code = row.inventoryCode.toLowerCase();
+        if (inventoryCodes.has(code)) return { id: "item-" + index + "-inventoryCode", message: "Give each inventory plan a distinct code." };
+        inventoryCodes.add(code);
+      }
+      if (prompt.id === "inventoryMovements" && !(answers.directCosts || []).some(cost =>
+        cost.basis === "inventory" && cost.inventoryCode?.toLowerCase() === row.inventoryCode.toLowerCase())) {
+        return { id: "item-" + index + "-inventoryCode", message: "Enter the code of a direct cost that uses Inventory by units." };
       }
       if (prompt.id === "staff" && row.roleType !== "disabled" && row.endMonth && Number(row.endMonth) < Number(row.month)) {
         return { id: `item-${index}-endMonth`, message: `Line ${index + 1}: Last paid month must be on or after the first paid month.` };
@@ -91,7 +107,7 @@
     if (typeof value !== "string" || !value.trim()) return prompt.optional ? "" : "Enter an answer to continue.";
     if (prompt.type === "select" && !prompt.choices.some(([id]) => id === value)) return "Choose one of the listed options.";
     if (prompt.type === "month" && !/^(?:19|20|21)\d{2}-(?:0[1-9]|1[0-2])$/.test(value)) return "Enter a valid month between 1900 and 2199.";
-    if (prompt.pattern && !new RegExp(`^${prompt.pattern}$`).test(value.trim())) return "Enter a three-letter currency code.";
+    if (prompt.pattern && !new RegExp(`^${prompt.pattern}$`).test(value.trim())) return prompt.patternError || "Enter a three-letter currency code.";
     if (prompt.type !== "number") return "";
     const n = Number(value);
     const max = prompt.withinForecast ? Number(answers.months) : prompt.max;
