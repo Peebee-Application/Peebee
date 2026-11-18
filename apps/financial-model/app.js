@@ -1,7 +1,7 @@
 (() => {
   const { questions, sections, errorFor, itemError } = globalThis.FinancialAssumptions;
   const { fieldsFor, upgradeDraft, acquisition } = globalThis.FinancialLineItems;
-  const { build, firstMonthSale, expensePreview, staffPreview, reports, revenueDrivers, scheduleReports, statementReports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
+  const { build, firstMonthSale, expensePreview, staffPreview, assetPreview, reports, revenueDrivers, scheduleReports, statementReports, linesFor, sum, halfCent, ForecastRangeError } = globalThis.FinancialModel;
   const { questionsFor, consolidate, included, scopeMetadata, forecastModules,
     scopedCostGroups, moduleScope, activeModuleKeys, costIsActive } = globalThis.FinancialChannels;
   const { buildAnalysis, renderAnalysis, renderChart, monthlyEarnings, exportRows } = globalThis.FinancialAnalysis;
@@ -9,8 +9,8 @@
   const dataNote = "Starter estimates model a launch scenario across all channels. Volumes, average values and unverified fees are illustrative. The scenario includes features that may be off in Admin. Apply available Admin fees to matching lines, and enter Peebee’s costs and opening balances.";
   const stepLabels = {
     currency: "Currency", customCurrency: "Currency code", start: "Forecast start", months: "Forecast length",
-    channels: "Revenue channels", directCosts: "Direct costs", staff: "Staffing", expenses: "Operating expenses", hireEquipment: "Hiring equipment", hireEquipmentCost: "Equipment cost", hireEquipmentLife: "Equipment useful life", tax: "Income tax", vatCadence: "VAT payment timing", vatYearEnd: "VAT reporting year end",
-    accounts: "Opening cash", receivables: "Receivables", payables: "Payables", ownedAssets: "Existing assets", investments: "Asset purchases",
+    channels: "Revenue channels", directCosts: "Direct costs", staff: "Staffing", expenses: "Operating expenses", hireEquipment: "Hiring equipment", hireEquipmentCost: "Equipment cost", hireEquipmentLife: "Equipment useful life", hireEquipmentReplacement: "Hiring equipment replacements", hireEquipmentInflation: "Hiring equipment price change", tax: "Income tax", vatCadence: "VAT payment timing", vatYearEnd: "VAT reporting year end",
+    accounts: "Opening cash", receivables: "Receivables", payables: "Payables", inventoryMovements: "Inventory orders and write-offs", ownedAssets: "Existing assets", investments: "Asset purchases",
     existingLoans: "Outstanding loans", newLoans: "New loans", contributions: "Equity contributions",
     scenarios: "Scenario comparison", downside: "Downside growth", upside: "Upside growth",
     valuation: "DCF valuation", discountRate: "Discount rate", exitValue: "Exit value",
@@ -852,6 +852,7 @@
     const hasRevenuePreview = prompt.fields.some(field => field.id === "method");
     const expenses = prompt.id === "expenses";
     const staffing = prompt.id === "staff";
+    const assets = prompt.id === "ownedAssets" || prompt.id === "investments";
     const scoped = scopedCostGroups.has(prompt.id);
     const activeModules = activeModuleKeys(answers);
     const moduleOptions = new Map((answers.channels || []).map(channel => [channel.key, channel.name]));
@@ -893,7 +894,7 @@
           ${scoped ? moduleAssignment(row, index) : ""}
           ${hasRevenuePreview ? `<output class="revenue-estimate" data-estimate="${index}">${revenueEstimateMarkup(prompt, row)}</output>` : ""}
           ${expenses ? expenseCardExtras(row, index) : ""}
-          ${staffing ? `<output class="revenue-estimate" data-cost-estimate="${index}">${staffEstimateMarkup(prompt, row, activeModules)}</output>` : ""}
+          ${staffing || assets ? `<output class="revenue-estimate" data-cost-estimate="${index}">${costEstimateMarkup(row)}</output>` : ""}
           <button type="button" class="text-button remove-line" id="remove-line-${index}" data-remove="${index}" aria-label="${escape("Remove " + (row.name || prompt.item + " " + (index + 1)))}">Remove</button>
           </fieldset>`).join("")}</div>` : `<p class="empty-items muted">${prompt.required ? "Add a line item to continue." : "No line items added. Continue if this category does not apply."}</p>`}`;
       updatePresets();
@@ -908,7 +909,7 @@
       }
       return `<details class="cost-module-assignment">
         <summary>Applies to <strong data-assigned-count="${index}">${assigned.size ? `${assigned.size} ${assigned.size === 1 ? "module" : "modules"}` : "Company-wide"}</strong></summary>
-        <p class="muted">With no modules selected, this line is company-wide.${prompt.id === "directCosts" ? " A percentage uses only revenue from the selected modules." : ""}</p>
+        <p class="muted">With no modules selected, this line is company-wide.${prompt.id === "directCosts" ? " Percentage costs and linked inventory demand use sales from the selected modules." : ""}</p>
         <div class="cost-module-options">${[...options].map(([key, name]) => `<label>
           <input type="checkbox" data-assign-line="${index}" value="${escape(key)}" ${assigned.has(key) ? "checked" : ""}>
           <span>${escape(name)}${moduleOptions.has(key) && !activeModules.has(key) ? " · Off" : ""}</span>
@@ -975,9 +976,11 @@
       if (estimate) estimate.innerHTML = costEstimateMarkup(rows[index]);
     }
 
-    const costEstimateMarkup = row => staffing
-      ? staffEstimateMarkup(prompt, row, activeModules)
-      : expenseEstimateMarkup(prompt, row, activeModules);
+    function costEstimateMarkup(row) {
+      if (staffing) return staffEstimateMarkup(prompt, row, activeModules);
+      if (assets) return assetEstimateMarkup(prompt, row, activeModules);
+      return expenseEstimateMarkup(prompt, row, activeModules);
+    }
 
     const add = (name = "") => {
       const initial = Object.fromEntries(prompt.fields.map(field => [field.id, field.initial || ""]));
@@ -1133,6 +1136,20 @@
       const { headcount, amount } = staffPreview(row, month);
       return escape(`Month ${month}: ${numberFormat.format(headcount)} staff · ${money(amount)}`);
     }).join("<br>")}</strong>`;
+  }
+
+  function assetEstimateMarkup(prompt, row, activeModules) {
+    if (!costIsActive(row, activeModules)) return '<span>Asset forecast</span><strong>Excluded from this forecast</strong>';
+    if (!Number(answers.months) || itemError(prompt, [{ ...row, name: "Asset" }], answers)) {
+      return '<span>Complete the asset inputs to see the forecast.</span>';
+    }
+    const results = assetPreview(row, Number(answers.months), prompt.id === "ownedAssets");
+    const active = results.find(period => period.capex || period.opening) || results[0];
+    const replacements = results.filter(period => period.replacement).slice(0, 2);
+    const timing = replacements.map(period => `Month ${period.month} replacement ${money(period.replacement)}`);
+    return `<span>${escape(`Month ${active.month} depreciation ${money(active.depreciation)}`)}</span>
+      ${timing.length ? `<span>${escape(timing.join(" · "))}</span>` : ""}
+      <strong>${escape(`Closing book value ${money(results.at(-1).assets)} at forecast end`)}</strong>`;
   }
 
   function expenseEstimateMarkup(prompt, row, activeModules) {

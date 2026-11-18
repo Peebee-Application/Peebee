@@ -84,7 +84,7 @@
     const forecastItems = Object.fromEntries(Object.keys(byId).filter(id => id !== "streams").map(id => [
       id, (answers[id] || []).filter(row => scopedCostGroups.has(id) ? costIsActive(row, active) : included(row)).map(row => {
         const keys = [...new Set(moduleScope(row))];
-        if (id !== "directCosts" || row.basis !== "rate" || !keys.length) return row;
+        if (id !== "directCosts" || !keys.length || (row.basis !== "rate" && row.inventoryDemand !== "sales")) return row;
         return { ...row, revenueStreamIndexes: keys.flatMap(key => streamIndexes.get(key) || []) };
       }),
     ]));
