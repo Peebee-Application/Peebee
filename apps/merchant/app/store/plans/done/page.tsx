@@ -74,7 +74,7 @@ function Done() {
 
       <BottomBar aboveNav>
         {scheduled && moveDown && (
-          <GhostButton onClick={() => void keepPlan()} disabled={busy} testId="done-keep-plan"><Undo2 className="h-5 w-5" /> Keep {fromName}</GhostButton>
+          <GhostButton onClick={() => void keepPlan()} disabled={busy} testId="done-keep-plan"><Undo2 className="h-5 w-5 shrink-0" /> <span className="whitespace-nowrap">Keep {fromName}</span></GhostButton>
         )}
         {!(scheduled && moveDown) && <GhostButton square label="Print receipt" onClick={() => window.print()}><Printer className="h-6 w-6" /></GhostButton>}
         <PrimaryButton onClick={() => router.push(scheduled ? "/store/plans" : "/store")}>
