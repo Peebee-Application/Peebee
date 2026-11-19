@@ -59,10 +59,10 @@ export function Stepper({ steps, current, onJump }: { steps: { icon: LucideIcon;
 }
 
 /** Sticky action bar at the bottom. `aboveNav` lifts it over the bottom navigation. */
-export function BottomBar({ children, aboveNav = false }: { children: ReactNode; aboveNav?: boolean }) {
+export function BottomBar({ children, aboveNav = false, solid = false }: { children: ReactNode; aboveNav?: boolean; solid?: boolean }) {
   return (
     <div
-      className={`fixed inset-x-0 z-30 mx-auto flex max-w-md gap-3 px-4 pb-4 pt-3 bg-gradient-to-t from-[rgb(var(--cream))] via-[rgb(var(--cream))] to-transparent ${
+      className={`fixed inset-x-0 z-30 mx-auto flex max-w-md gap-3 px-4 pb-4 pt-3 ${solid ? "border-t border-[var(--border-faint)] bg-[rgb(var(--cream))] shadow-[0_-8px_24px_rgba(0,0,0,0.08)]" : "bg-gradient-to-t from-[rgb(var(--cream))] via-[rgb(var(--cream))] to-transparent"} ${
         aboveNav ? "bottom-[calc(80px+env(safe-area-inset-bottom))]" : "bottom-0 pb-[calc(16px+env(safe-area-inset-bottom))]"
       }`}
     >
