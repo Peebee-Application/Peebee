@@ -12,6 +12,7 @@ import { call, uploadStoreMedia, ugx } from "../../../../lib/plans";
 import { BottomBar, ChoiceTile, ErrorNote, FlowTop, GhostButton, PrimaryButton, Stepper, Toggle } from "../../../../components/flow/Flow";
 import { VoiceButton } from "../../../../components/items/VoiceButton";
 import { CustomerPreview, type PreviewItem } from "../../../../components/items/CustomerPreview";
+import { ColourPickerSheet } from "../../../../components/items/ColourPicker";
 import { VariantTable, combos, effectivePrice, type VariantValues } from "../../../../components/items/VariantTable";
 
 type ItemType = "physical" | "digital" | "service";
@@ -40,6 +41,8 @@ const COLOURS = [
   { name: "Black", hex: "#111111" }, { name: "White", hex: "#ffffff" }, { name: "Red", hex: "#d92d20" }, { name: "Blue", hex: "#2563eb" },
   { name: "Green", hex: "#16a34a" }, { name: "Gold", hex: "#c9a227" }, { name: "Brown", hex: "#8b5a2b" }, { name: "Grey", hex: "#9ca3af" },
 ];
+/** Four primaries on the chip row; anything else comes from the colour picker. */
+const PRIMARY_COLOURS = COLOURS.filter((c) => ["Black", "White", "Red", "Blue"].includes(c.name));
 const SIZE_SETS: Record<string, string[]> = { Shoes: ["39", "40", "41", "42", "43", "44"], Clothes: ["S", "M", "L", "XL"] };
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -74,6 +77,8 @@ export default function NewItemWizard() {
   const [sizes, setSizes] = useState<string[]>([]);
   const [sizeDraft, setSizeDraft] = useState("");
   const [colours, setColours] = useState<{ name: string; hex: string }[]>([]);
+  const [customColours, setCustomColours] = useState<{ name: string; hex: string }[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [rows, setRows] = useState<Record<string, VariantValues>>({});
   const [groupPrices, setGroupPrices] = useState<Record<string, string>>({});
   const [showMissing, setShowMissing] = useState(false);
@@ -186,7 +191,9 @@ export default function NewItemWizard() {
     const sizeOpt = p.options?.find((o) => /size/i.test(o.name));
     const colOpt = p.options?.find((o) => /colou?r/i.test(o.name));
     setSizes(sizeOpt?.values.map((v) => v.value) ?? []);
-    setColours(colOpt?.values.map((v) => ({ name: v.value, hex: v.hex ?? COLOURS.find((c) => c.name === v.value)?.hex ?? "#999999" })) ?? []);
+    const copied = colOpt?.values.map((v) => ({ name: v.value, hex: v.hex ?? COLOURS.find((c) => c.name === v.value)?.hex ?? "#999999" })) ?? [];
+    setColours(copied);
+    setCustomColours(copied.filter((c) => !PRIMARY_COLOURS.some((pc) => pc.name.toLowerCase() === c.name.toLowerCase())));
     setCopyOpen(false);
     setStep(1);
   }
@@ -510,15 +517,32 @@ export default function NewItemWizard() {
               <div>
                 <p className={label}>Colour</p>
                 <div className="flex flex-wrap gap-2">
-                  {COLOURS.map((c) => {
+                  {[...PRIMARY_COLOURS, ...customColours].map((c, i) => {
                     const on = colours.some((x) => x.name === c.name);
+                    const custom = i >= PRIMARY_COLOURS.length;
                     return (
-                      <button key={c.name} type="button" onClick={() => setColours((l) => (on ? l.filter((x) => x.name !== c.name) : [...l, c]))} className={chipCls(on)}>
-                        <span className="h-5 w-5 rounded-full border border-black/20" style={{ background: c.hex }} /> {c.name}
-                      </button>
+                      <span key={c.name} className="inline-flex max-w-full items-center gap-1">
+                        <button type="button" aria-pressed={on} onClick={() => setColours((l) => (on ? l.filter((x) => x.name !== c.name) : [...l, c]))} className={`${chipCls(on)} max-w-full`} data-testid={`colour-chip-${c.name}`}>
+                          <span className="h-6 w-6 shrink-0 rounded-full border-2 border-white/90 shadow-[0_0_0_1px_rgba(0,0,0,0.3)]" style={{ background: c.hex }} /> <span className="min-w-0 break-words">{c.name}</span>
+                        </button>
+                        {custom && (
+                          <button type="button" aria-label={`Remove ${c.name}`} onClick={() => { setCustomColours((l) => l.filter((x) => x.name !== c.name)); setColours((l) => l.filter((x) => x.name !== c.name)); }}
+                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink-500"><X className="h-5 w-5" strokeWidth={2.8} /></button>
+                        )}
+                      </span>
                     );
                   })}
+                  <button type="button" onClick={() => setPickerOpen(true)} data-testid="add-colour" className="inline-flex min-h-12 items-center gap-2 rounded-full border-2 border-dashed border-[var(--border-faint)] px-4 text-base font-bold text-ink">
+                    <Plus className="h-5 w-5" strokeWidth={2.8} /> Add colour
+                  </button>
                 </div>
+                {pickerOpen && (
+                  <ColourPickerSheet
+                    taken={[...PRIMARY_COLOURS, ...customColours].map((c) => c.name)}
+                    onClose={() => setPickerOpen(false)}
+                    onAdd={(c) => { setCustomColours((l) => [...l, c]); setColours((l) => [...l, c]); }}
+                  />
+                )}
               </div>
 
               {variantRows.length > 0 ? (
@@ -718,7 +742,7 @@ export default function NewItemWizard() {
 
       {error && <div className="mt-4"><ErrorNote>{error}</ErrorNote></div>}
 
-      <BottomBar>
+      <BottomBar solid>
         {step === 5 && <GhostButton square label="Edit" onClick={() => setStep(1)}><Pencil className="h-6 w-6" /></GhostButton>}
         {step < 6 ? (
           <PrimaryButton testId="wizard-next" onClick={next}>{step === 5 ? "Looks good" : "Next"} <ArrowRight className="h-5 w-5" /></PrimaryButton>

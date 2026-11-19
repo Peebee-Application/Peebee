@@ -88,8 +88,8 @@ export function VariantTable(p: Props) {
 
   return (
     <section className="space-y-4" data-testid="variants-table">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2.5 text-2xl font-black text-ink">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="flex min-w-0 items-center gap-2.5 text-[22px] font-black text-ink">
           <Layers className="h-6 w-6" /> Variants
           <span className="grid h-9 min-w-9 place-items-center rounded-full bg-black px-2.5 text-lg text-gold dark:bg-gold dark:text-ink-gold" data-testid="variant-count">{all.length}</span>
         </h2>
@@ -106,7 +106,8 @@ export function VariantTable(p: Props) {
 
       <button type="button" onClick={() => setBulkOpen(true)} data-testid="variants-bulk" className="flex min-h-16 w-full items-center gap-3 rounded-[20px] border-[1.5px] border-gold/40 bg-black px-3.5 text-left text-[19px] font-black text-white dark:bg-[#000]">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gold text-ink-gold"><Copy className="h-[22px] w-[22px]" /></span>
-        <span className="min-w-0 flex-1">Same price &amp; stock for all {all.length}</span>
+        <span className="min-w-0 flex-1">Same for all</span>
+        <span className="grid h-9 min-w-9 shrink-0 place-items-center rounded-full bg-gold px-2.5 text-lg font-black text-ink-gold" data-testid="bulk-count">{all.length}</span>
         <ChevronRight className="h-6 w-6 shrink-0 text-gold" strokeWidth={3} />
       </button>
 
@@ -151,8 +152,8 @@ export function VariantTable(p: Props) {
                     )}
                     {sizes.length > 0 ? (
                       <>
-                        <div className="grid grid-cols-[56px_minmax(0,1fr)_auto] gap-2.5 text-[17px] font-extrabold text-ink">
-                          <span>Size</span><span>Price</span><span className="w-[142px]">Stock</span>
+                        <div className="grid grid-cols-[56px_minmax(0,1fr)] gap-2.5 text-[17px] font-extrabold text-ink">
+                          <span>Size</span><span>Price · Stock</span>
                         </div>
                         {gRows.map((r) => {
                           const st = stockOf(r.size, g.name);
@@ -161,13 +162,13 @@ export function VariantTable(p: Props) {
                           const miss = showMissing && pr <= 0;
                           const name = [r.size, g.name].filter(Boolean).join(" · ");
                           return (
-                            <div key={r.key} id={`vt-${r.key}`} className="grid grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-2.5" data-testid={`variant-row-${r.key}`}>
-                              <button type="button" onClick={() => setEditing({ size: r.size, colour: g.name })} aria-label={`Edit ${name}`} className={`grid h-[60px] w-14 place-items-center rounded-2xl border-2 px-1 text-center text-[19px] font-black leading-none break-all ${st === 0 ? `border-red-600/35 bg-red-600/10 ${red}` : "border-transparent bg-[rgb(var(--surface-muted))] text-ink"}`}>{r.size}</button>
-                              <button type="button" onClick={() => setEditing({ size: r.size, colour: g.name })} aria-label={`${name} price`} className={`flex h-[60px] min-w-0 items-center justify-center rounded-2xl border-2 px-1 text-[clamp(16px,4.7vw,20px)] font-extrabold ${miss ? `border-red-600 bg-red-600/10 dark:border-red-400 ${red}` : isOwn ? "border-gold bg-gold/15 font-black text-ink" : "border-dashed border-[var(--border-faint)] text-ink-500"}`} data-testid={`variant-price-${r.key}`}>
+                            <div key={r.key} id={`vt-${r.key}`} className="grid grid-cols-[56px_minmax(0,1fr)] items-start gap-x-2.5 gap-y-2.5 border-t border-[var(--border-faint)] pt-3.5 first-of-type:border-0" data-testid={`variant-row-${r.key}`}>
+                              <button type="button" onClick={() => setEditing({ size: r.size, colour: g.name })} aria-label={`Edit ${name}`} className={`row-span-2 grid h-full min-h-[60px] w-14 place-items-center rounded-2xl border-2 px-1 text-center text-[19px] font-black leading-none break-all ${st === 0 ? `border-red-600/35 bg-red-600/10 ${red}` : "border-transparent bg-[rgb(var(--surface-muted))] text-ink"}`}>{r.size}</button>
+                              <button type="button" onClick={() => setEditing({ size: r.size, colour: g.name })} aria-label={`${name} price`} className={`flex h-[60px] min-w-0 items-center justify-center rounded-2xl border-2 px-1 text-[20px] font-extrabold ${miss ? `border-red-600 bg-red-600/10 dark:border-red-400 ${red}` : isOwn ? "border-gold bg-gold/15 font-black text-ink" : "border-dashed border-[var(--border-faint)] text-ink-500"}`} data-testid={`variant-price-${r.key}`}>
                                 {miss ? <CircleAlert className="h-6 w-6" /> : fmt(pr)}
                               </button>
-                              <BigStepper value={st} onChange={(n) => setStock(r.size, g.name, n)} label={name} danger={st === 0} compact />
-                              {st === 0 && <p className={`col-span-3 -mt-1 flex items-center gap-2 text-base font-extrabold ${red}`}><PackageX className="h-5 w-5" /> Sold out</p>}
+                              <BigStepper value={st} onChange={(n) => setStock(r.size, g.name, n)} label={name} danger={st === 0} />
+                              {st === 0 && <p className={`col-span-2 -mt-1 flex items-center gap-2 text-base font-extrabold ${red}`}><PackageX className="h-5 w-5" /> Sold out</p>}
                             </div>
                           );
                         })}
@@ -247,26 +248,27 @@ function Row({ children }: { children: ReactNode }) { return <>{children}</>; }
 
 function Seg({ value, onChange, options, wide = false, testId }: { value: string; onChange: (v: string) => void; options: { v: string; icon: ReactNode; label: string }[]; wide?: boolean; testId?: string }) {
   return (
-    <div role="radiogroup" data-testid={testId} className={`grid grid-cols-2 gap-1 rounded-[18px] bg-black p-1 dark:border dark:border-white/10 dark:bg-[#000] ${wide ? "w-full" : ""}`}>
+    <div role="radiogroup" data-testid={testId} className={`grid shrink-0 grid-cols-2 gap-1 rounded-[18px] bg-black p-1 dark:border dark:border-white/10 dark:bg-[#000] ${wide ? "w-full" : ""}`}>
       {options.map((o) => (
         <button key={o.v} type="button" role="radio" aria-checked={value === o.v} onClick={() => onChange(o.v)}
-          className={`flex min-h-[52px] min-w-[84px] items-center justify-center gap-1.5 rounded-[14px] px-3 text-[17px] font-extrabold ${value === o.v ? "bg-gold text-ink-gold" : "text-white"}`}>
-          {o.icon}{o.label}
+          aria-label={o.label}
+          className={`flex min-h-[52px] min-w-[52px] items-center justify-center gap-1.5 rounded-[14px] px-3 text-[17px] font-extrabold ${value === o.v ? "bg-gold text-ink-gold" : "text-white"}`}>
+          {o.icon}<span className={wide ? "" : "hidden min-[400px]:inline"}>{o.label}</span>
         </button>
       ))}
     </div>
   );
 }
 
-/** Big − n + stepper (52px buttons); `compact` keeps it 142px wide for table rows. */
-export function BigStepper({ value, onChange, label, danger = false, compact = false, dark = false }: { value: number; onChange: (n: number) => void; label: string; danger?: boolean; compact?: boolean; dark?: boolean }) {
+/** Big − n + stepper: 56px buttons, the number gets the rest of the row (at least 64px). */
+export function BigStepper({ value, onChange, label, danger = false, dark = false }: { value: number; onChange: (n: number) => void; label: string; danger?: boolean; dark?: boolean }) {
   return (
-    <div className={`field-box grid h-[60px] items-center rounded-2xl border-2 p-[3px] ${compact ? "w-[142px] grid-cols-[48px_1fr_48px]" : "w-full grid-cols-[52px_1fr_52px]"} ${
+    <div className={`field-box grid h-16 w-full min-w-[184px] grid-cols-[56px_minmax(64px,1fr)_56px] items-center gap-1 rounded-2xl border-2 p-[2px] ${
       dark ? "border-white/20 bg-[#1c1c1c]" : danger ? "border-red-600/50 bg-[rgb(var(--surface-input))]" : "border-[var(--border-faint)] bg-[rgb(var(--surface-input))]"}`}>
-      <button type="button" onClick={() => onChange(Math.max(0, value - 1))} aria-label={`Less ${label}`} className={`grid h-[52px] place-items-center rounded-[13px] ${dark ? "bg-[#2c2c2c] text-white" : "bg-[rgb(var(--surface-muted))] text-ink"}`}><Minus className="h-6 w-6" strokeWidth={3} /></button>
+      <button type="button" onClick={() => onChange(Math.max(0, value - 1))} aria-label={`Less ${label}`} className={`grid h-14 place-items-center rounded-[14px] ${dark ? "bg-[#2c2c2c] text-white" : "bg-[rgb(var(--surface-muted))] text-ink"}`}><Minus className="h-6 w-6" strokeWidth={3} /></button>
       <input value={String(value)} onChange={(e) => onChange(digitsOf(e.target.value))} inputMode="numeric" aria-label={`Stock ${label}`}
-        className={`w-full min-w-0 bg-transparent text-center text-[22px] font-black outline-none ${dark ? "text-white" : danger ? "text-red-600 dark:text-red-400" : "text-ink"}`} />
-      <button type="button" onClick={() => onChange(value + 1)} aria-label={`More ${label}`} className="grid h-[52px] place-items-center rounded-[13px] bg-gold text-ink-gold"><Plus className="h-6 w-6" strokeWidth={3} /></button>
+        className={`w-full min-w-0 bg-transparent text-center text-[24px] font-black tabular-nums outline-none ${dark ? "text-white" : danger ? "text-red-600 dark:text-red-400" : "text-ink"}`} />
+      <button type="button" onClick={() => onChange(value + 1)} aria-label={`More ${label}`} className="grid h-14 place-items-center rounded-[14px] bg-gold text-ink-gold"><Plus className="h-6 w-6" strokeWidth={3} /></button>
     </div>
   );
 }
@@ -431,9 +433,9 @@ function BulkSheet({ count, basePrice, defaultStock, onApply, onClose }: { count
           </div>
           <div>
             <p className="mb-2 text-[17px] font-extrabold">Same stock for all</p>
-            <div className="flex gap-2.5">
-              <div className="min-w-0 flex-1"><BigStepper value={stock} onChange={(n) => { setStock(n); setDone((d) => ({ ...d, stock: false })); }} label="all" dark /></div>
-              <button type="button" onClick={() => { onApply(null, stock); setDone((d) => ({ ...d, stock: true })); }} className={applyBtn} data-testid="bulk-apply-stock"><Check className="h-[22px] w-[22px]" strokeWidth={3} />{done.stock ? "Done" : "Apply"}</button>
+            <div className="space-y-2.5">
+              <BigStepper value={stock} onChange={(n) => { setStock(n); setDone((d) => ({ ...d, stock: false })); }} label="all" dark />
+              <button type="button" onClick={() => { onApply(null, stock); setDone((d) => ({ ...d, stock: true })); }} className={`${applyBtn} w-full`} data-testid="bulk-apply-stock"><Check className="h-[22px] w-[22px]" strokeWidth={3} />{done.stock ? "Done" : "Apply"}</button>
             </div>
           </div>
         </div>

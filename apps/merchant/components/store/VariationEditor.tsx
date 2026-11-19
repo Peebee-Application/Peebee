@@ -14,6 +14,7 @@ import {
 import { useRef, useState } from "react";
 import { uploadStoreMedia } from "../../lib/plans";
 import { BarcodeScanButton } from "./BarcodeScan";
+import { ColourPickerSheet } from "../items/ColourPicker";
 
 /** One option the merchant is building, e.g. Colour with Black and Red. */
 export type EditorOption = { name: string; values: Array<{ value: string; hex?: string }> };
@@ -130,6 +131,7 @@ export function VariationEditor({
   mode?: "sheet" | "inline";
 }) {
   const [draft, setDraft] = useState<Record<number, string>>({});
+  const [pickerFor, setPickerFor] = useState<number | null>(null);
   const [bulkPrice, setBulkPrice] = useState<number | null>(null);
   const [bulkStock, setBulkStock] = useState<number>(Math.max(0, baseStock || 0));
   const [truncated, setTruncated] = useState(false);
@@ -254,7 +256,7 @@ export function VariationEditor({
               <div className="space-y-2.5">
                 <p className={SECTION}>Tap to add</p>
                 <div className="flex flex-wrap gap-2.5" aria-label="Suggestions">
-                  {suggestions.slice(0, 12).map((s) => (
+                  {suggestions.slice(0, swatch ? 4 : 12).map((s) => (
                     <button key={s} type="button" onClick={() => addValue(index, s)}
                       className="inline-flex min-h-14 items-center gap-2 rounded-full border-2 border-dashed border-[var(--border-faint)] pl-3 pr-[18px] text-lg font-bold text-ink active:scale-95">
                       {swatch ? <span className="h-[30px] w-[30px] shrink-0 rounded-full border-2 border-white/90 shadow-[0_0_0_1.5px_rgba(0,0,0,0.25)]" style={{ background: colorHex(s) ?? "#cccccc" }} /> : <Plus className="h-5 w-5" strokeWidth={2.8} />}
@@ -265,20 +267,35 @@ export function VariationEditor({
               </div>
             )}
 
+            {swatch ? (
+              <button type="button" onClick={() => setPickerFor(index)} data-testid="variation-add-colour"
+                className="flex min-h-14 w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-[var(--border-faint)] text-lg font-extrabold text-ink active:scale-[.99]">
+                <Palette className="h-6 w-6" /> Add colour
+              </button>
+            ) : (
             <div>
-              <label htmlFor={`variation-value-${index}`} className={SUB_LABEL}>{option.values.length ? `Other ${(option.name || "value").toLowerCase()}` : `Add a ${(option.name || "value").toLowerCase()}`}</label>
-              <div className="flex gap-2.5">
-                <span className={`${FIELD} flex-1`}>
-                  <input id={`variation-value-${index}`} className={FIELD_INPUT} value={draft[index] ?? ""} placeholder={swatch ? "e.g. Navy" : "Type, then Add"}
-                    onChange={(e) => setDraft((d) => ({ ...d, [index]: e.target.value }))}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addValue(index, draft[index] ?? ""); } }} />
-                </span>
-                <button type="button" onClick={() => addValue(index, draft[index] ?? "")} className={`${APPLY} bg-gold text-ink-gold`}><Plus className="h-6 w-6" strokeWidth={3} /> Add</button>
+                <label htmlFor={`variation-value-${index}`} className={SUB_LABEL}>{option.values.length ? `Other ${(option.name || "value").toLowerCase()}` : `Add a ${(option.name || "value").toLowerCase()}`}</label>
+                <div className="flex gap-2.5">
+                  <span className={`${FIELD} flex-1`}>
+                    <input id={`variation-value-${index}`} className={FIELD_INPUT} value={draft[index] ?? ""} placeholder={swatch ? "e.g. Navy" : "Type, then Add"}
+                      onChange={(e) => setDraft((d) => ({ ...d, [index]: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addValue(index, draft[index] ?? ""); } }} />
+                  </span>
+                  <button type="button" onClick={() => addValue(index, draft[index] ?? "")} className={`${APPLY} bg-gold text-ink-gold`}><Plus className="h-6 w-6" strokeWidth={3} /> Add</button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         );
       })}
+
+      {pickerFor !== null && value.options[pickerFor] && (
+        <ColourPickerSheet
+          taken={value.options[pickerFor].values.map((v) => v.value)}
+          onClose={() => setPickerFor(null)}
+          onAdd={(c) => { const i = pickerFor; setOption(i, { values: [...value.options[i].values, { value: c.name, hex: c.hex }] }); }}
+        />
+      )}
 
       {value.options.length < settings.maxOptionsPerProduct && (
         <div className="space-y-3">
@@ -437,7 +454,8 @@ function VariantCard({ v, look, open, onToggle, patch, onRemove }: {
           ? <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-green/15 px-3 text-[15px] font-extrabold text-green"><Check className="h-4 w-4" strokeWidth={3} /> In stock</span>
           : <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-red-600/10 px-3 text-[15px] font-extrabold text-red-600"><AlertCircle className="h-4 w-4" /> Sold out</span>}
       </div>
-      <div className={TWO_COL}>
+      {/* Stock gets its own row so a figure like 100 has room. */}
+      <div className="grid grid-cols-1 gap-3">
         <MoneyField label="Price" value={v.price} onChange={(n) => patch({ price: n ?? 0 })} error={noPrice ? "Add a price" : undefined} testId="variant-price" />
         <div className="min-w-0">
           <p className={SUB_LABEL}>Stock</p>
