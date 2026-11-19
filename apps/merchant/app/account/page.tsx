@@ -72,7 +72,7 @@ export default function AccountPage() {
             className={`${card} relative flex min-h-[132px] min-w-0 flex-col items-start justify-between gap-3 p-4 text-left transition active:scale-[.98]`}>
             <span className="grid h-14 w-14 place-items-center rounded-[18px] bg-gold/15 text-[#8a6d0b] dark:text-gold"><ShieldCheck className="h-[30px] w-[30px]" /></span>
             <span className="block min-w-0 max-w-full">
-              <span className="block break-words text-[20px] font-black leading-tight text-ink">Verification</span>
+              <span className="block text-[18px] font-black leading-tight text-ink min-[400px]:text-[20px]">Verification</span>
               <span className={`mt-0.5 flex items-center gap-1.5 text-[16px] font-black ${kycSubTone}`}><kyc.icon className="h-4 w-4 shrink-0" strokeWidth={2.6} />{kyc.label}</span>
             </span>
           </button>
