@@ -486,9 +486,9 @@ export default function NewItemWizard() {
               <div className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4">
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-bold text-ink-500">Cost</span>
-                  <div className="field-box flex flex-1 items-center gap-2 rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3">
+                  <div className="field-box flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3">
                     <span className="text-xs font-bold text-ink-500">UGX</span>
-                    <input value={cost ? Number(digits(cost)).toLocaleString("en-US") : ""} onChange={(e) => setCost(e.target.value)} inputMode="numeric" placeholder="0" className="min-h-11 min-w-0 flex-1 bg-transparent text-base font-bold text-ink outline-none" aria-label="Cost" />
+                    <input value={cost ? Number(digits(cost)).toLocaleString("en-US") : ""} onChange={(e) => setCost(e.target.value)} inputMode="numeric" placeholder="0" className="min-h-11 w-full min-w-0 flex-1 bg-transparent text-base font-bold text-ink outline-none" aria-label="Cost" />
                   </div>
                 </div>
                 {costNum > 0 && priceNum > 0 && (
