@@ -37,7 +37,7 @@ async function setup() {
   for (const file of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) for (const sql of splitSqlStatements(readFileSync(join(dir, file), "utf8"))) await client.execute(sql);
   bindDatabase(client);
   const hash = bcrypt.hashSync("owner-pass-1", 4);
-  await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role, status, wallet_balance) VALUES ('pc_1', '+256700333444', 'Owner', ?, 'customer', 'active', 500000)", args: [hash] });
+  await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role, status, wallet_balance, password_set_at) VALUES ('pc_1', '+256700333444', 'Owner', ?, 'customer', 'active', 500000, datetime('now'))", args: [hash] });
   await client.execute("INSERT INTO merchants (id, legal_name, display_name, business_kind, status, environment) VALUES ('pc_m1', 'Shop Ltd', 'Shop', 'business', 'active', 'sandbox')");
   await client.execute("INSERT INTO merchant_members (merchant_id, user_id, role, status) VALUES ('pc_m1', 'pc_1', 'owner', 'active')");
   const token = await signToken({ sub: "pc_1", role: "customer" });
@@ -105,11 +105,16 @@ test("plan changes go review → pay → verify → done, with proration, schedu
       assert.equal(quote.quote.amount, 150000 - quote.quote.credit);
     });
 
-    await t.test("a move down is scheduled for the end of the period and can be cancelled", async () => {
-      const created = (await (await req("/merchants/me/store/plan-checkouts", "POST", { tier: "merchant", billingCycle: "monthly", method: "free" })).json()) as any;
+    await t.test("a move down to Merchant needs only the owner's session: no payment, no code, scheduled and cancellable", async () => {
+      const res = await req("/merchants/me/store/plan-checkouts", "POST", { tier: "merchant", billingCycle: "monthly", method: "free" });
+      assert.equal(res.status, 201);
+      const created = (await res.json()) as any;
       assert.equal(created.checkout.kind, "downgrade");
-      const verified = (await (await req(`/merchants/me/store/plan-checkouts/${created.checkout.id}/verify`, "POST", { code: created.devCode })).json()) as any;
-      assert.equal(verified.checkout.status, "scheduled");
+      assert.equal(created.checkout.status, "scheduled");
+      assert.equal(created.checkout.verifyMethod, "session");
+      assert.equal(created.devCode, undefined);
+      assert.ok(Date.parse(created.checkout.startsAt) > Date.now() + 86_400_000);
+      assert.equal(await wallet(), 425000);
       const plans = (await (await req("/merchants/me/store/plans")).json()) as any;
       assert.equal(plans.current.plan, "pro_live");
       assert.equal(plans.scheduled.id, created.checkout.id);
@@ -138,7 +143,24 @@ test("plan changes go review → pay → verify → done, with proration, schedu
         assert.deepEqual(plans.verify, { channel: "pin", pinSet: false });
         assert.equal((await req("/merchants/me/store/plan-checkouts", "POST", { tier: "pro_live", billingCycle: "monthly", method: "wallet" })).status, 409);
         assert.equal((await req("/merchants/me/store/plan-pin", "POST", { pin: "1234", password: "owner-pass-1" })).status, 400);
-        assert.equal((await req("/merchants/me/store/plan-pin", "POST", { pin: "4826", password: "wrong" })).status, 400);
+        const missing = await req("/merchants/me/store/plan-pin", "POST", { pin: "4826" });
+        assert.equal(missing.status, 400);
+        assert.equal(((await missing.json()) as any).error, "password_required");
+        const wrongPw = await req("/merchants/me/store/plan-pin", "POST", { pin: "4826", password: "4826" });
+        assert.equal(wrongPw.status, 400);
+        assert.equal(((await wrongPw.json()) as any).error, "wrong_password");
+        // A Google-only account (random hash, no password of its own) is told to set a password, not "enter" one.
+        await client.execute("UPDATE users SET password_set_at = NULL WHERE id = 'pc_1'");
+        const google = await req("/merchants/me/store/plan-pin", "POST", { pin: "4826", password: "4826" });
+        assert.equal(google.status, 409);
+        assert.equal(((await google.json()) as any).error, "password_not_set");
+        // A move down to Merchant still works for them with no PIN at all.
+        const down = await req("/merchants/me/store/plan-checkouts", "POST", { tier: "merchant", billingCycle: "monthly", method: "free" });
+        assert.equal(down.status, 201);
+        const downBody = (await down.json()) as any;
+        assert.equal(downBody.checkout.status, "scheduled");
+        assert.equal((await req(`/merchants/me/store/plan-checkouts/${downBody.checkout.id}/cancel`, "POST", {})).status, 200);
+        await client.execute("UPDATE users SET password_set_at = datetime('now') WHERE id = 'pc_1'");
         assert.equal((await req("/merchants/me/store/plan-pin", "POST", { pin: "4826", password: "owner-pass-1" })).status, 200);
         const stored = String((await client.execute("SELECT pin_hash FROM owner_pins WHERE user_id = 'pc_1'")).rows[0].pin_hash);
         assert.ok(!stored.includes("4826"));
@@ -165,6 +187,25 @@ test("plan changes go review → pay → verify → done, with proration, schedu
       } finally {
         delete process.env.ENVIRONMENT;
       }
+    });
+
+    await t.test("a move down still needs the owner's own signed-in session", async () => {
+      assert.equal((await app.request("/v1/merchants/me/store/plan-checkouts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tier: "merchant", billingCycle: "monthly", method: "free" }) })).status, 401);
+      await client.execute("INSERT INTO users (id, phone, name, password_hash, role, status) VALUES ('pc_2', '+256700333555', 'Manager', 'x', 'customer', 'active')");
+      await client.execute("INSERT INTO merchant_members (merchant_id, user_id, role, status) VALUES ('pc_m1', 'pc_2', 'manager', 'active')");
+      const token = await signToken({ sub: "pc_2", role: "customer" });
+      const res = await app.request("/v1/merchants/me/store/plan-checkouts", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ tier: "merchant", billingCycle: "monthly", method: "free" }) });
+      assert.equal(res.status, 403);
+      assert.equal(((await res.json()) as any).error, "insufficient_role");
+    });
+
+    await t.test("a legacy store moving to Merchant switches at once (it has no end date)", async () => {
+      await client.execute("UPDATE stores SET plan_legacy = 1, pro_tier = 'pro_live', pro_expires_at = NULL, elite_tier = 0 WHERE merchant_id = 'pc_m1'");
+      const created = (await (await req("/merchants/me/store/plan-checkouts", "POST", { tier: "merchant", billingCycle: "monthly", method: "free" })).json()) as any;
+      assert.equal(created.checkout.kind, "downgrade");
+      assert.equal(created.checkout.status, "applied");
+      const plans = (await (await req("/merchants/me/store/plans")).json()) as any;
+      assert.equal(plans.current.plan, "merchant");
     });
 
     await t.test("the one-tap tier change is closed outside development", async () => {

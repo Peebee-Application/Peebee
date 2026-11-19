@@ -85,13 +85,15 @@ export function PrimaryButton({ children, onClick, disabled, type = "button", te
   );
 }
 
-export function GhostButton({ children, onClick, label, square = false }: { children: ReactNode; onClick?: () => void; label?: string; square?: boolean }) {
+export function GhostButton({ children, onClick, label, square = false, disabled, testId }: { children: ReactNode; onClick?: () => void; label?: string; square?: boolean; disabled?: boolean; testId?: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
-      className={`flex min-h-14 items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-lg font-bold text-ink active:scale-[.98] ${square ? "w-14 shrink-0" : "flex-1 px-6"}`}
+      disabled={disabled}
+      data-testid={testId}
+      className={`flex min-h-14 items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-lg font-bold text-ink active:scale-[.98] disabled:opacity-60 ${square ? "w-14 shrink-0" : "flex-1 px-6"}`}
     >
       {children}
     </button>

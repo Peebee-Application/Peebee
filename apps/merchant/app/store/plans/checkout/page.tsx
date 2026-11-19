@@ -1,12 +1,14 @@
 "use client";
 
 import {
-  ArrowRight, BadgeCheck, CalendarClock, Check, CircleCheck, CreditCard, Crown, Download, GraduationCap, KeyRound, ListChecks, Loader2,
-  MessageSquareText, Monitor, Package, Percent, Phone, QrCode, Radio, RotateCcw, ShieldCheck, Smartphone, Store, Users, Wallet, X,
+  ArrowRight, BadgeCheck, CalendarClock, Check, CircleCheck, CreditCard, Crown, Download, Eye, EyeOff, GraduationCap, KeyRound, ListChecks, Loader2,
+  Lock, MessageSquareText, Minus, Monitor, Package, Percent, Phone, QrCode, Radio, RotateCcw, ShieldCheck, Smartphone, Store, Users, Wallet, X,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { BottomBar, ChoiceTile, CodeBoxes, ErrorNote, FlowTop, GhostButton, Keypad, PrimaryButton, Stepper } from "../../../../components/flow/Flow";
+import { useAuth } from "../../../../lib/auth-context";
 import { PLAN_NAME, plansApi, shortDate, ugx, type Checkout, type Cycle, type Method, type PaymentStart, type QuoteResponse, type Tier } from "../../../../lib/plans";
 
 const STEPS = [
@@ -21,9 +23,26 @@ const UNLOCKS: Record<Tier, { icon: typeof Crown; text: string }[]> = {
   pro_live: [{ icon: Package, text: "More items" }, { icon: Radio, text: "Live" }, { icon: Store, text: "Store" }],
   elite: [{ icon: Package, text: "5,000 items" }, { icon: Monitor, text: "POS" }, { icon: Download, text: "Digital" }, { icon: GraduationCap, text: "Courses" }, { icon: Users, text: "CRM" }, { icon: Percent, text: "Lower fee" }],
 };
+/** A move down to Merchant: nothing to pay and nothing to verify, so it is Review → Confirm → Done. */
+const DOWN_STEPS = [
+  { icon: ListChecks, label: "Review" },
+  { icon: CircleCheck, label: "Done" },
+];
 const PIN_LENGTH = 4;
 
 type Stage = "loading" | "review" | "pay" | "setpin" | "verify" | "processing" | "failed";
+/** Setting the first PIN: the account password (own keyboard), the PIN, the PIN again. */
+type PinStep = "password" | "pin" | "confirm" | "nopassword";
+
+const PIN_ERRORS: Record<string, PinStep> = { wrong_password: "password", password_required: "password", weak_pin: "pin", invalid_pin: "pin", password_not_set: "nopassword" };
+
+/** What the store had on the plan it is leaving (a legacy store had Pro). */
+function lossesOf(fromPlan: string, tier: Tier): { icon: typeof Crown; text: string }[] {
+  const from = fromPlan === "elite" ? "elite" : fromPlan === "merchant" ? "merchant" : "pro_live";
+  if (from === tier) return [];
+  const keep = new Set(UNLOCKS[tier].map((u) => u.text));
+  return (from === "elite" ? [...UNLOCKS.elite, { icon: Radio, text: "Live" }, { icon: Store, text: "Store" }] : UNLOCKS[from]).filter((u) => !keep.has(u.text));
+}
 
 function networkOf(phone: string): "MTN" | "Airtel" | null {
   const d = phone.replace(/\D/g, "").replace(/^256/, "").replace(/^0/, "");
@@ -45,8 +64,12 @@ function CheckoutFlow() {
   const [code, setCode] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
   const [resendIn, setResendIn] = useState(60);
+  const { user } = useAuth();
   const [pin1, setPin1] = useState("");
+  const [pinStep, setPinStep] = useState<PinStep>("password");
+  const [confirmedPin, setConfirmedPin] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [failure, setFailure] = useState("");
@@ -56,7 +79,7 @@ function CheckoutFlow() {
 
   const follow = useCallback((c: Checkout, message?: string) => {
     setCheckout(c);
-    if (c.status === "active" || c.status === "scheduled") goDone(c.id);
+    if (c.status === "active" || c.status === "scheduled" || c.status === "applied") goDone(c.id);
     else if (c.status === "paying" || c.status === "activating") setStage("processing");
     else if (c.status === "awaiting_code") setStage("verify");
     else { setFailure(message || "This checkout didn't finish. You were not charged."); setStage("failed"); }
@@ -109,15 +132,33 @@ function CheckoutFlow() {
   const pinMode = (checkout?.verifyMethod ?? q?.verify.channel) === "pin";
   const codeLength = pinMode ? PIN_LENGTH : 6;
 
+  function openSetPin() {
+    setPin1("");
+    setCode("");
+    setConfirmedPin("");
+    setPinStep(user?.passwordSet === false ? "nopassword" : "password");
+    setStage("setpin");
+  }
+
+  /** A move down to Merchant: the signed-in owner confirms it; no payment, no code, no PIN. */
+  async function confirmDowngrade() {
+    setBusy(true);
+    setError("");
+    const res = await plansApi.start({ tier, billingCycle: cycle, method: "free" });
+    setBusy(false);
+    if (!res.ok) { setError(res.message); return; }
+    follow(res.data.checkout);
+  }
+
   async function start() {
     if (!q) return;
     setError("");
-    if (q.verify.channel === "pin" && !q.verify.pinSet) { setStage("setpin"); return; }
+    if (q.verify.channel === "pin" && !q.verify.pinSet) { openSetPin(); return; }
     setBusy(true);
     const res = await plansApi.start({ tier, billingCycle: cycle, method: q.quote.amount === 0 ? "free" : method, ...(method === "mobile_money" ? { msisdn: phone.replace(/\s/g, "") } : {}) });
     setBusy(false);
     if (!res.ok) {
-      if (res.error === "pin_required") { setStage("setpin"); return; }
+      if (res.error === "pin_required") { openSetPin(); return; }
       setError(res.message);
       return;
     }
@@ -134,11 +175,29 @@ function CheckoutFlow() {
     setError("");
     const res = await plansApi.setPin({ pin, ...(password ? { password } : {}) });
     setBusy(false);
-    if (!res.ok) { setError(res.message); setPin1(""); setCode(""); return; }
+    if (!res.ok) {
+      // Go back only to the part that was wrong; keep everything else the owner already typed.
+      const back = PIN_ERRORS[res.error] ?? "pin";
+      setError(res.message);
+      setCode("");
+      setPin1("");
+      if (back !== "password") setConfirmedPin("");
+      setPinStep(back);
+      return;
+    }
     setQ((prev) => (prev ? { ...prev, verify: { ...prev.verify, pinSet: true } } : prev));
     setPin1("");
     setCode("");
+    setConfirmedPin("");
+    setPassword("");
     setStage("pay");
+  }
+
+  function passwordContinue() {
+    if (!password) { setError("Enter your account password."); return; }
+    setError("");
+    if (confirmedPin) { void savePin(confirmedPin); return; }
+    setPinStep("pin");
   }
 
   async function verify(value: string) {
@@ -165,12 +224,14 @@ function CheckoutFlow() {
   function typeDigit(d: string) {
     if (busy) return;
     if (stage === "setpin") {
+      if (pinStep !== "pin" && pinStep !== "confirm") return;
       const next = (code + d).slice(0, PIN_LENGTH);
       if (next.length < PIN_LENGTH) { setCode(next); return; }
       setError("");
-      if (!pin1) { setPin1(next); setCode(""); return; }
-      if (next !== pin1) { setError("PINs don't match. Try again."); setPin1(""); setCode(""); return; }
+      if (pinStep === "pin") { setPin1(next); setCode(""); setPinStep("confirm"); return; }
+      if (next !== pin1) { setError("The two PINs don't match. Choose your PIN again."); setPin1(""); setCode(""); setPinStep("pin"); return; }
       setCode(next);
+      setConfirmedPin(next);
       void savePin(next);
       return;
     }
@@ -194,7 +255,17 @@ function CheckoutFlow() {
 
   const stepIndex = stage === "review" ? 0 : stage === "pay" ? 1 : stage === "setpin" || stage === "verify" || stage === "processing" ? 2 : 0;
   const quote = q?.quote;
-  const title = stage === "review" ? "Review" : stage === "pay" ? "Pay" : stage === "setpin" ? "Set PIN" : stage === "verify" ? "Verify" : stage === "processing" ? "Paying" : "Plan";
+  const moveDown = Boolean(quote && quote.kind === "downgrade" && quote.amount === 0 && quote.laterAmount === 0);
+  const switchesNow = Boolean(quote && Date.parse(quote.startsAt) <= Date.now() + 60_000);
+  const losses = quote && moveDown ? lossesOf(quote.fromPlan, quote.tier) : [];
+  const title = stage === "review" ? (moveDown ? "Move to Merchant" : "Review") : stage === "pay" ? "Pay" : stage === "setpin" ? "Set PIN" : stage === "verify" ? "Verify" : stage === "processing" ? "Paying" : "Plan";
+  function setPinBack() {
+    setError("");
+    setCode("");
+    if (pinStep === "confirm") { setPin1(""); setPinStep("pin"); return; }
+    if (pinStep === "pin" && user?.passwordSet !== false) { setPinStep("password"); return; }
+    setStage("pay");
+  }
   const amount = checkout?.amount ?? quote?.amount ?? 0;
   const net = networkOf(phone);
 
@@ -202,10 +273,10 @@ function CheckoutFlow() {
     <div className="mx-auto max-w-md pb-48">
       <FlowTop
         title={title}
-        onBack={stage === "review" ? () => router.push("/store/plans") : stage === "pay" ? () => setStage("review") : stage === "setpin" ? () => setStage("pay") : undefined}
+        onBack={stage === "review" ? () => router.push("/store/plans") : stage === "pay" ? () => setStage("review") : stage === "setpin" ? setPinBack : undefined}
         onClose={stage === "processing" ? undefined : () => void cancel()}
       />
-      {stage !== "loading" && stage !== "failed" && <Stepper steps={STEPS} current={stepIndex} onJump={(i) => (i === 0 && stage === "pay" ? setStage("review") : undefined)} />}
+      {stage !== "loading" && stage !== "failed" && <Stepper steps={moveDown ? DOWN_STEPS : STEPS} current={moveDown ? 0 : stepIndex} onJump={(i) => (i === 0 && stage === "pay" ? setStage("review") : undefined)} />}
 
       {stage === "loading" && <div className="flex justify-center py-24"><Loader2 className="h-9 w-9 animate-spin text-gold" /></div>}
 
@@ -221,7 +292,58 @@ function CheckoutFlow() {
         </div>
       )}
 
-      {stage === "review" && quote && (
+      {stage === "review" && quote && moveDown && (
+        <div className="space-y-4 px-4 pt-5" data-testid="downgrade-review">
+          <div className="flex items-center justify-center gap-4 rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5">
+            {[quote.fromPlan, quote.tier].map((p, i) => {
+              const Icon = ICON[p] ?? Store;
+              return (
+                <div key={i} className="flex items-center gap-4">
+                  {i === 1 && <ArrowRight className="h-6 w-6 text-ink-500" />}
+                  <div className="flex flex-col items-center gap-2">
+                    <span className={`flex h-16 w-16 items-center justify-center rounded-2xl ${i === 1 ? "bg-gold text-ink-gold" : "bg-[rgb(var(--surface-muted))] text-ink"}`}><Icon className="h-8 w-8" /></span>
+                    <span className="text-sm font-bold text-ink">{PLAN_NAME[p] ?? p}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-3 rounded-3xl bg-gold/10 p-4" data-testid="downgrade-when">
+            <CalendarClock className="h-8 w-8 shrink-0 text-gold" />
+            <div>
+              <p className="text-xl font-black text-ink">{switchesNow ? "Switches today" : `Switches on ${shortDate(quote.startsAt)}`}</p>
+              <p className="text-base text-ink-500">{switchesNow ? "Your store moves to Merchant as soon as you confirm." : `Keep using ${PLAN_NAME[quote.fromPlan] ?? "your plan"} until then. You can keep your plan any time before that day.`}</p>
+            </div>
+          </div>
+
+          {losses.length > 0 && (
+            <div className="space-y-2" data-testid="downgrade-losses">
+              <p className="px-1 text-base font-black text-ink">You&apos;ll lose</p>
+              <div className="grid grid-cols-3 gap-2">
+                {losses.map((u) => (
+                  <div key={u.text} className="flex min-h-[76px] flex-col items-center justify-center gap-1.5 rounded-2xl bg-[rgb(var(--surface-muted))] px-1 text-center text-xs font-bold text-ink">
+                    <span className="relative"><u.icon className="h-6 w-6 text-ink-500" /><Minus className="absolute -right-2 -top-2 h-4 w-4 rounded-full bg-red-600 text-white" strokeWidth={3} /></span> {u.text}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <dl className="space-y-3 rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 text-base" data-testid="review-summary">
+            <div className="flex items-center justify-between"><dt className="text-ink-500">You keep</dt><dd className="font-bold text-ink">Code pay</dd></div>
+            <div className="flex items-center justify-between border-t border-[var(--border-faint)] pt-3"><dt className="text-lg font-black text-ink">To pay</dt><dd className="text-xl font-black text-gold">{ugx(0)}</dd></div>
+          </dl>
+          {error && <ErrorNote>{error}</ErrorNote>}
+          <BottomBar>
+            <PrimaryButton testId="downgrade-confirm" disabled={busy} onClick={() => void confirmDowngrade()}>
+              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />} Confirm move to {PLAN_NAME[quote.tier]}
+            </PrimaryButton>
+          </BottomBar>
+        </div>
+      )}
+
+      {stage === "review" && quote && !moveDown && (
         <div className="space-y-4 px-4 pt-5">
           <div className="flex items-center justify-center gap-4 rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5">
             {[quote.fromPlan, quote.tier].map((p, i) => {
@@ -338,22 +460,73 @@ function CheckoutFlow() {
         </div>
       )}
 
-      {stage === "setpin" && (
-        <div className="space-y-5 pt-6">
+      {stage === "setpin" && pinStep === "nopassword" && (
+        <div className="space-y-5 px-4 pt-6" data-testid="setpin-nopassword">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <span className="flex h-20 w-20 items-center justify-center rounded-full bg-gold/15 text-gold"><Lock className="h-10 w-10" /></span>
+            <p className="text-2xl font-black text-ink">Set a password first</p>
+            <p className="text-base text-ink-500">Your account signs in with Google, so it has no password yet. Plan payments need one. We&apos;ll send a code to your email to set it, then come back here.</p>
+          </div>
+          {error && <ErrorNote>{error}</ErrorNote>}
+          <BottomBar>
+            <Link href="/forgot-password" className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-gold px-6 text-lg font-black text-ink-gold" data-testid="setpin-set-password">
+              <KeyRound className="h-5 w-5" /> Set a password
+            </Link>
+          </BottomBar>
+        </div>
+      )}
+
+      {stage === "setpin" && pinStep === "password" && (
+        <form className="space-y-5 px-4 pt-6" onSubmit={(e) => { e.preventDefault(); passwordContinue(); }} data-testid="setpin-password">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <span className="flex h-20 w-20 items-center justify-center rounded-full bg-gold/15 text-gold"><Lock className="h-10 w-10" /></span>
+            <p className="text-2xl font-black text-ink">Your account password</p>
+            <p className="text-base text-ink-500">Texts are off right now, so plan payments use a PIN. First, the password you sign in with. Not a PIN.</p>
+          </div>
+          {user?.email && <input type="text" name="username" autoComplete="username" value={user.email} readOnly hidden />}
+          <div>
+            <label htmlFor="plan-account-password" className="mb-2 flex items-center gap-2 text-lg font-black text-ink"><ShieldCheck className="h-5 w-5 text-gold" /> Account password</label>
+            <div className="flex min-h-16 items-center gap-2 rounded-2xl border-2 border-gold/60 bg-[rgb(var(--surface-input))] pl-4 pr-1">
+              <input
+                id="plan-account-password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
+                autoComplete="current-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="next"
+                autoFocus
+                className="min-w-0 flex-1 bg-transparent !p-0 text-xl font-bold text-ink outline-none"
+                data-testid="setpin-password-input"
+              />
+              <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} className="flex min-h-14 min-w-14 items-center justify-center gap-1 rounded-xl px-2 text-sm font-bold text-ink-500" data-testid="setpin-password-toggle">
+                {showPassword ? <EyeOff className="h-6 w-6" /> : <Eye className="h-6 w-6" />} {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+          {error && <ErrorNote>{error}</ErrorNote>}
+          <p className="text-center"><Link href="/forgot-password" className="inline-flex min-h-11 items-center text-base font-bold text-gold underline-offset-4 hover:underline">Forgot password?</Link></p>
+          <BottomBar>
+            <PrimaryButton type="submit" testId="setpin-password-continue" disabled={busy || !password}>
+              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : null} {confirmedPin ? "Save PIN" : "Continue"} <ArrowRight className="h-5 w-5" />
+            </PrimaryButton>
+          </BottomBar>
+        </form>
+      )}
+
+      {stage === "setpin" && (pinStep === "pin" || pinStep === "confirm") && (
+        <div className="space-y-5 pt-6" data-testid={`setpin-${pinStep}`}>
           <div className="flex flex-col items-center gap-3 px-4 text-center">
             <span className="flex h-20 w-20 items-center justify-center rounded-full bg-gold/15 text-gold"><KeyRound className="h-10 w-10" /></span>
-            <p className="text-2xl font-black text-ink">{pin1 ? "Repeat PIN" : "New plan PIN"}</p>
-            <p className="text-sm text-ink-500">Texts are off right now. Use a PIN to confirm.</p>
+            <p className="text-2xl font-black text-ink">{pinStep === "confirm" ? "Enter the PIN again" : "Choose a 4-digit PIN"}</p>
+            <p className="text-base text-ink-500">{pinStep === "confirm" ? "To make sure it's right." : "You'll use it to confirm plan payments. Avoid 1234 or 1111."}</p>
           </div>
-          {!pin1 && (
-            <label className="mx-4 flex min-h-14 items-center gap-3 rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-4">
-              <ShieldCheck className="h-5 w-5 text-ink-500" />
-              <span className="sr-only">Account password</span>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Account password" autoComplete="current-password" className="min-w-0 flex-1 bg-transparent !p-0 text-base text-ink outline-none" />
-            </label>
-          )}
           <CodeBoxes value={code} length={PIN_LENGTH} />
           {error && <ErrorNote>{error}</ErrorNote>}
+          {busy && <div className="flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>}
           <Keypad disabled={busy} onDigit={typeDigit} onDelete={() => setCode((v) => v.slice(0, -1))} />
         </div>
       )}
