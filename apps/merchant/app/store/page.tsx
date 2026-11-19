@@ -79,12 +79,14 @@ import {
   Users,
   X,
   Zap,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { DEFAULT_PRODUCT_VARIATIONS, resolveProductVariations, type ProductVariationSettings } from "@peebee/shared";
-import { EMPTY_EDITOR, VariationEditor, editorFromProduct, editorPayload, variationProblem, type EditorState } from "../../components/store/VariationEditor";
+import { EMPTY_EDITOR, VariationEditor, editorFromProduct, editorPayload, variantSummary, variationProblem, type EditorState } from "../../components/store/VariationEditor";
+import { BottomSheet } from "../../components/store/BottomSheet";
 import { useAuth } from "../../lib/auth-context";
 
 interface ProStore {
@@ -4765,7 +4767,7 @@ export default function MerchantProStorePage() {
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => { setVariationEdit(editorFromProduct(p)); setVariationProduct(p); }}
+                          onClick={() => { setError(""); setVariationEdit(editorFromProduct(p)); setVariationProduct(p); }}
                           className="min-h-8 rounded-full bg-[rgb(var(--surface-muted))] px-3 text-[11px] font-bold text-ink transition active:scale-95"
                         >
                           Variations
@@ -5147,26 +5149,41 @@ export default function MerchantProStorePage() {
         </div>
       )}
 
-      {/* EDIT VARIATIONS MODAL */}
-      {variationProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
-          <div className="my-8 w-full max-w-lg space-y-4 rounded-[28px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[var(--border-faint)] pb-3">
-              <h3 className="text-lg font-bold text-ink">Variations: {variationProduct.title}</h3>
-              <button type="button" aria-label="Close" onClick={() => setVariationProduct(null)} className="rounded-full p-1.5 text-ink-500 hover:text-ink"><X className="h-5 w-5" /></button>
-            </div>
-            <VariationEditor value={variationEdit} onChange={setVariationEdit} settings={variationSettings} basePrice={variationProduct.price} baseStock={variationProduct.inventory_quantity} />
-            <button
-              type="button"
-              onClick={handleSaveVariations}
-              disabled={savingVariations}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-gold py-3 text-sm font-bold text-ink-gold shadow transition active:scale-98 disabled:opacity-50"
-            >
-              {savingVariations ? "Saving…" : "Save variations"}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* EDIT VARIATIONS SHEET */}
+      {variationProduct && (() => {
+        const summary = variantSummary(variationEdit);
+        return (
+          <BottomSheet
+            testId="variations-sheet"
+            title="Variations"
+            subtitle={variationProduct.title}
+            imageUrl={variationProduct.image_url}
+            onClose={() => { setVariationProduct(null); setError(""); }}
+            footer={
+              <div className="space-y-2.5">
+                {summary.count > 0 && (
+                  <p className="flex items-center justify-between gap-3 px-1 text-[17px] font-bold text-ink-500" data-testid="variations-summary">
+                    <span>{summary.count} variant{summary.count === 1 ? "" : "s"}</span>
+                    {summary.from != null && <b className="font-black text-ink">From {ugx(summary.from)}</b>}
+                  </p>
+                )}
+                {error && <p className="rounded-2xl bg-red-600/10 px-4 py-3 text-base font-bold text-red-600" role="alert">{error}</p>}
+                <button
+                  type="button"
+                  onClick={handleSaveVariations}
+                  disabled={savingVariations}
+                  className="flex min-h-16 w-full items-center justify-center gap-2.5 rounded-full bg-gold text-xl font-black text-ink-gold shadow-[0_8px_22px_rgb(var(--gold)/0.35)] transition active:scale-[.98] disabled:opacity-50"
+                >
+                  {savingVariations ? <Loader2 className="h-6 w-6 animate-spin" /> : <Check className="h-6 w-6" strokeWidth={3} />}
+                  {savingVariations ? "Saving…" : "Save variations"}
+                </button>
+              </div>
+            }
+          >
+            <VariationEditor mode="sheet" value={variationEdit} onChange={setVariationEdit} settings={variationSettings} basePrice={variationProduct.price} baseStock={variationProduct.inventory_quantity} />
+          </BottomSheet>
+        );
+      })()}
 
       {/* ADD PRODUCT MODAL */}
       {showAddProduct && (
