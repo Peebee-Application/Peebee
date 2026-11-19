@@ -18,10 +18,6 @@ const NAMED: NamedColour[] = [
   { name: "Royal blue", hex: "#1d4ed8" }, { name: "Navy", hex: "#1e3a8a" }, { name: "Purple", hex: "#7c3aed" }, { name: "Lilac", hex: "#c8a2c8" },
   { name: "Magenta", hex: "#d946ef" },
 ];
-/** Big swatches under the picker. */
-export const COMMON: NamedColour[] = ["Green", "Navy", "Maroon", "Beige", "Gold", "Brown", "Pink", "Purple", "Orange", "Grey", "Yellow", "Teal"]
-  .map((n) => NAMED.find((c) => c.name === n)!);
-
 function toRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
   const f = h.length === 3 ? h.split("").map((x) => x + x).join("") : h;
@@ -132,12 +128,6 @@ export function ColourPickerSheet({ onAdd, onClose, taken = [], start = "#16a34a
             data-testid="colour-hue"
           >
             <span className="pointer-events-none absolute top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white shadow-[0_0_0_2px_rgba(0,0,0,0.35)]" style={{ left: `${(hsv[0] / 360) * 100}%`, background: `hsl(${hsv[0]} 100% 50%)` }} />
-          </div>
-          <div className="grid grid-cols-6 gap-2.5" aria-label="Common colours">
-            {COMMON.map((c) => (
-              <button key={c.name} type="button" aria-label={c.name} onClick={() => pick(hexToHsv(c.hex), c.hex)} data-testid={`common-${c.name}`}
-                className={`aspect-square w-full min-h-12 rounded-full border-[3px] shadow-[0_0_0_1.5px_rgba(0,0,0,0.2)] ${hex === c.hex ? "border-gold ring-4 ring-gold/40" : "border-white/90"}`} style={{ background: c.hex }} />
-            ))}
           </div>
           <div>
             <label htmlFor="colour-name" className={lab}>Name</label>

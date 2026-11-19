@@ -152,7 +152,7 @@ export function VariantTable(p: Props) {
                     )}
                     {sizes.length > 0 ? (
                       <>
-                        <div className="grid grid-cols-[56px_minmax(0,1fr)] gap-2.5 text-[17px] font-extrabold text-ink">
+                        <div className="grid grid-cols-[84px_minmax(0,1fr)] gap-2.5 text-[17px] font-extrabold text-ink">
                           <span>Size</span><span>Price · Stock</span>
                         </div>
                         {gRows.map((r) => {
@@ -162,10 +162,10 @@ export function VariantTable(p: Props) {
                           const miss = showMissing && pr <= 0;
                           const name = [r.size, g.name].filter(Boolean).join(" · ");
                           return (
-                            <div key={r.key} id={`vt-${r.key}`} className="grid grid-cols-[56px_minmax(0,1fr)] items-start gap-x-2.5 gap-y-2.5 border-t border-[var(--border-faint)] pt-3.5 first-of-type:border-0" data-testid={`variant-row-${r.key}`}>
-                              <button type="button" onClick={() => setEditing({ size: r.size, colour: g.name })} aria-label={`Edit ${name}`} className={`row-span-2 grid h-full min-h-[60px] w-14 place-items-center rounded-2xl border-2 px-1 text-center text-[19px] font-black leading-none break-all ${st === 0 ? `border-red-600/35 bg-red-600/10 ${red}` : "border-transparent bg-[rgb(var(--surface-muted))] text-ink"}`}>{r.size}</button>
-                              <button type="button" onClick={() => setEditing({ size: r.size, colour: g.name })} aria-label={`${name} price`} className={`flex h-[60px] min-w-0 items-center justify-center rounded-2xl border-2 px-1 text-[20px] font-extrabold ${miss ? `border-red-600 bg-red-600/10 dark:border-red-400 ${red}` : isOwn ? "border-gold bg-gold/15 font-black text-ink" : "border-dashed border-[var(--border-faint)] text-ink-500"}`} data-testid={`variant-price-${r.key}`}>
-                                {miss ? <CircleAlert className="h-6 w-6" /> : fmt(pr)}
+                            <div key={r.key} id={`vt-${r.key}`} className="grid grid-cols-[84px_minmax(0,1fr)] items-start gap-x-2.5 gap-y-2.5 border-t border-[var(--border-faint)] pt-3.5 first-of-type:border-0" data-testid={`variant-row-${r.key}`}>
+                              <button type="button" onClick={() => setEditing({ size: r.size, colour: g.name })} aria-label={`Edit ${name}`} className={`row-span-2 grid h-full min-h-[60px] w-[84px] place-items-center rounded-2xl border-2 px-1 text-center text-[23px] font-black leading-none break-all ${st === 0 ? `border-red-600/35 bg-red-600/10 ${red}` : "border-transparent bg-[rgb(var(--surface-muted))] text-ink"}`}>{r.size}</button>
+                              <button type="button" onClick={() => setEditing({ size: r.size, colour: g.name })} aria-label={`${name} price`} className={`flex h-[60px] min-w-0 items-center justify-start rounded-2xl border-2 px-3.5 text-[20px] font-extrabold ${miss ? `border-red-600 bg-red-600/10 dark:border-red-400 ${red}` : isOwn ? "border-gold bg-gold/15 font-black text-ink" : "border-dashed border-[var(--border-faint)] text-ink-500"}`} data-testid={`variant-price-${r.key}`}>
+                                {miss ? <CircleAlert className="h-6 w-6" /> : <><span className="mr-2 shrink-0 text-[15px] font-bold text-ink-500/80">UGX</span><span className="min-w-0">{fmt(pr)}</span></>}
                               </button>
                               <BigStepper value={st} onChange={(n) => setStock(r.size, g.name, n)} label={name} danger={st === 0} />
                               {st === 0 && <p className={`col-span-2 -mt-1 flex items-center gap-2 text-base font-extrabold ${red}`}><PackageX className="h-5 w-5" /> Sold out</p>}
@@ -200,7 +200,7 @@ export function VariantTable(p: Props) {
         <div className={`${card} space-y-3.5 p-3.5`} data-testid="variants-grid">
           <Seg wide value={gridMode} onChange={(v) => setGridMode(v as "stock" | "price")} options={[{ v: "stock", icon: <Boxes className="h-[22px] w-[22px]" />, label: "Stock" }, { v: "price", icon: <Tag className="h-[22px] w-[22px]" />, label: "Price" }]} testId="grid-mode" />
           <div className="-mx-1 overflow-x-auto px-1 pb-1" data-testid="variants-grid-scroll">
-            <div className="grid items-center gap-2" style={{ gridTemplateColumns: `52px repeat(${groups.length}, minmax(84px, 1fr))`, minWidth: 52 + groups.length * 92 }}>
+            <div className="grid items-center gap-2" style={{ gridTemplateColumns: `64px repeat(${groups.length}, minmax(88px, 1fr))`, minWidth: 64 + groups.length * 96 }}>
               <span />
               {groups.map((g) => (
                 <div key={g.name || "all"} className="flex flex-col items-center gap-1.5 pb-0.5 text-center text-[15px] font-extrabold text-ink">
@@ -210,7 +210,7 @@ export function VariantTable(p: Props) {
               ))}
               {sizeList.map((s) => (
                 <Row key={s || "one"}>
-                  <span className="sticky left-0 z-[1] grid h-16 place-items-center rounded-2xl bg-[rgb(var(--surface-muted))] px-1 shadow-[6px_0_8px_-6px_rgba(0,0,0,0.25)] text-center text-[19px] font-black leading-none text-ink break-all">{s || "•"}</span>
+                  <span className="sticky left-0 z-[1] grid h-16 place-items-center rounded-2xl bg-[rgb(var(--surface-muted))] px-1 shadow-[6px_0_8px_-6px_rgba(0,0,0,0.25)] text-center text-[22px] font-black leading-none text-ink break-all">{s || "•"}</span>
                   {groups.map((g) => {
                     const st = stockOf(s, g.name);
                     const pr = price(s, g.name);
@@ -221,7 +221,7 @@ export function VariantTable(p: Props) {
                         className={`relative grid h-16 min-w-0 place-items-center rounded-2xl border-2 px-1 font-black ${gridMode === "price" ? "text-[clamp(14px,4vw,17px)]" : "text-[22px]"} ${
                           (gridMode === "stock" && st === 0) || (gridMode === "price" && miss && showMissing) ? `border-red-600/50 bg-red-600/10 ${red}` : "border-[var(--border-faint)] bg-[rgb(var(--surface-input))] text-ink"
                         }`}>
-                        {gridMode === "stock" ? st : miss ? <CircleAlert className="h-6 w-6" /> : fmt(pr)}
+                        {gridMode === "stock" ? st : miss ? <CircleAlert className="h-6 w-6" /> : <span className="flex flex-col items-center leading-tight"><span className="text-[11px] font-bold text-ink-500">UGX</span>{fmt(pr)}</span>}
                         {own(s, g.name) && <i className="absolute right-[7px] top-[7px] h-3 w-3 rounded-full bg-gold" />}
                       </button>
                     );
