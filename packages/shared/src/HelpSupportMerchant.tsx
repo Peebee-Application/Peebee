@@ -76,11 +76,12 @@ const CSS = `
 .pbm-pill[data-wait]{background:rgb(${G}/.22);color:rgb(${G})}
 .pbm-big{min-height:60px;width:100%;border-radius:18px;border:0;display:flex;align-items:center;justify-content:center;gap:10px;font-size:19px;font-weight:900;background:rgb(${G});color:#0a0a0a}
 .pbm-hero[data-compact]{padding:12px 14px;border-radius:24px}
-.pbm-hero[data-compact] .pbm-av{width:56px;height:56px;border-radius:18px;font-size:24px}
+.pbm-hero[data-compact] .pbm-hh{gap:10px}
+.pbm-hero[data-compact] .pbm-av{width:48px;height:48px;border-radius:16px;font-size:22px}
 .pbm-hero[data-compact] .pbm-dot{width:20px;height:20px;border-width:3px}
-.pbm-hero[data-compact] .pbm-nm{font-size:20px}
-.pbm-hero[data-compact] .pbm-sub{font-size:16px;margin-top:2px}
-.pbm-swap{margin-left:auto;min-height:56px;min-width:56px;padding:0 12px;border-radius:18px;display:flex;align-items:center;gap:6px;font-size:17px;font-weight:900;background:rgb(255 255 255/.12);border:1.5px solid rgb(255 255 255/.22);color:#fff;flex:none}
+.pbm-hero[data-compact] .pbm-nm{font-size:19px}
+.pbm-hero[data-compact] .pbm-sub{font-size:15px;margin-top:2px}
+.pbm-swap{margin-left:auto;min-height:56px;min-width:56px;padding:0 10px;border-radius:18px;display:flex;align-items:center;gap:6px;font-size:17px;font-weight:900;background:rgb(255 255 255/.12);border:1.5px solid rgb(255 255 255/.22);color:#fff;flex:none}
 .pbm-swap[data-primary]{background:rgb(${G});color:#0a0a0a;border-color:rgb(${G})}
 .pbm-sec{font-size:15px;font-weight:900;color:rgb(var(--color-ink-500,92 102 112));text-transform:uppercase;letter-spacing:.06em;margin:4px 4px -6px}
 .pbm-topics{display:grid;grid-template-columns:1fr 1fr;gap:12px}
