@@ -178,7 +178,8 @@ function CheckoutFlow() {
     if (!res.ok) {
       // Go back only to the part that was wrong; keep everything else the owner already typed.
       const back = PIN_ERRORS[res.error] ?? "pin";
-      setError(res.message);
+      // The "Set a password first" card explains itself; the server line would only repeat it.
+      setError(back === "nopassword" ? "" : res.message);
       setCode("");
       setPin1("");
       if (back !== "password") setConfirmedPin("");
@@ -258,7 +259,7 @@ function CheckoutFlow() {
   const moveDown = Boolean(quote && quote.kind === "downgrade" && quote.amount === 0 && quote.laterAmount === 0);
   const switchesNow = Boolean(quote && Date.parse(quote.startsAt) <= Date.now() + 60_000);
   const losses = quote && moveDown ? lossesOf(quote.fromPlan, quote.tier) : [];
-  const title = stage === "review" ? (moveDown ? "Move to Merchant" : "Review") : stage === "pay" ? "Pay" : stage === "setpin" ? "Set PIN" : stage === "verify" ? "Verify" : stage === "processing" ? "Paying" : "Plan";
+  const title = stage === "review" ? "Review" : stage === "pay" ? "Pay" : stage === "setpin" ? "Set PIN" : stage === "verify" ? "Verify" : stage === "processing" ? "Paying" : "Plan";
   function setPinBack() {
     setError("");
     setCode("");

@@ -76,7 +76,7 @@ function Done() {
         {scheduled && moveDown && (
           <GhostButton onClick={() => void keepPlan()} disabled={busy} testId="done-keep-plan"><Undo2 className="h-5 w-5" /> Keep {fromName}</GhostButton>
         )}
-        <GhostButton square label="Print receipt" onClick={() => window.print()}><Printer className="h-6 w-6" /></GhostButton>
+        {!(scheduled && moveDown) && <GhostButton square label="Print receipt" onClick={() => window.print()}><Printer className="h-6 w-6" /></GhostButton>}
         <PrimaryButton onClick={() => router.push(scheduled ? "/store/plans" : "/store")}>
           {scheduled ? "Plans" : `Open ${PLAN_NAME[c.tier]} tools`} <ArrowRight className="h-5 w-5" />
         </PrimaryButton>
