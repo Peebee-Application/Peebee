@@ -412,6 +412,8 @@ export default function MerchantProStorePage() {
   // Live broadcast studio state
   const [isLiveActive, setIsLiveActive] = useState(false);
   const [showLiveStudio, setShowLiveStudio] = useState(false);
+  // A camera live (the creator pipeline) left open, so the Live screen can offer to go back to it.
+  const [cameraLiveOpen, setCameraLiveOpen] = useState(false);
   const [liveTitle, setLiveTitle] = useState("");
   const [liveStreamUrl, setLiveStreamUrl] = useState("");
   const [pinnedProductId, setPinnedProductId] = useState<string>("");
@@ -447,12 +449,24 @@ export default function MerchantProStorePage() {
       try {
         const saved = sessionStorage.getItem("peebee_store_notice");
         if (saved) { sessionStorage.removeItem("peebee_store_notice"); setNotice(saved); }
+        if (sessionStorage.getItem("peebee_store_open") === "live-link") {
+          sessionStorage.removeItem("peebee_store_open");
+          pushSection("live");
+          setShowLiveStudio(true);
+        }
       } catch { /* storage blocked */ }
     }, 0);
     const onPop = (e: PopStateEvent) => sync(e.state);
     window.addEventListener("popstate", onPop);
     return () => { clearTimeout(t); window.removeEventListener("popstate", onPop); };
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "live") return;
+    let off = false;
+    api.storeCameraLive().then((r) => { if (!off) setCameraLiveOpen(!!r.live); }).catch(() => undefined);
+    return () => { off = true; };
+  }, [activeTab]);
 
   function pushSection(section: StoreSection, eliteTool = false) {
     try { window.history.pushState({ ...(window.history.state ?? {}), storeSection: section, eliteTool }, "", window.location.href); } catch { /* history unavailable */ }
@@ -4637,17 +4651,26 @@ export default function MerchantProStorePage() {
           <div className="relative space-y-4 overflow-hidden rounded-[28px] border-[1.5px] border-red-600/40 bg-[linear-gradient(150deg,#3a0d0d,#0a0a0a_60%)] p-5 text-white">
             <span className="grid h-[72px] w-[72px] place-items-center rounded-[22px] bg-red-600 text-white shadow-[0_0_0_6px_rgba(220,38,38,.25)]"><Radio className="h-9 w-9" /></span>
             <div>
-              <p className="text-[26px] font-black leading-tight">{isLiveActive ? "You're live" : "Sell on camera"}</p>
-              <p className="mt-1 text-[17px] font-semibold text-white/75">Pin an item, shoppers buy in one tap.</p>
+              <p className="text-[26px] font-black leading-tight">{isLiveActive || cameraLiveOpen ? "You're live" : "Sell on camera"}</p>
+              <p className="mt-1 text-[17px] font-semibold text-white/75">{isLiveActive ? "From your stream link." : "Use your phone camera. Shoppers buy in one tap."}</p>
             </div>
-            {isLiveActive ? (
+            {cameraLiveOpen && !isLiveActive ? (
+              <button type="button" onClick={() => router.push("/store/live")} data-testid="back-to-live" className="flex min-h-16 w-full items-center justify-center gap-2.5 rounded-[20px] bg-red-600 text-[20px] font-black text-white shadow-[0_10px_24px_rgba(220,38,38,.35)] active:scale-[.98]">
+                <Video className="h-6 w-6" /> Back to my live
+              </button>
+            ) : isLiveActive ? (
               <button type="button" onClick={handleEndLiveSession} data-testid="live-end" className="flex min-h-16 w-full items-center justify-center gap-2.5 rounded-[20px] border-2 border-white/30 bg-white/10 text-[20px] font-black text-white active:scale-[.98]">
                 <X className="h-6 w-6" strokeWidth={3} /> End live
               </button>
             ) : (
-              <button type="button" onClick={() => setShowLiveStudio(true)} data-testid="open-live-studio" className="flex min-h-16 w-full items-center justify-center gap-2.5 rounded-[20px] bg-red-600 text-[20px] font-black text-white shadow-[0_10px_24px_rgba(220,38,38,.35)] active:scale-[.98]">
-                <Video className="h-6 w-6" /> Open Live Studio
-              </button>
+              <div className="space-y-2.5">
+                <button type="button" onClick={() => router.push(pinnedProductId ? `/store/live?pin=${encodeURIComponent(pinnedProductId)}` : "/store/live")} data-testid="go-live-camera" className="flex min-h-16 w-full items-center justify-center gap-2.5 rounded-[20px] bg-red-600 text-[21px] font-black text-white shadow-[0_10px_24px_rgba(220,38,38,.35)] active:scale-[.98]">
+                  <Camera className="h-7 w-7" /> Go live
+                </button>
+                <button type="button" onClick={() => setShowLiveStudio(true)} data-testid="open-live-studio" className="flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[20px] border-2 border-white/25 bg-white/5 text-[18px] font-black text-white/90 active:scale-[.98]">
+                  <Link2 className="h-5 w-5" /> Use a stream link
+                </button>
+              </div>
             )}
           </div>
 
@@ -4677,7 +4700,7 @@ export default function MerchantProStorePage() {
               <p className="absolute inset-x-3 bottom-3 rounded-[14px] bg-[rgb(var(--surface-card))] p-2.5 text-[15px] font-semibold text-ink">Chat runs in your stream app.</p>
             </div>
           ) : (
-            <BigRow icon={Tv} title="No stream connected" sub="Add a stream link in the studio" trailing={<span />} testId="live-status" />
+            <BigRow icon={Sparkles} title="Shown in Spotlight" sub="With your items to buy" trailing={<span />} testId="live-status" />
           )}
 
           <p className="flex items-center gap-2 pt-1 text-[16px] font-black uppercase tracking-[.06em] text-ink-500"><Flame className="h-5 w-5" /> Pinned item</p>
