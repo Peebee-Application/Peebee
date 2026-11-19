@@ -65,7 +65,8 @@ const CSS = `
 .pbm-av[data-agent]{background:#fff}
 .pbm-dot{position:absolute;right:-5px;bottom:-5px;width:24px;height:24px;border-radius:50%;background:#22c55e;border:4px solid #0a0a0a}
 .pbm-dot[data-away]{background:#9ca3af}
-.pbm-nm{font-size:25px;font-weight:900;line-height:1.1;overflow-wrap:anywhere}
+.pbm-nm{font-size:24px;font-weight:900;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pbm-hero[data-compact] .pbm-sub,.pbm-nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pbm-sub{font-size:17px;font-weight:700;color:rgb(255 255 255/.75);margin-top:4px}
 .pbm-pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .pbm-pill{min-height:34px;padding:4px 12px;border-radius:99px;display:inline-flex;align-items:center;gap:7px;font-size:15px;font-weight:900;background:rgb(52 178 112/.2);color:#5fe0a0}
@@ -77,9 +78,9 @@ const CSS = `
 .pbm-hero[data-compact]{padding:12px 14px;border-radius:24px}
 .pbm-hero[data-compact] .pbm-av{width:56px;height:56px;border-radius:18px;font-size:24px}
 .pbm-hero[data-compact] .pbm-dot{width:20px;height:20px;border-width:3px}
-.pbm-hero[data-compact] .pbm-nm{font-size:21px}
+.pbm-hero[data-compact] .pbm-nm{font-size:20px}
 .pbm-hero[data-compact] .pbm-sub{font-size:16px;margin-top:2px}
-.pbm-swap{margin-left:auto;min-height:56px;padding:0 14px;border-radius:18px;display:flex;align-items:center;gap:6px;font-size:17px;font-weight:900;background:rgb(255 255 255/.12);border:1.5px solid rgb(255 255 255/.22);color:#fff;flex:none}
+.pbm-swap{margin-left:auto;min-height:56px;min-width:56px;padding:0 12px;border-radius:18px;display:flex;align-items:center;gap:6px;font-size:17px;font-weight:900;background:rgb(255 255 255/.12);border:1.5px solid rgb(255 255 255/.22);color:#fff;flex:none}
 .pbm-swap[data-primary]{background:rgb(${G});color:#0a0a0a;border-color:rgb(${G})}
 .pbm-sec{font-size:15px;font-weight:900;color:rgb(var(--color-ink-500,92 102 112));text-transform:uppercase;letter-spacing:.06em;margin:4px 4px -6px}
 .pbm-topics{display:grid;grid-template-columns:1fr 1fr;gap:12px}
