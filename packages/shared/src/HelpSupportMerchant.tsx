@@ -82,6 +82,7 @@ const CSS = `
 .pbm-hero[data-compact] .pbm-nm{font-size:19px}
 .pbm-hero[data-compact] .pbm-sub{font-size:15px;margin-top:2px}
 .pbm-swap{margin-left:auto;min-height:56px;min-width:56px;padding:0 10px;border-radius:18px;display:flex;align-items:center;gap:6px;font-size:17px;font-weight:900;background:rgb(255 255 255/.12);border:1.5px solid rgb(255 255 255/.22);color:#fff;flex:none}
+@media (max-width:380px){.pbm-swap .pbm-sl{display:none}.pbm-swap{padding:0;justify-content:center}}
 .pbm-swap[data-primary]{background:rgb(${G});color:#0a0a0a;border-color:rgb(${G})}
 .pbm-sec{font-size:15px;font-weight:900;color:rgb(var(--color-ink-500,92 102 112));text-transform:uppercase;letter-spacing:.06em;margin:4px 4px -6px}
 .pbm-topics{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -202,11 +203,11 @@ export function MerchantHelp(p: MerchantHelpProps) {
     : <div className="pbm-av"><Icon name="bot" size={fresh ? 40 : 30} /><span className="pbm-dot" {...(withPerson || awayNow ? { "data-away": "" } : {})} /></div>;
 
   const swap = withPerson ? (
-    <button type="button" className="pbm-swap" onClick={p.backToAI} disabled={p.busy} aria-label="Back to the AI assistant" data-testid="help-back-ai"><Icon name="bot" size={22} /> AI</button>
+    <button type="button" className="pbm-swap" onClick={p.backToAI} disabled={p.busy} aria-label="Back to the AI assistant" data-testid="help-back-ai"><Icon name="bot" size={22} /> <span className="pbm-sl">AI</span></button>
   ) : offer === "talk" ? (
-    <button type="button" className="pbm-swap" data-primary="" onClick={() => p.toPerson()} disabled={p.busy} aria-label="Talk to a person" data-testid="help-person"><Icon name="user-round" size={22} stroke={2.6} /> Person</button>
+    <button type="button" className="pbm-swap" data-primary="" onClick={() => p.toPerson()} disabled={p.busy} aria-label="Talk to a person" data-testid="help-person"><Icon name="user-round" size={22} stroke={2.6} /> <span className="pbm-sl">Person</span></button>
   ) : offer === "message" ? (
-    <button type="button" className="pbm-swap" data-primary="" onClick={() => p.setComposing(true)} disabled={p.busy} aria-label="Leave a message" aria-expanded={p.composing} data-testid="help-message"><Icon name="mail" size={22} stroke={2.6} /> Message</button>
+    <button type="button" className="pbm-swap" data-primary="" onClick={() => p.setComposing(true)} disabled={p.busy} aria-label="Leave a message" aria-expanded={p.composing} data-testid="help-message"><Icon name="mail" size={22} stroke={2.6} /> <span className="pbm-sl">Message</span></button>
   ) : null;
 
   return (
