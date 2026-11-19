@@ -209,3 +209,67 @@ storeItemRoutes.post("/merchants/me/store/items", requireAuth, async (c) => {
     ...(imagesCol ? {} : { migrationPending: true }),
   }, 201);
 });
+
+/**
+ * Save changes to a physical product from the wizard's edit mode. The product keeps its id and address. Variants are
+ * matched to the existing ones by their option values, so carts and past orders keep pointing at the same rows. Leave
+ * `variants` out to keep the current options and variants as they are.
+ */
+storeItemRoutes.put("/merchants/me/store/items/:id", requireAuth, async (c) => {
+  const ctx = await merchantStore(c);
+  if (ctx instanceof Response) return ctx;
+  const { store } = ctx;
+  const productId = c.req.param("id")!;
+  const current = (await db.execute({ sql: "SELECT id FROM store_products WHERE id = ? AND store_id = ? AND status != 'archived'", args: [productId, String(store.id)] })).rows[0];
+  if (!current) return c.json({ error: "not_found", message: "Item not found." }, 404);
+  const raw = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const parsed = itemSchema.safeParse(raw);
+  if (!parsed.success) return c.json({ error: "invalid_body", message: parsed.error.issues[0]?.message ?? "Check the details.", issues: parsed.error.issues }, 400);
+  const item = parsed.data;
+  const limits = await mediaLimits();
+  if (item.images.length > limits.photos) return c.json({ error: "too_many_photos", message: `Up to ${limits.photos} photos.` }, 400);
+  if (!item.show_in_app && !item.show_on_web && item.status === "active") {
+    return c.json({ error: "nowhere_to_show", message: "Turn on Buy or your website, or save it as a draft." }, 400);
+  }
+
+  const touchVariants = Array.isArray(raw.variants);
+  const existing = (await db.execute({ sql: "SELECT id, option1_value, option2_value FROM store_product_variants WHERE product_id = ?", args: [productId] })).rows as Row[];
+  let hasVariants = existing.length > 0;
+  let quantity = item.inventory_quantity;
+  if (touchVariants) {
+    const byValues = new Map(existing.map((v) => [[v.option1_value, v.option2_value].filter((x) => x != null && x !== "").map(String).sort().join("\u0001"), String(v.id)]));
+    const variants = (item.variants ?? []).map((v) => ({ ...v, id: v.id ?? byValues.get([...v.values].sort().join("\u0001")) }));
+    try {
+      await writeProductVariations(productId, existing.map((v) => String(v.id)), { options: variants.length ? item.options ?? [] : [], variants }, await getProductVariationSettings());
+    } catch (err) {
+      if (err instanceof VariationError) return c.json({ error: err.code, message: err.message }, 400);
+      throw err;
+    }
+    hasVariants = variants.length > 0;
+    if (hasVariants) quantity = variants.reduce((sum, v) => sum + (v.inventory_quantity ?? 0), 0);
+  } else if (hasVariants) {
+    quantity = Number(((await db.execute({ sql: "SELECT COALESCE(SUM(inventory_quantity), 0) AS n FROM store_product_variants WHERE product_id = ?", args: [productId] })).rows[0] as Row)?.n ?? quantity);
+  }
+
+  const [imagesCol, appCol, webCol, deliveryCol, updatedCol] = await Promise.all([
+    hasColumn("store_products", "images_json"), hasColumn("store_products", "show_in_app"),
+    hasColumn("store_products", "show_on_web"), hasColumn("store_products", "delivery_json"), hasColumn("store_products", "updated_at"),
+  ]);
+  const sets: Record<string, string | number | null> = {
+    title: item.title, description: item.description ?? "", price: item.price, compare_at_price: item.compare_at_price ?? null,
+    inventory_quantity: quantity, category_name: item.category_name || "General", badge: item.badge ?? "",
+    image_url: item.images[0] ?? "", video_url: item.video_url ?? "", has_variants: hasVariants ? 1 : 0, status: item.status,
+  };
+  if (item.cost_price != null) sets.cost_price = item.cost_price;
+  if (item.sku != null) sets.sku = item.sku;
+  if (imagesCol) sets.images_json = JSON.stringify(item.images);
+  if (appCol) sets.show_in_app = item.show_in_app ? 1 : 0;
+  if (webCol) sets.show_on_web = item.show_on_web ? 1 : 0;
+  if (deliveryCol && item.delivery) sets.delivery_json = JSON.stringify(item.delivery);
+  const cols = Object.keys(sets);
+  await db.execute({
+    sql: `UPDATE store_products SET ${cols.map((k) => `${k} = ?`).join(", ")}${updatedCol ? ", updated_at = datetime('now')" : ""} WHERE id = ? AND store_id = ?`,
+    args: [...cols.map((k) => sets[k]), productId, String(store.id)],
+  });
+  return c.json({ ok: true, productId, status: item.status, storeId: String(store.id), storeSlug: String(store.slug ?? "") });
+});
