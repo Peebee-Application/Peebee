@@ -374,7 +374,7 @@ function EditSheet(p: Props & { size: string; colour: string; onClose: () => voi
         </button>
         {more && (
           <>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
               <div className="min-w-0">
                 <p className={lab}>Was price</p>
                 <div className={fieldBox}><span className="text-base font-extrabold text-ink-500">UGX</span><input value={row.was ? fmt(digitsOf(row.was)) : ""} onChange={(e) => patch({ was: e.target.value })} inputMode="numeric" placeholder="—" aria-label="Was price" className={fieldInput} data-testid="edit-was" /></div>

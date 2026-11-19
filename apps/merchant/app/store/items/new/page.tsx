@@ -666,12 +666,12 @@ export default function NewItemWizard() {
             <>
               <div className="flex min-h-[76px] items-center gap-3 rounded-3xl border-2 border-gold bg-[rgb(var(--surface-card))] px-4">
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold/15 text-gold"><ShoppingBag className="h-6 w-6" /></span>
-                <span className="min-w-0 flex-1"><span className="block text-lg font-bold text-ink">Peebee Buy</span><span className="block truncate text-xs text-ink-500">app.peebee.online</span></span>
+                <span className="min-w-0 flex-1"><span className="block text-lg font-bold text-ink">Peebee Buy</span><span className="block break-all text-xs text-ink-500">app.peebee.online</span></span>
                 <Toggle on={inApp} onChange={setInApp} label="Show in Peebee Buy" />
               </div>
               <div className="flex min-h-[76px] items-center gap-3 rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4">
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold/15 text-gold"><Globe className="h-6 w-6" /></span>
-                <span className="min-w-0 flex-1"><span className="block text-lg font-bold text-ink">My website</span><span className="block truncate text-xs text-ink-500">{store?.slug}.peebee.online</span></span>
+                <span className="min-w-0 flex-1"><span className="block text-lg font-bold text-ink">My website</span><span className="block break-all text-xs text-ink-500">{store?.slug}.peebee.online</span></span>
                 <Toggle on={onWeb} onChange={setOnWeb} label="Show on my website" />
               </div>
 
