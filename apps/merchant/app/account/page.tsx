@@ -1,67 +1,119 @@
 "use client";
 
-import Link from "next/link";
-
-import { Select } from "@peebee/shared/select";
-
-import type { MerchantMember, MerchantOutlet } from "@peebee/shared";
-import { Building2, LogOut, Settings, ShieldCheck, UserPlus, LifeBuoy, ChevronRight, FileText } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { AppearanceSettings } from "../../components/AppearanceSettings";
-import { TabBar } from "../../components/TabBar";
-import { PracticeModeCard } from "../../components/PracticeMode";
+import type { MerchantMember } from "@peebee/shared";
+import { ArrowLeftRight, Building2, Check, ChevronRight, FileText, LifeBuoy, LogOut, Settings, ShieldCheck, Store as StoreIcon, UserRound, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { AccountFrame, Avatar, ErrorNote, KYC_META, Pill, RolePill, kycState, useUserPhoto } from "../../components/account/AccountUI";
+import { BottomSheet } from "../../components/store/BottomSheet";
+import { HubTile, card } from "../../components/store/StoreUI";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
+import { useModules } from "../../lib/modules";
+
+const TONE: Record<string, string> = {
+  wait: "bg-gold/25 text-gold",
+  ok: "bg-green-500/20 text-[#5fe0a0]",
+  bad: "bg-red-600/25 text-[#ff8a8a]",
+  none: "bg-white/15 text-white",
+};
 
 export default function AccountPage() {
-  const { user, merchant, merchants, selectMerchant, refreshMerchants, logout } = useAuth();
+  const { user, merchant, merchants, selectMerchant, logout } = useAuth();
+  const router = useRouter();
+  const moduleOn = useModules();
+  const photo = useUserPhoto(user);
   const [members, setMembers] = useState<MerchantMember[]>([]);
-  const [outlets, setOutlets] = useState<MerchantOutlet[]>([]);
-  const [registrationNumber, setRegistrationNumber] = useState(merchant?.registration_number ?? "");
-  const [taxId, setTaxId] = useState(merchant?.tax_id ?? "");
-  const [identifier, setIdentifier] = useState("");
-  const [role, setRole] = useState<"finance" | "manager" | "cashier">("cashier");
-  const [outletId, setOutletId] = useState("");
-  const [ownerIdDocument, setOwnerIdDocument] = useState<File | null>(null);
-  const [businessDocument, setBusinessDocument] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"business" | "team" | "settings" | null>(null);
 
-  const load = useCallback(async () => { if (!merchant) return; if (merchant.member_role === "cashier") { setOutlets((await api.merchantOutlets(merchant.id)).outlets); setMembers([]); return; } const [m, o] = await Promise.all([api.merchantMembers(merchant.id), api.merchantOutlets(merchant.id)]); setMembers(m.members); setOutlets(o.outlets); }, [merchant]);
-  useEffect(() => { setRegistrationNumber(merchant?.registration_number ?? ""); setTaxId(merchant?.tax_id ?? ""); load().catch((cause) => setError(errorMessage(cause))); }, [load, merchant]);
-
-  async function submitKyc(event: React.FormEvent) { event.preventDefault(); if (!merchant) return; if (!merchant.has_owner_id_document && !ownerIdDocument) { setError("Upload the business owner's National ID."); return; } if (!merchant.has_business_document && !businessDocument) { setError("Upload the business registration document."); return; } setBusy(true); setError(""); try { await api.submitMerchantKyc(merchant.id, { registrationNumber, taxId }); if (ownerIdDocument) await api.uploadMerchantKycDocument(merchant.id, "owner-id", ownerIdDocument); if (businessDocument) await api.uploadMerchantKycDocument(merchant.id, "business-registration", businessDocument); setOwnerIdDocument(null); setBusinessDocument(null); await refreshMerchants(); } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); } }
-  async function addMember(event: React.FormEvent) { event.preventDefault(); if (!merchant) return; setBusy(true); setError(""); try { await api.addMerchantMember(merchant.id, { identifier, role, outletId: outletId || null }); setIdentifier(""); await load(); } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); } }
-  async function remove(userId: string) { if (!merchant) return; setBusy(true); try { await api.removeMerchantMember(merchant.id, userId); await load(); } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); } }
+  const cashier = merchant?.member_role === "cashier";
+  useEffect(() => {
+    if (!merchant || merchant.member_role === "cashier") return;
+    api.merchantMembers(merchant.id).then((r) => setMembers(r.members)).catch((cause) => setError(errorMessage(cause)));
+  }, [merchant]);
 
   if (!merchant) return null;
-  const cashier = merchant.member_role === "cashier";
-  const activeTab = cashier ? "settings" : tab ?? "business";
-  return <div className="space-y-4 px-4 pb-6 pt-5">
-    <header><h1 className="text-3xl font-black">Account</h1><p className="text-lg text-ink-500">{user?.name} · {merchant.member_role}</p></header>
-    {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-base text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
-    {!cashier && <TabBar label="Account" active={activeTab} onChange={setTab} tabs={[{ id: "business", label: "Business", icon: Building2 }, { id: "team", label: "Team", icon: UserPlus, count: members.length }, { id: "settings", label: "Settings", icon: Settings }]} />}
+  const kyc = KYC_META[kycState(merchant)];
+  const marketplace = moduleOn("buy.marketplace");
+  const go = (path: string) => () => router.push(path);
+  const activeMembers = cashier ? 0 : members.filter((m) => m.status !== "revoked").length;
+  const kycSubTone = kyc.tone === "ok" ? "text-[#15803d] dark:text-[#4ade80]" : kyc.tone === "bad" ? "text-red-600 dark:text-red-400" : kyc.tone === "wait" ? "text-[#8a6d0b] dark:text-gold" : "text-ink-500";
 
-    {activeTab === "business" && <div className="space-y-4" role="tabpanel" aria-label="Business">
-    {merchants.length > 1 && <section className="home-card space-y-2"><label className="text-xs font-bold text-ink-500">Current business</label><Select aria-label="Current business" value={merchant.id} onValueChange={(value) => selectMerchant(value)} className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3">{merchants.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}</Select></section>}
-    {merchant.member_role !== "cashier" && <section className="home-card space-y-3"><div className="flex items-start gap-3"><ShieldCheck className="h-6 w-6 shrink-0 text-gold"/><div><h2 className="font-bold">Business verification</h2><p className="text-xs text-ink-500">Update these details only when your business information changes. Submitting requests a new review. Status: {merchant.kyc_status?.replaceAll("_", " ") ?? "pending"}. Documents are private and available only to authorized Peebee reviewers.</p></div></div><form onSubmit={submitKyc} className="space-y-2"><label htmlFor="registration-number" className="block text-sm font-bold">URSB registration number</label><input id="registration-number" required value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} placeholder="URSB registration number" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"/><label htmlFor="tax-id" className="block text-sm font-bold">URA TIN / tax identifier</label><input id="tax-id" required value={taxId} onChange={(e) => setTaxId(e.target.value)} placeholder="URA TIN / tax identifier" className="min-h-12 w-full rounded-xl border border-[var(--border-faint)] px-3"/><label className="block rounded-xl border border-[var(--border-faint)] p-3 text-xs"><span className="mb-2 block font-bold">Owner National ID {merchant.has_owner_id_document ? "✓ uploaded" : ""}</span><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setOwnerIdDocument(e.target.files?.[0] ?? null)}/></label><label className="block rounded-xl border border-[var(--border-faint)] p-3 text-xs"><span className="mb-2 block font-bold">Business registration document {merchant.has_business_document ? "✓ uploaded" : ""}</span><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setBusinessDocument(e.target.files?.[0] ?? null)}/></label><label className="flex gap-2 text-xs text-ink-500"><input required type="checkbox"/>I declare that these business details and documents are accurate and authorized.</label><button disabled={busy} className="min-h-11 w-full rounded-full bg-gold font-bold text-ink-gold disabled:opacity-50">{busy ? "Uploading securely…" : "Submit for verification"}</button></form></section>}
-      <Link href="/reports" className="home-card flex min-h-16 items-center gap-3 !rounded-2xl text-lg font-bold text-ink"><FileText className="h-6 w-6 text-gold" aria-hidden /><span className="flex-1">Financial statements</span><ChevronRight className="h-6 w-6 shrink-0 text-ink-500" aria-hidden /></Link>
-    </div>}
+  return (
+    <AccountFrame testId="account-home">
+      <h1 className="px-1 text-[30px] font-black leading-tight text-ink">Account</h1>
+      <ErrorNote message={error} />
 
-    {activeTab === "team" && <div className="space-y-4" role="tabpanel" aria-label="Team">
-    {merchant.member_role !== "cashier" && <section className="home-card space-y-3"><div className="flex gap-3"><UserPlus className="h-6 w-6 shrink-0 text-gold"/><div><h2 className="font-bold">Team access</h2><p className="text-xs text-ink-500">Cashiers confirm sales; finance can settle; managers operate outlets. Only owners manage staff.</p></div></div>{members.map((member) => <div key={member.user_id} className="flex justify-between gap-3 border-t border-[var(--border-faint)] pt-3 text-sm"><span><span className="block font-semibold">{member.name}</span><span className="text-xs text-ink-500">{member.role} · {member.status}</span></span>{merchant.member_role === "owner" && member.role !== "owner" && member.status === "active" && <button disabled={busy} onClick={() => remove(member.user_id)} className="text-xs font-bold text-red-600">Remove</button>}</div>)}{merchant.member_role === "owner" && <form onSubmit={addMember} className="space-y-2 border-t border-[var(--border-faint)] pt-3"><input required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="Staff email or phone" className="min-h-11 w-full rounded-xl border border-[var(--border-faint)] px-3"/><div className="grid grid-cols-2 gap-2"><Select aria-label="Staff role" value={role} onValueChange={(value) => setRole(value as typeof role)} className="min-h-11 rounded-xl border border-[var(--border-faint)] px-3"><option value="cashier">Cashier</option><option value="manager">Manager</option><option value="finance">Finance</option></Select><Select aria-label="Outlet" value={outletId} onValueChange={(value) => setOutletId(value)} className="min-h-11 rounded-xl border border-[var(--border-faint)] px-3"><option value="">All outlets</option>{outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</Select></div><button disabled={busy} className="min-h-11 w-full rounded-full border border-gold font-bold text-gold">Add existing Peebee user</button></form>}</section>}
-    </div>}
+      <section className="relative flex flex-col gap-4 overflow-hidden rounded-[32px] border-[1.5px] border-gold/45 bg-[#0a0a0a] p-[18px] text-white shadow-[0_14px_40px_rgb(0_0_0/.25)]" data-testid="account-hero">
+        <div aria-hidden className="pointer-events-none absolute -right-[70px] -top-[70px] h-[220px] w-[220px] rounded-full bg-[radial-gradient(circle,rgb(var(--gold)/0.45),transparent_70%)]" />
+        <div className="relative flex items-center gap-3.5">
+          <Avatar name={user?.name} photo={photo} />
+          <div className="min-w-0 flex-1">
+            <p className="break-words text-[25px] font-black leading-tight" data-testid="account-name">{user?.name}</p>
+            <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[17px] font-bold text-white/75"><StoreIcon className="h-[18px] w-[18px] shrink-0" /><span className="min-w-0 break-words">{merchant.display_name}</span></p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {merchant.member_role && (merchant.member_role === "owner" ? <RolePill role="owner" /> : <Pill cls="bg-white/15 text-white">{merchant.member_role[0].toUpperCase() + merchant.member_role.slice(1)}</Pill>)}
+              {!cashier && <Pill icon={kyc.icon} cls={TONE[kyc.tone]} testId="account-kyc-pill">{kyc.label}</Pill>}
+            </div>
+          </div>
+        </div>
+        {merchants.length > 1 && (
+          <button type="button" onClick={() => setSwitching(true)} data-testid="switch-business"
+            className="relative flex min-h-[60px] items-center justify-center gap-2.5 rounded-[18px] border-[1.5px] border-white/20 bg-white/10 text-[18px] font-black text-white active:scale-[.98]">
+            <ArrowLeftRight className="h-[22px] w-[22px]" /> Switch business
+          </button>
+        )}
+      </section>
 
-    {activeTab === "settings" && <div className="space-y-4" role="tabpanel" aria-label="Settings">
-      <Link href="/help" className="home-card flex min-h-16 items-center gap-3 !rounded-2xl text-lg font-bold text-ink">
-        <LifeBuoy className="h-6 w-6 text-gold" strokeWidth={1.75} aria-hidden />
-        <span className="flex-1">Help &amp; support</span>
-        <ChevronRight className="h-6 w-6 shrink-0 text-ink-500" strokeWidth={1.75} aria-hidden />
-      </Link>
-      <PracticeModeCard role="merchant" />
-      <AppearanceSettings />
-      <button onClick={logout} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-red-300 text-lg font-bold text-red-600"><LogOut className="h-5 w-5" aria-hidden />Log out</button>
-    </div>}
-  </div>;
+      <div className="grid grid-cols-2 gap-3" data-testid="account-tiles">
+        {!cashier && (
+          <button type="button" onClick={go("/account/verification")} data-testid="tile-verification"
+            className={`${card} relative flex min-h-[132px] min-w-0 flex-col items-start justify-between gap-3 p-4 text-left transition active:scale-[.98]`}>
+            <span className="grid h-14 w-14 place-items-center rounded-[18px] bg-gold/15 text-[#8a6d0b] dark:text-gold"><ShieldCheck className="h-[30px] w-[30px]" /></span>
+            <span className="block min-w-0 max-w-full">
+              <span className="block text-[18px] font-black leading-tight text-ink min-[400px]:text-[20px]">Verification</span>
+              <span className={`mt-0.5 flex items-center gap-1.5 text-[16px] font-black ${kycSubTone}`}><kyc.icon className="h-4 w-4 shrink-0" strokeWidth={2.6} />{kyc.label}</span>
+            </span>
+          </button>
+        )}
+        {!cashier && <HubTile icon={Users} title="Team" sub="Staff & roles" badge={activeMembers || undefined} onClick={go("/account/team")} testId="tile-team" />}
+        <HubTile icon={UserRound} title="My profile" sub="Name & photo" onClick={go("/account/profile")} testId="tile-profile" />
+        {marketplace && <HubTile icon={Building2} title="Outlets" sub="Pay codes" onClick={go("/outlets")} testId="tile-outlets" />}
+        {!cashier && marketplace && <HubTile icon={FileText} title="Statements" sub="Money reports" onClick={go("/reports")} testId="tile-statements" />}
+        <HubTile icon={Settings} title="App settings" sub={cashier ? "Look & practice" : "Look & help"} onClick={go("/account/settings")} testId="tile-settings" />
+        <button type="button" onClick={go("/help")} data-testid="tile-help"
+          className={`${card} col-span-2 flex min-h-[92px] min-w-0 items-center gap-3.5 p-4 text-left transition active:scale-[.98]`}>
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-[18px] bg-gold/15 text-[#8a6d0b] dark:text-gold"><LifeBuoy className="h-[30px] w-[30px]" /></span>
+          <span className="min-w-0 flex-1"><span className="block text-[20px] font-black leading-tight text-ink">Help &amp; support</span><span className="block text-[16px] font-semibold text-ink-500">Chat with us</span></span>
+          <ChevronRight className="h-[30px] w-[30px] shrink-0 text-gold" strokeWidth={3} />
+        </button>
+      </div>
+
+      <button type="button" onClick={logout} data-testid="logout"
+        className="flex min-h-[68px] w-full items-center justify-center gap-2.5 rounded-full border-[2.5px] border-red-600/45 text-[21px] font-black text-red-600 active:scale-[.98] dark:text-red-400">
+        <LogOut className="h-6 w-6" strokeWidth={2.6} /> Log out
+      </button>
+
+      {switching && (
+        <BottomSheet title="Switch business" subtitle="Pick one" onClose={() => setSwitching(false)} testId="switch-sheet">
+          <div className="space-y-3 pt-1" role="radiogroup" aria-label="Current business">
+            {merchants.map((m) => {
+              const on = m.id === merchant.id;
+              return (
+                <button key={m.id} type="button" role="radio" aria-checked={on} data-testid={`business-${m.id}`}
+                  onClick={() => { selectMerchant(m.id); setSwitching(false); }}
+                  className={`flex min-h-[84px] w-full min-w-0 items-center gap-3.5 rounded-[22px] border-2 px-4 py-2.5 text-left ${on ? "border-gold bg-gold/12" : "border-[var(--border-faint)] bg-[rgb(var(--surface-card))]"}`}>
+                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-[16px] bg-gold/15 text-[#8a6d0b] dark:text-gold"><StoreIcon className="h-7 w-7" /></span>
+                  <span className="min-w-0 flex-1"><span className="block break-words text-[20px] font-black leading-tight text-ink">{m.display_name}</span>
+                    {m.member_role && <span className="block text-[16px] font-semibold capitalize text-ink-500">{m.member_role}</span>}</span>
+                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-[12px] border-[3px] ${on ? "border-gold bg-gold text-ink-gold" : "border-[var(--border-faint)]"}`}>{on && <Check className="h-6 w-6" strokeWidth={3.2} />}</span>
+                </button>
+              );
+            })}
+          </div>
+        </BottomSheet>
+      )}
+    </AccountFrame>
+  );
 }
