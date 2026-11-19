@@ -2,7 +2,7 @@
 
 import { BadgeCheck, Camera, Check, Eye, EyeOff, ImageOff, KeyRound, Lock, Mail, Phone, UserRound } from "lucide-react";
 import { useRef, useState } from "react";
-import { AccountFrame, Avatar, ErrorNote, GRow, Group, RolePill, useBack, useUserPhoto } from "../../../components/account/AccountUI";
+import { AccountFrame, Avatar, ErrorNote, GRow, Group, RolePill, readFlash, setFlash, useBack, useUserPhoto } from "../../../components/account/AccountUI";
 import { BottomSheet } from "../../../components/store/BottomSheet";
 import { PageHeader, fieldCls, labelCls } from "../../../components/store/StoreUI";
 import { api, errorMessage } from "../../../lib/api";
@@ -37,7 +37,7 @@ export default function ProfilePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sheetError, setSheetError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(() => readFlash("profile"));
 
   if (!user) return null;
   const verified = <BadgeCheck className="ml-1.5 inline h-[18px] w-[18px] align-[-2px] text-[#15803d] dark:text-[#4ade80]" strokeWidth={2.6} aria-label="Verified" />;
@@ -77,7 +77,7 @@ export default function ProfilePage() {
     if (next.length < 6) { setSheetError("Use at least 6 characters."); return; }
     if (next !== confirm) { setConfirmTouched(true); return; }
     setBusy(true); setSheetError("");
-    try { const r = await api.changePassword(current, next); setSession(r.token, r.user); setCurrent(""); setNext(""); setConfirm(""); setConfirmTouched(false); setSheet(null); setNotice("Password changed"); }
+    try { const r = await api.changePassword(current, next); setFlash("profile", "Password changed"); setSession(r.token, r.user); setCurrent(""); setNext(""); setConfirm(""); setConfirmTouched(false); setSheet(null); setNotice("Password changed"); }
     catch (cause) { setSheetError(errorMessage(cause)); } finally { setBusy(false); }
   }
 

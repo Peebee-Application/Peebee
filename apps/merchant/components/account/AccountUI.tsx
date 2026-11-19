@@ -171,6 +171,20 @@ export function BigCheck({ checked, onChange, children, testId }: { checked: boo
   );
 }
 
+/** A short note that survives one remount (e.g. a new session reloads the business list and remounts the page). */
+export function setFlash(key: string, message: string) {
+  try { sessionStorage.setItem(`peebee_flash_${key}`, JSON.stringify({ message, at: Date.now() })); } catch { /* ignore */ }
+}
+export function readFlash(key: string): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const raw = sessionStorage.getItem(`peebee_flash_${key}`);
+    sessionStorage.removeItem(`peebee_flash_${key}`);
+    const v = raw ? (JSON.parse(raw) as { message: string; at: number }) : null;
+    return v && Date.now() - v.at < 30_000 ? v.message : "";
+  } catch { return ""; }
+}
+
 export function ErrorNote({ message }: { message: string }) {
   if (!message) return null;
   return <p role="alert" className="rounded-[18px] bg-red-600/10 px-4 py-3 text-[17px] font-bold text-red-700 dark:text-red-300">{message}</p>;

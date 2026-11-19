@@ -2,7 +2,7 @@
 
 import { Camera, Check, FileText, Hash, Image as ImageIcon, Lock, Pencil, Receipt, RefreshCw, Search, Send, type LucideIcon, BadgeCheck, IdCard, Landmark } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { AccountFrame, BigCheck, ErrorNote, KYC_META, OptionCard, SectionLabel, kycState, useBack, type KycState } from "../../../components/account/AccountUI";
+import { AccountFrame, BigCheck, ErrorNote, KYC_META, OptionCard, SectionLabel, kycState, readFlash, setFlash, useBack, type KycState } from "../../../components/account/AccountUI";
 import { BottomSheet } from "../../../components/store/BottomSheet";
 import { PageHeader, card, fieldCls, labelCls } from "../../../components/store/StoreUI";
 import { api, errorMessage } from "../../../lib/api";
@@ -59,9 +59,8 @@ export default function VerificationPage() {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  // Refreshing the business list can remount this page, so the "Sent" note is kept for one showing in sessionStorage.
-  const [sent, setSent] = useState(() => typeof window !== "undefined" && Date.now() - Number(sessionStorage.getItem("peebee_kyc_sent") || 0) < 30_000);
-  useEffect(() => { sessionStorage.removeItem("peebee_kyc_sent"); }, []);
+  // Refreshing the business list can remount this page, so the "Sent" note is kept for one showing.
+  const [sent, setSent] = useState(() => readFlash("kyc") === "sent");
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const pdfRef = useRef<HTMLInputElement>(null);
@@ -104,7 +103,7 @@ export default function VerificationPage() {
       setFiles({ "owner-id": null, "business-registration": null });
       setPreviews({ "owner-id": null, "business-registration": null });
       setDeclared(false); setEditing(false); setSent(true);
-      sessionStorage.setItem("peebee_kyc_sent", String(Date.now()));
+      setFlash("kyc", "sent");
       await refreshMerchants();
     } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }
