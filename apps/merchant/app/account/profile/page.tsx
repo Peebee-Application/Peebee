@@ -134,7 +134,7 @@ export default function ProfilePage() {
             </div>
             <div>
               <label htmlFor="pw-confirm" className={labelCls}><KeyRound className="h-5 w-5 text-gold" /> Confirm new password</label>
-              <input id="pw-confirm" type={show ? "text" : "password"} value={confirm} onChange={(e) => setConfirm(e.target.value)} onBlur={() => setConfirmTouched(true)} autoComplete="new-password"
+              <input id="pw-confirm" type={show ? "text" : "password"} value={confirm} onChange={(e) => { setConfirm(e.target.value); if (e.target.value.length >= next.length && next.length > 0) setConfirmTouched(true); }} onBlur={() => setConfirmTouched(true)} autoComplete="new-password"
                 aria-invalid={confirmTouched && confirm !== next} aria-describedby="pw-mismatch" className={`${fieldCls} ${confirmTouched && confirm !== next ? "!border-red-600" : ""}`} data-testid="pw-confirm" />
               {confirmTouched && confirm !== next && <p id="pw-mismatch" role="alert" className="mt-2 text-[17px] font-bold text-red-600 dark:text-red-400" data-testid="pw-mismatch">Passwords don&apos;t match</p>}
             </div>
