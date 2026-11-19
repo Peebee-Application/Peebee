@@ -32,6 +32,7 @@ import { eliteOnly, planLimits, storePlan } from "./plans.js";
 import { PLAN_LABEL, PLAN_RANK, applyPlanPurchase, periodDays, planPrice } from "./plan-purchase.js";
 import { planCheckoutRoutes } from "./plan-checkout.js";
 import { storeItemRoutes } from "./store-items.js";
+import { storeLiveCameraRoutes } from "./store-live-camera.js";
 import { cleanSections, parseSections } from "./sections.js";
 import { soldOutLicenseProducts } from "./digital-sales.js";
 import { proofIsValid } from "../lib/phone-proof.js";
@@ -42,6 +43,7 @@ marketplaceRoutes.use("/merchants/me/*", merchantRoleGuard);
 marketplaceRoutes.route("/", digitalLmsRoutes);
 marketplaceRoutes.route("/", planCheckoutRoutes);
 marketplaceRoutes.route("/", storeItemRoutes);
+marketplaceRoutes.route("/", storeLiveCameraRoutes);
 
 type Row = Record<string, unknown>;
 

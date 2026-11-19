@@ -134,6 +134,12 @@ export type AiringPlay = {
 };
 export type MyAiring = AiringView & { postId: string; peakViewers: number };
 
+/** What a store sells on its live stream, for the Spotlight's Buy strip. */
+export type LiveStoreItems = {
+  status: "live" | "ended";
+  store: { id: string; name: string; slug: string; logo_url: string; category: string } | null;
+  items: Array<{ id: string; title: string; price: number; compare_at_price: number | null; image_url: string; in_stock: boolean; has_variants: boolean }>;
+};
 export type LiveComment = { id: number; author: string; body: string; byHost: boolean; pinned: boolean; hidden?: boolean; at: string };
 export type LiveState = {
   id: string; status: "scheduled" | "live" | "ended"; title: string | null; role: "host" | "helper" | "viewer"; viewers: number | null; peakViewers: number | null;

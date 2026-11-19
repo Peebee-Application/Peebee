@@ -9,6 +9,7 @@ import { ChannelsError, requireChannels, sqlTime, type Row } from "./common.js";
 import { createPost, containsBlockedWord } from "./posts.js";
 import { driverOnJob, resolveIdentity } from "./publishers.js";
 import { eventsReady, sweepEvents, syncEvent } from "./events.js";
+import { endStoreCameraLive } from "../marketplace/store-live-sync.js";
 import type { ChannelsConfig } from "@peebee/shared";
 
 /**
@@ -175,6 +176,8 @@ async function closeLive(id: string, _why: string): Promise<LiveRow | null> {
   }
   await db.execute({ sql: "DELETE FROM live_viewers WHERE session_id = ?", args: [id] });
   if (s.external_id) await endLiveInput(s.provider, s.external_id);
+  // A store's camera live also has a store listing (pinned items, the store's "live" flag) that goes off with it.
+  if (s.publisher_type === "store") await endStoreCameraLive(s.id, s.publisher_id).catch((err) => console.error("could not end store live:", err));
   return getLive(id);
 }
 

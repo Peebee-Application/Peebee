@@ -184,7 +184,10 @@ export default function SpotlightPage() {
   // Room reserved at the bottom of each card for the floating cart pill.
   const bottomPad = NAV_CLEARANCE + (cartItemCount > 0 ? 72 : 0);
 
-  const entries: FeedEntry[] = SHOWS_STORE_ITEMS[filter] ? interleave(posts, items) : posts.map((post) => ({ kind: "post" as const, post }));
+  // A store that is live on camera already has its live post in the feed: drop its store card so it is not shown twice.
+  const liveStores = new Set(posts.filter((p) => p.liveStatus === "live" && p.publisher?.type === "store").map((p) => p.publisher!.id));
+  const storeItems = items.filter((i) => !liveStores.has(i.store_id));
+  const entries: FeedEntry[] = SHOWS_STORE_ITEMS[filter] ? interleave(posts, storeItems) : posts.map((post) => ({ kind: "post" as const, post }));
 
   const topControls = (
     <div className="flex items-center justify-end gap-3 px-4">

@@ -13,7 +13,7 @@ import { talentAdminMethods } from "./talent-admin-client.js";
 import { educationMethods } from "./education-client.js";
 import { learningCreatorMethods } from "./learn-creator.js";
 import { videoAdsMethods } from "./video-ads-client.js";
-import { channelsMethods } from "./channels-client.js";
+import { channelsMethods, type LiveHostView, type LiveStoreItems } from "./channels-client.js";
 import type { PracticeRole } from "./practice.js";
 import type {
   FareCounter,
@@ -2537,6 +2537,26 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       return request<{ ok: boolean }>("/v1/merchants/me/store/live/end", {
         method: "POST",
       });
+    },
+    /** Going live from the merchant's phone camera, on the same pipeline creators use (see channels-client live*). */
+    async storeCameraLive() {
+      return request<{ available: boolean; reason: string | null; message: string | null; live: LiveHostView | null; productIds: string[] }>("/v1/merchants/me/store/live/camera");
+    },
+    async storeCameraStart(input: { title?: string; productIds?: string[] }) {
+      return request<{ live: LiveHostView; productIds: string[] }>("/v1/merchants/me/store/live/camera/start", { method: "POST", body: JSON.stringify(input) });
+    },
+    async storeCameraGo(id: string, productIds: string[]) {
+      return request<{ live: LiveHostView; productIds: string[] }>(`/v1/merchants/me/store/live/camera/${encodeURIComponent(id)}/go`, { method: "POST", body: JSON.stringify({ productIds }) });
+    },
+    async storeCameraItems(id: string, productIds: string[]) {
+      return request<{ productIds: string[] }>(`/v1/merchants/me/store/live/camera/${encodeURIComponent(id)}/items`, { method: "PUT", body: JSON.stringify({ productIds }) });
+    },
+    async storeCameraEnd(id: string) {
+      return request<{ status: "ended"; seconds: number; peakViewers: number; comments: number }>(`/v1/merchants/me/store/live/camera/${encodeURIComponent(id)}/end`, { method: "POST" });
+    },
+    /** Public: the items a store is selling on a live stream (by stream or post id). */
+    async liveStoreItems(ref: string) {
+      return request<LiveStoreItems>(`/v1/marketplace/live/${encodeURIComponent(ref)}/items`);
     },
     async upgradeMerchantStoreTier(input: { tier: "pro_store" | "pro_live" | "elite"; billingCycle?: "monthly" | "yearly" }) {
       return request<{ ok: boolean; tier: string; expiresAt: string; amountPaid: number; store: any }>("/v1/merchants/me/store/tier", {
