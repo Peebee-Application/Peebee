@@ -5,7 +5,7 @@ import { Check, Crown, Eye, Flame, Link2, Loader2, Mic, MicOff, MessageCircle, P
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BottomSheet } from "../../../components/store/BottomSheet";
-import { CornerBadge, goldBtn } from "../../../components/store/StoreUI";
+import { goldBtn } from "../../../components/store/StoreUI";
 import { useCamera } from "../../../components/store/live/useCamera";
 import { publishWhip, whenConnected } from "../../../components/store/live/whip";
 import { api, errorMessage } from "../../../lib/api";
@@ -364,7 +364,7 @@ function StoreCameraLive() {
         <div className="flex items-center gap-3 overflow-x-auto pt-3 [scrollbar-width:none]" data-testid="camera-items">
           {pickedItems.map((p, i) => (
             <button key={p.id} type="button" onClick={() => feature(p.id)} aria-label={i === 0 ? `${p.title}, shown first` : `Show ${p.title} first`} data-testid={`camera-item-${p.id}`}
-              className={`relative flex min-h-[72px] shrink-0 items-center gap-2.5 rounded-[20px] p-1.5 pr-3.5 text-left backdrop-blur-md ${i === 0 ? "bg-gold text-ink-gold" : "bg-black/60 text-white"}`}>
+              className={`relative flex min-h-[72px] shrink-0 items-center gap-2.5 rounded-[20px] p-1.5 text-left backdrop-blur-md ${i === 0 ? "bg-gold pr-7 text-ink-gold" : "bg-black/60 pr-3.5 text-white"}`}>
               <Thumb item={p} size={60} />
               <span className="max-w-[9.5rem]">
                 <span className="line-clamp-2 block text-[16px] font-black leading-tight">{p.title}</span>
@@ -419,10 +419,10 @@ function StoreCameraLive() {
                       ) : <span className="grid h-[60px] w-[60px] shrink-0 place-items-center rounded-[14px] bg-[rgb(var(--surface-muted))]"><Package className="h-7 w-7 text-ink-500" /></span>}
                       <span className="min-w-0 flex-1">
                         <span className="block break-words text-[19px] font-black leading-tight text-ink">{p.title}</span>
-                        <span className="block text-[17px] font-bold text-ink-500">{ugx(p.price)}{p.inventory_quantity <= 0 ? " · Sold out" : ""}</span>
+                        <span className="flex flex-wrap items-center gap-x-2 text-[17px] font-bold text-ink-500">{ugx(p.price)}{p.inventory_quantity <= 0 ? " · Sold out" : ""}
+                          {on && picked[0] === p.id && <span className="inline-flex h-7 items-center gap-1 rounded-full bg-red-600 px-2.5 text-[15px] font-black text-white"><Flame className="h-4 w-4" /> 1st</span>}</span>
                       </span>
                       <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border-2 ${on ? "border-gold bg-gold text-ink-gold" : "border-[var(--border-faint)]"}`}>{on && <Check className="h-6 w-6" strokeWidth={3} />}</span>
-                      {on && picked[0] === p.id && <CornerBadge n="1st" />}
                     </button>
                   </li>
                 );

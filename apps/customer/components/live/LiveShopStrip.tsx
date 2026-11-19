@@ -57,9 +57,9 @@ export function LiveShopStrip({ data }: { data: LiveStoreItems | null }) {
   }
 
   return (
-    <div className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-1 pt-1 [scrollbar-width:none]" data-testid="live-shop-strip" aria-label={`Buy from ${store.name}`}>
+    <div className="flex gap-2.5 overflow-x-auto pb-1 pt-1 [scrollbar-width:none]" data-testid="live-shop-strip" aria-label={`Buy from ${store.name}`}>
       {data.items.map((item, i) => (
-        <div key={item.id} className={`flex w-[15.5rem] shrink-0 items-center gap-2.5 rounded-2xl p-2 backdrop-blur-md ${i === 0 ? "bg-white text-ink" : "bg-black/55 text-white"}`} data-testid={`live-shop-item-${item.id}`}>
+        <div key={item.id} className={`flex w-[14.5rem] shrink-0 items-center gap-2.5 rounded-2xl p-2 backdrop-blur-md ${i === 0 ? "bg-white text-[#111]" : "bg-black/60 text-white"}`} data-testid={`live-shop-item-${item.id}`}>
           <Link href={`/product/${item.id}`} className="shrink-0" aria-label={`Open ${item.title}`}>
             {item.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -67,8 +67,8 @@ export function LiveShopStrip({ data }: { data: LiveStoreItems | null }) {
             ) : <span className="grid h-14 w-14 place-items-center rounded-xl bg-white/15"><ShoppingBag className="h-6 w-6" aria-hidden /></span>}
           </Link>
           <div className="min-w-0 flex-1">
-            <p className="line-clamp-2 text-[13px] font-bold leading-tight">{item.title}</p>
-            <p className={`text-[13px] font-extrabold ${i === 0 ? "text-ink" : "text-gold"}`}>{ugx(item.price)}</p>
+            <p className="line-clamp-2 text-[14px] font-bold leading-tight">{item.title}</p>
+            <p className={`text-[13px] font-extrabold ${i === 0 ? "text-[#111]" : "text-gold"}`}>{ugx(item.price)}</p>
           </div>
           {!item.in_stock ? (
             <span className="shrink-0 rounded-full bg-black/40 px-2.5 py-1.5 text-[11px] font-bold text-white/80">Sold out</span>
