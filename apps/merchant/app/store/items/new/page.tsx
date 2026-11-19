@@ -12,6 +12,7 @@ import { call, uploadStoreMedia, ugx } from "../../../../lib/plans";
 import { BottomBar, ChoiceTile, ErrorNote, FlowTop, GhostButton, PrimaryButton, Stepper, Toggle } from "../../../../components/flow/Flow";
 import { VoiceButton } from "../../../../components/items/VoiceButton";
 import { CustomerPreview, type PreviewItem } from "../../../../components/items/CustomerPreview";
+import { VariantTable, combos, effectivePrice, type VariantValues } from "../../../../components/items/VariantTable";
 
 type ItemType = "physical" | "digital" | "service";
 type Photo = { url: string; uploading?: boolean; local?: string };
@@ -48,7 +49,6 @@ const label = "mb-2 flex items-center gap-1.5 text-sm font-bold text-ink-500";
 const field = "w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] text-lg text-ink outline-none focus:border-gold";
 
 function digits(v: string) { return Number(v.replace(/\D/g, "")) || 0; }
-function comboKey(size: string, colour: string) { return `${size}|${colour}`; }
 
 export default function NewItemWizard() {
   const router = useRouter();
@@ -74,7 +74,9 @@ export default function NewItemWizard() {
   const [sizes, setSizes] = useState<string[]>([]);
   const [sizeDraft, setSizeDraft] = useState("");
   const [colours, setColours] = useState<{ name: string; hex: string }[]>([]);
-  const [rows, setRows] = useState<Record<string, { price: string; stock: number }>>({});
+  const [rows, setRows] = useState<Record<string, VariantValues>>({});
+  const [groupPrices, setGroupPrices] = useState<Record<string, string>>({});
+  const [showMissing, setShowMissing] = useState(false);
 
   const [digitalMode, setDigitalMode] = useState<"file" | "link" | "keys">("file");
   const [digitalFile, setDigitalFile] = useState<File | null>(null);
@@ -127,18 +129,18 @@ export default function NewItemWizard() {
     })();
   }, [router]);
 
-  const variantRows = useMemo(() => {
-    if (!sizes.length && !colours.length) return [];
-    const ss = sizes.length ? sizes : [""];
-    const cs = colours.length ? colours.map((c) => c.name) : [""];
-    return ss.flatMap((s) => cs.map((c) => ({ size: s, colour: c, key: comboKey(s, c), label: [s, c].filter(Boolean).join(" · ") })));
-  }, [sizes, colours]);
+  const variantRows = useMemo(() => combos(sizes, colours), [sizes, colours]);
 
   const elite = Boolean(store?.isElite);
   const outletMode = type === "physical" && elite && outlets.length > 0 && outlets.some((o) => o.on);
   const priceNum = digits(price);
   const wasNum = digits(was) || null;
   const costNum = digits(cost);
+  const hasVariantTable = type === "physical" && variantRows.length > 0;
+  const variantPrice = (size: string, colour: string) => effectivePrice(rows, groupPrices, priceNum, size, colour);
+  const missingPrices = hasVariantTable ? variantRows.filter((r) => variantPrice(r.size, r.colour) <= 0).length : 0;
+  // With variants the main price can be left empty when every variant has one; the item then shows "from" the lowest.
+  const productPrice = priceNum || (hasVariantTable && !missingPrices ? Math.min(...variantRows.map((r) => variantPrice(r.size, r.colour))) : 0);
 
   // ---- media ----
   async function addFiles(list: FileList | null) {
@@ -196,7 +198,8 @@ export default function NewItemWizard() {
     if (step === 2) return photos.some((p) => p.uploading) || video?.uploading ? "Wait for uploads." : null;
     if (step === 3) {
       if (type === "service") return priceNum >= 0 && days.length ? null : "Pick days.";
-      if (priceNum <= 0) return "Add a price.";
+      if (hasVariantTable && missingPrices) return "missing-variant-prices";
+      if (productPrice <= 0) return "Add a price.";
       if (type === "digital" && digitalMode === "link" && !/^https:\/\//.test(digitalLink)) return "Add an https link.";
       if (type === "digital" && digitalMode === "keys" && !digitalKeys.trim()) return "Add keys.";
       if (type === "digital" && digitalMode === "file" && !digitalFile) return "Add the file.";
@@ -208,6 +211,12 @@ export default function NewItemWizard() {
 
   function next() {
     const problem = canNext();
+    if (problem === "missing-variant-prices") {
+      setShowMissing(true);
+      setError("");
+      setTimeout(() => document.querySelector('[data-testid="variants-missing"]')?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+      return;
+    }
     if (problem) { setError(problem); return; }
     setError("");
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
@@ -223,7 +232,7 @@ export default function NewItemWizard() {
 
   const preview: PreviewItem = {
     type: type ?? "physical", title, description, category: finalCategory === "General" ? "" : finalCategory, badge,
-    images: photos.filter((p) => p.url || p.local).map((p) => p.url || p.local!), price: priceNum, was: wasNum, storeName: store?.name ?? "",
+    images: photos.filter((p) => p.url || p.local).map((p) => p.url || p.local!), price: productPrice, was: wasNum, storeName: store?.name ?? "",
     sizes, colours, delivery: { rider, pickup, readyIn, returnsDays }, digitalKind: digitalMode, duration, location,
   };
 
@@ -234,7 +243,7 @@ export default function NewItemWizard() {
     setError("");
     const images = photos.map((p) => p.url).filter(Boolean);
     try {
-      let summary: Record<string, unknown> = { type, title, price: priceNum, image: images[0] ?? "", storeSlug: store.slug, inApp, onWeb, live };
+      let summary: Record<string, unknown> = { type, title, price: type === "physical" ? productPrice : priceNum, image: images[0] ?? "", storeSlug: store.slug, inApp, onWeb, live };
       if (type === "physical") {
         const hasVariants = variantRows.length > 0;
         const options = [
@@ -243,16 +252,25 @@ export default function NewItemWizard() {
         ];
         const body = {
           title: title.trim(), description: description.trim(), category_name: finalCategory, badge, images,
-          video_url: video?.url ?? "", price: priceNum, compare_at_price: wasNum && wasNum > priceNum ? wasNum : null,
+          video_url: video?.url ?? "", price: productPrice, compare_at_price: wasNum && wasNum > productPrice ? wasNum : null,
           ...(costNum ? { cost_price: costNum } : {}),
           inventory_quantity: stock,
           ...(hasVariants ? {
             options,
-            variants: variantRows.map((r) => ({
-              values: [r.size, r.colour].filter(Boolean),
-              price: digits(rows[r.key]?.price ?? "") || priceNum,
-              inventory_quantity: rows[r.key]?.stock ?? stock,
-            })),
+            variants: variantRows.map((r) => {
+              const v = rows[r.key];
+              const vPrice = variantPrice(r.size, r.colour);
+              const vWas = digits(v?.was ?? "");
+              return {
+                values: [r.size, r.colour].filter(Boolean),
+                price: vPrice,
+                inventory_quantity: v?.stock ?? stock,
+                ...(vWas > vPrice ? { compare_at_price: vWas } : {}),
+                ...(v?.sku?.trim() ? { sku: v.sku.trim() } : {}),
+                ...(v?.barcode?.trim() ? { barcode: v.barcode.trim() } : {}),
+                ...(v?.image ? { image_url: v.image } : {}),
+              };
+            }),
           } : {}),
           ...(outletMode ? { outlets: outlets.filter((o) => o.on).map((o) => ({ outletId: o.id, quantity: o.qty })) } : {}),
           delivery: { delivery: rider, pickup, sameDay: readyIn !== "2_days", readyInDays: readyIn === "2_days" ? 2 : 0, readyIn, size, returnsDays },
@@ -504,28 +522,23 @@ export default function NewItemWizard() {
               </div>
 
               {variantRows.length > 0 ? (
-                <div className="rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-4" data-testid="variants-table">
-                  {variantRows.map((r) => (
-                    <div key={r.key} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-b border-[var(--border-faint)] py-2 last:border-0">
-                      <span className="truncate text-base font-bold text-ink">{r.label}</span>
-                      <input
-                        value={rows[r.key]?.price ? Number(digits(rows[r.key].price)).toLocaleString("en-US") : ""}
-                        onChange={(e) => setRows((m) => ({ ...m, [r.key]: { price: e.target.value, stock: m[r.key]?.stock ?? stock } }))}
-                        inputMode="numeric"
-                        placeholder={priceNum ? priceNum.toLocaleString("en-US") : "Price"}
-                        aria-label={`${r.label} price`}
-                        className="h-11 w-24 rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] !px-2 text-center text-sm font-bold text-ink outline-none"
-                      />
-                      <input
-                        value={String(rows[r.key]?.stock ?? stock)}
-                        onChange={(e) => setRows((m) => ({ ...m, [r.key]: { price: m[r.key]?.price ?? "", stock: digits(e.target.value) } }))}
-                        inputMode="numeric"
-                        aria-label={`${r.label} stock`}
-                        className="h-11 w-16 rounded-xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] !px-2 text-center text-sm font-bold text-ink outline-none"
-                      />
-                    </div>
-                  ))}
-                </div>
+                <VariantTable
+                  title={title}
+                  sizes={sizes}
+                  colours={colours}
+                  basePrice={priceNum}
+                  defaultStock={stock}
+                  rows={rows}
+                  setRows={setRows}
+                  groupPrices={groupPrices}
+                  setGroupPrices={setGroupPrices}
+                  showMissing={showMissing}
+                  onApplyAll={(p, st) => {
+                    if (p !== null) { setPrice(String(p)); setGroupPrices({}); setRows((m) => Object.fromEntries(Object.entries(m).map(([k, v]) => [k, { ...v, price: "" }]))); }
+                    if (st !== null) { setStock(st); setRows((m) => Object.fromEntries(variantRows.map((r) => [r.key, { ...(m[r.key] ?? { price: "" }), stock: st }]))); }
+                  }}
+                  uploadPhoto={async (f) => { const res = await uploadStoreMedia(f); if (!res.ok) { setError(res.message); return null; } return res.data.url; }}
+                />
               ) : !outletMode && (
                 <div className="flex items-center justify-between rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4">
                   <span className="flex items-center gap-2 text-lg font-bold text-ink"><PackageOpen className="h-5 w-5 text-gold" /> Stock</span>
