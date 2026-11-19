@@ -288,17 +288,17 @@ export function VariationEditor({
               const Icon = ICONS[t.key] ?? SlidersHorizontal;
               return (
                 <button key={t.key} type="button" onClick={() => addOption(t.name)}
-                  className="flex min-h-[76px] min-w-0 items-center gap-3 rounded-[20px] border-2 border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3.5 text-left text-[19px] font-extrabold text-ink active:scale-[.98]">
+                  className="flex min-h-[76px] min-w-0 flex-col items-start justify-center gap-2 rounded-[20px] border-2 border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3.5 py-3 text-left text-[19px] font-extrabold text-ink active:scale-[.98] min-[380px]:flex-row min-[380px]:items-center min-[380px]:gap-3">
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-gold/15 text-[#8a6d0b] dark:text-gold"><Icon className="h-[26px] w-[26px]" /></span>
-                  <span className="min-w-0 break-words leading-tight">{t.name}</span>
+                  <span className="min-w-0 leading-tight">{t.name}</span>
                 </button>
               );
             })}
             {settings.allowCustomOptions && (
               <button type="button" onClick={() => addOption("Custom")}
-                className="flex min-h-[76px] min-w-0 items-center gap-3 rounded-[20px] border-2 border-dashed border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3.5 text-left text-[19px] font-extrabold text-ink active:scale-[.98]">
+                className="flex min-h-[76px] min-w-0 flex-col items-start justify-center gap-2 rounded-[20px] border-2 border-dashed border-[var(--border-faint)] bg-[rgb(var(--surface-card))] px-3.5 py-3 text-left text-[19px] font-extrabold text-ink active:scale-[.98] min-[380px]:flex-row min-[380px]:items-center min-[380px]:gap-3">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[rgb(var(--surface-muted))] text-ink"><Plus className="h-[26px] w-[26px]" strokeWidth={2.6} /></span>
-                <span className="min-w-0 break-words leading-tight">Custom</span>
+                <span className="min-w-0 leading-tight">Custom</span>
               </button>
             )}
           </div>

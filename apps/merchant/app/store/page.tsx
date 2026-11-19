@@ -5180,7 +5180,7 @@ export default function MerchantProStorePage() {
               </div>
             }
           >
-            <VariationEditor mode="sheet" value={variationEdit} onChange={setVariationEdit} settings={variationSettings} basePrice={variationProduct.price} baseStock={variationProduct.inventory_quantity} />
+            <VariationEditor mode="sheet" value={variationEdit} onChange={(next) => { setVariationEdit(next); setError(""); }} settings={variationSettings} basePrice={variationProduct.price} baseStock={variationProduct.inventory_quantity} />
           </BottomSheet>
         );
       })()}
