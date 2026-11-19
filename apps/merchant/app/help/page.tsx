@@ -1,16 +1,16 @@
 "use client";
 
 import { HelpSupport } from "@peebee/shared/help-support";
+import { AccountFrame, useBack } from "../../components/account/AccountUI";
+import { PageHeader } from "../../components/store/StoreUI";
 import { getStoredToken } from "../../lib/api";
 
 export default function HelpPage() {
+  const back = useBack("/account");
   return (
-    <div className="space-y-4 px-4 pb-28 pt-5">
-      <header>
-        <h1 className="text-xl font-bold text-ink">Help &amp; support</h1>
-        <p className="mt-1 text-sm text-ink-500">Ask the Peebee assistant, or talk to someone on the support team.</p>
-      </header>
-      <HelpSupport app="merchant" apiBase={process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:10000"} getToken={getStoredToken} />
-    </div>
+    <AccountFrame testId="help-page">
+      <PageHeader title="Help & support" onBack={back} backLabel="Back" />
+      <HelpSupport app="merchant" variant="merchant" apiBase={process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:10000"} getToken={getStoredToken} />
+    </AccountFrame>
   );
 }
