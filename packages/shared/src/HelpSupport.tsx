@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { MerchantHelp, MERCHANT_GREETING } from "./HelpSupportMerchant.js";
 import { supportAppLabel, type SupportAppId } from "./support-chat.js";
 
 /**
@@ -74,7 +75,8 @@ const saveSession = (app: string, s: Session | null) => {
   try { if (s) window.sessionStorage.setItem(sessionKey(app), JSON.stringify(s)); else window.sessionStorage.removeItem(sessionKey(app)); } catch { /* private mode: the chat just will not survive a reload */ }
 };
 
-export function HelpSupport({ app, apiBase, getToken }: { app: SupportAppId; apiBase: string; getToken?: () => string | null }) {
+/** `variant="merchant"` swaps in the merchant look (HelpSupportMerchant); the chat itself is the same for every app. */
+export function HelpSupport({ app, apiBase, getToken, variant = "default" }: { app: SupportAppId; apiBase: string; getToken?: () => string | null; variant?: "default" | "merchant" }) {
   const [config, setConfig] = useState<Config | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<Status>("ai");
@@ -157,7 +159,11 @@ export function HelpSupport({ app, apiBase, getToken }: { app: SupportAppId; api
     return () => { stopped = true; clearTimeout(timer); };
   }, [session, status, call, merge]);
 
-  useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight, behavior: "smooth" }); }, [messages, busy, status]);
+  useEffect(() => {
+    // The merchant look scrolls with the page (its composer is fixed above the bottom nav), so it follows the page instead.
+    if (variant === "merchant") { if (messages.length) window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" }); return; }
+    list.current?.scrollTo({ top: list.current.scrollHeight, behavior: "smooth" });
+  }, [messages, busy, status, variant]);
 
   async function ensureSession(): Promise<Session> {
     if (session) return session;
@@ -203,6 +209,18 @@ export function HelpSupport({ app, apiBase, getToken }: { app: SupportAppId; api
     setBusy(false);
   }
 
+  function merchantBase() {
+    return {
+      loading: false, live: true, aiEnabled: false, appLabel: label, status, agentName, position, availability, leftOffline,
+      offer: "none" as const, ended: false, signedIn: Boolean(getToken?.()), away: "", composing, setComposing, contact, setContact,
+      text, setText, busy, error, hasMessages: messages.length > 0, shown: [] as Message[], listRef: list,
+      send: (t: string) => void send(t), toPerson: (c?: string) => void toPerson(c), backToAI: () => void backToAI(),
+    };
+  }
+
+  if (variant === "merchant" && (config === null || !config.live)) {
+    return <MerchantHelp {...merchantBase()} loading={config === null} live={false} />;
+  }
   if (config === null) return <><style>{CSS}</style><div className="pbhs" aria-busy="true"><p className="pbhs-note">Loading…</p></div></>;
   if (!config.live) {
     return <><style>{CSS}</style><div className="pbhs"><p className="pbhs-note">Chat support is not available in {label} right now. Please try again later.</p></div></>;
@@ -216,7 +234,11 @@ export function HelpSupport({ app, apiBase, getToken }: { app: SupportAppId; api
   const away = (availability?.hours ? ` We are on ${availability.hours}.` : "");
   // The waiting card below says what the server's "Connecting you…" / "team is away" line says.
   const visible = messages.filter((m) => !(m.from === "system" && (m.text.startsWith("Connecting you to a support agent") || m.text.startsWith("The team is away right now"))));
-  const shown = messages.length === 0 ? [{ id: 0, from: "ai" as Sender, text: GREETING, at: "" }] : visible;
+  const shown = messages.length === 0 ? [{ id: 0, from: "ai" as Sender, text: variant === "merchant" ? MERCHANT_GREETING : GREETING, at: "" }] : visible;
+
+  if (variant === "merchant") {
+    return <MerchantHelp {...merchantBase()} loading={false} live aiEnabled={config.aiEnabled} offer={offer} ended={ended} signedIn={signedIn} away={away} shown={shown} />;
+  }
 
   return (
     <>
