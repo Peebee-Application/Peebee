@@ -4655,13 +4655,14 @@ export default function MerchantProStorePage() {
           {/* Quick Action Bar */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowAddProduct(true)}
+              <Link
+                href="/store/items/new"
+                data-testid="add-item"
                 className="flex items-center gap-2 rounded-full bg-gold px-4 py-2.5 text-xs font-bold text-ink-gold shadow transition active:scale-95"
               >
                 <Plus className="h-4 w-4" />
                 <span>Add Product</span>
-              </button>
+              </Link>
 
               <button
                 type="button"

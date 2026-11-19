@@ -55,7 +55,8 @@ mediaRoutes.post("/channels/media", requireAuth, bodyLimit({ maxSize: 101 * 1024
 /** Public pictures and audio. Only keys under the public prefix; ID documents live elsewhere. */
 mediaRoutes.get("/public/media/*", async (c) => {
   const key = decodeURIComponent(new URL(c.req.url).pathname.replace(/^\/v1\/public\/media\//, ""));
-  if (!key.startsWith(PUBLIC_MEDIA_PREFIX) || key.includes("..")) return c.json({ error: "not_found" }, 404);
+  // Product photos and videos from the add-item wizard are public too (marketplace/store-items.ts).
+  if (!(key.startsWith(PUBLIC_MEDIA_PREFIX) || key.startsWith("store-media/")) || key.includes("..")) return c.json({ error: "not_found" }, 404);
   const object = await getR2Bucket().get(key);
   if (!object) return c.json({ error: "not_found" }, 404);
   return new Response(object.body, { headers: { ...uploadResponseHeaders(object.httpMetadata?.contentType, "application/octet-stream"), "Cache-Control": "public, max-age=31536000, immutable" } });

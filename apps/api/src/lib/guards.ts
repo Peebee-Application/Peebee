@@ -47,6 +47,8 @@ export type MerchantPermission = "manage_catalog" | "manage_store_settings" | "m
 
 const RULES: Array<{ methods: string[]; pattern: RegExp; permission: MerchantPermission }> = [
   { methods: ["POST"], pattern: /^\/merchants\/me\/store\/tier$/, permission: "manage_billing" },
+  { methods: ["POST"], pattern: /^\/merchants\/me\/store\/(plan-quote|plan-pin|plan-checkouts|plan-checkouts\/[^/]+\/(resend|verify|cancel))$/, permission: "manage_billing" },
+  { methods: ["POST"], pattern: /^\/merchants\/me\/store\/(items|media)$/, permission: "manage_catalog" },
   { methods: ["PUT", "POST"], pattern: /^\/merchants\/me\/store$/, permission: "manage_store_settings" },
   { methods: ["PUT"], pattern: /^\/merchants\/me\/storefront-sections$/, permission: "manage_store_settings" },
   { methods: ["POST"], pattern: /^\/merchants\/me\/store\/live\/(start|end)$/, permission: "manage_store_settings" },

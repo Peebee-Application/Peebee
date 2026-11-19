@@ -14,6 +14,7 @@ type DigitalItem = {
   compare_at_price_ugx?: number | null;
   sold_out?: boolean;
   file_name?: string | null;
+  cover_image_url?: string | null;
 };
 
 type Receipt = { title: string; accessUrl: string; licenseKey: string | null; expiresAt: string | null; paid: number; textStatus: string | null; needsManual: boolean };
@@ -55,7 +56,12 @@ export function DigitalShelf({ items }: { items: DigitalItem[] }) {
           const price = Number(item.price_ugx) || 0;
           return (
             <article key={item.id} className={`${softCard} flex items-start gap-3 p-4`}>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold"><Icon className="h-5 w-5" aria-hidden /></span>
+              {item.cover_image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={item.cover_image_url} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover bg-surface-muted" loading="lazy" />
+              ) : (
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold"><Icon className="h-5 w-5" aria-hidden /></span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-bold uppercase text-ink-500">{KIND_LABEL[item.kind] ?? item.kind}</p>
                 <h3 className="text-sm font-black text-ink">{item.title}</h3>

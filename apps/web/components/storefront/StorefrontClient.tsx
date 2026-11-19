@@ -297,7 +297,7 @@ export default function StorefrontClient({ overrideSlug, initial }: { overrideSl
           setUnavailable(true);
           return;
         }
-        const prodRes = await fetch(`${API_BASE}/v1/marketplace/stores/${encodeURIComponent(slug)}/products`)
+        const prodRes = await fetch(`${API_BASE}/v1/marketplace/stores/${encodeURIComponent(slug)}/products?channel=web`)
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null);
         if (!active) return;

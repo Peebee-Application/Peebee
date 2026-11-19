@@ -9,6 +9,7 @@ import { setR2Binding, type R2Bucket } from "./storage/r2.js";
 import { sweepExpiredOrders } from "./orders/expiry.js";
 import { sweepStuckFunding, sweepUnpaidAssignments } from "./orders/unpaid-release.js";
 import { sweepScheduledRides } from "./car/scheduled.js";
+import { sweepPlanCheckouts } from "./marketplace/plan-checkout.js";
 import { releaseStaleSeats } from "./car/carpool.js";
 import { releaseStaleBookings } from "./taxipress/bookings.js";
 import { sweepRentalRequests } from "./car/selfdrive.js";
@@ -98,6 +99,11 @@ export default {
       sweepProviderOperations()
         .then((result) => console.log("Provider reconciliation sweep:", JSON.stringify(result)))
         .catch((err) => console.error("Provider reconciliation sweep failed:", err)),
+    );
+    ctx.waitUntil(
+      sweepPlanCheckouts()
+        .then((result) => { if (result.checked > 0) console.log("Plan checkout sweep:", JSON.stringify(result)); })
+        .catch((err) => console.error("Plan checkout sweep failed:", err)),
     );
     ctx.waitUntil(
       sweepPendingTopups()

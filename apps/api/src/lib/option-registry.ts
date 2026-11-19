@@ -191,6 +191,11 @@ export const OPTION_SETTINGS: SettingDef[] = [
   },
 
   // ------------------------------------------------------------------ Merchant plans
+  { key: "merchant_plan_upgrade_credit", module: "plans", kind: "bool", label: "Credit unused days on upgrade", description: "When a store moves up mid-plan, what it paid for the days it has left comes off the new price.", default: true },
+  { key: "merchant_plan_downgrades", module: "plans", kind: "bool", label: "Let stores move down a plan", description: "A move down is confirmed with a code and starts when the current plan ends. It can be cancelled until then.", default: true },
+  { key: "store_media_max_image_mb", module: "storefront", kind: "int", label: "Largest product photo", description: "Per photo, in the add-item wizard.", default: 8, min: 1, max: 25, unit: "MB" },
+  { key: "store_media_max_video_mb", module: "storefront", kind: "int", label: "Largest product video", description: "Per video, in the add-item wizard.", default: 60, min: 5, max: 500, unit: "MB" },
+  { key: "store_media_max_photos", module: "storefront", kind: "int", label: "Photos per item", description: "In the add-item wizard.", default: 8, min: 1, max: 20 },
   {
     key: "merchant_plan_legacy_access", module: "plans", kind: "enum", label: "Stores that existed before plans",
     description: "Stores registered before plans were enforced. Prices and the free launch period are set under Marketplace settings.",

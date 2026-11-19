@@ -36,7 +36,30 @@ const PUBLIC_PRODUCT_FIELDS = [
 export function toPublicProduct(row: Row): Row {
   const out: Row = {};
   for (const key of PUBLIC_PRODUCT_FIELDS) if (key in row) out[key] = row[key];
+  // Wizard extras (migration 0164): the photo gallery and how the item gets to the buyer.
+  const images = parseJson<unknown[]>(row.images_json);
+  if (Array.isArray(images)) out.images = images.filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u)).slice(0, 20);
+  const delivery = parseJson<Row>(row.delivery_json);
+  if (delivery && typeof delivery === "object" && !Array.isArray(delivery)) {
+    out.delivery = {
+      delivery: delivery.delivery !== false,
+      pickup: delivery.pickup !== false,
+      sameDay: delivery.sameDay === true,
+      readyInDays: Number(delivery.readyInDays ?? 0) || 0,
+      ...(typeof delivery.readyIn === "string" ? { readyIn: delivery.readyIn } : {}),
+      returnsDays: Number(delivery.returnsDays ?? 0) || 0,
+    };
+  }
   return out;
+}
+
+function parseJson<T>(value: unknown): T | null {
+  if (typeof value !== "string" || !value) return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
 }
 
 /**
