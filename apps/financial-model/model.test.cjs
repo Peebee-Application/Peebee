@@ -2,6 +2,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 require("./line-items.js");
 require("./assumptions.js");
+require("./acquisition-network.js");
 require("./model.js");
 require("./peebee-defaults.js");
 require("./channels.js");
@@ -688,4 +689,88 @@ test("Admin defaults follow compatible rates and VAT independently from saved ov
   assert.deepEqual(live.defaultValues({ method: "units" }, { kind: "flat", value: 500 }, "USD"), {});
   assert.equal(live.settingFor(live.settingsIndex(snapshot), "buy", original), undefined);
   assert.equal(original.rate, "8");
+});
+
+const networkFixture = () => ({
+  ...structuredClone(forecastFixture), months: "12", tax: "0", scenarios: "no", valuation: "no",
+  directCosts: [], staff: [{
+    name: "Network team", roleType: "fixed", headcount: "2", amount: "100", burden: "10", month: "1",
+    endMonth: "1", growth: "0", moduleScope: "concierge", ridersPerAgent: "4", merchantsPerAgent: "2",
+  }], expenses: [], accounts: [], receivables: [], payables: [], ownedAssets: [], investments: [],
+  existingLoans: [], newLoans: [], contributions: [], inventoryMovements: [],
+  channels: [{name: "Peebee Concierge", key: "concierge"}],
+  "channel-concierge": [
+    {name: "Service fee", method: "units", orderForecast: "linked", demandGroup: "list-orders", price: "500", days: "0"},
+    {name: "List commission", method: "orders", orderForecast: "network", demandGroup: "list-orders",
+      openingCustomers: "100", organicTraffic: "1000", organicConversion: "1", growth: "0",
+      marketingBudget: "10000", marketingGrowth: "0", signupCost: "1000", customerActivation: "100",
+      customerChurn: "10", ordersPerCustomer: "2", orderValue: "3000", rate: "8", days: "0",
+      openingRiders: "10", openingMerchants: "5", riderActivation: "50", merchantActivation: "50",
+      riderReferrals: "1", riderConversion: "50", merchantReferrals: "2", merchantConversion: "50",
+      customerReferrals: "0.1", referralConversion: "50", partnerLeads: "10", partnerConversion: "50",
+      partnerBudget: "5000", riderReward: "100", merchantReward: "100", customerReward: "100",
+      acquisitionOverlap: "20", capacityMode: "on", workingDays: "20", riderOrders: "2", merchantOrders: "30",
+      completionRate: "90", networkUnitCost: "200"},
+  ],
+});
+const networkModel = answers => build(globalThis.FinancialChannels.consolidate(answers).answers)[0];
+
+test("all acquisition channels reconcile after estimated overlap and share completed orders without duplicate spend", () => {
+  const model = networkModel(networkFixture());
+  const first = model.months[0];
+  const source = first.details.streams[1];
+  for (const [field, expected] of Object.entries({paidCustomers: 8, organicCustomers: 8, riderCustomers: 4,
+    merchantCustomers: 4, referralCustomers: 3.6, partnerCustomers: 4, duplicateCustomers: 7.9,
+    customerStarts: 31.6, customers: 121.6, activeRiders: 14, activeMerchants: 7,
+    requestedOrders: 243.2, units: 189, unservedOrders: 33.2, failedOrders: 21, networkSpend: 6160})) near(source[field], expected);
+  near(first.details.streams[0].units, 189);
+  near(first.revenue, 139860);
+  near(first.paidMarketing, 10000);
+  near(first.referralMarketing, 6160);
+  near(first.cogs, 37800);
+  near(first.payroll, 220);
+  near(first.ebitda, 85680);
+  for (const row of model.months) near(row.check, 0);
+  near(model.annual[0].details.streams[1].ridersAdded, 4);
+  near(model.annual[0].details.streams[1].activeRiders, 14);
+  near(model.annual[0].details.streams[1].requestedOrders, model.months.filter(row=>row.year===model.months[0].year).reduce((s,row)=>s+row.details.streams[1].requestedOrders,0));
+  near(model.months[1].details.streams[1].ridersAdded, 0);
+});
+
+test("network sources respect launch, staff timing, module scope, caps and disabled cards", () => {
+  const a = networkFixture();
+  a["channel-concierge"][1].launchMonth = "3";
+  a["channel-concierge"][1].campaignMonth = "3";
+  a.staff[0].month = "3"; a.staff[0].endMonth = "3";
+  let model = networkModel(a);
+  near(model.months[0].revenue, 0); near(model.months[0].paidMarketing, 0);
+  near(model.months[0].referralMarketing, 0); near(model.months[0].cogs, 0);
+  near(model.months[2].details.streams[1].ridersAdded, 4);
+  near(model.months[3].details.streams[1].ridersAdded, 0);
+  a.staff[0].moduleScope = "rides";
+  model = networkModel(a); near(model.months[2].details.streams[1].ridersAdded, 0);
+  a["channel-concierge"][1].enabled = "no";
+  model = networkModel(a); near(model.months[2].revenue, 0); near(model.months[2].cogs, 0);
+});
+
+test("network onboarding shares company-wide staff across sources and never multiplies headcount", () => {
+  const a = networkFixture();
+  a.staff[0].moduleScope = "";
+  a.channels.push({name: "Peebee Buy",key: "buy"});
+  a["channel-buy"] = [{...a["channel-concierge"][1], name: "Buy fees"}];
+  const model = networkModel(a);
+  near(model.months[0].details.streams[1].ridersAdded, 2);
+  near(model.months[0].details.streams[2].ridersAdded, 2);
+  near(model.months[0].payroll, 220);
+});
+
+test("shared forecasts validate their source and previews use the actual network and staffing calculation", () => {
+  const a = networkFixture();
+  const prompt = globalThis.FinancialChannels.questionsFor(questions,a).find(q=>q.id==="channel-concierge");
+  assert.equal(errorFor(prompt,a["channel-concierge"],a),"");
+  const consolidated = globalThis.FinancialChannels.consolidate(a).answers;
+  near(globalThis.FinancialModel.firstMonthSale({...a["channel-concierge"][1],moduleKey:"concierge"},consolidated).units,189);
+  near(globalThis.FinancialModel.firstMonthSale({...a["channel-concierge"][0],moduleKey:"concierge"},consolidated).units,189);
+  a["channel-concierge"][0].demandGroup = "missing";
+  assert.match(errorFor(prompt,a["channel-concierge"],a),/acquisition forecast/);
 });

@@ -19,7 +19,7 @@
 
     const fixedCosts = answers.directCosts.flatMap((item, index) => item.basis === "fixed" ? [index] : []);
     const variableRate = answers.directCosts.reduce((total, item) => total + (item.basis === "rate" ? Number(item.rate) / 100 : 0), 0);
-    const useForecastMargin = answers.directCosts.some(item => item.basis === "inventory" || (item.basis === "rate" && item.revenueStreamIndexes && Number(item.rate) > 0));
+    const useForecastMargin = answers.streams.some(row => row.orderForecast === "network" && Number(row.networkUnitCost) > 0) || answers.directCosts.some(item => item.basis === "inventory" || (item.basis === "rate" && item.revenueStreamIndexes && Number(item.rate) > 0));
     const contribution = 1 - variableRate;
     const breakEven = row => {
       const fixedDirectCosts = fixedCosts.reduce((total, index) => total + row.details.directCosts[index].cogs, 0);

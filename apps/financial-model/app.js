@@ -981,7 +981,7 @@
           ${prompt.keyed ? "" : `<div class="line-fields">${fieldsFor(prompt, row).filter(field => field.id !== "name").map(field => lineField(field, effective(row), index)).join("")}</div>`}
           ${prompt.channelId ? `<div class="line-admin-defaults" data-admin-card="${index}">${adminCard(row, index)}</div>` : ""}
           ${scoped ? moduleAssignment(row, index) : ""}
-          ${hasRevenuePreview ? `<output class="revenue-estimate" data-estimate="${index}">${revenueEstimateMarkup(prompt, effective(row))}</output>` : ""}
+          ${hasRevenuePreview ? `<output class="revenue-estimate" data-estimate="${index}">${revenueEstimateMarkup(prompt, effective(row), rows)}</output>` : ""}
           ${expenses ? expenseCardExtras(row, index) : ""}
           ${staffing || assets ? `<output class="revenue-estimate" data-cost-estimate="${index}">${costEstimateMarkup(row)}</output>` : ""}
           <button type="button" class="text-button remove-line" id="remove-line-${index}" data-remove="${index}" aria-label="${escape("Remove " + (row.name || prompt.item + " " + (index + 1)))}">Remove</button>
@@ -1013,7 +1013,7 @@
         const markup = adminCard(row, index);
         if (content.innerHTML !== markup) content.innerHTML = markup;
       }
-      if (estimate) estimate.innerHTML = revenueEstimateMarkup(prompt, effective(row));
+      if (estimate) estimate.innerHTML = revenueEstimateMarkup(prompt, effective(row), rows);
     }
 
     if (prompt.channelId) refreshCardDefaults = () => rows.forEach((row, index) => {
@@ -1206,7 +1206,7 @@
         else rows[index].enabled = "no";
         field.closest(".forecast-switch").querySelector(".forecast-switch-state").textContent = field.checked ? "On" : "Off";
         if (scoped) updateCostStatus(index);
-        if (hasRevenuePreview) editor.querySelector(`[data-estimate="${index}"]`).innerHTML = revenueEstimateMarkup(prompt, effective(rows[index]));
+        if (hasRevenuePreview) rows.forEach((item, i) => { editor.querySelector(`[data-estimate="${i}"]`).innerHTML = revenueEstimateMarkup(prompt, effective(item), rows); });
         remember();
         return;
       }
@@ -1248,11 +1248,13 @@
         draw(field.id);
       }
       else {
-        const estimate = editor.querySelector(`[data-estimate="${field.dataset.line}"]`);
-        if (estimate) {
-          const markup = revenueEstimateMarkup(prompt, effective(row));
-          if (estimate.innerHTML !== markup) estimate.innerHTML = markup;
-        }
+        if (hasRevenuePreview) rows.forEach((item, index) => {
+          const estimate = editor.querySelector(`[data-estimate="${index}"]`);
+          if (estimate) {
+            const markup = revenueEstimateMarkup(prompt, effective(item), rows);
+            if (estimate.innerHTML !== markup) estimate.innerHTML = markup;
+          }
+        });
         const costEstimate = editor.querySelector(`[data-cost-estimate="${field.dataset.line}"]`);
         if (costEstimate) {
           const markup = costEstimateMarkup(row);
@@ -1307,7 +1309,7 @@
     return `<span>Projected expense</span><strong>${escape(amounts.join(" · "))}</strong>`;
   }
 
-  function revenueEstimateMarkup(prompt, row) {
+  function revenueEstimateMarkup(prompt, row, previewRows) {
     if (!included(row)) return '<span>Revenue stream is off.</span><strong>Excluded from this forecast</strong>';
     const method = prompt.fields.find(field => field.id === "method");
     if (errorFor(method, row.method, answers)) return '<span>Choose a revenue driver to see the estimate.</span>';
@@ -1317,7 +1319,14 @@
       return '<span>Complete the revenue inputs to see the month-one estimate.</span>';
     }
 
-    const estimated = firstMonthSale(row);
+    let estimated;
+    try {
+      const context = prompt.channelId ? consolidate({ ...answers,
+        [prompt.id]: effectiveRows(prompt, previewRows || answers[prompt.id]) }).answers : undefined;
+      estimated = firstMonthSale({ ...row, moduleKey: prompt.channelId }, context);
+    } catch {
+      return '<span>Complete the linked revenue and staffing inputs to see the estimate.</span>';
+    }
     const { revenue, units, price, volume, feeRate, orderValue, joining, leaving, active, marketingSpend, paidSignups, organicSignups, customers } = estimated;
     const percent = format(feeRate, "rate");
     const count = value => numberFormat.format(value);
@@ -1341,10 +1350,17 @@
       default:
         formula = "Entered first-month sales amount";
     }
+    if (row.orderForecast === "network") {
+      formula = `${count(estimated.customerStarts)} new unique paying customers · ${count(estimated.activeRiders)} active riders · ${count(estimated.activeMerchants)} active merchants · ${count(estimated.requestedOrders)} requested / ${count(units)} completed orders · ${money(estimated.networkSpend)} referral and partnership costs. ${formula}`;
+    }
+    if (row.orderForecast === "linked") formula = `Completed orders from ${row.demandGroup}. ${formula}`;
     return `<span>${escape(formula)}</span><strong>Launch-month Peebee revenue ${escape(money(revenue))}</strong>`;
   }
 
   function lineField(field, row, index, descriptionId = "error") {
+    if (field.id === "orderForecast" && row.method === "units") {
+      field = { ...field, choices: field.choices.filter(([key]) => key === "growth" || key === "linked") };
+    }
     const id = `item-${index}-${field.id}`;
     const attrs = `id="${id}" data-line="${index}" data-field="${field.id}" aria-describedby="${descriptionId}"`;
     const value = row[field.id] ?? "";

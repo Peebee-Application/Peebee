@@ -1,5 +1,6 @@
 (() => {
   const { upgradeDraft, byId, expenseGroups, acquisition, staffDepartments, assetCategories, directCostCategories } = globalThis.FinancialLineItems;
+  const network = globalThis.FinancialNetwork;
   const halfCent = 0.005;
   const maxPreciseAmount = Number.MAX_SAFE_INTEGER / 100;
 
@@ -18,7 +19,7 @@
   const sum = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
   const total = rows => sum(rows, "amount");
   const numericLine = row => Object.fromEntries(Object.entries(row).map(([key, value]) =>
-    [key, ["name", "method", "basis", "priceCurrency", "cadence", "roleType", "department", "salaryBasis", "category", "assetClass", "replacement", "repayment", "inventoryCode", "inventoryDemand", "openingUnitCost", "movement", "budgetScaling", "orderForecast", "revenueStreamIndexes"].includes(key) ? value : Number(value || 0)]));
+    [key, ["name", "method", "basis", "priceCurrency", "cadence", "roleType", "department", "salaryBasis", "category", "assetClass", "replacement", "repayment", "inventoryCode", "inventoryDemand", "openingUnitCost", "movement", "budgetScaling", "orderForecast", "revenueStreamIndexes", "moduleScope", "moduleKey", "demandGroup", "capacityMode"].includes(key) ? value : Number(value || 0)]));
   const assetLife = (answers, assetClass) => Number(answers["assetLife_" + (assetClass || "other")] ||
     assetCategories.find(([id]) => id === assetClass)?.[2] || assetCategories.at(-1)[2]);
   const definedValue = (override, fallback) => override == null || override === "" ? fallback : override;
@@ -28,6 +29,9 @@
     if (id === "streams") {
       if (row.marketingCap === "") delete line.marketingCap;
       line.marketingVATRate = Number(definedValue(row.marketingVATRate, answers.vatSgaDefault || 0));
+      if (row.orderForecast === "network") {
+        for (const key of ["riderActivation", "merchantActivation", "completionRate"]) line[key] = Number(definedValue(row[key], 100));
+      }
     }
     if (id === "ownedAssets" || id === "investments") {
       const life = assetLife(answers, row.assetClass);
@@ -50,9 +54,17 @@
     return line;
   }
 
-  const amounts = answers => Object.fromEntries(Object.keys(byId).map(id => [
-    id, (answers[id] || []).map(row => resolvedLine(id, row, answers)),
-  ]));
+  const amounts = answers => {
+    const items = Object.fromEntries(Object.keys(byId).map(id => [
+      id, (answers[id] || []).map(row => resolvedLine(id, row, answers)),
+    ]));
+    items.streams.forEach((line, sourceIndex) => {
+      if (line.orderForecast === "network") items.directCosts.push({
+        name: line.name + " · Variable order costs", basis: "network", sourceIndex, category: "other", vatRate: 0,
+      });
+    });
+    return items;
+  };
   const numeric = (row, key) => row[key] || 0;
   const stockAfter = (opening, cogs, days) => Math.max(opening - cogs, cogs * days / 30);
   const scheduled = (rows, month) => rows.map(row => ({ amount: row.month === month ? row.amount : 0 }));
@@ -112,7 +124,12 @@
       marketingSpend, paidSignups, organicVisits, organicSignups, customerStarts, customerLosses, customers };
   }
 
-  function firstMonthSale(row) {
+  function firstMonthSale(row, context) {
+    if (context && ["network", "linked"].includes(row.orderForecast)) {
+      const items = amounts(upgradeDraft(context));
+      const index = items.streams.findIndex(line => line.moduleKey === row.moduleKey && line.name.endsWith(" · " + row.name));
+      if (index >= 0) return salesSchedule(items, Number(row.launchMonth || 1)).at(-1)[index];
+    }
     const line = resolvedLine("streams", row, {});
     const launch = line.launchMonth || 1;
     const first = acquisition(line) ? Math.min(line.campaignMonth || launch, launch) : launch;
@@ -243,7 +260,7 @@
   }
 
   const detailFlows = {
-    streams: ["revenue", "units", "joining", "leaving", "volume", "marketingSpend", "paidSignups", "organicVisits", "organicSignups", "customerStarts", "customerLosses"],
+    streams: ["revenue", "units", "joining", "leaving", "volume", "marketingSpend", "paidSignups", "organicVisits", "organicSignups", "customerStarts", "customerLosses", ...network.flowFields],
     directCosts: ["cogs", "purchases", "vat", "orderUnits", "receivedUnits", "lossUnits", "soldUnits", "openingOrders", "soldCost", "lossCost"],
     staff: ["amount", "wages", "benefits"],
     expenses: ["amount", "vat"],
@@ -256,7 +273,7 @@
     newLoans: ["draw", "principal", "interest"],
     contributions: ["amount"],
   };
-  const flows = ["vatSales", "vatPurchases", "vatExpenses", "vatMarketing", "vatPayment", "deltaVAT", "paidMarketing", "headcountAdded", "equipmentExpense", "equipmentPurchase", "equipmentReplacement", "equipmentCapex", "equipmentDepreciation", "revenue", "cogs", "gross", "payroll", "overhead", "ebitda", "depreciation", "ebit", "interest",
+  const flows = ["vatSales", "vatPurchases", "vatExpenses", "vatMarketing", "vatPayment", "deltaVAT", "paidMarketing", "referralMarketing", "headcountAdded", "equipmentExpense", "equipmentPurchase", "equipmentReplacement", "equipmentCapex", "equipmentDepreciation", "revenue", "cogs", "gross", "payroll", "overhead", "ebitda", "depreciation", "ebit", "interest",
     "pretax", "tax", "incomeTaxPayment", "profit", "deltaAR", "deltaStock", "deltaAP", "deltaWC", "purchases", "operating", "investing",
     "financing", "netCash", "capex", "draw", "principal", "equityRaised", "freeCash"];
 
@@ -270,13 +287,37 @@
           const result = { ...item };
           if ("opening" in result) result.opening = rows[0].details[id][i].opening;
           if ("openingUnits" in result) result.openingUnits = rows[0].details[id][i].openingUnits;
-          for (const key of detailFlows[id]) result[key] = rows.reduce((value, row) => value + row.details[id][i][key], 0);
+          for (const key of detailFlows[id]) result[key] = rows.reduce((value, row) => value + (row.details[id][i][key] || 0), 0);
           return result;
         })]));
       const annual = { ...last, details, period, openingCash: rows[0].openingCash };
       for (const key of flows) annual[key] = sum(rows, key);
       return annual;
     });
+  }
+
+  function salesSchedule(items, horizon, growthAdjustment = 0) {
+    const streamHistory = [];
+    for (let elapsed = 0; elapsed < horizon; elapsed++) {
+      const previous = streamHistory.at(-1);
+      const sources = new Map();
+      const sales = items.streams.map((line, index) => {
+        const base = sale(line, previous?.[index], elapsed, growthAdjustment);
+        if (line.orderForecast !== "network") return base;
+        const result = network.step(line, base, previous?.[index], elapsed + 1,
+          network.assignedStaff(items, line, elapsed + 1, staffExpense));
+        sources.set(network.sourceKey(line), result);
+        return result;
+      });
+      items.streams.forEach((line, index) => {
+        if (line.orderForecast === "linked") {
+          const source = elapsed + 1 >= (line.launchMonth || 1) ? sources.get(network.sourceKey(line)) : undefined;
+          sales[index] = network.linkedSale(line, sales[index], source);
+        }
+      });
+      streamHistory.push(sales);
+    }
+    return streamHistory;
   }
 
   function forecast(answers, items, name = "Base", growthAdjustment = 0) {
@@ -290,12 +331,13 @@
     const initialDebt = total(items.existingLoans);
     const stockAtOpen = items.directCosts.reduce((value, row) =>
       value + (row.basis === "inventory" ? openingInventory(row) : numeric(row, "stock")), 0);
+    const streamHistory = salesSchedule(items, n("months"), growthAdjustment);
     const inventory = items.directCosts.map(row => {
       if (row.basis !== "inventory") return null;
       const streams = row.revenueStreamIndexes ? row.revenueStreamIndexes.map(index => items.streams[index]) : items.streams;
-      const unitStreams = streams.filter(stream => stream.method === "units");
+      const unitIndexes = items.streams.flatMap((stream, index) => streams.includes(stream) && stream.method === "units" ? [index] : []);
       const salesUnits = row.inventoryDemand === "sales" ? Array.from({ length: n("months") }, (_, elapsed) =>
-        unitStreams.reduce((units, stream) => units + sale(stream, null, elapsed, growthAdjustment).units, 0)) : null;
+        unitIndexes.reduce((units, index) => units + streamHistory[elapsed][index].units, 0)) : null;
       return inventorySchedule(row, items.inventoryMovements, n("months"), salesUnits);
     });
     const initialAR = total(items.receivables);
@@ -320,7 +362,7 @@
       const period = `${year}-${String(calendarMonth).padStart(2, "0")}`;
       const current = (group, evaluate) => items[group].map((line, index) => evaluate(line, previous.details[group]?.[index], index));
       const streams = current("streams", (line, prior, index) => {
-        const result = sale(line, prior, i, growthAdjustment);
+        const result = streamHistory[i][index];
         const vat = vatOn(result.revenue, line);
         const grossSales = result.revenue + vat;
         const ar = tradeBalance(grossSales, numeric(line, "days"), months, "streams", index, "grossSales");
@@ -331,7 +373,10 @@
         const eligibleRevenue = line.revenueStreamIndexes
           ? line.revenueStreamIndexes.reduce((amount, stream) => amount + streams[stream].revenue, 0)
           : revenue;
-        const result = inventory[index]?.[i] ?? directCost(line, prior, eligibleRevenue, i);
+        const costLine = line.basis === "network" ? {
+          basis: "fixed", amount: streams[line.sourceIndex].units * numeric(items.streams[line.sourceIndex], "networkUnitCost"), growth: 0,
+        } : line;
+        const result = inventory[index]?.[i] ?? directCost(costLine, prior, eligibleRevenue, i);
         const vat = vatOn(result.purchases, line);
         const grossPurchases = result.purchases + vat;
         const ap = tradeBalance(grossPurchases, numeric(line, "payableDays"), months, "directCosts", index, "grossPurchases");
@@ -362,7 +407,8 @@
       const equipmentExpense = answers.hireEquipment === "expense" ? equipmentSpend : 0;
       const equipmentPurchase = answers.hireEquipment === "capital" ? equipmentSpend : 0;
       const paidMarketing = sum(streams, "marketingSpend");
-      const overhead = total(expenses) + paidMarketing + equipmentExpense;
+      const referralMarketing = streams.reduce((sum, row) => sum + (row.networkSpend || 0), 0);
+      const overhead = total(expenses) + paidMarketing + referralMarketing + equipmentExpense;
       const gross = revenue - cogs;
       const ebitda = gross - payroll - overhead;
       const ownedAssets = current("ownedAssets", (line, prior) => asset(line, prior, month, true));
@@ -448,7 +494,7 @@
       const freeCash = ebit - Math.max(0, ebit) * taxRate + depreciation - deltaWC - capex;
       const details = { streams, directCosts, staff, expenses, accounts, receivables, payables, ownedAssets, investments, existingLoans, newLoans, contributions };
       const row = { period, year, headcount, headcountAdded, equipmentExpense, equipmentPurchase, equipmentReplacement, equipmentCapex, equipmentDepreciation, equipmentAssets,
-        paidMarketing, vatSales, vatPurchases, vatExpenses, vatMarketing, vatBalance, vatPayment, vatReceivable, vatPayable, deltaVAT, revenue, cogs, gross, payroll, overhead, ebitda, depreciation, ebit, interest, pretax, tax, incomeTaxPayment, incomeTaxBalance, incomeTaxPayable, incomeTaxReceivable, profit,
+        paidMarketing, referralMarketing, vatSales, vatPurchases, vatExpenses, vatMarketing, vatBalance, vatPayment, vatReceivable, vatPayable, deltaVAT, revenue, cogs, gross, payroll, overhead, ebitda, depreciation, ebit, interest, pretax, tax, incomeTaxPayment, incomeTaxBalance, incomeTaxPayable, incomeTaxReceivable, profit,
         ar, stock, ap, wc, deltaAR, deltaStock, deltaAP, deltaWC, purchases, assets, cashAsset, cashShortfall, currentAssets, totalAssets, debt, liabilities, totalSources,
         capital, retained, equity, check, operating, investing, financing, netCash, openingCash, cash, capex, draw,
         principal, equityRaised, freeCash, details };
@@ -484,7 +530,17 @@
   const detail = (group, key, prefix, style = "detail", filter = () => true) => ({ group, key, prefix, style, filter });
   const assetLines = (key, prefix) => [detail("ownedAssets", key, prefix), detail("investments", key, prefix)];
   const loanLines = (key, prefix, sign = 1) => [detail("existingLoans", key, prefix), detail("newLoans", key, prefix)].map(line => ({ ...line, sign }));
+  const networkDriver = row => row.orderForecast === "network";
   const revenueDrivers = [
+    ...[["paidCustomers", "New customers · Paid"], ["organicCustomers", "New customers · Organic"],
+      ["riderCustomers", "New customers · Rider referrals"], ["merchantCustomers", "New customers · Merchant referrals"],
+      ["referralCustomers", "New customers · Customer referrals"], ["partnerCustomers", "New customers · Partnerships"],
+      ["duplicateCustomers", "Estimated duplicate acquisitions removed"], ["activeRiders", "Closing active riders"],
+      ["activeMerchants", "Closing active merchants"], ["ridersAdded", "Riders activated by staff"],
+      ["merchantsAdded", "Merchants activated by staff"], ["requestedOrders", "Requested orders"],
+      ["riderCapacity", "Rider order capacity"], ["merchantCapacity", "Merchant order capacity"],
+      ["unservedOrders", "Orders beyond capacity"], ["failedOrders", "Uncompleted fulfillable orders"],
+    ].map(([key, label]) => detail("streams", key, label, "count", networkDriver)),
       detail("streams", "organicVisits", "Organic visits", "count", acquisition),
       detail("streams", "organicSignups", "Organic signups", "count", acquisition),
       detail("streams", "paidSignups", "Paid signups", "count", acquisition),
@@ -506,7 +562,7 @@
     { id: "income", name: "Income statement", lines: [
       detail("streams", "revenue", "Sales"), ["Revenue", "revenue", "total"],
       detail("directCosts", "cogs", "Direct cost"), ["Direct costs", "cogs", "total"], ["Gross profit", "gross", "total"], ["Gross margin", margin("gross"), "rate"],
-      detail("staff", "amount", "Payroll"), ["Payroll", "payroll", "total"], detail("expenses", "amount", "Operating expense"), ["Equipment expensed for hires", "equipmentExpense"], ["Paid customer acquisition", "paidMarketing"], ["Operating expenses", "overhead", "total"],
+      detail("staff", "amount", "Payroll"), ["Payroll", "payroll", "total"], detail("expenses", "amount", "Operating expense"), ["Equipment expensed for hires", "equipmentExpense"], ["Paid customer acquisition", "paidMarketing"], ["Referral and partnership acquisition", "referralMarketing"], ["Operating expenses", "overhead", "total"],
       ["EBITDA", "ebitda", "footer"], ["EBITDA margin", margin("ebitda"), "rate"],
       ...assetLines("depreciation", "Depreciation"), ["Depreciation · Hiring equipment", "equipmentDepreciation"], ["Depreciation", "depreciation", "total"], ["Operating profit", "ebit", "total"],
       ...loanLines("interest", "Interest"), ["Interest expense", "interest", "total"],
@@ -537,7 +593,7 @@
       detail("streams", "revenue", "Sales"), ["Revenue", "revenue", "total"],
       detail("directCosts", "cogs", "Direct cost"), detail("directCosts", "purchases", "Purchases"), ["Total purchases", "purchases", "total"],
       detail("staff", "headcount", "Closing headcount", "count"), detail("staff", "wages", "Wages"), detail("staff", "benefits", "Employer taxes and benefits"),
-      ["Payroll", "payroll", "total"], detail("expenses", "amount", "Operating expense"), ["Equipment expensed for hires", "equipmentExpense"], ["Paid customer acquisition", "paidMarketing"], ["Operating expenses", "overhead", "total"],
+      ["Payroll", "payroll", "total"], detail("expenses", "amount", "Operating expense"), ["Equipment expensed for hires", "equipmentExpense"], ["Paid customer acquisition", "paidMarketing"], ["Referral and partnership acquisition", "referralMarketing"], ["Operating expenses", "overhead", "total"],
       detail("accounts", "amount", "Opening cash account"), detail("receivables", "settled", "Collection of opening balance"),
       detail("payables", "settled", "Payment of opening balance"), ["Net working capital", "wc", "total"], ["Change in working capital", "deltaWC"],
       ...assetLines("capex", "Asset purchase or replacement"), ...assetLines("depreciation", "Depreciation"), ...assetLines("assets", "Remaining book value"),
@@ -560,10 +616,10 @@
       ["Staff and payroll", "payroll"],
       ...expenseGroups.flatMap(([id, label]) => [
         detail("expenses", "amount", label, "detail", row => (row.category || "other") === id),
-        ...(id === "marketing" ? [detail("streams", "marketingSpend", "Paid acquisition", "detail", acquisition)] : []),
+        ...(id === "marketing" ? [detail("streams", "marketingSpend", "Paid acquisition", "detail", acquisition), detail("streams", "networkSpend", "Referrals and partnerships", "detail", row => row.orderForecast === "network")] : []),
         ...(id === "other" ? [["Equipment expensed for hires", "equipmentExpense"]] : []),
         [label, row => row.details.expenses.reduce((total, expense) => total + (expense.category === id ? expense.amount : 0),
-          id === "other" ? row.equipmentExpense : id === "marketing" ? row.paidMarketing : 0), "total"],
+          id === "other" ? row.equipmentExpense : id === "marketing" ? row.paidMarketing + row.referralMarketing : 0), "total"],
         ["Recoverable VAT · " + label, row => sum(row.details.expenses.filter(expense => expense.category === id), "vat")
           + (id === "marketing" ? row.vatMarketing : 0)],
       ]),

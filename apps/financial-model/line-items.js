@@ -52,7 +52,11 @@
     ["Customer Support", ["Head of Customer Support", "Senior Customer Support", "Junior Customer Support"]],
     ["Finance and Administration", []],
   ];
-  const acquisition = row => row.method === "orders" && row.orderForecast === "acquisition";
+  const network = row => row.method === "orders" && row.orderForecast === "network";
+  const linked = row => ["orders", "units"].includes(row.method) && row.orderForecast === "linked";
+  const acquisition = row => row.method === "orders" && ["acquisition", "network"].includes(row.orderForecast);
+  const networkNumber = (id, label, options = {}) => num(id, label, { optional: true, initial: "0", when: network, ...options });
+  const networkPercent = (id, label, initial = "0") => pct(id, label.replace(" (%)", ""), { optional: true, initial, when: network });
   const paidRole = row => row.roleType !== "disabled";
   const scalingTeam = row => row.roleType === "scaling";
   const assetCategories = [
@@ -77,10 +81,11 @@
     group("streams", "Revenue", "What are your revenue streams?", "Add each product, service or income stream and enter how it earns revenue. Collection days estimate the sales still owed at month end.", "revenue stream", [
       num("launchMonth", "Launch month override", { optional: true, min: 1, max: 84, step: 1 }),
       select("method", "Revenue driver", [["units", "Units × price"], ["subscription", "Subscriptions × monthly price"], ["direct", "Monthly sales amount"], ["orders", "Orders × average value × fee rate"], ["percentage", "Percentage of transaction or payout"]], "units"),
-      num("units", "Units sold in first month", { when: row => row.method === "units" }),
-      { ...select("orderForecast", "Forecast orders from", [["growth", "Starting orders and growth"], ["acquisition", "Customer acquisition and retention"]], "growth"),
-        optional: true, when: row => row.method === "orders" },
-      num("orders", "Estimated orders or transactions in month one", { step: 1, initial: "0", when: row => row.method === "orders" && !acquisition(row) }),
+      num("units", "Units sold in first month", { when: row => row.method === "units" && !linked(row) }),
+      { ...select("orderForecast", "Forecast orders from", [["growth", "Starting orders and growth"], ["acquisition", "Customer acquisition and retention"], ["network", "All acquisition channels and onboarding staff"], ["linked", "Completed orders from another revenue card"]], "growth"),
+        optional: true, when: row => row.method === "orders" || row.method === "units" },
+      { ...text("demandGroup", "Shared order forecast name"), when: row => network(row) || linked(row) },
+      num("orders", "Estimated orders or transactions in month one", { step: 1, initial: "0", when: row => row.method === "orders" && !acquisition(row) && !linked(row) }),
       num("openingCustomers", "Active customers before month one", { initial: "0", when: acquisition }),
       num("organicTraffic", "Organic visits in month one", { initial: "0", when: acquisition }),
       pct("organicConversion", "Organic visits that become signups", { initial: "0", when: acquisition }),
@@ -96,6 +101,31 @@
       pct("customerActivation", "Signups that become active customers", { initial: "0", when: acquisition }),
       pct("customerChurn", "Monthly active customer churn", { initial: "0", when: acquisition }),
       num("ordersPerCustomer", "Monthly orders per active customer", { initial: "1", when: acquisition }),
+      networkNumber("openingRiders", "Active riders before forecast"),
+      networkNumber("openingMerchants", "Active merchants before forecast"),
+      networkPercent("riderActivation", "Onboarded riders who become active (%)", "100"),
+      networkPercent("merchantActivation", "Onboarded merchants who become active (%)", "100"),
+      networkPercent("riderChurn", "Monthly active rider churn (%)"),
+      networkPercent("merchantChurn", "Monthly active merchant churn (%)"),
+      networkNumber("riderReferrals", "Monthly customer leads per retained active rider"),
+      networkPercent("riderConversion", "Rider leads becoming paying customers (%)"),
+      networkNumber("merchantReferrals", "Monthly customer leads per retained active merchant"),
+      networkPercent("merchantConversion", "Merchant leads becoming paying customers (%)"),
+      networkNumber("customerReferrals", "Monthly leads per retained customer"),
+      networkPercent("referralConversion", "Customer referral leads becoming paying customers (%)"),
+      networkNumber("partnerLeads", "Monthly partnership and community leads"),
+      networkPercent("partnerConversion", "Partnership leads becoming paying customers (%)"),
+      networkNumber("partnerBudget", "Monthly partnership and outreach spend"),
+      networkPercent("acquisitionOverlap", "Estimated duplicate acquisitions across channels (%)"),
+      networkNumber("riderReward", "Reward per acquired customer from riders", { unit: "currency" }),
+      networkNumber("merchantReward", "Reward per acquired customer from merchants", { unit: "currency" }),
+      networkNumber("customerReward", "Reward per acquired customer referral", { unit: "currency" }),
+      { ...select("capacityMode", "Limit orders to available riders and merchants", [["off", "Off"], ["on", "On"]], "off"), optional: true, when: network },
+      networkNumber("workingDays", "Service days per month", { max: 31 }),
+      networkNumber("riderOrders", "Daily order capacity per active rider"),
+      networkNumber("merchantOrders", "Orders supported per active merchant per month"),
+      networkPercent("completionRate", "Fulfillable orders successfully completed (%)", "100"),
+      networkNumber("networkUnitCost", "Variable platform cost per completed order", { unit: "currency" }),
       amount("orderValue", "Average eligible value per order", { initial: "0", when: row => row.method === "orders" }),
       num("active", "Subscribers before month one", { when: row => row.method === "subscription", initial: "0" }),
       num("newSubscribers", "New subscribers in first month", { when: row => row.method === "subscription" }),
@@ -104,7 +134,7 @@
       amount("amount", "First-month revenue", { when: row => row.method === "direct" }),
       amount("transactionValue", "First-month transaction or payout value", { when: row => row.method === "percentage" }),
       pct("rate", "Percentage earned", { initial: "0", when: row => row.method === "percentage" || row.method === "orders" }),
-      { ...growth("Monthly sales growth"), when: row => !acquisition(row) },
+      { ...growth("Monthly sales growth"), when: row => !acquisition(row) && !linked(row) },
       { ...pct("growth", "Monthly organic traffic growth", { min: -100, initial: "0", when: acquisition }) },
       days("days", "Customer payment days"), vat("VAT charged on sales (optional)"),
     ], ["Product sales", "Services", "Subscriptions", "Transaction fees", "Revenue share"], true),
@@ -143,6 +173,8 @@
         num("hiresPerPeriod", "Hires per period", { min: 1, step: 1, initial: "1", when: scalingTeam }),
         { ...select("hiringInterval", "Add hires", [["1", "Every month"], ["3", "Every quarter"], ["6", "Every six months"], ["12", "Every twelve months"]], "3"), when: scalingTeam },
         num("maxTeamSize", "Maximum team size", { min: 1, step: 1, initial: "5", when: scalingTeam }),
+        num("ridersPerAgent", "Riders onboarded per paid person monthly", { optional: true, initial: "0", when: paidRole }),
+        num("merchantsPerAgent", "Merchants onboarded per paid person monthly", { optional: true, initial: "0", when: paidRole }),
       ], staffDepartments.flatMap(([, roles]) => roles)),
       presetRows: staffDepartments.flatMap(([department, roles]) => roles.map(name => ({ name, department }))),
       presetGroups: staffDepartments.filter(([, roles]) => roles.length),
@@ -261,5 +293,5 @@
   }
 
   const scopedCostGroups = new Set(["directCosts", "staff", "expenses", "ownedAssets", "investments"]);
-  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft, scopedCostGroups, expenseGroups, expenseDefaults, acquisition, staffDepartments, assetCategories, directCostCategories };
+  globalThis.FinancialLineItems = { byId, channels, channelStreams, fieldsFor, upgradeDraft, scopedCostGroups, expenseGroups, expenseDefaults, acquisition, network, linked, staffDepartments, assetCategories, directCostCategories };
 })();
