@@ -209,7 +209,7 @@ export function VariantTable(p: Props) {
               ))}
               {sizeList.map((s) => (
                 <Row key={s || "one"}>
-                  <span className="grid h-16 place-items-center rounded-2xl bg-[rgb(var(--surface-muted))] px-1 text-center text-[19px] font-black leading-none text-ink break-all">{s || "•"}</span>
+                  <span className="sticky left-0 z-[1] grid h-16 place-items-center rounded-2xl bg-[rgb(var(--surface-muted))] px-1 shadow-[6px_0_8px_-6px_rgba(0,0,0,0.25)] text-center text-[19px] font-black leading-none text-ink break-all">{s || "•"}</span>
                   {groups.map((g) => {
                     const st = stockOf(s, g.name);
                     const pr = price(s, g.name);
