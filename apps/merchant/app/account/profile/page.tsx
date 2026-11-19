@@ -12,9 +12,9 @@ import { compressImage } from "../../../lib/image-compress";
 const MAX_BYTES = 4 * 1024 * 1024;
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-function SaveButton({ busy, label = "Save", testId, form }: { busy: boolean; label?: string; testId: string; form?: string }) {
+function SaveButton({ busy, label = "Save", testId, form, disabled = false }: { busy: boolean; label?: string; testId: string; form?: string; disabled?: boolean }) {
   return (
-    <button type="submit" form={form} disabled={busy} data-testid={testId}
+    <button type="submit" form={form} disabled={busy || disabled} data-testid={testId}
       className="flex min-h-16 w-full items-center justify-center gap-2.5 rounded-full bg-gold text-[20px] font-black text-ink-gold shadow-[0_8px_22px_rgb(var(--gold)/0.35)] active:scale-[.98] disabled:opacity-50">
       <Check className="h-6 w-6" strokeWidth={3} /> {busy ? "Saving…" : label}
     </button>
@@ -31,6 +31,8 @@ export default function ProfilePage() {
   const [name, setName] = useState("");
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [confirmTouched, setConfirmTouched] = useState(false);
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -73,8 +75,9 @@ export default function ProfilePage() {
     e.preventDefault();
     if (!current) { setSheetError("Type your current password."); return; }
     if (next.length < 6) { setSheetError("Use at least 6 characters."); return; }
+    if (next !== confirm) { setConfirmTouched(true); return; }
     setBusy(true); setSheetError("");
-    try { const r = await api.changePassword(current, next); setSession(r.token, r.user); setCurrent(""); setNext(""); setSheet(null); setNotice("Password changed"); }
+    try { const r = await api.changePassword(current, next); setSession(r.token, r.user); setCurrent(""); setNext(""); setConfirm(""); setConfirmTouched(false); setSheet(null); setNotice("Password changed"); }
     catch (cause) { setSheetError(errorMessage(cause)); } finally { setBusy(false); }
   }
 
@@ -101,7 +104,7 @@ export default function ProfilePage() {
       <Group>
         {user.passwordSet === false
           ? <GRow icon={KeyRound} value="Set a password" href="/forgot-password" testId="profile-set-password" />
-          : <GRow icon={KeyRound} value="Change password" onClick={() => { setCurrent(""); setNext(""); setSheetError(""); setSheet("password"); }} testId="profile-password" />}
+          : <GRow icon={KeyRound} value="Change password" onClick={() => { setCurrent(""); setNext(""); setConfirm(""); setConfirmTouched(false); setSheetError(""); setSheet("password"); }} testId="profile-password" />}
         {user.hasProfilePhoto && <GRow icon={ImageOff} value="Remove photo" onClick={() => { setSheetError(""); setSheet("photo-remove"); }} testId="profile-remove-photo" />}
       </Group>
 
@@ -115,7 +118,7 @@ export default function ProfilePage() {
         </BottomSheet>
       )}
       {sheet === "password" && (
-        <BottomSheet title="Change password" onClose={() => setSheet(null)} testId="password-sheet" footer={<SaveButton busy={busy} testId="password-save" form="password-form" />}>
+        <BottomSheet title="Change password" onClose={() => setSheet(null)} testId="password-sheet" footer={<SaveButton busy={busy} testId="password-save" form="password-form" disabled={!current || next.length < 6 || next !== confirm} />}>
           <form id="password-form" onSubmit={savePassword} className="space-y-4 pt-1">
             <div>
               <label htmlFor="pw-current" className={labelCls}><Lock className="h-5 w-5 text-gold" /> Current password</label>
@@ -128,6 +131,12 @@ export default function ProfilePage() {
                 <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? "Hide passwords" : "Show passwords"} aria-pressed={show}
                   className="absolute right-1 top-1/2 grid h-14 w-14 -translate-y-1/2 place-items-center rounded-full text-ink-500">{show ? <EyeOff className="h-6 w-6" /> : <Eye className="h-6 w-6" />}</button>
               </div>
+            </div>
+            <div>
+              <label htmlFor="pw-confirm" className={labelCls}><KeyRound className="h-5 w-5 text-gold" /> Confirm new password</label>
+              <input id="pw-confirm" type={show ? "text" : "password"} value={confirm} onChange={(e) => setConfirm(e.target.value)} onBlur={() => setConfirmTouched(true)} autoComplete="new-password"
+                aria-invalid={confirmTouched && confirm !== next} aria-describedby="pw-mismatch" className={`${fieldCls} ${confirmTouched && confirm !== next ? "!border-red-600" : ""}`} data-testid="pw-confirm" />
+              {confirmTouched && confirm !== next && <p id="pw-mismatch" role="alert" className="mt-2 text-[17px] font-bold text-red-600 dark:text-red-400" data-testid="pw-mismatch">Passwords don&apos;t match</p>}
             </div>
             <ErrorNote message={sheetError} />
           </form>
