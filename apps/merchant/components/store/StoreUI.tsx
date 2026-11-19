@@ -24,10 +24,10 @@ export function CornerBadge({ n, testId }: { n: number | string; testId?: string
 }
 
 /** Back button + big title (+ optional count and right-side control). */
-export function PageHeader({ title, count, onBack, right, testId }: { title: string; count?: number; onBack: () => void; right?: ReactNode; testId?: string }) {
+export function PageHeader({ title, count, onBack, right, testId, backLabel = "Back to store" }: { title: string; count?: number; onBack: () => void; right?: ReactNode; testId?: string; backLabel?: string }) {
   return (
     <div className="flex min-w-0 items-center gap-2.5" data-testid={testId}>
-      <button type="button" onClick={onBack} aria-label="Back to store" data-testid="store-back"
+      <button type="button" onClick={onBack} aria-label={backLabel} data-testid="store-back"
         className="grid h-14 w-14 shrink-0 place-items-center rounded-full border-[1.5px] border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] text-ink active:scale-95">
         <ChevronLeft className="h-7 w-7" strokeWidth={2.6} />
       </button>

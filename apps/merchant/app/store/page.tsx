@@ -99,6 +99,7 @@ import { api, errorMessage } from "../../lib/api";
 import { DEFAULT_PRODUCT_VARIATIONS, resolveProductVariations, type ProductVariationSettings } from "@peebee/shared";
 import { EMPTY_EDITOR, VariationEditor, editorFromProduct, editorPayload, variantSummary, variationProblem, type EditorState } from "../../components/store/VariationEditor";
 import { BottomSheet } from "../../components/store/BottomSheet";
+import { StoreSettings } from "../../components/store/StoreSettings";
 import { useAuth } from "../../lib/auth-context";
 
 interface ProStore {
@@ -140,6 +141,9 @@ interface ProStore {
   live_channel_title?: string | null;
   live_stream_url?: string | null;
   live_viewer_count?: number;
+  is_open?: number | null;
+  delivery_enabled?: number | null;
+  pickup_enabled?: number | null;
   status: "active" | "inactive";
   created_at: string;
 }
@@ -4800,24 +4804,15 @@ export default function MerchantProStorePage() {
       )}
 
       {activeTab === "settings" && (
-        <div className="space-y-4" data-testid="settings">
-          <PageHeader title="Settings" onBack={backHome} />
-          <div className="flex items-center gap-3.5">
-            {storeLogo}
-            <div className="min-w-0">
-              <p className="break-words text-[24px] font-black leading-tight text-ink">{store.name}</p>
-              <span className={`mt-1.5 inline-flex h-[34px] items-center gap-1.5 rounded-full px-3 text-[15px] font-black ${store.status === "active" ? "bg-[#16a34a]/15 text-[#15803d] dark:text-[#4ade80]" : "bg-[rgb(var(--surface-muted))] text-ink-500"}`}>
-                <i className={`block h-2.5 w-2.5 rounded-full ${store.status === "active" ? "bg-[#22c55e]" : "bg-ink-500"}`} />{store.status === "active" ? "Open" : "Closed"}
-              </span>
-            </div>
-          </div>
-          <BigRow icon={StoreIcon} title={store.name} sub="Store name" trailing={<Lock className="h-6 w-6 shrink-0 text-ink-500" />} testId="setting-name" />
-          <BigRow icon={ShoppingBag} title={store.category === "groceries" ? "Groceries & fresh food" : "Shop & boutique"} sub="Category" trailing={<Lock className="h-6 w-6 shrink-0 text-ink-500" />} />
-          <BigRow icon={Wallet} title={ugx(store.min_order_amount ?? 5000)} sub="Minimum order" trailing={<Lock className="h-6 w-6 shrink-0 text-ink-500" />} testId="setting-min-order" />
-          <BigRow icon={Globe} title="My website" sub={<span className="break-all">{siteHost}</span>} href={`https://${siteHost}`} external trailing={<ExternalLink className="h-6 w-6 shrink-0 text-ink-500" />} />
-          <BigRow icon={Smartphone} title="Peebee Buy" sub={<span className="break-all">{buyUrl.replace(/^https?:\/\//, "")}</span>} href={buyUrl} external trailing={<ExternalLink className="h-6 w-6 shrink-0 text-ink-500" />} />
-          <p className="flex items-start gap-2.5 rounded-[18px] bg-[rgb(var(--surface-muted))] p-4 text-[17px] font-semibold text-ink-500"><Lock className="mt-0.5 h-5 w-5 shrink-0" /> Locked details change through Peebee support.</p>
-        </div>
+        <StoreSettings
+          store={store}
+          canEdit={merchant?.member_role === "owner" || merchant?.member_role === "manager"}
+          onBack={backHome}
+          onSaved={(patch) => setStore((prev) => (prev ? { ...prev, ...(patch as Partial<ProStore>) } : prev))}
+          logo={storeLogo}
+          siteHost={siteHost}
+          buyUrl={buyUrl}
+        />
       )}
 
 

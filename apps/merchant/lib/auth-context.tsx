@@ -18,6 +18,8 @@ type AuthState = {
   login: (identifier: string, password: string) => Promise<void>;
   register: (input: { name: string; email?: string; phone?: string; password: string }) => Promise<void>;
   setSession: (token: string, user: AuthUser) => void;
+  /** Replace the signed-in user's saved details (e.g. after a name or photo change). */
+  updateUser: (user: AuthUser) => void;
   logout: () => void;
 };
 
@@ -87,6 +89,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(nextUser);
   }, []);
 
+  const updateUser = useCallback((nextUser: AuthUser) => {
+    localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+    setUser(nextUser);
+  }, []);
+
   const login = useCallback(async (identifier: string, password: string) => {
     const result = await api.login({ identifier, password });
     persist(result.token, result.user);
@@ -120,8 +127,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const merchant = merchants.find((item) => item.id === selectedId) ?? merchants[0] ?? null;
-  const value = useMemo(() => ({ user, ready, merchants, merchant, merchantsReady, merchantLoadError, selectMerchant, refreshMerchants, login, register, setSession: persist, logout }),
-    [user, ready, merchants, merchant, merchantsReady, merchantLoadError, selectMerchant, refreshMerchants, login, register, persist, logout]);
+  const value = useMemo(() => ({ user, ready, merchants, merchant, merchantsReady, merchantLoadError, selectMerchant, refreshMerchants, login, register, setSession: persist, updateUser, logout }),
+    [user, ready, merchants, merchant, merchantsReady, merchantLoadError, selectMerchant, refreshMerchants, login, register, persist, updateUser, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

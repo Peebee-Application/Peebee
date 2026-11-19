@@ -23,10 +23,12 @@ export function PracticeModeCard({ role }: { role: PracticeRole }) {
   if (available == null) return null;
   function start() { void launchPractice(role).then((path) => window.location.assign(path)); }
   return (
-    <section data-practice-role={role} className="home-card space-y-3 border-2 border-sky-300 bg-sky-50/70 dark:border-sky-800 dark:bg-sky-950/30">
-      <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700 dark:bg-sky-950/70 dark:text-sky-200"><FlaskConical className="h-5 w-5" strokeWidth={1.8} aria-hidden /></span><div><h2 className="text-sm font-bold text-ink">Practice Mode</h2><p className="mt-1 text-xs text-ink-500">Practise inside the real {ROLE_LABELS[role]} app with safe sample data.</p></div></div>
-      <p className="rounded-xl bg-[rgb(var(--surface-muted))] p-2.5 text-xs font-semibold text-ink">The screens and controls are the same as live. No real orders, notifications, balances or payments are used.</p>
-      <button type="button" onClick={start} disabled={!available} className="min-h-11 w-full rounded-full bg-sky-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{available ? `Open ${ROLE_LABELS[role]} practice` : "Practice is currently unavailable"}</button>
+    <section data-practice-role={role} className="flex flex-col gap-3.5 rounded-[26px] border-2 border-sky-400/40 bg-sky-500/[.09] p-[18px]">
+      <div className="flex items-center gap-3.5">
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-[18px] bg-sky-500/20 text-sky-700 dark:text-sky-300"><FlaskConical className="h-[30px] w-[30px]" strokeWidth={1.9} aria-hidden /></span>
+        <div className="min-w-0"><h2 className="text-[22px] font-black leading-tight text-ink">Practice mode</h2><p className="mt-0.5 text-[17px] font-bold text-ink-500">Sample data. No real money.</p></div>
+      </div>
+      <button type="button" onClick={start} disabled={!available} className="flex min-h-[60px] w-full items-center justify-center rounded-full bg-sky-600 px-4 text-[19px] font-black text-white active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-50">{available ? "Start practice" : "Practice is unavailable now"}</button>
     </section>
   );
 }
