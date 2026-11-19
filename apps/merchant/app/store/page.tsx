@@ -3,9 +3,9 @@
 import { ExistingDigitalPurchases } from "../../components/store/ExistingDigitalPurchases";
 import { LearningCreatorLink } from "@peebee/shared/learning-creator-link";
 import { SectionContentEditor } from "../../components/SectionContentEditor";
-import { PlanLadder, type PlanInfo } from "../../components/store/PlanLadder";
-import { Accordion } from "../../components/Accordion";
-import { TabBar } from "../../components/TabBar";
+import { type PlanInfo } from "../../components/store/PlanLadder";
+import { CatalogView } from "../../components/store/CatalogView";
+import { BigRow, CornerBadge, HubTile, PageHeader, Seg, StoreGlow, card, fieldCls, ghostBtn, goldBtn, labelCls } from "../../components/store/StoreUI";
 import { Select } from "@peebee/shared/select";
 import type {
   MarketplaceSettings,
@@ -80,8 +80,20 @@ import {
   X,
   Zap,
   Loader2,
+  ArrowRight,
+  BadgeCheck,
+  ExternalLink,
+  Info,
+  Leaf,
+  Link2,
+  Lock,
+  MessageCircle,
+  Music2,
+  Smartphone,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { DEFAULT_PRODUCT_VARIATIONS, resolveProductVariations, type ProductVariationSettings } from "@peebee/shared";
@@ -182,6 +194,8 @@ interface AdCampaign {
 }
 
 const ugx = (val: number) => `UGX ${Number(val || 0).toLocaleString()}`;
+const CUSTOMER = process.env.NEXT_PUBLIC_CUSTOMER_APP_URL ?? "https://app.peebee.online";
+type StoreSection = "home" | "catalog" | "live" | "ads" | "elite" | "settings";
 
 export default function MerchantProStorePage() {
   const { merchant } = useAuth();
@@ -195,7 +209,10 @@ export default function MerchantProStorePage() {
   const [settings, setSettings] = useState<MarketplaceSettings | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [activeTab, setActiveTab] = useState<"catalog" | "live" | "ads" | "elite" | "settings">("catalog");
+  const [activeTab, setActiveTab] = useState<StoreSection>("home");
+  const [eliteOpen, setEliteOpen] = useState(false);
+  const [planSheet, setPlanSheet] = useState(false);
+  const router = useRouter();
 
   // Elite OS sub-navigation
   const [eliteMenuOpen, setEliteMenuOpen] = useState(false);
@@ -386,18 +403,6 @@ export default function MerchantProStorePage() {
   const [wizardDesc, setWizardDesc] = useState("");
   const [wizardCreating, setWizardCreating] = useState(false);
 
-  // New product modal state
-  const [showAddProduct, setShowAddProduct] = useState(false);
-  const [productTitle, setProductTitle] = useState("");
-  const [productDesc, setProductDesc] = useState("");
-  const [productPrice, setProductPrice] = useState("");
-  const [productComparePrice, setProductComparePrice] = useState("");
-  const [productCostPrice, setProductCostPrice] = useState("");
-  const [productStock, setProductStock] = useState("50");
-  const [productCategory, setProductCategory] = useState("General");
-  const [productBadge, setProductBadge] = useState("");
-  const [productImage, setProductImage] = useState("");
-  const [variationState, setVariationState] = useState<EditorState>(EMPTY_EDITOR);
   const [variationSettings, setVariationSettings] = useState<ProductVariationSettings>(DEFAULT_PRODUCT_VARIATIONS);
   const [variationProduct, setVariationProduct] = useState<StoreProduct | null>(null);
   const [variationEdit, setVariationEdit] = useState<EditorState>(EMPTY_EDITOR);
@@ -427,6 +432,49 @@ export default function MerchantProStorePage() {
   useEffect(() => {
     loadData();
   }, [merchant]);
+
+  // Each Store section is its own screen; the phone's back button returns to the Store home (or the Elite tools).
+  useEffect(() => {
+    const sync = (st: unknown) => {
+      const h = (st ?? {}) as { storeSection?: StoreSection; eliteTool?: boolean; peebeeSheet?: boolean };
+      if (h.peebeeSheet) return;
+      setNotice("");
+      setActiveTab(h.storeSection ?? "home");
+      setEliteOpen(Boolean(h.eliteTool));
+    };
+    const t = setTimeout(() => {
+      sync(window.history.state);
+      try {
+        const saved = sessionStorage.getItem("peebee_store_notice");
+        if (saved) { sessionStorage.removeItem("peebee_store_notice"); setNotice(saved); }
+      } catch { /* storage blocked */ }
+    }, 0);
+    const onPop = (e: PopStateEvent) => sync(e.state);
+    window.addEventListener("popstate", onPop);
+    return () => { clearTimeout(t); window.removeEventListener("popstate", onPop); };
+  }, []);
+
+  function pushSection(section: StoreSection, eliteTool = false) {
+    try { window.history.pushState({ ...(window.history.state ?? {}), storeSection: section, eliteTool }, "", window.location.href); } catch { /* history unavailable */ }
+    setActiveTab(section);
+    setEliteOpen(eliteTool);
+    setNotice("");
+    window.scrollTo({ top: 0 });
+  }
+  function openSection(section: StoreSection) { pushSection(section); }
+  function backHome() {
+    const h = window.history.state as { storeSection?: StoreSection } | null;
+    if (h?.storeSection && h.storeSection !== "home") window.history.back();
+    else { setActiveTab("home"); setEliteOpen(false); }
+    window.scrollTo({ top: 0 });
+  }
+  function openTool(id: typeof eliteSection) { setEliteSection(id); pushSection("elite", true); }
+  function closeTool() {
+    const h = window.history.state as { eliteTool?: boolean } | null;
+    if (h?.eliteTool) window.history.back();
+    else setEliteOpen(false);
+    window.scrollTo({ top: 0 });
+  }
 
   async function loadData() {
     if (!merchant) return;
@@ -1101,59 +1149,6 @@ export default function MerchantProStorePage() {
     }
   }
 
-  async function handleSaveProduct() {
-    if (!store || !productTitle.trim() || !productPrice) {
-      setError("Please enter product title and price.");
-      return;
-    }
-    const variationIssue = variationProblem(variationState);
-    if (variationIssue) {
-      setError(variationIssue);
-      return;
-    }
-    setSavingProduct(true);
-    setError("");
-    try {
-      const variationBody = editorPayload(variationState);
-      await api.createMerchantProProduct({
-        title: productTitle.trim(),
-        description: productDesc.trim() || undefined,
-        price: Number(productPrice),
-        compare_at_price: productComparePrice ? Number(productComparePrice) : undefined,
-        cost_price: productCostPrice ? Number(productCostPrice) : undefined,
-        inventory_quantity: Number(productStock) || 50,
-        category_name: productCategory.trim() || "General",
-        badge: productBadge.trim() || undefined,
-        image_url: productImage.trim() || undefined,
-        has_variants: variationBody.variants.length > 0,
-        options: variationBody.options.length ? variationBody.options : undefined,
-        variants: variationBody.variants.length ? variationBody.variants : undefined,
-      });
-
-      await refreshEliteData();
-      setShowAddProduct(false);
-      resetProductForm();
-      setNotice(`✅ "${productTitle.trim()}" added to your catalog!`);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setSavingProduct(false);
-    }
-  }
-
-  function resetProductForm() {
-    setProductTitle("");
-    setProductDesc("");
-    setProductPrice("");
-    setProductComparePrice("");
-    setProductCostPrice("");
-    setProductStock("50");
-    setProductCategory("General");
-    setProductBadge("");
-    setProductImage("");
-    setVariationState(EMPTY_EDITOR);
-  }
-
   async function handleStartLiveSession() {
     if (!store || !liveTitle.trim() || !/^https:\/\//i.test(liveStreamUrl.trim())) {
       setError("Give the stream a title and a hosted HTTPS stream URL.");
@@ -1212,82 +1207,49 @@ export default function MerchantProStorePage() {
   if (!store && error) return <div className="space-y-4 p-5"><h1 className="text-xl font-bold">Store unavailable</h1><p role="alert">{error}</p><button className="min-h-11 rounded-full border border-gold px-4 font-bold" onClick={() => void loadData()}>Retry loading store</button></div>;
   if (!store) {
     return (
-      <div className="mx-auto max-w-xl space-y-5 px-4 py-6">
-        {/* Header Hero */}
-        <div className="relative overflow-hidden rounded-[28px] border border-gold/30 bg-gradient-to-br from-black-900 via-neutral-900 to-black-900 p-6 text-white shadow-xl">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gold/20 text-gold">
-              <Sparkles className="h-4.5 w-4.5" />
-            </span>
-            <span className="text-xs font-bold tracking-wider text-gold uppercase">Peebee Commerce Ladder</span>
+      <div className="relative mx-auto max-w-xl space-y-5 overflow-x-clip px-4 pb-10 pt-5" data-testid="store-create">
+        <StoreGlow />
+        <section className="relative overflow-hidden rounded-[32px] border-[1.5px] border-gold/45 bg-black p-5 text-white shadow-[0_14px_40px_rgba(0,0,0,.25)]">
+          <div aria-hidden className="pointer-events-none absolute -right-[70px] -top-[70px] h-[220px] w-[220px] rounded-full bg-[radial-gradient(circle,rgb(var(--gold)/0.45),transparent_70%)]" />
+          <div className="relative space-y-3">
+            <span className="grid h-16 w-16 place-items-center rounded-[20px] bg-gold text-ink-gold"><StoreIcon className="h-9 w-9" /></span>
+            <h1 className="text-[28px] font-black leading-tight">Open your store</h1>
+            <p className="text-[18px] font-semibold text-white/75">Sell in Buy and on your own website.</p>
           </div>
-
-          <h1 className="mt-3 font-serif text-2xl font-black text-white sm:text-3xl">
-            Power of Shopify. Simplicity of Snake Game.
-          </h1>
-          <p className="mt-2 text-sm text-neutral-300">
-            Upgrade from basic Merchant Code payments to a full Marketplace Store (Pro) or Merchant Elite Commerce OS (Elite).
-          </p>
-
-          <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-neutral-400">
-            <span className="rounded-full bg-white/10 px-3 py-1">1. Merchant Code (Free)</span>
-            <span className="rounded-full bg-gold/20 text-gold px-3 py-1">2. Marketplace (Pro)</span>
-            <span className="rounded-full bg-gold text-ink-gold font-bold px-3 py-1">3. Advanced OS (Elite)</span>
-          </div>
-        </div>
+        </section>
 
         {error && (
-          <div className="flex items-center gap-2 rounded-2xl bg-red-500/10 p-3.5 text-sm text-red-600 dark:text-red-400">
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <span role="alert">{error}</span><button type="button" className="min-h-11 shrink-0 px-3 underline" onClick={() => void loadData()}>Retry loading</button>
+          <div className="relative flex items-start gap-3 rounded-[20px] bg-red-600/10 p-4 text-[17px] font-bold text-red-600 dark:text-red-400">
+            <AlertCircle className="mt-0.5 h-6 w-6 shrink-0" />
+            <span role="alert" className="min-w-0 flex-1">{error}</span>
+            <button type="button" className="min-h-12 shrink-0 rounded-full px-3 underline" onClick={() => void loadData()}>Retry</button>
           </div>
         )}
 
-        {/* Wizard Form */}
-        <div className="rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm space-y-4">
-          <h2 className="text-lg font-bold text-ink">Step 1 of 2: Store Identity</h2>
-
+        <div className={`${card} relative space-y-5 p-5`}>
           <div>
-            <label htmlFor="store-field-1" className="text-xs font-semibold text-ink-500">Store Name</label>
-            <input id="store-field-1"
-              type="text"
-              value={wizardName}
-              onChange={(e) => setWizardName(e.target.value)}
-              placeholder="e.g. Fresh Bites Groceries or Chic Kampala Boutique"
-              className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-3 text-sm text-ink placeholder:text-ink-500/50 focus:border-gold focus:outline-none"
-            />
+            <label htmlFor="store-field-1" className={labelCls}>Store name</label>
+            <input id="store-field-1" type="text" value={wizardName} onChange={(e) => setWizardName(e.target.value)} placeholder="e.g. Chic Kampala Boutique" className={fieldCls} data-testid="create-name" />
           </div>
-
           <div>
-            <label className="text-xs font-semibold text-ink-500">Category</label>
-            <Select
-              aria-label="Category"
-              value={wizardCategory}
-              onValueChange={(val) => setWizardCategory(val as "groceries" | "stores")}
-              className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-3 text-sm text-ink focus:border-gold"
-            >
-              <option value="groceries">🥦 Groceries & Fresh Produce</option>
-              <option value="stores">👗 Stores, Boutique & Retail</option>
-            </Select>
+            <span className={labelCls}>Category</span>
+            <div className="grid grid-cols-2 gap-2.5" role="radiogroup" aria-label="Category">
+              {([["groceries", "Groceries", Leaf], ["stores", "Shop & boutique", ShoppingBag]] as const).map(([v, t, Icon]) => (
+                <button key={v} type="button" role="radio" aria-checked={wizardCategory === v} onClick={() => setWizardCategory(v)} data-testid={`create-cat-${v}`}
+                  className={`flex min-h-[104px] min-w-0 flex-col items-start justify-between gap-2 rounded-[22px] border-2 p-3.5 text-left text-[18px] font-black ${wizardCategory === v ? "border-gold bg-gold/12 text-ink" : "border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] text-ink"}`}>
+                  <span className={`grid h-11 w-11 place-items-center rounded-[14px] ${wizardCategory === v ? "bg-gold text-ink-gold" : "bg-[rgb(var(--surface-card))] text-ink"}`}><Icon className="h-6 w-6" /></span>
+                  <span className="break-words leading-tight">{t}</span>
+                </button>
+              ))}
+            </div>
           </div>
-
           <div>
-            <label htmlFor="store-field-2" className="text-xs font-semibold text-ink-500">Short Tagline (Optional)</label>
-            <input id="store-field-2"
-              type="text"
-              value={wizardDesc}
-              onChange={(e) => setWizardDesc(e.target.value)}
-              placeholder="e.g. Farm fresh fruits and vegetables delivered in 25 mins"
-              className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-3 text-sm text-ink placeholder:text-ink-500/50 focus:border-gold focus:outline-none"
-            />
+            <label htmlFor="store-field-2" className={labelCls}>Tagline <span className="font-semibold text-ink-500">(optional)</span></label>
+            <input id="store-field-2" type="text" value={wizardDesc} onChange={(e) => setWizardDesc(e.target.value)} placeholder="e.g. Delivered in 25 mins" className={fieldCls} />
           </div>
-
-          <button
-            onClick={handleCreateStore}
-            disabled={wizardCreating || !wizardName.trim()}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-gold py-3.5 text-sm font-bold text-ink-gold shadow-md transition active:scale-98 disabled:opacity-50"
-          >
-            {wizardCreating ? "Creating Store…" : "Launch Store (Chap Chap) →"}
+          <button type="button" onClick={handleCreateStore} disabled={wizardCreating || !wizardName.trim()} className={`${goldBtn} min-h-16 text-[20px]`} data-testid="create-store">
+            {wizardCreating ? <Loader2 className="h-6 w-6 animate-spin" /> : <Check className="h-6 w-6" strokeWidth={3} />}
+            {wizardCreating ? "Opening store…" : "Open my store"}
           </button>
         </div>
       </div>
@@ -1295,230 +1257,225 @@ export default function MerchantProStorePage() {
   }
 
   // 2. Active Pro & Elite Store Dashboard
+  const planName = isElite ? "Elite" : store.plan?.plan === "merchant" ? "Merchant" : "Pro";
+  const siteHost = store.custom_domain || `${store.slug}.peebee.online`;
+  const buyUrl = `${CUSTOMER}/store/${store.slug}`;
+  const feePercent = isElite ? settings?.eliteCommissionPercent ?? 5 : settings?.commissionPercent ?? 10;
+  const endsOn = store.plan?.expiresAt ? new Date(store.plan.expiresAt).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : null;
+  const storeLogo = store.logo_url ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={store.logo_url} alt="" className="h-[76px] w-[76px] shrink-0 rounded-[22px] border-2 border-gold/70 object-cover" />
+  ) : (
+    <span className="grid h-[76px] w-[76px] shrink-0 place-items-center rounded-[22px] border-2 border-gold/70 bg-gold/15 text-gold">
+      {store.category === "groceries" ? <Leaf className="h-10 w-10" /> : <ShoppingBag className="h-10 w-10" />}
+    </span>
+  );
+  const eliteTools: Array<{ group: string; items: Array<{ id: typeof eliteSection; label: string; icon: typeof Crown; count?: number }> }> = [
+    { group: "Sell", items: [
+      { id: "overview", label: "Profit & sales", icon: BarChart3 },
+      { id: "pos", label: "Till (POS)", icon: ShoppingBag, count: posSales.length },
+      { id: "discounts", label: "Promos", icon: Tag, count: discounts.length },
+      { id: "bundles", label: "Bundles", icon: Package, count: bundles.length },
+      { id: "b2b", label: "B2B quotes", icon: Briefcase, count: draftOrders.length },
+      { id: "digital", label: "Digital items", icon: Download, count: digitalProducts.length },
+      { id: "lms", label: "Courses", icon: GraduationCap, count: lmsCourses.length },
+    ] },
+    { group: "Customers", items: [
+      { id: "crm", label: "VIP customers", icon: Users, count: crmCustomers.length },
+      { id: "winback", label: "Win-back", icon: Send, count: winbackCampaigns.length },
+      { id: "sms", label: "SMS receipts", icon: MessageSquare, count: smsLogs.length },
+    ] },
+    { group: "Stock", items: [
+      { id: "inventory", label: "Outlets & transfers", icon: Building2 },
+      { id: "po", label: "Supplier orders", icon: Truck, count: purchaseOrders.length },
+      { id: "collections", label: "Collections", icon: Layers, count: collections.length },
+    ] },
+    { group: "Website", items: [
+      { id: "theme", label: "Theme & domain", icon: Palette },
+      { id: "sections", label: "Page builder", icon: SlidersHorizontal, count: storefrontSections.length },
+    ] },
+  ];
+  const currentTool = eliteTools.flatMap((g) => g.items).find((t) => t.id === eliteSection);
+
+  async function shareLink(url: string, title: string) {
+    try {
+      if (navigator.share) { await navigator.share({ title, url }); return; }
+      await navigator.clipboard.writeText(url);
+      setNotice("Link copied.");
+    } catch { /* closed or blocked */ }
+  }
+
   return (
-    <div className="mx-auto max-w-6xl space-y-5 px-4 pb-24 pt-4">
-      {/* Top Banner / Store Header */}
-      <div className="relative overflow-hidden rounded-[26px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/15 text-gold font-bold text-xl">
-              {store.category === "groceries" ? "🥦" : "🛍️"}
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-serif text-2xl font-black text-ink">{store.name}</h1>
-                <span className="rounded-full bg-green-500/15 px-2.5 py-0.5 text-[10px] font-bold text-green-600 dark:text-green-400">
-                  {store.status === "active" ? "OPEN" : "CLOSED"}
-                </span>
-                {isElite && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-gold px-2.5 py-0.5 text-[10px] font-black text-ink-gold">
-                    <Crown className="h-3 w-3" /> ELITE OS
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-ink-500 font-medium">
-                {store.custom_domain ? store.custom_domain : `peebee.online/${store.category}/${store.slug}`}
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowLiveStudio(true)}
-            className="flex items-center gap-1.5 rounded-full bg-gold px-3.5 py-2 text-xs font-bold text-ink-gold shadow-md transition hover:opacity-90 active:scale-95"
-          >
-            <Radio className="h-3.5 w-3.5 animate-pulse" />
-            <span>Live stream setup</span>
-          </button>
-        </div>
-
-      </div>
-
-      <Accordion title="Plan and links" icon={Crown} summary={isElite ? "Elite" : "Pro"}>
-        {/* Merchant / Pro / Elite plans */}
-        <PlanLadder
-          plan={store.plan}
-          isProFree={isProFree}
-          proPrice={settings?.proLivePriceUgx ?? 75000}
-          elitePrice={elitePrice}
-          eliteEnabled={settings?.eliteEnabled !== false}
-          commissionPercent={settings?.commissionPercent ?? 10}
-          eliteCommissionPercent={settings?.eliteCommissionPercent ?? 5}
-          onChanged={handlePlanChanged}
-        />
-
-        {/* Dual-Channel Auto-Sync Status: Peebee Customer App vs Dedicated Storefront */}
-        <div className="grid grid-cols-1 gap-2 border-t border-[var(--border-faint)] pt-3 sm:grid-cols-2">
-          <div className="flex items-center justify-between gap-2 rounded-2xl bg-[rgb(var(--surface-muted))] px-3 py-2">
-            <div className="min-w-0">
-              <span className="block text-[10px] font-black uppercase text-ink-500">
-                Channel 1 · Peebee Customer App
-              </span>
-              <span className="block truncate font-mono text-xs font-bold text-ink">
-                app.peebee.online/store/{store.slug}
-              </span>
-              <span className="block text-[10px] text-ink-500">
-                Peebee UI &amp; branding · Auto-syncs catalog &amp; stock
-              </span>
-            </div>
-            <a
-              href={`https://app.peebee.online/store/${store.slug}`}
-              target="_blank"
-              rel="noreferrer"
-              className="shrink-0 rounded-full bg-[rgb(var(--surface-card))] px-2.5 py-1 text-[10px] font-bold text-ink border border-[var(--border-faint)]"
-            >
-              Open App ↗
-            </a>
-          </div>
-
-          <div className="flex items-center justify-between gap-2 rounded-2xl border border-gold/40 bg-gold/10 px-3 py-2">
-            <div className="min-w-0">
-              <span className="block text-[10px] font-black uppercase text-gold">
-                Channel 2 · Dedicated Storefront
-              </span>
-              <span className="block truncate font-mono text-xs font-black text-ink">
-                {store.custom_domain || `${store.slug}.peebee.online`}
-              </span>
-              <span className="block text-[10px] text-ink-500">
-                Custom Store 2.0 theme, branding, collections &amp; B2B
-              </span>
-            </div>
-            <a
-              href={`https://${store.custom_domain || `${store.slug}.peebee.online`}`}
-              target="_blank"
-              rel="noreferrer"
-              className="shrink-0 rounded-full bg-gold px-2.5 py-1 text-[10px] font-black text-ink-gold"
-            >
-              Visit Site ↗
-            </a>
-          </div>
-        </div>
-      </Accordion>
-
+    <div className="relative mx-auto max-w-xl space-y-4 overflow-x-clip px-4 pb-24 pt-4" data-testid="store-page">
+      <StoreGlow />
+      <div className="relative space-y-4">
       {notice && (
-        <div className="flex items-center justify-between rounded-2xl bg-gold/15 p-3.5 text-sm font-semibold text-ink">
-          <span>{notice}</span>
-          <button onClick={() => setNotice("")} className="text-ink-500 hover:text-ink">
-            <X className="h-4 w-4" />
-          </button>
+        <div className="flex items-start gap-3 rounded-[20px] border-[1.5px] border-gold/50 bg-gold/15 p-4 text-[17px] font-bold text-ink" data-testid="store-notice">
+          <span className="min-w-0 flex-1 break-words">{notice}</span>
+          <button type="button" onClick={() => setNotice("")} aria-label="Dismiss" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-black/10 dark:bg-white/10"><X className="h-5 w-5" /></button>
         </div>
       )}
 
       {error && (
-        <div className="flex items-center justify-between rounded-2xl bg-red-500/10 p-3.5 text-sm font-semibold text-red-600 dark:text-red-400">
-          <span role="alert">{error}</span><button type="button" className="min-h-11 shrink-0 px-3 underline" onClick={() => void loadData()}>Retry loading</button>
-          <button onClick={() => setError("")} className="text-red-500">
-            <X className="h-4 w-4" />
-          </button>
+        <div className="flex flex-wrap items-center gap-2 rounded-[20px] bg-red-600/10 p-4 text-[17px] font-bold text-red-600 dark:text-red-400">
+          <span role="alert" className="min-w-0 flex-1 break-words">{error}</span>
+          <button type="button" className="min-h-12 shrink-0 rounded-full px-3 underline" onClick={() => void loadData()}>Retry</button>
+          <button type="button" onClick={() => setError("")} aria-label="Dismiss" className="grid h-11 w-11 shrink-0 place-items-center rounded-full"><X className="h-5 w-5" /></button>
         </div>
       )}
 
-      {/* Main Tabs Navigation */}
-      <TabBar
-        label="Store"
-        active={activeTab}
-        onChange={setActiveTab}
-        tabs={[
-          { id: "catalog", label: "Catalog", icon: Package, count: products.length },
-          { id: "elite", label: "Elite", icon: Crown },
-          { id: "live", label: "Live", icon: Tv },
-          { id: "ads", label: "Ads", icon: Megaphone },
-          { id: "settings", label: "Settings", icon: StoreIcon },
-        ]}
-      />
-
-      {!isElite && <ExistingDigitalPurchases purchases={digitalFulfillments} canRefund={store.permissions?.refund_revoke !== false} onRefund={handleRefundFulfillment} onRevoke={handleRevokeFulfillment} />}
-
-      {/* TAB: ELITE OS (Shopify & Merchant Elite Advanced Layer) */}
-      {activeTab === "elite" && (
-        <div className="space-y-4">
-          {!isElite && (
-            <div className="rounded-[24px] border border-gold bg-gradient-to-br from-black-900 via-neutral-900 to-black-900 p-5 text-white shadow-lg space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/20 px-3 py-1 text-xs font-bold text-gold">
-                  <Crown className="h-3.5 w-3.5" /> Tier 3 Upgrade · Merchant Elite Power
-                </span>
-                <span className="font-mono text-sm font-black text-gold">{ugx(elitePrice)}/mo</span>
+      {activeTab === "home" && (
+        <div className="space-y-4" data-testid="store-home">
+          <section className="relative overflow-hidden rounded-[32px] border-[1.5px] border-gold/45 bg-black p-[18px] text-white shadow-[0_14px_40px_rgba(0,0,0,.25)]" data-testid="store-card">
+            <div aria-hidden className="pointer-events-none absolute -right-[70px] -top-[70px] h-[220px] w-[220px] rounded-full bg-[radial-gradient(circle,rgb(var(--gold)/0.45),transparent_70%)]" />
+            <div className="relative space-y-4">
+              <div className="flex items-center gap-3.5">
+                {storeLogo}
+                <div className="min-w-0 flex-1">
+                  <h1 className="break-words text-[27px] font-black leading-tight" data-testid="store-name">{store.name}</h1>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className={`inline-flex h-[34px] items-center gap-1.5 rounded-full px-3 text-[15px] font-black ${store.status === "active" ? "bg-[#22c55e]/20 text-[#5fe0a0]" : "bg-white/15 text-white/80"}`}>
+                      <i className={`block h-2.5 w-2.5 rounded-full ${store.status === "active" ? "bg-[#22c55e]" : "bg-white/60"}`} />{store.status === "active" ? "Open" : "Closed"}
+                    </span>
+                    <span className={`inline-flex h-[34px] items-center gap-1.5 rounded-full px-3 text-[15px] font-black ${isElite ? "bg-gold text-ink-gold" : "bg-white/15 text-white"}`} data-testid="plan-pill">
+                      {isElite ? <Crown className="h-[17px] w-[17px]" strokeWidth={2.6} /> : <BadgeCheck className="h-[17px] w-[17px]" strokeWidth={2.6} />}{planName}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <h3 className="font-serif text-xl font-black">Upgrade to Merchant Advanced Marketplace (Elite)</h3>
-              <p className="text-xs text-neutral-300">
-                Unlock lower platform commissions ({settings?.eliteCommissionPercent ?? 5}% instead of{" "}
-                {settings?.commissionPercent ?? 10}%), up to {settings?.eliteMaxProducts ?? 5000} products, Online Store 2.0
-                custom themes & domains, Smart Collections, Promo/BOGO codes, Multi-Outlet stock matrix, and B2B Wholesale
-                Draft Orders.
-              </p>
-              <button
-                type="button"
-                disabled={upgradingTier}
-                onClick={() => document.getElementById("merchant-plans")?.scrollIntoView({behavior: "smooth"})}
-                className="w-full rounded-full bg-gold py-3 text-xs font-black text-ink-gold shadow-md transition active:scale-98"
-              >
-                {upgradingTier ? "Activating Elite OS…" : `Upgrade to Merchant Elite (${ugx(elitePrice)}/mo) →`}
+              <p className="flex items-start gap-2 break-all text-[16px] font-bold text-white/75"><Globe className="mt-0.5 h-5 w-5 shrink-0" />{siteHost}</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button type="button" onClick={() => setPlanSheet(true)} data-testid="open-plan-links"
+                  className="flex min-h-[60px] min-w-0 items-center justify-center gap-2 rounded-[18px] border-[1.5px] border-white/20 bg-white/10 px-2 text-[18px] font-black text-white active:scale-[.98]">
+                  <Link2 className="h-[22px] w-[22px] shrink-0" /><span className="min-w-0 text-center leading-tight">Plan &amp; links</span>
+                </button>
+                <button type="button" onClick={() => { setPreviewScreen("storefront"); setShowStorefrontPreview(true); }} data-testid="open-preview"
+                  className="flex min-h-[60px] min-w-0 items-center justify-center gap-2 rounded-[18px] bg-gold px-2 text-[18px] font-black text-ink-gold active:scale-[.98]">
+                  <Eye className="h-[22px] w-[22px] shrink-0" /><span className="truncate">Preview</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <Link href="/store/items/new" data-testid="add-item" className="flex min-h-[72px] items-center gap-3.5 rounded-[24px] bg-gold px-[18px] text-[21px] font-black text-ink-gold shadow-[0_10px_26px_rgb(var(--gold)/0.35)] transition active:scale-[.98]">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-black text-gold"><Plus className="h-7 w-7" strokeWidth={3} /></span>
+            <span className="flex-1">Add item</span>
+            <ChevronRight className="h-7 w-7" strokeWidth={3} />
+          </Link>
+
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <HubTile icon={Package} title="Catalog" sub="Your items" badge={products.length} onClick={() => openSection("catalog")} testId="tile-catalog" />
+            <HubTile icon={Radio} tone="red" title="Live" sub={isLiveActive ? "On air now" : "Sell on camera"} onClick={() => openSection("live")} testId="tile-live" />
+            <HubTile icon={Megaphone} title="Ads" sub="Plan a promo" onClick={() => openSection("ads")} testId="tile-ads" />
+            <HubTile icon={StoreIcon} title="Settings" sub="Store details" onClick={() => openSection("settings")} testId="tile-settings" />
+            <button type="button" onClick={() => openSection("elite")} data-testid="tile-elite"
+              className="col-span-2 flex min-h-[96px] min-w-0 items-center gap-3.5 rounded-[26px] border-[1.5px] border-gold/50 bg-black p-4 text-left text-white active:scale-[.98] dark:bg-[#000]">
+              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-[18px] bg-gold text-ink-gold"><Crown className="h-[30px] w-[30px]" /></span>
+              <span className="min-w-0 flex-1"><span className="block text-[20px] font-black">Elite</span><span className="block text-[16px] font-semibold text-white/65">{isElite ? `${eliteTools.reduce((n, g) => n + g.items.length, 0)} tools` : "Unlock more"}</span></span>
+              <ChevronRight className="h-[30px] w-[30px] shrink-0 text-gold" strokeWidth={3} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {planSheet && (
+        <BottomSheet title="Plan & links" subtitle={store.name} imageUrl={store.logo_url} onClose={() => setPlanSheet(false)} testId="plan-links-sheet">
+          <div className="space-y-4 pt-1">
+            <div className="relative space-y-3.5 overflow-hidden rounded-[26px] border-[1.5px] border-gold/50 bg-black p-[18px] text-white" data-testid="plan-card">
+              <div aria-hidden className="pointer-events-none absolute -right-[60px] -top-[60px] h-[180px] w-[180px] rounded-full bg-[radial-gradient(circle,rgb(var(--gold)/0.4),transparent_70%)]" />
+              <div className="relative flex items-center gap-3">
+                <span className="grid h-[60px] w-[60px] shrink-0 place-items-center rounded-[18px] bg-gold text-ink-gold"><Crown className="h-[30px] w-[30px]" /></span>
+                <div className="min-w-0"><p className="text-[24px] font-black leading-tight">Merchant {planName === "Merchant" ? "" : planName}</p><p className="text-[16px] font-bold text-white/70">Your plan</p></div>
+              </div>
+              <div className="relative grid grid-cols-2 gap-2.5">
+                <div className="rounded-[18px] bg-white/10 px-3.5 py-3"><p className="text-[15px] font-bold text-white/65">{store.plan?.warn ? "Ends" : "Renews"}</p><p className="text-[21px] font-black">{endsOn ?? "—"}</p></div>
+                <div className="rounded-[18px] bg-white/10 px-3.5 py-3"><p className="text-[15px] font-bold text-white/65">Fee</p><p className="text-[21px] font-black">{feePercent}%</p></div>
+              </div>
+              {store.plan?.warn && store.plan.daysLeft !== null && (
+                <p className="relative rounded-[16px] bg-gold/20 px-3.5 py-2.5 text-[17px] font-bold text-gold" role="status">Ends {store.plan.daysLeft <= 0 ? "today" : `in ${store.plan.daysLeft} day${store.plan.daysLeft === 1 ? "" : "s"}`}</p>
+              )}
+              <button type="button" data-testid="change-plan" onClick={() => router.push(store.plan?.warn ? `/store/plans?tier=${isElite ? "elite" : "pro_live"}` : "/store/plans")}
+                className="relative flex min-h-[60px] w-full items-center justify-center gap-2 rounded-[18px] bg-gold text-[18px] font-black text-ink-gold active:scale-[.98]">
+                <ArrowRight className="h-[22px] w-[22px]" strokeWidth={2.8} /> {store.plan?.warn ? "Renew plan" : "Change plan"}
+              </button>
+            </div>
+            {[
+              { icon: Smartphone, name: "Peebee Buy", host: buyUrl.replace(/^https?:\/\//, ""), url: buyUrl, id: "buy" },
+              { icon: Globe, name: "My website", host: siteHost, url: `https://${siteHost}`, id: "site" },
+            ].map((l) => (
+              <div key={l.id} className={`${card} space-y-3 !rounded-[24px] p-4`} data-testid={`link-${l.id}`}>
+                <div className="flex items-center gap-3">
+                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-[18px] bg-gold/15 text-[#8a6d0b] dark:text-gold"><l.icon className="h-7 w-7" /></span>
+                  <div className="min-w-0"><p className="text-[21px] font-black text-ink">{l.name}</p><p className="break-all text-[16px] font-bold text-ink-500">{l.host}</p></div>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <a href={l.url} target="_blank" rel="noreferrer" className={ghostBtn}><ExternalLink className="h-[22px] w-[22px]" /> Open</a>
+                  <button type="button" onClick={() => void shareLink(l.url, store.name)} className={ghostBtn}><Share2 className="h-[22px] w-[22px]" /> Share</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </BottomSheet>
+      )}
+
+
+      {activeTab === "elite" && (
+        <div className="space-y-4" data-testid="elite">
+          {!(isElite && eliteOpen) && (
+            <PageHeader title="Elite" onBack={backHome}
+              right={isElite ? <span className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-gold px-4 text-[17px] font-black text-ink-gold"><Crown className="h-5 w-5" /> On</span> : undefined} />
+          )}
+          {!isElite && (
+            <div className="relative space-y-4 overflow-hidden rounded-[28px] border-[1.5px] border-gold/50 bg-black p-5 text-white" data-testid="elite-upsell">
+              <div aria-hidden className="pointer-events-none absolute -right-[70px] -top-[70px] h-[220px] w-[220px] rounded-full bg-[radial-gradient(circle,rgb(var(--gold)/0.4),transparent_70%)]" />
+              <span className="relative grid h-[84px] w-[84px] place-items-center rounded-[24px] bg-gold text-ink-gold"><Crown className="h-11 w-11" /></span>
+              <div className="relative">
+                <p className="text-[27px] font-black leading-tight">Merchant Elite</p>
+                <p className="mt-1 text-[22px] font-black text-gold">{isProFree ? "Free for now" : ugx(elitePrice)} {!isProFree && <span className="text-[17px] font-bold text-white/70">/ month</span>}</p>
+                <p className="mt-1 text-[17px] font-semibold text-white/70">{settings?.eliteCommissionPercent ?? 5}% fee instead of {settings?.commissionPercent ?? 10}%</p>
+              </div>
+              <div className="relative grid grid-cols-2 gap-2.5">
+                {([[BarChart3, "Profit"], [ShoppingBag, "Till"], [Building2, "Outlets"], [Tag, "Promos"], [Users, "VIP list"], [Download, "Digital"]] as const).map(([Icon, t]) => (
+                  <span key={t} className="flex min-h-[60px] min-w-0 items-center gap-2.5 rounded-[18px] bg-white/10 px-3.5 text-[18px] font-black"><Icon className="h-6 w-6 shrink-0 text-gold" /><span className="truncate">{t}</span></span>
+                ))}
+              </div>
+              <button type="button" onClick={() => router.push("/store/plans?tier=elite")} disabled={settings?.eliteEnabled === false} data-testid="elite-upgrade"
+                className="relative flex min-h-16 w-full items-center justify-center gap-2.5 rounded-[20px] bg-gold text-[20px] font-black text-ink-gold active:scale-[.98] disabled:opacity-50">
+                <Crown className="h-6 w-6" /> {settings?.eliteEnabled === false ? "Paused for now" : "Upgrade"}
               </button>
             </div>
           )}
 
-          {isElite && (
-          <>
-          {/* Elite section picker: one row showing where you are; tap to open the big-tile menu */}
-          {(() => {
-            const items = [
-              { id: "overview", label: "P&L Analytics", icon: BarChart3 },
-              { id: "pos", label: `POS Register (${posSales.length})`, icon: ShoppingBag },
-              { id: "theme", label: "Store 2.0 Theme", icon: Palette },
-              { id: "sections", label: `Page Builder (${storefrontSections.length})`, icon: SlidersHorizontal },
-              { id: "sms", label: `SMS Receipts (${smsLogs.length})`, icon: MessageSquare },
-              { id: "digital", label: `Digital Products (${digitalProducts.length})`, icon: Download },
-              { id: "lms", label: `LMS & Learn Sync (${lmsCourses.length})`, icon: GraduationCap },
-              { id: "collections", label: `Collections (${collections.length})`, icon: Layers },
-              { id: "discounts", label: `Promos (${discounts.length})`, icon: Tag },
-              { id: "inventory", label: "Multi-Outlet & Transfers", icon: Building2 },
-              { id: "b2b", label: `B2B Quotes (${draftOrders.length})`, icon: Briefcase },
-              { id: "crm", label: `VIP CRM (${crmCustomers.length})`, icon: Users },
-              { id: "po", label: `Supplier POs (${purchaseOrders.length})`, icon: Truck },
-              { id: "bundles", label: `Bundles & Kits (${bundles.length})`, icon: Package },
-              { id: "winback", label: `Win-Back (${winbackCampaigns.length})`, icon: Send },
-            ];
-            const current = items.find((item) => item.id === eliteSection) ?? items[0];
-            const CurrentIcon = current.icon;
-            return (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  aria-expanded={eliteMenuOpen}
-                  onClick={() => setEliteMenuOpen((open) => !open)}
-                  className="home-card flex min-h-16 w-full items-center gap-3 !p-4 text-left"
-                >
-                  <CurrentIcon className="h-6 w-6 shrink-0 text-gold" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate text-lg font-bold text-ink">{current.label}</span>
-                  <span className="shrink-0 text-base font-semibold text-ink-500">{eliteMenuOpen ? "Close" : "Change"}</span>
-                </button>
-                {eliteMenuOpen && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {items.map((item) => {
-                      const Icon = item.icon;
-                      const active = eliteSection === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          aria-pressed={active}
-                          onClick={() => { setEliteSection(item.id as typeof eliteSection); setEliteMenuOpen(false); }}
-                          className={`flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl px-2 py-3 text-center text-base font-bold ${
-                            active ? "bg-gold text-ink-gold" : "border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] text-ink"
-                          }`}
-                        >
-                          <Icon className="h-7 w-7" aria-hidden />
-                          <span>{item.label}</span>
-                        </button>
-                      );
-                    })}
+          {isElite && !eliteOpen && (
+            <div className="space-y-5" data-testid="elite-tools">
+              {eliteTools.map((g) => (
+                <section key={g.group} className="space-y-3">
+                  <h2 className="flex items-center gap-2 text-[16px] font-black uppercase tracking-[.06em] text-ink-500">{g.group}</h2>
+                  <div className="grid grid-cols-2 gap-3">
+                    {g.items.map((t) => (
+                      <button key={t.id} type="button" onClick={() => openTool(t.id)} data-testid={`elite-tool-${t.id}`}
+                        className={`${card} relative flex min-h-[116px] min-w-0 flex-col items-start justify-between gap-2.5 !rounded-[24px] p-3.5 text-left active:scale-[.98]`}>
+                        {t.count ? <CornerBadge n={t.count} /> : null}
+                        <span className="grid h-[50px] w-[50px] place-items-center rounded-[16px] bg-gold/15 text-[#8a6d0b] dark:text-gold"><t.icon className="h-[26px] w-[26px]" /></span>
+                        <span className="block max-w-full break-words text-[18px] font-black leading-tight text-ink">{t.label}</span>
+                      </button>
+                    ))}
+                    {g.group === "Sell" && (
+                      <Link href="/reports" data-testid="elite-tool-statements"
+                        className={`${card} relative flex min-h-[116px] min-w-0 flex-col items-start justify-between gap-2.5 !rounded-[24px] p-3.5 text-left active:scale-[.98]`}>
+                        <span className="grid h-[50px] w-[50px] place-items-center rounded-[16px] bg-gold/15 text-[#8a6d0b] dark:text-gold"><FileText className="h-[26px] w-[26px]" /></span>
+                        <span className="block text-[18px] font-black leading-tight text-ink">Statements</span>
+                      </Link>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })()}
+                </section>
+              ))}
+            </div>
+          )}
 
-          <a href="/reports" className="inline-flex min-h-11 items-center rounded-full border border-gold px-4 py-2 font-bold">Financial statements & expenses</a>
+          {isElite && eliteOpen && (
+          <>
+          <PageHeader title={currentTool?.label ?? "Elite"} onBack={closeTool} testId="elite-tool-header" />
           {/* ELITE SECTION 1: EXECUTIVE P&L & MARGIN ANALYTICS */}
           {eliteSection === "overview" && (
             <div className="space-y-4">
@@ -4651,503 +4608,195 @@ export default function MerchantProStorePage() {
         </div>
       )}
 
-      {/* TAB 1: PRODUCT CATALOG */}
       {activeTab === "catalog" && (
-        <div className="space-y-4">
-          {/* Quick Action Bar */}
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2">
-              <Link
-                href="/store/items/new"
-                data-testid="add-item"
-                className="flex items-center gap-2 rounded-full bg-gold px-4 py-2.5 text-xs font-bold text-ink-gold shadow transition active:scale-95"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add Product</span>
-              </Link>
+        <CatalogView
+          products={products}
+          pinnedId={pinnedProductId}
+          onPin={(p) => {
+            if (pinnedProductId === p.id) { setPinnedProductId(""); setNotice(`Unpinned "${p.title}" from Live.`); }
+            else { setPinnedProductId(p.id); setNotice(`📌 Pinned "${p.title}" for your live stream!`); }
+          }}
+          onEdit={(p) => router.push(`/store/items/new?edit=${encodeURIComponent(p.id)}`)}
+          onVariations={(p) => {
+            const full = products.find((x) => x.id === p.id);
+            if (!full) return;
+            setError(""); setVariationEdit(editorFromProduct(full)); setVariationProduct(full);
+          }}
+          onBack={backHome}
+          onStarterPack={handleLoadStarterPack}
+          customerUrl={CUSTOMER}
+          footer={!isElite ? <ExistingDigitalPurchases purchases={digitalFulfillments} canRefund={store.permissions?.refund_revoke !== false} onRefund={handleRefundFulfillment} onRevoke={handleRevokeFulfillment} /> : undefined}
+        />
+      )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setPreviewScreen("storefront");
-                  setShowStorefrontPreview(true);
-                }}
-                className="flex items-center gap-1.5 rounded-full border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] px-3.5 py-2.5 text-xs font-bold text-ink transition hover:border-gold active:scale-95 shadow-xs"
-              >
-                <Eye className="h-4 w-4 text-gold" />
-                <span>Preview Storefront</span>
-              </button>
+      {activeTab === "live" && (() => {
+        const pinned = products.find((p) => p.id === pinnedProductId);
+        return (
+        <div className="space-y-4" data-testid="live">
+          <PageHeader title="Live" onBack={backHome} />
+          <div className="relative space-y-4 overflow-hidden rounded-[28px] border-[1.5px] border-red-600/40 bg-[linear-gradient(150deg,#3a0d0d,#0a0a0a_60%)] p-5 text-white">
+            <span className="grid h-[72px] w-[72px] place-items-center rounded-[22px] bg-red-600 text-white shadow-[0_0_0_6px_rgba(220,38,38,.25)]"><Radio className="h-9 w-9" /></span>
+            <div>
+              <p className="text-[26px] font-black leading-tight">{isLiveActive ? "You're live" : "Sell on camera"}</p>
+              <p className="mt-1 text-[17px] font-semibold text-white/75">Pin an item, shoppers buy in one tap.</p>
             </div>
-
-            {products.length === 0 && (
-              <button
-                onClick={handleLoadStarterPack}
-                className="flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-4 py-2.5 text-xs font-bold text-gold transition hover:bg-gold/20 active:scale-95"
-              >
-                <Zap className="h-4 w-4" />
-                <span>1-Click Starter Pack</span>
+            {isLiveActive ? (
+              <button type="button" onClick={handleEndLiveSession} data-testid="live-end" className="flex min-h-16 w-full items-center justify-center gap-2.5 rounded-[20px] border-2 border-white/30 bg-white/10 text-[20px] font-black text-white active:scale-[.98]">
+                <X className="h-6 w-6" strokeWidth={3} /> End live
+              </button>
+            ) : (
+              <button type="button" onClick={() => setShowLiveStudio(true)} data-testid="open-live-studio" className="flex min-h-16 w-full items-center justify-center gap-2.5 rounded-[20px] bg-red-600 text-[20px] font-black text-white shadow-[0_10px_24px_rgba(220,38,38,.35)] active:scale-[.98]">
+                <Video className="h-6 w-6" /> Open Live Studio
               </button>
             )}
           </div>
 
-          {/* Product List */}
-          {products.length === 0 ? (
-            <div className="rounded-[24px] border border-dashed border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-8 text-center space-y-3">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gold/10 text-gold text-2xl">
-                📦
-              </div>
-              <h3 className="text-base font-bold text-ink">Your Catalog is Empty</h3>
-              <p className="text-xs text-ink-500 max-w-sm mx-auto">
-                Add your first product or tap "1-Click Starter Pack" to instantly populate 6 bestselling{" "}
-                {store.category === "groceries" ? "produce items" : "store products"}.
-              </p>
-              <button
-                onClick={handleLoadStarterPack}
-                className="mt-2 inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-xs font-bold text-ink-gold shadow transition active:scale-95"
-              >
-                <Zap className="h-4 w-4" />
-                <span>Load Starter Pack (Chap Chap)</span>
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {products.map((p) => {
-                const variants = p.variants || [];
-                return (
-                  <div
-                    key={p.id}
-                    className="flex flex-col justify-between rounded-[22px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-3.5 shadow-sm transition hover:shadow-md"
-                  >
-                    <div>
-                      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
-                        {p.image_url ? (
-                          <img
-                            src={p.image_url}
-                            alt={p.title}
-                            className="h-full w-full object-cover transition duration-300 hover:scale-105"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-3xl">🛍️</div>
-                        )}
-                        {p.badge ? (
-                          <span className="absolute top-2 left-2 rounded-full bg-gold px-2 py-0.5 text-[9px] font-black text-ink-gold uppercase">
-                            {p.badge}
-                          </span>
-                        ) : null}
-                        {p.compare_at_price && p.compare_at_price > p.price && (
-                          <span className="absolute top-2 right-2 rounded-full bg-red-600 px-2 py-0.5 text-[9px] font-bold text-white">
-                            Sale
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="mt-3">
-                        <h4 className="font-bold text-sm text-ink leading-snug line-clamp-1">{p.title}</h4>
-                        {p.description && (
-                          <p className="mt-0.5 text-xs text-ink-500 line-clamp-1">{p.description}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-3 border-t border-[var(--border-faint)] pt-2.5 flex items-center justify-between">
-                      <div>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="font-mono font-black text-sm text-ink">{ugx(p.price)}</span>
-                          {p.compare_at_price && (
-                            <span className="font-mono text-[10px] text-ink-500 line-through">
-                              {ugx(p.compare_at_price)}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-ink-500 font-medium">
-                          {p.inventory_quantity} in stock {variants.length > 0 && `· ${variants.length} variants`}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => { setError(""); setVariationEdit(editorFromProduct(p)); setVariationProduct(p); }}
-                          className="min-h-8 rounded-full bg-[rgb(var(--surface-muted))] px-3 text-[11px] font-bold text-ink transition active:scale-95"
-                        >
-                          Variations
-                        </button>
-                        <button
-                          onClick={() => {
-                            setPinnedProductId(p.id);
-                            setNotice(`📌 Pinned "${p.title}" for your live stream!`);
-                          }}
-                          title="Pin in Live Stream"
-                          className={`flex h-8 w-8 items-center justify-center rounded-full transition active:scale-95 ${
-                            pinnedProductId === p.id
-                              ? "bg-gold text-ink font-bold"
-                              : "bg-[rgb(var(--surface-muted))] text-ink-500 hover:text-gold"
-                          }`}
-                        >
-                          <Flame className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 2: TIKTOK LIVE SELLING STUDIO */}
-      {activeTab === "live" && (
-        <div className="space-y-4">
-          <div className="rounded-[24px] border border-red-500/20 bg-gradient-to-br from-red-950/20 via-neutral-900 to-black-900 p-5 text-white shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="flex h-3 w-3 rounded-full bg-red-500 animate-ping" />
-                <span className="text-xs font-bold uppercase tracking-wider text-red-400">
-                  TikTok Live Commerce Hub
-                </span>
-              </div>
-              <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-bold text-neutral-300">
-                HD Video & Instant Checkout
-              </span>
-            </div>
-
-            <h3 className="font-serif text-xl font-black text-white">
-              Sell Products Live on Camera
-            </h3>
-            <p className="text-xs text-neutral-300">
-              Go live directly to Peebee shoppers. Pin featured products so viewers can buy with 1 tap without leaving
-              the video! Replay videos are automatically saved.
-            </p>
-
-            <div className="pt-2 flex flex-wrap gap-2">
-              <button
-                onClick={() => setShowLiveStudio(true)}
-                className="flex items-center gap-2 rounded-full bg-red-600 px-5 py-2.5 text-xs font-bold text-white shadow transition hover:bg-red-700 active:scale-95"
-              >
-                <Radio className="h-4 w-4" />
-                <span>Open Live Studio</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Live Studio Modal / Drawer */}
-          {showLiveStudio && (
-            <div className="rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-lg space-y-4">
-              <div className="flex items-center justify-between border-b border-[var(--border-faint)] pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-3 w-3 rounded-full bg-red-500 animate-pulse" />
-                  <h3 className="font-bold text-base text-ink">Broadcast Studio</h3>
-                </div>
-                <button
-                  onClick={() => setShowLiveStudio(false)}
-                  className="rounded-full p-1.5 text-ink-500 hover:text-ink"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              {!isLiveActive ? (
-                <div className="space-y-3">
-                  <div>
-                    <label htmlFor="store-field-68" className="text-xs font-semibold text-ink-500">Stream Title</label>
-                    <input id="store-field-68"
-                      type="text"
-                      value={liveTitle}
-                      onChange={(e) => setLiveTitle(e.target.value)}
-                      placeholder="e.g. Flash Sale! 30% Off Fresh Fruit & Organic Veg"
-                      className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-3 text-sm text-ink placeholder:text-ink-500/50 focus:border-gold focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="store-field-69" className="text-xs font-semibold text-ink-500">
-                      Hosted stream URL (HTTPS, required)
-                    </label>
-                    <input id="store-field-69"
-                      type="text"
-                      value={liveStreamUrl}
-                      onChange={(e) => setLiveStreamUrl(e.target.value)}
-                      placeholder="https://your-video-host.example/stream.m3u8"
-                      className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-3 text-sm text-ink placeholder:text-ink-500/50 focus:border-gold focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-ink-500">Pin Starting Product</label>
-                    <Select
-                      aria-label="Pin Starting Product"
-                      value={pinnedProductId}
-                      onValueChange={(val) => setPinnedProductId(val)}
-                      className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-3 text-sm text-ink focus:border-gold"
-                    >
-                      <option value="">No product pinned</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.title} · {ugx(p.price)}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-
-                  <button
-                    onClick={handleStartLiveSession}
-                    disabled={startingLive || !liveTitle.trim() || !/^https:\/\//i.test(liveStreamUrl.trim())}
-                    className="flex w-full items-center justify-center gap-2 rounded-full bg-red-600 py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-red-700 active:scale-98 disabled:opacity-50"
-                  >
-                    {startingLive ? "Listing stream…" : "List hosted stream"}
-                  </button>
-                </div>
+          {isLiveActive ? (
+            <div className="relative mx-auto aspect-[9/16] w-full max-w-sm overflow-hidden rounded-[28px] bg-black shadow-2xl" data-testid="live-player">
+              {liveStreamUrl ? (
+                <video src={liveStreamUrl} autoPlay loop muted playsInline className="h-full w-full object-cover" />
               ) : (
-                <div className="space-y-3">
-                  <div className="relative aspect-[9/16] w-full max-w-sm mx-auto overflow-hidden rounded-[24px] bg-black shadow-2xl">
-                    {liveStreamUrl ? (
-                      <video
-                        src={liveStreamUrl}
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-b from-neutral-800 to-black text-white p-6 text-center">
-                        <Camera className="h-12 w-12 text-gold animate-bounce mb-3" />
-                        <h4 className="font-bold text-lg">No hosted stream connected</h4>
-                        <p className="text-xs text-neutral-400 mt-1">
-                          Add a hosted HTTPS stream URL to display video here.
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="absolute top-4 left-4 flex items-center gap-2">
-                      <span className="flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-black text-white uppercase tracking-wider">
-                        <Radio className="h-3 w-3" /> LIVE
-                      </span>
-                      <span className="flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-md">
-                        <Users className="h-3 w-3 text-gold" /> Viewer count unavailable
-                      </span>
-                    </div>
-
-                    <div className="absolute top-4 right-4">
-                      <button
-                        onClick={handleEndLiveSession}
-                        className="rounded-full bg-black/60 px-3 py-1 text-[11px] font-bold text-red-400 backdrop-blur-md hover:bg-red-600 hover:text-white transition"
-                      >
-                        End
-                      </button>
-                    </div>
-
-                    {pinnedProductId && (
-                      <div className="absolute bottom-20 inset-x-3 rounded-2xl bg-black/75 p-2.5 backdrop-blur-md border border-gold/40 flex items-center justify-between gap-3 text-white">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gold text-ink font-bold text-xs">
-                            🏷️
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold truncate">
-                              {products.find((p) => p.id === pinnedProductId)?.title || "Featured Item"}
-                            </p>
-                            <p className="text-[11px] font-mono text-gold font-bold">
-                              {ugx(products.find((p) => p.id === pinnedProductId)?.price || 0)}
-                            </p>
-                          </div>
-                        </div>
-
-                        <span className="shrink-0 rounded-full bg-gold px-3 py-1 text-[10px] font-black text-ink">
-                          PINNED
-                        </span>
-                      </div>
-                    )}
-
-                    <p className="absolute bottom-4 inset-x-3 rounded-xl bg-[rgb(var(--surface-card))] p-3 text-xs text-ink">In-app chat and reactions are not connected. Use your stream provider to interact with viewers.</p>
-
-                  </div>
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-6 text-center text-white">
+                  <Camera className="h-12 w-12 text-gold" />
+                  <p className="text-[20px] font-black">No hosted stream connected</p>
                 </div>
               )}
+              <div className="absolute left-4 top-4 flex flex-wrap items-center gap-2">
+                <span className="flex h-9 items-center gap-1.5 rounded-full bg-red-600 px-3 text-[15px] font-black text-white"><Radio className="h-4 w-4" /> LIVE</span>
+                <span className="flex h-9 items-center gap-1.5 rounded-full bg-black/60 px-3 text-[15px] font-bold text-white"><Users className="h-4 w-4 text-gold" /> Viewers hidden</span>
+              </div>
+              {pinned && (
+                <div className="absolute inset-x-3 bottom-20 flex items-center gap-3 rounded-[18px] border border-gold/40 bg-black/75 p-2.5 text-white">
+                  {pinned.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={pinned.image_url} alt="" className="h-12 w-12 shrink-0 rounded-[12px] object-cover" />
+                  ) : <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[12px] bg-gold text-ink-gold"><Tag className="h-6 w-6" /></span>}
+                  <div className="min-w-0 flex-1"><p className="truncate text-[17px] font-black">{pinned.title}</p><p className="text-[16px] font-bold text-gold">{ugx(pinned.price)}</p></div>
+                </div>
+              )}
+              <p className="absolute inset-x-3 bottom-3 rounded-[14px] bg-[rgb(var(--surface-card))] p-2.5 text-[15px] font-semibold text-ink">Chat runs in your stream app.</p>
             </div>
+          ) : (
+            <BigRow icon={Tv} title="No stream connected" sub="Add a stream link in the studio" trailing={<span />} testId="live-status" />
           )}
-        </div>
-      )}
 
-      {/* TAB 3: 1-CLICK SOCIAL ADS (WhatsApp, Meta, TikTok) */}
-      {activeTab === "ads" && (
-        <div className="space-y-4">
-          <div className="rounded-[24px] border border-gold/30 bg-[rgb(var(--surface-card))] p-5 shadow-sm space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gold/15 text-gold">
-                <Megaphone className="h-4 w-4" />
-              </span>
-              <div>
-                <h3 className="font-bold text-base text-ink">Social campaign planner · preview</h3>
-                <p className="text-xs text-ink-500">
-              Plan an offer for WhatsApp, Instagram or TikTok. This preview does not fund or publish advertisements.
-                </p>
-              </div>
+          <p className="flex items-center gap-2 pt-1 text-[16px] font-black uppercase tracking-[.06em] text-ink-500"><Flame className="h-5 w-5" /> Pinned item</p>
+          {pinned ? (
+            <div className={`${card} flex min-h-[84px] items-center gap-3 !rounded-[22px] p-2.5 pr-3`} data-testid="live-pinned">
+              {pinned.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={pinned.image_url} alt="" className="h-[60px] w-[60px] shrink-0 rounded-[14px] object-cover" />
+              ) : <span className="grid h-[60px] w-[60px] shrink-0 place-items-center rounded-[14px] bg-[rgb(var(--surface-muted))]"><Package className="h-7 w-7 text-ink-500" /></span>}
+              <div className="min-w-0 flex-1"><p className="break-words text-[19px] font-black leading-tight text-ink">{pinned.title}</p><p className="text-[16px] font-bold text-ink-500">{ugx(pinned.price)}</p></div>
+              <button type="button" onClick={() => setPinnedProductId("")} aria-label={`Unpin ${pinned.title}`} className="grid h-14 w-14 shrink-0 place-items-center rounded-[16px] bg-gold text-ink-gold"><Flame className="h-6 w-6" /></button>
             </div>
+          ) : (
+            <BigRow icon={Flame} title="Nothing pinned" sub="Tap the flame on an item in Catalog" onClick={() => openSection("catalog")} />
+          )}
 
-            <div className="space-y-3 pt-2">
-              <div>
-                <label className="text-xs font-semibold text-ink-500">Target Social Channel</label>
-                <div className="mt-1 grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => setAdPlatform("whatsapp")}
-                    className={`rounded-2xl border p-3 text-center transition ${
-                      adPlatform === "whatsapp"
-                        ? "border-green-500 bg-green-500/10 text-green-700 dark:text-green-300 font-bold"
-                        : "border-[var(--border-faint)] text-ink-500"
-                    }`}
-                  >
-                    <span className="block text-lg">💬</span>
-                    <span className="text-xs">WhatsApp</span>
-                  </button>
-
-                  <button
-                    onClick={() => setAdPlatform("meta")}
-                    className={`rounded-2xl border p-3 text-center transition ${
-                      adPlatform === "meta"
-                        ? "border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-bold"
-                        : "border-[var(--border-faint)] text-ink-500"
-                    }`}
-                  >
-                    <span className="block text-lg">📸</span>
-                    <span className="text-xs">Instagram</span>
-                  </button>
-
-                  <button
-                    onClick={() => setAdPlatform("tiktok")}
-                    className={`rounded-2xl border p-3 text-center transition ${
-                      adPlatform === "tiktok"
-                        ? "border-pink-500 bg-pink-500/10 text-pink-700 dark:text-pink-300 font-bold"
-                        : "border-[var(--border-faint)] text-ink-500"
-                    }`}
-                  >
-                    <span className="block text-lg">🎵</span>
-                    <span className="text-xs">TikTok</span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="store-field-70" className="text-xs font-semibold text-ink-500">Ad Headline / Offer</label>
-                <input id="store-field-70"
-                  type="text"
-                  value={adHeadline}
-                  onChange={(e) => setAdHeadline(e.target.value)}
-                  placeholder="e.g. Fresh Mangoes & Avocados delivered in 25 mins · Tap to chat on WhatsApp"
-                  className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-3 text-sm text-ink placeholder:text-ink-500/50 focus:border-gold focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+          {showLiveStudio && !isLiveActive && (
+            <BottomSheet title="Live Studio" subtitle={store.name} onClose={() => setShowLiveStudio(false)} testId="live-studio"
+              footer={
+                <button type="button" onClick={handleStartLiveSession} disabled={startingLive || !liveTitle.trim() || !/^https:\/\//i.test(liveStreamUrl.trim())} data-testid="go-live"
+                  className="flex min-h-16 w-full items-center justify-center gap-2.5 rounded-full bg-red-600 text-[20px] font-black text-white shadow-[0_8px_22px_rgba(220,38,38,.35)] active:scale-[.98] disabled:opacity-50">
+                  {startingLive ? <Loader2 className="h-6 w-6 animate-spin" /> : <Radio className="h-6 w-6" />} {startingLive ? "Going live…" : "Go live"}
+                </button>
+              }>
+              <div className="space-y-5 pt-1">
                 <div>
-                  <label htmlFor="store-field-71" className="text-xs font-semibold text-ink-500">Daily Budget (UGX)</label>
-                  <input id="store-field-71"
-                    type="number"
-                    value={adBudget}
-                    onChange={(e) => setAdBudget(e.target.value)}
-                    className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-3 text-sm text-ink focus:border-gold focus:outline-none"
-                  />
+                  <label htmlFor="store-field-68" className={labelCls}>Title</label>
+                  <input id="store-field-68" type="text" value={liveTitle} onChange={(e) => setLiveTitle(e.target.value)} placeholder="e.g. Weekend sale" className={fieldCls} data-testid="live-title" />
                 </div>
-
                 <div>
-                  <label className="text-xs font-semibold text-ink-500">Duration (Days)</label>
-                  <Select
-                    aria-label="Duration"
-                    value={adDuration}
-                    onValueChange={(val) => setAdDuration(val)}
-                    className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-3 text-sm text-ink focus:border-gold"
-                  >
-                    <option value="3">3 Days</option>
-                    <option value="7">7 Days</option>
-                    <option value="14">14 Days</option>
+                  <label htmlFor="store-field-69" className={labelCls}><Link2 className="h-5 w-5" /> Stream link</label>
+                  <input id="store-field-69" type="url" inputMode="url" value={liveStreamUrl} onChange={(e) => setLiveStreamUrl(e.target.value)} placeholder="https://…/stream.m3u8" className={fieldCls} data-testid="live-url" />
+                </div>
+                <div>
+                  <span className={labelCls}><Flame className="h-5 w-5" /> First item</span>
+                  <Select sizing="stretch" aria-label="First item" value={pinnedProductId} onValueChange={(val) => setPinnedProductId(val)} className={`${fieldCls} !text-[19px]`}>
+                    <option value="">No item pinned</option>
+                    {products.map((p) => (<option key={p.id} value={p.id}>{p.title} · {ugx(p.price)}</option>))}
                   </Select>
                 </div>
+                <p className="flex items-start gap-2.5 rounded-[18px] bg-[rgb(var(--surface-muted))] p-3.5 text-[17px] font-semibold text-ink-500"><Info className="mt-0.5 h-5 w-5 shrink-0" /> Chat runs in your stream app.</p>
               </div>
+            </BottomSheet>
+          )}
+        </div>
+        );
+      })()}
 
-              <div>
-                <label className="text-xs font-semibold text-ink-500">Promote Specific Product</label>
-                <Select
-                  aria-label="Promote Product"
-                  value={adTargetProduct}
-                  onValueChange={(val) => setAdTargetProduct(val)}
-                  className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-3 text-sm text-ink focus:border-gold"
-                >
-                  <option value="">Storewide Brand Promotion</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title} ({ugx(p.price)})
-                    </option>
-                  ))}
-                </Select>
-              </div>
-
-              <div className="rounded-2xl bg-[rgb(var(--surface-muted))] p-3 text-xs space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-ink-500">Planned budget:</span>
-                  <span className="font-bold font-mono text-ink">
-                    {ugx(Number(adBudget) * Number(adDuration))}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-ink-500">Advertising availability:</span>
-                  <span className="font-bold text-gold">Not connected</span>
-                </div>
-              </div>
-
-              <button
-                onClick={handleLaunchAd}
-                disabled={!adHeadline.trim()}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-gold py-3.5 text-sm font-bold text-ink-gold shadow-md transition active:scale-98 disabled:opacity-50"
-              >
-                Preview campaign · no charge
-              </button>
+      {activeTab === "ads" && (
+        <div className="space-y-5" data-testid="ads">
+          <PageHeader title="Ads" onBack={backHome} />
+          <p className="flex items-center gap-3 rounded-[20px] border-[1.5px] border-gold/50 bg-gold/15 p-4 text-[17px] font-black text-ink"><Info className="h-6 w-6 shrink-0" /> Plan only · no money is charged</p>
+          <div>
+            <span className={labelCls}>Where</span>
+            <div className="grid grid-cols-2 gap-2.5" role="radiogroup" aria-label="Where">
+              {([["whatsapp", "WhatsApp", MessageCircle, "bg-[#25d366] text-white"], ["meta", "Instagram", Camera, "bg-[#c13584] text-white"], ["tiktok", "TikTok", Music2, "bg-black text-white dark:bg-white dark:text-black"]] as const).map(([v, t, Icon, tone]) => (
+                <button key={v} type="button" role="radio" aria-checked={adPlatform === v} onClick={() => setAdPlatform(v)} data-testid={`ad-${v}`}
+                  className={`flex min-h-[76px] min-w-0 items-center gap-3 rounded-[22px] border-2 px-3 text-left text-[19px] font-black text-ink ${adPlatform === v ? "border-gold bg-gold/10 shadow-[0_0_0_3px_rgb(var(--gold)/0.25)]" : "border-[var(--border-faint)] bg-[rgb(var(--surface-card))]"}`}>
+                  <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-[15px] ${tone}`}><Icon className="h-6 w-6" /></span>
+                  <span className="min-w-0 break-words leading-tight">{t}</span>
+                </button>
+              ))}
             </div>
           </div>
-
-
+          <div>
+            <label htmlFor="store-field-70" className={labelCls}>Message</label>
+            <textarea id="store-field-70" rows={2} value={adHeadline} onChange={(e) => setAdHeadline(e.target.value)} placeholder="e.g. Fresh sneakers, delivered today" className={`${fieldCls} py-3.5`} data-testid="ad-message" />
+          </div>
+          <div>
+            <label htmlFor="store-field-71" className={labelCls}>Per day</label>
+            <div className="flex min-h-[60px] items-center gap-2 rounded-[20px] border-2 border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-4 focus-within:border-gold">
+              <span className="text-[17px] font-bold text-ink-500">UGX</span>
+              <input id="store-field-71" inputMode="numeric" value={adBudget ? Number(adBudget.replace(/\D/g, "")).toLocaleString("en-US") : ""} onChange={(e) => setAdBudget(e.target.value.replace(/\D/g, ""))} className="min-w-0 flex-1 bg-transparent text-[21px] font-black text-ink outline-none" data-testid="ad-budget" />
+            </div>
+          </div>
+          <div>
+            <span className={labelCls}>Item</span>
+            <Select sizing="stretch" aria-label="Promote Product" value={adTargetProduct} onValueChange={(val) => setAdTargetProduct(val)} className={`${fieldCls} !text-[19px]`}>
+              <option value="">Whole store</option>
+              {products.map((p) => (<option key={p.id} value={p.id}>{p.title} ({ugx(p.price)})</option>))}
+            </Select>
+          </div>
+          <div>
+            <span className={labelCls}>Days</span>
+            <Seg label="Days" wide value={adDuration as "3" | "7" | "14"} onChange={(v) => setAdDuration(v)} testId="ad-days" options={[{ v: "3", label: "3" }, { v: "7", label: "7" }, { v: "14", label: "14" }]} />
+          </div>
+          <div className={`${card} space-y-2 p-4 text-[18px]`} data-testid="ad-summary">
+            <p className="flex justify-between gap-3 font-semibold text-ink-500"><span>Per day</span><b className="text-ink">{ugx(Number(adBudget) || 0)}</b></p>
+            <p className="flex justify-between gap-3 font-semibold text-ink-500"><span>Days</span><b className="text-ink">{adDuration}</b></p>
+            <p className="flex justify-between gap-3 border-t border-[var(--border-faint)] pt-2 text-[20px] font-black text-ink"><span>Total</span><span data-testid="ad-total">{ugx((Number(adBudget) || 0) * Number(adDuration))}</span></p>
+            <p className="flex justify-between gap-3 font-semibold text-ink-500"><span>Ads</span><b className="text-[#8a6d0b] dark:text-gold">Not connected</b></p>
+          </div>
+          <button type="button" onClick={handleLaunchAd} disabled={!adHeadline.trim()} className={`${goldBtn} min-h-16 text-[20px]`} data-testid="ad-preview">
+            <Check className="h-6 w-6" strokeWidth={3} /> Preview plan
+          </button>
         </div>
       )}
 
-      {/* TAB 4: STORE SETTINGS */}
       {activeTab === "settings" && (
-        <div className="rounded-[24px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-sm space-y-4">
-          <h3 className="font-bold text-base text-ink">Store Profile & Delivery Rules</h3>
-
-          <div>
-            <label htmlFor="store-field-72" className="text-xs font-semibold text-ink-500">Store Name</label>
-            <input id="store-field-72"
-              type="text"
-              value={store.name}
-              disabled
-              className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] px-3.5 py-3 text-sm text-ink font-bold opacity-75"
-            />
+        <div className="space-y-4" data-testid="settings">
+          <PageHeader title="Settings" onBack={backHome} />
+          <div className="flex items-center gap-3.5">
+            {storeLogo}
+            <div className="min-w-0">
+              <p className="break-words text-[24px] font-black leading-tight text-ink">{store.name}</p>
+              <span className={`mt-1.5 inline-flex h-[34px] items-center gap-1.5 rounded-full px-3 text-[15px] font-black ${store.status === "active" ? "bg-[#16a34a]/15 text-[#15803d] dark:text-[#4ade80]" : "bg-[rgb(var(--surface-muted))] text-ink-500"}`}>
+                <i className={`block h-2.5 w-2.5 rounded-full ${store.status === "active" ? "bg-[#22c55e]" : "bg-ink-500"}`} />{store.status === "active" ? "Open" : "Closed"}
+              </span>
+            </div>
           </div>
-
-          <div>
-            <label htmlFor="store-field-73" className="text-xs font-semibold text-ink-500">Minimum Order (UGX)</label>
-            <input id="store-field-73"
-              type="number"
-              value={store.min_order_amount ?? 5000}
-              disabled
-              className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-muted))] px-3.5 py-3 text-sm text-ink font-mono opacity-75"
-            />
-          </div>
-
-          <div className="pt-2 border-t border-[var(--border-faint)]">
-            <p className="text-xs text-ink-500">
-              Customer Storefront URL:{" "}
-              <Link
-                href={`/store/${store.id}`}
-                target="_blank"
-                className="font-bold text-gold underline underline-offset-2"
-              >
-                preview.peebee.online/{store.category}/{store.slug}
-              </Link>
-            </p>
-          </div>
+          <BigRow icon={StoreIcon} title={store.name} sub="Store name" trailing={<Lock className="h-6 w-6 shrink-0 text-ink-500" />} testId="setting-name" />
+          <BigRow icon={ShoppingBag} title={store.category === "groceries" ? "Groceries & fresh food" : "Shop & boutique"} sub="Category" trailing={<Lock className="h-6 w-6 shrink-0 text-ink-500" />} />
+          <BigRow icon={Wallet} title={ugx(store.min_order_amount ?? 5000)} sub="Minimum order" trailing={<Lock className="h-6 w-6 shrink-0 text-ink-500" />} testId="setting-min-order" />
+          <BigRow icon={Globe} title="My website" sub={<span className="break-all">{siteHost}</span>} href={`https://${siteHost}`} external trailing={<ExternalLink className="h-6 w-6 shrink-0 text-ink-500" />} />
+          <BigRow icon={Smartphone} title="Peebee Buy" sub={<span className="break-all">{buyUrl.replace(/^https?:\/\//, "")}</span>} href={buyUrl} external trailing={<ExternalLink className="h-6 w-6 shrink-0 text-ink-500" />} />
+          <p className="flex items-start gap-2.5 rounded-[18px] bg-[rgb(var(--surface-muted))] p-4 text-[17px] font-semibold text-ink-500"><Lock className="mt-0.5 h-5 w-5 shrink-0" /> Locked details change through Peebee support.</p>
         </div>
       )}
+
 
       {/* EDIT VARIATIONS SHEET */}
       {variationProduct && (() => {
@@ -5184,143 +4833,6 @@ export default function MerchantProStorePage() {
           </BottomSheet>
         );
       })()}
-
-      {/* ADD PRODUCT MODAL */}
-      {showAddProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-lg rounded-[28px] border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-5 shadow-2xl space-y-4 my-8">
-            <div className="flex items-center justify-between border-b border-[var(--border-faint)] pb-3">
-              <h3 className="font-bold text-lg text-ink">Add New Product</h3>
-              <button
-                onClick={() => setShowAddProduct(false)}
-                className="rounded-full p-1.5 text-ink-500 hover:text-ink"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label htmlFor="store-field-74" className="text-xs font-semibold text-ink-500">Product Title</label>
-                <input id="store-field-74"
-                  type="text"
-                  value={productTitle}
-                  onChange={(e) => setProductTitle(e.target.value)}
-                  placeholder="e.g. Fresh Hass Avocados (1kg pack)"
-                  className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-500/50 focus:border-gold focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="store-field-75" className="text-xs font-semibold text-ink-500">Short Description</label>
-                <textarea id="store-field-75"
-                  value={productDesc}
-                  onChange={(e) => setProductDesc(e.target.value)}
-                  placeholder="e.g. Ripe, creamy Hass avocados sourced directly from Mbale orchards."
-                  rows={2}
-                  className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-500/50 focus:border-gold focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-2.5">
-                <div>
-                  <label htmlFor="store-field-76" className="text-xs font-semibold text-ink-500">Selling Price (UGX)</label>
-                  <input id="store-field-76"
-                    type="number"
-                    value={productPrice}
-                    onChange={(e) => setProductPrice(e.target.value)}
-                    placeholder="8000"
-                    className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3 py-2.5 text-sm text-ink focus:border-gold focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="store-field-77" className="text-xs font-semibold text-ink-500">Compare Price</label>
-                  <input id="store-field-77"
-                    type="number"
-                    value={productComparePrice}
-                    onChange={(e) => setProductComparePrice(e.target.value)}
-                    placeholder="10000"
-                    className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3 py-2.5 text-sm text-ink focus:border-gold focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="store-field-78" className="text-xs font-semibold text-ink-500">Cost Price (COGS)</label>
-                  <input id="store-field-78"
-                    type="number"
-                    value={productCostPrice}
-                    onChange={(e) => setProductCostPrice(e.target.value)}
-                    placeholder="5500"
-                    className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3 py-2.5 text-sm text-ink focus:border-gold focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="store-field-79" className="text-xs font-semibold text-ink-500">Initial Stock</label>
-                  <input id="store-field-79"
-                    type="number"
-                    value={productStock}
-                    onChange={(e) => setProductStock(e.target.value)}
-                    className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-2.5 text-sm text-ink focus:border-gold focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="store-field-80" className="text-xs font-semibold text-ink-500">Category Name</label>
-                  <input id="store-field-80"
-                    type="text"
-                    value={productCategory}
-                    onChange={(e) => setProductCategory(e.target.value)}
-                    placeholder="e.g. Produce or Apparel"
-                    className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-2.5 text-sm text-ink focus:border-gold focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="store-field-81" className="text-xs font-semibold text-ink-500">Product Image URL</label>
-                <input id="store-field-81"
-                  type="text"
-                  value={productImage}
-                  onChange={(e) => setProductImage(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
-                  className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-2.5 text-sm text-ink focus:border-gold focus:outline-none"
-                />
-              </div>
-
-              <VariationEditor
-                value={variationState}
-                onChange={setVariationState}
-                settings={variationSettings}
-                basePrice={Number(productPrice) || 0}
-                baseStock={Number(productStock) || 0}
-              />
-
-              <div>
-                <label htmlFor="store-field-82" className="text-xs font-semibold text-ink-500">Badge (Optional)</label>
-                <input id="store-field-82"
-                  type="text"
-                  value={productBadge}
-                  onChange={(e) => setProductBadge(e.target.value)}
-                  placeholder="e.g. Fresh Daily, Best Seller, Organic"
-                  className="mt-1 w-full rounded-2xl border border-[var(--border-faint)] bg-[rgb(var(--surface-input))] px-3.5 py-2.5 text-sm text-ink focus:border-gold focus:outline-none"
-                />
-              </div>
-
-              <button
-                onClick={handleSaveProduct}
-                disabled={savingProduct || !productTitle.trim() || !productPrice}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-gold py-3 text-sm font-bold text-ink-gold shadow transition active:scale-98 disabled:opacity-50"
-              >
-                {savingProduct ? "Saving Product…" : "Save & Publish Product"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* STOREFRONT PREVIEW MODAL */}
       {showStorefrontPreview && (
@@ -5606,6 +5118,7 @@ export default function MerchantProStorePage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -13,13 +13,21 @@ import { BottomBar, ChoiceTile, ErrorNote, FlowTop, GhostButton, PrimaryButton, 
 import { VoiceButton } from "../../../../components/items/VoiceButton";
 import { CustomerPreview, type PreviewItem } from "../../../../components/items/CustomerPreview";
 import { ColourPickerSheet } from "../../../../components/items/ColourPicker";
-import { VariantTable, combos, effectivePrice, type VariantValues } from "../../../../components/items/VariantTable";
+import { VariantTable, comboKey, combos, effectivePrice, type VariantValues } from "../../../../components/items/VariantTable";
 
 type ItemType = "physical" | "digital" | "service";
 type Photo = { url: string; uploading?: boolean; local?: string };
 type Outlet = { id: string; name: string; on: boolean; qty: number };
 type StoreInfo = { id: string; name: string; slug: string; phone?: string | null; isElite: boolean; digitalOn: boolean };
-type ExistingProduct = { id: string; title: string; description?: string; price: number; compare_at_price?: number | null; image_url?: string; images_json?: string | null; category_name?: string; badge?: string; inventory_quantity?: number; variants?: { title?: string; price: number; inventory_quantity?: number; option1_value?: string | null; option2_value?: string | null }[]; options?: { name: string; values: { value: string; hex?: string }[] }[] };
+type ExistingVariant = {
+  title?: string; price: number; compare_at_price?: number | null; inventory_quantity?: number; sku?: string | null; barcode?: string | null; image_url?: string | null;
+  option1_name?: string | null; option1_value?: string | null; option2_name?: string | null; option2_value?: string | null; option3_value?: string | null;
+};
+type ExistingProduct = {
+  id: string; title: string; description?: string; price: number; compare_at_price?: number | null; cost_price?: number | null; image_url?: string; images_json?: string | null;
+  video_url?: string | null; category_name?: string; badge?: string; inventory_quantity?: number; status?: string; show_in_app?: number | boolean | null; show_on_web?: number | boolean | null;
+  delivery_json?: string | null; variants?: ExistingVariant[]; options?: { name: string; values: { value: string; hex?: string }[] }[];
+};
 
 const STEPS = [
   { icon: Layers, label: "Type" },
@@ -60,6 +68,11 @@ export default function NewItemWizard() {
   const [limits, setLimits] = useState({ photos: 8, imageMb: 8, videoMb: 60 });
   const [existing, setExisting] = useState<ExistingProduct[]>([]);
   const [copyOpen, setCopyOpen] = useState(false);
+  /** Set when the wizard edits an existing item (from Catalog → Edit): Save changes updates it in place. */
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editMissing, setEditMissing] = useState(false);
+  /** The item has options the wizard can't show (not Size/Colour): leave its variants as they are. */
+  const [keepVariants, setKeepVariants] = useState(false);
 
   const [type, setType] = useState<ItemType | null>(null);
   const [title, setTitle] = useState("");
@@ -137,7 +150,7 @@ export default function NewItemWizard() {
   const variantRows = useMemo(() => combos(sizes, colours), [sizes, colours]);
 
   const elite = Boolean(store?.isElite);
-  const outletMode = type === "physical" && elite && outlets.length > 0 && outlets.some((o) => o.on);
+  const outletMode = !editId && type === "physical" && elite && outlets.length > 0 && outlets.some((o) => o.on);
   const priceNum = digits(price);
   const wasNum = digits(was) || null;
   const costNum = digits(cost);
@@ -173,6 +186,80 @@ export default function NewItemWizard() {
     else { setVideo(null); setError(res.message); }
   }
   const makeCover = (i: number) => setPhotos((p) => [p[i], ...p.filter((_, j) => j !== i)]);
+
+  // ---- edit an item (Catalog → Edit opens /store/items/new?edit=<id>) ----
+  const wantedEdit = useRef<string | null>(null);
+  useEffect(() => {
+    wantedEdit.current = new URLSearchParams(window.location.search).get("edit");
+  }, []);
+  function loadForEdit(p: ExistingProduct) {
+    setEditId(p.id);
+    setType("physical");
+    setTitle(p.title.slice(0, 120));
+    setDescription(p.description ?? "");
+    const cat = p.category_name && p.category_name !== "General" ? p.category_name : "";
+    if (cat && CATEGORIES.physical.includes(cat)) { setCategory(cat); setCustomCategory(""); } else { setCategory(""); setCustomCategory(cat); }
+    setBadge(p.badge ?? "");
+    let imgs: string[] = [];
+    try { imgs = p.images_json ? (JSON.parse(p.images_json) as string[]) : []; } catch { imgs = []; }
+    if (!imgs.length && p.image_url) imgs = [p.image_url];
+    setPhotos(imgs.filter((u) => /^https?:\/\//.test(u)).map((url) => ({ url })));
+    if (p.video_url && /^https?:\/\//.test(p.video_url)) setVideo({ url: p.video_url });
+    setPrice(p.price ? String(p.price) : "");
+    setWas(p.compare_at_price ? String(p.compare_at_price) : "");
+    setCost(p.cost_price ? String(p.cost_price) : "");
+    setStock(p.inventory_quantity ?? 0);
+    const opts = p.options ?? [];
+    const sizeOpt = opts.find((o) => /size/i.test(o.name));
+    const colOpt = opts.find((o) => /colou?r/i.test(o.name));
+    const odd = opts.some((o) => o !== sizeOpt && o !== colOpt) || (p.variants ?? []).some((v) => v.option3_value);
+    setKeepVariants(odd);
+    if (!odd) {
+      setSizes(sizeOpt?.values.map((v) => v.value) ?? []);
+      const cols = colOpt?.values.map((v) => ({ name: v.value, hex: v.hex ?? COLOURS.find((c) => c.name === v.value)?.hex ?? "#999999" })) ?? [];
+      setColours(cols);
+      setCustomColours(cols.filter((c) => !PRIMARY_COLOURS.some((pc) => pc.name.toLowerCase() === c.name.toLowerCase())));
+      const next: Record<string, VariantValues> = {};
+      for (const v of p.variants ?? []) {
+        const byName: Record<string, string> = {};
+        if (v.option1_name && v.option1_value) byName[v.option1_name] = v.option1_value;
+        if (v.option2_name && v.option2_value) byName[v.option2_name] = v.option2_value;
+        const size = sizeOpt ? byName[sizeOpt.name] ?? "" : "";
+        const colour = colOpt ? byName[colOpt.name] ?? "" : "";
+        next[comboKey(size, colour)] = {
+          price: String(v.price ?? ""), stock: v.inventory_quantity ?? 0, was: v.compare_at_price ? String(v.compare_at_price) : "",
+          sku: v.sku ?? "", barcode: v.barcode ?? "", image: v.image_url ?? undefined,
+        };
+      }
+      setRows(next);
+    }
+    try {
+      const d = p.delivery_json ? (JSON.parse(p.delivery_json) as { delivery?: boolean; pickup?: boolean; readyIn?: typeof readyIn; size?: typeof size; returnsDays?: number }) : null;
+      if (d) {
+        if (typeof d.delivery === "boolean") setRider(d.delivery);
+        if (typeof d.pickup === "boolean") setPickup(d.pickup);
+        if (d.readyIn) setReadyIn(d.readyIn);
+        if (d.size) setSize(d.size);
+        if (typeof d.returnsDays === "number") setReturnsDays(d.returnsDays);
+      }
+    } catch { /* keep defaults */ }
+    if (p.show_in_app != null) setInApp(Boolean(Number(p.show_in_app)));
+    if (p.show_on_web != null) setOnWeb(Boolean(Number(p.show_on_web)));
+    setLive(p.status ? p.status === "active" : true);
+    setStep(1);
+  }
+
+  useEffect(() => {
+    const id = wantedEdit.current;
+    if (!id || editId || !store) return;
+    const p = existing.find((x) => x.id === id);
+    const t = setTimeout(() => {
+      if (p) loadForEdit(p);
+      else if (existing.length) setEditMissing(true);
+    }, 0);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existing, store, editId]);
 
   // ---- copy an item ----
   function copyFrom(p: ExistingProduct) {
@@ -229,9 +316,14 @@ export default function NewItemWizard() {
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
     window.scrollTo({ top: 0 });
   }
+  /** Leave the wizard: back to where it was opened from (Catalog keeps its place), else the Store. */
+  function leave() {
+    if (editId && window.history.length > 1) router.back();
+    else router.push("/store");
+  }
   function back() {
     setError("");
-    if (step === 0) router.push("/store");
+    if (step === 0 || (editId && step === 1)) leave();
     else setStep((s) => s - 1);
   }
 
@@ -283,6 +375,15 @@ export default function NewItemWizard() {
           delivery: { delivery: rider, pickup, sameDay: readyIn !== "2_days", readyInDays: readyIn === "2_days" ? 2 : 0, readyIn, size, returnsDays },
           show_in_app: inApp, show_on_web: onWeb, status: live ? "active" : "draft",
         };
+        if (editId) {
+          const { variants: v, options: o, ...rest } = body as typeof body & { variants?: unknown; options?: unknown };
+          const editBody = keepVariants ? rest : { ...rest, options: hasVariants ? o : [], variants: hasVariants ? v : [] };
+          const saved = await call<{ productId: string }>(`/merchants/me/store/items/${encodeURIComponent(editId)}`, "PUT", editBody);
+          if (!saved.ok) { setError(saved.message); return; }
+          sessionStorage.setItem("peebee_store_notice", `Saved "${title.trim()}".`);
+          leave();
+          return;
+        }
         const res = await call<{ productId: string; storeSlug: string }>("/merchants/me/store/items", "POST", body);
         if (!res.ok) {
           setError(res.message);
@@ -331,12 +432,13 @@ export default function NewItemWizard() {
     }
   }
 
-  const stepTitle = step === 0 ? "New item" : STEPS[step].label;
+  const stepTitle = editId && step === 1 ? "Edit item" : step === 0 ? "New item" : STEPS[step].label;
 
   return (
     <div className="mx-auto max-w-md pb-48">
-      <FlowTop title={stepTitle} onBack={step > 0 ? back : undefined} onClose={() => router.push("/store")} />
-      <Stepper steps={STEPS} current={step} onJump={(i) => setStep(i)} />
+      <FlowTop title={stepTitle} onBack={step > 0 ? back : undefined} onClose={leave} />
+      <Stepper steps={STEPS} current={step} onJump={(i) => { if (!(editId && i === 0)) setStep(i); }} />
+      {editMissing && !editId && <div className="px-4 pt-4"><ErrorNote>That item could not be found. You can add a new one.</ErrorNote></div>}
 
       {/* 1. Type */}
       {step === 0 && (
@@ -699,8 +801,8 @@ export default function NewItemWizard() {
                 <Toggle on={onWeb} onChange={setOnWeb} label="Show on my website" />
               </div>
 
-              <p className={`${label} pt-2`}><Building2 className="h-4 w-4" /> Outlets</p>
-              {elite ? (
+              {!editId && <p className={`${label} pt-2`}><Building2 className="h-4 w-4" /> Outlets</p>}
+              {editId ? null : elite ? (
                 outlets.length ? outlets.map((o) => (
                   <div key={o.id} className="space-y-3 rounded-3xl border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4">
                     <div className="flex min-h-11 items-center gap-3">
@@ -748,7 +850,7 @@ export default function NewItemWizard() {
           <PrimaryButton testId="wizard-next" onClick={next}>{step === 5 ? "Looks good" : "Next"} <ArrowRight className="h-5 w-5" /></PrimaryButton>
         ) : (
           <PrimaryButton testId="wizard-publish" disabled={busy || (type === "physical" && live && !inApp && !onWeb)} onClick={() => void publish()}>
-            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Rocket className="h-5 w-5" />} {live || type === "service" ? "Publish" : "Save draft"}
+            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Rocket className="h-5 w-5" />} {editId ? "Save changes" : live || type === "service" ? "Publish" : "Save draft"}
           </PrimaryButton>
         )}
       </BottomBar>
