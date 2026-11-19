@@ -93,6 +93,25 @@
         const issue = errorFor(field, row[field.id], answers);
         if (issue) return { id: `item-${index}-${field.id}`, message: `Line ${index + 1}, ${field.label}: ${issue}` };
       }
+      if (prompt.channelId === "concierge" && ["Shopping delivery commission", "Parcel delivery commission"].includes(row.adminSource || row.name)
+          && Number(row.rate) > 10) {
+        return { id: `item-${index}-rate`, message: "Concierge delivery commission must be at or below 10%." };
+      }
+      if (row.orderForecast === "network" && row.method !== "orders") {
+        return { id: `item-${index}-orderForecast`, message: "Use an orders revenue driver for acquisition forecasts." };
+      }
+      if (["network", "linked"].includes(row.orderForecast)) {
+        if (!/^[a-z0-9-]{1,64}$/.test(row.demandGroup || "")) {
+          return { id: `item-${index}-demandGroup`, message: "Use a shared forecast name with lowercase letters, numbers and hyphens." };
+        }
+        const sources = rows.filter(item => item.orderForecast === "network");
+        if (row.orderForecast === "network" && sources.filter(item => item.enabled !== "no" && item.demandGroup === row.demandGroup).length > 1) {
+          return { id: `item-${index}-demandGroup`, message: "Give each acquisition forecast a distinct shared name." };
+        }
+        if (row.orderForecast === "linked" && !sources.some(item => item.demandGroup === row.demandGroup)) {
+          return { id: `item-${index}-demandGroup`, message: "Choose the shared name of an acquisition forecast in this module." };
+        }
+      }
       if (prompt.id === "directCosts" && row.basis === "inventory") {
         const code = row.inventoryCode.toLowerCase();
         if (inventoryCodes.has(code)) return { id: "item-" + index + "-inventoryCode", message: "Give each inventory plan a distinct code." };

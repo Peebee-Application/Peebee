@@ -76,7 +76,7 @@
       const sources = [];
       for (const stream of (answers[channelKey(channel)] || []).filter(included)) {
         const index = streams.length;
-        streams.push({ ...stream, name: `${channel.name} · ${stream.name}` });
+        streams.push({ ...stream, moduleKey: channel.key, name: `${channel.name} · ${stream.name}` });
         sources.push({ name: stream.name, index });
         lines.push([`${channel.name} · ${stream.name}`, row => row.details.streams[index].revenue, "detail"]);
       }
