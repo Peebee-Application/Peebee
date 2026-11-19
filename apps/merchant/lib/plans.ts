@@ -37,7 +37,7 @@ export type PlanCard = { tier: Tier; label: string; monthly: number; yearly: num
 export type Checkout = {
   id: string; reference: string; kind: "upgrade" | "renew" | "downgrade"; fromPlan: string; tier: Tier; billingCycle: Cycle;
   listPrice: number; credit: number; amount: number; method: Method; status: string; startsAt: string | null; expiresAt: string | null;
-  failure: string | null; verifyMethod: "sms" | "pin"; codeSentTo: string | null; verifiedAt: string | null; createdAt: string;
+  failure: string | null; verifyMethod: "sms" | "pin" | "session"; codeSentTo: string | null; verifiedAt: string | null; createdAt: string;
 };
 export type Methods = { wallet: boolean; mobileMoney: boolean; card: boolean };
 export type PlansResponse = {

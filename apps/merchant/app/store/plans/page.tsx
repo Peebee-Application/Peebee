@@ -24,7 +24,7 @@ export default function PlansPage() {
     const [plans, list] = await Promise.all([plansApi.plans(), plansApi.receipts()]);
     if (!plans.ok) { setError(plans.message); return; }
     setData(plans.data);
-    if (list.ok) setReceipts(list.data.checkouts.filter((c) => ["active", "scheduled", "failed"].includes(c.status)).slice(0, 5));
+    if (list.ok) setReceipts(list.data.checkouts.filter((c) => ["active", "applied", "scheduled", "failed"].includes(c.status)).slice(0, 5));
     const params = new URLSearchParams(window.location.search);
     const wanted = params.get("tier") as Tier | null;
     const current = plans.data.current.legacy ? null : plans.data.current.plan === "pro_store" ? "pro_live" : (plans.data.current.plan as Tier);
