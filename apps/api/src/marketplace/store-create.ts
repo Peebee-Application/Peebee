@@ -60,7 +60,7 @@ export async function createStoreForMerchant(merchantId: string, input: NewStore
     args: [
       storeId, merchantId, input.name, slug, input.category, input.sub_category || "general", input.description || "",
       input.announcement || "Welcome to our store! Shop online for fast delivery.", input.phone || "", input.whatsapp_number || "",
-      input.address || "", input.min_order_amount || settings.minOrderAmountUgx, "pro_live", trialExpiresAt,
+      input.address || "", input.min_order_amount || settings.minOrderAmountUgx, settings.proTrialDays > 0 ? "pro_live" : "free", settings.proTrialDays > 0 ? trialExpiresAt : null,
       channels.status ?? "active", environment,
     ],
   });

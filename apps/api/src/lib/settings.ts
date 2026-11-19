@@ -2282,7 +2282,7 @@ export async function getMarketplaceSettings(): Promise<MarketplaceSettings> {
     proPricingMode: (proPricingModeStr === "paid" ? "paid" : "free") as "free" | "paid",
     proStorePriceUgx: Math.max(0, Number(proStoreStr) || 35000),
     proLivePriceUgx: Math.max(0, Number(proLiveStr) || 75000),
-    proTrialDays: Math.max(0, Number(trialDaysStr) || 14),
+    proTrialDays: Math.max(0, Number.isFinite(Number(trialDaysStr)) ? Number(trialDaysStr) : 14),
     adMinBudgetUgx: Math.max(1000, Number(adMinBudgetStr) || 10000),
     adFeePercent: Math.max(0, Math.min(100, Number(adFeeStr) || 5)),
     minOrderAmountUgx: Math.max(0, Number(minOrderStr) || 5000),

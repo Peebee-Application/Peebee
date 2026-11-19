@@ -529,9 +529,9 @@ export default function MerchantProStorePage() {
         if (s.loyalty_cashback_percent != null) setLoyaltyCashback(String(s.loyalty_cashback_percent));
 
         const [prodRes, colRes, discRes, invRes, drfRes, anaRes, posRes, trfRes, crmRes, secRes, smsRes, digRes, fulRes, crsRes, enrRes] = await Promise.all([
-          api.getMerchantProProducts().catch(() => { failed("Catalog"); return { products: previous ? products : [], variationSettings: undefined }; }),
-          api.getMerchantCollections().catch(() => { failed("Collections"); return { collections: previous ? collections : [] }; }),
-          api.getMerchantDiscounts().catch(() => { failed("Discounts"); return { discounts: previous ? discounts : [] }; }),
+          (s.plan?.features?.catalog ? api.getMerchantProProducts() : Promise.resolve({products: [], variationSettings: undefined})).catch(() => { failed("Catalog"); return { products: previous ? products : [], variationSettings: undefined }; }),
+          (s.plan?.features?.catalog ? api.getMerchantCollections() : Promise.resolve({collections: []})).catch(() => { failed("Collections"); return { collections: previous ? collections : [] }; }),
+          (s.plan?.features?.catalog ? api.getMerchantDiscounts() : Promise.resolve({discounts: []})).catch(() => { failed("Discounts"); return { discounts: previous ? discounts : [] }; }),
           (s.plan?.isElite ? api.getMerchantOutletInventory() : Promise.resolve({outlets: [], inventory: []})).catch(() => { failed("OutletInventory"); return { outlets: previous ? outlets : [], inventory: previous ? outletInventory : [] }; }),
           (s.plan?.isElite ? api.getMerchantDraftOrders() : Promise.resolve({draftOrders: []})).catch(() => { failed("DraftOrders"); return { draftOrders: previous ? draftOrders : [] }; }),
           (s.plan?.isElite ? api.getMerchantEliteAnalytics() : Promise.resolve({analytics: null})).catch(() => { failed("POS report"); return { analytics: previous ? analytics : null }; }),
@@ -541,8 +541,8 @@ export default function MerchantProStorePage() {
             customers: [],
             summary: { totalCustomers: 0, vipCount: 0, repeatCount: 0, b2bCount: 0, totalLoyaltyBalanceUgx: 0 },
           }; }),
-          api.getMerchantStorefrontSections().catch(() => { failed("StorefrontSections"); return { sections: previous ? storefrontSections : [] }; }),
-          api.getMerchantSmsLogs().catch(() => { failed("SmsLogs"); return { logs: previous ? smsLogs : [] }; }),
+          (s.plan?.features?.catalog ? api.getMerchantStorefrontSections() : Promise.resolve({sections: []})).catch(() => { failed("StorefrontSections"); return { sections: previous ? storefrontSections : [] }; }),
+          (s.plan?.isElite ? api.getMerchantSmsLogs() : Promise.resolve({logs: []})).catch(() => { failed("SmsLogs"); return { logs: previous ? smsLogs : [] }; }),
           (s.plan?.isElite && s.permissions?.manage_digital !== false ? api.getMerchantDigitalProducts() : Promise.resolve({products: []})).catch(() => { failed("DigitalProducts"); return { products: previous ? digitalProducts : [] }; }),
           (s.permissions?.manage_digital !== false ? api.getMerchantDigitalFulfillments() : Promise.resolve({fulfillments: []})).catch(() => { failed("DigitalFulfillments"); return { fulfillments: previous ? digitalFulfillments : [] }; }),
           (s.plan?.isElite && s.permissions?.manage_digital !== false ? api.getMerchantLmsCourses() : Promise.resolve({courses: []})).catch(() => { failed("Courses"); return { courses: previous ? lmsCourses : [] }; }),
@@ -1205,6 +1205,15 @@ export default function MerchantProStorePage() {
     setNotice("Preview only: no money has been charged and no advertisement has been submitted. Connected advertising is not available yet.");
   }
 
+  const canCatalog = store?.plan?.features?.catalog === true;
+  const canLive = store?.plan?.features?.live === true;
+  const canAds = store?.plan?.features?.ads === true;
+  const isElite = store?.plan?.isElite === true;
+  useEffect(() => {
+    if ((activeTab === "catalog" && !canCatalog) || (activeTab === "live" && !canLive)
+      || (activeTab === "ads" && !canAds) || (activeTab === "elite" && !isElite)) setActiveTab("home");
+  }, [activeTab, canCatalog, canLive, canAds, isElite]);
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center p-4">
@@ -1219,7 +1228,28 @@ export default function MerchantProStorePage() {
   const isProFree = settings?.proPricingMode !== "paid";
   const proStorePrice = settings?.proStorePriceUgx ?? 35000;
   const elitePrice = settings?.elitePriceUgx ?? 150000;
-  const isElite = Boolean(store?.plan?.isElite) || Boolean(store?.elite_tier) || store?.pro_tier === "elite";
+
+  if (store && !canCatalog && !canLive && !canAds && !isElite) {
+    return <div className="mx-auto max-w-xl space-y-5 px-4 pb-8 pt-5" data-testid="merchant-payments-plan">
+      <section className={`${card} space-y-3 p-5`}>
+        <p className="text-sm font-bold text-gold">Your plan · {store.plan?.plan === "merchant" ? "Merchant" : "Pro"}</p>
+        <h1 className="text-3xl font-black text-ink">{merchant?.display_name ?? store.name}</h1>
+        <p className="text-lg text-ink-500">Accept payments with your Merchant Code and manage your outlets and settlements.</p>
+      </section>
+      <div className="grid grid-cols-2 gap-3">
+        <Link href="/payments" className={`${card} flex min-h-20 items-center justify-center text-lg font-bold`}>Payments</Link>
+        {merchant?.member_role !== "cashier" && <Link href="/wallet" className={`${card} flex min-h-20 items-center justify-center text-lg font-bold`}>Wallet</Link>}
+        <Link href="/outlets" className={`${card} flex min-h-20 items-center justify-center text-lg font-bold`}>Outlets & codes</Link>
+        <Link href="/account" className={`${card} flex min-h-20 items-center justify-center text-lg font-bold`}>Business account</Link>
+      </div>
+      {store.permissions?.manage_billing !== false && <section className={`${card} space-y-3 p-5`}>
+        <h2 className="text-xl font-black">Choose a plan for selling online</h2>
+        <p className="text-base text-ink-500">Pro adds catalog and live selling. Elite adds the advanced store tools.</p>
+        <Link href="/store/plans" className={`${goldBtn} min-h-14`}>View plans</Link>
+      </section>}
+      <ExistingDigitalPurchases purchases={digitalFulfillments} canRefund={store.permissions?.refund_revoke !== false} onRefund={handleRefundFulfillment} onRevoke={handleRevokeFulfillment} />
+    </div>;
+  }
 
   // 1. Initial State: No store created yet -> Chap Chap 2-Minute Onboarding Wizard
   if (!store && error) return <div className="space-y-4 p-5"><h1 className="text-xl font-bold">Store unavailable</h1><p role="alert">{error}</p><button className="min-h-11 rounded-full border border-gold px-4 font-bold" onClick={() => void loadData()}>Retry loading store</button></div>;
@@ -1361,37 +1391,37 @@ export default function MerchantProStorePage() {
                   </div>
                 </div>
               </div>
-              <p className="flex items-start gap-2 break-all text-[16px] font-bold text-white/75"><Globe className="mt-0.5 h-5 w-5 shrink-0" />{siteHost}</p>
+              {canCatalog && <p className="flex items-start gap-2 break-all text-[16px] font-bold text-white/75"><Globe className="mt-0.5 h-5 w-5 shrink-0" />{siteHost}</p>}
               <div className="grid grid-cols-2 gap-2.5">
                 <button type="button" onClick={() => setPlanSheet(true)} data-testid="open-plan-links"
                   className="flex min-h-[60px] min-w-0 items-center justify-center gap-2 rounded-[18px] border-[1.5px] border-white/20 bg-white/10 px-2 text-[18px] font-black text-white active:scale-[.98]">
                   <Link2 className="h-[22px] w-[22px] shrink-0" /><span className="min-w-0 text-center leading-tight">Plan &amp; links</span>
                 </button>
-                <button type="button" onClick={() => { setPreviewScreen("storefront"); setShowStorefrontPreview(true); }} data-testid="open-preview"
+                {canCatalog && <button type="button" onClick={() => { setPreviewScreen("storefront"); setShowStorefrontPreview(true); }} data-testid="open-preview"
                   className="flex min-h-[60px] min-w-0 items-center justify-center gap-2 rounded-[18px] bg-gold px-2 text-[18px] font-black text-ink-gold active:scale-[.98]">
                   <Eye className="h-[22px] w-[22px] shrink-0" /><span className="truncate">Preview</span>
-                </button>
+                </button>}
               </div>
             </div>
           </section>
 
-          <Link href="/store/items/new" data-testid="add-item" className="flex min-h-[72px] items-center gap-3.5 rounded-[24px] bg-gold px-[18px] text-[21px] font-black text-ink-gold shadow-[0_10px_26px_rgb(var(--gold)/0.35)] transition active:scale-[.98]">
+          {canCatalog && <Link href="/store/items/new" data-testid="add-item" className="flex min-h-[72px] items-center gap-3.5 rounded-[24px] bg-gold px-[18px] text-[21px] font-black text-ink-gold shadow-[0_10px_26px_rgb(var(--gold)/0.35)] transition active:scale-[.98]">
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-black text-gold"><Plus className="h-7 w-7" strokeWidth={3} /></span>
             <span className="flex-1">Add item</span>
             <ChevronRight className="h-7 w-7" strokeWidth={3} />
-          </Link>
+          </Link>}
 
           <div className="grid grid-cols-2 gap-3 pt-1">
-            <HubTile icon={Package} title="Catalog" sub="Your items" badge={products.length} onClick={() => openSection("catalog")} testId="tile-catalog" />
-            <HubTile icon={Radio} tone="red" title="Live" sub={isLiveActive ? "On air now" : "Sell on camera"} onClick={() => openSection("live")} testId="tile-live" />
-            <HubTile icon={Megaphone} title="Ads" sub="Plan a promo" onClick={() => openSection("ads")} testId="tile-ads" />
+            {canCatalog && <HubTile icon={Package} title="Catalog" sub="Your items" badge={products.length} onClick={() => openSection("catalog")} testId="tile-catalog" />}
+            {canLive && <HubTile icon={Radio} tone="red" title="Live" sub={isLiveActive ? "On air now" : "Sell on camera"} onClick={() => openSection("live")} testId="tile-live" />}
+            {canAds && <HubTile icon={Megaphone} title="Ads" sub="Plan a promo" onClick={() => openSection("ads")} testId="tile-ads" />}
             <HubTile icon={StoreIcon} title="Settings" sub="Store details" onClick={() => openSection("settings")} testId="tile-settings" />
-            <button type="button" onClick={() => openSection("elite")} data-testid="tile-elite"
+            {isElite && <button type="button" onClick={() => openSection("elite")} data-testid="tile-elite"
               className="col-span-2 flex min-h-[96px] min-w-0 items-center gap-3.5 rounded-[26px] border-[1.5px] border-gold/50 bg-black p-4 text-left text-white active:scale-[.98] dark:bg-[#000]">
               <span className="grid h-14 w-14 shrink-0 place-items-center rounded-[18px] bg-gold text-ink-gold"><Crown className="h-[30px] w-[30px]" /></span>
               <span className="min-w-0 flex-1"><span className="block text-[20px] font-black">Elite</span><span className="block text-[16px] font-semibold text-white/65">{isElite ? `${eliteTools.reduce((n, g) => n + g.items.length, 0)} tools` : "Unlock more"}</span></span>
               <ChevronRight className="h-[30px] w-[30px] shrink-0 text-gold" strokeWidth={3} />
-            </button>
+            </button>}
           </div>
         </div>
       )}
@@ -4626,7 +4656,7 @@ export default function MerchantProStorePage() {
         </div>
       )}
 
-      {activeTab === "catalog" && (
+      {canCatalog && activeTab === "catalog" && (
         <CatalogView
           products={products}
           pinnedId={pinnedProductId}
@@ -4647,7 +4677,7 @@ export default function MerchantProStorePage() {
         />
       )}
 
-      {activeTab === "live" && (() => {
+      {canLive && activeTab === "live" && (() => {
         const pinned = products.find((p) => p.id === pinnedProductId);
         return (
         <div className="space-y-4" data-testid="live">
@@ -4753,7 +4783,7 @@ export default function MerchantProStorePage() {
         );
       })()}
 
-      {activeTab === "ads" && (
+      {canAds && activeTab === "ads" && (
         <div className="space-y-5" data-testid="ads">
           <PageHeader title="Ads" onBack={backHome} />
           <p className="flex items-center gap-3 rounded-[20px] border-[1.5px] border-gold/50 bg-gold/15 p-4 text-[17px] font-black text-ink"><Info className="h-6 w-6 shrink-0" /> Plan only · no money is charged</p>

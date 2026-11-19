@@ -1,4 +1,5 @@
 import { db } from "../db/client.js";
+import { findPublicStore } from "./public.js";
 import { hasTable } from "../lib/schema.js";
 
 type Row = Record<string, unknown>;
@@ -33,6 +34,7 @@ export async function priceCheckoutItems<T extends ClientCheckoutItem>(
   const priced: T[] = [];
   // Quantity already claimed per product/variant within this bag, so two lines can't both take the last unit.
   const claimed = new Map<string, number>();
+  const sellableStores = new Map<string, boolean>();
 
   for (const item of items) {
     const fail = (status: 400 | 409, error: string, message: string): PricingFailure => ({ ok: false, status, error, message, productId: item.productId });
@@ -49,6 +51,8 @@ export async function priceCheckoutItems<T extends ClientCheckoutItem>(
       });
       product = (res.rows[0] as Row | undefined) ?? null;
       if (product) {
+        if (!sellableStores.has(item.storeId)) sellableStores.set(item.storeId, !!await findPublicStore(item.storeId));
+        if (!sellableStores.get(item.storeId)) return fail(409, "store_unavailable", "This store is not accepting new online orders.");
         fromDb = true;
         const vRes = await db.execute({ sql: "SELECT * FROM store_product_variants WHERE product_id = ?", args: [item.productId] });
         variants = vRes.rows as Row[];

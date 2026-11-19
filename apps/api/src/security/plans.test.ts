@@ -31,7 +31,8 @@ test("a store starts as a plain Merchant once its trial is over, with the admin'
   assert.equal(store.pro_tier, "free");
   assert.equal(store.plan.legacy, false);
 
-  await admin.setOptions({ merchant_plan_free_max_products: 2 });
+  assert.equal((await s.call("/merchants/me/products")).status, 403, "Merchant defaults to payments only");
+  await admin.setOptions({ merchant_plan_merchant_features: ["catalog"], merchant_plan_free_max_products: 2 });
   const add = (title: string) => s.call("/merchants/me/products", "POST", { title, price: 1000, inventory_quantity: 5 });
   assert.equal((await add("Mango")).status, 200);
   assert.equal((await add("Papaya")).status, 200);
@@ -51,7 +52,7 @@ test("the Elite-only tools are refused without an active Elite plan, and open wi
   for (const path of ["/merchants/me/stock-transfers", "/merchants/me/elite-analytics", "/merchants/me/suppliers", "/merchants/me/bundles", "/merchants/me/winback-campaigns"]) {
     assert.equal((await s.call(path)).status, 403, path);
   }
-  assert.equal((await s.call("/merchants/me/products")).status, 200, "ordinary store tools stay open");
+  assert.equal((await s.call("/merchants/me/products")).status, 403, "catalog requires an eligible plan too");
 
   const up = await s.call("/merchants/me/store/tier", "POST", { tier: "elite" }); // pricing is free by default
   assert.equal(up.status, 200);
@@ -141,15 +142,15 @@ test("when a plan ends the store drops back to Merchant, and the app is told bef
   assert.equal((await s.call("/merchants/me/pos-sales")).status, 403, "Elite tools close again");
 });
 
-test("stores from before plans keep their access until admin says otherwise", async () => {
+test("legacy Merchant accounts do not receive Elite just because pricing is free", async () => {
   const client = await freshDatabase();
   const admin = await addAdmin(client);
   const s = await plainMerchant(client);
   await client.execute({ sql: "UPDATE stores SET plan_legacy = 1 WHERE id = ?", args: [s.storeId] });
   const kept = await me(s);
-  assert.equal(kept.plan.legacy, true);
-  assert.equal(kept.plan.isElite, true, "free pricing: everyone had everything");
-  assert.equal((await s.call("/merchants/me/pos-sales")).status, 200);
+  assert.equal(kept.plan.plan, "merchant");
+  assert.equal(kept.plan.isElite, false, "free pricing does not assign a higher plan");
+  assert.equal((await s.call("/merchants/me/pos-sales")).status, 403);
 
   await admin.setOptions({ merchant_plan_legacy_access: "follow_plan" });
   assert.equal((await me(s)).plan.plan, "merchant");
@@ -201,5 +202,7 @@ test("a custom domain stops being served when the Elite plan ends", async () => 
   const past = new Date(Date.now() - 3600_000).toISOString();
   await client.execute({ sql: "UPDATE stores SET elite_expires_at = ?, pro_expires_at = ? WHERE id = ?", args: [past, past, s.storeId] });
   assert.notEqual((await byDomain()).status, 200, "not served once the plan has ended");
-  assert.equal((await app.request(`/v1/marketplace/stores/${s.slug}`)).status, 200, "the Peebee address still works");
+  assert.equal((await app.request(`/v1/marketplace/stores/${s.slug}`)).status, 404, "Merchant has no online storefront");
+  await s.call("/merchants/me/store/tier", "POST", { tier: "pro_live" });
+  assert.equal((await app.request(`/v1/marketplace/stores/${s.slug}`)).status, 200, "the Peebee address works with an active Pro plan");
 });

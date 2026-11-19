@@ -31,7 +31,7 @@ async function blocker(store: Row): Promise<{ code: string; message: string; sta
   const settings = await getMarketplaceSettings();
   if (!settings.liveEnabled) return { code: "live_disabled", message: "Live selling is switched off for now.", status: 403 };
   const plan = await storePlan(store, settings);
-  if (plan.plan !== "pro_live" && !plan.isElite) return { code: "plan_required", message: "Live selling needs Merchant Pro Live or Elite.", status: 403 };
+  if (!plan.features.live) return { code: "plan_required", message: "Live selling needs an eligible Pro or Elite plan.", status: 403 };
   const cfg = await getChannelsConfig();
   if (!cfg.enabled || !cfg.live.enabled || !(await liveReady())) return { code: "live_unavailable", message: "Going live is not available yet.", status: 503 };
   if (!cfg.publishing.publishers.includes("store")) return { code: "publisher_unavailable", message: "Stores cannot go live yet.", status: 403 };

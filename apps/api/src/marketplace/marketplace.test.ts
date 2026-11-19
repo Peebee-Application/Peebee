@@ -840,6 +840,7 @@ test("a live platform builds the spotlight from real stores, and admin can switc
       ('prod_sandbox', 'store_sandbox', 'Sandbox item', 1000, 2000, NULL, '/sandbox.jpg', 'active', 0),
       ('prod_draft', 'store_draft_only', 'Unpublished', 1000, 2000, 'Soon', '/draft.jpg', 'draft', 0)`);
 
+    await client.execute("UPDATE stores SET pro_tier='pro_live' WHERE merchant_id='m_spot'");
     const feed = await json("/v1/marketplace/spotlight");
     assert.equal(feed.status, 200);
     const ids = feed.body.spotlight.map((item: any) => item.store_id);

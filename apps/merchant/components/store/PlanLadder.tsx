@@ -11,6 +11,7 @@ export type PlanInfo = {
   expiresAt: string | null;
   daysLeft: number | null;
   legacy: boolean;
+  features?: { catalog: boolean; live: boolean; ads: boolean };
   warn?: boolean;
 };
 
