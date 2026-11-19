@@ -103,3 +103,13 @@ test("a zero-day trial stays off, and an expired or downgraded catalog cannot ac
   await db.execute({ sql: "UPDATE stores SET pro_expires_at='2000-01-01',elite_expires_at='2000-01-01' WHERE id=?", args: [merchant.storeId] });
   assert.equal((await json(await merchant.call("/merchants/me/store"))).store.plan.plan, "merchant");
 });
+
+test("downgrade denies a new broadcast but keeps termination of an existing broadcast available", async () => {
+  const { db, merchant, tier } = await setup(); await tier("pro");
+  const started = await merchant.call("/merchants/me/store/live/start", "POST", { title: "Earlier broadcast", streamUrl: "https://example.test/live.m3u8" });
+  assert.equal(started.status, 200, JSON.stringify(await started.clone().json()));
+  await tier("merchant");
+  assert.equal((await merchant.call("/merchants/me/store/live/start", "POST", {})).status, 403);
+  assert.equal((await merchant.call("/merchants/me/store/live/end", "POST", {})).status, 200);
+  assert.equal((await db.execute({ sql: "SELECT is_live FROM stores WHERE id=?", args: [merchant.storeId] })).rows[0].is_live, 0);
+});

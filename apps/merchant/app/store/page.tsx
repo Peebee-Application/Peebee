@@ -1205,6 +1205,18 @@ export default function MerchantProStorePage() {
     setNotice("Preview only: no money has been charged and no advertisement has been submitted. Connected advertising is not available yet.");
   }
 
+  async function endPreviousBroadcast() {
+    setStartingLive(true); setError(""); setNotice("");
+    try {
+      const state = await api.storeCameraLive();
+      if (state.live) await api.storeCameraEnd(state.live.id);
+      await api.endMerchantProLive();
+      setIsLiveActive(false); setCameraLiveOpen(false);
+      setNotice("The previous broadcast has ended.");
+    } catch (cause) { setError(errorMessage(cause)); }
+    finally { setStartingLive(false); }
+  }
+
   const canCatalog = store?.plan?.features?.catalog === true;
   const canLive = store?.plan?.features?.live === true;
   const canAds = store?.plan?.features?.ads === true;
@@ -1242,6 +1254,13 @@ export default function MerchantProStorePage() {
         <Link href="/outlets" className={`${card} flex min-h-20 items-center justify-center text-lg font-bold`}>Outlets & codes</Link>
         <Link href="/account" className={`${card} flex min-h-20 items-center justify-center text-lg font-bold`}>Business account</Link>
       </div>
+      {error && <p role="alert" className={`${card} p-4`}>{error}<button onClick={() => void loadData()} className="ml-3 min-h-11 font-bold underline">Retry</button></p>}
+      {notice && <p role="status" className={`${card} p-4`}>{notice}</p>}
+      {(isLiveActive || cameraLiveOpen) && store.permissions?.manage_store_settings !== false && <section className={`${card} space-y-3 p-5`}>
+        <h2 className="text-xl font-black">An earlier broadcast is still active</h2>
+        <p className="text-base text-ink-500">You can end it here. Starting another broadcast requires an eligible plan.</p>
+        <button type="button" disabled={startingLive} onClick={() => void endPreviousBroadcast()} className={`${ghostBtn} min-h-12`} data-testid="end-previous-broadcast">{startingLive ? "Ending…" : "End previous broadcast"}</button>
+      </section>}
       {store.permissions?.manage_billing !== false && <section className={`${card} space-y-3 p-5`}>
         <h2 className="text-xl font-black">Choose a plan for selling online</h2>
         <p className="text-base text-ink-500">Pro adds catalog and live selling. Elite adds the advanced store tools.</p>
