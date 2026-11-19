@@ -59,7 +59,9 @@ export default function VerificationPage() {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [sent, setSent] = useState(false);
+  // Refreshing the business list can remount this page, so the "Sent" note is kept for one showing in sessionStorage.
+  const [sent, setSent] = useState(() => typeof window !== "undefined" && Date.now() - Number(sessionStorage.getItem("peebee_kyc_sent") || 0) < 30_000);
+  useEffect(() => { sessionStorage.removeItem("peebee_kyc_sent"); }, []);
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const pdfRef = useRef<HTMLInputElement>(null);
@@ -102,6 +104,7 @@ export default function VerificationPage() {
       setFiles({ "owner-id": null, "business-registration": null });
       setPreviews({ "owner-id": null, "business-registration": null });
       setDeclared(false); setEditing(false); setSent(true);
+      sessionStorage.setItem("peebee_kyc_sent", String(Date.now()));
       await refreshMerchants();
     } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }
