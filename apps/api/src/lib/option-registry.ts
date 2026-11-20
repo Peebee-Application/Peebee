@@ -63,6 +63,8 @@ const ROLES: OptionChoice[] = [
 ];
 
 export const OPTION_SETTINGS: SettingDef[] = [
+  { key: "merchant_upgrade_carousel_autoplay", module: "plans", kind: "bool", label: "Merchant upgrade slides autoplay", description: "Rotate the Store upgrade hero. Merchants can always pause it; reduced-motion preferences disable automatic rotation.", default: true },
+  { key: "merchant_upgrade_carousel_seconds", module: "plans", kind: "int", label: "Merchant upgrade slide duration", description: "Time each Store upgrade message stays visible before advancing.", default: 8, min: 5, max: 60, unit: "seconds" },
   { key: "merchant_plan_free_confirmation", module: "plans", kind: "enum", label: "Free plan change confirmation", description: "How the signed-in business owner confirms a plan with no price or later payment. Paid changes always keep payment verification.", default: "session", options: [opt("session", "Signed-in owner confirmation", true, { recommended: true }), opt("verified", "SMS or plan PIN", true)] },
   ...(["merchant", "pro", "elite"] as const).map(plan => ({
     key: `merchant_plan_${plan}_pages`, module: "plans" as const, kind: "multi" as const,

@@ -1,0 +1,53 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { addAdmin, addMerchantStore, addUser, app, freshDatabase } from "../test-support/db.js";
+import { invalidateSettingsCache } from "../lib/settings.js";
+
+test("plan discovery is member-readable, selected-business scoped, and never grants checkout authority", async () => {
+  const db = await freshDatabase(); invalidateSettingsCache();
+  const owner = await addMerchantStore(db, "sales-owner");
+  const other = await addMerchantStore(db, "sales-other");
+  const manager = await addUser(db, "sales-manager");
+  await db.execute({ sql: "INSERT INTO merchant_members(merchant_id,user_id,role,status) VALUES (?,'sales-manager','manager','active')", args: [owner.merchantId] });
+  const request = (id: string) => app.request("/v1/merchants/me/store/plan-comparison", { headers: { Authorization: `Bearer ${manager}`, "X-Merchant-Id": id } });
+  assert.equal((await app.request("/v1/merchants/me/store/plan-comparison")).status, 401);
+  const response = await request(owner.merchantId);
+  assert.equal(response.status, 200);
+  const body = await response.json() as any;
+  assert.equal(body.merchantId, owner.merchantId);
+  assert.equal(body.canUpgrade, false);
+  assert.equal(body.setupRequired, false);
+  assert.ok(body.groups.length >= 4);
+  assert.equal(body.phone, undefined);
+  assert.equal(body.paying, undefined);
+  assert.equal((await request(other.merchantId)).status, 403);
+  assert.equal((await app.request("/v1/merchants/me/store/plan-checkouts", { method: "POST", headers: { Authorization: `Bearer ${manager}`, "X-Merchant-Id": owner.merchantId, "Content-Type": "application/json" }, body: JSON.stringify({ tier: "elite", billingCycle: "monthly", method: "free" }) })).status, 403);
+  const ownerBody = await (await owner.call("/merchants/me/store/plan-comparison")).json() as any;
+  assert.equal(ownerBody.canUpgrade, true);
+  await db.execute({ sql: "DELETE FROM stores WHERE id=?", args: [owner.storeId] });
+  const setupBody = await (await owner.call("/merchants/me/store/plan-comparison")).json() as any;
+  assert.equal(setupBody.setupRequired, true);
+  assert.equal(setupBody.current, "merchant");
+});
+
+test("comparison follows Admin prices, tool switches, limits and slide settings without changing subscriptions", async () => {
+  const db = await freshDatabase(); invalidateSettingsCache();
+  const owner = await addMerchantStore(db, "sales-settings");
+  const admin = await addAdmin(db);
+  await admin.setOptions({ merchant_upgrade_carousel_autoplay: false, merchant_upgrade_carousel_seconds: 12, merchant_plan_pro_features: [] });
+  for (const [key, value] of [["marketplace_pro_pricing_mode", "paid"], ["marketplace_pro_live_price_ugx", "99000"], ["marketplace_pro_max_products", "73"]]) await db.execute({ sql: "INSERT OR REPLACE INTO settings(key,value) VALUES (?,?)", args: [key, value] });
+  invalidateSettingsCache();
+  const before = (await db.execute({ sql: "SELECT pro_tier,elite_tier FROM stores WHERE id=?", args: [owner.storeId] })).rows[0];
+  const body = await (await owner.call("/merchants/me/store/plan-comparison")).json() as any;
+  assert.deepEqual(body.carousel, { autoplay: false, seconds: 12 });
+  assert.equal(body.free, false);
+  assert.equal(body.plans.pro.monthly, 99000);
+  assert.equal(body.plans.pro.live, false);
+  assert.equal(body.plans.pro.catalog, false);
+  assert.equal(body.groups[0].rows.find((r: any) => r.key === "storefront").pro, false);
+  await admin.setOptions({ merchant_plan_pro_features: ["catalog"] });
+  const restored = await (await owner.call("/merchants/me/store/plan-comparison")).json() as any;
+  assert.equal(restored.groups[0].rows.find((r: any) => r.key === "products").pro, "73 items");
+  const after = (await db.execute({ sql: "SELECT pro_tier,elite_tier FROM stores WHERE id=?", args: [owner.storeId] })).rows[0];
+  assert.deepEqual(after, before);
+});

@@ -29,6 +29,7 @@ import { recordLoyaltyForOrder, settleLoyalty } from "./loyalty.js";
 import { sendStoreSms } from "./sms.js";
 import { createStoreForMerchant } from "./store-create.js";
 import { eliteOnly, planLimits, storePlan } from "./plans.js";
+import { merchantPlanComparison } from "./plan-comparison.js";
 import { PLAN_LABEL, PLAN_RANK, applyPlanPurchase, periodDays, planPrice } from "./plan-purchase.js";
 import { planCheckoutRoutes } from "./plan-checkout.js";
 import { storeItemRoutes } from "./store-items.js";
@@ -999,6 +1000,7 @@ for (const path of [
 }
 
 // 1. Get Merchant's Store Profile & Status
+marketplaceRoutes.get("/merchants/me/store/plan-comparison", requireAuth, merchantPlanComparison);
 marketplaceRoutes.get("/merchants/me/store", requireAuth, async (c) => {
   const user = c.get("user");
   // Find merchant linked to this user

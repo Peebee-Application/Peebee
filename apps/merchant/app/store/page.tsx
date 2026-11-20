@@ -1245,12 +1245,11 @@ export default function MerchantProStorePage() {
   }
 
   const isProFree = settings?.proPricingMode !== "paid";
-  const proStorePrice = settings?.proStorePriceUgx ?? 35000;
   const elitePrice = settings?.elitePriceUgx ?? 150000;
 
   if (store && !canCatalog && !canLive && !canAds && !isElite) {
     return <div className="mx-auto max-w-3xl space-y-5 px-4 pb-8 pt-5" data-testid="merchant-payments-plan">
-      <StoreUpgrade proPrice={settings?.proLivePriceUgx ?? proStorePrice} elitePrice={elitePrice} free={isProFree} eliteEnabled={settings?.eliteEnabled !== false} liveEnabled={settings?.liveEnabled === true} canChoose={store.permissions?.manage_billing !== false} />
+      <StoreUpgrade />
       {error && <p role="alert" className={`${card} p-4`}>{error}<button onClick={() => void loadData()} className="ml-3 min-h-11 font-bold underline">Retry</button></p>}
       {notice && <p role="status" className={`${card} p-4`}>{notice}</p>}
       {(isLiveActive || cameraLiveOpen) && store.permissions?.manage_store_settings !== false && <section className={`${card} space-y-3 p-5`}>
@@ -1264,7 +1263,7 @@ export default function MerchantProStorePage() {
 
   // 1. Initial State: No store created yet -> Chap Chap 2-Minute Onboarding Wizard
   if (!store && error) return <div className="space-y-4 p-5"><h1 className="text-xl font-bold">Store unavailable</h1><p role="alert">{error}</p><button className="min-h-11 rounded-full border border-gold px-4 font-bold" onClick={() => void loadData()}>Retry loading store</button></div>;
-  if (!store && pathname !== "/store/setup") return <div className="mx-auto max-w-3xl px-4 pb-8 pt-5"><StoreUpgrade proPrice={settings?.proLivePriceUgx ?? proStorePrice} elitePrice={elitePrice} free={isProFree} eliteEnabled={settings?.eliteEnabled !== false} liveEnabled={settings?.liveEnabled === true} canChoose={merchant?.member_role === "owner"} setupRequired /></div>;
+  if (!store && pathname !== "/store/setup") return <div className="mx-auto max-w-3xl px-4 pb-8 pt-5"><StoreUpgrade /></div>;
   if (!store) {
     return (
       <div className="relative mx-auto max-w-xl space-y-5 overflow-x-clip px-4 pb-10 pt-5" data-testid="store-create">

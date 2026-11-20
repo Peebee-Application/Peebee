@@ -1,0 +1,17 @@
+.track { transition: transform 500ms ease; }
+.hero { touch-action: pan-y; }
+.slide { min-height: 340px; }
+.copy { width: 52%; padding: 26px 0 66px 20px; }
+.art { object-fit: cover; object-position: right center; }
+.shade { background: linear-gradient(90deg, rgb(var(--color-black)) 0%, rgb(var(--color-black) / .93) 38%, transparent 69%); }
+@media (min-width: 480px) {
+  .art { object-position: center; }
+  .shade { display: none; }
+  .slide { min-height: 390px; }
+  .copy { padding: 32px 0 70px 28px; }
+}
+@media (min-width: 768px) {
+  .slide { min-height: 450px; }
+  .copy { width: 50%; padding: 36px 0 72px 34px; }
+}
+@media (prefers-reduced-motion: reduce) { .track { transition: none; } }
