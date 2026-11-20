@@ -56,7 +56,7 @@ export type Quote = {
   kind: "upgrade" | "renew" | "downgrade"; fromPlan: string; tier: Tier; billingCycle: Cycle; listPrice: number; credit: number;
   creditDays: number; amount: number; laterAmount: number; startsAt: string; expiresAt: string | null; free: boolean;
 };
-export type QuoteResponse = { quote: Quote; wallet: { balance: number }; methods: Methods; phone: string | null; verify: { channel: "sms" | "pin"; pinSet: boolean } };
+export type QuoteResponse = { quote: Quote; wallet: { balance: number }; methods: Methods; phone: string | null; verify: { channel: "sms" | "pin" | "session"; pinSet: boolean } };
 export type PaymentStart = { network: string | null; redirectUrl: string | null; nextAction: string | null; topupId: string };
 
 export const plansApi = {

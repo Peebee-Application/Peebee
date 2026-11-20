@@ -1,7 +1,7 @@
 /**
  * Verified plan checkout: Plans → Review → Pay → Verify → Done.
  *
- * A plan never changes with one tap. Every change — an upgrade, a renewal, a move down, even while plans are free —
+ * Paid changes — upgrades, renewals and scheduled paid downgrades —
  * is a checkout that the owner confirms with a six-digit code texted to their phone, and (when it costs anything) a
  * payment the server has seen succeed. Only then does the plan change.
  *
@@ -9,7 +9,7 @@
  * - Mobile money / card: after the code, a collection is started as a wallet top-up (the same provider routing,
  *   webhooks and background settlement every top-up uses). When that top-up succeeds the plan price is taken from the
  *   wallet and the plan switches. A payment that lands after a cancelled checkout simply stays in the wallet.
- * - Free (UGX 0): the code alone confirms it.
+ * - Free (UGX 0 with no later payment): the signed-in owner confirms, unless Admin requires SMS/PIN.
  * - Moving down to Merchant: confirmed by the signed-in owner (no payment, no code), applied when the current plan
  *   ends, cancellable until then. A legacy store has no end date, so it switches at once.
  *
@@ -94,6 +94,13 @@ const PIN_LOCK_MINUTES = 15;
 /** SMS when a text provider is connected (or local development); otherwise the owner's PIN. */
 export function verifyChannel(): "sms" | "pin" {
   return isAfricasTalkingConfigured() || isDev() ? "sms" : "pin";
+}
+
+async function confirmsWithSession(quote: Quote): Promise<boolean> {
+  if (quote.amount !== 0 || quote.laterAmount !== 0) return false;
+  if (quote.kind === "downgrade" && quote.tier === "merchant") return true;
+  if (quote.listPrice !== 0) return false;
+  return (await getOptions(["merchant_plan_free_confirmation"])).merchant_plan_free_confirmation === "session";
 }
 
 const pinHash = (userId: string, pin: string) => hashCode(`plan-pin:${userId}:${pin}`);
@@ -405,15 +412,15 @@ planCheckoutRoutes.post("/merchants/me/store/plan-pin", requireAuth, async (c) =
     const ok = await checkPin(owner.userId, currentPin);
     if (!ok.ok) return c.json({ error: ok.error, message: ok.message, attemptsLeft: ok.attemptsLeft }, ok.status);
   } else {
-    // Google sign-ups get a random hash nobody knows, so "has a hash" is not "has a password": password_set_at is.
-    // An account with no password of its own sets one first (Forgot password, a code to its email), then the PIN.
+    // Google sign-ups have an unknown random hash; legacy password accounts can lack password_set_at.
+    // Compare the supplied password before deciding whether an unset timestamp needs password recovery.
     const user = (await db.execute({ sql: "SELECT password_hash, password_set_at FROM users WHERE id = ?", args: [owner.userId] })).rows[0] as Row | undefined;
     const hash = String(user?.password_hash ?? "");
-    if (!user?.password_set_at || !hash.startsWith("$2")) {
+    if (!hash.startsWith("$2")) {
       return c.json({ error: "password_not_set", message: "Your account has no password yet. Set one first, then come back to set your PIN." }, 409);
     }
     if (!password) return c.json({ error: "password_required", message: "Enter your account password." }, 400);
-    if (!(await bcrypt.compare(password, hash))) return c.json({ error: "wrong_password", message: "That password isn't right. Check it and try again." }, 400);
+    if (!(await bcrypt.compare(password, hash))) return c.json({ error: user?.password_set_at ? "wrong_password" : "password_not_set", message: user?.password_set_at ? "That password isn't right. Check it and try again." : "No matching account password is set. Use Forgot password to set one." }, user?.password_set_at ? 400 : 409);
   }
   await db.execute({
     sql: `INSERT INTO owner_pins (user_id, pin_hash) VALUES (?, ?)
@@ -442,7 +449,7 @@ planCheckoutRoutes.post("/merchants/me/store/plan-quote", requireAuth, async (c)
     wallet: { balance },
     methods: await activeMethods(),
     phone: owner.phone ? maskPhone(owner.phone) : null,
-    verify: { channel: verifyChannel(), pinSet: Boolean(await pinRow(owner.userId)) },
+    verify: { channel: await confirmsWithSession(quote) ? "session" : verifyChannel(), pinSet: Boolean(await pinRow(owner.userId)) },
   });
 });
 
@@ -466,15 +473,15 @@ planCheckoutRoutes.post("/merchants/me/store/plan-checkouts", requireAuth, async
   // A move down that costs nothing now or later (to Merchant) is confirmed by the signed-in owner alone: no payment,
   // no code, no PIN. It waits for the end of the plan in force and can be cancelled ("Keep my plan") until then;
   // a legacy store (no end date) switches now.
-  if (quote.kind === "downgrade" && quote.amount === 0 && quote.laterAmount === 0) {
+  if (await confirmsWithSession(quote)) {
     const environment = await getPlatformEnvironment();
     const id = newId("pco");
     const reference = `PB-SUB-${id.slice(-8).toUpperCase()}`;
     await db.execute({ sql: "UPDATE plan_checkouts SET status = 'cancelled', updated_at = datetime('now') WHERE store_id = ? AND status IN ('awaiting_code', 'scheduled')", args: [String(owner.store.id)] });
     await db.execute({
       sql: `INSERT INTO plan_checkouts (id, reference, store_id, merchant_id, user_id, kind, from_plan, tier, billing_cycle, list_price, credit, amount, method, msisdn, status, verify_method, code_phone, starts_at, expires_at, environment, verified_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 'free', NULL, 'awaiting_code', 'session', NULL, ?, ?, ?, datetime('now'))`,
-      args: [id, reference, String(owner.store.id), owner.merchantId, owner.userId, quote.kind, quote.fromPlan, tier, billingCycle, quote.listPrice, quote.startsAt, quote.expiresAt, environment],
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'free', NULL, 'awaiting_code', 'session', NULL, ?, ?, ?, datetime('now'))`,
+      args: [id, reference, String(owner.store.id), owner.merchantId, owner.userId, quote.kind, quote.fromPlan, tier, billingCycle, quote.listPrice, quote.credit, quote.startsAt, quote.expiresAt, environment],
     });
     if (Date.parse(quote.startsAt) > Date.now() + 60_000) {
       await setStatus(id, "scheduled");

@@ -10,6 +10,7 @@ import { HubTile, card } from "../../components/store/StoreUI";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useModules } from "../../lib/modules";
+import { useMerchantPlan } from "../../lib/merchant-plan-context";
 
 const TONE: Record<string, string> = {
   wait: "bg-gold/25 text-gold",
@@ -22,6 +23,7 @@ export default function AccountPage() {
   const { user, merchant, merchants, selectMerchant, logout } = useAuth();
   const router = useRouter();
   const moduleOn = useModules();
+  const { plan } = useMerchantPlan();
   const photo = useUserPhoto(user);
   const [members, setMembers] = useState<MerchantMember[]>([]);
   const [switching, setSwitching] = useState(false);
@@ -79,7 +81,7 @@ export default function AccountPage() {
         )}
         {!cashier && <HubTile icon={Users} title="Team" sub="Staff & roles" badge={activeMembers || undefined} onClick={go("/account/team")} testId="tile-team" />}
         <HubTile icon={UserRound} title="My profile" sub="Name & photo" onClick={go("/account/profile")} testId="tile-profile" />
-        {marketplace && <HubTile icon={Building2} title="Outlets" sub="Pay codes" onClick={go("/outlets")} testId="tile-outlets" />}
+        {marketplace && plan?.pages?.outlets === true && <HubTile icon={Building2} title="Outlets" sub="Pay codes" onClick={go("/outlets")} testId="tile-outlets" />}
         {!cashier && marketplace && <HubTile icon={FileText} title="Statements" sub="Money reports" onClick={go("/reports")} testId="tile-statements" />}
         <HubTile icon={Settings} title="App settings" sub={cashier ? "Look & practice" : "Look & help"} onClick={go("/account/settings")} testId="tile-settings" />
         <button type="button" onClick={go("/help")} data-testid="tile-help"

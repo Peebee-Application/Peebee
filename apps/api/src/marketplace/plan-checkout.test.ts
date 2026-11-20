@@ -124,14 +124,15 @@ test("plan changes go review → pay → verify → done, with proration, schedu
       assert.equal(after.scheduled, null);
     });
 
-    await t.test("in free mode the same steps run at UGX 0", async () => {
+    await t.test("in free mode the signed-in owner confirms without a password, PIN or SMS", async () => {
       await setSetting("marketplace_pro_pricing_mode", "free");
       const created = (await (await req("/merchants/me/store/plan-checkouts", "POST", { tier: "elite", billingCycle: "monthly", method: "wallet" })).json()) as any;
       assert.equal(created.checkout.amount, 0);
       assert.equal(created.checkout.method, "free");
       const before = await wallet();
-      const ok = (await (await req(`/merchants/me/store/plan-checkouts/${created.checkout.id}/verify`, "POST", { code: created.devCode })).json()) as any;
-      assert.equal(ok.checkout.status, "active");
+      assert.equal(created.checkout.status, "active");
+      assert.equal(created.checkout.verifyMethod, "session");
+      assert.equal(created.devCode, undefined);
       assert.equal(await wallet(), before);
       await setSetting("marketplace_pro_pricing_mode", "paid");
     });
@@ -222,6 +223,33 @@ test("plan changes go review → pay → verify → done, with proration, schedu
     process.env.JWT_SECRET = prev.jwt;
     if (prev.env === undefined) delete process.env.ENVIRONMENT;
     else process.env.ENVIRONMENT = prev.env;
+  }
+});
+
+test("free confirmation obeys admin policy and legacy account passwords still verify", async () => {
+  const oldEnv = process.env.ENVIRONMENT;
+  process.env.ENVIRONMENT = "production";
+  try {
+    const { client, req, setSetting, wallet } = await setup();
+    await client.execute("UPDATE stores SET pro_tier='free',pro_expires_at=NULL WHERE merchant_id='pc_m1'");
+    await client.execute("UPDATE users SET password_set_at=NULL WHERE id='pc_1'");
+    await setSetting("marketplace_pro_pricing_mode", "free");
+    const quote = await (await req("/merchants/me/store/plan-quote", "POST", { tier: "pro_live", billingCycle: "monthly" })).json() as any;
+    assert.equal(quote.verify.channel, "session");
+    const before = await wallet();
+    const response = await req("/merchants/me/store/plan-checkouts", "POST", { tier: "pro_live", billingCycle: "monthly", method: "free" });
+    assert.equal(response.status, 201);
+    const result = await response.json() as any;
+    assert.equal(result.checkout.status, "active");
+    assert.equal(result.checkout.verifyMethod, "session");
+    assert.equal(await wallet(), before);
+    await setSetting("merchant_plan_free_confirmation", "verified");
+    const locked = await req("/merchants/me/store/plan-checkouts", "POST", { tier: "elite", billingCycle: "monthly", method: "free" });
+    assert.equal(locked.status, 409);
+    assert.equal((await locked.json() as any).error, "pin_required");
+    assert.equal((await req("/merchants/me/store/plan-pin", "POST", { pin: "4826", password: "owner-pass-1" })).status, 200, "a correct password is valid even when its legacy timestamp is missing");
+  } finally {
+    if (oldEnv === undefined) delete process.env.ENVIRONMENT; else process.env.ENVIRONMENT = oldEnv;
   }
 });
 

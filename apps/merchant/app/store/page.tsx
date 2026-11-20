@@ -4,6 +4,7 @@ import { ExistingDigitalPurchases } from "../../components/store/ExistingDigital
 import { LearningCreatorLink } from "@peebee/shared/learning-creator-link";
 import { SectionContentEditor } from "../../components/SectionContentEditor";
 import { type PlanInfo } from "../../components/store/PlanLadder";
+import { StoreUpgrade } from "../../components/store/StoreUpgrade";
 import { CatalogView } from "../../components/store/CatalogView";
 import { BigRow, CornerBadge, HubTile, PageHeader, Seg, StoreGlow, card, fieldCls, ghostBtn, goldBtn, labelCls } from "../../components/store/StoreUI";
 import { Select } from "@peebee/shared/select";
@@ -93,7 +94,7 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { DEFAULT_PRODUCT_VARIATIONS, resolveProductVariations, type ProductVariationSettings } from "@peebee/shared";
@@ -202,6 +203,7 @@ const CUSTOMER = process.env.NEXT_PUBLIC_CUSTOMER_APP_URL ?? "https://app.peebee
 type StoreSection = "home" | "catalog" | "live" | "ads" | "elite" | "settings";
 
 export default function MerchantProStorePage() {
+  const pathname = usePathname();
   const { merchant } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -894,6 +896,10 @@ export default function MerchantProStorePage() {
         loyalty_cashback_percent: Number(loyaltyCashback) || 0,
       });
       setStore(res.store);
+      if (pathname === "/store/setup") {
+        const wanted = new URLSearchParams(window.location.search).get("tier");
+        router.push(`/store/plans${wanted === "elite" || wanted === "pro_live" ? `?tier=${wanted}` : ""}`);
+      }
       setNotice("🎨 Online Store 2.0 Theme, Custom Domain & VIP Loyalty settings saved!");
     } catch (err) {
       setError(errorMessage(err));
@@ -1243,18 +1249,8 @@ export default function MerchantProStorePage() {
   const elitePrice = settings?.elitePriceUgx ?? 150000;
 
   if (store && !canCatalog && !canLive && !canAds && !isElite) {
-    return <div className="mx-auto max-w-xl space-y-5 px-4 pb-8 pt-5" data-testid="merchant-payments-plan">
-      <section className={`${card} space-y-3 p-5`}>
-        <p className="text-sm font-bold text-gold">Your plan · {store.plan?.plan === "merchant" ? "Merchant" : "Pro"}</p>
-        <h1 className="text-3xl font-black text-ink">{merchant?.display_name ?? store.name}</h1>
-        <p className="text-lg text-ink-500">Accept payments with your Merchant Code and manage your outlets and settlements.</p>
-      </section>
-      <div className="grid grid-cols-2 gap-3">
-        <Link href="/payments" className={`${card} flex min-h-20 items-center justify-center text-lg font-bold`}>Payments</Link>
-        {merchant?.member_role !== "cashier" && <Link href="/wallet" className={`${card} flex min-h-20 items-center justify-center text-lg font-bold`}>Wallet</Link>}
-        <Link href="/outlets" className={`${card} flex min-h-20 items-center justify-center text-lg font-bold`}>Outlets & codes</Link>
-        <Link href="/account" className={`${card} flex min-h-20 items-center justify-center text-lg font-bold`}>Business account</Link>
-      </div>
+    return <div className="mx-auto max-w-3xl space-y-5 px-4 pb-8 pt-5" data-testid="merchant-payments-plan">
+      <StoreUpgrade proPrice={settings?.proLivePriceUgx ?? proStorePrice} elitePrice={elitePrice} free={isProFree} eliteEnabled={settings?.eliteEnabled !== false} liveEnabled={settings?.liveEnabled === true} canChoose={store.permissions?.manage_billing !== false} />
       {error && <p role="alert" className={`${card} p-4`}>{error}<button onClick={() => void loadData()} className="ml-3 min-h-11 font-bold underline">Retry</button></p>}
       {notice && <p role="status" className={`${card} p-4`}>{notice}</p>}
       {(isLiveActive || cameraLiveOpen) && store.permissions?.manage_store_settings !== false && <section className={`${card} space-y-3 p-5`}>
@@ -1262,17 +1258,13 @@ export default function MerchantProStorePage() {
         <p className="text-base text-ink-500">You can end it here. Starting another broadcast requires an eligible plan.</p>
         <button type="button" disabled={startingLive} onClick={() => void endPreviousBroadcast()} className={`${ghostBtn} min-h-12`} data-testid="end-previous-broadcast">{startingLive ? "Ending…" : "End previous broadcast"}</button>
       </section>}
-      {store.permissions?.manage_billing !== false && <section className={`${card} space-y-3 p-5`}>
-        <h2 className="text-xl font-black">Choose a plan for selling online</h2>
-        <p className="text-base text-ink-500">Pro adds catalog and live selling. Elite adds the advanced store tools.</p>
-        <Link href="/store/plans" className={`${goldBtn} min-h-14`}>View plans</Link>
-      </section>}
       <ExistingDigitalPurchases purchases={digitalFulfillments} canRefund={store.permissions?.refund_revoke !== false} onRefund={handleRefundFulfillment} onRevoke={handleRevokeFulfillment} />
     </div>;
   }
 
   // 1. Initial State: No store created yet -> Chap Chap 2-Minute Onboarding Wizard
   if (!store && error) return <div className="space-y-4 p-5"><h1 className="text-xl font-bold">Store unavailable</h1><p role="alert">{error}</p><button className="min-h-11 rounded-full border border-gold px-4 font-bold" onClick={() => void loadData()}>Retry loading store</button></div>;
+  if (!store && pathname !== "/store/setup") return <div className="mx-auto max-w-3xl px-4 pb-8 pt-5"><StoreUpgrade proPrice={settings?.proLivePriceUgx ?? proStorePrice} elitePrice={elitePrice} free={isProFree} eliteEnabled={settings?.eliteEnabled !== false} liveEnabled={settings?.liveEnabled === true} canChoose={merchant?.member_role === "owner"} setupRequired /></div>;
   if (!store) {
     return (
       <div className="relative mx-auto max-w-xl space-y-5 overflow-x-clip px-4 pb-10 pt-5" data-testid="store-create">
