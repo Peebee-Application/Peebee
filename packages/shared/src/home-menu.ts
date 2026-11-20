@@ -14,6 +14,7 @@ export type HomeMenuSettings = {
   clusters: Record<HomeClusterId, { label: string }>;
   /** The bar at the top of the customer app. */
   header: { chatEnabled: boolean };
+  navigation: { streamLabel: string; exploreLabel: string; spacesLabel: string; spacesEnabled: boolean; confirmPercent: number };
   hive: {
     eyebrow: string;
     description: string;
@@ -30,6 +31,7 @@ export type HomeMenuSettings = {
 
 export const DEFAULT_HOME_MENU: HomeMenuSettings = {
   header: { chatEnabled: true },
+  navigation: { streamLabel: "Stream", exploreLabel: "Explore", spacesLabel: "Spaces", spacesEnabled: true, confirmPercent: 85 },
   clusters: {
     ride: { label: "Ride" },
     shopping: { label: "Buy" },
@@ -39,15 +41,15 @@ export const DEFAULT_HOME_MENU: HomeMenuSettings = {
   },
   hive: {
     eyebrow: "Peebee gets it done",
-    altLabel: "Hire",
+    altLabel: "",
     labelSeconds: 4,
     description: "Laundry, cleaning and repairs at a clear price. Tell us what you need and Peebee takes care of it.",
     shortcuts: [
       { id: "clean", label: "Clean", enabled: true },
       { id: "laundry", label: "Laundry", enabled: true },
       { id: "fix", label: "Fix", enabled: true },
-      { id: "workers", label: "Workers", enabled: true },
-      { id: "hire", label: "Hire", enabled: true },
+      { id: "workers", label: "Work", enabled: true },
+      { id: "hire", label: "Talent", enabled: true },
     ],
     hireBanner: {
       enabled: true,
@@ -78,6 +80,13 @@ export function resolveHomeMenu(stored: Partial<HomeMenuSettings> | null | undef
   const banner = stored?.hive?.hireBanner;
   return {
     header: { chatEnabled: stored?.header?.chatEnabled ?? base.header.chatEnabled },
+    navigation: {
+      streamLabel: stored?.navigation?.streamLabel?.trim() || base.navigation.streamLabel,
+      exploreLabel: stored?.navigation?.exploreLabel?.trim() || base.navigation.exploreLabel,
+      spacesLabel: stored?.navigation?.spacesLabel?.trim() || base.navigation.spacesLabel,
+      spacesEnabled: stored?.navigation?.spacesEnabled ?? base.navigation.spacesEnabled,
+      confirmPercent: Number.isFinite(stored?.navigation?.confirmPercent) ? Math.max(60, Math.min(95, Math.round(stored!.navigation!.confirmPercent))) : base.navigation.confirmPercent,
+    },
     clusters,
     hive: {
       eyebrow: stored?.hive?.eyebrow?.trim() || base.hive.eyebrow,

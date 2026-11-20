@@ -321,12 +321,13 @@ export function LaundryBooking() {
     if (loading || loadError) return null;
     return {
       tone: "gold" as const,
+      confirmation: true,
       label: busy ? "Confirming..." : `Book & Pay ${totalLabel}`,
       sublabel: "In-app payment held securely",
       icon: Wallet,
       busy,
       disabled: busy || quoteLoading || !quote,
-      onClick: () => void attemptOrder(),
+      onClick: attemptOrder,
     };
   }, [loading, loadError, busy, totalLabel, quoteLoading, quote]);
 

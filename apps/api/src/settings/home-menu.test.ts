@@ -20,8 +20,8 @@ test("the built-in home menu is valid and has the five clusters", () => {
   assert.deepEqual(Object.values(DEFAULT_HOME_MENU.clusters).map((c) => c.label), ["Ride", "Buy", "Eat", "Learn", "Work"]);
 });
 
-test("the main button swaps Work and Hire every 4 seconds unless admin changes it", () => {
-  assert.equal(DEFAULT_HOME_MENU.hive.altLabel, "Hire");
+test("Work has a fixed default name while older alternate-label settings remain valid", () => {
+  assert.equal(DEFAULT_HOME_MENU.hive.altLabel, "");
   assert.equal(DEFAULT_HOME_MENU.hive.labelSeconds, 4);
   const none = clone();
   none.hive.altLabel = "";
@@ -55,12 +55,28 @@ test("bad values are refused", () => {
   assert.equal(homeMenuSchema.safeParse(empty).success, false, "nothing left to tap");
 });
 
+test("navigation settings validate and round-trip without requiring a database migration", () => {
+  const menu = clone();
+  menu.navigation = { streamLabel: "Stream", exploreLabel: "Discover", spacesLabel: "Places", spacesEnabled: false, confirmPercent: 90 };
+  assert.equal(homeMenuSchema.safeParse(menu).success, true);
+  assert.deepEqual(resolveHomeMenu(menu).navigation, menu.navigation);
+  for (const confirmPercent of [0, 59, 96, 101, 70.5]) {
+    assert.equal(homeMenuSchema.safeParse({ ...menu, navigation: { ...menu.navigation, confirmPercent } }).success, false);
+  }
+  const legacy = { ...menu } as Partial<HomeMenuSettings>;
+  delete legacy.navigation;
+  assert.equal(homeMenuSchema.safeParse(legacy).success, true);
+  assert.equal(resolveHomeMenu(legacy).navigation.confirmPercent, 85);
+});
+
 test("a partial or older stored value is filled from the defaults", () => {
   const resolved = resolveHomeMenu({ clusters: { hive: { label: "Sawa" } } } as Partial<HomeMenuSettings>);
   assert.equal(resolved.clusters.hive.label, "Sawa");
   assert.equal(resolved.clusters.ride.label, "Ride");
   assert.deepEqual(resolved.hive.shortcuts.map((s) => s.id), ["clean", "laundry", "fix", "workers", "hire"]);
   assert.equal(resolveHomeMenu(null).clusters.learn.label, "Learn");
+  assert.equal(resolved.navigation.streamLabel, "Stream");
+  assert.equal(resolved.navigation.spacesEnabled, true);
   // A shortcut id we do not know is dropped, not shown.
   const odd = resolveHomeMenu({ hive: { shortcuts: [{ id: "bogus", label: "x", enabled: true }] } } as unknown as Partial<HomeMenuSettings>);
   assert.deepEqual(odd.hive.shortcuts.map((s) => s.id), ["clean", "laundry", "fix", "workers", "hire"]);
@@ -103,6 +119,7 @@ test("home menu: only admins change it, bad values are refused, customers see th
     changed.clusters.hive.label = "Sawa";
     changed.hive.shortcuts = [changed.hive.shortcuts[1]!, changed.hive.shortcuts[0]!, { ...changed.hive.shortcuts[2]!, enabled: false }, changed.hive.shortcuts[3]!, changed.hive.shortcuts[4]!];
     changed.hive.hireBanner.title = "Looking for a person?";
+    changed.navigation = { ...changed.navigation, spacesEnabled: false, confirmPercent: 90, streamLabel: "Watch" };
     const saved = await put(admin, { homeMenu: changed });
     assert.equal(saved.status, 200, await saved.clone().text());
     assert.deepEqual(await getHomeMenuSettings(), changed);
@@ -110,6 +127,9 @@ test("home menu: only admins change it, bad values are refused, customers see th
     const seen = await app.request("/v1/settings", { headers: { Authorization: `Bearer ${customer}` } });
     const data = await seen.json() as { settings: { homeMenu: HomeMenuSettings } };
     assert.equal(data.settings.homeMenu.clusters.hive.label, "Sawa");
+    assert.equal(data.settings.homeMenu.navigation.streamLabel, "Watch");
+    assert.equal(data.settings.homeMenu.navigation.spacesEnabled, false);
+    assert.equal(data.settings.homeMenu.navigation.confirmPercent, 90);
     assert.deepEqual(data.settings.homeMenu.hive.shortcuts.map((s) => [s.id, s.enabled]), [["laundry", true], ["clean", true], ["fix", false], ["workers", true], ["hire", true]]);
     assert.ok((await client.execute("SELECT * FROM admin_activity_log")).rows.length > 0, "the change is in the activity log");
 

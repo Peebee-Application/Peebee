@@ -11,9 +11,9 @@ const field = "w-full rounded-xl border border-[var(--border-faint)] px-3 py-2.5
 const CLUSTER_NOTE: Record<HomeClusterId, string> = {
   ride: "Boda, Car, Rideshare, Selfdrive, Move, Luxury, Parcel, Taxipress, Ambulance",
   shopping: "List, Groceries, Stores, Pharma, Spotlight",
-  food: "Restaurants, Kitchens, Streetfood, Juices, Bakeries",
-  learn: "Opens the Learn home directly",
-  hive: "Clean, Laundry, Fix, Workers, Hire",
+  food: "Restaurants, Kitchens, Street, Bakeries, Juices",
+  learn: "Discover, Classroom, Studies, Review, Connect",
+  hive: "Clean, Laundry, Fix, Work, Talent",
 };
 const SHORTCUT_NOTE = { clean: "Cleaning for homes, offices and cars", laundry: "Laundry pickup and care", fix: "Repairs and servicing", workers: "Quick odd jobs: find a worker nearby (shows only while Peebee Hire and worker search are on)", hire: "A project or longer contract (shows only while Peebee Hire is switched on)" } as const;
 
@@ -57,6 +57,12 @@ export default function HomeMenuSettingsPage() {
 
       <Fold head={<div><h2 className="font-bold">Top bar</h2><p className="text-xs text-ink-500">The bar at the top of the customer app.</p></div>}>
         <label className="flex items-center gap-3 text-sm"><Switch checked={menu.header.chatEnabled} onChange={(e) => change({ ...menu, header: { ...menu.header, chatEnabled: e.target.checked } })} />Show the chat icon (opens conversations in a side drawer)</label>
+      </Fold>
+
+      <Fold head={<h2 className="font-bold">Navigation</h2>}>
+        <label className="block space-y-1 text-xs font-semibold text-ink-500"><span>Confirmation slide distance (60–95% of the track)</span><input type="number" min={60} max={95} required value={menu.navigation.confirmPercent} onChange={(e) => change({ ...menu, navigation: { ...menu.navigation, confirmPercent: Number(e.target.value) } })} className={field} /></label>
+        {(["streamLabel", "exploreLabel", "spacesLabel"] as const).map((key) => <label key={key} className="block space-y-1 text-xs font-semibold text-ink-500"><span>{key === "streamLabel" ? "Stream button" : key === "exploreLabel" ? "Stream discovery filter" : "Spaces button"}</span><input required maxLength={20} value={menu.navigation[key]} onChange={(e) => change({ ...menu, navigation: { ...menu.navigation, [key]: e.target.value } })} className={field} /></label>)}
+        <label className="flex items-center gap-3 text-sm"><Switch checked={menu.navigation.spacesEnabled} onChange={(e) => change({ ...menu, navigation: { ...menu.navigation, spacesEnabled: e.target.checked } })} />Show Spaces (coming soon)</label>
       </Fold>
 
       <Fold head={<div><h2 className="font-bold">{menu.clusters.hive.label} page</h2><p className="text-xs text-ink-500">What the {menu.clusters.hive.label} button opens: Peebee-delivered services at a clear price.</p></div>}>

@@ -17,6 +17,7 @@ import { DishReviews } from "../../../components/DishReviews";
 import { BusinessLogo } from "../../../components/BusinessLogo";
 import { useAuth } from "../../../lib/auth-context";
 import { api, errorMessage } from "../../../lib/api";
+import { NavAction } from "../../../components/NavAction";
 import { useRegisterNavPrimaryAction, useRegisterNavBack } from "../../../lib/nav-primary-action";
 import { useTranslate } from "../../../lib/i18n";
 import { formatUgx } from "../../../lib/order-display";
@@ -449,7 +450,8 @@ function MenuItemDeckCard({ item, position, isActive, dragOffset = 0, isDragging
   );
 }
 
-function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId, onAdd }: {
+function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId, onAdd, onBack }: {
+  onBack: () => void;
   item: MenuItem;
   isOpen?: boolean;
   isDemo?: boolean;
@@ -581,19 +583,10 @@ function MenuItemDetailPanel({ item, isOpen = true, isDemo = false, restaurantId
             {availabilityMessage}
           </p>
         )}
-        <button
-          type="button"
-          disabled={missingRequired.length > 0 && !unavailableMessage}
-          onClick={handleAdd}
-          className="menu-item-deck__add-btn"
-          data-added={addedAnim ? "true" : undefined}
-          data-unavailable={unavailableMessage ? "true" : undefined}
-          aria-label={unavailableMessage ? `${unavailableMessage}, ${formatUgx(configuredTotal)}` : missingRequired.length > 0 ? `${t("restaurant_choose")} ${missingRequired[0].name}` : `${t("restaurant_add_to_list")} ${item.name}, ${formatUgx(configuredTotal)}`}
-        >
-          <span id="menu-item-current-price" className="menu-item-deck__add-price" aria-live="polite">{formatUgx(configuredTotal)}</span>
-          <span className="menu-item-deck__add-icon" aria-hidden="true"><Plus size={22} strokeWidth={2.5} /></span>
-          <span className="sr-only">{unavailableMessage ?? (missingRequired.length > 0 ? `${t("restaurant_choose")} ${missingRequired[0].name}` : t("restaurant_add_to_list"))}</span>
-        </button>
+        <div className="customer-nav-shell flex w-full items-stretch">
+          <div className="customer-nav-anchor"><button type="button" aria-label={t("restaurant_back_to_menu")} onClick={onBack} className="customer-nav-anchor-button"><ChevronLeft aria-hidden /></button></div>
+          <NavAction action={{ label: unavailableMessage ?? (missingRequired.length > 0 ? `${t("restaurant_choose")} ${missingRequired[0].name}` : addedAnim ? "Added to cart" : "Add to cart"), detail: formatUgx(configuredTotal), disabled: !!unavailableMessage || missingRequired.length > 0, onClick: handleAdd }} />
+        </div>
       </div>
     </>
   );
@@ -829,7 +822,7 @@ function ItemDetailPage({
           activeItemId={activeItem.id}
           onSelect={(nextItem) => setActiveItemId(nextItem.id)}
         />
-        <MenuItemDetailPanel item={activeItem} isOpen={isOpen} isDemo={isDemo} restaurantId={restaurantId} onAdd={onAdd} />
+        <MenuItemDetailPanel onBack={onBack} item={activeItem} isOpen={isOpen} isDemo={isDemo} restaurantId={restaurantId} onAdd={onAdd} />
       </main>
       <MenuOrderList
         cart={cart}

@@ -27,6 +27,8 @@ import { ShareButton } from "../../../components/ShareButton";
 import { clearReel, navigateWithPush, productArmedFor, reelArmedFor } from "../../../lib/buy-motion";
 import { defaultSelection, findVariant, selectValue, type ProductOption, type Selection } from "@peebee/shared";
 import { OptionPicker } from "../../../components/buy/OptionPicker";
+import { BottomNav } from "../../../components/BottomNav";
+import { goBackOr, useRegisterNavBack, useRegisterNavPrimaryAction } from "../../../lib/nav-primary-action";
 
 interface ProductVariant {
   id: string;
@@ -180,6 +182,13 @@ export function ProductPageClient() {
       setTimeout(() => setAddedToast(false), 2000);
     }
   };
+
+  useRegisterNavBack(!!product && !cartDrawerOpen, () => goBackOr(router, store?.id ? `/store/${store.id}` : "/stores"));
+  useRegisterNavPrimaryAction(product && !cartDrawerOpen ? {
+    label: "Add to cart", detail: `UGX ${(activePrice * quantity).toLocaleString()}`,
+    disabled: (selectedVariant?.inventory_quantity ?? product.inventory_quantity ?? 1) <= 0,
+    onClick: () => handleAddToCart(false),
+  } : null);
 
   if (loading) {
     return (
@@ -523,37 +532,7 @@ export function ProductPageClient() {
           </div>
         )}
 
-        {/* =========================================================================
-            BOTTOM FIXED ACTION BAR (Screen 2: Cart Shortcut + Big "Add to Cart" Pill)
-        ========================================================================= */}
-        <div className="fixed bottom-0 inset-x-0 z-40 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 bg-gradient-to-t from-[rgb(var(--color-cream))] via-[rgb(var(--color-cream)/.92)] to-transparent">
-          <div className="mx-auto max-w-md flex items-center gap-3">
-            {/* Wide pill: add to bag and go straight to the cart */}
-            <button
-              type="button"
-              onClick={() => handleAddToCart(true)}
-              className="flex-1 h-14 px-6 rounded-full bg-gold text-ink-gold active:scale-[0.98] transition font-semibold text-base shadow-[var(--shadow-glow-gold)] flex items-center justify-between"
-            >
-              <span>Buy Now</span>
-              <span className="font-bold">UGX {(activePrice * quantity).toLocaleString()}</span>
-            </button>
-
-            {/* Round cart button: add to bag and keep browsing (opens the bag drawer) */}
-            <button
-              type="button"
-              onClick={() => handleAddToCart(false)}
-              className="relative h-14 w-14 rounded-full bg-[rgb(var(--surface-card))] border border-[var(--border-faint)] shadow-[var(--shadow-card)] flex items-center justify-center text-ink active:scale-95 transition shrink-0"
-              aria-label="Add to cart"
-            >
-              <ShoppingBag className="w-6 h-6" aria-hidden />
-              {totalQuantity > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 rounded-full bg-gold text-ink-gold text-[10px] font-black flex items-center justify-center px-1 shadow-sm">
-                  {totalQuantity}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
+        <BottomNav />
 
         {/* Slide-in Shopping Cart Drawer */}
         <CartDrawer

@@ -8,7 +8,8 @@ import { ProgressBar } from "../../../components/channels/CauseCard";
 import { Avatar } from "../../../components/channels/PostParts";
 import { PublicFrame } from "../../../components/channels/PublicFrame";
 import { ShareButton } from "../../../components/ShareButton";
-import { SwipeToConfirm } from "../../../components/SwipeToConfirm";
+import { ConfirmationFooter } from "../../../components/ConfirmationFooter";
+import { useRegisterNavBack, useRegisterNavPrimaryAction } from "../../../lib/nav-primary-action";
 import { api, errorMessage } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth-context";
 import { timeAgo, ugx, useChannelsConfig } from "../../../lib/channels";
@@ -99,6 +100,9 @@ export function CausePageClient({ slug }: { slug: string }) {
       setBusy(false);
     }
   }
+
+  useRegisterNavBack(!!user && reviewing, () => setReviewing(false));
+  useRegisterNavPrimaryAction(user && reviewing ? { confirmation: true, label: `Slide to give UGX ${(amount + tip).toLocaleString("en-UG")}`, busy, disabled: busy, onClick: () => give() } : null);
 
   if (error && !cause) return <PublicFrame returnTo={`/give/${slug}`}><div className="space-y-3 p-8 text-center"><h1 className="text-lg font-bold text-ink">Cause not found</h1><p className="text-sm text-ink-500">{error}</p></div></PublicFrame>;
   if (!cause) return <div className="p-8 text-center text-sm text-ink-500" aria-busy="true">Loading…</div>;
@@ -195,8 +199,7 @@ export function CausePageClient({ slug }: { slug: string }) {
             {reviewing ? (
               <div className="space-y-3">
                 <p className="text-sm font-semibold text-ink">Review gift · {ugx(amount + tip)}{tip > 0 ? ` (includes ${ugx(tip)} tip)` : ""} · {method === "wallet" ? "Peebee wallet" : "Mobile money"} · {cause.title}</p>
-                <SwipeToConfirm tone="ink" commitAt={0.6} label={`Swipe to give UGX ${(amount + tip).toLocaleString("en-UG")}`} disabled={busy} onConfirm={() => give()} />
-                <button type="button" disabled={busy} onClick={() => void give().catch(() => undefined)} className="min-h-12 w-full rounded-full border border-[var(--border-faint)] text-base font-bold text-ink disabled:opacity-60">{busy ? "Please wait…" : `Give UGX ${(amount + tip).toLocaleString("en-UG")} without swiping`}</button>
+                {!user && <ConfirmationFooter action={{ label: `Slide to give UGX ${(amount + tip).toLocaleString("en-UG")}`, busy, disabled: busy, onClick: give }} onCancel={() => setReviewing(false)} />}
                 <button type="button" onClick={() => setReviewing(false)} className="w-full text-sm font-semibold text-ink-500">Edit</button>
               </div>
             ) : (

@@ -224,11 +224,12 @@ export default function PaymentPage() {
   useRegisterNavBack(true, () => router.push(afterPay(id, ticketId.current)));
   useRegisterNavPrimaryAction({
     tone: "gold",
+    confirmation: true,
     label: busy ? "Please wait…" : pending ? "Waiting for payment" : method === "cash" ? "Continue with cash" : `Pay${amount == null ? "" : ` ${formatUgx(amount)}`}`,
     sublabel: !busy && !pending && method === "mobile_money" && network ? `with ${mobileMoneyNetworkLabel(network)}` : method === "wallet" && !busy && !pending ? "from wallet" : undefined,
     disabled,
     busy: busy || pending,
-    onClick: () => void pay(),
+    onClick: pay,
   });
 
   return (

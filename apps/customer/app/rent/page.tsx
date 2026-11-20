@@ -256,11 +256,12 @@ export default function RentPage() {
       : selectedVehicle && bookingStep === "payment"
         ? {
             tone: "gold",
+            confirmation: true,
             label: busy === selectedVehicle.id ? "Processing payment…" : `Pay ${ugx(rentalTotal)}`,
             sublabel: "From wallet",
             disabled: busy === selectedVehicle.id,
             busy: busy === selectedVehicle.id,
-            onClick: () => void placeRental(selectedVehicle),
+            onClick: () => placeRental(selectedVehicle),
           }
         : null,
   );

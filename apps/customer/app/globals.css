@@ -1172,138 +1172,45 @@ select:focus {
 :root[data-theme="dark"] .customer-header { background: #000; }
 .customer-profile-reveal { grid-template-rows: 0fr; transition: grid-template-rows 280ms ease, opacity 220ms ease; opacity: 0; }
 .customer-profile-reveal.is-expanded { grid-template-rows: 1fr; opacity: 1; }
-.customer-nav-capsule {
-  background: linear-gradient(135deg, rgb(var(--color-black-700, 26 26 26)), rgb(var(--color-black-900, 10 10 10)));
-  border: 1px solid rgb(255 255 255 / .14);
-  box-shadow: 0 12px 32px rgb(0 0 0 / .35);
-}
-
-:root[data-theme="dark"] .customer-nav-capsule {
-  background: #000;
-  border-color: rgb(255 255 255 / .16);
-}
-
-.customer-nav-home,
-.customer-nav-menu {
-  color: rgb(255 255 255 / .72);
-  border: 1px solid rgb(255 255 255 / .14);
-  box-shadow: 0 12px 32px rgb(0 0 0 / .35);
-  background: linear-gradient(135deg, rgb(var(--color-black-700, 26 26 26)), rgb(var(--color-black-900, 10 10 10)));
-}
-
-:root[data-theme="dark"] .customer-nav-home,
-:root[data-theme="dark"] .customer-nav-menu {
-  background: #000;
-  border-color: rgb(255 255 255 / .16);
-  color: white;
-}
-
-.customer-nav-item {
-  color: rgb(255 255 255 / .7);
-  transition: all 180ms ease;
-}
-
-.customer-nav-item:hover {
-  color: white;
-  background: rgb(255 255 255 / .08);
-}
-
-.customer-nav-item.is-active,
-.customer-nav-home.is-active {
-  color: rgb(var(--color-ink-gold, 10 10 10));
-  background: rgb(var(--color-gold, 201 162 39));
-  font-weight: 700;
-}
-
-.customer-nav-item.is-active .customer-nav-indicator,
-.customer-nav-home.is-active .customer-nav-indicator {
-  background: rgb(var(--color-ink-gold, 10 10 10));
-}
-
-.customer-nav-indicator {
-  position: absolute;
-  bottom: 6px;
-  left: 50%;
-  width: 14px;
-  height: 3px;
-  border-radius: 999px;
-  transform: translateX(-50%);
-  background: rgb(var(--color-ink-gold, 10 10 10));
-}
-
-.customer-nav-home:focus-visible,
-.customer-nav-item:focus-visible { outline: 2px solid rgb(var(--color-gold)); outline-offset: 2px; }
+/* One continuous shell, matching the Customer navigation design board. */
+.customer-nav-shell { --nav-slots: 4; height: 78px; padding: 6px; border-radius: 26px; background: rgb(var(--color-black-900)); box-shadow: var(--shadow-float-capsule); }
+.customer-nav-anchor { width: 62px; flex: 0 0 62px; padding-right: 5px; }
+.customer-nav-anchor-button { display: flex; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border-radius: 20px; color: rgb(var(--color-white, 255 255 255)); }
+.customer-nav-anchor-button svg { width: 26px; height: 26px; }
+.customer-nav-anchor-button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+.customer-nav-anchor-button:hover { background: rgb(255 255 255 / .1); }
+.customer-nav-menu-track { flex: 1; min-width: 0; border-radius: 20px; background: rgb(var(--color-gold)); overflow: hidden; }
+.customer-nav-items { position: relative; display: flex; width: 100%; height: 100%; padding: 0; margin: 0; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: none; scroll-snap-type: x proximity; }
+.customer-nav-items::-webkit-scrollbar { display: none; }
+.customer-nav-items > li { flex: 0 0 calc(100% / min(var(--nav-count), var(--nav-slots))); min-width: 0; scroll-snap-align: start; padding: 3px 0; }
+.customer-nav-item { display: flex; position: relative; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 4px 2px; border-radius: 18px; color: rgb(var(--color-ink-gold)); transition: background 200ms ease, transform 200ms ease; }
+.customer-nav-item svg { width: 23px; height: 23px; flex-shrink: 0; transition: transform 220ms ease; }
+.customer-nav-item > span { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; line-height: 1.2; font-weight: 800; }
+.customer-nav-menu-track:has(.is-active) { background: color-mix(in srgb, rgb(var(--color-gold)) 78%, rgb(var(--color-black-900))); }
+.customer-nav-item:hover { background: rgb(var(--color-cream) / .15); }
+.customer-nav-item.is-active { background: rgb(var(--color-gold-400)); transform: scaleY(1.09); }
+.customer-nav-item.is-active svg { transform: scale(1.13); }
+.customer-nav-item:disabled { opacity: .42; cursor: not-allowed; }
+.customer-nav-action, .customer-nav-confirm { position: relative; display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 100%; gap: 8px; padding: 0 14px; border-radius: 20px; background: rgb(var(--color-gold)); color: rgb(var(--color-ink-gold)); overflow: hidden; }
+.customer-nav-action svg { height: 22px; width: 22px; flex-shrink: 0; }
+.customer-nav-action-label { display: block; min-width: 0; }
+.customer-nav-action strong, .customer-nav-confirm strong { display: block; font-size: 14px; font-weight: 850; line-height: 1.2; }
+.customer-nav-action small, .customer-nav-confirm small { display: block; font-size: 10px; font-weight: 600; margin-top: 3px; }
+.customer-nav-action-detail { flex-shrink: 0; font-size: 12px; font-weight: 800; }
+.customer-nav-action:disabled, .customer-nav-confirm:disabled { opacity: .5; cursor: not-allowed; }
+.customer-nav-confirm { touch-action: pan-y; user-select: none; padding-left: 64px; }
+.customer-nav-confirm-label { width: 100%; text-align: center; padding-right: 4px; }
+.customer-nav-confirm-thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: 54px; display: flex; align-items: center; justify-content: center; border-radius: 17px; background: rgb(250 248 239); color: rgb(var(--color-ink-gold)); cursor: grab; }
+.customer-nav-confirm-thumb svg { height: 30px; width: 30px; }
+.customer-nav-shell button:focus-visible, .customer-nav-shell a:focus-visible { outline: 2px solid rgb(250 248 239); outline-offset: -3px; }
 .customer-nav-items { animation: customer-nav-change 180ms ease-out both; }
 @keyframes customer-nav-change { from { opacity: .65; transform: translateX(5px); } to { opacity: 1; transform: translateX(0); } }
-@media (prefers-reduced-motion: reduce) { .customer-nav-items { animation: none; } }
-
-/* Right-hand nav capsule swap (links ⇄ "View cart" ⇄ /cart Checkout). */
-.customer-nav-swap { animation: customer-nav-swap-in 260ms cubic-bezier(.2,.8,.2,1) both; transform-origin: right center; }
-@keyframes customer-nav-swap-in { from { opacity: 0; transform: translateY(6px) scale(.97); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .customer-nav-swap { animation: none; } }
-/* Home ⇄ Back swap on the detached left capsule. */
-.customer-nav-icon-swap { animation: customer-nav-icon-in 220ms cubic-bezier(.2,.8,.2,1) both; }
-@keyframes customer-nav-icon-in { from { opacity: 0; transform: translateX(4px) scale(.94); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .customer-nav-icon-swap { animation: none; } }
-
-/* Intermediate nav actions (View cart, Confirm route, Next: payment…):
-   "transparent gold" — the brand gold token as a translucent diagonal
-   gradient, faintest at the top-left and richest at the bottom-right, with
-   eased stops so it blends without banding with a
-   soft gold edge and a faint top sheen. Final actions stay solid gold. */
-.customer-nav-cart {
-  background:
-    linear-gradient(to bottom right, rgb(var(--color-gold) / 0.16) 0%, rgb(var(--color-gold) / 0.18) 15%, rgb(var(--color-gold) / 0.23) 30%, rgb(var(--color-gold) / 0.31) 45%, rgb(var(--color-gold) / 0.41) 60%, rgb(var(--color-gold) / 0.52) 75%, rgb(var(--color-gold) / 0.62) 88%, rgb(var(--color-gold) / 0.7) 100%),
-    #fffdf6;
-  color: rgb(var(--color-ink));
-  border: 1px solid rgb(var(--color-gold) / .7);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / .55), 0 12px 32px rgb(0 0 0 / .18);
-}
-.customer-nav-cart__muted { color: rgb(var(--color-ink) / .68); }
-/* Icon tile on tinted buttons: dark tile + white icon/count (light), white tile + dark (dark). */
-.customer-nav-tile { background: #1a1a1a; color: #fff; }
-:root[data-theme="dark"] .customer-nav-cart {
-  background:
-    linear-gradient(to bottom right, rgb(var(--color-gold) / 0.12) 0%, rgb(var(--color-gold) / 0.14) 15%, rgb(var(--color-gold) / 0.18) 30%, rgb(var(--color-gold) / 0.25) 45%, rgb(var(--color-gold) / 0.33) 60%, rgb(var(--color-gold) / 0.43) 75%, rgb(var(--color-gold) / 0.52) 88%, rgb(var(--color-gold) / 0.58) 100%),
-    #262628;
-  color: #fbf8ef;
-  border-color: rgb(var(--color-gold) / .6);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / .16), 0 12px 32px rgb(0 0 0 / .45);
-}
-:root[data-theme="dark"] .customer-nav-cart__muted { color: rgb(255 255 255 / .74); }
-:root[data-theme="dark"] .customer-nav-tile { background: #fbf8ef; color: #141414; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .customer-nav-cart { background: linear-gradient(to bottom right, rgb(var(--color-gold) / 0.12) 0%, rgb(var(--color-gold) / 0.14) 15%, rgb(var(--color-gold) / 0.18) 30%, rgb(var(--color-gold) / 0.25) 45%, rgb(var(--color-gold) / 0.33) 60%, rgb(var(--color-gold) / 0.43) 75%, rgb(var(--color-gold) / 0.52) 88%, rgb(var(--color-gold) / 0.58) 100%), #262628; color: #fbf8ef; border-color: rgb(var(--color-gold) / .6); box-shadow: inset 0 1px 0 rgb(255 255 255 / .16); }
-  :root:not([data-theme="light"]) .customer-nav-cart__muted { color: rgb(255 255 255 / .74); }
-  :root:not([data-theme="light"]) .customer-nav-tile { background: #fbf8ef; color: #141414; }
-}
-/* Nav action buttons sit inside the same black capsule as the menu, inset
-   like the menu items, so the frame reads as one nav in both themes. */
-.customer-nav-frame > .customer-nav-checkout { box-shadow: none; }
-.customer-nav-frame > .customer-nav-cart { box-shadow: inset 0 1px 0 rgb(255 255 255 / .55); }
-:root[data-theme="dark"] .customer-nav-frame > .customer-nav-cart { box-shadow: inset 0 1px 0 rgb(255 255 255 / .16); }
-
-/* Disabled: much lower gold and faded text (no whole-button fade, which goes
-   muddy grey over the black frame). No press feedback. */
-.customer-nav-cart:disabled,
-.customer-nav-checkout:disabled { cursor: not-allowed; transform: none; }
-.customer-nav-frame > .customer-nav-cart:disabled { box-shadow: none; }
-.customer-nav-cart:disabled {
-  background: linear-gradient(to bottom right, rgb(var(--color-gold) / 0.04) 0%, rgb(var(--color-gold) / 0.06) 30%, rgb(var(--color-gold) / 0.1) 60%, rgb(var(--color-gold) / 0.16) 100%), #fffdf6;
-  border-color: rgb(var(--color-gold) / .25);
-  color: rgb(var(--color-ink) / .4);
-}
-.customer-nav-cart:disabled .customer-nav-cart__muted { color: rgb(var(--color-ink) / .32); }
-:root[data-theme="dark"] .customer-nav-cart:disabled {
-  background: linear-gradient(to bottom right, rgb(var(--color-gold) / 0.03) 0%, rgb(var(--color-gold) / 0.05) 30%, rgb(var(--color-gold) / 0.09) 60%, rgb(var(--color-gold) / 0.14) 100%), #262628;
-  border-color: rgb(var(--color-gold) / .2);
-  color: rgb(255 255 255 / .4);
-}
-:root[data-theme="dark"] .customer-nav-cart:disabled .customer-nav-cart__muted { color: rgb(255 255 255 / .32); }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .customer-nav-cart:disabled { background: linear-gradient(to bottom right, rgb(var(--color-gold) / 0.03) 0%, rgb(var(--color-gold) / 0.05) 30%, rgb(var(--color-gold) / 0.09) 60%, rgb(var(--color-gold) / 0.14) 100%), #262628; border-color: rgb(var(--color-gold) / .2); color: rgb(255 255 255 / .4); }
-}
-.customer-nav-checkout:disabled { color: rgb(var(--color-ink-gold, 10 10 10) / .45); }
+.customer-nav-swap { animation: customer-nav-swap-in 260ms cubic-bezier(.2,.8,.2,1) both; }
+@keyframes customer-nav-swap-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@media (min-width: 420px) { .customer-nav-shell { --nav-slots: 5; } .customer-nav-item > span { font-size: 10px; } }
+@media (min-width: 768px) { .customer-nav-shell { --nav-slots: 6; } }
+@media (max-width: 359px) { .customer-nav-anchor { width: 52px; flex-basis: 52px; } .customer-nav-action { gap: 5px; padding-inline: 8px; } .customer-nav-action strong { font-size: 12px; } .customer-nav-action-detail { font-size: 10px; } }
+@media (prefers-reduced-motion: reduce) { .customer-nav-items, .customer-nav-swap { animation: none; } .customer-nav-item, .customer-nav-item svg { transition: none; } }
 
 /* Glass scrim behind the bottom nav. The tint and the blur both fade out
    toward the top (mask), so content stays visible while scrolling behind. */
