@@ -85,7 +85,7 @@ function useSpotlightPull(blocked: boolean) {
       el.style.setProperty("--buy-pull", `${px}px`);
       const ready = spotlightPullDecision(px) === "commit";
       el.toggleAttribute("data-pull-ready", ready);
-      say(ready ? "Release to open Spotlight" : "");
+      say(ready ? "Release to open Stream" : "");
     };
     const springBack = () => {
       el.classList.remove("is-pulling");
@@ -422,8 +422,8 @@ export function BuyHome() {
       <p ref={statusRef} className="sr-only" role="status" />
       <div className="buy-pull" aria-hidden="true">
         <div className="buy-pull__card">
-          <p className="buy-pull__top"><Flame className="h-4 w-4" aria-hidden />Spotlight</p>
-          <p className="buy-pull__label"><span className="is-rest">Pull down to open the feed</span><span className="is-ready">Release to open Spotlight</span></p>
+          <p className="buy-pull__top"><Flame className="h-4 w-4" aria-hidden />Stream</p>
+          <p className="buy-pull__label"><span className="is-rest">Pull down to open the feed</span><span className="is-ready">Release to open Stream</span></p>
           {previewSpots.length > 0 && (
             <div className="buy-pull__clips">
               {previewSpots.map((sp) => {
@@ -436,7 +436,7 @@ export function BuyHome() {
       </div>
       <p className="buy-pull-hint">
         <ChevronDown className="h-4 w-4" aria-hidden />
-        <span>Pull down for Spotlight</span>
+        <span>Pull down for Stream</span>
       </p>
 
       <div className="buy-loc">
@@ -541,7 +541,7 @@ export function BuyHome() {
         </section>
       ) : null}
 
-      <Link href="/spotlight" className="buy-quick"><Flame className="h-[18px] w-[18px]" aria-hidden />Spotlight</Link>
+      <Link href="/spotlight" className="buy-quick"><Flame className="h-[18px] w-[18px]" aria-hidden />Stream</Link>
 
       {active && (
         <Link href={`/orders/${active.id}`} className="buy-card buy-order" aria-label="Your shopping order">

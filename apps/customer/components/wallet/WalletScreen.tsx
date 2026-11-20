@@ -7,7 +7,7 @@ import { ArrowLeftRight, ArrowUpRight, Check, ChevronRight, Eye, EyeOff, Gift, P
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CardFields, CardHostedNote, CardPaymentSteps, cardFromForm, emptyCard, type CardForm } from "../CardPayment";
-import { SwipeToConfirm } from "../SwipeToConfirm";
+import { ConfirmationFooter } from "../ConfirmationFooter";
 import { api, errorMessage } from "../../lib/api";
 import { useTranslate, type TranslationKey } from "../../lib/i18n";
 import { useNetworkStatus } from "../../lib/use-network-status";
@@ -473,8 +473,7 @@ export function WalletScreen() {
             <ReviewRow label={t("wallet_fee")} value="UGX 0" />
             <ReviewRow label={t("wallet_balance_after")} value={`UGX ${whole(Math.max(0, available - amount))}`} />
             <p className="text-left text-sm text-ink-500">{t("wallet_arrives")}</p>
-            <SwipeToConfirm tone="ink" commitAt={0.6} label={t("wallet_swipe_send", { amount: whole(amount) })} disabled={busy} onConfirm={submitSend} />
-            <button type="button" className="min-h-12 w-full rounded-full border border-[var(--border-faint)] font-extrabold" onClick={() => void submitSend()}>{t("wallet_send_button", { amount: whole(amount) })}</button>
+            <ConfirmationFooter action={{ label: t("wallet_swipe_send", { amount: whole(amount) }), busy, disabled: busy, onClick: submitSend }} onCancel={() => setReview(false)} />
             <p className="text-xs text-ink-500">{t("wallet_send_hint")}</p>
           </div>
         )}

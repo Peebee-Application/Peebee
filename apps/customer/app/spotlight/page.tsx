@@ -27,9 +27,10 @@ const PUBLISHERS: Record<SpotlightFilter, PublisherType[] | null> = {
   creators: ["channel", "personal"],
   market: ["store", "restaurant"],
   learn: ["learn"],
+  other: ["driver"],
 };
 /** Store products (with a Buy button) belong to For you and Market. */
-const SHOWS_STORE_ITEMS: Record<SpotlightFilter, boolean> = { foryou: true, following: false, creators: false, market: true, learn: false };
+const SHOWS_STORE_ITEMS: Record<SpotlightFilter, boolean> = { foryou: true, following: false, creators: false, market: true, learn: false, other: false };
 /** A filtered feed is cut from ranked pages, so it keeps reading pages until it has enough to fill the screen. */
 const MIN_POSTS = 6;
 const MAX_PAGES = 5;
@@ -224,14 +225,14 @@ export default function SpotlightPage() {
         <div className="flex h-full w-full items-center justify-center">
           <div className="flex flex-col items-center gap-3">
             <div className="h-9 w-9 animate-spin rounded-full border-2 border-gold border-t-transparent" />
-            <p className="text-xs text-white/60">Loading Spotlight…</p>
+            <p className="text-xs text-white/60">Loading Stream…</p>
           </div>
         </div>
       ) : entries.length === 0 ? (
         <div className="flex h-full w-full flex-col">
           <div className="pt-3">{topControls}</div>
           <div className="flex flex-1 flex-col items-center justify-center space-y-3 p-6 text-center">
-            <h2 className="text-base font-semibold">Nothing in Spotlight yet</h2>
+            <h2 className="text-base font-semibold">Nothing in Stream yet</h2>
             <p className="max-w-xs text-xs text-white/60">
               {error || "Try another button on the menu or check back shortly for new posts."}
             </p>

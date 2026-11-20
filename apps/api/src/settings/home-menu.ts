@@ -7,6 +7,7 @@ const hiveShortcut = z.object({ id: z.enum(HIVE_SHORTCUT_IDS), label, enabled: z
 
 export const homeMenuSchema = z.object({
   header: z.object({ chatEnabled: z.boolean() }).optional(),
+  navigation: z.object({ streamLabel: label, exploreLabel: label, spacesLabel: label, spacesEnabled: z.boolean(), confirmPercent: z.number().int().min(60).max(95).optional() }).optional(),
   clusters: z.object({
     ride: z.object({ label }),
     shopping: z.object({ label }),

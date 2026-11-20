@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore, type ComponentType } from "react";
+import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, type ComponentType } from "react";
 
 /**
  * A page or flow can hand the bottom nav one primary action (e.g. /cart →
@@ -14,9 +14,9 @@ import { useEffect, useRef, useSyncExternalStore, type ComponentType } from "rea
  */
 export interface NavPrimaryAction {
   /**
-   * "gold" = final / pay action (Checkout, Pay UGX X) — gold in both themes.
-   * "step" = an intermediate step (Confirm destination, Next: payment) — white in light, grey in dark.
-   * "cart" = open/review a cart (same colours as "step", with a bag + count).
+   * All actions use the solid gold surface in both themes. "cart" retains
+   * its bag treatment; "step" and "gold" preserve callers' existing metadata.
+   * `confirmation`, rather than the tone, marks an actual final commitment.
    */
   tone?: "gold" | "step" | "cart";
   /** Item count badge for tone "cart". */
@@ -28,9 +28,11 @@ export interface NavPrimaryAction {
   detail?: string;
   disabled?: boolean;
   busy?: boolean;
+  /** Final commitment: the nav requires a deliberate slide (or keyboard confirmation). */
+  confirmation?: boolean;
   /** Leading icon for tone "gold" (defaults to the shopping bag), e.g. a bike for "Book Boda". */
   icon?: ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: boolean }>;
-  onClick: () => void;
+  onClick: () => void | Promise<void>;
 }
 
 type Slot = { action: NavPrimaryAction | null; seq: number; priority: number };
@@ -69,8 +71,8 @@ export function useNavPrimaryAction(): NavPrimaryAction | null {
  */
 export function useRegisterNavPrimaryAction(action: NavPrimaryAction | null, priority = 0) {
   // Keep the latest handler without re-registering on every render.
-  const handlerRef = useRef<(() => void) | null>(null);
-  handlerRef.current = action?.onClick ?? null;
+  const handlerRef = useRef<(() => void | Promise<void>) | null>(null);
+  useLayoutEffect(() => { handlerRef.current = action?.onClick ?? null; });
   const idRef = useRef<number | null>(null);
   if (idRef.current === null) idRef.current = nextId++;
   const label = action?.label;
@@ -80,6 +82,7 @@ export function useRegisterNavPrimaryAction(action: NavPrimaryAction | null, pri
   const detail = action?.detail;
   const disabled = action?.disabled;
   const busy = action?.busy;
+  const confirmation = action?.confirmation;
   const icon = action?.icon;
   const enabled = action !== null;
 
@@ -106,10 +109,10 @@ export function useRegisterNavPrimaryAction(action: NavPrimaryAction | null, pri
     slots.set(id, {
       seq,
       priority,
-      action: { tone, count, sublabel, label, detail, disabled, busy, icon, onClick: () => handlerRef.current?.() },
+      action: { tone, count, sublabel, label, detail, disabled, busy, confirmation, icon, onClick: () => handlerRef.current?.() },
     });
     recompute();
-  }, [enabled, tone, count, sublabel, label, detail, disabled, busy, icon, priority]);
+  }, [enabled, tone, count, sublabel, label, detail, disabled, busy, confirmation, icon, priority]);
 }
 
 /* ------------------------------------------------------------------ */
@@ -151,7 +154,7 @@ export function useNavBack(): (() => void) | null {
 /** While `active`, the nav shows Back and runs `onBack` (latest closure) when tapped. */
 export function useRegisterNavBack(active: boolean, onBack: () => void, priority = 0) {
   const handlerRef = useRef(onBack);
-  handlerRef.current = onBack;
+  useLayoutEffect(() => { handlerRef.current = onBack; });
   const idRef = useRef<number | null>(null);
   if (idRef.current === null) idRef.current = nextId++;
 

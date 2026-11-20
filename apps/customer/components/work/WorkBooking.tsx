@@ -169,7 +169,7 @@ function BookingForm({ type, services, settings }: { type: WorkServiceType; serv
   // Steps are driven from the nav: a step button until a service is chosen, then solid gold to pay.
   useRegisterNavPrimaryAction(
     service
-      ? { tone: "gold", label: busy ? "Booking..." : payLabel, sublabel: "Held by Peebee until you confirm", icon: Wallet, busy, disabled: busy, onClick: () => void attempt() }
+      ? { tone: "gold", confirmation: true, label: busy ? "Booking..." : payLabel, sublabel: "Held by Peebee until you confirm", icon: Wallet, busy, disabled: busy, onClick: attempt }
       : { tone: "step", label: "Next: choose a service", sublabel: "Pick one above", disabled: true, onClick: () => {} },
   );
 

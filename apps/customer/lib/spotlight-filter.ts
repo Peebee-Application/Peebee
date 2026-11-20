@@ -2,11 +2,12 @@ import { useSyncExternalStore } from "react";
 
 /** The five buttons on Spotlight's menu. Each one filters the shared feed. */
 export const SPOTLIGHT_FILTERS = [
-  { id: "foryou", label: "For you" },
+  { id: "foryou", label: "Explore" },
   { id: "following", label: "Following" },
   { id: "creators", label: "Creators" },
   { id: "market", label: "Market" },
   { id: "learn", label: "Learn" },
+  { id: "other", label: "Other" },
 ] as const;
 
 export type SpotlightFilter = (typeof SPOTLIGHT_FILTERS)[number]["id"];
