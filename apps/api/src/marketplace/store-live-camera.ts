@@ -83,17 +83,20 @@ storeLiveCameraRoutes.get("/merchants/me/store/live/camera", requireAuth, async 
   try {
     const store = await myStore(c);
     const b = await blocker(store);
-    const open = b ? null : await myOpenLive(c.get("user").sub);
+    const open = await myOpenLive(c.get("user").sub);
     let live = null;
+    let existingLiveId: string | null = null;
     let productIds: string[] = [];
     if (open) {
       const s = await getLive(open.id);
       if (s && s.publisher_type === "store" && s.publisher_id === String(store.id)) {
-        live = open;
-        if (await hasTable("store_live_sessions")) productIds = pinsOf((await db.execute({ sql: "SELECT featured_product_ids FROM store_live_sessions WHERE id = ?", args: [s.id] })).rows[0] as Row | undefined);
+        existingLiveId = open.id;
+        // An expired plan can stop its old broadcast without receiving fresh publishing credentials.
+        if (!b) live = open;
+        if (!b && await hasTable("store_live_sessions")) productIds = pinsOf((await db.execute({ sql: "SELECT featured_product_ids FROM store_live_sessions WHERE id = ?", args: [s.id] })).rows[0] as Row | undefined);
       }
     }
-    return c.json({ available: !b, reason: b?.code ?? null, message: b?.message ?? null, live, productIds });
+    return c.json({ available: !b, reason: b?.code ?? null, message: b?.message ?? null, live, existingLiveId, productIds });
   } catch (err) {
     return fail(c, err);
   }

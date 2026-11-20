@@ -1209,7 +1209,8 @@ export default function MerchantProStorePage() {
     setStartingLive(true); setError(""); setNotice("");
     try {
       const state = await api.storeCameraLive();
-      if (state.live) await api.storeCameraEnd(state.live.id);
+      const existingId = state.live?.id ?? ("existingLiveId" in state && typeof state.existingLiveId === "string" ? state.existingLiveId : null);
+      if (existingId) await api.storeCameraEnd(existingId);
       await api.endMerchantProLive();
       setIsLiveActive(false); setCameraLiveOpen(false);
       setNotice("The previous broadcast has ended.");
