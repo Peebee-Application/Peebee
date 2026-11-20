@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
 import { filterByModule, useModules } from "../lib/modules";
+import { useMerchantPlan } from "../lib/merchant-plan-context";
 
 // The first four are the bar; on a phone the rest sit under More.
 const tabs = [
@@ -21,13 +22,17 @@ export function BottomNav() {
   const pathname = usePathname();
   const { merchant } = useAuth();
   const moduleOn = useModules();
+  const { plan } = useMerchantPlan();
 
   if (pathname === "/login" || pathname === "/apply" || pathname === "/activate") return null;
   // Step-by-step flows use the whole screen; their own bar sits at the bottom.
   if (pathname.startsWith("/store/plans/checkout") || pathname.startsWith("/store/items/new")) return null;
 
   const visibleTabs =
-    filterByModule(merchant?.member_role === "cashier" ? tabs.filter((tab) => tab.href !== "/wallet") : tabs, moduleOn);
+    filterByModule(tabs.filter(tab => (tab.href !== "/services" || plan?.pages?.services === true)
+      && (tab.href !== "/outlets" || plan?.pages?.outlets === true)
+      && (tab.href !== "/wallet" || merchant?.member_role !== "cashier")), moduleOn);
+  const overflow = visibleTabs.length > 5;
 
   return (
     <nav
@@ -41,7 +46,7 @@ export function BottomNav() {
             const Icon = tab.icon;
 
             return (
-              <li key={tab.href} className={`min-w-0 flex-1 ${index >= 4 ? "hidden sm:block" : ""}`}>
+              <li key={tab.href} className={`min-w-0 flex-1 ${overflow && index >= 4 ? "hidden sm:block" : ""}`}>
                 <Link
                   href={tab.href}
                   aria-current={active ? "page" : undefined}
@@ -61,7 +66,7 @@ export function BottomNav() {
               </li>
             );
           })}
-          <li className="min-w-0 flex-1 sm:hidden">
+          {overflow && <li className="min-w-0 flex-1 sm:hidden">
             <details className="relative">
               <summary className="customer-nav-item flex h-[62px] cursor-pointer list-none flex-col items-center justify-center gap-1 rounded-[18px] text-xs font-bold" aria-label="More merchant pages">
                 <MoreHorizontal className="h-6 w-6" aria-hidden /><span>More</span>
@@ -70,7 +75,7 @@ export function BottomNav() {
                 {visibleTabs.slice(4).map(tab => <li key={tab.href}><Link href={tab.href} aria-current={pathname.startsWith(tab.href) ? "page" : undefined} className="flex min-h-14 items-center gap-3 rounded-xl px-4 text-lg font-bold text-ink" onClick={event => event.currentTarget.closest("details")?.removeAttribute("open")}><tab.icon className="h-6 w-6 text-gold" aria-hidden />{tab.label}</Link></li>)}
               </ul>
             </details>
-          </li>
+          </li>}
         </ul>
       </div>
     </nav>

@@ -136,7 +136,7 @@ function CheckoutFlow() {
     setPin1("");
     setCode("");
     setConfirmedPin("");
-    setPinStep(user?.passwordSet === false ? "nopassword" : "password");
+    setPinStep("password");
     setStage("setpin");
   }
 
@@ -163,6 +163,7 @@ function CheckoutFlow() {
       return;
     }
     setCheckout(res.data.checkout);
+    if (res.data.checkout.verifyMethod === "session") { follow(res.data.checkout); return; }
     setDevCode(res.data.devCode ?? null);
     setCode("");
     submitted.current = "";
@@ -277,7 +278,7 @@ function CheckoutFlow() {
         onBack={stage === "review" ? () => router.push("/store/plans") : stage === "pay" ? () => setStage("review") : stage === "setpin" ? setPinBack : undefined}
         onClose={stage === "processing" ? undefined : () => void cancel()}
       />
-      {stage !== "loading" && stage !== "failed" && <Stepper steps={moveDown ? DOWN_STEPS : STEPS} current={moveDown ? 0 : stepIndex} onJump={(i) => (i === 0 && stage === "pay" ? setStage("review") : undefined)} />}
+      {stage !== "loading" && stage !== "failed" && <Stepper steps={moveDown || q?.verify.channel === "session" ? DOWN_STEPS : STEPS} current={moveDown || q?.verify.channel === "session" ? 0 : stepIndex} onJump={(i) => (i === 0 && stage === "pay" ? setStage("review") : undefined)} />}
 
       {stage === "loading" && <div className="flex justify-center py-24"><Loader2 className="h-9 w-9 animate-spin text-gold" /></div>}
 
@@ -390,7 +391,7 @@ function CheckoutFlow() {
             <div className="flex items-center justify-between border-t border-[var(--border-faint)] pt-3"><dt className="text-lg font-black text-ink">Total</dt><dd className="text-xl font-black text-gold">{ugx(quote.amount)}</dd></div>
           </dl>
           <BottomBar>
-            <PrimaryButton testId="review-continue" onClick={() => setStage("pay")}>Continue <ArrowRight className="h-5 w-5" /></PrimaryButton>
+            <PrimaryButton testId="review-continue" disabled={busy} onClick={() => q?.verify.channel === "session" ? void start() : setStage("pay")}>{busy ? "Confirming…" : q?.verify.channel === "session" ? `Confirm ${PLAN_NAME[tier]}` : "Continue"} <ArrowRight className="h-5 w-5" /></PrimaryButton>
           </BottomBar>
         </div>
       )}

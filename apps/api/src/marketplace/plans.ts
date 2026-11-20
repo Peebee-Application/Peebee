@@ -19,6 +19,7 @@ export type StorePlan = {
   /** Access kept from before plans were enforced. */
   legacy: boolean;
   features: Record<StoreFeature, boolean>;
+  pages: { services: boolean; outlets: boolean };
 };
 
 const live = (expires: unknown, now: number): boolean => {
@@ -59,7 +60,9 @@ export async function storePlan(store: Row, settingsIn?: MarketplaceSettings, no
   const features = Object.fromEntries((["catalog", "live", "ads"] as const).map(feature => [feature,
     allowed.includes(feature) && (feature !== "live" || (plan !== "pro_store" && settings.liveEnabled)),
   ])) as Record<StoreFeature, boolean>;
-  return { plan, isElite: plan === "elite", isPaidTier: plan !== "merchant", expiresAt, daysLeft, legacy: plan !== "merchant" && (!hasPlanCol || keepLegacy), features };
+  const pagesAllowed = (await getOptions([`merchant_plan_${group}_pages`]))[`merchant_plan_${group}_pages`] as string[];
+  const pages = { services: pagesAllowed.includes("services"), outlets: pagesAllowed.includes("outlets") };
+  return { plan, isElite: plan === "elite", isPaidTier: plan !== "merchant", expiresAt, daysLeft, legacy: plan !== "merchant" && (!hasPlanCol || keepLegacy), features, pages };
 }
 
 export type PlanLimits = { products: number; collections: number; discounts: number; commissionPercent: number };

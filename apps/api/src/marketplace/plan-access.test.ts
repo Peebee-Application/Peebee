@@ -22,6 +22,7 @@ test("Merchant exposes payments-only capabilities and rejects every catalog entr
   const { db, merchant, tier, row } = await setup(); await tier("merchant");
   const metadata = await json(await merchant.call("/merchants/me/store"));
   assert.equal(metadata.store.plan.plan, "merchant");
+  assert.deepEqual(metadata.store.plan.pages, { services: false, outlets: false });
   assert.deepEqual(metadata.store.plan.features, { catalog: false, live: false, ads: false });
   assert.equal((await planLimits(await storePlan(await row()))).products, 0);
   for (const [path, method] of [
@@ -46,6 +47,7 @@ test("Pro and Elite retain their tools while free pricing cannot promote a legac
   for (const plan of ["pro", "elite"] as const) {
     await tier(plan);
     const metadata = await json(await merchant.call("/merchants/me/store"));
+    assert.deepEqual(metadata.store.plan.pages, { services: true, outlets: true });
     assert.deepEqual(metadata.store.plan.features, { catalog: true, live: true, ads: true });
     assert.equal((await merchant.call("/merchants/me/products")).status, 200);
     assert.equal((await merchant.call("/merchants/me/pos-sales")).status, plan === "elite" ? 200 : 403);
@@ -69,6 +71,10 @@ test("admin controls plan features and limits; another business's subscription c
   const headers = { Authorization: `Bearer ${merchant.token}`, "X-Merchant-Id": merchant.merchantId };
   assert.equal((await app.request("/v1/merchants/me/products", { headers })).status, 403);
   const admin = await addAdmin(db);
+  await admin.setOptions({ merchant_plan_merchant_pages: ["services"] });
+  assert.deepEqual((await json(await merchant.call("/merchants/me/store"))).store.plan.pages, { services: true, outlets: false });
+  await admin.setOptions({ merchant_plan_merchant_pages: [] });
+  assert.deepEqual((await json(await merchant.call("/merchants/me/store"))).store.plan.pages, { services: false, outlets: false });
   await admin.setOptions({ merchant_plan_merchant_features: ["catalog"], merchant_plan_free_max_products: 2 });
   assert.equal((await app.request("/v1/merchants/me/products", { headers })).status, 200);
   const metadata = await json(await app.request("/v1/merchants/me/store", { headers }));

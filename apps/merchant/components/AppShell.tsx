@@ -11,6 +11,7 @@ import { useAuth } from "../lib/auth-context";
 import { useResolvedTheme } from "../lib/theme";
 import { AuthGate } from "./AuthGate";
 import { StorePlanGate } from "./StorePlanGate";
+import { MerchantPlanProvider } from "../lib/merchant-plan-context";
 import { BottomNav } from "./BottomNav";
 import { ServiceBanner } from "./ServiceBanner";
 import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./PracticeMode";
@@ -28,6 +29,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthGate>
+      <MerchantPlanProvider>
       <PracticeModeGuard role="merchant" pathname={pathname} />
       {!bare && <PracticeModePrompt role="merchant" />}
       {!bare && (
@@ -79,6 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <ModuleRouteGate rules={MODULE_ROUTES} pathname={pathname} modules={moduleOn}><StorePlanGate pathname={pathname}>{children}</StorePlanGate></ModuleRouteGate>
       </main>
       {!bare && <BottomNav />}
+      </MerchantPlanProvider>
     </AuthGate>
   );
 }

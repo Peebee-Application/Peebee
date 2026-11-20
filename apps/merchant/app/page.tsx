@@ -7,12 +7,14 @@ import { useEffect, useState } from "react";
 import { api, errorMessage } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { filterByModule, useModules } from "../lib/modules";
+import { useMerchantPlan } from "../lib/merchant-plan-context";
 
 const ugx = (amount: number) => `UGX ${Number(amount).toLocaleString()}`;
 
 export default function DashboardPage() {
   const { merchant } = useAuth();
   const moduleOn = useModules();
+  const { plan } = useMerchantPlan();
   const [balance, setBalance] = useState<MerchantBalance | null>(null);
   const [payments, setPayments] = useState<MerchantPaymentSummary[]>([]);
   const [error, setError] = useState("");
@@ -35,8 +37,8 @@ export default function DashboardPage() {
     [
       { href: "/payments", label: "Payments", icon: CreditCard },
       { href: "/store", label: "Store", icon: Store, module: "buy.marketplace" },
-      { href: "/services", label: "Services", icon: Briefcase },
-      { href: "/outlets", label: "Outlets", icon: Building2 },
+      ...(plan?.pages?.services ? [{ href: "/services", label: "Services", icon: Briefcase }] : []),
+      ...(plan?.pages?.outlets ? [{ href: "/outlets", label: "Outlets", icon: Building2 }] : []),
       { href: "/deliveries", label: "Deliveries", icon: Truck },
       ...(cashier ? [] : [{ href: "/activity", label: "Ledger", icon: History }]),
     ],
