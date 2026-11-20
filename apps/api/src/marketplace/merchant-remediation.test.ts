@@ -73,7 +73,7 @@ test("refund credit failure rolls back completion, balances and ledger; retry cr
   await db.execute({sql: "UPDATE stores SET elite_expires_at='2000-01-01',pro_tier='free',plan_legacy=0 WHERE id=?", args: [s.storeId]});
   // Expiry stops new sales, but must never prevent servicing an existing buyer's refund.
   const secondBuyer = await addUser(db, "expired-plan-buyer");
-  assert.equal((await app.request(`/v1/marketplace/digital/${product.id}/buy`, {method: "POST", headers: {Authorization: `Bearer ${secondBuyer}`}})).status, 403);
+  assert.equal((await app.request(`/v1/marketplace/digital/${product.id}/buy`, {method: "POST", headers: {Authorization: `Bearer ${secondBuyer}`}})).status, 404, "a Merchant-only storefront no longer accepts new buyers");
   const before = (await db.execute({sql: "SELECT available FROM merchant_balances WHERE merchant_id=? AND environment='live'", args: [s.merchantId]})).rows[0].available;
   await db.execute("CREATE TRIGGER fail_refund BEFORE UPDATE OF wallet_balance ON users WHEN NEW.id = 'refund-buyer' AND NEW.wallet_balance > OLD.wallet_balance BEGIN SELECT RAISE(ABORT, 'simulated credit failure'); END");
   assert.equal((await s.call(`/merchants/me/digital-fulfillments/${id}/refund`, "POST", {})).status, 500);

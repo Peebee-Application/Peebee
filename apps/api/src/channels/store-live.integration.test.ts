@@ -81,6 +81,12 @@ test("store live: needs Pro Live or Elite, then goes live from the camera into t
   assert.equal(resumed.json.live.id, id, "a reopened app can pick the stream up");
   assert.deepEqual(resumed.json.productIds, [w.b]);
 
+  await w.client.execute({ sql: "UPDATE stores SET pro_tier='free',pro_expires_at=NULL,elite_tier=0,plan_legacy=0 WHERE id=?", args: [w.store] });
+  const expired = await w.call("/merchants/me/store/live/camera", { token: w.owner });
+  assert.equal(expired.json.available, false);
+  assert.equal(expired.json.live, null, "no publishing credentials after downgrade");
+  assert.equal(expired.json.existingLiveId, id, "the owner can still identify and end their earlier stream");
+  assert.equal((await w.call("/merchants/me/store/live/camera", { token: w.stranger })).json.existingLiveId, null);
   const end = await w.call(`/merchants/me/store/live/camera/${id}/end`, { token: w.owner, method: "POST" });
   assert.equal(end.status, 200, end.text);
   assert.equal(end.json.status, "ended");

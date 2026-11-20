@@ -7,6 +7,7 @@ import { getMarketplaceSettings, type MarketplaceSettings } from "../lib/setting
 type Row = Record<string, unknown>;
 
 export type Plan = "merchant" | "pro_store" | "pro_live" | "elite";
+export type StoreFeature = "catalog" | "live" | "ads";
 
 export type StorePlan = {
   plan: Plan;
@@ -17,6 +18,7 @@ export type StorePlan = {
   daysLeft: number | null;
   /** Access kept from before plans were enforced. */
   legacy: boolean;
+  features: Record<StoreFeature, boolean>;
 };
 
 const live = (expires: unknown, now: number): boolean => {
@@ -36,8 +38,8 @@ const iso = (expires: unknown): string | null => {
  * What a store is entitled to right now, from what it has bought (and when that runs out). The one place this is
  * decided: limits, commission and the Elite-only endpoints all ask here.
  *
- * Until the plans migration is applied, or for a store kept on its legacy access, the old rule holds: with free pricing
- * every store has everything.
+ * Free pricing changes what a plan costs, never which plan a business holds.
+ * Legacy access can preserve an assigned tier, but cannot invent an Elite subscription.
  */
 export async function storePlan(store: Row, settingsIn?: MarketplaceSettings, now = Date.now()): Promise<StorePlan> {
   const settings = settingsIn ?? (await getMarketplaceSettings());
@@ -47,27 +49,24 @@ export async function storePlan(store: Row, settingsIn?: MarketplaceSettings, no
     ? String((await getOptions(["merchant_plan_legacy_access"])).merchant_plan_legacy_access) === "keep_access"
     : false;
 
-  if (!hasPlanCol || keepLegacy) {
-    const free = settings.proPricingMode === "free";
-    const elite = free ? Boolean(settings.eliteEnabled) : hasEliteCol && Number(store.elite_tier || 0) === 1;
-    return {
-      plan: elite ? "elite" : free ? "pro_live" : ((store.pro_tier as Plan) || "merchant"),
-      isElite: elite, isPaidTier: true, expiresAt: null, daysLeft: null, legacy: true,
-    };
-  }
-
   const elitePaid = hasEliteCol && Number(store.elite_tier || 0) === 1 && live(store.elite_expires_at, now) && Boolean(settings.eliteEnabled);
   const proPaid = (store.pro_tier === "pro_store" || store.pro_tier === "pro_live") && live(store.pro_expires_at, now);
   const plan: Plan = elitePaid ? "elite" : proPaid ? (store.pro_tier as Plan) : "merchant";
   const expiresAt = plan === "elite" ? iso(store.elite_expires_at) : plan === "merchant" ? null : iso(store.pro_expires_at);
   const daysLeft = expiresAt ? Math.max(0, Math.ceil((Date.parse(expiresAt) - now) / 86400000)) : null;
-  return { plan, isElite: plan === "elite", isPaidTier: plan !== "merchant", expiresAt, daysLeft, legacy: false };
+  const group = plan === "merchant" ? "merchant" : plan === "elite" ? "elite" : "pro";
+  const allowed = (await getOptions([`merchant_plan_${group}_features`]))[`merchant_plan_${group}_features`] as string[];
+  const features = Object.fromEntries((["catalog", "live", "ads"] as const).map(feature => [feature,
+    allowed.includes(feature) && (feature !== "live" || (plan !== "pro_store" && settings.liveEnabled)),
+  ])) as Record<StoreFeature, boolean>;
+  return { plan, isElite: plan === "elite", isPaidTier: plan !== "merchant", expiresAt, daysLeft, legacy: plan !== "merchant" && (!hasPlanCol || keepLegacy), features };
 }
 
 export type PlanLimits = { products: number; collections: number; discounts: number; commissionPercent: number };
 
 export async function planLimits(p: StorePlan, settings?: MarketplaceSettings): Promise<PlanLimits> {
   const s = settings ?? (await getMarketplaceSettings());
+  if (!p.features.catalog) return { products: 0, collections: 0, discounts: 0, commissionPercent: s.commissionPercent };
   if (p.isElite) return { products: s.eliteMaxProducts, collections: s.eliteMaxCollections, discounts: s.eliteMaxDiscounts, commissionPercent: s.eliteCommissionPercent };
   if (p.isPaidTier) return { products: s.proMaxProducts, collections: s.proMaxCollections, discounts: s.proMaxDiscounts, commissionPercent: s.commissionPercent };
   const o = await getOptions(["merchant_plan_free_max_products", "merchant_plan_free_max_collections", "merchant_plan_free_max_discounts"]);
@@ -75,6 +74,24 @@ export async function planLimits(p: StorePlan, settings?: MarketplaceSettings): 
     products: Number(o.merchant_plan_free_max_products), collections: Number(o.merchant_plan_free_max_collections),
     discounts: Number(o.merchant_plan_free_max_discounts), commissionPercent: s.commissionPercent,
   };
+}
+
+/** Commerce entry points share the same server-issued permissions as the app.
+ * Existing receipts, refunds, settlements and stopping a broadcast remain serviceable after expiry. */
+export async function merchantStorePlanGuard(c: Context, next: Next) {
+  const path = c.req.path.replace(/^\/v1/, "");
+  let feature: StoreFeature | null = null;
+  if (/^\/merchants\/me\/(products|collections|discounts|storefront-sections)(\/|$)/.test(path)
+    || /^\/merchants\/me\/store\/(items|media|media-limits)(\/|$)/.test(path)) feature = "catalog";
+  if (/^\/merchants\/me\/store\/live(\/|$)/.test(path) && c.req.method !== "GET" && !path.endsWith("/end")) feature = "live";
+  if (/^\/merchants\/me\/(ads|promotions)(\/|$)/.test(path)) feature = "ads";
+  if (!feature) return next();
+  const store = await storeOfUser(c.get("user").sub, c.req.header("X-Merchant-Id"));
+  if (!store) return next();
+  const plan = await storePlan(store);
+  if (!plan.features[feature]) return c.json({ error: "plan_required", requiredPlan: "pro_live", plan: plan.plan, feature,
+    message: "Your plan does not include this store tool. View plans to choose Pro or Elite." }, 403);
+  return next();
 }
 
 /** The signed-in merchant's store, if they have one (the first merchant they belong to). */

@@ -64,6 +64,8 @@ import { walletsRoutes } from "./wallet/wallets.js";
 
 import { gasRoutes } from "./gas/routes.js";
 import { marketplaceRoutes } from "./marketplace/routes.js";
+import { requireAuth } from "./auth/middleware.js";
+import { merchantStorePlanGuard } from "./marketplace/plans.js";
 import { videoRoutes } from "./video/routes.js";
 import { videoAdminRoutes } from "./video/admin-routes.js";
 import { adsRoutes } from "./ads/routes.js";
@@ -315,6 +317,7 @@ app.route("/v1/gas", gasRoutes);
 // Public, sign-in-free data for shared links; before the order routes' catch-all sign-in.
 app.route("/v1", publicShareRoutes);
 app.route("/v1", publicReceiptRoutes);
+app.use("/v1/merchants/me/*", requireAuth, merchantStorePlanGuard);
 app.route("/v1", marketplaceRoutes);
 app.route("/v1", guestRoutes);
 app.route("/v1", videoRoutes);

@@ -74,7 +74,7 @@ export async function findPublicStore(idOrSlug: string): Promise<Row | null> {
     sql: "SELECT * FROM stores WHERE (id = ? OR slug = ?) AND status = 'active' AND environment = ? ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END LIMIT 1",
     args: [idOrSlug, idOrSlug, environment, idOrSlug],
   });
-  if (exact.rows[0]) return exact.rows[0] as Row;
+  if (exact.rows[0]) return (await storePlan(exact.rows[0] as Row)).features.catalog ? exact.rows[0] as Row : null;
   if ((await hasColumn("stores", "custom_domain")) && (await hasColumn("stores", "domain_verified"))) {
     const mode = (await getOptions(["storefront_domain_mode"])).storefront_domain_mode;
     if (mode === "subdomain_plus_verified_custom_domains") {
@@ -83,7 +83,10 @@ export async function findPublicStore(idOrSlug: string): Promise<Row | null> {
         args: [idOrSlug.toLowerCase(), environment],
       });
       // A custom domain is Merchant Elite: when the plan ends, the store is still at its Peebee address, not here.
-      if (byDomain.rows[0]) return (await storePlan(byDomain.rows[0] as Row)).isElite ? (byDomain.rows[0] as Row) : null;
+      if (byDomain.rows[0]) {
+        const plan = await storePlan(byDomain.rows[0] as Row);
+        return plan.isElite && plan.features.catalog ? byDomain.rows[0] as Row : null;
+      }
     }
   }
   return null;

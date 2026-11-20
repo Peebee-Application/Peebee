@@ -63,6 +63,14 @@ const ROLES: OptionChoice[] = [
 ];
 
 export const OPTION_SETTINGS: SettingDef[] = [
+  ...(["merchant", "pro", "elite"] as const).map(plan => ({
+    key: `merchant_plan_${plan}_features`, module: "plans" as const, kind: "multi" as const,
+    label: `${plan === "merchant" ? "Merchant" : plan === "pro" ? "Pro" : "Elite"} store tools`,
+    description: "Controls both visible store tools and API access. Merchant defaults to payments only. Free pricing does not unlock a higher plan.",
+    default: plan === "merchant" ? [] : ["catalog", "live", "ads"],
+    min: 0,
+    options: [opt("catalog", "Catalog and storefront", true), opt("live", "Live selling", true), opt("ads", "Advertising tools", true)],
+  })),
   ...LEARN_CREATOR_OPTIONS,
   { key: "merchant_settlement_cooling_hours", module: "platform", kind: "int", label: "Merchant payout destination cooling period", description: "Minimum age in hours of a verified payout destination before live withdrawals. Applies when returning from sandbox too; sandbox withdrawals have no waiting period.", default: 24, min: 0, max: 720, unit: "hours" },
   // ------------------------------------------------------------------ Storefront
@@ -215,7 +223,7 @@ export const OPTION_SETTINGS: SettingDef[] = [
     ],
   },
   { key: "merchant_pos_manual_prices", module: "plans", kind: "bool", label: "Allow manual POS prices", description: "Permit POS operators to override catalog unit prices. Stock ownership and availability checks always apply.", default: false },
-  { key: "merchant_plan_free_max_products", module: "plans", kind: "int", label: "Products on the Merchant plan", description: "Upper limit for a store with no active Pro or Elite plan.", default: 20, min: 0, max: 5000 },
+  { key: "merchant_plan_free_max_products", module: "plans", kind: "int", label: "Products on the Merchant plan", description: "Only applies if catalog access is explicitly enabled for Merchant above. The default Merchant plan accepts payments only.", default: 0, min: 0, max: 5000 },
   { key: "merchant_plan_free_max_collections", module: "plans", kind: "int", label: "Collections on the Merchant plan", description: "Upper limit for a store with no active Pro or Elite plan.", default: 1, min: 0, max: 1000 },
   { key: "merchant_plan_free_max_discounts", module: "plans", kind: "int", label: "Offers on the Merchant plan", description: "Upper limit for a store with no active Pro or Elite plan.", default: 1, min: 0, max: 1000 },
   { key: "merchant_plan_warn_days", module: "plans", kind: "int", label: "Warn before a plan ends", description: "Days before expiry that the merchant app starts showing a renewal reminder.", default: 7, min: 0, max: 60, unit: "days" },
@@ -578,7 +586,7 @@ export function resolveEffective(def: SettingDef, stored: OptionValue, schema: S
       const choice = def.options.find((o) => o.value === v);
       return choice && choiceAvailability(choice, schema).available;
     });
-    if (list.length >= (def.min ?? 0) && list.length > 0) return list;
+    if (list.length >= (def.min ?? 0) && (list.length > 0 || def.min === 0)) return list;
     const fallback = def.options.filter((o) => choiceAvailability(o, schema).available && (def.default as string[]).includes(o.value)).map((o) => o.value);
     return fallback.length ? fallback : def.options.filter((o) => choiceAvailability(o, schema).available).slice(0, 1).map((o) => o.value);
   }

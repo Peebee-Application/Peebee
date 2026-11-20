@@ -986,9 +986,6 @@ async function getMerchantStore(merchantId: string): Promise<Row | null> {
   });
   const row = (res.rows[0] as Row | undefined) ?? null;
   if (!row) return null;
-  if (Number(row.elite_tier || 0) === 1) {
-    return { ...row, pro_tier: "elite" };
-  }
   return row;
 }
 
@@ -1239,7 +1236,9 @@ marketplaceRoutes.put("/merchants/me/store", requireAuth, async (c) => {
   }
 
   const updated = await getMerchantStore(merchantId);
-  return c.json({ store: updated });
+  if (!updated) return c.json({ error: "no_store" }, 404);
+  const plan = await storePlan(updated);
+  return c.json({ store: { ...updated, pro_tier: plan.isElite ? "elite" : plan.plan === "merchant" ? "free" : plan.plan, elite_tier: plan.isElite ? 1 : 0, plan } });
 });
 
 // 3a. Prove control of a custom domain: the merchant publishes a TXT record and we look for it.
@@ -1672,7 +1671,7 @@ marketplaceRoutes.post("/merchants/me/store/live/start", requireAuth, async (c) 
   const liveSettings = await getMarketplaceSettings();
   if (!liveSettings.liveEnabled) return c.json({ error: "live_disabled", message: "Live selling is disabled by the platform." }, 403);
   const livePlan = await storePlan(store, liveSettings);
-  if (livePlan.plan !== "pro_live" && !livePlan.isElite) return c.json({ error: "plan_required", requiredPlan: "pro_live", message: "Live selling requires Merchant Pro or Elite." }, 403);
+  if (!livePlan.features.live) return c.json({ error: "plan_required", requiredPlan: "pro_live", message: "Live selling requires an eligible Pro or Elite plan." }, 403);
   const body = await c.req.json().catch(() => ({}));
   const sessionId = newId("live");
   const title = body.title || `${store.name} Live Showcase! ✨`;
@@ -3298,6 +3297,8 @@ marketplaceRoutes.get("/marketplace/stores", async (c) => {
   const res = await db.execute({ sql: query, args });
 
   let stores = res.rows as Row[];
+  const eligibility = await Promise.all(stores.map(async store => (await storePlan(store)).features.catalog));
+  stores = stores.filter((_, index) => eligibility[index]);
   if (stores.length === 0 && (await demoCatalogAllowed())) {
     // Sandbox only: demo stores so browsing and testing works immediately.
     stores = DEMO_MARKETPLACE_STORES.filter((s) => !category || s.category === category);
@@ -3665,6 +3666,7 @@ marketplaceRoutes.get("/marketplace/products/:id", async (c) => {
   let store: Row | null = null;
 
   if (product) {
+    if (!await findPublicStore(String(product.store_id))) return c.json({ error: "product_not_found" }, 404);
     const variantsRes = await db.execute({
       sql: "SELECT * FROM store_product_variants WHERE product_id = ? ORDER BY created_at",
       args: [String(product.id)],
@@ -3711,6 +3713,11 @@ marketplaceRoutes.get("/marketplace/live", async (c) => {
   });
 
   let liveChannels = res.rows as Row[];
+  const eligible = await Promise.all(liveChannels.map(async channel => {
+    const store = await findPublicStore(String(channel.id));
+    return !!store && (await storePlan(store)).features.live;
+  }));
+  liveChannels = liveChannels.filter((_, index) => eligible[index]);
   if (liveChannels.length === 0 && (await demoCatalogAllowed())) {
     liveChannels = DEMO_MARKETPLACE_STORES.filter((s) => s.is_live === 1);
   }
@@ -3758,7 +3765,8 @@ async function loadLiveMarketplaceSpotlight() {
     args: [environment],
   });
 
-  return (res.rows as Row[]).map((row) => {
+  const eligible = await Promise.all((res.rows as Row[]).map(row => findPublicStore(String(row.id))));
+  return (res.rows as Row[]).filter((_, index) => !!eligible[index]).map((row) => {
     const live = Number(row.is_live) === 1;
     const banner = row.banner_url ? String(row.banner_url) : "";
     const image = row.product_image_url ? String(row.product_image_url) : "";

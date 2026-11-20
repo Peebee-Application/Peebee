@@ -77,7 +77,9 @@ test("practice and sandbox share one database; real people and demo people never
     const restaurants = (await json<{ restaurants: { id: string }[] }>(await call(demo.token, "/restaurants"))).restaurants;
     assert.equal(restaurants.length, 12);
     assert.ok(restaurants.every((r) => r.id.startsWith("prac_rest_")));
-    assert.ok((await json<{ stores: unknown[] }>(await call(demo.token, "/marketplace/stores"))).stores.length >= 8);
+    const stores = (await json<{ stores: { id: string; pro_tier: string }[] }>(await call(demo.token, "/marketplace/stores"))).stores;
+    assert.ok(stores.some(s => s.id === "pe_lakeside_mart"), "eligible practice stores are listed");
+    assert.ok(stores.every(s => s.pro_tier !== "free"), "payments-only practice merchants have no online catalog");
   });
 
   await t.test("merchant and restaurant personas own the same businesses the customer shops at", async () => {

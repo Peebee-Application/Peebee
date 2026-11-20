@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
 import { useResolvedTheme } from "../lib/theme";
 import { AuthGate } from "./AuthGate";
+import { StorePlanGate } from "./StorePlanGate";
 import { BottomNav } from "./BottomNav";
 import { ServiceBanner } from "./ServiceBanner";
 import { PracticeModeBanner, PracticeModeGuard, PracticeModePrompt } from "./PracticeMode";
@@ -75,7 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {!bare && <PracticeModeBanner role="merchant" />}
       {!bare && <ServiceBanner />}
       <main className={`mx-auto min-h-dvh max-w-6xl ${bare ? "" : "pb-[calc(88px+env(safe-area-inset-bottom))]"}`}>
-        <ModuleRouteGate rules={MODULE_ROUTES} pathname={pathname} modules={moduleOn}>{children}</ModuleRouteGate>
+        <ModuleRouteGate rules={MODULE_ROUTES} pathname={pathname} modules={moduleOn}><StorePlanGate pathname={pathname}>{children}</StorePlanGate></ModuleRouteGate>
       </main>
       {!bare && <BottomNav />}
     </AuthGate>
