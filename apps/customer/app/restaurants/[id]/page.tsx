@@ -381,9 +381,10 @@ function MenuOrderList({
             <span>{t("restaurant_items_total")}</span>
             <strong>{formatUgx(itemsTotal)}</strong>
           </div>
-          <button type="button" className="menu-item-order-list__checkout" onClick={onViewCart} disabled={cart.length === 0}>
-            <span>{t("restaurant_checkout")}</span>
-          </button>
+          <div className="customer-nav-shell flex w-full items-stretch">
+            <div className="customer-nav-anchor"><button type="button" aria-label="Back to menu" onClick={onClose} className="customer-nav-anchor-button"><ChevronLeft aria-hidden /></button></div>
+            <NavAction action={{ label: t("restaurant_checkout"), disabled: cart.length === 0, onClick: onViewCart }} />
+          </div>
         </div>
       </aside>
     </div>,
