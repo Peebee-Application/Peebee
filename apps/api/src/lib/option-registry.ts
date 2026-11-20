@@ -63,7 +63,7 @@ const ROLES: OptionChoice[] = [
 ];
 
 export const OPTION_SETTINGS: SettingDef[] = [
-  { key: "merchant_plan_free_confirmation", module: "plans", kind: "enum", label: "Free plan change confirmation", description: "How the signed-in business owner confirms a plan with no price or later payment. Paid changes always keep payment verification.", default: "session", options: [opt("session", "Signed-in owner confirmation", true), opt("verified", "SMS or plan PIN", true)] },
+  { key: "merchant_plan_free_confirmation", module: "plans", kind: "enum", label: "Free plan change confirmation", description: "How the signed-in business owner confirms a plan with no price or later payment. Paid changes always keep payment verification.", default: "session", options: [opt("session", "Signed-in owner confirmation", true, { recommended: true }), opt("verified", "SMS or plan PIN", true)] },
   ...(["merchant", "pro", "elite"] as const).map(plan => ({
     key: `merchant_plan_${plan}_pages`, module: "plans" as const, kind: "multi" as const,
     label: `${plan === "merchant" ? "Merchant" : plan === "pro" ? "Pro" : "Elite"} business pages`,
