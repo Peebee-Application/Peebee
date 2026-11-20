@@ -24,7 +24,7 @@ export default function StoreComparisonPage() {
             <span className="grid h-12 w-12 place-items-center rounded-[16px] bg-cream text-gold"><Icon className="h-8 w-8" aria-hidden /></span>
             <h2 className="text-[28px] font-black">{tier === "pro" ? "Pro" : "Elite"}</h2>
             <p className={`min-h-12 text-sm leading-snug ${tier === "pro" ? "text-white/80" : "text-ink-500"}`}>{tier === "pro" ? "Display & go live." : "Everything in Pro, and more."}</p>
-            <p className="inline-block rounded-full bg-cream px-3 py-1 text-xs font-black text-ink-gold">{data.plans[tier].enabled ? salesPrice(data.plans[tier].monthly) : "Currently unavailable"}</p>
+            <p className={`inline-block rounded-full bg-gold/15 px-3 py-1 text-xs font-black ${tier === "pro" ? "text-gold" : "text-ink"}`}>{data.plans[tier].enabled ? salesPrice(data.plans[tier].monthly) : "Currently unavailable"}</p>
           </section>; })}
         </div>
         <div className={`${card} overflow-hidden`}>

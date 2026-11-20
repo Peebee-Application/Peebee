@@ -17,11 +17,11 @@ export function PlanChoice({ tier, data, selected, onClick }: { tier: SalesTier;
   return <button type="button" role="tab" id={`sales-tab-${tier}`} aria-selected={selected} aria-controls="sales-plan-panel" tabIndex={selected ? 0 : -1}
     onClick={onClick} data-testid={`sales-choice-${tier}`}
     className={`relative flex min-h-[176px] min-w-0 flex-col items-start rounded-[26px] border-[3px] p-4 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold sm:min-h-[200px] sm:p-5 ${selected ? "border-gold bg-black text-white shadow-[0_8px_24px_rgb(var(--gold)/0.2)]" : `${card} text-ink`}`}>
-    <span className={`mb-3 grid h-12 w-12 place-items-center rounded-[16px] ${selected ? "bg-cream text-ink-gold" : "bg-gold/15 text-gold"}`}><Icon className="h-8 w-8" aria-hidden /></span>
+    <span className="mb-3 grid h-12 w-12 place-items-center rounded-[16px] bg-gold/15 text-gold"><Icon className="h-8 w-8" aria-hidden /></span>
     {selected && <span className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-full bg-gold text-ink-gold"><Check className="h-4 w-4" strokeWidth={3} aria-hidden /></span>}
     <span className="text-[27px] font-black leading-tight sm:text-[32px]">{tier === "pro" ? "Pro" : "Elite"}</span>
     <span className={`mt-1 text-[17px] font-semibold ${selected ? "text-white/85" : "text-ink-500"}`}>{tier === "pro" ? "Sell online" : "Run it all"}</span>
-    <span className="mt-3 rounded-full bg-cream px-3 py-1 text-sm font-black text-ink-gold">{data.plans[tier].enabled ? salesPrice(data.plans[tier].monthly) : "Currently unavailable"}</span>
+    <span className={`mt-3 rounded-full bg-gold/15 px-3 py-1 text-sm font-black ${selected ? "text-gold" : "text-ink"}`}>{data.plans[tier].enabled ? salesPrice(data.plans[tier].monthly) : "Currently unavailable"}</span>
   </button>;
 }
 export function UpgradeAction({ data, tier, compact = false, dark = false }: { data: StoreSales; tier: SalesTier; compact?: boolean; dark?: boolean }) {
