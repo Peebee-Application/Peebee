@@ -1,3 +1,5 @@
+import { attentionSettingsSchema, getAttentionSettings } from "../orders/attention.js";
+import { setRawSetting } from "../lib/settings.js";
 import { patchSchema } from "../lib/patch-schema.js";
 import { MODULE_NOTICE_MESSAGE_MAX } from "@peebee/shared";
 import { Hono } from "hono";
@@ -1611,3 +1613,12 @@ settingsRoutes.patch(
     return c.json({ ok: true, changed: result.changed, settings: await describeOptions() });
   },
 );
+
+settingsRoutes.put("/admin/order-attention", requireAuth, requireRole("admin"), requirePermission("settings.manage"), async (c) => {
+  const parsed = attentionSettingsSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  const before = await getAttentionSettings();
+  await setRawSetting("order_attention", JSON.stringify(parsed.data));
+  await logActivity({ actor: c.get("user"), action: "order.attention.settings", entityType: "settings", summary: "Updated order follow-up calls", before, after: parsed.data, ip: clientIp(c) });
+  return c.json({ settings: parsed.data });
+});

@@ -4,6 +4,8 @@ import { ModuleRouteGate } from "@peebee/shared/module-gate";
 import { MODULE_ROUTES } from "../lib/module-routes";
 import { useModules } from "../lib/modules";
 
+import { AttentionReceiver } from "@peebee/shared/attention-receiver";
+import { api } from "../lib/api";
 import { BrandLogo } from "./BrandLogo";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,13 +24,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const practiceActive = usePracticeModeActive();
   const pathname = usePathname();
   const moduleOn = useModules();
-  const { merchant } = useAuth();
+  const { merchant, user } = useAuth();
   const activeTheme = useResolvedTheme();
   const isDarkMode = activeTheme === "dark";
   const bare = pathname === "/forgot-password" || pathname === "/login" || pathname === "/apply" || pathname === "/activate";
 
   return (
     <AuthGate>
+      <AttentionReceiver api={api} accountId={user?.id ?? null} />
       <MerchantPlanProvider>
       <PracticeModeGuard role="merchant" pathname={pathname} />
       {!bare && <PracticeModePrompt role="merchant" />}

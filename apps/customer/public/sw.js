@@ -326,12 +326,13 @@ self.addEventListener("push", (event) => {
       icon: "/icons/icon-192.png?v=logo-6",
       badge: "/icons/icon-192.png?v=logo-6",
       tag: data.tag || "peebee-alert",
+      silent: typeof data.tag === "string" && data.tag.startsWith("order-"),
       data: { url: data.url || "/" },
     }),
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       const visible = clients.filter((client) => client.visibilityState === "visible");
       const target = visible.find((client) => client.focused) || visible[0];
-      target?.postMessage({ type: "peebee-notification" });
+      target?.postMessage({ type: "peebee-notification", tag: data.tag });
     }),
   ]));
 });

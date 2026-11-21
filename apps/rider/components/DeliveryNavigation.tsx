@@ -23,6 +23,7 @@ export function DeliveryNavigation({
   destinationLng,
   busy,
   onConfirmDelivery,
+  arrivalOnClose = false,
   confirmButtonLabel = "Confirm Delivery",
   confirmModalDescription = "Confirms you've reached the customer and marks this job as arrived. They'll be notified to confirm handover on their end.",
 }: {
@@ -31,6 +32,7 @@ export function DeliveryNavigation({
   destinationLng: number | null;
   busy: boolean;
   onConfirmDelivery: () => void;
+  arrivalOnClose?: boolean;
   confirmButtonLabel?: string;
   confirmModalDescription?: string;
 }) {
@@ -44,6 +46,8 @@ export function DeliveryNavigation({
 
   useEffect(() => {
     try {
+      // Restore the external navigation session for this order after hydration.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNavStarted(localStorage.getItem(storageKey(orderId)) === "1");
     } catch {}
   }, [orderId]);
@@ -92,7 +96,8 @@ export function DeliveryNavigation({
           confirmButtonLabel={confirmButtonLabel}
           onArrived={() => {
             setInAppNav(false);
-            setConfirming(true);
+            if (arrivalOnClose) confirmDelivery();
+            else setConfirming(true);
           }}
           onClose={() => setInAppNav(false)}
         />
@@ -111,11 +116,11 @@ export function DeliveryNavigation({
         <>
           <button
             type="button"
-            onClick={() => setConfirming(true)}
+            onClick={() => arrivalOnClose ? confirmDelivery() : setConfirming(true)}
             disabled={busy}
             className="min-h-12 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold shadow-[0_4px_12px_rgba(201,162,39,0.35)] disabled:opacity-60"
           >
-            {confirmButtonLabel}
+            {arrivalOnClose ? "Close navigation" : confirmButtonLabel}
           </button>
           <button type="button" onClick={startNavigation} className="w-full text-center text-sm font-bold text-gold">
             Resume Navigation

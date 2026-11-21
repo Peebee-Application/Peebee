@@ -70,7 +70,11 @@ export function installNotificationSound(): () => void {
   }
 
   function onPush(event: MessageEvent) {
-    if (event.data?.type === "peebee-notification") playNotificationSound();
+    if (event.data?.type === "peebee-notification") {
+      if (typeof event.data.tag === "string" && (event.data.tag.startsWith("attention-") || event.data.tag.startsWith("order-"))) return;
+      if (typeof event.data.tag === "string" && event.data.tag.startsWith("arrival-")) playNotificationSoundOnce(event.data.tag);
+      else playNotificationSound();
+    }
   }
 
   document.addEventListener("pointerdown", unlock, { passive: true });
@@ -86,4 +90,35 @@ export function installNotificationSound(): () => void {
     playing = false;
     if (oldContext) void oldContext.close().catch(() => {});
   };
+}
+
+/** The existing notification recording, explicitly controlled by an attention gesture. */
+export function startAttentionTone(repeat: boolean): () => void {
+  let source: AudioBufferSourceNode | null = null;
+  let stopped = false;
+  const play = () => {
+    if (stopped || document.visibilityState !== "visible") return;
+    if (context?.state === "running" && buffer) {
+      source = context.createBufferSource(); source.buffer = buffer; source.loop = repeat;
+      source.connect(context.destination); source.start();
+    }
+    navigator.vibrate?.(repeat ? [250, 150, 250] : 250);
+  };
+  play();
+  const buzz = repeat ? setInterval(() => { if (!stopped) navigator.vibrate?.([250, 150, 250]); }, 800) : null;
+  const stop = () => {
+    stopped = true; if (buzz) clearInterval(buzz);
+    try { source?.stop(); source?.disconnect(); } catch {}
+    navigator.vibrate?.(0);
+  };
+  const hide = () => { if (document.visibilityState !== "visible") stop(); };
+  document.addEventListener("visibilitychange", hide);
+  return () => { stop(); document.removeEventListener("visibilitychange", hide); };
+}
+
+const sounded = new Set<string>();
+export function playNotificationSoundOnce(key: string): void {
+  if (sounded.has(key)) return;
+  sounded.add(key);
+  playNotificationSound();
 }

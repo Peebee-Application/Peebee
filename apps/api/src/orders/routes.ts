@@ -1,3 +1,4 @@
+import { getAttentionSettings } from "./attention.js";
 import { primeDemoAccounts, ridersForThisWorld } from "../practice/people.js";
 import { settleLoyalty } from "../marketplace/loyalty.js";
 import { Hono, type Context } from "hono";
@@ -3202,7 +3203,7 @@ orderRoutes.post("/orders/:id/arrived", async (c) => {
   if (!arrived.rowsAffected) return c.json({ error: "invalid_stage", message: "This journey has changed. Refresh the order." }, 409);
   await logEvent(id, "Arrived", "Rider arrived", user.sub);
 
-  if (order.customer_id) {
+  if (order.customer_id && (await getAttentionSettings()).arrivalEnabled) {
     background(
       c,
       notifyUser(order.customer_id as string, {
@@ -3211,7 +3212,7 @@ orderRoutes.post("/orders/:id/arrived", async (c) => {
           ? `${user.name || "Your rider"} is here to pick you up.`
           : `${user.name || "Your rider"} is here with your ${order.type === "parcel" ? "parcel" : "order"}.`,
         url: `/orders/${id}`,
-        tag: `order-${id}`,
+        tag: `arrival-${id}`,
       }),
     );
   }
