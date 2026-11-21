@@ -1,22 +1,22 @@
 "use client";
 
-import { BadgeDollarSign, BellRing, ChevronRight, MessageCircle, Truck } from "lucide-react";
+import { BadgeDollarSign, BellRing, ChevronRight, MessageCircle, Truck, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { NotificationSettings } from "../../components/NotificationSettings";
 import { api } from "../../lib/api";
 import { loadOrderFeed } from "../../lib/order-feed";
 
-type Activity = { id: string; href: string; title: string; detail: string; kind: "fee" | "message" | "order" };
+type Activity = { id: string; href: string; title: string; detail: string; kind: "fee" | "message" | "order" | "wallet" };
 
-const ICON = { fee: BadgeDollarSign, message: MessageCircle, order: Truck } as const;
+const ICON = { fee: BadgeDollarSign, message: MessageCircle, order: Truck, wallet: Wallet } as const;
 
 /** No separate notification inbox exists on the server; this gathers the
  * things that need you from live data: a rider's fee proposal, unread
  * messages and orders still in progress. */
 async function loadActivity(): Promise<Activity[]> {
-  const [active, threads, restaurantThreads, feed] = await Promise.allSettled([
-    api.getActiveOrder(), api.getChatThreads(), api.getMyRestaurantChatThreads(), loadOrderFeed(),
+  const [active, threads, restaurantThreads, feed, walletAlerts] = await Promise.allSettled([
+    api.getActiveOrder(), api.getChatThreads(), api.getMyRestaurantChatThreads(), loadOrderFeed(), api.getWalletAlerts(),
   ]);
   const items: Activity[] = [];
   if (active.status === "fulfilled" && active.value.pendingFeeProposal && active.value.activeOrder) {
@@ -30,6 +30,11 @@ async function loadActivity(): Promise<Activity[]> {
   if (restaurantThreads.status === "fulfilled") {
     for (const t of restaurantThreads.value.threads.filter((t) => t.unread)) {
       items.push({ id: `rchat-${t.restaurantId}`, kind: "message", href: `/restaurants/${t.restaurantId}/chat`, title: `New message from ${t.restaurantName}`, detail: t.lastMessagePreview });
+    }
+  }
+  if (walletAlerts.status === "fulfilled") {
+    for (const alert of walletAlerts.value.alerts) {
+      items.push({ id: `wallet-${alert.id}`, kind: "wallet", href: "/wallet", title: alert.title, detail: alert.body });
     }
   }
   if (feed.status === "fulfilled") {

@@ -61,14 +61,14 @@ function worker() {
 
 test("customer worker drops stale pages and the leaked wallet CSS, and keeps other assets", async () => {
   const w = worker();
-  assert.match(source, /peebee-pages-v13/);
-  assert.match(source, /peebee-runtime-v12/);
+  assert.match(source, /peebee-pages-v14/);
+  assert.match(source, /peebee-runtime-v13/);
   assert.match(source, /skipWaiting\(\)/);
   let done: Promise<unknown> | undefined;
   w.handlers.get("activate")!({ waitUntil: (promise: Promise<unknown>) => { done = promise; } });
   await done;
   assert.ok(w.claimed());
-  assert.deepEqual(w.deletedCaches.sort(), ["peebee-pages-v12", "peebee-runtime-v11"]);
+  assert.deepEqual(w.deletedCaches.sort(), ["peebee-pages-v12", "peebee-pages-v13", "peebee-runtime-v11", "peebee-runtime-v12"]);
   const assets = w.stores.get("peebee-assets-v1")!;
   assert.equal(assets.has(w.badUrl), false);
   assert.equal(assets.has(w.leakedUrl), false);

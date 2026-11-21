@@ -7,6 +7,7 @@ import { getRoadSettings } from "../lib/road-distance.js";
 import { z } from "zod";
 import { describeOptions, setOptions } from "../lib/option-settings.js";
 import { logActivity } from "../admin/activity.js";
+import { getWalletAlertSettings } from "../wallet/alerts.js";
 import { getWorkSettings, setWorkSettings, WORK_MATCHING_MODES, WORK_PRICING_MODES, WORK_PROVIDER_KINDS, WORK_SERVICE_TYPES } from "../work/settings.js";
 import { hasPermission, requirePermission, requireSuperAdmin } from "../admin/permissions.js";
 import { financialAccessKey } from "../admin/financial-access.js";
@@ -188,6 +189,7 @@ async function fullSettings() {
   }
 
   const walletAccounts = await getWalletAccountSettings();
+  const walletAlerts = await getWalletAlertSettings();
   return {
     shoppingUnits: await getShoppingUnitSettings(),
     shoppingFeatures: await getShoppingFeatureSettings(),
@@ -242,6 +244,16 @@ async function fullSettings() {
     walletRequestNotify: walletAccounts.requestNotify,
     walletRequestPerHour: walletAccounts.requestPerHour,
     walletIdempotencyHours: walletAccounts.idempotencyHours,
+    walletAlertEmailSent: walletAlerts.email.sent,
+    walletAlertEmailReceived: walletAlerts.email.received,
+    walletAlertSmsSent: walletAlerts.sms.sent,
+    walletAlertSmsReceived: walletAlerts.sms.received,
+    walletAlertChatSent: walletAlerts.chat.sent,
+    walletAlertChatReceived: walletAlerts.chat.received,
+    walletAlertNotificationsSent: walletAlerts.notifications.sent,
+    walletAlertNotificationsReceived: walletAlerts.notifications.received,
+    walletAlertPushSent: walletAlerts.push.sent,
+    walletAlertPushReceived: walletAlerts.push.received,
     voiceNoteMaxSeconds,
     platformEnvironment,
     practiceModeEnabled: practiceModeEnabled === "1",
@@ -635,6 +647,16 @@ const updateSchema = z.object({
   walletRequestNotify: z.boolean().optional(),
   walletRequestPerHour: z.number().int().min(1).max(500).optional(),
   walletIdempotencyHours: z.number().int().min(1).max(24 * 30).optional(),
+  walletAlertEmailSent: z.boolean().optional(),
+  walletAlertEmailReceived: z.boolean().optional(),
+  walletAlertSmsSent: z.boolean().optional(),
+  walletAlertSmsReceived: z.boolean().optional(),
+  walletAlertChatSent: z.boolean().optional(),
+  walletAlertChatReceived: z.boolean().optional(),
+  walletAlertNotificationsSent: z.boolean().optional(),
+  walletAlertNotificationsReceived: z.boolean().optional(),
+  walletAlertPushSent: z.boolean().optional(),
+  walletAlertPushReceived: z.boolean().optional(),
   voiceNoteMaxSeconds: z.number().int().positive().max(600).optional(),
   riderMinimumBalanceEnabled: z.boolean().optional(),
   riderMinimumBalanceAmount: z.number().int().nonnegative().max(1_000_000).optional(),
@@ -724,6 +746,16 @@ const PAYMENTS_FIELDS = [
   "walletRequestNotify",
   "walletRequestPerHour",
   "walletIdempotencyHours",
+  "walletAlertEmailSent",
+  "walletAlertEmailReceived",
+  "walletAlertSmsSent",
+  "walletAlertSmsReceived",
+  "walletAlertChatSent",
+  "walletAlertChatReceived",
+  "walletAlertNotificationsSent",
+  "walletAlertNotificationsReceived",
+  "walletAlertPushSent",
+  "walletAlertPushReceived",
   "riderMinimumBalanceEnabled",
   "riderMinimumBalanceAmount",
   "deliveryCommissionEnabled",
@@ -914,6 +946,16 @@ settingsRoutes.put(
     if (parsed.data.walletRequestNotify != null) await setSetting("wallet_request_notify", parsed.data.walletRequestNotify ? "1" : "0");
     if (parsed.data.walletRequestPerHour != null) await setSetting("wallet_request_per_hour", String(parsed.data.walletRequestPerHour));
     if (parsed.data.walletIdempotencyHours != null) await setSetting("wallet_idempotency_hours", String(parsed.data.walletIdempotencyHours));
+    if (parsed.data.walletAlertEmailSent != null) await setSetting("wallet_alert_email_sent", parsed.data.walletAlertEmailSent ? "1" : "0");
+    if (parsed.data.walletAlertEmailReceived != null) await setSetting("wallet_alert_email_received", parsed.data.walletAlertEmailReceived ? "1" : "0");
+    if (parsed.data.walletAlertSmsSent != null) await setSetting("wallet_alert_sms_sent", parsed.data.walletAlertSmsSent ? "1" : "0");
+    if (parsed.data.walletAlertSmsReceived != null) await setSetting("wallet_alert_sms_received", parsed.data.walletAlertSmsReceived ? "1" : "0");
+    if (parsed.data.walletAlertChatSent != null) await setSetting("wallet_alert_chat_sent", parsed.data.walletAlertChatSent ? "1" : "0");
+    if (parsed.data.walletAlertChatReceived != null) await setSetting("wallet_alert_chat_received", parsed.data.walletAlertChatReceived ? "1" : "0");
+    if (parsed.data.walletAlertNotificationsSent != null) await setSetting("wallet_alert_notifications_sent", parsed.data.walletAlertNotificationsSent ? "1" : "0");
+    if (parsed.data.walletAlertNotificationsReceived != null) await setSetting("wallet_alert_notifications_received", parsed.data.walletAlertNotificationsReceived ? "1" : "0");
+    if (parsed.data.walletAlertPushSent != null) await setSetting("wallet_alert_push_sent", parsed.data.walletAlertPushSent ? "1" : "0");
+    if (parsed.data.walletAlertPushReceived != null) await setSetting("wallet_alert_push_received", parsed.data.walletAlertPushReceived ? "1" : "0");
     if (parsed.data.voiceNoteMaxSeconds != null) {
       await setSetting("voice_note_max_seconds", String(parsed.data.voiceNoteMaxSeconds));
     }

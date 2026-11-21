@@ -29,6 +29,7 @@ import { isModuleLive } from "../lib/modules.js";
 import { getRideTrackingSettings } from "../settings/ride-tracking.js";
 import { computeCheckoutFees, isCashDepositOk, riderPayout } from "../lib/monetization.js";
 import { notifyUser } from "../lib/webpush.js";
+import { loadPeebeeThread } from "../wallet/alerts.js";
 import { beyondRiderRange, currentVisibilityRadiusKm, orderMatchPoint, ownRangeKm, parseDbTimestamp, riderRangeKm } from "./matching.js";
 import { redactOrder } from "./visibility.js";
 import { assignAvailableRider, PAID_ESCROW } from "./assignment.js";
@@ -4032,6 +4033,18 @@ orderRoutes.get("/chat/threads", async (c) => {
     }),
   );
 
+  const peebee = await loadPeebeeThread(user.sub).catch(() => null);
+  if (peebee) {
+    threads.push({
+      counterpartId: "peebee",
+      counterpartName: "Peebee",
+      counterpartHasPhoto: false,
+      lastMessagePreview: peebee.preview,
+      lastMessageAt: peebee.lastAt,
+      unread: peebee.unread,
+    });
+  }
+
   return c.json({ threads });
 });
 
@@ -4043,6 +4056,15 @@ orderRoutes.get("/chat/threads", async (c) => {
 orderRoutes.get("/chat/threads/:counterpartId", async (c) => {
   const counterpartId = c.req.param("counterpartId") as string;
   const user = c.get("user");
+  if (counterpartId === "peebee") {
+    const peebee = await loadPeebeeThread(user.sub).catch(() => null);
+    return c.json({
+      orderId: "",
+      counterpartName: "Peebee",
+      counterpartHasPhoto: false,
+      messages: peebee ? [{ id: "peebee-latest", body: peebee.preview, created_at: peebee.lastAt, sender_role: "system" }] : [],
+    });
+  }
   const isCustomer = user.role === "customer";
   const customerId = isCustomer ? user.sub : counterpartId;
   const riderId = isCustomer ? counterpartId : user.sub;

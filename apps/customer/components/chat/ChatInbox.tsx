@@ -1,14 +1,14 @@
 "use client";
 
 import type { ChatThread, CustomerRestaurantChatThread, SchoolChatThread } from "@peebee/shared";
-import { GraduationCap, Store, User } from "lucide-react";
+import { GraduationCap, Store, User, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ShoppingListModal } from "../../components/home/ShoppingListModal";
 import { api } from "../../lib/api";
 import { useChatDrawer } from "../../lib/chat-drawer";
 import { useTranslate } from "../../lib/i18n";
 
-type Kind = "rider" | "restaurant" | "school";
+type Kind = "rider" | "restaurant" | "school" | "system";
 type FilterKind = "all" | Kind;
 
 type UnifiedThread = {
@@ -122,7 +122,7 @@ export function ChatInbox({ embedded = false }: { embedded?: boolean }) {
 
   const threads = useMemo<UnifiedThread[]>(() => {
     const riders: UnifiedThread[] = (riderThreads ?? []).map((t) => ({
-      kind: "rider",
+      kind: t.counterpartId === "peebee" ? "system" as const : "rider" as const,
       id: t.counterpartId,
       href: `/chat/${t.counterpartId}`,
       name: t.counterpartName,
@@ -202,12 +202,12 @@ export function ChatInbox({ embedded = false }: { embedded?: boolean }) {
       <ul className="space-y-2">
         {filtered.map((t) => (
           <li key={`${t.kind}-${t.id}`}>
-            <button type="button" onClick={() => openThread(t.kind === "rider" ? { type: "rider", id: t.id } : t.kind === "school" ? { type: "school", id: t.id } : { type: "restaurant", id: t.id })} className="home-card flex w-full items-center gap-3 !rounded-2xl !px-3 !py-3 text-left">
-              {t.kind === "rider" ? <RiderAvatar counterpartId={t.id} hasPhoto={t.hasPhoto} /> : t.kind === "school" ? <SchoolAvatar /> : <RestaurantAvatar />}
+            <button type="button" onClick={() => openThread(t.kind === "system" ? { type: "system" } : t.kind === "rider" ? { type: "rider", id: t.id } : t.kind === "school" ? { type: "school", id: t.id } : { type: "restaurant", id: t.id })} className="home-card flex w-full items-center gap-3 !rounded-2xl !px-3 !py-3 text-left">
+              {t.kind === "system" ? <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold text-ink"><Wallet className="h-5 w-5" aria-hidden /></span> : t.kind === "rider" ? <RiderAvatar counterpartId={t.id} hasPhoto={t.hasPhoto} /> : t.kind === "school" ? <SchoolAvatar /> : <RestaurantAvatar />}
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-bold text-ink">{t.name}</span>
                 <span className="block text-[11px] font-medium text-ink-500/80">
-                  {t.kind === "rider" ? tr("chat_kind_rider") : t.kind === "school" ? "School" : tr("chat_kind_restaurant")}
+                  {t.kind === "system" ? tr("wallet_peebee") : t.kind === "rider" ? tr("chat_kind_rider") : t.kind === "school" ? "School" : tr("chat_kind_restaurant")}
                 </span>
                 <span className={`block truncate text-xs ${t.unread ? "font-semibold text-ink" : "text-ink-500"}`}>
                   {t.preview}

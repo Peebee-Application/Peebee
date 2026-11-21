@@ -7,6 +7,7 @@ import { ChatInbox } from "../components/chat/ChatInbox";
 import { RestaurantChatView } from "../components/chat/RestaurantChatView";
 import { RiderChatView } from "../components/chat/RiderChatView";
 import { SchoolChatView } from "../components/chat/SchoolChatView";
+import { SystemChatView } from "../components/chat/SystemChatView";
 import { useTranslate } from "./i18n";
 
 /** Matches the CSS transition on .app-stage / .chat-drawer. */
@@ -18,7 +19,8 @@ export type ChatLayer =
   | { type: "list" }
   | { type: "rider"; id: string }
   | { type: "restaurant"; id: string; item?: { id: string; name: string } }
-  | { type: "school"; id: string };
+  | { type: "school"; id: string }
+  | { type: "system" };
 type ThreadLayer = Exclude<ChatLayer, { type: "list" }>;
 type Slot = "list" | "thread";
 
@@ -53,7 +55,11 @@ export function chatLayerFromHref(href: string | null): ChatLayer | null {
   const path = url.pathname.replace(/\/$/, "");
   if (path === "/chat") return { type: "list" };
   const rider = /^\/chat\/([^/]+)$/.exec(path);
-  if (rider) return { type: "rider", id: decodeURIComponent(rider[1]!) };
+  if (rider) {
+    const id = decodeURIComponent(rider[1]!);
+    if (id === "peebee") return { type: "system" };
+    return { type: "rider", id };
+  }
   const school = /^\/learn\/messages\/([^/]+)$/.exec(path);
   if (school) return { type: "school", id: decodeURIComponent(school[1]!) };
   const restaurant = /^\/restaurants\/([^/]+)\/chat$/.exec(path);
@@ -285,6 +291,7 @@ export function ChatDrawerShell({ children }: { children: ReactNode }) {
         {...swipe}
       >
         {thread?.type === "rider" && <RiderChatView key={`rider-${thread.id}`} counterpartId={thread.id} onBack={back} />}
+        {thread?.type === "system" && <SystemChatView key="peebee" onBack={back} />}
         {thread?.type === "school" && <SchoolChatView key={`school-${thread.id}`} schoolId={thread.id} onBack={back} />}
         {thread?.type === "restaurant" && <RestaurantChatView key={`restaurant-${thread.id}`} id={thread.id} item={thread.item} onBack={back} />}
       </section>

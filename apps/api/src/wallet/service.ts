@@ -12,6 +12,7 @@ import type { CreditModule } from "@peebee/shared";
 import { creditPaidForOrder, grantCredit, payWithCreditAndCash } from "../offers/credit.js";
 import { hasColumn } from "../lib/schema.js";
 import { getWalletSettings, type PlatformEnvironment } from "../lib/settings.js";
+import { scheduleMoneyAlert } from "./alerts.js";
 import { walletIsFrozen } from "./freeze.js";
 
 type Row = Record<string, unknown>;
@@ -447,6 +448,17 @@ export async function transferWallet(input: {
     walletId: input.toWalletId,
     idempotencyKey: input.idempotencyKey,
   });
+  if (input.fromUserId !== input.toUserId) {
+    scheduleMoneyAlert({
+      transferId: input.idempotencyKey ? `transfer:${input.fromUserId}:${input.idempotencyKey}` : newId("xfer"),
+      amount: input.amount,
+      fromUserId: input.fromUserId,
+      toUserId: input.toUserId,
+      fromWalletId: input.fromWalletId,
+      toWalletId: input.toWalletId,
+      context: input.note,
+    });
+  }
   return { fromBalance, toBalance };
 }
 

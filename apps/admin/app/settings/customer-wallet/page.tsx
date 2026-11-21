@@ -20,6 +20,14 @@ const FIELDS = [
   ["walletIdempotencyHours", "How long a successful send key is kept (hours)", "number"],
 ] as const;
 
+const ALERTS = [
+  ["walletAlertEmail", "Email"],
+  ["walletAlertSms", "SMS"],
+  ["walletAlertChat", "Peebee chat"],
+  ["walletAlertNotifications", "Notifications"],
+  ["walletAlertPush", "Web push"],
+] as const;
+
 const SWITCHES = [
   ["walletFreezeEnabled", "Customers can freeze an account. A freeze still blocks money going out after this is turned off, until they unfreeze."],
   ["walletSendFromShared", "A shared account can be the source of a send. Off: shared accounts are for orders only."],
@@ -55,6 +63,10 @@ export default function CustomerWalletSettingsPage() {
       setText(next);
       const on: Record<string, boolean> = {};
       for (const [key] of SWITCHES) on[key] = Boolean(settings[key]);
+      for (const [key] of ALERTS) {
+        on[`${key}Sent`] = Boolean(settings[`${key}Sent` as keyof typeof settings]);
+        on[`${key}Received`] = Boolean(settings[`${key}Received` as keyof typeof settings]);
+      }
       setFlags(on);
     }).catch((err) => setError(errorMessage(err))).finally(() => setLoading(false));
   }, []);
@@ -89,6 +101,16 @@ export default function CustomerWalletSettingsPage() {
         walletRequestAllowCancel: !!flags.walletRequestAllowCancel,
         walletRequestDeclinesVisible: !!flags.walletRequestDeclinesVisible,
         walletRequestNotify: !!flags.walletRequestNotify,
+        walletAlertEmailSent: !!flags.walletAlertEmailSent,
+        walletAlertEmailReceived: !!flags.walletAlertEmailReceived,
+        walletAlertSmsSent: !!flags.walletAlertSmsSent,
+        walletAlertSmsReceived: !!flags.walletAlertSmsReceived,
+        walletAlertChatSent: !!flags.walletAlertChatSent,
+        walletAlertChatReceived: !!flags.walletAlertChatReceived,
+        walletAlertNotificationsSent: !!flags.walletAlertNotificationsSent,
+        walletAlertNotificationsReceived: !!flags.walletAlertNotificationsReceived,
+        walletAlertPushSent: !!flags.walletAlertPushSent,
+        walletAlertPushReceived: !!flags.walletAlertPushReceived,
       });
       setWalletUnverifiedCap(String(res.settings.walletUnverifiedCap));
       setWalletVerifiedCap(String(res.settings.walletVerifiedCap));
@@ -136,6 +158,23 @@ export default function CustomerWalletSettingsPage() {
             </label>
           ))}
           <p className="text-xs text-ink-500">Apply migration 0161_wallet_accounts.sql by hand before freeze, contacts, requests or the duplicate-send key can be stored. Until then those actions say they are not available yet, and existing top-ups and sends keep working.</p>
+        </section>
+        <section className="home-card space-y-3">
+          <h2 className="text-sm font-bold text-ink">Money alerts</h2>
+          <p className="text-xs text-ink-500">After money moves between two people, Peebee can tell the sender and the person who received it. SMS stays off until you turn it on, because each text is charged. A failed alert never stops the transfer.</p>
+          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 gap-y-2 text-sm">
+            <span />
+            <span className="text-xs font-semibold text-ink-500">Money sent</span>
+            <span className="text-xs font-semibold text-ink-500">Money received</span>
+            {ALERTS.map(([key, label]) => (
+              <div key={key} className="contents">
+                <span>{label}</span>
+                <input type="checkbox" aria-label={`${label} when money is sent`} checked={!!flags[`${key}Sent`]} onChange={(e) => setFlags((cur) => ({ ...cur, [`${key}Sent`]: e.target.checked }))} />
+                <input type="checkbox" aria-label={`${label} when money is received`} checked={!!flags[`${key}Received`]} onChange={(e) => setFlags((cur) => ({ ...cur, [`${key}Received`]: e.target.checked }))} />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-ink-500">Apply migration 0166_wallet_alerts.sql by hand so the notifications list and the once-only send record can be stored. Until then the transfer still completes, and email, SMS, chat and push still try.</p>
         </section>
         <SettingsSaveBar busy={busy} error={error} saved={saved} />
       </form>
