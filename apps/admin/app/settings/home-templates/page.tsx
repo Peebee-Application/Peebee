@@ -66,6 +66,26 @@ export default function HomeTemplatesPage() {
     {!config ? <div role="alert" className="home-card space-y-3"><p>{error || "Home settings could not be loaded."}</p><button type="button" className="admin-btn-gold min-h-11 px-4" onClick={() => { setLoading(true); setError(null); void load(); }}>Try again</button></div> :
       <form onSubmit={save} className="space-y-5">
         <fieldset disabled={busy} className="space-y-5 disabled:opacity-70">
+          <section className="home-card space-y-4">
+            <h2 className="font-bold">Personalized customer home</h2>
+            <p className="text-sm text-ink-500">The approved layout uses one timely suggestion and a stable service menu. Turning it off preserves the rotating templates below. Suggestions use completed activity and customer-chosen interests, never inferred gender, age or religion. Changes are recorded in the settings activity log.</p>
+            {([
+              ["enabled", "Use the personalized homepage"], ["historyEnabled", "Use completed orders and learning progress"],
+              ["clockEnabled", "Alternate local day/time and date"], ["rideSuggestions", "Suggest rides"],
+              ["foodSuggestions", "Suggest food"], ["learningSuggestions", "Suggest learning"], ["weekendHelp", "Suggest Saturday cleaning help"],
+            ] as const).map(([key, label]) => <label key={key} className="flex min-h-11 items-center gap-3"><Switch checked={config.personalization[key]} onChange={e => change({ personalization: { ...config.personalization, [key]: e.target.checked } })} /><span>{label}</span></label>)}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {([
+                ["clockHoldSeconds", "Date/time hold (seconds)", 2, 60],
+                ["morningHour", "Morning starts (local hour)", 0, 23], ["afternoonHour", "Afternoon starts (local hour)", 0, 23],
+                ["eveningHour", "Evening starts (local hour)", 0, 23], ["nightHour", "Night starts (local hour)", 0, 23],
+                ["commuteEndHour", "Morning commute ends (local hour)", 0, 23], ["lunchEndHour", "Lunch ends (local hour)", 0, 23],
+                ["historyDays", "Completed activity lookback (days)", 1, 365], ["historyLimit", "Maximum completed orders to consider", 1, 100],
+                ["routineMinTrips", "Completed trips/orders before suggesting a routine", 1, 50],
+              ] as const).map(([key, label, min, max]) => <label key={key} className="text-sm font-semibold">{label}<input required type="number" min={min} max={max} step={1} className={field} value={config.personalization[key]} onChange={e => change({ personalization: { ...config.personalization, [key]: Number(e.target.value) } })} /></label>)}
+            </div>
+            <p className="text-sm text-ink-500">Hours are interpreted in each customer’s device timezone. Morning, afternoon, evening and night must be in increasing order. Service availability and eligible-shortcut switches below still apply. Turning history off also stops the history endpoint from returning orders.</p>
+          </section>
           <section className="home-card space-y-3">
             <h2 className="font-bold">Dynamic home</h2>
             <label className="flex min-h-11 items-center gap-3"><Switch checked={config.enabled} onChange={(e) => change({ enabled: e.target.checked })} /><span>Use the rotating home templates</span></label>

@@ -8,7 +8,7 @@ import { api } from "../../lib/api";
 import { useTranslate } from "../../lib/i18n";
 import { formatUgx } from "../../lib/order-display";
 
-export function WalletCard() {
+export function WalletCard({personalized=false}:{personalized?:boolean}) {
   const t = useTranslate();
   const [wallet, setWallet] = useState<CustomerWallet | null>(null);
   const [shares, setShares] = useState<WalletShares | null>(null);
@@ -53,7 +53,7 @@ export function WalletCard() {
   const totalCards = 1 + activeReceived.length + (activeGranted.length > 0 ? 1 : 0);
 
   return (
-    <div className="space-y-2">
+    <div className={`space-y-2 ${personalized?"ph-wallet":""}`}>
       {/* Horizontal Edge-Peeking Snap Carousel */}
       <div
         ref={scrollRef}

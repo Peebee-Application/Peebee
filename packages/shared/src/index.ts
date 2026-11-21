@@ -21,6 +21,7 @@ export * from "./shopping-features.js";
 export * from "./product-variations.js";
 export * from "./home-menu.js";
 export * from "./home-templates.js";
+export * from "./home-personalization.js";
 export * from "./modules.js";
 export * from "./website-sections.js";
 export * from "./module-routes.js";

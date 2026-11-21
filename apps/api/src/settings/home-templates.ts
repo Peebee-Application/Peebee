@@ -1,10 +1,25 @@
 import { z } from "zod";
-import { DEFAULT_HOME_TEMPLATES, HOME_TEMPLATE_IDS, HOME_SHORTCUT_IDS, HOME_TEMPLATE_LIMITS, resolveHomeTemplates, type HomeTemplatesSettings } from "@peebee/shared";
+import { DEFAULT_HOME_PERSONALIZATION, DEFAULT_HOME_TEMPLATES, HOME_TEMPLATE_IDS, HOME_SHORTCUT_IDS, HOME_TEMPLATE_LIMITS, resolveHomeTemplates, type HomeTemplatesSettings } from "@peebee/shared";
 import { getSetting } from "../lib/settings.js";
 
 const limits = HOME_TEMPLATE_LIMITS;
 const seconds = z.number().int().min(limits.minSeconds).max(limits.maxSeconds);
+const hour = z.number().int().min(0).max(23);
+export const homePersonalizationSchema = z.object({
+  enabled: z.boolean(), historyEnabled: z.boolean(), clockEnabled: z.boolean(),
+  clockHoldSeconds: z.number().int().min(2).max(60),
+  morningHour: hour, afternoonHour: hour, eveningHour: hour, nightHour: hour,
+  commuteEndHour: hour, lunchEndHour: hour,
+  historyDays: z.number().int().min(1).max(365), historyLimit: z.number().int().min(1).max(100),
+  routineMinTrips: z.number().int().min(1).max(50),
+  weekendHelp: z.boolean(), rideSuggestions: z.boolean(), foodSuggestions: z.boolean(), learningSuggestions: z.boolean(),
+}).superRefine((v, ctx) => {
+  if (!(v.morningHour < v.afternoonHour && v.afternoonHour < v.eveningHour && v.eveningHour < v.nightHour)) ctx.addIssue({ code: "custom", path: ["morningHour"], message: "Morning, afternoon, evening and night must be in increasing order." });
+  if (v.commuteEndHour <= v.morningHour || v.commuteEndHour > v.afternoonHour) ctx.addIssue({ code: "custom", path: ["commuteEndHour"], message: "Commute must end during the morning." });
+  if (v.lunchEndHour <= v.afternoonHour || v.lunchEndHour > v.eveningHour) ctx.addIssue({ code: "custom", path: ["lunchEndHour"], message: "Lunch must end before evening." });
+});
 export const homeTemplatesSchema = z.object({
+  personalization: homePersonalizationSchema.default(DEFAULT_HOME_PERSONALIZATION),
   enabled: z.boolean(),
   rotateOnReturn: z.boolean().default(DEFAULT_HOME_TEMPLATES.rotateOnReturn),
   templates: z.array(z.enum(HOME_TEMPLATE_IDS)).min(1).max(HOME_TEMPLATE_IDS.length),

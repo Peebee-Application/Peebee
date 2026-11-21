@@ -1,7 +1,8 @@
 "use client";
 
 import type { ListSummary } from "@peebee/shared";
-import { ShoppingBag } from "lucide-react";
+import { ChevronRight, ListChecks, ShoppingBag } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { useTranslate } from "../../lib/i18n";
@@ -50,9 +51,11 @@ function RiderAvatar({ riderId }: { riderId: string }) {
   return <img src={url} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />;
 }
 
-export function RecentLists() {
+export function RecentLists({personalized=false}:{personalized?:boolean}) {
   const [lists, setLists] = useState<ListSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error,setError]=useState(false);
+  const [retry,setRetry]=useState(0);
   const t = useTranslate();
 
   useEffect(() => {
@@ -60,10 +63,10 @@ export function RecentLists() {
     api
       .getRecentLists(10)
       .then((res) => {
-        if (!cancelled) setLists(res.lists);
+        if (!cancelled) {setLists(res.lists);setError(false);}
       })
       .catch(() => {
-        if (!cancelled) setLists([]);
+        if (!cancelled) {setLists([]);setError(true);}
       })
       .finally(() => {
         if (!cancelled) setLoaded(true);
@@ -71,7 +74,11 @@ export function RecentLists() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [retry]);
+
+  if(personalized) return <section className="ph-lists"><div className="ph-section-heading"><h2>Your lists</h2><Link href="/orders">View all</Link></div>
+    {!loaded?<div className="ph-skeleton ph-list-skeleton" aria-label="Loading lists"/>:error?<div className="ph-empty"><p>Your lists couldn’t load</p><button className="ph-primary" type="button" onClick={()=>{setLoaded(false);setRetry(v=>v+1);}}>Try again</button></div>:lists.length===0?<div className="ph-empty"><span className="ph-icon-chip"><ListChecks size={32} aria-hidden/></span><p>Your first list starts here</p><Link href="/shoplist" className="ph-primary">Create a list</Link></div>:<ul className="ph-list-rows">{lists.slice(0,2).map(list=><li key={list.id}><Link href={list.orderId&&!list.expired?`/orders/${list.orderId}`:`/orders/lists/${list.listId}`}><span className="ph-icon-chip"><ShoppingBag size={24} aria-hidden/></span><span><strong>{listDisplayTitle(list)}</strong><small>{list.itemCount} items</small></span><ChevronRight size={24} aria-hidden/></Link></li>)}</ul>}
+  </section>;
 
   if (!loaded || lists.length === 0) return null;
 

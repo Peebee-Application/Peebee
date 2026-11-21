@@ -8,7 +8,7 @@ import { api } from "../../lib/api";
 import { useTranslate } from "../../lib/i18n";
 import { orderTitle, stageLabel, stageProgressPct } from "../../lib/order-display";
 
-export function ActiveOrderCard() {
+export function ActiveOrderCard({personalized=false}:{personalized?:boolean}) {
   const [order, setOrder] = useState<OrderRow | null | undefined>(undefined);
   const t = useTranslate();
 
@@ -35,6 +35,11 @@ export function ActiveOrderCard() {
   // now — call that out distinctly instead of blending into the generic
   // "Finding rider" progress label, so it's never silently stuck.
   const needsPayment = order.stage === "Match" && order.payment_rail === "escrow" && !!order.rider_id;
+  if(personalized) return <section className="ph-active-order">
+    <p>Your delivery</p><h2>{orderTitle(order)}</h2><p>{needsPayment?t("active_order_payment_needed"):stageLabel(order.stage)}</p>
+    <div className="ph-order-progress" role="progressbar" aria-label="Order progress" aria-valuenow={Math.round(progress*100)} aria-valuemin={0} aria-valuemax={100}><span style={{width:`${progress*100}%`}}/></div>
+    <Link className="ph-primary" href={needsPayment?`/orders/${order.id}/pay`:`/orders/${order.id}`}>{needsPayment?"Complete payment":"Track order"}</Link>
+  </section>;
 
   return (
     <section className="space-y-3">

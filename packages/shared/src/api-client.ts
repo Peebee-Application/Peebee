@@ -531,6 +531,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async createList(body: CreateListBody = {}) {
       return request<CreateListResponse>("/v1/lists", { method: "POST", body: JSON.stringify(body) });
     },
+    async getHomeContext() {
+      return request<{ history: import("./home-personalization.js").HomeHistoryEntry[] }>("/v1/home/context");
+    },
     async getRecentLists(limit = 10) {
       return request<{ lists: ListSummary[] }>(`/v1/lists/recent?limit=${limit}`);
     },

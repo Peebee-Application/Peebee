@@ -13,6 +13,15 @@ import { resetSchemaCache } from "../lib/schema.js";
 import { setSetting } from "../lib/settings.js";
 import { signToken } from "../auth/jwt.js";
 import { revertActivity } from "../admin/activity.js";
+import { homeRoutes } from "../home/routes.js";
+
+test("personalized home validates hours, history bounds and rotation cadence", () => {
+  for (const patch of [{clockHoldSeconds:0},{historyLimit:101},{historyDays:0},{morningHour:14},{commuteEndHour:13},{lunchEndHour:23}]) {
+    assert.equal(homeTemplatesSchema.safeParse({...DEFAULT_HOME_TEMPLATES,personalization:{...DEFAULT_HOME_TEMPLATES.personalization,...patch}}).success,false);
+  }
+  const old={...DEFAULT_HOME_TEMPLATES} as Record<string,unknown>; delete old.personalization;
+  assert.deepEqual(resolveHomeTemplates(old).personalization,DEFAULT_HOME_TEMPLATES.personalization);
+});
 
 test("template schema rejects unknown IDs, duplicate entries, reversed intervals and ineligible priorities", () => {
   assert.equal(homeTemplatesSchema.safeParse(DEFAULT_HOME_TEMPLATES).success, true);
@@ -58,13 +67,28 @@ test("settings persist in existing settings table, require permission, reach cus
       return results.map((r) => ({ results: r.rows, success: true, meta: { changes: r.rowsAffected, last_row_id: Number(r.lastInsertRowid ?? 0) } }));
     } } as unknown as D1Database);
     await client.execute("INSERT INTO users (id,phone,name,password_hash,role,admin_role) VALUES ('ht-admin','ht-admin','Admin','h','admin','super_admin'),('ht-customer','ht-customer','Sarah','h','customer',NULL),('ht-support','ht-support','Support','h','admin','support_manager')");
-    const app = new Hono().route("/v1", settingsRoutes);
+    const app = new Hono().route("/v1", settingsRoutes).route("/v1",homeRoutes);
     const token = async (id: string, role: "admin" | "customer") => signToken({ sub: id, role });
     const admin = await token("ht-admin", "admin"); const customer = await token("ht-customer", "customer"); const support = await token("ht-support", "admin");
     const put = (auth: string, config: unknown) => app.request("/v1/admin/settings", { method: "PUT", headers: { Authorization: `Bearer ${auth}`, "Content-Type": "application/json" }, body: JSON.stringify({ homeTemplates: config }) });
     assert.deepEqual(await getHomeTemplatesSettings(), DEFAULT_HOME_TEMPLATES);
     assert.equal((await put(customer, DEFAULT_HOME_TEMPLATES)).status, 403);
     assert.equal((await put(support, DEFAULT_HOME_TEMPLATES)).status, 403);
+    assert.equal((await app.request("/v1/home/context")).status,401);
+    assert.equal((await app.request("/v1/home/context",{headers:{Authorization:`Bearer ${admin}`}})).status,403);
+    await client.execute("INSERT INTO users (id,phone,name,password_hash,role) VALUES ('ht-other','ht-other','Other','h','customer')");
+    await client.execute("INSERT INTO lists (id,customer_id,title) VALUES ('ht-list','ht-customer','History'),('ht-other-list','ht-other','Other history')");
+    await client.execute("INSERT INTO orders (id,list_id,customer_id,stage,is_ride,environment,destination_area) VALUES ('ht-complete','ht-list','ht-customer','Settle',1,'live','Office'),('ht-cancelled','ht-list','ht-customer','Cancelled',1,'live','Hidden'),('ht-active','ht-list','ht-customer','Match',1,'live','Active'),('ht-foreign','ht-other-list','ht-other','Settle',1,'live','Other address'),('ht-demo','ht-list','ht-customer','Settle',1,'sandbox','Demo')");
+    const home=await app.request("/v1/home/context",{headers:{Authorization:`Bearer ${customer}`}});
+    assert.equal(home.status,200,await home.clone().text());
+    assert.equal(home.headers.get("Cache-Control"),"private, no-store");
+    const context=await home.json() as {history:Array<{id:string}>};
+    assert.deepEqual(context.history.map(h=>h.id),["ht-complete"]);
+    assert.equal(JSON.stringify(context).includes("Other address"),false);
+    await put(admin,{...DEFAULT_HOME_TEMPLATES,personalization:{...DEFAULT_HOME_TEMPLATES.personalization,historyEnabled:false}});
+    const off=await app.request("/v1/home/context",{headers:{Authorization:`Bearer ${customer}`}});
+    assert.deepEqual(await off.json(),{history:[]});
+    await put(admin,DEFAULT_HOME_TEMPLATES);
     assert.equal((await put(admin, { ...DEFAULT_HOME_TEMPLATES, templates: [] })).status, 400);
     const changed: HomeTemplatesSettings = { ...structuredClone(DEFAULT_HOME_TEMPLATES), templates: ["11", "20"], eligibleShortcuts: ["boda", "parcel", "shopping"], preferredShortcuts: ["shopping"], preferredWeight: 5, minIntervalSeconds: 30, maxIntervalSeconds: 90 };
     const response = await put(admin, changed);
@@ -74,7 +98,7 @@ test("settings persist in existing settings table, require permission, reach cus
     assert.deepEqual((await seen.json() as { settings: { homeTemplates: HomeTemplatesSettings } }).settings.homeTemplates, changed);
     const row = (await client.execute("SELECT value FROM settings WHERE key = 'home_templates_config'")).rows[0]!;
     assert.deepEqual(JSON.parse(String(row.value)), changed);
-    const log = (await client.execute("SELECT id, before_json, after_json FROM admin_activity_log WHERE action = 'settings.update'")).rows[0]!;
+    const log = (await client.execute("SELECT id, before_json, after_json FROM admin_activity_log WHERE action = 'settings.update' ORDER BY rowid DESC LIMIT 1")).rows[0]!;
     assert.deepEqual(JSON.parse(String(log.before_json)).homeTemplates, DEFAULT_HOME_TEMPLATES);
     assert.deepEqual(JSON.parse(String(log.after_json)).homeTemplates, changed);
     assert.deepEqual(await revertActivity(String(log.id), { sub: "ht-admin", name: "Admin", adminRole: "super_admin" }), { ok: true });
