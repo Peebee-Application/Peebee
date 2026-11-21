@@ -52,7 +52,7 @@ jobs:
       - name: Personalized customer home tests
         run: pnpm --filter api exec tsx --test ../customer/lib/personalized-home.test.ts ../customer/lib/home-rotation.test.ts
       - name: Customer cart and card pricing tests
-        run: pnpm --filter api exec tsx --test ../customer/lib/cart.test.ts ../customer/lib/product-pricing.test.ts ../customer/lib/buy-home.test.ts ../customer/lib/shopping-features.test.ts ../customer/lib/hive-home.test.ts ../customer/lib/food-subhome.test.ts ../customer/lib/eat-home.test.ts ../customer/lib/home-screensaver.test.ts ../customer/lib/wallet-css.test.ts ../customer/lib/sw-cache.test.ts ../customer/lib/nav-layout.test.ts
+        run: pnpm --filter api exec tsx --test ../customer/lib/cart.test.ts ../customer/lib/product-pricing.test.ts ../customer/lib/buy-home.test.ts ../customer/lib/shopping-features.test.ts ../customer/lib/hive-home.test.ts ../customer/lib/food-subhome.test.ts ../customer/lib/eat-home.test.ts ../customer/lib/home-screensaver.test.ts ../customer/lib/wallet-css.test.ts ../customer/lib/wallet-when.test.ts ../customer/lib/wallet-contact.test.ts ../customer/lib/sw-cache.test.ts ../customer/lib/nav-layout.test.ts
 
   # Every Next.js app must still build.
   build:

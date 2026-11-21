@@ -208,6 +208,7 @@ export type {
   CustomerWalletsResponse,
   WalletAccountFeatures,
   WalletContact,
+  WalletAlert,
   WalletMoneyRequest,
   WalletSpending,
   RecipientLookup,

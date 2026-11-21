@@ -11,6 +11,7 @@ import {loadOrderFeed} from "../lib/order-feed";
 import {useResolvedTheme,useThemeMode} from "../lib/theme";
 import {useChatDrawer} from "../lib/chat-drawer";
 import {useHomeMenu} from "../lib/home-menu";
+import {HeaderExtensionOutlet} from "../lib/header-extension";
 import {BrandLogo} from "./BrandLogo";
 import {useLocationLabel} from "../lib/use-location-label";
 import {homeFont} from "./home/home-font";
@@ -119,8 +120,9 @@ export function BrandHeader() {
     };
   },[expanded]);
   const walletText=counts.wallet==null?"Balance, top up and history":`UGX ${counts.wallet.toLocaleString("en-UG")}`;
+  const walletJoined=pathname==="/wallet"||pathname.startsWith("/wallet/");
   return <>
-    <header className={`customer-header sticky top-0 z-40 ${home?`ph-header ${homeFont.className}`:""} ${expanded?"is-menu-open":""}`}>
+    <header className={`customer-header sticky top-0 z-40 ${home?`ph-header ${homeFont.className}`:""} ${expanded?"is-menu-open":""} ${walletJoined?"is-wallet-joined":""}`}>
       <div className="mx-auto flex h-16 max-w-lg items-center justify-between gap-3 px-4">
         <Link href="/" aria-label={`Go to home${modeLabel ? ", demo mode" : ""}`} className={home?"ph-brand-link min-w-0":"flex shrink-0 items-start gap-1"}><span className="flex items-start gap-1"><BrandLogo variant={home ? "light" : isDark ? "dark" : "light"}/>{modeLabel&&<sup aria-hidden="true" className="pt-1 text-[10px] font-bold leading-none text-gold">{modeLabel}</sup>}</span>{home&&<span className="ph-header-location" aria-label="Current detected location"><MapPinned size={14} aria-hidden/><span>{locationStatus==="locating"?"Locating…":locationLabel??"Location unavailable"}</span></span>}</Link>
         <div className="flex shrink-0 items-center gap-1">
@@ -170,6 +172,7 @@ export function BrandHeader() {
           </nav>
         </div>
       </div>
+      <HeaderExtensionOutlet />
     </header>
     {/* The pushed-down screen below the menu: one tap anywhere on it closes the menu. */}
     <div aria-hidden className={`customer-menu-catcher fixed inset-0 z-30 ${expanded?"is-active":""}`} onClick={close}/>

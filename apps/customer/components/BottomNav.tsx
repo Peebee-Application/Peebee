@@ -43,13 +43,15 @@ import {
   UtensilsCrossed,
   Truck,
   UsersRound,
+  Wallet,
   WashingMachine,
   Wrench,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { getWalletTab, setWalletTab, subscribeWalletTab, walletTabHref, type WalletTab } from "../lib/wallet-tab";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
@@ -68,8 +70,8 @@ import { SPACE_PAGES, selectedMenuScroll } from "../lib/nav-layout";
 import { NavAction } from "./NavAction";
 import { goBackOr, useNavBack, useNavPrimaryAction } from "../lib/nav-primary-action";
 
-type MenuGroup = "original" | "ride" | "shopping" | "food" | "hive" | "learn" | "spotlight" | "spaces";
-type MenuItem = { id: string; label: string; /** The Services module that shows or hides this button. */ module?: string; /** A second name that swaps with `label`. */ alt?: { label: string; seconds: number }; icon: LucideIcon; href?: string; group?: Exclude<MenuGroup, "original" | "spotlight">; disabled?: boolean; /** Its module is off and Admin chose to grey it out: the button stays, inactive. */ offline?: boolean; /** A Spotlight filter this button switches on. */ spotlight?: SpotlightFilter };
+type MenuGroup = "original" | "ride" | "shopping" | "food" | "hive" | "learn" | "spotlight" | "spaces" | "wallet";
+type MenuItem = { id: string; label: string; /** The Services module that shows or hides this button. */ module?: string; /** A second name that swaps with `label`. */ alt?: { label: string; seconds: number }; icon: LucideIcon; href?: string; group?: Exclude<MenuGroup, "original" | "spotlight" | "wallet">; disabled?: boolean; /** Its module is off and Admin chose to grey it out: the button stays, inactive. */ offline?: boolean; /** A Spotlight filter this button switches on. */ spotlight?: SpotlightFilter };
 
 // Service clusters open their home page and contextual submenu.
 // The names come from the admin's home menu setting; these are the buttons' icons and where they lead.
@@ -152,6 +154,7 @@ function learnItemForPath(pathname: string): string | null {
 }
 
 function groupForPath(pathname: string): MenuGroup {
+  if (pathname === "/wallet" || pathname.startsWith("/wallet/")) return "wallet";
   if (pathname === "/spaces" || pathname.startsWith("/spaces/")) return "spaces";
   if (["/food", "/restaurants", "/kitchens", "/streetfood", "/juices", "/bakeries"].some((path) => pathname === path || pathname.startsWith(`${path}/`))) return "food";
   if (pathname === "/ride" || pathname === "/rent" || pathname === "/carpool" || pathname.startsWith("/ride/") || pathname === "/move") return "ride";
@@ -234,7 +237,11 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
 
 
   // Flow-owned Back wins; ordinary submenus return Home as the design specifies.
-  const backAction = navBack ?? (rightMode !== "links"
+  const onWallet = menuGroup === "wallet";
+  const walletTab = useSyncExternalStore(subscribeWalletTab, getWalletTab, () => "home" as WalletTab);
+  const backAction = onWallet
+    ? () => goBackOr(router, "/")
+    : navBack ?? (rightMode !== "links"
     ? () => goBackOr(router, "/")
     : menuGroup !== "original" && menuGroup !== "spotlight" ? () => router.push("/") : null);
   const onHomeScreen = pathname === "/" && menuGroup === "original";
@@ -248,6 +255,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
     : menuGroup === "learn" ? learnItems
     : menuGroup === "spotlight" ? spotlightItems(homeMenu)
     : menuGroup === "spaces" ? (homeMenu.navigation.spacesEnabled ? spaceItems : [])
+    : menuGroup === "wallet" ? []
     : staticSubmenuItems[menuGroup], moduleOn);
   // Ride can grow to eight; past five the row scrolls sideways instead of squeezing the names.
   const selectedKey = menuGroup === "spotlight" ? `sp-${spotlightFilter}` : selectedItem;
@@ -347,14 +355,61 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
 
           <div className="customer-nav-shell pointer-events-auto flex w-full items-stretch">
             <div className="customer-nav-anchor">
-              <button type="button" aria-label={backAction ? primaryAction?.confirmation ? "Cancel confirmation" : navBack || rightMode !== "links" ? "Back" : "Back to Home" : onHomeScreen ? homeMenu.navigation.streamLabel : "Home"}
+              <button type="button" aria-label={onWallet ? "Back" : backAction ? primaryAction?.confirmation ? "Cancel confirmation" : navBack || rightMode !== "links" ? "Back" : "Back to Home" : onHomeScreen ? homeMenu.navigation.streamLabel : "Home"}
                 onClick={backAction ?? (() => router.push(onHomeScreen ? "/spotlight" : "/"))}
                 className="customer-nav-anchor-button">
                 {backAction ? primaryAction?.confirmation ? <X aria-hidden /> : <ChevronLeft aria-hidden /> : onHomeScreen ? <Flame aria-hidden /> : <Home aria-hidden />}
-                {!backAction && <span>{onHomeScreen ? homeMenu.navigation.streamLabel : t("nav_home")}</span>}
+                {onWallet ? <span>Back</span> : !backAction && <span>{onHomeScreen ? homeMenu.navigation.streamLabel : t("nav_home")}</span>}
               </button>
             </div>
-            {rightMode === "action" && primaryAction ? <NavAction action={primaryAction} />
+            {onWallet ? (
+              <div className="customer-nav-menu-track customer-nav-swap" style={{ "--nav-count": 3 } as CSSProperties}>
+                <ul
+                  role="tablist"
+                  aria-label={t("wallet_title")}
+                  className="customer-nav-items"
+                  onKeyDown={(event) => {
+                    const order: WalletTab[] = ["recipients", "home", "accounts"];
+                    const index = Math.max(0, order.indexOf(walletTab));
+                    const next = event.key === "ArrowRight" || event.key === "ArrowDown" ? order[(index + 1) % 3]
+                      : event.key === "ArrowLeft" || event.key === "ArrowUp" ? order[(index + 2) % 3]
+                      : event.key === "Home" ? order[0]
+                      : event.key === "End" ? order[2]
+                      : null;
+                    if (!next) return;
+                    event.preventDefault();
+                    setWalletTab(next);
+                    router.replace(walletTabHref(next));
+                    event.currentTarget.querySelector<HTMLButtonElement>(`#wallet-tab-${next}`)?.focus();
+                  }}
+                >
+                  {([
+                    ["recipients", t("wallet_recipients"), UsersRound],
+                    ["home", t("wallet_home_tab"), Home],
+                    ["accounts", t("wallet_accounts"), Wallet],
+                  ] as const).map(([id, label, Icon]) => {
+                    const active = walletTab === id;
+                    return (
+                      <li key={id}>
+                        <button
+                          id={`wallet-tab-${id}`}
+                          type="button"
+                          role="tab"
+                          aria-selected={active}
+                          aria-current={active ? "page" : undefined}
+                          tabIndex={active ? 0 : -1}
+                          onClick={() => { setWalletTab(id); router.replace(walletTabHref(id)); }}
+                          className={`customer-nav-item ${active ? "is-active" : ""}`}
+                        >
+                          <Icon aria-hidden />
+                          <span>{label}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : rightMode === "action" && primaryAction ? <NavAction action={primaryAction} />
               : rightMode === "cart" ? <NavAction action={{ tone: "cart", label: "View cart", sublabel: `${cartCount} item${cartCount === 1 ? "" : "s"}`, detail: `UGX ${cartTotal.toLocaleString()}`, count: cartCount, onClick: () => setCartOpen(true) }} />
               : <div key="nav-links" className="customer-nav-menu-track customer-nav-swap" style={{ "--nav-count": Math.max(1, menuItems.length) } as CSSProperties}>
                 <ul ref={menuRef} key={menuGroup} className="customer-nav-items" aria-label={menuGroup === "original" ? "Main menu" : `${menuGroup === "spotlight" ? "Stream" : menuGroup === "hive" ? "Work" : menuGroup} menu`}>

@@ -7,6 +7,7 @@ import { hasTable } from "../lib/schema.js";
 import { getPlatformEnvironment, type PlatformEnvironment } from "../lib/settings.js";
 import { checkPaymentStatus, initiateCollection, initiateDisbursement, paymentProviderErrorResponse, UnsupportedNetworkError } from "../payments/service.js";
 import { walletIsFrozen } from "../wallet/freeze.js";
+import { scheduleMoneyAlert } from "../wallet/alerts.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
 import { absUrl, addDays, ChannelsError, requireChannels, sqlTime, type Row } from "./common.js";
 import { getChannelById, getMyChannel } from "./channels.js";
@@ -270,6 +271,9 @@ export async function donate(input: DonateInput) {
       await creditWallet(input.donorId, total, { type: "refund", environment: env, note: "Donation could not be completed" }).catch(() => {});
       await db.execute({ sql: "UPDATE donations SET status = 'failed', updated_at = datetime('now') WHERE id = ? AND status = 'pending'", args: [id] });
       throw err;
+    }
+    if (input.donorId !== cause.owner_id) {
+      scheduleMoneyAlert({ transferId: `donation:${id}`, amount: total, fromUserId: input.donorId, toUserId: cause.owner_id, context: cause.title });
     }
     return { code, status: "successful" as const, redirectUrl: null };
   }

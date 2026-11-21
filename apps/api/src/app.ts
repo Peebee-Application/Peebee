@@ -1,5 +1,6 @@
 import { attentionRoutes } from "./orders/attention.js";
 import { Hono } from "hono";
+import { withMoneyAlertWait } from "./wallet/alerts.js";
 import { publicReceiptRoutes } from "./public/receipts.js";
 import { publicShareRoutes } from "./public/share-routes.js";
 import { onboardingRoutes } from "./onboarding/routes.js";
@@ -290,6 +291,12 @@ app.get("/v1", (c) =>
 
 // Requests made with a practice session token are answered from the practice database; see practice/scope.ts.
 app.use("/v1/*", practiceScope);
+// Money alerts run after the response. waitUntil keeps them alive on a Worker.
+app.use("/v1/*", async (c, next) => {
+  await withMoneyAlertWait((promise) => {
+    try { c.executionCtx.waitUntil(promise); } catch { void promise; }
+  }, () => next());
+});
 // Accounts marked as demo (users.is_demo) stay out of the live platform's matching and lists; see practice/people.ts.
 app.use("/v1/*", async (_c, next) => {
   await primeDemoAccounts();
