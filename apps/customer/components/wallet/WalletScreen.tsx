@@ -3,12 +3,12 @@
 import "./wallet.css";
 import type { CardInput, CustomerWallet, CustomerWalletSummary, PaymentNextAction, PaymentOptions, WalletContact, WalletLedgerEntry, WalletMoneyRequest, WalletShares, WalletSpending } from "@peebee/shared";
 import { ApiError } from "@peebee/shared";
-import { ArrowLeftRight, ArrowUpRight, BookUser, Check, ChevronRight, Eye, EyeOff, Gift, Plus, Search, SlidersHorizontal, Snowflake, Trash2, X } from "lucide-react";
+import { ArrowDownToLine, ArrowLeftRight, BookUser, Check, ChevronDown, ChevronRight, Eye, EyeOff, Gift, HandHeart, Plus, Search, Send, Snowflake, Trash2, UserRoundPlus, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { HeaderExtension } from "../../lib/header-extension";
+import { useRegisterNavBack, useRegisterNavPrimaryAction } from "../../lib/nav-primary-action";
 import { contactInputError, contactPicker, firstContact, type PickedContact } from "../../lib/wallet-contact";
-import { getWalletTab, setWalletTab, subscribeWalletTab, walletTabHref, type WalletTab } from "../../lib/wallet-tab";
+import { parseWalletTab, getWalletTab, setWalletTab, subscribeWalletTab, walletTabHref, type WalletTab } from "../../lib/wallet-tab";
 import { describeTxWhen } from "../../lib/wallet-when";
 import { CardFields, CardHostedNote, CardPaymentSteps, cardFromForm, emptyCard, type CardForm } from "../CardPayment";
 import { ConfirmationFooter } from "../ConfirmationFooter";
@@ -84,10 +84,10 @@ function SheetFrame({ title, onClose, children }: { title: string; onClose: () =
   return (
     <div className="w-scrim flex items-end" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-label={title} className="w-sheet w-sheet-in max-h-[92dvh] w-full overflow-y-auto px-5 pb-8 pt-3" onClick={(e) => e.stopPropagation()}>
-        <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-ink/15" />
+        <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-white/20" />
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-[22px] font-extrabold text-ink">{title}</h2>
-          <button type="button" aria-label="Close" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))]"><X size={18} /></button>
+          <h2 className="text-[22px] font-extrabold">{title}</h2>
+          <button type="button" aria-label="Close" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10"><X size={18} /></button>
         </div>
         {children}
       </div>
@@ -100,7 +100,7 @@ export function WalletScreen() {
   const router = useRouter();
   const search = useSearchParams();
   const online = useNetworkStatus();
-  const tab = useSyncExternalStore(subscribeWalletTab, getWalletTab, () => "home" as Tab);
+  const tab = useSyncExternalStore(subscribeWalletTab, getWalletTab, () => "central" as Tab);
   const [wallet, setWallet] = useState<CustomerWallet | null>(null);
   const [wallets, setWallets] = useState<CustomerWalletSummary[]>([]);
   const [features, setFeatures] = useState<CustomerWalletsResponseFeatures | null>(null);
@@ -225,9 +225,7 @@ export function WalletScreen() {
     router.replace(walletTabHref(next), { scroll: false });
   }
   useEffect(() => {
-    const value = search.get("tab");
-    const next: Tab = value === "recipients" || value === "accounts" ? value : "home";
-    setWalletTab(next);
+    setWalletTab(parseWalletTab(search.get("tab")));
   }, [search]);
   function hide(id: string) {
     const next = { ...hidden, [id]: !hidden[id] };
@@ -243,7 +241,8 @@ export function WalletScreen() {
     setSendError(null);
     setIdemKey(newKey());
     setPayRequest(null);
-    setSheet("send");
+    setSheet(null);
+    openTab("send");
   }
 
   const recent: Person[] = useMemo(() => {
@@ -311,11 +310,33 @@ export function WalletScreen() {
     return `${e.counterparty_name ?? ""} ${e.merchant_name ?? ""} ${e.note ?? ""} ${e.type}`.toLowerCase().includes(q);
   });
 
-  if (loading) return <div className="p-6 text-sm text-ink-500" aria-busy="true">{t("wallet_loading")}</div>;
+  const sending = (tab === "send" || sheet === "send") && !result;
+  const sendReady = !!person && amount != null && !frozenFrom && !over;
+  useRegisterNavPrimaryAction(
+    result?.kind === "success"
+      ? { label: t("wallet_done"), onClick: () => { setResult(null); setReview(false); openTab("central"); } }
+      : sending && review && amount != null
+        ? { label: t("wallet_swipe_send", { amount: whole(amount) }), confirmation: true, busy, disabled: busy, detail: `UGX ${whole(amount)}`, onClick: submitSend }
+        : sending && !review
+          ? { label: t("wallet_continue"), detail: amount ? `UGX ${whole(amount)}` : undefined, disabled: !sendReady, onClick: () => { setIdemKey(newKey()); setReview(true); } }
+          : null,
+  );
+  useRegisterNavBack(!!result || (sending && review), () => {
+    if (result) {
+      const failed = result.kind === "failed";
+      setResult(null);
+      if (failed) setReview(true);
+      else openTab("central");
+      return;
+    }
+    setReview(false);
+  }, 2);
+
+  if (loading) return <div className="w-canvas p-6 text-sm opacity-70" aria-busy="true">{t("wallet_loading")}</div>;
   if (loadError || !wallet) {
     return (
-      <div className="wallet-root space-y-4 px-6 py-16 text-center">
-        <p className="text-lg font-extrabold text-ink">{t("wallet_load_error")}</p>
+      <div className="wallet-root w-canvas space-y-4 px-6 py-16 text-center">
+        <p className="text-lg font-extrabold">{t("wallet_load_error")}</p>
         {loadError && <p className="text-sm text-ink-500">{loadError}</p>}
         <button type="button" onClick={() => { setLoading(true); void load(); }} className="w-pill w-pill-send mx-auto px-6">{t("wallet_retry")}</button>
       </div>
@@ -327,34 +348,41 @@ export function WalletScreen() {
   const cardDirect = cardAvailable && !!payOptions?.card.direct;
 
   return (
-    <div className="wallet-root relative min-h-[calc(100dvh-4rem)] bg-cream pb-4 text-ink">
-      {tab === "home" && (
+    <div className="wallet-root w-canvas relative pb-4">
+      {tab === "central" && (
         <div className="w-pop">
-          <HeaderExtension>
-          <section className="w-hero">
-            <p className="w-dim text-[13px] font-semibold">{t("wallet_total_balance")}</p>
+          <section className="w-highlight">
+            <p className="w-kicker">{t("wallet_total_balance")}</p>
             <p className="mt-1 flex items-baseline gap-2"><span className="w-cur">UGX</span><span className="w-amt">{whole(total)}</span></p>
-            <p className="w-dim mt-2 text-[12.5px] font-medium">{accountLabel(main?.name ?? "Main", true, t).replace(/ account$/, "")} {whole(main?.balance ?? wallet.balance)} · {others === 1 ? t("wallet_other_account") : t("wallet_other_accounts", { count: others })}</p>
-            <div className="mt-5 flex gap-2">
-              <button type="button" className="w-pill w-pill-send min-w-0 flex-1" onClick={() => { setPerson(null); setReview(false); setExpr(emptyExpr()); setSheet("send"); }}><ArrowUpRight size={18} />{t("send")}</button>
-              <button type="button" className="w-pill w-pill-ghost min-w-0 flex-1" onClick={() => { setTopError(null); setSheet("topup"); }}><Plus size={18} />{t("wallet_top_up")}</button>
-              <button type="button" aria-label={t("wallet_more")} className="w-pill w-pill-ghost shrink-0 px-4" onClick={() => setSheet("more")}>···</button>
-            </div>
+            <p className="mt-2 text-[12.5px] font-medium opacity-70">{accountLabel(main?.name ?? "Main", true, t).replace(/ account$/, "")} · {others === 1 ? t("wallet_other_account") : t("wallet_other_accounts", { count: others })}</p>
           </section>
-          </HeaderExtension>
-          <button type="button" className="w-card mx-4 mt-4 flex w-[calc(100%-2rem)] items-center px-4 py-3.5 text-left" onClick={() => setSheet("tx")}>
-            <span><span className="block text-[12.5px] font-semibold text-ink-500">{t("wallet_spending")}</span><span className="text-[21px] font-extrabold"><small className="mr-1 text-xs font-bold text-ink/40">UGX</small>{whole(spending?.totalOut ?? 0)}</span></span>
-            <span className="ml-auto flex">{(spending?.merchants ?? []).slice(0, 3).map((m) => <span key={m.id} className="-ml-2"><MerchantFace name={m.name} logo={m.logo} /></span>)}{(spending?.merchants.length ?? 0) > 3 && <span className="-ml-2 flex h-9 w-9 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-xs font-extrabold">+{spending!.merchants.length - 3}</span>}</span>
+          <div className="w-tilegrid">
+            <button type="button" className="w-tile" onClick={() => { setPerson(null); setReview(false); setExpr(emptyExpr()); openTab("send"); }}>
+              <span className="w-tile-icon"><Send size={20} /></span>
+              <span className="w-tile-label">{t("send")}</span>
+            </button>
+            <button type="button" className="w-tile" onClick={() => { setTopError(null); openTab("topup"); }}>
+              <span className="w-tile-icon"><Plus size={20} /></span>
+              <span className="w-tile-label">{t("wallet_top_up")}</span>
+            </button>
+            {features?.requests !== false && (
+              <button type="button" className="w-tile" onClick={() => { setPerson(null); setRequestAmount(""); setFormError(null); setSheet("request"); }}>
+                <span className="w-tile-icon"><ArrowDownToLine size={20} /></span>
+                <span className="w-tile-label">{t("wallet_request")}</span>
+              </button>
+            )}
+            <button type="button" className="w-tile" onClick={() => router.push("/give")}>
+              <span className="w-tile-icon"><HandHeart size={20} /></span>
+              <span className="w-tile-label">{t("wallet_give_tab")}</span>
+            </button>
+          </div>
+          <button type="button" className="w-card w-lift mx-4 mt-1 flex w-[calc(100%-2rem)] items-center gap-3 px-3.5 py-3 text-left" onClick={() => setSheet("rewards")}>
+            <span className="flex h-8 w-8 items-center justify-center rounded-[11px] bg-gold/20 text-gold"><Gift size={18} /></span>
+            <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold">{t("wallet_rewards")} <span className="font-medium" style={{ color: "rgba(250,248,239,0.62)" }}>· UGX {whole(wallet.credit ?? 0)}{incoming ? ` · ${incoming}` : ""}</span></span>
+            <ChevronRight size={18} style={{ opacity: .6 }} />
           </button>
-          <button type="button" className="w-card mx-4 mt-3 flex w-[calc(100%-2rem)] items-center gap-3 px-3.5 py-3 text-left" onClick={() => setSheet("rewards")}>
-            <span className="flex h-8 w-8 items-center justify-center rounded-[11px] bg-gold/15 text-ink"><Gift size={18} /></span>
-            <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold">{t("wallet_rewards")} <span className="font-medium text-ink-500">· UGX {whole(wallet.credit ?? 0)} credit{incoming ? ` · ${incoming}` : ""}</span></span>
-            <ChevronRight size={18} className="text-ink-500" />
-          </button>
-          <section className="w-card mx-4 mt-3 w-[calc(100%-2rem)] rounded-b-none px-4 pb-2 pt-3">
-            <div className="mb-1 flex items-center justify-between"><h2 className="text-lg font-extrabold">{t("wallet_transactions")}</h2>
-              <span className="flex gap-2"><button type="button" aria-label={t("wallet_filter")} className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))]" onClick={() => setSheet("tx")}><SlidersHorizontal size={16} /></button><button type="button" aria-label={t("wallet_search")} className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))]" onClick={() => setSheet("tx")}><Search size={16} /></button></span>
-            </div>
+          <h2 className="w-section-title">{t("wallet_transactions")}</h2>
+          <section className="w-card w-lift mx-4 w-[calc(100%-2rem)] px-4 pb-2 pt-1">
             <TxList rows={ledger.slice(0, 4)} t={t} />
           </section>
         </div>
@@ -362,14 +390,14 @@ export function WalletScreen() {
 
       {tab === "accounts" && (
         <div className="w-pop">
-          <HeaderExtension>
-          <section className="w-band">
-            <h1 className="text-[26px] font-extrabold">{t("wallet_accounts")}</h1>
-            <p className="w-dim mt-1 text-[13px]">{t("wallet_accounts_count", { count: wallets.length, total: whole(total) })}</p>
-            {wallets.length < maxWallets && <button type="button" className="w-pill w-pill-send absolute right-4 top-5 h-10 px-4 text-sm" onClick={() => { setNewName(""); setFormError(null); setSheet("new"); }}><Plus size={16} />{t("wallet_new_account")}</button>}
+          <section className="w-mast">
+            <div className="w-hero-row">
+              <h1 className="w-title">{t("wallet_accounts")}</h1>
+              {wallets.length < maxWallets && <button type="button" className="w-new" onClick={() => { setNewName(""); setFormError(null); setSheet("new"); }}><Plus size={16} />{t("wallet_new_account")}</button>}
+            </div>
+            <p className="w-caption">{t("wallet_accounts_count", { count: wallets.length, total: whole(total) })}</p>
           </section>
-          </HeaderExtension>
-          <div className="space-y-3 px-4 pt-4">
+          <div className="space-y-3 px-4 pt-1">
             {wallets.map((w, i) => (
               <article key={w.id} className={`w-acard ${tone(i)} ${w.frozen ? "w-frozen" : ""}`}>
                 <div className="rings" aria-hidden>{[180, 130, 80].map((s) => <span key={s} style={{ width: s, height: s }} />)}</div>
@@ -393,40 +421,45 @@ export function WalletScreen() {
 
       {tab === "recipients" && (
         <div className="w-pop">
-          <HeaderExtension>
-          <section className="w-band" style={{ minHeight: 268 }}>
-            <h1 className="text-[26px] font-extrabold">{t("send")}</h1>
-            <button type="button" className="w-pill w-pill-ghost absolute right-4 top-5 h-10 px-3 text-sm" onClick={() => { setContactQ(""); setNickname(""); setLooked(null); setPickedContact(null); setManualContact(false); setFormError(null); setSheet("contact"); }}><Plus size={16} />{t("wallet_add_contact")}</button>
-            <div className="mt-8 grid grid-cols-4 gap-2">
-              <button type="button" className="flex flex-col items-center gap-1 text-[13px] font-bold" onClick={() => { setContactQ(""); setLooked(null); setPickedContact(null); setManualContact(false); setSheet("contact"); }}><span className="flex h-[58px] w-[58px] items-center justify-center rounded-full border border-dashed border-gold/80 bg-gold/10 text-gold-400"><Plus /></span>{t("wallet_new_recipient")}</button>
-              {people.slice(0, 7).map((p) => (
-                <button key={p.recipientId} type="button" className="flex flex-col items-center gap-1" onClick={() => openSend(p)}>
-                  <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-gold text-[17px] font-extrabold text-ink">{initials(p.label)}</span>
-                  <b className="max-w-[76px] truncate text-[13px]">{p.label.split(" ")[0]}</b>
-                  <span className="w-dim text-[10.5px]">{p.maskedPhone}</span>
-                </button>
-              ))}
+          <section className="w-mast">
+            <div className="w-hero-row">
+              <h1 className="w-title">{t("wallet_recipients")}</h1>
+              <button type="button" className="w-new" onClick={() => { setContactQ(""); setNickname(""); setLooked(null); setPickedContact(null); setManualContact(true); setFormError(null); setSheet("contact"); }}><Plus size={16} />{t("wallet_add_contact")}</button>
             </div>
+            <p className="w-caption">{people.length} saved</p>
           </section>
-          </HeaderExtension>
-          <section className="w-card -mt-4 rounded-t-[28px] px-4 py-3">
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {(["all", "saved", "recent", "shared", "mine"] as const).map((f) => (
-                <button key={f} type="button" onClick={() => setFilter(f)} className={`shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-bold ${filter === f ? "bg-ink text-cream" : "bg-[rgb(var(--surface-muted))] text-ink"}`}>{t(f === "all" ? "wallet_all" : f === "saved" ? "wallet_saved" : f === "recent" ? "wallet_recent" : f === "shared" ? "wallet_shared_accounts" : "wallet_my_accounts")}</button>
-              ))}
-            </div>
-            <label className="field-box mt-1 flex items-center gap-2 rounded-2xl px-3"><Search size={16} className="text-ink-500" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("wallet_search")} aria-label={t("wallet_search")} className="h-11 w-full bg-transparent text-sm outline-none" /></label>
+          <label className="w-search"><Search size={16} style={{ opacity: .55 }} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("wallet_search_contacts")} aria-label={t("wallet_search_contacts")} /></label>
+          <section className="w-card w-lift mx-4 w-[calc(100%-2rem)] px-2 py-1">
             {filter === "mine" ? wallets.map((w) => (
-              <button key={w.id} type="button" className="flex min-h-14 w-full items-center gap-3 border-b border-[var(--border-faint)] text-left" onClick={() => { setMoveFrom(w.id); setMoveTo(wallets.find((o) => o.id !== w.id)?.id ?? ""); setSheet("move"); }}>
+              <button key={w.id} type="button" className="flex min-h-14 w-full items-center gap-3 border-b border-white/10 px-2 text-left last:border-0" onClick={() => { setMoveFrom(w.id); setMoveTo(wallets.find((o) => o.id !== w.id)?.id ?? ""); setSheet("move"); }}>
                 <span className="font-bold">{accountLabel(w.name, w.isPrimary, t)}</span><span className="ml-auto text-sm font-extrabold">UGX {whole(w.balance)}</span>
               </button>
             )) : people.map((p) => (
-              <button key={`${p.kind}-${p.recipientId}`} type="button" className="flex min-h-14 w-full items-center gap-3 border-b border-[var(--border-faint)] text-left" onClick={() => openSend(p)}>
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gold/20 text-xs font-extrabold">{initials(p.label)}</span>
-                <span className="min-w-0"><b className="block truncate">{p.label}</b><span className="text-xs text-ink-500">{p.maskedPhone}</span></span>
+              <button key={`${p.kind}-${p.recipientId}`} type="button" className="flex min-h-14 w-full items-center gap-3 border-b border-white/10 px-2 text-left last:border-0" onClick={() => openSend(p)}>
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gold text-xs font-extrabold text-ink">{initials(p.label)}</span>
+                <span className="min-w-0"><b className="block truncate">{p.label}</b><span className="text-xs" style={{ color: "rgba(250,248,239,0.62)" }}>{p.maskedPhone}</span></span>
+                <ChevronRight size={18} style={{ opacity: .5 }} className="ml-auto" />
               </button>
             ))}
+            {people.length === 0 && filter !== "mine" && <p className="px-2 py-6 text-sm" style={{ color: "rgba(250,248,239,0.62)" }}>{t("wallet_no_contacts")}</p>}
           </section>
+          <button type="button" className="w-cta mx-4 mt-4 w-[calc(100%-2rem)]" onClick={() => { setContactQ(""); setNickname(""); setLooked(null); setPickedContact(null); setManualContact(true); setFormError(null); setSheet("contact"); }}>
+            <UserRoundPlus size={18} />{t("wallet_add_contact")}
+          </button>
+        </div>
+      )}
+
+      {tab === "transactions" && (
+        <div className="w-pop">
+          <section className="w-mast">
+            <h1 className="w-title">{t("wallet_transactions")}</h1>
+          </section>
+          <div className="w-chiprow">
+            {(["all", "in", "out"] as const).map((k) => (
+              <button key={k} type="button" onClick={() => setTxKind(k)} className={`w-filter ${txKind === k ? "on" : ""}`}>{t(k === "all" ? "wallet_all" : k === "in" ? "wallet_in" : "wallet_out")}</button>
+            ))}
+          </div>
+          <GroupedTxList rows={ledger} t={t} />
         </div>
       )}
 
@@ -436,61 +469,87 @@ export function WalletScreen() {
         <RowButton label={t("wallet_move")} onClick={() => { setMoveFrom(fromId); setMoveTo(wallets.find((w) => w.id !== fromId)?.id ?? ""); setSheet("move"); }} />
       </SheetFrame>}
 
-      {sheet === "send" && <SheetFrame title={review ? t("wallet_review") : person ? person.name : t("send")} onClose={() => setSheet(null)}>
-        {!person && <p className="text-sm text-ink-500">{t("wallet_add_contact")}</p>}
+      {(sheet === "send" || tab === "send") && <div className="w-pop">
+        <section className="w-mast">
+          <h1 className="w-title">{person && review ? t("wallet_review_title") : t("send")}</h1>
+        </section>
+        <SendSteps stage={person && review ? "review" : "pay"} />
+        <div className="px-4">
+        {!person && (
+          <div>
+            <label className="w-search !mx-0"><Search size={16} style={{ opacity: .55 }} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("wallet_search_contacts")} aria-label={t("wallet_search_contacts")} /></label>
+            <section className="w-card w-lift mt-3 w-full px-2 py-1">
+              {people.map((p) => (
+                <button key={`${p.kind}-${p.recipientId}`} type="button" className="flex min-h-14 w-full items-center gap-3 border-b border-white/10 px-2 text-left last:border-0" onClick={() => openSend(p)}>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gold text-xs font-extrabold text-ink">{initials(p.label)}</span>
+                  <span className="min-w-0"><b className="block truncate">{p.label}</b><span className="text-xs" style={{ color: "rgba(250,248,239,0.62)" }}>{p.maskedPhone}</span></span>
+                  <ChevronRight size={18} style={{ opacity: .5 }} className="ml-auto" />
+                </button>
+              ))}
+              {people.length === 0 && <p className="px-2 py-6 text-sm" style={{ color: "rgba(250,248,239,0.62)" }}>{t("wallet_no_contacts")}</p>}
+            </section>
+            <button type="button" className="w-cta mt-4 w-full" onClick={() => { setContactQ(""); setNickname(""); setLooked(null); setPickedContact(null); setManualContact(true); setFormError(null); setSheet("contact"); }}>
+              <UserRoundPlus size={18} />{t("wallet_add_contact")}
+            </button>
+          </div>
+        )}
         {person && !review && (
           <div className="space-y-3">
-            <div className="flex items-center gap-3 rounded-2xl bg-[rgb(var(--surface-muted))] px-3 py-2">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gold font-extrabold">{initials(person.name)}</span>
-              <span className="min-w-0 flex-1"><b className="block truncate">{person.name}</b><span className="text-xs font-bold text-green">{person.maskedPhone} · {t("wallet_name_verified")}</span></span>
-            </div>
-            <button type="button" className="flex min-h-[52px] w-full items-center justify-between rounded-2xl bg-[rgb(var(--surface-muted))] px-4 text-left font-semibold" onClick={() => setSheet("from")}>
-              <span><span className="block text-xs text-ink-500">{t("wallet_from_account")}</span>{accountLabel(from?.name ?? "", !!from?.isPrimary, t)}</span>
-              <span>UGX {whole(available)}</span>
+            <button type="button" className="w-pick" onClick={() => { setPerson(null); setReview(false); }}>
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gold text-sm font-extrabold text-ink">{initials(person.name)}</span>
+              <span className="min-w-0 flex-1 text-left"><span className="w-pick-kicker">{t("wallet_to")}</span><b className="block truncate">{person.name}</b></span>
+              <ChevronDown size={18} style={{ opacity: .55 }} />
             </button>
-            {frozenFrom && <p className="rounded-2xl bg-ink-500/10 px-3 py-2 text-sm font-semibold">{t("wallet_frozen_banner", { name: accountLabel(from?.name ?? "", !!from?.isPrimary, t) })}</p>}
-            <div className="flex items-end justify-between gap-3">
-              <p className="flex items-baseline gap-2"><span className="text-lg font-bold text-ink/45">UGX</span><span className={`text-[46px] font-extrabold leading-none ${expr.left ? "" : "text-ink/25"}`}>{expr.op ? `${whole(Number(expr.left || 0))} ${expr.op} ${expr.right}` : expr.left ? whole(Number(expr.left)) : "0"}</span></p>
-              {chip != null && <button type="button" className="w-chip" onClick={() => setExpr(commitExpr(expr))}>= UGX {whole(chip)}</button>}
+            <button type="button" className="w-pick" onClick={() => setSheet("from")}>
+              <span className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-gold/20 text-gold"><Send size={18} aria-hidden /></span>
+              <span className="min-w-0 flex-1 text-left"><span className="w-pick-kicker">{t("wallet_from_account")}</span><b className="block truncate">{accountLabel(from?.name ?? "", !!from?.isPrimary, t)} · UGX {whole(available)}</b></span>
+              <ChevronDown size={18} style={{ opacity: .55 }} />
+            </button>
+            {frozenFrom && <p className="rounded-2xl bg-white/10 px-3 py-2 text-sm font-semibold">{t("wallet_frozen_banner", { name: accountLabel(from?.name ?? "", !!from?.isPrimary, t) })}</p>}
+            <div className="w-amount-box">
+              <span className="w-cur">UGX</span>
+              <span className={`w-amt ${expr.left ? "" : "is-empty"}`}>{expr.op ? `${whole(Number(expr.left || 0))} ${expr.op} ${expr.right}` : expr.left ? whole(Number(expr.left)) : "0"}</span>
             </div>
-            <button type="button" className="text-sm font-semibold text-ink-500" onClick={() => setExpr({ left: String(Math.max(0, Math.floor(available))), op: null, right: "" })}>{t("wallet_available", { amount: whole(available) })} · {t("wallet_use_max")}</button>
-            {over && <div className="rounded-2xl bg-danger/10 px-3 py-2 text-sm font-semibold text-danger-ink">{t("wallet_over")} <button type="button" className="underline" onClick={() => setExpr({ left: String(Math.floor(available)), op: null, right: "" })}>{t("wallet_use_max")}</button> <button type="button" className="underline" onClick={() => setSheet("topup")}>{t("wallet_top_up")}</button></div>}
+            <div className="flex flex-wrap gap-2">
+              {[10_000, 25_000, 50_000, 100_000].map((n) => (
+                <button key={n} type="button" className={`w-amtchip ${!expr.op && Number(expr.left || 0) === n ? "on" : ""}`} onClick={() => setExpr({ left: String(n), op: null, right: "" })}>{whole(n)}</button>
+              ))}
+            </div>
+            {chip != null && <button type="button" className="w-chip" onClick={() => setExpr(commitExpr(expr))}>= UGX {whole(chip)}</button>}
+            <button type="button" className="text-sm font-semibold opacity-70" onClick={() => setExpr({ left: String(Math.max(0, Math.floor(available))), op: null, right: "" })}>{t("wallet_available", { amount: whole(available) })} · {t("wallet_use_max")}</button>
+            {over && <div className="rounded-2xl bg-danger/10 px-3 py-2 text-sm font-semibold text-danger-ink">{t("wallet_over")} <button type="button" className="underline" onClick={() => setExpr({ left: String(Math.floor(available)), op: null, right: "" })}>{t("wallet_use_max")}</button> <button type="button" className="underline" onClick={() => { setSheet(null); openTab("topup"); }}>{t("wallet_top_up")}</button></div>}
             {sendError && <p className="text-sm text-danger-ink" role="alert">{sendError}</p>}
-            <label className="field-box flex items-center rounded-2xl px-3"><input value={note} onChange={(e) => setNote(e.target.value)} maxLength={140} placeholder={t("wallet_note")} aria-label={t("wallet_note")} className="h-12 w-full bg-transparent outline-none" /></label>
+            <label className="w-infield"><input value={note} onChange={(e) => setNote(e.target.value)} maxLength={140} placeholder={t("wallet_note")} aria-label={t("wallet_note")} /></label>
             <div className="grid grid-cols-4 gap-2">{(["+", "−", "×", "÷"] as const).map((op) => { const next = (op === "−" ? "-" : op) as Op; return <button key={op} type="button" className={`w-op ${expr.op === next ? "on" : ""}`} onClick={() => setExpr(pressOp(expr, next))}>{op}</button>; })}</div>
             <div className="grid grid-cols-3 gap-2">
               {["1", "2", "3", "4", "5", "6", "7", "8", "9", "00", "0", "⌫"].map((k) => (
-                <button key={k} type="button" className={`w-key ${pressed === k ? "scale-95 bg-cream-100" : ""}`} onPointerDown={() => setPressed(k)} onPointerUp={() => setPressed(null)} onClick={() => setExpr(k === "⌫" ? backspace(expr) : pressDigit(expr, k))}>{k}</button>
+                <button key={k} type="button" className={`w-key ${pressed === k ? "is-pressed" : ""}`} onPointerDown={() => setPressed(k)} onPointerUp={() => setPressed(null)} onClick={() => setExpr(k === "⌫" ? backspace(expr) : pressDigit(expr, k))}>{k}</button>
               ))}
             </div>
-            <button type="button" disabled={frozenFrom || over || amount == null} className="w-pill w-pill-send h-14 w-full disabled:opacity-40" onClick={() => { setIdemKey(newKey()); setReview(true); }}>{t("wallet_continue")}{amount ? ` · UGX ${whole(amount)}` : ""}</button>
           </div>
         )}
         {person && review && amount != null && (
-          <div className="space-y-4 text-center">
-            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gold text-xl font-extrabold">{initials(person.name)}</span>
-            <p><span className="text-lg font-bold text-ink/45">UGX </span><span className="text-[46px] font-extrabold">{whole(amount)}</span></p>
-            <p className="text-ink-500">{t("wallet_sent_to", { name: person.name }).replace("Sent to", "to")}</p>
-            <ReviewRow label={t("wallet_to")} value={person.name} onEdit={() => setReview(false)} edit={t("wallet_edit")} />
-            <ReviewRow label={t("wallet_from_account")} value={accountLabel(from?.name ?? "", !!from?.isPrimary, t)} onEdit={() => { setReview(false); setSheet("from"); }} edit={t("wallet_edit")} />
-            <ReviewRow label={t("wallet_note")} value={note || "—"} onEdit={() => setReview(false)} edit={t("wallet_edit")} />
-            <ReviewRow label={t("wallet_fee")} value="UGX 0" />
-            <ReviewRow label={t("wallet_balance_after")} value={`UGX ${whole(Math.max(0, available - amount))}`} />
-            <p className="text-left text-sm text-ink-500">{t("wallet_arrives")}</p>
-            <ConfirmationFooter action={{ label: t("wallet_swipe_send", { amount: whole(amount) }), busy, disabled: busy, onClick: submitSend }} onCancel={() => setReview(false)} />
-            <p className="text-xs text-ink-500">{t("wallet_send_hint")}</p>
+          <div className="w-card w-lift px-5 py-6 text-center">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold text-lg font-extrabold text-ink">{initials(person.name)}</span>
+            <p className="mt-3 flex items-baseline justify-center gap-2"><span className="w-cur">UGX</span><span className="w-amt" style={{ fontSize: 36 }}>{whole(amount)}</span></p>
+            <p className="mt-1 opacity-70">to {person.name}</p>
+            <div className="mt-5 space-y-1 text-left">
+              <ReviewRow label={t("wallet_from_account")} value={accountLabel(from?.name ?? "", !!from?.isPrimary, t)} onEdit={() => { setReview(false); setSheet("from"); }} edit={t("wallet_edit")} />
+              <ReviewRow label={t("wallet_fee")} value="UGX 0" />
+              <ReviewRow label={t("wallet_balance_after")} value={`UGX ${whole(Math.max(0, available - amount))}`} />
+            </div>
           </div>
         )}
-      </SheetFrame>}
+      </div></div>}
 
-      {sheet === "from" && <SheetFrame title={t("wallet_choose_account")} onClose={() => setSheet("send")}>
+      {sheet === "from" && <SheetFrame title={t("wallet_choose_account")} onClose={() => setSheet(null)}>
         {wallets.map((w) => {
           const sharedBlocked = false;
           const disabled = !!w.frozen || sharedBlocked;
-          return <button key={w.id} type="button" disabled={disabled} className="flex min-h-14 w-full items-center justify-between border-b border-[var(--border-faint)] text-left disabled:opacity-40" onClick={() => { setFromId(w.id); setSheet(review ? "send" : "send"); }}><span>{accountLabel(w.name, w.isPrimary, t)}{w.frozen ? ` · ${t("wallet_frozen")}` : ""}</span><span>UGX {whole(w.balance)}</span></button>;
+          return <button key={w.id} type="button" disabled={disabled} className="flex min-h-14 w-full items-center justify-between border-b border-[var(--border-faint)] text-left disabled:opacity-40" onClick={() => { setFromId(w.id); setSheet(null); }}><span>{accountLabel(w.name, w.isPrimary, t)}{w.frozen ? ` · ${t("wallet_frozen")}` : ""}</span><span>UGX {whole(w.balance)}</span></button>;
         })}
         {(shares?.received ?? []).filter((s) => s.status === "active").map((s) => (
-          <button key={s.id} type="button" disabled={!features?.sendFromShared || !s.wallet_id} className="flex min-h-14 w-full items-center justify-between text-left disabled:opacity-40" onClick={() => { if (s.wallet_id) setFromId(s.wallet_id); setSheet("send"); }}><span>{s.wallet_name} · {s.owner_name}</span><span>{t("wallet_shared_balance_hidden")}</span></button>
+          <button key={s.id} type="button" disabled={!features?.sendFromShared || !s.wallet_id} className="flex min-h-14 w-full items-center justify-between text-left disabled:opacity-40" onClick={() => { if (s.wallet_id) setFromId(s.wallet_id); setSheet(null); }}><span>{s.wallet_name} · {s.owner_name}</span><span>{t("wallet_shared_balance_hidden")}</span></button>
         ))}
       </SheetFrame>}
 
@@ -503,12 +562,12 @@ export function WalletScreen() {
               setSheet(null); await load();
             } catch (err) { setFormError(explain(err, t)); } finally { setBusy(false); }
           }}
-          onPay={(r) => { setPayRequest(r); setPerson({ recipientId: r.recipientId, name: r.personName, maskedPhone: r.maskedPhone }); setExpr({ left: String(r.amount), op: null, right: "" }); setReview(true); setIdemKey(newKey()); setSheet("send"); }}
+          onPay={(r) => { setPayRequest(r); setPerson({ recipientId: r.recipientId, name: r.personName, maskedPhone: r.maskedPhone }); setExpr({ left: String(r.amount), op: null, right: "" }); setReview(true); setIdemKey(newKey()); setSheet(null); openTab("send"); }}
           onAct={async (id, act) => { if (act === "decline") await api.declineWalletRequest(id); else if (act === "later") await api.laterWalletRequest(id); else await api.cancelWalletRequest(id); await load(); }}
         />
       </SheetFrame>}
 
-      {sheet === "topup" && <SheetFrame title={t("wallet_top_up")} onClose={() => setSheet(null)}>
+      {(sheet === "topup" || tab === "topup") && <SheetFrame title={t("wallet_top_up")} onClose={() => { setSheet(null); if (tab === "topup") openTab("central"); }}>
         <p className="mb-2 text-sm text-ink-500">{t("wallet_topup_main")}</p>
         {topError && <p className="mb-2 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger-ink" role="alert">{topError}</p>}
         {pendingTopup ? <p className="text-sm text-ink-500">{t("wallet_confirming_topup")}</p> : cardStep ? <CardPaymentSteps paymentId={cardStep.topupId} card={cardStep.card} initial={cardStep.action} onCancel={() => { setCardStep(null); setCardForm(emptyCard); }} onPending={() => { setPendingTopup(cardStep.topupId); setCardStep(null); setTopAmount(""); }} /> : (
@@ -622,14 +681,14 @@ export function WalletScreen() {
             <p className="text-5xl font-extrabold">{whole(result.amount ?? 0)}</p>
             <p className="mt-2 text-lg font-bold">{result.title}</p>
             {result.detail && <p className="mt-1 text-sm opacity-80">{t("wallet_new_balance", { amount: result.detail, account: result.account ?? "" })}</p>}
-            <button type="button" className="mt-8 h-12 w-full max-w-xs rounded-full bg-white font-extrabold text-green" onClick={() => setResult(null)}>{t("wallet_done")}</button>
-            <button type="button" className="mt-3 h-12 w-full max-w-xs rounded-full border border-white/40 font-bold" onClick={() => { setResult(null); openTab("home"); setSheet("tx"); }}>{t("wallet_view_tx")}</button>
+            <button type="button" className="mt-8 h-12 w-full max-w-xs rounded-full bg-white font-extrabold text-green" onClick={() => { setResult(null); openTab("central"); }}>{t("wallet_done")}</button>
+            <button type="button" className="mt-3 h-12 w-full max-w-xs rounded-full border border-white/40 font-bold" onClick={() => { setResult(null); openTab("transactions"); }}>{t("wallet_view_tx")}</button>
             <p className="mt-6 text-sm opacity-80">{t("wallet_tap_to_close")}</p>
           </>}
           {result.kind === "failed" && <>
             <p className="text-2xl font-extrabold text-danger">{result.title}</p>
             <p className="mt-2 max-w-xs text-sm text-ink-500">{result.detail}</p>
-            <button type="button" className="mt-6 h-12 w-full max-w-xs rounded-full bg-gold font-extrabold text-ink" onClick={() => { setResult(null); setSheet("send"); setReview(true); }}>{t("wallet_try_again")}</button>
+            <button type="button" className="mt-6 h-12 w-full max-w-xs rounded-full bg-gold font-extrabold text-ink" onClick={() => { setResult(null); setSheet(null); setReview(true); openTab("send"); }}>{t("wallet_try_again")}</button>
           </>}
         </div>
       )}
@@ -668,8 +727,14 @@ function ContactSheet({ t, busy, nicknames, contactQ, setContactQ, nickname, set
   onClose: () => void;
 }) {
   const picker = contactPicker();
-  const showFields = !picker || manual || !!picked;
-  const saving = !!picked || !!looked;
+  const [name, setName] = useState(picked?.name || nickname);
+  const [phone, setPhone] = useState(picked?.phone || (contactQ && !contactQ.includes("@") ? contactQ : ""));
+  const [email, setEmail] = useState(picked?.email || (contactQ.includes("@") ? contactQ : ""));
+  const [focus, setFocus] = useState<"name" | "phone" | "email" | null>(null);
+
+  function identifier() {
+    return (phone.trim() || email.trim());
+  }
 
   async function fromPhone() {
     try {
@@ -677,29 +742,50 @@ function ContactSheet({ t, busy, nicknames, contactQ, setContactQ, nickname, set
       const next = firstContact(contact);
       if (!next) return;
       setPicked(next);
+      setName(next.name);
+      setPhone(next.phone);
+      setEmail(next.email);
       setContactQ(next.phone || next.email);
       if (next.name) setNickname(next.name);
       setLooked(null);
       setError(null);
       setManual(true);
+      if (next.phone || next.email) void lookup(next.phone || next.email);
     } catch {
       // The person closed the picker.
     }
   }
 
+  async function lookup(raw: string) {
+    const problem = contactInputError(raw);
+    if (problem) return;
+    try {
+      const person = await api.lookupRecipient(raw.trim());
+      setLooked(person);
+      if (person.name && !name.trim()) {
+        setName(person.name);
+        setNickname(person.name);
+      }
+    } catch {
+      setLooked(null);
+    }
+  }
+
   async function submit() {
-    const problem = contactInputError(contactQ);
+    const ident = identifier();
+    const problem = contactInputError(ident);
     if (problem) {
       setError(t(problem === "long" ? "wallet_contact_long" : problem === "format" ? "wallet_contact_format" : "wallet_contact_short"));
       return;
     }
     setBusy(true);
     setError(null);
+    if (name.trim()) setNickname(name.trim());
+    setContactQ(ident);
     try {
-      const person = looked ?? await api.lookupRecipient(contactQ.trim());
+      const person = looked ?? await api.lookupRecipient(ident);
       setLooked(person);
-      if (!saving && !picked) return;
-      await api.saveWalletContact({ recipientId: person.recipientId, nickname: nickname.trim() || undefined });
+      await api.saveWalletContact({ recipientId: person.recipientId, recipient: ident, nickname: (name.trim() || nickname.trim()) || undefined });
       await onSaved();
     } catch (err) {
       if (err instanceof ApiError && err.code === "network_error") setError(t("wallet_contact_retry"));
@@ -709,43 +795,94 @@ function ContactSheet({ t, busy, nicknames, contactQ, setContactQ, nickname, set
     }
   }
 
-  const primary = !showFields
-    ? t("wallet_choose_contacts")
-    : busy && !looked
-      ? t("wallet_checking")
-      : saving
-        ? t("wallet_save_contact")
-        : t("wallet_lookup");
-
   return (
     <SheetFrame title={t("wallet_add_contact")} onClose={onClose}>
-      {picked && (
-        <div className="mb-3 flex items-center gap-3 rounded-2xl bg-[rgb(var(--surface-muted))] px-3 py-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold text-sm font-extrabold text-ink">{initials(picked.name || picked.phone || picked.email)}</span>
-          <span className="min-w-0 flex-1">
-            <b className="block truncate">{picked.name || t("wallet_add_contact")}</b>
-            <span className="block truncate text-xs text-ink-500">{[picked.phone, picked.email].filter(Boolean).join(" · ")}</span>
-          </span>
-          <button type="button" className="shrink-0 text-sm font-extrabold text-gold" onClick={() => { setPicked(null); setLooked(null); void fromPhone(); }}>{t("wallet_change")}</button>
-        </div>
+      {picker && (
+        <button type="button" className="mb-3 flex min-h-12 w-full items-center gap-3 rounded-2xl px-1 text-left text-sm font-bold" onClick={() => void fromPhone()}>
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gold/20 text-gold"><BookUser size={18} aria-hidden /></span>
+          {t("wallet_choose_phone")}
+        </button>
       )}
-      {showFields && (
-        <>
-          <label className="field-box mb-2 flex items-center rounded-2xl px-3"><input value={contactQ} onChange={(e) => { setContactQ(e.target.value); setLooked(null); }} placeholder={t("wallet_contact_phone")} aria-label={t("wallet_contact_phone")} className="h-12 w-full bg-transparent outline-none" /></label>
-          {nicknames && <label className="field-box mb-2 flex items-center rounded-2xl px-3"><input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder={t("wallet_nickname")} aria-label={t("wallet_nickname")} className="h-12 w-full bg-transparent outline-none" /></label>}
-        </>
-      )}
-      {looked && <p className="mb-2 flex items-center gap-2 text-sm font-bold text-green"><Check size={16} /> {looked.name} · {looked.maskedPhone}</p>}
-      {error && <p className="mb-2 text-sm text-danger-ink" role="alert">{error}</p>}
-      <button type="button" className="w-pill w-pill-send h-14 w-full" disabled={busy} onClick={() => { if (!showFields) void fromPhone(); else void submit(); }}>
-        {!showFields && <BookUser size={18} aria-hidden />}
-        {primary}
-      </button>
-      {picker && !manual && (
-        <button type="button" className="mt-3 min-h-11 w-full text-sm font-bold text-ink-500" onClick={() => { setManual(true); setError(null); }}>{t("wallet_type_instead")}</button>
-      )}
+      <div className={`w-infield mb-3 ${focus === "name" ? "is-focus" : ""}`}>
+        <input
+          value={name}
+          onChange={(e) => { setName(e.target.value); setNickname(e.target.value); }}
+          onFocus={() => setFocus("name")}
+          onBlur={() => setFocus(null)}
+          placeholder={t("wallet_contact_name")}
+          aria-label={t("wallet_contact_name")}
+        />
+        {looked && <span className="ml-2 shrink-0 rounded-full bg-green/20 px-2 py-1 text-[10px] font-extrabold text-green">{t("wallet_registered")}</span>}
+      </div>
+      <div className={`w-infield ${focus === "phone" ? "is-focus" : ""} ${error ? "is-error" : ""}`}>
+        <input
+          value={phone}
+          onChange={(e) => { setPhone(e.target.value); setLooked(null); setError(null); }}
+          onFocus={() => setFocus("phone")}
+          onBlur={() => { setFocus(null); if (phone.trim()) void lookup(phone.trim()); }}
+          placeholder={t("wallet_contact_phone")}
+          aria-label={t("wallet_contact_phone")}
+          inputMode="tel"
+        />
+      </div>
+      {error && <p className="w-field-error" role="alert">{error}</p>}
+      <div className={`w-infield mt-3 mb-4 ${focus === "email" ? "is-focus" : ""}`}>
+        <input
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); if (!phone.trim()) setLooked(null); }}
+          onFocus={() => setFocus("email")}
+          onBlur={() => { setFocus(null); if (!phone.trim() && email.trim()) void lookup(email.trim()); }}
+          placeholder={t("wallet_contact_email")}
+          aria-label={t("wallet_contact_email")}
+          inputMode="email"
+        />
+      </div>
+      <button type="button" className="w-cta mt-2 w-full disabled:opacity-40" disabled={busy || !identifier()} onClick={() => void submit()}>{busy ? "…" : t("wallet_save_contact")}</button>
     </SheetFrame>
   );
+}
+
+
+function SendSteps({ stage }: { stage: "pay" | "review" | "done" }) {
+  const items: { key: "pay" | "review" | "verify" | "done"; label: string }[] = [
+    { key: "pay", label: "Pay" },
+    { key: "review", label: "Review" },
+    { key: "verify", label: "Verify" },
+    { key: "done", label: "Done" },
+  ];
+  const order = { pay: 0, review: 1, verify: 2, done: 3 } as const;
+  const here = order[stage];
+  return (
+    <ol className="w-steps" aria-label="Send progress">
+      {items.map((item, i) => (
+        <li key={item.key} className={`w-step ${i === here ? "on" : i < here ? "done" : ""}`}>
+          <span className="w-step-dot" />
+          {item.label}
+          {i < items.length - 1 && <span className="w-step-line" aria-hidden />}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function GroupedTxList({ rows, t }: { rows: WalletLedgerEntry[]; t: (key: TranslationKey, params?: Record<string, string | number>) => string }) {
+  if (rows.length === 0) return <p className="px-5 py-8 text-sm opacity-70">{t("wallet_no_activity_yet")}</p>;
+  const groups: { key: string; label: string; items: WalletLedgerEntry[] }[] = [];
+  for (const e of rows) {
+    const when = describeTxWhen(e.created_at ?? "");
+    const label = when.kind === "today" ? t("wallet_day_today") : when.kind === "yesterday" ? t("wallet_yesterday") : when.kind === "weekday" ? when.day : when.label;
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.items.push(e);
+    else groups.push({ key: `${label}-${e.id}`, label, items: [e] });
+  }
+  return <div>{groups.map((g) => (
+    <section key={g.key}>
+      <h2 className="w-day">{g.label}</h2>
+      <div className="w-card w-lift mx-4 w-[calc(100%-2rem)] px-4">
+        <TxList rows={g.items} t={t} />
+      </div>
+    </section>
+  ))}</div>;
 }
 
 function TxList({ rows, t }: { rows: WalletLedgerEntry[]; t: (key: TranslationKey, params?: Record<string, string | number>) => string }) {
@@ -764,7 +901,7 @@ function RowButton({ label, hint, onClick }: { label: string; hint?: string; onC
   return <button type="button" onClick={onClick} className="flex min-h-14 w-full items-center justify-between border-b border-[var(--border-faint)] text-left text-base font-bold"><span>{label}</span>{hint && <span className="rounded-full bg-gold px-2 text-xs">{hint}</span>}</button>;
 }
 function ReviewRow({ label, value, onEdit, edit }: { label: string; value: string; onEdit?: () => void; edit?: string }) {
-  return <div className="flex items-center justify-between border-b border-[var(--border-faint)] py-2 text-sm"><span className="text-ink-500">{label}</span><span className="font-bold">{value} {onEdit && <button type="button" className="ml-2 font-extrabold text-gold" onClick={onEdit}>{edit}</button>}</span></div>;
+  return <div className="flex items-center justify-between border-b border-white/10 py-2.5 text-sm last:border-0"><span className="opacity-70">{label}</span><span className="font-bold">{value} {onEdit && <button type="button" className="ml-2 font-extrabold text-gold" onClick={onEdit}>{edit}</button>}</span></div>;
 }
 
 function SharedBlock({ shares, t, onAccept }: { shares: WalletShares | null; t: (key: TranslationKey, params?: Record<string, string | number>) => string; onAccept: (id: string, action: "accept" | "decline" | "revoke") => Promise<void> }) {

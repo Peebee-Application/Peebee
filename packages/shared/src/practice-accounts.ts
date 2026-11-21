@@ -25,8 +25,11 @@ const memory: { state: State | null } = { state: null };
 function box(): Storage | null {
   try { return typeof localStorage === "undefined" ? null : localStorage; } catch { return null; }
 }
+function seedContacts(): Contact[] {
+  return PEOPLE.map((p) => ({ id: `ct-${p.id}`, recipientId: p.id, name: p.name, nickname: null, maskedPhone: mask(p.phone) }));
+}
 function load(): State {
-  const fresh = (): State => ({ accounts: [{ id: "home", name: "Home", balance: 120_000 }, { id: "travel", name: "Travel", balance: 224_500 }], contacts: [], requests: [], idem: {} });
+  const fresh = (): State => ({ accounts: [{ id: "home", name: "Home", balance: 120_000 }, { id: "travel", name: "Travel", balance: 224_500 }], contacts: seedContacts(), requests: [], idem: {} });
   try {
     const raw = box()?.getItem(KEY) ?? null;
     const parsed = raw ? JSON.parse(raw) as State : memory.state;

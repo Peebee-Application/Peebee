@@ -12,8 +12,8 @@ const PAGE_WAIT_MS = 4000;
 // v13 of the runtime cache drops API reads from that same visit. Activate
 // deletes every name that is not in KEEP_CACHES.
 // Release marker: publishing this file ships peebee-pages-v14.
-const PAGE_CACHE = "peebee-pages-v14";
-const RUNTIME_CACHE = "peebee-runtime-v13";
+const PAGE_CACHE = "peebee-pages-v15";
+const RUNTIME_CACHE = "peebee-runtime-v14";
 const KEEP_CACHES = [ASSET_CACHE, PAGE_CACHE, RUNTIME_CACHE];
 // Wallet CSS from before a8cece2 defined an unscoped `.w-full` (z-index 60).
 // That file is content-hashed, so ASSET_CACHE would keep serving it to a

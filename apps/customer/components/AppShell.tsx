@@ -12,6 +12,7 @@ import { AuthGate } from "./AuthGate";
 import { BottomNav } from "./BottomNav";
 import { BrandHeader } from "./BrandHeader";
 import { HeaderExtensionProvider } from "../lib/header-extension";
+import { HeaderDrawerProvider } from "../lib/header-drawer";
 import { ChatDrawerShell } from "../lib/chat-drawer";
 import { FoodBusinessTheme } from "./FoodBusinessTheme";
 import { OfflineBanner } from "./OfflineBanner";
@@ -61,6 +62,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {user && !isAuthPage && <PracticeModePrompt role="customer" />}
       {user && !isAuthPage && <PracticeModeBanner role="customer" />}
       {!isAuthPage && <OfflineBanner />}
+      <HeaderDrawerProvider>
       <HeaderExtensionProvider>
       {showHeader && <BrandHeader />}
       <main
@@ -70,6 +72,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
       {showNav && <BottomNav />}
       </HeaderExtensionProvider>
+      </HeaderDrawerProvider>
       </ChatDrawerShell>
     </AuthGate>
     </GuestAccessProvider>
