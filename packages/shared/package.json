@@ -34,7 +34,10 @@
     "./help-support": "./src/HelpSupport.tsx",
     "./verify-number": "./src/VerifyNumber.tsx",
     "./home-artwork": "./src/HomeTemplateArtwork.tsx",
-    "./home-artwork.css": "./home-artwork.css"
+    "./home-artwork.css": "./home-artwork.css",
+    "./attention-receiver": "./src/AttentionReceiver.tsx",
+    "./use-attention-call": "./src/use-attention-call.ts",
+    "./follow-up-messages": "./src/FollowUpMessages.tsx"
   },
   "scripts": {
     "lint": "tsc --noEmit",

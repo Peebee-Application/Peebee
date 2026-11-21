@@ -1,6 +1,6 @@
 "use client";
 
-import { observeNotificationSnapshot, type HiveShortcutId, type HomeMenuSettings } from "@peebee/shared";
+import { type HiveShortcutId, type HomeMenuSettings } from "@peebee/shared";
 
 import type { OrderRow } from "@peebee/shared";
 import {
@@ -276,7 +276,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
         .getActiveOrder()
         .then((res) => {
           const order = res.activeOrder;
-          observeNotificationSnapshot("active-order", order ? [order.id + ":" + order.stage] : []);
+          // Stage updates are silent; arrival and deliberate follow-up calls own the beep.
           setActiveOrder(order);
         })
         .catch(() => setActiveOrder(null));
@@ -291,7 +291,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
   const isOnActiveOrderPage = activeOrder ? pathname === `/orders/${activeOrder.id}` : false;
   // The Ride home shows an active ride in its own live-trip card, so the chip would repeat it.
   const isRideHomeWithRide = pathname === "/ride" && !!activeOrder?.is_ride;
-  const showActiveDeliveryBadge = !overlay && !!activeOrder && !isOnActiveOrderPage && pathname !== "/" && !isRideHomeWithRide;
+  const showActiveDeliveryBadge = !overlay && !!activeOrder && !isOnActiveOrderPage && !pathname.startsWith("/orders/") && pathname !== "/" && !isRideHomeWithRide;
 
   useEffect(() => {
     const nav = navRef.current;

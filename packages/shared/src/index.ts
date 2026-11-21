@@ -333,7 +333,7 @@ export type {
   PharmacyStoreProfile,
 } from "./domain.js";
 
-export { NotificationSnapshots, installNotificationSound, observeNotificationSnapshot, playNotificationSound, resetNotificationSnapshots } from "./notification-sound.js";
+export { NotificationSnapshots, installNotificationSound, observeNotificationSnapshot, playNotificationSound, playNotificationSoundOnce, startAttentionTone, resetNotificationSnapshots } from "./notification-sound.js";
 export * from "./onboarding.js";
 
 export * from "./food-business.js";
@@ -371,3 +371,5 @@ export type { SupportAppId } from "./support-chat.js";
 export { AI_FEATURES, isAiFeature, aiFeatureLabel, parseKeyLines } from "./ai-features.js";
 export * from "./learn-creator.js";
 export type { AiFeatureId, AiFeatureStatus, AiFeaturesOverview } from "./ai-features.js";
+
+export * from "./attention.js";

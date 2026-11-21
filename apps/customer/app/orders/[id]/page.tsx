@@ -1,5 +1,7 @@
 "use client";
 
+import { DeliveryProgress } from "../../../components/DeliveryProgress";
+import { OrderFollowUp } from "../../../components/OrderFollowUp";
 import { RideJourney } from "../../../components/ride/RideJourney";
 import { RideStopsList } from "../../../components/ride/RideStopsList";
 import { useRegisterNavPrimaryAction } from "../../../lib/nav-primary-action";
@@ -619,10 +621,10 @@ export default function OrderDetailPage() {
 
   return (
     <div className="space-y-6 px-4 pt-4">
-      <PracticeRiderCall orderId={orderId} stage={order.stage} riderName={order.rider_name ?? null} isRide={!!order.is_ride} />
+      <OrderFollowUp key={order.id} order={order} itemCount={items.length} enabled={!order.is_ride && !navAwaitingPayment} />
       <header className="space-y-1">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="text-xl font-bold text-ink">{orderTitle(order)}</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-ink">{order.is_ride ? orderTitle(order) : "Your delivery"}</h1>
           {canCancel && (
             <div className="flex shrink-0 gap-2">
               <button
@@ -644,6 +646,7 @@ export default function OrderDetailPage() {
             </div>
           )}
         </div>
+        <p className="text-sm text-ink-500">Order #{order.id.slice(-6)} · {order.restaurant_name || order.store_name || orderTitle(order)}</p>
         <p className={`flex items-center gap-1.5 text-sm font-semibold ${order.stage === "Cancelled" ? "text-red-600" : "text-green"}`}>
           {stageLabel(order.stage, order.type, !!order.is_ride)}
           {staleLabel && (
@@ -713,7 +716,7 @@ export default function OrderDetailPage() {
         </section>
       )}
 
-      <OrderTimeline order={order} events={detail.events} statusLabel={stageLabel(order.stage, order.type)} />
+      {order.stage === "Cancelled" ? <OrderTimeline order={order} events={detail.events} statusLabel={stageLabel(order.stage, order.type)} /> : <DeliveryProgress stage={order.stage} />}
 
       {detail.relay && detail.relay.legs.length > 0 && <RelayTimeline relay={detail.relay} />}
 
@@ -732,6 +735,8 @@ export default function OrderDetailPage() {
           target={onMatatu && matatuLeg?.toLat != null && matatuLeg.toLng != null ? { lat: matatuLeg.toLat, lng: matatuLeg.toLng } : null}
         />
       )}
+
+      {order.stage === "Deliver" && order.rider_name && <section><h2 className="text-2xl font-extrabold">{order.rider_name.split(/\s+/)[0]} is on the way</h2><p className="mt-1 text-sm text-ink-500">Your rider is bringing your order.</p></section>}
 
       {order.rider_id && (
         <RiderSummaryCard

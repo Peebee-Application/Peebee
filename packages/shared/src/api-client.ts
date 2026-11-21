@@ -1,3 +1,4 @@
+import type { AttentionParty, AttentionSettings, AttentionSignal, FollowUpMessage, FollowUpMessagePreview } from "./attention.js";
 import type { PublicReceipt } from "./receipt.js";
 import type { AppUpdatesSettings, AppUpdatesUpdate } from "./app-updates.js";
 import { applyModuleAvailability, rememberModuleAvailability, type ModuleSettingsUpdate, type ModuleSettings } from "./modules.js";
@@ -432,6 +433,16 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
   }
 
   return {
+    getUnreadFollowUpMessage: () => request<{ message: FollowUpMessagePreview | null }>("/v1/attention/messages/unread"),
+    getFollowUpMessages: (orderId: string, recipientId: string) => request<{ messages: FollowUpMessage[] }>(`/v1/orders/${encodeURIComponent(orderId)}/follow-up/messages/${encodeURIComponent(recipientId)}`),
+    readFollowUpMessages: (orderId: string, recipientId: string) => request<{ ok: boolean }>(`/v1/orders/${encodeURIComponent(orderId)}/follow-up/messages/${encodeURIComponent(recipientId)}/read`, { method: "POST", body: "{}" }),
+    sendFollowUpMessage: (orderId: string, recipientId: string, body: string) => request<{ ok: boolean }>(`/v1/orders/${encodeURIComponent(orderId)}/follow-up/messages`, { method: "POST", body: JSON.stringify({ recipientId, body }) }),
+    getAttentionSettings: () => request<{ settings: AttentionSettings; available: boolean }>("/v1/attention/settings"),
+    getFollowUp: (orderId: string) => request<{ parties: AttentionParty[]; active: boolean }>(`/v1/orders/${encodeURIComponent(orderId)}/follow-up`),
+    startAttention: (orderId: string, input: { recipientId: string; reason: string; mode: "tap" | "hold" }) => request<{ id: string; settings: AttentionSettings }>(`/v1/orders/${encodeURIComponent(orderId)}/attention`, { method: "POST", body: JSON.stringify(input) }),
+    attentionAction: (id: string, action: "stop" | "heartbeat" | "acknowledge") => request<{ ok: boolean }>(`/v1/attention/${encodeURIComponent(id)}/${action}`, { method: "POST", body: "{}" }),
+    getIncomingAttention: () => request<{ signal: AttentionSignal | null; settings: AttentionSettings }>("/v1/attention/incoming"),
+    adminSetAttention: (settings: AttentionSettings) => request<{ settings: AttentionSettings }>("/v1/admin/order-attention", { method: "PUT", body: JSON.stringify(settings) }),
     baseUrl: root,
 
     async getHealth(): Promise<{ ok: boolean; service?: string }> {

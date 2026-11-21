@@ -1,5 +1,6 @@
 "use client";
 
+import { AttentionSettingsPanel } from "../../../components/AttentionSettingsPanel";
 import { hasPermission } from "@peebee/shared";
 import { NavModeSettingsPanel } from "../../../components/NavModeSettingsPanel";
 import { RideTrackingSettingsPanel } from "../../../components/RideTrackingSettingsPanel";
@@ -22,7 +23,7 @@ export default function NavigationModeSettingsPage() {
   return (
     <SettingsPageShell title="Navigation mode" loading={false}>
       {canManagePayments && <NavModeSettingsPanel />}
-      {canManageSettings && <RideTrackingSettingsPanel />}
+      {canManageSettings && <><RideTrackingSettingsPanel /><AttentionSettingsPanel /></>}
     </SettingsPageShell>
   );
 }

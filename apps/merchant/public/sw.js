@@ -261,7 +261,7 @@ self.addEventListener("push", (event) => {
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       const visible = clients.filter((client) => client.visibilityState === "visible");
       const target = visible.find((client) => client.focused) || visible[0];
-      target?.postMessage({ type: "peebee-notification" });
+      target?.postMessage({ type: "peebee-notification", tag: data.tag });
     }),
   ]));
 });

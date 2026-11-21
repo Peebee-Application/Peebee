@@ -18,7 +18,7 @@ async function getVapidKeys(): Promise<ApplicationServerKeys | null> {
 
 type PushSubscriptionRow = { id: string; endpoint: string; p256dh: string; auth: string };
 
-export type PushPayload = { title: string; body: string; url: string; tag: string };
+export type PushPayload = { ttlSeconds?: number; title: string; body: string; url: string; tag: string };
 
 /**
  * Sends one push notification. Returns false (never throws) on any failure —
@@ -33,7 +33,7 @@ async function sendOne(sub: PushSubscriptionRow, payload: PushPayload, keys: App
       payload: JSON.stringify(payload),
       target: { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
       adminContact: VAPID_CONTACT,
-      ttl: 60 * 60 * 24,
+      ttl: Math.max(1, Math.min(60 * 60 * 24, payload.ttlSeconds ?? 60 * 60 * 24)),
       urgency: "high",
     });
     const res = await fetch(endpoint, { method: "POST", headers, body });

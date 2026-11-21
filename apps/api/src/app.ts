@@ -1,3 +1,4 @@
+import { attentionRoutes } from "./orders/attention.js";
 import { Hono } from "hono";
 import { publicReceiptRoutes } from "./public/receipts.js";
 import { publicShareRoutes } from "./public/share-routes.js";
@@ -363,6 +364,7 @@ app.route("/v1", appUpdatesAdminRoutes);
 app.route("/v1", emailKeyRoutes);
 app.route("/v1", mobileNumberRoutes);
 app.route("/v1", callRoutes);
+app.route("/v1", attentionRoutes);
 app.route("/v1", supportChatRoutes);
 app.route("/v1", settingsRoutes);
 app.route("/v1", practiceRoutes);

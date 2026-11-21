@@ -1,5 +1,7 @@
 "use client";
 
+import { AttentionReceiver } from "@peebee/shared/attention-receiver";
+
 import { CallEngine, playNotificationSound, type CallEngineState } from "@peebee/shared";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { api } from "./api";
@@ -65,6 +67,7 @@ export function CallsProvider({ children }: { children: React.ReactNode }) {
   return (
     <CallsContext.Provider value={{ state, startCall, accept, decline, hangUp, remoteStream }}>
       {children}
+      <AttentionReceiver api={api} accountId={user?.id ?? null} />
     </CallsContext.Provider>
   );
 }

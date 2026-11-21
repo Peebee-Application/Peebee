@@ -1,4 +1,5 @@
 "use client";
+import { DEFAULT_ATTENTION_SETTINGS } from "@peebee/shared";
 
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -31,10 +32,10 @@ const destinationIcon = L.divIcon({
 
 function RecenterOnRider({ position, follow }: { position: [number, number]; follow: boolean }) {
   const map = useMap();
+  const [lat, lng] = position;
   useEffect(() => {
-    if (follow) map.setView(position, map.getZoom() < 15 ? 16 : map.getZoom());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [position[0], position[1], follow]);
+    if (follow) map.setView([lat, lng], map.getZoom() < 15 ? 16 : map.getZoom());
+  }, [lat, lng, follow, map]);
   return null;
 }
 
@@ -72,6 +73,7 @@ export function InAppNavigation({
   onClose: () => void;
   confirmButtonLabel?: string;
 }) {
+  const [arrivalRadius, setArrivalRadius] = useState(DEFAULT_ATTENTION_SETTINGS.arrivalRadiusMeters);
   const [tiles, setTiles] = useState<NavTiles | null>(null);
   const jawgStyle = useJawgStyle(tiles?.jawg?.adminLightStyle ?? "normal");
   const [position, setPosition] = useState<[number, number] | null>(null);
@@ -82,6 +84,7 @@ export function InAppNavigation({
   const destination: [number, number] = [destinationLat, destinationLng];
 
   useEffect(() => {
+    void api.getAttentionSettings().then((r) => setArrivalRadius(r.settings.arrivalRadiusMeters)).catch(() => {});
     api
       .getSettings()
       .then((res) => setTiles(resolveNavTiles(res.settings)))
@@ -90,6 +93,8 @@ export function InAppNavigation({
 
   useEffect(() => {
     if (!navigator.geolocation) {
+      // Report browser capability when installing the location subscription.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setError("Location isn't available on this device.");
       return;
     }
@@ -111,18 +116,17 @@ export function InAppNavigation({
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 },
     );
     return () => navigator.geolocation.clearWatch(watchId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, destinationLat, destinationLng]);
 
   const remainingMeters = position ? haversineMeters({ lat: position[0], lng: position[1] }, { lat: destinationLat, lng: destinationLng }) : null;
-  const arrived = remainingMeters != null && remainingMeters < 40;
+  const arrived = remainingMeters != null && remainingMeters < arrivalRadius;
 
   return (
     <div className="fixed inset-0 z-[90] flex flex-col bg-cream">
       <div className="relative z-20 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border-faint)] bg-cream p-3">
         <button
           type="button"
-          onClick={onClose}
+          onClick={arrived ? onArrived : onClose}
           className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-faint)] text-ink"
           aria-label="Close navigation"
         >

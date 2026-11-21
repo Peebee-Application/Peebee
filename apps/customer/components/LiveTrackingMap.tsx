@@ -79,8 +79,8 @@ function MovingRider({ lat, lng, live, icon = riderIcon }: { lat: number; lng: n
     frame = requestAnimationFrame(move);
     return () => cancelAnimationFrame(frame);
   }, [lat, lng, live]);
-  const initial = useRef<[number, number]>([lat, lng]);
-  return <Marker ref={marker} position={initial.current} icon={icon} />;
+  const [initial] = useState<[number, number]>(() => [lat, lng]);
+  return <Marker ref={marker} position={initial} icon={icon} />;
 }
 
 function elapsedLabel(sinceIso: string, nowMs: number): string {
@@ -148,7 +148,7 @@ export function LiveTrackingMap({
   const arrivalTime = arrivalSeconds != null && currentLeg ? new Date(currentLeg.updatedAt + arrivalSeconds * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
 
   if (!settings?.enabled) return null;
-  if (riderLat == null || riderLng == null) return <section className="home-card space-y-2"><h2 className="text-sm font-semibold">{vehicleLabel ? `Waiting for the ${vehicleLabel.toLowerCase()}’s location` : "Waiting for your rider’s location"}</h2>{!vehicleLabel && <p className="text-xs text-ink-500">Pickup arrival time will appear when your rider shares a fresh location.</p>}{settings.showEstimates && order.is_ride && tripMinutes && <p className="text-sm font-semibold">Approximately {tripMinutes} min from pickup to destination</p>}</section>;
+  if (riderLat == null || riderLng == null) return <section className="home-card space-y-2"><h2 className="text-sm font-semibold">{vehicleLabel ? `Waiting for the ${vehicleLabel.toLowerCase()}’s location` : "Waiting for your rider’s location"}</h2>{!vehicleLabel && <p className="text-xs text-ink-500">Pickup arrival time will appear when your rider shares a fresh location.</p>}{settings.showEstimates && !!order.is_ride && tripMinutes && <p className="text-sm font-semibold">Approximately {tripMinutes} min from pickup to destination</p>}</section>;
 
   const dispatchEvent = events.find((e) => e.stage === "Match");
   const enRouteEvent = events.find((e) => e.stage === "Deliver" || e.stage === "PickedUp");
@@ -168,7 +168,7 @@ export function LiveTrackingMap({
       </div>
 
       {!isRecent && <p role="status" className="text-xs text-ink-500">Location updates paused{order.rider_location_updated_at ? ` · last updated ${elapsedLabel(order.rider_location_updated_at, now)}` : ""}. Arrival estimates resume with a fresh location.</p>}
-      {settings.showEstimates && order.is_ride && <div className="grid grid-cols-2 gap-3 text-sm">
+      {settings.showEstimates && !!order.is_ride && <div className="grid grid-cols-2 gap-3 text-sm">
         <div><p className="text-xs text-ink-500">Pickup</p><p className="font-bold">{enRoute ? "Picked up" : currentMinutes && isRecent ? `~${currentMinutes} min away` : "Waiting for estimate"}</p></div>
         <div><p className="text-xs text-ink-500">Destination</p><p className="font-bold">{order.stage === "Arrived" ? "Arrived" : enRoute ? currentMinutes && isRecent ? `~${currentMinutes} min remaining` : "Waiting for estimate" : tripMinutes ? `~${tripMinutes} min ride` : "Waiting for estimate"}</p>{isRecent && arrivalTime && order.stage !== "Arrived" && <p className="text-xs text-ink-500">Est. arrival {arrivalTime}</p>}</div>
       </div>}

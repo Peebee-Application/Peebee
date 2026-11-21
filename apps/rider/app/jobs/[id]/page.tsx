@@ -6,6 +6,7 @@ import { Crown, Ellipsis, HandCoins, Image as ImageIcon, MapPin, MessageCircle, 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrivedAttention } from "../../../components/ArrivedAttention";
 import { Accordion } from "../../../components/Accordion";
 import { CodeQr } from "../../../components/CodeQr";
 import { CustomerAvatar } from "../../../components/CustomerAvatar";
@@ -554,6 +555,8 @@ export default function JobDetailPage() {
     </>
   );
 
+  if (order.stage === "Arrived" && !order.is_ride) return <ArrivedAttention order={order} itemCount={items.length} />;
+
   return (
     <div className="space-y-6 px-4 pb-24 pt-4">
       {scanningOutlet && <QrScanner title="Scan the merchant's QR" onScan={(raw) => { setScanningOutlet(false); setOutletCode(codeFromScan(raw)); }} onClose={() => setScanningOutlet(false)} />}
@@ -743,9 +746,10 @@ export default function JobDetailPage() {
               onConfirmDelivery={() =>
                 run(async () => {
                   await api.arrivedOrder(orderId);
-                  if (!order.is_ride) router.push("/active");
+                  // Remain on the job: arrival reveals the customer attention control.
                 })
               }
+              arrivalOnClose={!order.is_ride}
               confirmButtonLabel={order.is_ride ? t("job_confirm_pickup") : t("job_confirm_delivery")}
               confirmModalDescription={
                 order.is_ride

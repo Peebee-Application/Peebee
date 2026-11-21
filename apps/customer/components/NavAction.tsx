@@ -7,11 +7,12 @@ import type { NavPrimaryAction } from "../lib/nav-primary-action";
 
 /** One action surface for every page; the page retains validation, payment and retry ownership. */
 export function NavAction({ action }: { action: NavPrimaryAction }) {
+  const Icon = action.icon;
   return action.confirmation ? <NavConfirmation key={`${action.label}:${action.detail ?? ""}`} action={action} /> : <button
     type="button" className="customer-nav-action customer-nav-swap" onClick={action.onClick}
     disabled={action.disabled || action.busy} aria-busy={action.busy || undefined}
     aria-label={[action.label, action.sublabel, action.detail].filter(Boolean).join(", ")}>
-    {action.busy ? <Loader2 className="animate-spin" aria-hidden /> : action.tone === "cart" ? <ShoppingBag aria-hidden /> : null}
+    {action.busy ? <Loader2 className="animate-spin" aria-hidden /> : Icon ? <Icon aria-hidden /> : action.tone === "cart" ? <ShoppingBag aria-hidden /> : null}
     <span className="customer-nav-action-label"><strong>{action.label}</strong>{action.sublabel && <small>{action.sublabel}</small>}</span>
     {action.detail && <span className="customer-nav-action-detail">{action.detail}</span>}
   </button>;

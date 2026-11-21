@@ -3,7 +3,7 @@
 import { resetNotificationSnapshots } from "@peebee/shared";
 
 import type { AuthUser, Rider } from "@peebee/shared";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, TOKEN_KEY, USER_KEY } from "./api";
 import { unsubscribeFromPush } from "./push";
 
@@ -28,7 +28,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [ready, setReady] = useState(false);
   const [rider, setRider] = useState<Rider | null>(null);
-  const [riderReady, setRiderReady] = useState(false);
+  const [riderLoaded, setRiderReady] = useState(false);
+  const [riderForId, setRiderForId] = useState<string | null>(null);
+  const profileRequest = useRef(0);
+  // A stored user's profile is not ready until that user's request has finished.
+  const riderReady = riderLoaded && riderForId === (user?.id ?? null);
 
   useEffect(() => {
     try {
@@ -42,16 +46,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshRider = useCallback(async () => {
+    const request = ++profileRequest.current;
     if (!user || user.role !== "rider") {
-      setRider(null);
-      setRiderReady(true);
+      setRider(null); setRiderForId(user?.id ?? null); setRiderReady(true);
       return;
     }
     try {
       const res = await api.myRiderProfile();
-      setRider(res.rider);
+      if (request === profileRequest.current) setRider(res.rider);
     } finally {
-      setRiderReady(true);
+      if (request === profileRequest.current) { setRiderForId(user.id); setRiderReady(true); }
     }
   }, [user]);
 
