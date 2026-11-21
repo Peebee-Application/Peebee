@@ -2,14 +2,15 @@
 
 import { isPracticeMode, isProSubscriptionCurrent, type MerchantPayment, type OrderDetail } from "@peebee/shared";
 import { codeFromScan } from "@peebee/shared/qr";
-import { Crown, Ellipsis, HandCoins, Image as ImageIcon, MapPin, MessageCircle, Pencil, QrCode as QrIcon, ShoppingCart, X } from "lucide-react";
+import { Crown, Ellipsis, HandCoins, Image as ImageIcon, MessageCircle, Pencil, QrCode as QrIcon, ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrivedAttention } from "../../../components/ArrivedAttention";
 import { Accordion } from "../../../components/Accordion";
 import { CodeQr } from "../../../components/CodeQr";
-import { CustomerAvatar } from "../../../components/CustomerAvatar";
+import { GoodsOverview } from "../../../components/GoodsOverview";
+import { JobAction } from "../../../components/JobAction";
 import { CustomerPhotos, useOrderPhotos } from "../../../components/CustomerPhotos";
 import { DeliveryNavigation } from "../../../components/DeliveryNavigation";
 import { FeeProposalVoicePlayer } from "../../../components/FeeProposalVoicePlayer";
@@ -17,14 +18,12 @@ import { LugandaListPlayer } from "../../../components/LugandaListPlayer";
 import { RideMode } from "../../../components/RideMode";
 import { RelayCollectFromMatatu, RelayHandToMatatu } from "../../../components/RelayHandoff";
 import { QrScanner } from "../../../components/QrScanner";
-import { RideStopsPanel } from "../../../components/RideStopsPanel";
 import { VoiceNotePlayer } from "../../../components/VoiceNotePlayer";
 import { VoiceReasonRecorder } from "../../../components/VoiceReasonRecorder";
 import { api, errorMessage } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth-context";
 import { useTranslate } from "../../../lib/i18n";
-import { formatUgx, jobTitle, stageLabel } from "../../../lib/order-display";
-import { inRideMode } from "../../../lib/ride-mode";
+import { formatUgx } from "../../../lib/order-display";
 import { useLivePolling } from "../../../lib/use-live-polling";
 
 type PendingEdit = { originalName: string; substituteName: string; priceDelta: number };
@@ -58,8 +57,6 @@ export default function JobDetailPage() {
   const [merchantPayment, setMerchantPayment] = useState<MerchantPayment | null>(null);
   const [lugandaAudioEnabled, setLugandaAudioEnabled] = useState(false);
   const [lugandaAudioRequiresPro, setLugandaAudioRequiresPro] = useState(false);
-  // Admin → Ride tracking: ride mode is on unless switched off.
-  const [rideModeOn, setRideModeOn] = useState(true);
 
   useEffect(() => {
     api
@@ -67,7 +64,6 @@ export default function JobDetailPage() {
       .then(({ settings }) => {
         setLugandaAudioEnabled(settings.lugandaAudioEnabled);
         setLugandaAudioRequiresPro(settings.lugandaAudioRequiresPro);
-        setRideModeOn(settings.rideTracking?.rideMode ?? true);
       })
       .catch(() => {});
   }, []);
@@ -92,6 +88,7 @@ export default function JobDetailPage() {
     } catch (err) {
       const status = (err as { status?: number }).status;
       if (wasRelayFirstRider.current && (status === 403 || status === 404)) setHandedOff(true);
+      setError(errorMessage(err));
       throw err;
     }
   }, [orderId]);
@@ -134,18 +131,14 @@ export default function JobDetailPage() {
   }
 
   if (!detail) {
-    return <div className="p-4 text-sm text-ink-500">{t("job_loading")}</div>;
+    return <div className="job-screen">{error ? <div className="job-status"><h1 className="text-2xl font-bold">Could not load job</h1><p role="alert">{error}</p><button type="button" className="job-secondary" onClick={() => { setError(null); void load().catch(() => {}); }}>Try again</button></div> : <div aria-label="Loading job" role="status" className="space-y-8 motion-safe:animate-pulse"><div className="h-10 w-3/4 rounded-xl bg-[rgb(var(--surface-muted))]" /><div className="h-44 rounded-[28px] bg-[rgb(var(--surface-muted))]" /><div className="h-16 rounded-xl bg-[rgb(var(--surface-muted))]" /></div>}</div>;
   }
 
   const { order, items, substitutions, feeProposals } = detail;
-  // A ride that is moving gets one minimal screen: no sections, no navigation.
-  if (inRideMode(order, rideModeOn)) {
-    return <RideMode detail={detail} busy={busy} error={error} run={run} onCancel={cancelJob} onDone={() => router.push("/")} />;
+  // Passenger rides never pass through shopping or delivery presentation.
+  if (order.is_ride) {
+    return <RideMode key={order.id} detail={detail} busy={busy} error={error} run={run} onCancel={cancelJob} onDone={() => router.push("/")} />;
   }
-  const rideStops = detail.rideStops ?? [];
-  // Multi-stop: the next stop not yet left behind (null = straight to the destination).
-  const nextStop = rideStops.find((stop) => stop.status !== "done") ?? null;
-  const stopAfter = nextStop ? rideStops.find((stop) => stop.position > nextStop.position) ?? null : null;
   const canDeliver = ["Shop", "Substitute", "Approve"].includes(order.stage);
   const canPropose = order.type === "shopping" && (order.stage === "Shop" || order.stage === "Substitute");
   const canProposeFee = !["Create", "Settle"].includes(order.stage);
@@ -417,10 +410,7 @@ export default function JobDetailPage() {
               <span>{t("job_items_total")}</span>
               <span>{formatUgx((order.final_total ?? order.estimated_total ?? 0) - (order.delivery_fee ?? 0))}</span>
             </div>
-            <div className="flex justify-between text-ink-500">
-              <span>{t("job_delivery_fee")}</span>
-              <span>{formatUgx(order.delivery_fee ?? 0)}</span>
-            </div>
+
           </div>
           {pendingCount > 0 && (
             <div className="flex items-center justify-between gap-3 rounded-xl border border-gold bg-gold/10 p-3">
@@ -443,17 +433,12 @@ export default function JobDetailPage() {
             </div>
           )}
         </Accordion>
-      ) : (
-        <section className="home-card flex justify-between text-lg font-bold">
-          <span>{t("job_delivery_fee")}</span>
-          <span>{formatUgx(order.delivery_fee ?? order.final_total ?? order.estimated_total)}</span>
-        </section>
-      )}
+      ) : null}
 
       <CustomerPhotos photos={customerPhotos} itemName={(id) => items.find((it) => it.id === id)?.name} customerName={order.customer_name?.split(" ")[0]} />
 
       {canProposeFee && (
-        <Accordion title={t("job_delivery_fee")} icon={HandCoins} summary={formatUgx(order.delivery_fee ?? order.final_total ?? order.estimated_total)}>
+        <Accordion title="Adjust delivery fee" icon={HandCoins}>
           {latestFeeProposal && (
             <div className="rounded-xl bg-[rgb(var(--surface-muted))] p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
@@ -558,52 +543,16 @@ export default function JobDetailPage() {
   if (order.stage === "Arrived" && !order.is_ride) return <ArrivedAttention order={order} itemCount={items.length} />;
 
   return (
-    <div className="space-y-6 px-4 pb-24 pt-4">
+    <div className="job-screen">
       {scanningOutlet && <QrScanner title="Scan the merchant's QR" onScan={(raw) => { setScanningOutlet(false); setOutletCode(codeFromScan(raw)); }} onClose={() => setScanningOutlet(false)} />}
-      <header className="space-y-1">
-        <div className="flex items-center gap-3">
-          {order.customer_id && <CustomerAvatar customerId={order.customer_id} />}
-          <h1 className="text-2xl font-extrabold leading-tight text-ink">{jobTitle(order)}</h1>
-        </div>
-        <p className="text-lg font-bold text-green">{stageLabel(order.stage, order.type, !!order.is_ride)}</p>
-        {!!order.is_ride && order.passenger_name && (
-          <p className="text-sm text-ink">
-            Passenger: <span className="font-bold">{order.passenger_name}</span>
-            {order.passenger_phone && (
-              <>
-                {" · "}
-                <a href={`tel:${order.passenger_phone}`} className="font-bold text-gold underline">{order.passenger_phone}</a>
-              </>
-            )}
-          </p>
-        )}
-        {(order.store_name || order.restaurant_name || order.pickup_address || (order.type === "parcel" && order.pickup_area)) && (
-          <p className="flex items-center gap-1.5 text-sm text-ink-500">
-            <MapPin className="h-3.5 w-3.5 text-ink-500" strokeWidth={2} aria-hidden />
-            <span className="font-semibold text-ink">
-              {order.type === "parcel"
-                ? t("job_pickup", { area: order.pickup_area ?? "" })
-                : `Pickup: ${order.store_name ?? order.restaurant_name ?? order.pickup_address}`}
-            </span>
-            {(order.store_name || order.restaurant_name) && order.pickup_address ? ` · ${order.pickup_address}` : ""}
-          </p>
-        )}
-        {order.destination_area && (
-          <p className="flex items-center gap-1.5 text-sm text-ink-500">
-            <MapPin className="h-3.5 w-3.5 text-ink-500" strokeWidth={2} aria-hidden />
-            {order.type === "parcel" ? t("job_deliver_to") : ""}
-            {order.destination_area}
-            {order.destination_address ? ` · ${order.destination_address}` : ""}
-          </p>
-        )}
-      </header>
+      <GoodsOverview detail={detail} />
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-base text-red-700">{error}</p>}
 
 
       {canPropose && listBlock}
 
-      <section className="home-card space-y-3">
+      <section className="job-workflow space-y-6">
         {["Create", "Match", "Fund"].includes(order.stage) && (
           <p className="text-base text-ink-500">{t("job_waiting_on_customer_fund")}</p>
         )}
@@ -655,9 +604,9 @@ export default function JobDetailPage() {
                     <p className="mt-1 font-mono text-sm font-bold text-gold">{order.restaurant_outlet_code ?? "Outlet code unavailable"}</p>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
-                    <input value={outletCode} onChange={(e) => setOutletCode(e.target.value)} placeholder="Merchant outlet code" autoCapitalize="characters" className="min-h-11 min-w-0 flex-1 rounded-xl border border-[var(--border-faint)] bg-transparent px-3 text-sm" />
-                    <button type="button" onClick={() => setScanningOutlet(true)} aria-label="Scan the merchant's QR" className="flex min-h-11 w-11 items-center justify-center rounded-xl border border-gold text-gold"><QrIcon className="h-5 w-5" aria-hidden /></button>
+                  <div className="field-box flex gap-2 rounded-2xl border border-[var(--border-faint)]">
+                    <input value={outletCode} onChange={(e) => setOutletCode(e.target.value)} placeholder="Merchant outlet code" autoCapitalize="characters" className="min-h-14 min-w-0 flex-1 rounded-2xl border-0 px-3 text-base" />
+                    <button type="button" onClick={() => setScanningOutlet(true)} aria-label="Scan the merchant's QR" className="flex min-h-14 w-14 items-center justify-center rounded-2xl text-ink"><QrIcon className="h-5 w-5" aria-hidden /></button>
                   </div>
                 )}
                 <input value={merchantAmount} onChange={(e) => setMerchantAmount(e.target.value.replace(/[^\d]/g, ""))} placeholder="Exact receipt amount (UGX)" inputMode="numeric" className="min-h-11 w-full rounded-xl border border-[var(--border-faint)] bg-transparent px-3 text-sm" />
@@ -689,28 +638,14 @@ export default function JobDetailPage() {
         )}
 
         {canDeliver && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              run(() => api.deliverOrder(orderId, Number(etaMinutes) || undefined));
-            }}
-            className="flex items-center gap-2 border-t border-[var(--border-faint)] pt-3"
-          >
-            <input
-              value={etaMinutes}
-              onChange={(e) => setEtaMinutes(e.target.value.replace(/[^\d]/g, ""))}
-              inputMode="numeric"
-              placeholder={t("job_eta_placeholder")}
-              className="w-24 rounded-xl border border-[var(--border-faint)] px-3 py-2.5 text-sm outline-none focus:border-gold"
-            />
-            <button
-              type="submit"
-              disabled={busy}
-              className="min-h-14 flex-1 rounded-full bg-gold px-4 text-lg font-bold text-ink-gold disabled:opacity-60"
-            >
-              {t("job_start_delivery")}
-            </button>
-          </form>
+          <>
+            <label className="block space-y-3 text-base font-semibold" htmlFor="job-eta">Delivery ETA (minutes)
+              <input id="job-eta" value={etaMinutes} onChange={(e) => setEtaMinutes(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric" className="block min-h-14 w-full rounded-2xl border border-[var(--border-faint)] text-xl" />
+            </label>
+            <JobAction><button type="button" disabled={busy || pendingCount > 0 || substitutions.some((sub) => sub.status === "pending")} onClick={() => void run(() => api.deliverOrder(orderId, Number(etaMinutes) || undefined))} className="job-primary">
+              {busy ? "Processing…" : order.restaurant_id ? "Confirm food pickup" : order.store_id ? "Confirm item pickup" : order.type === "parcel" ? "Confirm parcel pickup" : "Start delivery"}
+            </button></JobAction>
+          </>
         )}
 
         {order.stage === "Deliver" && relayFirstRider && relayLeg1 && (
@@ -734,14 +669,12 @@ export default function JobDetailPage() {
         {order.stage === "Deliver" && !relayFirstRider && !relayAwaitingCollect && (
           <>
             <p className="text-base text-ink-500">
-              {order.is_ride
-                ? t("job_heading_pickup_passenger", { eta: order.eta_minutes ? ` — ~${order.eta_minutes} min` : "" })
-                : t("job_on_the_way", { eta: order.eta_minutes ? ` — ~${order.eta_minutes} min` : "" })}
+              {t("job_on_the_way", { eta: order.eta_minutes ? ` — ~${order.eta_minutes} min` : "" })}
             </p>
             <DeliveryNavigation
               orderId={orderId}
-              destinationLat={order.is_ride ? order.pickup_lat : order.destination_lat}
-              destinationLng={order.is_ride ? order.pickup_lng : order.destination_lng}
+              destinationLat={order.destination_lat}
+              destinationLng={order.destination_lng}
               busy={busy}
               onConfirmDelivery={() =>
                 run(async () => {
@@ -749,87 +682,9 @@ export default function JobDetailPage() {
                   // Remain on the job: arrival reveals the customer attention control.
                 })
               }
-              arrivalOnClose={!order.is_ride}
-              confirmButtonLabel={order.is_ride ? t("job_confirm_pickup") : t("job_confirm_delivery")}
-              confirmModalDescription={
-                order.is_ride
-                  ? t("job_confirm_pickup_desc")
-                  : t("job_confirm_delivery_desc")
-              }
-            />
-          </>
-        )}
-
-        {order.stage === "Arrived" && order.is_ride && (
-          <>
-            <p className="text-base text-ink-500">{t("job_passenger_notified")}</p>
-            <button
-              disabled={busy}
-              onClick={() =>
-                run(async () => {
-                  await api.pickedUpOrder(orderId);
-                })
-              }
-              className="min-h-14 w-full rounded-full bg-gold px-4 text-lg font-bold text-ink-gold disabled:opacity-60"
-            >
-              {t("job_confirm_passenger_picked_up")}
-            </button>
-          </>
-        )}
-
-        {order.stage === "Arrived" && !order.is_ride && (
-          <p className="text-base text-ink-500">{t("job_customer_notified_handover")}</p>
-        )}
-
-        {order.stage === "PickedUp" && nextStop?.status === "pending" && (
-          <>
-            <p className="text-base text-ink-500">
-              {t("stop_heading", { n: nextStop.position })}
-              {nextStop.area ? ` · ${nextStop.area}` : ""}
-            </p>
-            <DeliveryNavigation
-              key={`stop-${nextStop.position}`}
-              orderId={orderId}
-              destinationLat={nextStop.lat}
-              destinationLng={nextStop.lng}
-              busy={busy}
-              onConfirmDelivery={() => run(() => api.arrivedAtStop(orderId, nextStop.position))}
-              confirmButtonLabel={t("stop_arrived_btn", { n: nextStop.position })}
-              confirmModalDescription={t("stop_arrived_desc")}
-            />
-          </>
-        )}
-
-        {order.stage === "PickedUp" && nextStop?.status === "arrived" && (
-          <>
-            <p className="text-sm font-semibold text-ink" role="status">
-              {t("stop_waiting", { n: nextStop.position })}
-              {nextStop.area ? ` · ${nextStop.area}` : ""}
-            </p>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => run(() => api.continueFromStop(orderId, nextStop.position))}
-              className="min-h-14 w-full rounded-full bg-gold px-4 text-lg font-bold text-ink-gold disabled:opacity-60"
-            >
-              {t("stop_continue_btn", {
-                next: stopAfter ? t("stop_label", { n: stopAfter.position }) : t("stop_the_destination"),
-              })}
-            </button>
-          </>
-        )}
-
-        {order.stage === "PickedUp" && !nextStop && (
-          <>
-            <p className="text-base text-ink-500">{t("job_heading_destination")}</p>
-            <DeliveryNavigation
-              orderId={orderId}
-              destinationLat={order.destination_lat}
-              destinationLng={order.destination_lng}
-              busy={busy}
-              onConfirmDelivery={() => router.push("/active")}
-              confirmButtonLabel={t("job_trip_complete")}
-              confirmModalDescription={t("job_trip_complete_desc")}
+              arrivalOnClose
+              confirmButtonLabel={t("job_confirm_delivery")}
+              confirmModalDescription={t("job_confirm_delivery_desc")}
             />
           </>
         )}
@@ -837,13 +692,13 @@ export default function JobDetailPage() {
         {order.stage === "Handover" && (
           <>
             <p className="text-base text-ink-500">{t("job_handover_confirmed")}</p>
-            <button
+            <JobAction><button
               disabled={busy}
               onClick={() => run(() => api.settleOrder(orderId))}
               className="min-h-14 w-full rounded-full bg-gold px-4 text-lg font-bold text-ink-gold disabled:opacity-60"
             >
               {t("job_settle_get_paid")}
-            </button>
+            </button></JobAction>
           </>
         )}
 
@@ -882,7 +737,6 @@ export default function JobDetailPage() {
 
       {!canPropose && listBlock}
 
-      {rideStops.length > 0 && <RideStopsPanel order={order} stops={rideStops} />}
 
       {(detail.bundleStops?.length ?? 0) > 1 && (
         <section className="rounded-2xl border border-gold/25 bg-gold/10 p-4" aria-label="Combined delivery pickups">

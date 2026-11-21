@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
+import { useJobActionActive } from "./JobAction";
 import { api } from "../lib/api";
 import { useTranslate, type TranslationKey } from "../lib/i18n";
 import { useLivePolling } from "../lib/use-live-polling";
@@ -23,6 +24,7 @@ const UNREAD_POLL_MS = 15000;
 
 export function BottomNav() {
   const pathname = usePathname();
+  const jobActionActive = useJobActionActive();
   const [hasUnread, setHasUnread] = useState(false);
   const [showSavingsTab, setShowSavingsTab] = useState(false);
   const t = useTranslate();
@@ -60,7 +62,7 @@ export function BottomNav() {
       .catch(() => {});
   }, [isHidden]);
 
-  if (isHidden) {
+  if (isHidden || jobActionActive) {
     return null;
   }
 

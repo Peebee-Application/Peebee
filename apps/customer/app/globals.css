@@ -1199,7 +1199,12 @@ select:focus {
 .customer-nav-action-detail { flex-shrink: 0; font-size: 12px; font-weight: 800; }
 .customer-nav-action:disabled, .customer-nav-confirm:disabled { opacity: .5; cursor: not-allowed; }
 .customer-nav-confirm { touch-action: pan-y; user-select: none; padding-left: 64px; }
-.customer-nav-confirm-label { width: 100%; text-align: center; padding-right: 4px; }
+.customer-nav-confirm-label { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 8px 0 64px; text-align: center; }
+.customer-nav-confirm-progress { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 62px 0 16px; white-space: nowrap; text-align: left; }
+.customer-nav-confirm[data-processing] { opacity: 1; cursor: wait; }
+.customer-nav-confirm[data-processing] .customer-nav-confirm-thumb { cursor: wait; }
+.customer-nav-confirm-thumb .customer-nav-confirm-spinner { position: absolute; inset: 3px; width: 42px; height: 42px; stroke-width: 1.5; }
+.customer-nav-confirm-thumb > svg:first-child { width: 24px; height: 24px; }
 .customer-nav-confirm-thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: 54px; display: flex; align-items: center; justify-content: center; border-radius: 17px; background: rgb(250 248 239); color: rgb(var(--color-ink-gold)); cursor: grab; }
 .customer-nav-confirm-thumb svg { height: 30px; width: 30px; }
 .customer-nav-shell button:focus-visible, .customer-nav-shell a:focus-visible { outline: 2px solid rgb(250 248 239); outline-offset: -3px; }

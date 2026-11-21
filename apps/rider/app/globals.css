@@ -413,3 +413,45 @@ select {
 .attention-progress::-webkit-progress-bar { background: rgb(var(--surface-muted)); border-radius: 999px; }
 .attention-progress::-webkit-progress-value { background: rgb(var(--color-gold)); border-radius: 999px; }
 .attention-progress::-moz-progress-bar { background: rgb(var(--color-gold)); border-radius: 999px; }
+
+/* Job content only: the shared brand header and default navigation stay intact. */
+.job-screen { display: flex; flex-direction: column; gap: 32px; padding: 32px 20px 24px; font-family: var(--font-rider-job), Roboto, sans-serif; }
+.job-heading h1 { font-size: 30px; font-weight: 800; line-height: 1.18; overflow-wrap: anywhere; }
+.job-heading p { margin-top: 10px; font-size: 17px; color: rgb(var(--color-ink-500)); }
+.job-glass { border: 1px solid var(--border-faint-on-dark); border-radius: 28px; background: linear-gradient(135deg, rgb(255 255 255 / .045), transparent 65%), rgb(var(--color-black-700)); color: white; box-shadow: inset 0 1px 0 rgb(255 255 255 / .04), 0 8px 24px rgb(var(--color-black) / .08); backdrop-filter: blur(12px); }
+.job-destination { display: flex; align-items: center; gap: 20px; padding: 28px 24px; min-height: 164px; }
+.job-icon { display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 50%; background: rgb(var(--surface-muted)); color: rgb(var(--color-ink-500)); }
+.job-icon svg { width: 28px; height: 28px; }
+.job-destination .job-icon { background: transparent; color: rgb(var(--color-gold)); }
+.job-destination .job-icon svg { width: 40px; height: 40px; }
+.job-eyebrow { color: rgb(var(--color-gold)); font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
+.job-destination h2 { font-size: 28px; font-weight: 750; line-height: 1.2; overflow-wrap: anywhere; }
+.job-address { font-size: 17px; color: rgb(255 255 255 / .7); margin-top: 10px; overflow-wrap: anywhere; }
+.job-later { font-size: 17px; color: rgb(var(--color-ink-500)); }
+.job-contact-section { display: flex; flex-direction: column; gap: 24px; }
+.job-contact { display: flex; align-items: center; gap: 16px; min-height: 64px; }
+.job-contact h2 { font-size: 22px; font-weight: 750; overflow-wrap: anywhere; }
+.job-contact p { font-size: 17px; color: rgb(var(--color-ink-500)); text-transform: capitalize; }
+.job-contact-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.job-secondary { display: flex; min-height: 56px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--border-faint); border-radius: 999px; background: rgb(var(--surface-card)); color: rgb(var(--color-ink)); padding: 12px; font-size: 17px; font-weight: 650; text-align: center; line-height: 1.25; }
+.job-secondary svg { width: 24px; height: 24px; flex-shrink: 0; }
+.job-fare { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 24px; }
+.job-fare span { font-size: 17px; color: rgb(255 255 255 / .7); }
+.job-fare strong { font-size: 23px; font-weight: 750; font-variant-numeric: tabular-nums; margin-left: auto; }
+.job-primary, .job-action-content > button { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 62px; border-radius: 18px; padding: 12px 16px; background: rgb(var(--color-gold)); color: rgb(var(--color-ink-gold)); font-family: var(--font-rider-job), Roboto, sans-serif; font-size: 18px; font-weight: 750; line-height: 1.2; text-align: center; box-shadow: none; }
+.job-primary svg { width: 26px; height: 26px; flex-shrink: 0; }
+.job-primary:disabled, .job-secondary:disabled, .job-action-content > button:disabled { opacity: .5; cursor: not-allowed; }
+.job-status { display: flex; flex-direction: column; align-items: center; gap: 24px; padding-block: 24px; }
+.job-status h2 { font-size: 24px; font-weight: 750; }
+.job-workflow:empty { display: none; }
+.job-screen .home-card { padding: 24px; }
+.job-screen .home-card > button { min-height: 56px; }
+.job-screen .home-card :is(input, select) { min-height: 56px; font-size: 18px; }
+.job-screen .home-card li { padding-block: 12px; }
+.job-screen :is(button, a):focus-visible { outline: 2px solid rgb(var(--color-gold)); outline-offset: 4px; }
+@media (max-width: 374px) {
+  .job-destination { padding: 24px 20px; gap: 12px; }
+  .job-contact-actions { gap: 8px; }
+  .job-secondary { padding-inline: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .job-screen *, .job-action-content * { scroll-behavior: auto; } }
