@@ -4,6 +4,7 @@ import { DeliveryProgress } from "../../../components/DeliveryProgress";
 import { OrderFollowUp } from "../../../components/OrderFollowUp";
 import { RideJourney } from "../../../components/ride/RideJourney";
 import { RideStopsList } from "../../../components/ride/RideStopsList";
+import { useRegisterOrderNavContext } from "../../../lib/order-nav-context";
 import { useRegisterNavPrimaryAction } from "../../../lib/nav-primary-action";
 import { useChatDrawer } from "../../../lib/chat-drawer";
 import { ApiError, type CheckoutBreakdown, type OrderDetail, type OrderRating, type OrderRelay } from "@peebee/shared";
@@ -336,6 +337,7 @@ export default function OrderDetailPage() {
   const orderId = params.id;
   const router = useRouter();
   const [detail, setDetail] = useState<OrderDetail | null>(null);
+  useRegisterOrderNavContext(detail?.order);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cancelConfirm, setCancelConfirm] = useState<"cancel" | "delete" | null>(null);
@@ -609,6 +611,7 @@ export default function OrderDetailPage() {
           busy={busy}
           error={error}
           canCancel={canCancel}
+          paymentRequired={navAwaitingPayment}
           onCancel={() => setCancelConfirm("cancel")}
           onChanged={() => void load().catch(() => {})}
           onRated={handleRated}

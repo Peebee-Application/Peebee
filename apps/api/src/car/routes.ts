@@ -832,10 +832,16 @@ carRoutes.get("/car/bookings/:orderId/info", async (c) => {
   const orderId = c.req.param("orderId") as string;
   const user = c.get("user");
   const withSchedule = await hasColumn("car_bookings", "scheduled_for");
-  const row = (await db.execute({ sql: `SELECT customer_id, ${withSchedule ? "scheduled_for" : "NULL AS scheduled_for"} FROM car_bookings WHERE order_id = ?`, args: [orderId] })).rows[0] as Row | undefined;
+  const row = (await db.execute({ sql: `SELECT customer_id, category_id, ${withSchedule ? "scheduled_for" : "NULL AS scheduled_for"} FROM car_bookings WHERE order_id = ?`, args: [orderId] })).rows[0] as Row | undefined;
   if (!row || row.customer_id !== user.sub) return c.json({ error: "not_found" }, 404);
   const at = row.scheduled_for ? new Date(`${String(row.scheduled_for).replace(" ", "T")}Z`).toISOString() : null;
-  return c.json({ car: true, scheduledFor: at });
+  const withGroup = await hasColumn("vehicle_categories", "service_group");
+  const category = (await db.execute({
+    sql: `SELECT name, kind, ${withGroup ? "service_group" : "'standard' AS service_group"} FROM vehicle_categories WHERE id = ?`,
+    args: [String(row.category_id)],
+  })).rows[0] as Row | undefined;
+  return c.json({ car: true, scheduledFor: at, categoryName: category ? String(category.name) : undefined,
+    vehicleKind: category?.kind ?? null, serviceGroup: category?.service_group ?? "standard" });
 });
 
 // ---- Vehicle photos ----------------------------------------------------------

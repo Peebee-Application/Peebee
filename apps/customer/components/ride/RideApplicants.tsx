@@ -18,7 +18,7 @@ const initials = (name: string) => name.split(" ").map((p) => p[0]).slice(0, 2).
  * how far, how good, what they ask) with a button to choose them. New riders appear as they apply; there is no
  * share-trip here, because there is no trip yet. Choosing one goes straight to payment.
  */
-export function RideApplicants({ orderId, kind, onSelected }: { orderId: string; kind: string; onSelected: () => void }) {
+export function RideApplicants({ orderId, kind, onSelected, hideEmpty = false, onCountChange }: { orderId: string; kind: string; onSelected: () => void; hideEmpty?: boolean; onCountChange?: (count: number) => void }) {
   const t = useTranslate();
   const router = useRouter();
   const { startCall } = useCalls();
@@ -29,8 +29,8 @@ export function RideApplicants({ orderId, kind, onSelected }: { orderId: string;
   const selecting = useRef(false);
 
   const load = useCallback(() => {
-    api.getApplicants(orderId).then((res) => setApplicants(res.applicants)).catch(() => {});
-  }, [orderId]);
+    api.getApplicants(orderId).then((res) => { setApplicants(res.applicants); onCountChange?.(res.applicants.length); }).catch((err) => setError(errorMessage(err)));
+  }, [orderId, onCountChange]);
   useLivePolling(load, 4000, [load]);
 
   async function choose(riderId: string) {
@@ -56,7 +56,7 @@ export function RideApplicants({ orderId, kind, onSelected }: { orderId: string;
   const btn = "ride-trip-card__btn flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-bold";
   return (
     <section aria-label={`${kind} riders who can take your ride`} aria-live="polite" className="space-y-3">
-      {applicants.length === 0 && <p className="px-1 text-sm text-ink-500">{t("order_waiting_riders")}</p>}
+      {!hideEmpty && applicants.length === 0 && <p className="px-1 text-sm text-ink-500">{t("order_waiting_riders")}</p>}
       {applicants.length > 0 && <p className="px-1 text-sm font-semibold text-ink-500">{t("order_choose_rider")}</p>}
       {applicants.map((a, index) => {
         const first = a.riderName.split(" ")[0] || a.riderName;

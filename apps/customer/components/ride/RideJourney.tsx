@@ -1,9 +1,10 @@
 "use client";
 
 import type { OrderDetail, OrderRating } from "@peebee/shared";
-import { Bike, Car, CheckCircle2, MapPin, Navigation, Wallet } from "lucide-react";
+import { Ambulance, Bike, Car, CheckCircle2, Crown, MapPin, Navigation, Route, Truck, Wallet } from "lucide-react";
 import Link from "next/link";
 import { RideApplicants } from "./RideApplicants";
+import { RideSearch } from "./RideSearch";
 import { LiveTrackingMap } from "../LiveTrackingMap";
 import { RateDeliveryCard } from "../RateDeliveryCard";
 import { SwipeToConfirm } from "../SwipeToConfirm";
@@ -43,6 +44,7 @@ export function RideJourney({
   onChanged,
   onRated,
   canCancel,
+  paymentRequired = false,
 }: {
   detail: OrderDetail;
   busy: boolean;
@@ -52,13 +54,15 @@ export function RideJourney({
   onChanged: () => void;
   onRated: (rating: OrderRating) => void;
   canCancel: boolean;
+  paymentRequired?: boolean;
 }) {
   const { order } = detail;
   const trip = useRideTripDetails(order);
   const moment = rideMoment(order.stage, !!order.rider_id);
-  const kind = trip.car?.categoryName || trip.car?.vehicleName ? "car" : "boda";
-  const Kind = kind === "car" ? "Car" : "Boda";
-  const KindIcon = kind === "car" ? Car : Bike;
+  const group = trip.car?.serviceGroup;
+  const moving = trip.car?.vehicleKind === "cargo";
+  const Kind = group === "ambulance" ? "Ambulance" : group === "luxury" ? "Luxury ride" : moving ? "moving vehicle" : trip.car ? "Car" : trip.vehicleKnown ? "Boda" : "ride";
+  const KindIcon = group === "ambulance" ? Ambulance : group === "luxury" ? Crown : moving ? Truck : trip.car ? Car : trip.vehicleKnown ? Bike : Route;
   const firstName = (order.rider_name ?? trip.car?.driverName ?? "").split(" ")[0] || null;
   const destination = order.destination_area || order.destination_address?.split(",")[0] || "your destination";
 
@@ -95,6 +99,14 @@ export function RideJourney({
   }
 
   const at = STEPS.indexOf(moment);
+
+  if (order.stage === "Cancelled") return <div className="ride-search"><header className="ride-search-heading"><h1>Ride cancelled</h1></header><Link href="/ride" className="flex min-h-14 items-center justify-center rounded-full bg-gold px-5 text-lg font-bold text-ink-gold">Back to rides</Link></div>;
+
+  if (moment === "finding" && !order.rider_id && !scheduled) return <RideSearch
+    key={order.id} detail={detail} label={Kind} icon={KindIcon} busy={busy} error={error}
+    canCancel={canCancel} paymentRequired={paymentRequired} onCancel={onCancel} onChanged={onChanged}
+  />;
+
 
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 pb-6 pt-5">
