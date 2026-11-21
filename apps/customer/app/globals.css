@@ -1287,6 +1287,14 @@ select:focus {
   }
   :root:not([data-theme="light"]) .customer-header-toggle { color: #111; border-color: rgb(0 0 0 / .18); }
   :root:not([data-theme="light"]) .customer-header-toggle:hover { background: rgb(0 0 0 / .08); }
+  :root:not([data-theme="light"]) .customer-header.is-wallet-joined,
+  :root:not([data-theme="light"]) .customer-header.is-wallet-joined.is-menu-open { border-bottom: 0; border-radius: 0 0 32px 32px; overflow: hidden; }
+  :root:not([data-theme="light"]) .wallet-root .w-hero,
+  :root:not([data-theme="light"]) .wallet-root .w-band { background: rgb(var(--color-gold)); color: #111; }
+  :root:not([data-theme="light"]) .wallet-root .w-dim { color: rgb(17 17 17 / 0.62); }
+  :root:not([data-theme="light"]) .wallet-root .w-cur { color: rgb(17 17 17 / 0.5); }
+  :root:not([data-theme="light"]) .wallet-root .w-pill-ghost { background: rgb(0 0 0 / 0.08); border-color: rgb(0 0 0 / 0.16); color: #111; }
+  :root:not([data-theme="light"]) .wallet-root .w-pill-send { background: rgb(var(--color-ink)); color: rgb(var(--color-cream)); box-shadow: none; }
 }
 
 
@@ -1298,6 +1306,34 @@ select:focus {
    screen it pushed down. */
 .customer-profile-reveal.customer-menu-reveal { background: rgb(var(--color-cream)); }
 .customer-header.is-menu-open, :root[data-theme="dark"] .customer-header.is-menu-open { border-bottom-color: rgb(var(--color-cream)); }
+/* Wallet: the header bar and the hero are one ink surface. The hero renders
+   inside the header, so opening the menu carries it down with the bar. */
+.customer-header.is-wallet-joined,
+:root[data-theme="dark"] .customer-header.is-wallet-joined,
+:root[data-theme="dark"] .customer-header.is-wallet-joined.is-menu-open {
+  border-bottom: 0;
+  border-radius: 0 0 32px 32px;
+  overflow: hidden;
+}
+.customer-header.is-wallet-joined .customer-profile-reveal.customer-menu-reveal:not(.is-expanded) { background: transparent; }
+.customer-header-extension:empty { display: none; }
+:root[data-theme="dark"] .wallet-root .w-hero,
+:root[data-theme="dark"] .wallet-root .w-band {
+  background: rgb(var(--color-gold));
+  color: #111;
+}
+:root[data-theme="dark"] .wallet-root .w-dim { color: rgb(17 17 17 / 0.62); }
+:root[data-theme="dark"] .wallet-root .w-cur { color: rgb(17 17 17 / 0.5); }
+:root[data-theme="dark"] .wallet-root .w-pill-ghost {
+  background: rgb(0 0 0 / 0.08);
+  border-color: rgb(0 0 0 / 0.16);
+  color: #111;
+}
+:root[data-theme="dark"] .wallet-root .w-pill-send {
+  background: rgb(var(--color-ink));
+  color: rgb(var(--color-cream));
+  box-shadow: none;
+}
 /* Keep the screen where the push puts it: no scroll anchoring (which would
    scroll content back up under the menu) and no scrolling while open. */
 :root.customer-menu-open { overflow-anchor: none; overflow: hidden; }

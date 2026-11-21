@@ -905,6 +905,17 @@ export type DeliverySettings = {
   walletRequestNotify: boolean;
   walletRequestPerHour: number;
   walletIdempotencyHours: number;
+  /** Money-moved alerts. SMS defaults off. */
+  walletAlertEmailSent: boolean;
+  walletAlertEmailReceived: boolean;
+  walletAlertSmsSent: boolean;
+  walletAlertSmsReceived: boolean;
+  walletAlertChatSent: boolean;
+  walletAlertChatReceived: boolean;
+  walletAlertNotificationsSent: boolean;
+  walletAlertNotificationsReceived: boolean;
+  walletAlertPushSent: boolean;
+  walletAlertPushReceived: boolean;
   /** How long any voice recording may run before it auto-stops — a shopping
    * list, an order note, a fee-proposal reason, or a chat voice message. */
   voiceNoteMaxSeconds: number;
@@ -2309,6 +2320,18 @@ export type WalletAccountFeatures = {
   requestContactsOnly: boolean;
   requestAllowCancel: boolean;
   requestNotify: boolean;
+};
+
+export type WalletAlert = {
+  id: string;
+  event: "sent" | "received";
+  title: string;
+  body: string;
+  amount: number;
+  counterpartName: string;
+  accountName: string;
+  reference: string;
+  createdAt: string;
 };
 
 export type WalletContact = {

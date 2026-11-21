@@ -3,6 +3,7 @@ import { db, type DbStatement } from "../db/client.js";
 import { postLedgerTransaction } from "../ledger/service.js";
 import { newId } from "../lib/ids.js";
 import { getPlatformEnvironment, type PlatformEnvironment } from "../lib/settings.js";
+import { scheduleMoneyAlert } from "../wallet/alerts.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
 import { activeSubscription } from "./access.js";
 import { addDays, ChannelsError, requireMoney, sqlTime, type Row } from "./common.js";
@@ -205,6 +206,7 @@ export async function subscribe(userId: string, tierId: string): Promise<Row> {
       args: [subId, channel.id, tierId, userId, price, Number(tier.period_days), periodEnd, env],
     });
     await creditCreator({ creatorId: channel.owner_id, kind: "membership", grossUgx: price, feePercent: feePercentFor(cfg, "membership"), payerId: userId, channelId: channel.id, sourceId: `sub:${subId}:0`, note: `Membership: ${tier.name}`, environment: env });
+    scheduleMoneyAlert({ transferId: `sub:${subId}:0`, amount: price, fromUserId: userId, toUserId: channel.owner_id, context: `Membership: ${channel.display_name}` });
   } catch (err) {
     await refundWallet(userId, price, "Membership could not be completed", env);
     await db.execute({ sql: "DELETE FROM channel_subscriptions WHERE id = ?", args: [subId] }).catch(() => {});
@@ -265,6 +267,7 @@ export async function renewSubscriptions(): Promise<{ renewed: number; expired: 
       continue;
     }
     await creditCreator({ creatorId: channel.owner_id, kind: "membership", grossUgx: price, feePercent: feePercentFor(cfg, "membership"), payerId: String(s.user_id), channelId: channel.id, sourceId: `sub:${id}:${renewals}`, note: "Membership renewal", environment: env });
+    scheduleMoneyAlert({ transferId: `sub:${id}:${renewals}`, amount: price, fromUserId: String(s.user_id), toUserId: channel.owner_id, context: `Membership renewal: ${channel.display_name}` });
     out.renewed += 1;
   }
   return out;
@@ -286,6 +289,7 @@ export async function unlockPost(userId: string, postId: string): Promise<void> 
     const ins = await db.execute({ sql: "INSERT OR IGNORE INTO post_unlocks (post_id, user_id, price_ugx) VALUES (?, ?, ?)", args: [postId, userId, price] });
     if (!ins.rowsAffected) { await refundWallet(userId, price, "Duplicate unlock refunded", env); return; }
     await creditCreator({ creatorId: post.author_id, kind: "pay_per_view", grossUgx: price, feePercent: feePercentFor(cfg, "pay_per_view"), payerId: userId, channelId: post.publisher_id, postId, sourceId: `ppv:${postId}:${userId}`, note: "Paid post", environment: env });
+    scheduleMoneyAlert({ transferId: `ppv:${postId}:${userId}`, amount: price, fromUserId: userId, toUserId: post.author_id, context: "Unlocked a post" });
   } catch (err) {
     await refundWallet(userId, price, "Unlock could not be completed", env);
     await db.execute({ sql: "DELETE FROM post_unlocks WHERE post_id = ? AND user_id = ?", args: [postId, userId] }).catch(() => {});
@@ -314,9 +318,11 @@ export async function sendTip(userId: string, channelId: string, input: { amount
   }
   const kind: EarningKind = isGift ? "gift" : "tip";
   const env = await getPlatformEnvironment();
+  const transferId = `${kind}:${newId("tip")}`;
   await chargeWallet(userId, amount, `${isGift ? "Gift" : "Tip"} to ${channel.display_name}`, channel.owner_id, env);
   try {
-    await creditCreator({ creatorId: channel.owner_id, kind, grossUgx: amount, feePercent: feePercentFor(cfg, kind), payerId: userId, channelId, postId, sourceId: `${kind}:${newId("t")}`, note: isGift ? `Gift: ${input.gift}` : "Tip", environment: env });
+    await creditCreator({ creatorId: channel.owner_id, kind, grossUgx: amount, feePercent: feePercentFor(cfg, kind), payerId: userId, channelId, postId, sourceId: transferId, note: isGift ? `Gift: ${input.gift}` : "Tip", environment: env });
+    scheduleMoneyAlert({ transferId, amount, fromUserId: userId, toUserId: channel.owner_id, context: isGift ? `Gift: ${input.gift}` : `Tip to ${channel.display_name}` });
   } catch (err) {
     await refundWallet(userId, amount, "Tip could not be completed", env);
     throw err;

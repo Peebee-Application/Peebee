@@ -269,6 +269,17 @@ const DEFAULTS = {
   wallet_request_per_hour: "10",
   /** How long a successful transfer key is remembered, in hours. */
   wallet_idempotency_hours: "24",
+  /** Money-moved alerts. SMS defaults off because each message is charged. */
+  wallet_alert_email_sent: "1",
+  wallet_alert_email_received: "1",
+  wallet_alert_sms_sent: "0",
+  wallet_alert_sms_received: "0",
+  wallet_alert_chat_sent: "1",
+  wallet_alert_chat_received: "1",
+  wallet_alert_notifications_sent: "1",
+  wallet_alert_notifications_received: "1",
+  wallet_alert_push_sent: "1",
+  wallet_alert_push_received: "1",
   /** Floor a rider's own withdrawal always leaves behind in their wallet
    * (UGX) — "presumed to keep the account active" per the admin who asked
    * for this. Only a normal withdrawal respects it; closing the account

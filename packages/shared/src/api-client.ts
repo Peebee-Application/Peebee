@@ -2098,6 +2098,12 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async cancelWalletRequest(id: string) {
       return request<{ status: string }>(`/v1/wallet/requests/${id}/cancel`, { method: "POST" });
     },
+    async getWalletAlerts() {
+      return request<{ alerts: import("./domain.js").WalletAlert[] }>("/v1/wallet/alerts");
+    },
+    async markWalletAlertsRead() {
+      return request<{ ok: true }>("/v1/wallet/alerts/read", { method: "POST" });
+    },
     async getWalletSpending(period: "week" | "month" | "all" = "month") {
       return request<import("./domain.js").WalletSpending>(`/v1/wallet/spending?period=${period}`);
     },

@@ -6,6 +6,7 @@ import { newId } from "../lib/ids.js";
 import { consume, tooManyRequests } from "../lib/ratelimit.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
 import { getPlatformEnvironment, getWalletAccountSettings, getWalletSettings } from "../lib/settings.js";
+import { markWalletAlertsRead } from "./alerts.js";
 import { frozenBody, walletIsFrozen } from "./freeze.js";
 import { runIdempotentTransfer } from "./idempotency.js";
 import { maskPhone } from "./mask.js";
@@ -18,6 +19,8 @@ walletAccountRoutes.use("/wallet/contacts/*", requireAuth, requireRole("customer
 walletAccountRoutes.use("/wallet/requests", requireAuth, requireRole("customer"));
 walletAccountRoutes.use("/wallet/requests/*", requireAuth, requireRole("customer"));
 walletAccountRoutes.use("/wallet/spending", requireAuth, requireRole("customer"));
+walletAccountRoutes.use("/wallet/alerts", requireAuth, requireRole("customer"));
+walletAccountRoutes.use("/wallet/alerts/*", requireAuth, requireRole("customer"));
 
 type Row = Record<string, unknown>;
 
@@ -373,6 +376,33 @@ walletAccountRoutes.post("/wallet/requests/:id/pay", async (c) => {
     return { status: 200, body: { status: "paid", balance: moved.fromBalance, recipientName: String(request.requester_name), amount } };
   });
   return c.json(result.body, result.status as 200);
+});
+
+walletAccountRoutes.get("/wallet/alerts", async (c) => {
+  if (!(await hasTable("wallet_alerts"))) return c.json({ alerts: [] });
+  const res = await db.execute({
+    sql: `SELECT id, event, title, body, amount, counterpart_name, account_name, reference, created_at
+          FROM wallet_alerts WHERE user_id = ? ORDER BY created_at DESC LIMIT 30`,
+    args: [c.get("user").sub],
+  });
+  return c.json({
+    alerts: (res.rows as Row[]).map((row) => ({
+      id: String(row.id),
+      event: String(row.event),
+      title: String(row.title),
+      body: String(row.body),
+      amount: Number(row.amount),
+      counterpartName: String(row.counterpart_name),
+      accountName: String(row.account_name),
+      reference: String(row.reference),
+      createdAt: String(row.created_at),
+    })),
+  });
+});
+
+walletAccountRoutes.post("/wallet/alerts/read", async (c) => {
+  await markWalletAlertsRead(c.get("user").sub);
+  return c.json({ ok: true });
 });
 
 walletAccountRoutes.get("/wallet/spending", async (c) => {
