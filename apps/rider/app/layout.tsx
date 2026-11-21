@@ -1,4 +1,5 @@
 import '@peebee/shared/auth.css';
+import localFont from "next/font/local";
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
@@ -12,6 +13,8 @@ import { AuthProvider } from "../lib/auth-context";
 import { CallsProvider } from "../lib/calls-context";
 import { LanguageProvider } from "../lib/i18n";
 import { DataRefresh } from "@peebee/shared/data-refresh";
+
+const jobFont = localFont({ src: "../../customer/lib/fonts/roboto/Roboto.ttf", variable: "--font-rider-job", display: "swap" });
 
 // Runs before paint so there's no flash of the wrong theme — reads the
 // user's saved choice, falling back to their OS preference.
@@ -62,7 +65,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-dvh bg-cream text-ink">
+      <body className={`${jobFont.variable} min-h-dvh bg-cream text-ink`}>
         <Script id="theme-init" strategy="beforeInteractive">
           {THEME_INIT_SCRIPT}
         </Script>

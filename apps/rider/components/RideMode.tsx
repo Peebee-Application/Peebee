@@ -1,218 +1,75 @@
 "use client";
 
 import type { OrderDetail } from "@peebee/shared";
-import { CheckCircle2, Loader2, MapPin, MessageCircle, Navigation, Phone, UserCheck, Wallet, X } from "lucide-react";
+import { CheckCircle2, Loader2, MapPin, MessageCircle, Navigation, Phone, User, UserCheck, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { api } from "../lib/api";
 import { formatUgx } from "../lib/order-display";
-import { leaveRideMode } from "../lib/ride-mode";
-import { CustomerAvatar } from "./CustomerAvatar";
+import { useCalls } from "../lib/calls-context";
 import { DeliveryNavigation } from "./DeliveryNavigation";
+import { JobAction } from "./JobAction";
+import { Modal } from "./Modal";
 
-const BIG_BUTTON =
-  "flex min-h-16 w-full items-center justify-center gap-3 rounded-full bg-gold px-6 text-xl font-extrabold text-ink-gold shadow-[0_6px_16px_rgba(201,162,39,0.35)] disabled:opacity-60";
-
-/**
- * Ride mode: the rider is moving, so the app is one screen with one job.
- * Where to, who with, one big button. No tabs, no lists, no navigation.
- * (The shell hides its header and bottom bar while this is showing.)
- */
-export function RideMode({
-  detail,
-  busy,
-  error,
-  run,
-  onCancel,
-  onDone,
-}: {
-  detail: OrderDetail;
-  busy: boolean;
-  error: string | null;
+/** Passenger-only presentation. Backend stages retain their existing transitions. */
+export function RideMode({ detail, busy, error, run, onCancel, onDone }: {
+  detail: OrderDetail; busy: boolean; error: string | null;
   run: (action: () => Promise<unknown>) => Promise<void>;
-  onCancel: () => void;
-  onDone: () => void;
+  onCancel: () => void; onDone: () => void;
 }) {
   const { order } = detail;
-  const stops = detail.rideStops ?? [];
-  const nextStop = stops.find((s) => s.status !== "done") ?? null;
+  const { startCall } = useCalls();
+  const nextStop = (detail.rideStops ?? []).find((stop) => stop.status !== "done");
   const [dropped, setDropped] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
-
-  const passenger = (order.passenger_name ?? order.customer_name ?? "").trim().split(/\s+/)[0] || "Passenger";
-  const phone = order.passenger_phone ?? null;
+  const passenger = order.passenger_name?.trim() || order.customer_name?.trim() || "Passenger";
+  const firstName = passenger.split(/\s+/)[0];
+  const pickup = ["Shop", "Substitute", "Approve", "Deliver", "Arrived"].includes(order.stage);
+  const waiting = ["Create", "Match", "Fund"].includes(order.stage);
+  const completed = order.stage === "Settle";
+  const onTrip = order.stage === "PickedUp";
+  const headingPickup = pickup && order.stage !== "Arrived";
+  const title = waiting ? "Awaiting payment" : completed ? "Trip complete" : order.stage === "Handover" ? "Trip confirmed" : order.stage === "Arrived" ? "At pickup" : headingPickup ? `Pick up ${firstName}` : nextStop ? (nextStop.status === "arrived" ? `At stop ${nextStop.position}` : `Head to stop ${nextStop.position}`) : dropped ? "Awaiting confirmation" : onTrip ? "Passenger on board" : "Ride closed";
+  const place = pickup || waiting ? order.pickup_area : nextStop?.area ?? order.destination_area;
+  const address = pickup || waiting ? order.pickup_address : nextStop?.address ?? order.destination_address;
+  const locationLabel = pickup || waiting ? "Pickup" : nextStop ? `Stop ${nextStop.position}` : "Drop-off";
   const fare = order.delivery_fee ?? order.final_total ?? order.estimated_total;
+  const canCancel = ["Match", "Fund", "Shop", "Substitute", "Approve", "Deliver"].includes(order.stage);
+  const actionButton = (label: string, action: () => void, Icon = UserCheck) => <JobAction><button type="button" disabled={busy} onClick={action} className="job-primary"><Icon aria-hidden />{busy ? "Processing…" : label}</button></JobAction>;
+  const navigate = (lat: number | null, lng: number | null, key: string, label: string, confirm: string, description: string, action: () => void, before?: () => Promise<unknown>) => <DeliveryNavigation
+    key={key} orderId={order.id} navigationKey={`${order.id}:${key}`} destinationLat={lat} destinationLng={lng} busy={busy}
+    navigationLabel={label} confirmTitle={confirm} confirmButtonLabel={confirm} confirmModalDescription={description}
+    onBeforeNavigate={before} onConfirmDelivery={action} />;
 
-  // What the rider is doing right now, in one glance.
-  let phase: string;
-  let PhaseIcon = Navigation;
-  let place: string;
-  let address: string | null;
-  if (order.stage === "Deliver") {
-    phase = "To pickup";
-    place = order.pickup_area ?? "Pickup";
-    address = order.pickup_address;
-  } else if (order.stage === "Arrived") {
-    phase = "At pickup";
-    PhaseIcon = UserCheck;
-    place = passenger;
-    address = order.pickup_area;
-  } else if (order.stage === "PickedUp" && nextStop) {
-    phase = `Stop ${nextStop.position}`;
-    place = nextStop.area ?? nextStop.address ?? `Stop ${nextStop.position}`;
-    address = nextStop.status === "arrived" ? "Waiting at stop" : null;
-  } else if (order.stage === "PickedUp") {
-    phase = dropped ? "Dropped off" : "Trip";
-    PhaseIcon = dropped ? CheckCircle2 : MapPin;
-    place = order.destination_area ?? "Destination";
-    address = order.destination_address;
-  } else {
-    phase = "Trip done";
-    PhaseIcon = CheckCircle2;
-    place = "Trip done";
-    address = null;
-  }
+  let action: React.ReactNode = null;
+  if (headingPickup) action = navigate(order.pickup_lat, order.pickup_lng, "pickup", "Navigate to pickup", "At pickup", "Confirm you have reached the passenger’s pickup point.", () => void run(() => api.arrivedOrder(order.id)), order.stage !== "Deliver" ? () => api.deliverOrder(order.id) : undefined);
+  else if (order.stage === "Arrived") action = actionButton("Passenger on board", () => void run(() => api.pickedUpOrder(order.id)));
+  else if (onTrip && nextStop?.status === "arrived") action = actionButton("Continue trip", () => void run(() => api.continueFromStop(order.id, nextStop.position)), Navigation);
+  else if (onTrip && nextStop) action = navigate(nextStop.lat, nextStop.lng, `stop-${nextStop.position}`, "Navigate to stop", `At stop ${nextStop.position}`, "Confirm you have reached this stop.", () => void run(() => api.arrivedAtStop(order.id, nextStop.position)));
+  else if (onTrip && !dropped) action = navigate(order.destination_lat, order.destination_lng, "drop-off", "Navigate to drop-off", "Confirm drop-off", "The passenger confirms completion on their phone.", () => setDropped(true));
+  else if (onTrip) action = <p className="flex items-center gap-3 text-lg" role="status"><Loader2 className="h-6 w-6 animate-spin text-gold" aria-hidden />Passenger is confirming</p>;
+  else if (order.stage === "Handover") action = actionButton("Settle trip", () => void run(() => api.settleOrder(order.id)), Wallet);
 
-  // The one big action (or the navigation that leads to it).
-  let action: React.ReactNode;
-  if (order.stage === "Deliver") {
-    action = (
-      <DeliveryNavigation
-        orderId={order.id}
-        destinationLat={order.pickup_lat}
-        destinationLng={order.pickup_lng}
-        busy={busy}
-        onConfirmDelivery={() => void run(() => api.arrivedOrder(order.id))}
-        confirmButtonLabel="I’m here"
-        confirmModalDescription="Tell the passenger you’ve reached the pickup point."
-      />
-    );
-  } else if (order.stage === "Arrived") {
-    action = (
-      <button type="button" disabled={busy} onClick={() => void run(() => api.pickedUpOrder(order.id))} className={BIG_BUTTON}>
-        <UserCheck className="h-7 w-7" aria-hidden /> On board
-      </button>
-    );
-  } else if (order.stage === "PickedUp" && nextStop?.status === "pending") {
-    action = (
-      <DeliveryNavigation
-        key={`stop-${nextStop.position}`}
-        orderId={order.id}
-        destinationLat={nextStop.lat}
-        destinationLng={nextStop.lng}
-        busy={busy}
-        onConfirmDelivery={() => void run(() => api.arrivedAtStop(order.id, nextStop.position))}
-        confirmButtonLabel={`At stop ${nextStop.position}`}
-        confirmModalDescription="Confirm you’ve reached this stop."
-      />
-    );
-  } else if (order.stage === "PickedUp" && nextStop?.status === "arrived") {
-    action = (
-      <button type="button" disabled={busy} onClick={() => void run(() => api.continueFromStop(order.id, nextStop.position))} className={BIG_BUTTON}>
-        <Navigation className="h-7 w-7" aria-hidden /> Continue
-      </button>
-    );
-  } else if (order.stage === "PickedUp" && !dropped) {
-    action = (
-      <DeliveryNavigation
-        orderId={order.id}
-        destinationLat={order.destination_lat}
-        destinationLng={order.destination_lng}
-        busy={busy}
-        onConfirmDelivery={() => setDropped(true)}
-        confirmButtonLabel="Dropped off"
-        confirmModalDescription="Confirm the passenger is at their destination. They finish the trip on their phone."
-      />
-    );
-  } else if (order.stage === "PickedUp") {
-    action = <Waiting text="Passenger is confirming" order={order.id} onLeave={onDone} />;
-  } else {
-    // Handover: the passenger has confirmed, the rider collects the pay.
-    action = (
-      <button type="button" disabled={busy} onClick={() => void run(() => api.settleOrder(order.id))} className={BIG_BUTTON}>
-        <Wallet className="h-7 w-7" aria-hidden /> Get paid {fare != null ? formatUgx(fare) : ""}
-      </button>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-cream px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]" role="main" aria-live="polite">
-      <div className="mx-auto flex h-full w-full max-w-lg flex-col">
-        <header className="flex items-center justify-between gap-3">
-          <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-gold/15 px-4 text-base font-bold text-ink">
-            <PhaseIcon className="h-5 w-5 text-gold" aria-hidden /> {phase}
-          </span>
-          <span className="text-2xl font-extrabold tabular-nums text-ink">{fare != null ? formatUgx(fare) : ""}</span>
-        </header>
-
-        {stops.length > 0 && (
-          <ol className="mt-3 flex gap-1.5" aria-label={`${stops.length} stop${stops.length === 1 ? "" : "s"}`}>
-            {stops.map((s) => (
-              <li key={s.position} className={`h-1.5 flex-1 rounded-full ${s.status === "done" ? "bg-green" : s.status === "arrived" ? "bg-gold" : "bg-[rgb(var(--surface-muted))]"}`} />
-            ))}
-          </ol>
-        )}
-
-        <section className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-          <span className="flex h-20 w-20 items-center justify-center rounded-full bg-gold/15 text-gold">
-            <PhaseIcon className="h-10 w-10" aria-hidden />
-          </span>
-          <h1 className="break-words text-4xl font-extrabold leading-tight text-ink">{place}</h1>
-          {address && <p className="max-w-xs text-lg text-ink-500">{address}</p>}
-          {order.stage === "Deliver" && order.eta_minutes ? (
-            <p className="rounded-full bg-[rgb(var(--surface-muted))] px-4 py-1.5 text-lg font-bold text-ink">~{order.eta_minutes} min</p>
-          ) : null}
-        </section>
-
-        <div className="space-y-4">
-          {order.customer_id && (
-            <div className="flex items-center gap-3">
-              <CustomerAvatar customerId={order.customer_id} />
-              <p className="min-w-0 flex-1 truncate text-xl font-bold text-ink">{passenger}</p>
-              {phone && (
-                <a href={`tel:${phone}`} aria-label={`Call ${passenger}`} className="flex h-14 w-14 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink">
-                  <Phone className="h-6 w-6" aria-hidden />
-                </a>
-              )}
-              <Link href={`/chat/${order.customer_id}`} aria-label={`Chat with ${passenger}`} className="flex h-14 w-14 items-center justify-center rounded-full bg-[rgb(var(--surface-muted))] text-ink">
-                <MessageCircle className="h-6 w-6" aria-hidden />
-              </Link>
-            </div>
-          )}
-
-          {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-base text-red-700">{error}</p>}
-          {busy && <Loader2 className="mx-auto h-6 w-6 animate-spin text-gold" aria-label="Please wait" />}
-
-          {action}
-
-          {order.stage === "Deliver" && (
-            confirmCancel ? (
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setConfirmCancel(false)} className="min-h-12 flex-1 rounded-full border border-[var(--border-faint)] text-base font-bold text-ink">Keep</button>
-                <button type="button" disabled={busy} onClick={onCancel} className="min-h-12 flex-1 rounded-full bg-red-600 text-base font-bold text-white disabled:opacity-60">Cancel ride</button>
-              </div>
-            ) : (
-              <button type="button" onClick={() => setConfirmCancel(true)} className="mx-auto flex min-h-11 items-center gap-1.5 px-4 text-base font-bold text-red-600">
-                <X className="h-5 w-5" aria-hidden /> Cancel
-              </button>
-            )
-          )}
-        </div>
+  return <div className="job-screen">
+    <header className="job-heading"><h1>{title}</h1><p>Passenger ride · #{order.id.slice(-6)}</p></header>
+    <section className="job-glass job-destination" aria-label={locationLabel}>
+      <span className="job-icon"><MapPin aria-hidden /></span><div className="min-w-0"><p className="job-eyebrow">{locationLabel}</p><h2>{place || address || "Location pending"}</h2>{address && address !== place && <p className="job-address">{address}</p>}</div>
+    </section>
+    {(pickup || waiting) && order.destination_area && <p className="job-later">Drop-off: {order.destination_area}</p>}
+    <section aria-label="Passenger" className="job-contact-section">
+      <div className="job-contact"><span className="job-icon"><User aria-hidden /></span><div><h2>{passenger}</h2><p>Passenger</p></div></div>
+      <div className="job-contact-actions">
+        {order.passenger_phone ? <a className="job-secondary" href={`tel:${order.passenger_phone}`}><Phone aria-hidden />Call passenger</a> : <button className="job-secondary" type="button" disabled={!order.customer_id} onClick={() => order.customer_id && startCall({ calleeId: order.customer_id, orderId: order.id })}><Phone aria-hidden />Call passenger</button>}
+        {order.customer_id && <Link className="job-secondary" href={`/chat/${order.customer_id}`}><MessageCircle aria-hidden />Message</Link>}
       </div>
-    </div>
-  );
-}
-
-/** The passenger finishes the trip on their phone. If they never do, the rider can leave this one ride behind. */
-function Waiting({ text, order, onLeave }: { text: string; order: string; onLeave: () => void }) {
-  return (
-    <div className="space-y-3 text-center">
-      <p className="flex items-center justify-center gap-2 text-xl font-bold text-ink">
-        <Loader2 className="h-6 w-6 animate-spin text-gold" aria-hidden /> {text}
-      </p>
-      <button type="button" onClick={() => { leaveRideMode(order); onLeave(); }} className="min-h-11 px-4 text-base font-bold text-ink-500">
-        Back to jobs
-      </button>
-    </div>
-  );
+    </section>
+    <section className="job-glass job-fare" aria-label="Trip fare"><span>Trip fare</span><strong>{fare != null ? formatUgx(fare) : "Pending"}</strong></section>
+    {completed && <div className="job-status"><CheckCircle2 className="h-12 w-12 text-gold" aria-hidden /><h2>Trip complete</h2><button type="button" className="job-secondary" onClick={onDone}>Back to jobs</button></div>}
+    {waiting && <p className="text-lg text-ink-500" role="status">Waiting for the passenger’s payment</p>}
+    {error && <p role="alert" className="text-base text-red-600">{error}</p>}
+    {action}
+    {canCancel && <button type="button" className="min-h-14 text-base font-semibold text-ink-500 underline" onClick={() => setConfirmCancel(true)}>Cancel ride</button>}
+    {order.stage === "Match" && order.payment_rail === "escrow" && <button type="button" disabled={busy} className="job-secondary" onClick={() => void run(async () => { await api.closeUnpaidOrder(order.id); onDone(); })}>Close unpaid ride</button>}
+    {confirmCancel && <Modal title="Cancel ride?" onClose={() => setConfirmCancel(false)}><div className="grid grid-cols-2 gap-3"><button type="button" className="job-secondary" onClick={() => setConfirmCancel(false)}>Keep ride</button><button type="button" disabled={busy} className="min-h-14 rounded-full bg-red-600 font-bold text-white" onClick={onCancel}>Cancel ride</button></div></Modal>}
+  </div>;
 }

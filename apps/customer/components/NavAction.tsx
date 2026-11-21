@@ -8,7 +8,7 @@ import type { NavPrimaryAction } from "../lib/nav-primary-action";
 /** One action surface for every page; the page retains validation, payment and retry ownership. */
 export function NavAction({ action }: { action: NavPrimaryAction }) {
   const Icon = action.icon;
-  return action.confirmation ? <NavConfirmation key={`${action.label}:${action.detail ?? ""}`} action={action} /> : <button
+  return action.confirmation ? <NavConfirmation action={action} /> : <button
     type="button" className="customer-nav-action customer-nav-swap" onClick={action.onClick}
     disabled={action.disabled || action.busy} aria-busy={action.busy || undefined}
     aria-label={[action.label, action.sublabel, action.detail].filter(Boolean).join(", ")}>
@@ -27,7 +27,8 @@ function NavConfirmation({ action }: { action: NavPrimaryAction }) {
   const [distance, setDistance] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const blocked = action.disabled || action.busy || submitting;
-  const reset = () => { gesture.current = null; setDistance(0); };
+  const processing = !!action.busy || submitting;
+  const reset = () => { gesture.current = null; if (!lock.current) setDistance(0); };
   const confirm = async () => {
     if (blocked || lock.current) return;
     lock.current = true;
@@ -38,7 +39,7 @@ function NavConfirmation({ action }: { action: NavPrimaryAction }) {
   };
   return <button type="button" className="customer-nav-confirm customer-nav-swap" disabled={blocked}
     aria-label={`Slide to confirm: ${[action.label, action.sublabel, action.detail].filter(Boolean).join(", ")}. Keyboard: press Enter or Space to confirm.`}
-    aria-busy={action.busy || submitting || undefined}
+    aria-busy={processing || undefined} data-processing={processing || undefined}
     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void confirm(); } }}
     onClick={(e) => { if (e.detail === 0) void confirm(); }}
     onPointerDown={(e) => {
@@ -46,7 +47,7 @@ function NavConfirmation({ action }: { action: NavPrimaryAction }) {
       const rect = e.currentTarget.getBoundingClientRect();
       // A deliberate gesture starts on the handle; tapping the far end never pays.
       if (e.clientX - rect.left > 62) return;
-      gesture.current = { id: e.pointerId, start: e.clientX, distance: 0, max: Math.max(0, rect.width - 64) };
+      gesture.current = { id: e.pointerId, start: e.clientX, distance: 0, max: Math.max(0, rect.width - 62) };
       e.currentTarget.setPointerCapture(e.pointerId);
     }}
     onPointerMove={(e) => {
@@ -58,11 +59,16 @@ function NavConfirmation({ action }: { action: NavPrimaryAction }) {
     onPointerUp={(e) => {
       const g = gesture.current;
       const commit = g && g.id === e.pointerId && g.max > 0 && g.distance >= g.max * threshold;
-      reset();
-      if (commit) void confirm();
+      gesture.current = null;
+      if (commit) { setDistance(g.distance); void confirm(); }
+      else reset();
     }}
     onPointerCancel={reset} onLostPointerCapture={reset}>
-    <span className="customer-nav-confirm-label"><strong>{action.busy || submitting ? "Please wait…" : label}</strong>{detail && <small>{detail}</small>}</span>
-    <span className="customer-nav-confirm-thumb" style={{ transform: `translateX(${distance}px)` }}>{action.busy || submitting ? <Loader2 className="animate-spin" aria-hidden /> : <ChevronsRight aria-hidden />}</span>
+    <span className="customer-nav-confirm-label" aria-hidden style={{ clipPath: processing ? "inset(0 0 0 100%)" : `inset(0 0 0 ${distance + 58}px)` }}><strong>{label}</strong>{detail && <small>{detail}</small>}</span>
+    <span className="customer-nav-confirm-progress" aria-hidden style={{ clipPath: processing ? undefined : `inset(0 calc(100% - ${distance + 4}px) 0 0)` }}><strong>Processing...</strong></span>
+    <span className="customer-nav-confirm-thumb" aria-hidden style={processing ? { left: "calc(100% - 58px)" } : { transform: `translateX(${distance}px)` }}>
+      <ChevronsRight />{processing && <Loader2 className="customer-nav-confirm-spinner animate-spin" />}
+    </span>
+    <span className="sr-only" role="status">{processing ? "Processing..." : ""}</span>
   </button>;
 }
