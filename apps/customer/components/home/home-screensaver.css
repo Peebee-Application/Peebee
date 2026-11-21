@@ -220,7 +220,8 @@ html.peebee-practice .hs-top {
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: rgb(255 255 255 / 0.45);
+  background: rgb(var(--color-cream));
+  opacity: 0.5;
 }
 
 .hs-dot::before {
@@ -231,7 +232,8 @@ html.peebee-practice .hs-top {
 
 .hs-dot.is-on {
   width: 22px;
-  background: #fff;
+  background: rgb(var(--color-gold));
+  opacity: 1;
 }
 
 .hs-mod-switch {
@@ -259,7 +261,7 @@ html.peebee-practice .hs-top {
   white-space: nowrap;
 }
 
-.hs-sheet-shape {
+.hs-sheet {
   position: absolute;
   z-index: 2;
   left: 0;
@@ -268,6 +270,22 @@ html.peebee-practice .hs-top {
   width: 100%;
   height: 51.9%;
   pointer-events: none;
+}
+
+.hs-sheet-shape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hs-sheet-bleed {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 48px;
+  background: rgb(var(--color-cream));
 }
 
 .hs-sheet-fill { fill: rgb(var(--color-cream)); }
@@ -547,15 +565,14 @@ html.peebee-practice .hs-top { top: max(48px, calc(env(safe-area-inset-top, 0px)
 .hs-wordmark { margin: 0; }
 .hs-cover-title { animation: none; }
 .hs-cover-sub { animation: none; }
-.hs-details { width: 48px; border-radius: 50%; animation: hs-bob 2200ms ease-in-out infinite; }
-.hs-dot { background: rgb(255 255 255 / 0.5); }
-.hs-dot.is-on { background: rgb(var(--color-gold)); }
+.hs-dot { background: rgb(var(--color-cream)); opacity: 0.5; }
+.hs-dot.is-on { background: rgb(var(--color-gold)); opacity: 1; }
 .hs-layer[data-motion="entity"] { background: transparent; }
 .hs-layer[data-motion="entity"] .hs-image-motion {
   transform: translateY(var(--hs-image-y, 0px));
   transition: transform 760ms cubic-bezier(.22,1,.36,1);
 }
-.hs-layer[data-motion="entity"][data-phase="out"] .hs-sheet-shape,
+.hs-layer[data-motion="entity"][data-phase="out"] .hs-sheet,
 .hs-layer[data-motion="entity"][data-phase="out"] .hs-scrim { visibility: hidden; }
 .hs-layer[data-motion="entity"] .hs-copy {
   opacity: var(--hs-copy-opacity);
@@ -568,7 +585,8 @@ html.peebee-practice .hs-top { top: max(48px, calc(env(safe-area-inset-top, 0px)
   backface-visibility: hidden;
   transition: transform 760ms cubic-bezier(.22,1,.36,1);
 }
-.hs-layer[data-motion="entity"][data-phase="in"] .hs-sheet-shape { animation: hs-pull 760ms both; }
+.hs-layer.is-flight:not(.is-drag)[data-motion="entity"][data-phase="in"] .hs-sheet,
+.hs-layer.is-flight:not(.is-drag)[data-motion="entity"][data-phase="in"] .hs-sheet-body { animation: hs-pull 1400ms both; }
 
 
 @keyframes hs-copy-enter {
@@ -576,13 +594,13 @@ html.peebee-practice .hs-top { top: max(48px, calc(env(safe-area-inset-top, 0px)
   to { opacity: 1; transform: none; }
 }
 @keyframes hs-bob {
-  0%, 100% { transform: translate(-50%, 0); }
-  50% { transform: translate(-50%, -8px); }
+  0%, 100% { transform: translate(-50%, -50%); }
+  50% { transform: translate(-50%, calc(-50% - 8px)); }
 }
 @keyframes hs-pull {
-  /* Grow upward from bottom: 0 so the lower edge never leaves the frame. */
-  0%, 100% { height: 51.9%; }
-  32% { height: calc(51.9% + 28px); }
+  0% { transform: translateY(0); animation-timing-function: cubic-bezier(.33, 0, .2, 1); }
+  22% { transform: translateY(-32px); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+  100% { transform: translateY(0); }
 }
 
 
@@ -598,7 +616,8 @@ html.peebee-practice .hs-top { top: max(48px, calc(env(safe-area-inset-top, 0px)
 .hs-layer.is-drag .hs-image-motion,
 .hs-layer.is-drag .hs-copy,
 .hs-layer.is-drag .hs-cta { transition: none; }
-.hs-layer.is-drag .hs-sheet-shape { animation: none; }
+.hs-layer.is-drag .hs-sheet,
+.hs-layer.is-drag .hs-sheet-body { animation: none; }
 
 /* Keep cover copy independent of the horizontally moving photo. */
 .hs-layer[data-motion="cluster"][data-mode="cover"] .hs-visual {
@@ -657,4 +676,114 @@ html.peebee-practice .hs-top { top: max(48px, calc(env(safe-area-inset-top, 0px)
 @media (prefers-reduced-motion: reduce) {
   .hs-cover-word { animation: none; }
   .hs-thumb-group { transition: none; transform: none !important; }
+}
+
+/* Level 1 sits the emblem immediately before “Peebee”, at the top right. */
+.hs-frame {
+  --hs-thumb-size: 100px;
+  --hs-reveal-rest: calc(100% - max(32px, env(safe-area-inset-bottom, 0px) + 12px) - 24px);
+}
+.hs-top:has(.hs-wordmark) { flex-direction: row-reverse; }
+.hs-wordmark { filter: drop-shadow(0 1px 8px rgb(0 0 0 / 0.35)); }
+
+.hs-dot { background: rgb(var(--color-cream)); opacity: 0.5; }
+.hs-dot.is-on { width: 22px; background: rgb(var(--color-gold)); opacity: 1; }
+
+/* Cover and sub-module text rises in slowly. Flight progress drives the same move. */
+.hs-cover-word { animation: none; }
+.hs-cover-stack[data-rise="1"],
+.hs-layer[data-mode="module"] .hs-copy[data-rise="1"] {
+  animation: hs-copy-enter 1200ms cubic-bezier(.22, 1, .36, 1) both;
+}
+.hs-cover-stack,
+.hs-layer[data-mode="module"] .hs-copy,
+.hs-layer[data-phase="in"][data-mode="module"] .hs-copy,
+.hs-layer[data-motion="open"] .hs-cover-stack,
+.hs-layer[data-motion="open"] .hs-copy,
+.hs-layer[data-motion="cluster"] .hs-cover-stack,
+.hs-layer[data-phase="in"][data-motion="cluster"][data-mode="cover"] .hs-cover-stack {
+  opacity: var(--hs-copy-opacity, 1);
+  transform: translateY(var(--hs-copy-y, 0px));
+  transition: transform 1100ms cubic-bezier(.22, 1, .36, 1), opacity 1100ms ease;
+  transition-delay: var(--hs-copy-delay, 0ms);
+}
+
+/* Opening fades the cover away. The arrow grows into the first sub-module thumbnail. */
+.hs-layer[data-motion="open"][data-phase="out"] .hs-visual,
+.hs-layer[data-motion="open"][data-phase="out"] .hs-scrim {
+  opacity: var(--hs-cover-fade, 1);
+  transition: opacity 900ms ease;
+}
+.hs-layer.is-drag[data-motion="open"] .hs-visual,
+.hs-layer.is-drag[data-motion="open"] .hs-scrim { transition: none; }
+
+.hs-reveal {
+  position: absolute;
+  z-index: 7;
+  left: calc(50% * (1 - var(--hs-open, 0)) + (100% - 74px) * var(--hs-open, 0));
+  top: calc(var(--hs-reveal-rest) * (1 - var(--hs-open, 0)) + 50.95% * var(--hs-open, 0));
+  width: calc(48px + (var(--hs-thumb-size) - 48px) * var(--hs-open, 0));
+  height: calc(48px + (var(--hs-thumb-size) - 48px) * var(--hs-open, 0));
+  padding: 0;
+  display: grid;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  border: 0;
+  border-radius: calc((1 - var(--hs-open, 0)) * 999px + var(--hs-open, 0) * 22px);
+  background: transparent;
+  color: rgb(var(--color-cream));
+  box-shadow: 0 0 0 calc(3px * var(--hs-open, 0)) rgb(var(--color-gold));
+  transition: left 900ms cubic-bezier(.22, 1, .36, 1), top 900ms cubic-bezier(.22, 1, .36, 1), width 900ms cubic-bezier(.22, 1, .36, 1), height 900ms cubic-bezier(.22, 1, .36, 1), border-radius 900ms cubic-bezier(.22, 1, .36, 1), box-shadow 900ms ease;
+}
+.hs-reveal.is-rest { animation: hs-bob 2200ms ease-in-out infinite; }
+.hs-reveal.is-drag { transition: none; }
+.hs-reveal-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgb(255 255 255 / 0.55);
+  background: rgb(255 255 255 / 0.22);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  opacity: clamp(0, 1 - var(--hs-open, 0), 1);
+}
+.hs-reveal-photo {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  opacity: var(--hs-open, 0);
+}
+.hs-reveal-photo img { width: 100%; height: 100%; object-fit: cover; }
+.hs-reveal-arrow {
+  position: relative;
+  z-index: 1;
+  opacity: clamp(0, 1 - var(--hs-open, 0) * 2.6, 1);
+}
+.hs-reveal .hs-reveal-label {
+  opacity: clamp(0, (var(--hs-open, 0) - 0.62) / 0.38, 1);
+  pointer-events: none;
+}
+
+/* Sub-module photos: the current one recedes, the next rises under the sheet. */
+.hs-layer[data-mode="module"] .hs-visual {
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+.hs-layer[data-mode="module"] .hs-image-motion {
+  inset: auto;
+  left: -10px;
+  right: -10px;
+  top: -10px;
+  height: calc(56% + 20px);
+  opacity: var(--hs-image-opacity, 1);
+  transform: translateY(var(--hs-image-y, 0%)) scale(var(--hs-image-scale, 1));
+  transform-origin: center center;
+  transition: transform 900ms cubic-bezier(.22, 1, .36, 1), opacity 900ms ease;
+}
+.hs-layer.is-drag[data-mode="module"] .hs-image-motion { transition: none; }
+
+@media (max-height: 700px) {
+  .hs-frame { --hs-thumb-size: 88px; }
 }
