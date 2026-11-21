@@ -1,0 +1,435 @@
+# Peebee Learn: AI creation, personal learning, sharing, and sales
+
+Date: 2026-11-06
+Status: implementation proposal; no runtime changes in this document-only change.
+Repository baseline inspected: origin/main at e1b2eaf4.
+Merchant Elite integration review: 2026-11-06, against the same baseline; source and existing test inspection, not live production verification.
+
+## 1. Intended outcome
+
+Anyone can describe what they want to learn, generate a personal learning path or complete course, enrich it with videos and documents, study with a personalized AI tutor, and choose to share or sell the finished work. Creation must not require someone to establish a school first.
+
+Schools and teachers also receive AI-assisted course creation inside the existing Learn Studio. They can turn an approved syllabus, scheme of work, teaching notes, or learning outcomes into editable courses, teaching plans, lessons, and assessments for their classes. Personal creation and institutional authoring use the same generation services with different ownership, curriculum context, permissions, and publication workflows.
+
+Product direction: give private creation to both learners and educators, while applying additional responsibility to public publishing, selling, and educational endorsement. Learner status is not a permanent barrier to becoming a creator; teacher status does not bypass quality checks. Combine learner agency with accountable human guidance rather than restricting generation to institutions.
+
+The complete journey is: goal -> objectives -> editable roadmap -> lessons and materials -> private study or publication -> message/link sharing -> free enrollment or purchase -> individual tutoring and progress -> creator earnings.
+
+This is a native extension of Peebee, using its existing accounts, customer app, Learn Studio, education API, D1, R2, and wallet systems. Base44 is product inspiration, not a required dependency; its exact template internals have not been verified.
+
+Merchant Elite's existing LMS is a required part of this platform. Individuals, school/teacher Studio, and Merchant Elite author and distribute through one learning core. Merchant Elite remains the premium business-management/storefront channel; learner generation does not unlock its merchant capabilities or create a second LMS.
+
+## 2. Existing foundations and integration decisions
+
+| Foundation inspected | Plan |
+| --- | --- |
+| `apps/customer/app/learn` | Learner dashboard, discovery, personal plans, course consumption, and starting creation |
+| `apps/learn` | Extend the creator studio and preserve the existing school/class workflows |
+| `apps/api/src/education/studio.ts` | Reuse course/module/lesson authoring with explicit support for personal creators |
+| `apps/api/src/education/learning.ts` | Extend enrollment, access checks, progress, and assessment integration |
+| `apps/api/src/education/sales.ts` | Reuse compatible sales concepts; do not assume bundles or school passes already represent personal paths |
+| `apps/api/src/education/payments.ts`, `apps/api/src/wallet` | Reuse wallet ledger primitives; add durable purchase and settlement orchestration |
+| `apps/api/src/education/community.ts` | Extend existing reviews, questions, and collaboration where applicable |
+| `apps/api/src/ai/features.ts` | Register Learn AI features with the existing feature switches, key pools, and usage visibility |
+| `apps/api/src/storage/r2.ts` | Private originals, protected lesson materials, and generated derivatives |
+| `apps/merchant/app/store/page.tsx`, LMS & Learn Sync | Existing Elite authoring, store-course listing, enrollment management, and certificate UI; add AI-assisted entry points and shared authoring access |
+| `apps/api/src/marketplace/digital-lms.ts`, `lms-enroll.ts`, `lms-rules.ts` | Existing shared Learn course records, store linking, real learner enrollment, listing, drip, and certificate integration |
+| `apps/api/src/marketplace/digital-sales.ts`, `digital-delivery.ts` | Store digital-product offers, purchase/fulfillment/refund path, course enrollment, and protected delivery |
+| `apps/api/src/marketplace/plans.ts`, `apps/api/src/lib/guards.ts` | Effective Elite entitlement, selected merchant context, membership and `manage_digital` permissions |
+| `apps/api/src/lib/option-registry.ts`, Admin commerce options/marketplace settings | Existing LMS listing, identity, payment, protection, certificate, release, and course-limit policy; extend rather than create competing switches |
+| Customer chat and education chat | Verify delivery, recipient authorization, and message persistence before adding course cards; simulated tutor UI is not a production messaging foundation |
+
+Keep shared contracts in `packages/shared`. Do not replace the stack with a separate PostgreSQL/Prisma application. Verify provider and processing-runtime capabilities during implementation before selecting extraction or media libraries.
+
+### Merchant Elite: verified existing connections and required extensions
+
+The source already implements these connections:
+
+- Merchant LMS course creation writes to Learn's `edu_courses`, `edu_modules`, and `edu_lessons`; it is not an independent course database. A store can link through `stores.learn_school_id` and `edu_courses.store_id` to a store academy/school and class.
+- Store course offers use `store_digital_products.linked_course_id`, with matching course products created/synchronized from Learn records. Public store course data reads those same Learn courses.
+- `lms_learn_sync_mode` supports `two_way_auto`, `publish_to_learn_manual`, and `store_only`. `catalog_listed` controls Learn catalog discovery independently from store distribution. These names describe existing behavior, not a guarantee of full synchronization of every future field.
+- Course purchases call the shared enrollment helper to create/use `edu_enrollments` for the buyer and store-side `store_lms_enrollments`. Learners open the customer app's Learn course player; merchant enrollment views derive progress from Learn records. Account resolution follows `lms_enrollment_identity`.
+- `lms_payment_path` chooses Learn commission/school-owner wallet payment or store checkout/digital-sales commission and merchant balance. Refund and fulfillment code already handles those commercial records; extend and test it rather than invent a disconnected payout counter.
+- Elite management gates, selected-business membership, and `manage_digital` authorization exist. Certificate, lesson protection/allowed hosts, and drip behavior are already admin-configured.
+
+Required work before the proposed AI platform can be called integrated:
+
+1. Add Create with AI and Assist with AI to Merchant Elite LMS using the same jobs, schemas, resources, versioning, tutor, and review services as Learn Studio. Generation inherits store/school ownership, selected merchant, permissions, and the configured business AI budget. Merchant status alone never earns educator-review or school-approval labels.
+2. Expand shared contracts and mutation services. The inspected merchant lesson parser/write path represents title, type, duration, summary, and URL; it does not expose the proposed full lesson body, rich blocks, multiple attachments, assessments, objectives, or endorsements. Build shared authoring services or open the common editor with an authorized return link, and make merchant saves round-trip rich content without dropping fields. Do not maintain incompatible duplicate lesson formats.
+3. Guard automatic linking before introducing personal generation. The inspected `linkLearnCourses()` selects unlinked courses from schools owned by the user, so an expanded creator model cannot rely on that routine to infer intentional store distribution. Require explicit store ownership/association and distribution eligibility; never attach private personal drafts or school-owned work to a store merely because the same account can access both. Existing intentional store links remain compatible. Store-channel linking is not a transfer of content ownership.
+4. Synchronize publication and offers by stable IDs and versions. Define source-of-truth fields and conflict handling for title, price, status, listing, samples, published version, reviews, and resources. Background sync is retry-safe; it must not publish drafts, restore withdrawn listings, or revive a stale store offer. Legacy published courses get an explicit compatibility/backfill strategy.
+5. Resolve checkout routing across both channels. An offer records its store/school/creator beneficiary, commission basis, version, price, and original payment rail. Store and Learn views disclose the applicable offer. One buyer gets coherent course access across channels; retries or moving between store and Learn must not duplicate charges/enrollments. Different prices require explicit channel offers rather than accidental stale copies. A refund reverses the original settlement and removes only the access grant it funded, preserving access from another valid purchase or school enrollment.
+6. Preserve current plan boundaries. Personal learning generation does not confer Elite storefront selling, merchant analytics, staff operations, or business publishing. New merchant management/sales continue to check effective Elite entitlement plus admin switches and role permissions. Separately govern AI allowance; Elite does not imply unlimited AI. On expiry, preserve existing learner access and purchase servicing/refunds while blocking new restricted business activity according to policy. Define any renewal, limited maintenance, or sunset behavior in Admin without stranding buyers.
+7. Keep access, media, curriculum evidence, review labels, progress, and certificate decisions consistent in the customer Learn player, Learn Studio, Merchant Elite, storefront, and shared course cards. Teaching evidence comes from the shared learning core; store marketing cannot independently mark mastery or grant an official endorsement.
+8. Decide how merchant offers represent learning paths. Existing merchant digital products link a course ID, not a path. Add an explicit compatible course/path offer mapping and entitlement flow before selling paths through stores; do not squeeze a path ID into `linked_course_id`.
+
+Integration evidence inspected: `digital-lms.ts`, `digital-input.ts`, `lms-enroll.ts`, `lms-rules.ts`, `digital-sales.ts`, `digital-delivery.ts`, `plans.ts`, `option-registry.ts`, the merchant/storefront UI, shared API client, migrations `0133_merchant_tier3_digital_products_lms.sql` and `0139_lms_hardening.sql`, and existing marketplace/security LMS test cases. Database migration files and tests in source do not establish that live production is configured or that every runtime flow currently succeeds.
+
+## 3. Product objects and ownership
+
+A course is a self-contained teaching package with objectives, modules, lessons, resources, and assessments. A learning path is an ordered route to an outcome; its steps can reference courses, individual learning activities, or original material.
+
+Keep four concepts separate: the authored content, its published version, a learner's entitlement to access it, and that learner's private plan/progress. Sharing a course shares content access according to its rules; it never shares the sender's diagnostic results, tutor history, private notes, or profile.
+
+A personal learning plan can be adapted for one learner without rewriting the creator's published course. A creator may intentionally turn their private plan into a reusable course or path. Offer a preview of exactly what will become visible before publication.
+
+Recommended personal-creator architecture: add a reusable creator identity and a container that supports either a personal creator or a school/class context. Retain existing course/module/lesson records where practical. Do not create visible fake schools to satisfy current foreign keys. Introduce compatible ownership resolution for legacy school-owned courses, then support personal ownership behind readiness checks. The exact additive schema must be settled in the foundation phase after inspecting all school ownership assumptions.
+
+## 4. Main user journeys and screens
+
+### Learner home
+
+Show Continue learning, My learning paths, My courses, revision needs, and Create something new. Each item shows the next action, progress, and whether it is private, shared, free, or purchased. Keep school content and personal learning discoverable without forcing a role switch.
+
+### Create with AI
+
+1. Choose course or learning path; start from a topic, supplied material, or both.
+2. Enter the desired outcome, existing knowledge, audience/level, language, available time, and curriculum where relevant.
+3. AI asks only follow-up questions needed to resolve material ambiguity. Diagnostics are optional and governed by settings.
+4. Review generated measurable objectives and prerequisites before generating all lesson content.
+5. Review and reorder the roadmap; select which parts to expand.
+6. Generate lessons, examples, practice, and assessments in recoverable background jobs.
+7. Save a private draft, start studying, or open the editor.
+
+Do not require an AI call for manual creation. Show generation state and allowance before starting; failures preserve completed work. Regeneration affects selected content and requires an explicit replacement action when it would overwrite edits.
+
+### Course and path editor
+
+Provide an outline, selected lesson editor, resource panel, AI assistance, learner preview, and publish controls. Support autosave with a visible saved/error state, conflict detection for concurrent edits, reordering, duplication, deletion, and undo or recoverable revisions.
+
+Creators can edit objectives, text, examples, quizzes, assessments, prerequisites, titles, descriptions, covers, and path steps. Regenerate a paragraph or lesson without replacing unrelated work. Preview mobile and desktop learner layouts.
+
+All creators, including schools and teachers, can edit everything within their authorized course and add, replace, caption, reorder, or remove videos, images, animated GIFs, and supporting resources. Support inline lesson media blocks as well as resource attachments, with accessible descriptions and learner previews.
+
+### AI-assisted creation for schools and teachers
+
+Provide Create with AI from a school's class/course area and Assist with AI inside an existing course or lesson. A teacher working independently can author under their personal creator identity; a teacher working for a school chooses the authorized school/class context before generating anything. Clearly show who owns the draft and which budget will fund generation.
+
+The institutional creation flow is:
+
+1. Choose the school, class/cohort, subject, grade/level, term, curriculum framework, teaching language, and delivery mode. Prefill known class details without assuming they are correct for every course.
+2. Upload or select authorized syllabus documents, schemes of work, textbook excerpts, teacher notes, PDFs, Word documents, slides, videos, and other resources. Identify which sources are approved curriculum references and which are supplementary material.
+3. Specify intended learning outcomes, teaching weeks, lesson duration, available teaching time, prerequisites, assessment approach, and classroom/resource constraints. These are editable course inputs validated against admin-configured limits, not fixed scheduling constants.
+4. Generate a proposed curriculum coverage map, course outline, and scheme of work. Map each objective and module to supplied curriculum references and distinguish uncovered outcomes, unsupported claims, and optional enrichment. Without an approved source, label curriculum alignment as unverified rather than official compliance.
+5. Let the teacher revise and approve the outline, then generate selected modules or the full draft through checkpointed jobs.
+6. Generate lesson explanations, teacher lesson plans, class activities, worked examples, homework, quizzes, assessment drafts, answer keys, and marking rubrics as selected. Separate teacher-only guidance and answers from learner-visible content.
+7. Edit all course content and add or replace videos, images, animated GIFs, and supporting resources. Preview as a learner, and submit for school review where required. Authorized reviewers can approve or return work with comments. Publication always requires an explicit authorized action.
+8. Publish to the intended class/cohort or school library. Assignment and learner notifications are explicit actions with a recipient preview. Public sharing or sales require separate school authorization and platform policy checks.
+
+Teachers can use AI on existing content: improve an explanation, propose missing objectives, create practice aligned to a lesson, translate or simplify selected material, and propose differentiated activities. Maintain a teacher-reviewed base course; level/language variants and learner-specific remediation must not silently change its published version or official assessment. Variants retain source links and require review because translation or simplification can change meaning.
+
+School owners/admins manage teachers, course assignments, reviewers, and publishing/selling permissions within the platform's admin-controlled policy. A teacher's ability to edit a course does not automatically grant permission to change prices, publish publicly, move school assets into a personal workspace, or receive school sales proceeds. A departed teacher loses school access while school-owned drafts, publications, and audit history remain with the institution. Do not infer ownership from who clicked Generate.
+
+Provide a school resource library scoped by membership and explicit resource permissions. Reuse approved school-owned content across authorized classes; require permission to reuse another creator's material. School-owned sales settle to the configured school beneficiary using the existing account/wallet model, not automatically to the generating teacher. Personal teacher publications remain a separate context, and neither context implies permission to transfer material between them.
+
+School AI consumption is attributed to the school, teacher, job, and course. Support school budgets and per-teacher allowances within platform limits, with visible remaining allowance and admin-defined behavior on exhaustion. Teachers can save and continue manual editing when generation is unavailable. Do not include identifiable student records in generation prompts unless the feature needs them and the applicable permissions allow it; use aggregate learning evidence for class-wide revision suggestions.
+
+Example: a teacher selects an existing secondary class and uploads the school's approved mathematics syllabus and notes. AI proposes a term outline and objective-to-source map. After review, the teacher generates lessons, adds a recorded demonstration and worksheet, and sends the draft to an authorized reviewer. The reviewer publishes it to the class. Learners receive their own tutor sessions and progress; teacher-only marking guidance stays private.
+
+### Publish and sell
+
+Review content completeness, audience, rights to materials, accessibility, visibility, sample lessons, price, tutor availability, and what purchase includes. Save the publication snapshot and display its version. Paid offers clearly disclose content access and any separate tutor allowance; a course purchase must not imply unlimited AI usage.
+
+### Study
+
+Learners can read/watch lessons, open resources, take practice, ask the tutor, resume a session, and see objective-level progress. Provide download-only fallbacks for supported attachments without a preview. Adapt explanations to the individual without exposing another learner's information.
+
+### Creator workspace
+
+List drafts and publications, processing jobs, shared invitations, learners, sales, refunds, and earnings. Show aggregate learning difficulties and consented feedback rather than private learner transcripts by default.
+
+### Learner-to-educator collaboration
+
+A learner can generate a private path and explicitly invite a teacher to suggest improvements, collaborate on selected content, or review a specified draft version. Invitations identify the requested role and access scope. Reviewer access includes only the material needed for that task, not private tutoring conversations or diagnostic history by default. Accepting a review invitation does not transfer ownership or grant publishing/selling permission.
+
+The teacher can return comments and proposed corrections; the creator accepts edits into a new draft and requests review of the resulting version. Preserve attribution, review decisions, and an audit trail. Teachers may also sell their own courses and offer tutoring through compatible Peebee offerings. A paid review service is a planned extension after the basic invitation/review flow: disclose the reviewer, competence/verification status, fee, scope, deliverable, and what the review does and does not establish. Payment purchases review work, never a guaranteed positive endorsement. Service-specific refund, delivery, and settlement rules must be designed and exposed in Admin before paid reviews are enabled; do not treat them as a content purchase automatically.
+
+### Merchant Elite creator journey
+
+An authorized Elite merchant opens Store -> LMS & Learn Sync -> Create with AI, chooses the selected business and permitted teaching context, and generates a private draft. The shared editor supports objectives, course/path structure, videos, images, GIFs, documents, assessments, and teacher review. After any required review, the merchant explicitly publishes to the store and, subject to `lms_learn_sync_mode`, lists in Learn. A customer buys the appropriate course/path offer from the storefront or Learn, receives canonical Learn access, and studies with private progress and tutor sessions. Merchant sales/enrollment reporting and shared Learn progress refer to the same underlying purchase/content identities. Neither publishing nor paid AI generation automatically creates an educator endorsement.
+
+## 5. AI objectives, generation, and tutoring
+
+Treat these as separate operations with validated contracts:
+
+| Operation | Inputs | Stored output |
+| --- | --- | --- |
+| Objective generation | Goal, profile, diagnostic evidence, curriculum, source scope | Observable objectives, prerequisites, assessment evidence expected |
+| Roadmap generation | Approved objectives, time budget, available content | Ordered steps, objective mappings, estimated effort, dependencies |
+| Lesson generation | Objective, source excerpts, level, language | Lesson blocks, examples, source references, practice |
+| Assessment generation | Objective and lesson scope | Questions, private answer/rubric data, difficulty metadata |
+| Institutional planning | Authorized school/class context, approved syllabus sources, teaching schedule | Coverage map, scheme of work, lesson plans, reviewable curriculum gaps |
+| Teacher assistance | Selected content, intended transformation, permitted resource library | Proposed edits, differentiated activities, translations, homework, teacher-only guidance |
+| Tutoring | Authorized lesson/version, relevant sources, session summary, learner evidence | Learner-facing response and proposed learning evidence |
+| Plan adjustment | Assessment history, remaining objectives, learner goal | Proposed revision activities or changes to the private plan |
+
+Example: 'Manage the money in my shop' becomes objectives such as classify revenue and expenses, calculate gross profit from a ledger, maintain a daily cashbook, and explain why profit differs from cash. Each objective has a task that can demonstrate understanding.
+
+Register Learn generation, tutoring, and material processing in the existing AI feature registry. Route supported calls through shared key management, with provider/model configuration exposed to Admin. Existing helpers are provider-specific, so extend the abstraction only when required rather than claiming provider interchangeability already exists.
+
+Persist prompt/template version, model identifier, source/version references, validation result, job ID, and usage. Validate structured output server-side: required fields, objective references, dependency cycles, ordering, content bounds, and answer separation. JSON validity alone does not establish educational accuracy.
+
+Use asynchronous, checkpointed generation with idempotency keys, bounded retry, cancellation, and partial recovery. Reserve usage allowance before dispatch and reconcile actual consumption. Expensive calls run outside database transactions. Admin-configured limits govern retries, context, generation size, concurrency, and spend.
+
+The tutor should diagnose, give hints and examples, explain, and check transfer to a new problem. The selected teaching mode is admin-governed and can be chosen by creators/learners only within allowed modes. Store evidence by objective; do not equate message count, self-reported confidence, or lesson completion with mastery. AI proposes assessments of understanding; validated application logic controls progression and official completion rules.
+
+Keep confidential exam answers out of tutor context when doing so would undermine the assessment. Automated tutoring does not independently award official school grades or credentials. Never fabricate sources, page numbers, timestamps, or extraction success.
+
+## 6. Videos, images, GIFs, documents, and other materials
+
+Support multiple resources per lesson and per path step. Every resource records its owner, original name, media type, byte size, checksum, title, description, order, required/optional state, preview/download permissions, tutor-use permission, and processing state.
+
+| Material | Authoring and learner behavior | AI use |
+| --- | --- | --- |
+| Uploaded video | Player, poster, captions/transcript, protected access | Transcript with real timestamps when available |
+| Supported video link | Approved embed or external player | Only accessible, permitted transcripts; an embed does not imply extraction rights |
+| PDF | Page preview and permitted download | Extracted text with page references; scanned pages require OCR |
+| Word `.docx` | Safe converted preview plus original download | Extracted paragraphs/headings and stable source anchors |
+| Legacy `.doc` | Conversion workflow or clear unsupported-conversion state | Only after successful conversion; never claim it was read merely because it uploaded |
+| Presentations | Slide preview and download | Slide text and supported notes |
+| Images | Accessible image preview | OCR/vision when enabled and successful |
+| Animated GIFs | Inline or resource preview with accessible description and pause/static alternative for reduced motion | Use supported frame analysis or creator-provided descriptions; do not assume animation is understood from a single frame |
+| Audio | Player, transcript, download permission | Transcript with available timestamps |
+| Worksheets and other files | Attachment/download with clear file type | Download-only unless a supported processor exists |
+
+Build a private pipeline: upload authorization -> direct/resumable storage transfer where needed -> validation/quarantine -> extraction/conversion/transcription -> source segments -> optional retrieval index -> ready. Jobs expose queued, processing, ready, failed, and unsupported states with retry and fallback controls. Validate actual file signatures, not just extensions; isolate document conversion and strip active content from previews.
+
+Large video uploads must avoid routing an entire file through an unsuitable API request. Confirm the deployment's supported upload and playback approach; add chunking or a media service only if needed. Responsive players, captions, keyboard navigation, mobile upload recovery, and lower-bandwidth options are part of acceptance.
+
+Only authorized source segments can enter tutor retrieval. Partition retrieval by owner, course/version, and entitlement. Source documents are untrusted content, never instructions for executing tools or bypassing access rules. Removing a resource invalidates its retrieval entries; retention and references determine when originals and derivatives can be deleted.
+
+## 7. Publication, sharing, and permissions
+
+Model visibility and price independently: private, invite-only, unlisted, or public; free or paid. Support draft, review where configured, published, suspended, and archived lifecycle states. New content starts private and unpublished by default.
+
+### Creation access and publication responsibility
+
+| Capability | Learners | Teachers and schools |
+| --- | --- | --- |
+| Generate private courses or personal paths | Yes, subject to age-appropriate permissions and usage limits | Yes, within authorized personal/school context and budgets |
+| Edit and add owned/permitted materials | Yes | Yes |
+| Share with friends | Yes, with clear authorship/review labels and access controls | Yes, within school permissions where applicable |
+| Publish publicly | Creator eligibility and publication checks | Authorized publishing workflow plus applicable quality checks |
+| Sell | Seller onboarding, eligibility, and content checks; being a learner alone does not disqualify a creator | Seller onboarding, eligibility, content checks, and school approval where applicable |
+| Approve official classroom content | Only when separately assigned an authorized educator role | Only teachers/reviewers authorized by the institution |
+
+Do not require every privately generated plan to undergo educator review. Shared or publicly listed material must accurately display its authorship and review status. Reviewed and unreviewed content can coexist where Admin permits, without implying equal endorsement. Neither an educator identity nor a school account guarantees accuracy, curriculum alignment, or absence of bias; content checks apply to all publishing groups.
+
+Younger learners have age-appropriate creation, sharing, purchase, and selling permissions, including guardian/school involvement where required by the applicable policy. Define age bands, eligibility, guardian authority, and restricted actions during implementation with appropriate review rather than assuming one universal threshold. Store only the necessary eligibility/consent evidence; deny restricted actions server-side. Adult creator defaults must not accidentally apply to accounts with unresolved age eligibility.
+
+### Evidence-based authorship and review labels
+
+| Label | Required evidence |
+| --- | --- |
+| AI-assisted, creator-edited | The author explicitly reviewed/edited and published this version; this is not an independent educational endorsement |
+| Educator-reviewed | A named, verified educator completed a recorded review of this version with disclosed subject/scope and findings |
+| School-approved | An authorized institution approved this version for a recorded purpose/audience |
+
+Verification of identity or educator credentials is separate from checking the content. Record the reviewer, verification basis/status, review date, exact version, scope, decision, and any unresolved limitations. A teacher's name alone cannot earn a review label. Display evidence and distinguish self-review, independent educator review, and school approval; do not imply independence when the creator reviews their own work.
+
+Labels describe what happened, not a promise that content is unbiased or error-free. Store endorsements against immutable versions. Any content change produces a new unreviewed draft; prior labels remain attached only to the reviewed version. The replacement version receives an endorsement only through an explicit review/revalidation decision under Admin policy, with substantive changes requiring renewed review. Revocation or expired verification produces an accurate current status while preserving historical evidence.
+
+Support this approach with reporting/correction tools and educational checks for factual errors, missing viewpoints, cultural/language bias, and unsupported curriculum claims. Guidance informing this product direction: [UNESCO guidance on generative AI in education](https://www.unesco.org/en/articles/guidance-generative-ai-education-and-research?hub=802). This is a design rationale, not evidence that Peebee's implementation has already been evaluated or certified.
+
+Direct links use a stable canonical course/path page. An unlisted link is discoverability control, not proof of permission. Private and invite-only access requires authenticated authorization; paid content requires an entitlement. Any token-based access grants have an explicit scope, expiration policy, revocation, and optional recipient binding.
+
+Message sharing uses a persisted structured course/path card: item ID, canonical link, display snapshot, and safe preview metadata. Resolve current availability and access on open. Use the existing recipient picker and permission checks. Do not automatically send messages on publication. External sharing is a copy-link/native-share action initiated by the user.
+
+Unauthenticated visitors see only permitted storefront/sample content and return to the same item after login. Invitations must not accidentally bypass payment: distinguish 'invite to view/purchase' from an explicit creator-granted free entitlement where allowed.
+
+Do not permit course copying/remixing or commercial redistribution implicitly. If added, it needs explicit creator licensing, attribution, and rules for linked assets. Learners can personalize their own study plan without receiving resale rights.
+
+## 8. Courses inside learning paths
+
+A path can contain original content and references to other courses. Show which referenced courses the learner owns and which require a separate purchase. A paid path can sell its original teaching and curation, but its price must not suggest it includes third-party course access unless an authorized offer does so.
+
+Initial settlement scope: one seller per purchasable offer. Defer multi-creator revenue splits until explicit agreements, allocation rules, refund handling, and ledger support exist. A course becoming unavailable should produce a visible blocked/replacement state, not silently count as completed.
+
+## 9. Sales, entitlements, and earnings
+
+Use existing UGX wallet capabilities initially. Before payment, show the exact item/version, seller, price, included access, tutor allowance, and purchase terms. Free enrollments and paid purchases should produce explicit access records.
+
+Create durable purchase records and a retry-safe settlement state machine. The current payment helper performs debit/payout/refund calls, but is not sufficient evidence of crash-safe exactly-once settlement. Add unique operation references, ledger reconciliation, and recovery for interruption between payment steps. Verify existing wallet capabilities before choosing atomic batch or compensating transaction mechanics.
+
+Required invariants: a retry cannot debit twice; an entitlement is not granted from a client success screen; payout is not repeated; each settled purchase has matching financial entries; failed/refunded purchases reach a defined access state. Preserve sandbox/live separation. Snapshot the applied price, commission policy, seller, currency, and offer version at checkout so later settings changes do not rewrite history.
+
+Creators see gross sales, platform fees, refunds, net earnings, and available/pending balances where payout holds are enabled. Admin controls selling eligibility, allowed pricing, commission, payout timing, refund windows, and other commercial behavior. Show earnings through actual wallet/settlement state, not an independent balance counter.
+
+Do not promise lifetime access or unlimited tutoring. Recommended default offer is a one-time content purchase with clearly disclosed access terms and separately governed tutoring allowance. Creator-selected terms must remain inside admin policy.
+
+### Monetization experiments and AI economics
+
+Keep one-time course/path sales as the initial commerce mechanism. Evaluate a limited introductory generation/tutoring allowance, paid generation/tutoring packages, school plans with institutional allowances, and marketplace commission. These are proposed experiments, not assumptions of free unlimited AI or guaranteed revenue. Course content access and consumable AI allowance have distinct records and clear checkout descriptions. Reuse school subscriptions only where their actual semantics fit the institutional offer; existing school passes do not automatically include AI credits.
+
+Teacher participation can earn revenue through authored courses and tutoring, with paid content-review services following when their delivery and financial rules are ready. Keep earnings beneficiaries and permissions explicit for school versus personal work. Do not enable automatic review-service revenue splits as a shortcut around the one-seller offer model.
+
+More learner accounts do not establish profitability. Measure generation/tutoring usage costs, retries, material-processing costs, and attributable storage/delivery costs alongside content revenue, AI package revenue, school-plan revenue, commissions, refunds, and payment fees. Distinguish gross marketplace sales, creator payouts, Peebee revenue, and contribution after variable costs; do not count total course sales as platform revenue. Test learning outcomes, retention, conversion, and revenue after AI costs together. Use admin-configured allowances, budgets, experiment cohorts, and success thresholds; do not optimize only for generation volume or purchases.
+
+## 10. Versions, updates, and buyer protection
+
+Separate mutable drafts from immutable published versions. Publishing snapshots objectives, lesson content, assessment references, resource versions, and offer metadata. A learner is associated with a known content version; their personal progress and tutor history reference it.
+
+Editing published content creates a new draft. Content updates show a change summary and map stable objective/lesson identities so progress is not lost. Define eligibility for updates in the offer policy and preserve already purchased versions unless an explicit moderation or access policy requires removal. Ordinary unpublishing stops new discovery/sales without silently deleting buyer access.
+
+Resources referenced by purchased versions cannot be casually replaced or deleted. Moderation removals need a specific access/refund resolution, with audited decisions. Changing price or free/paid status must not remove existing entitlements.
+
+## 11. Proposed additive data model
+
+Names below are proposed logical records, not migration filenames or a commitment to one table per row. Final schema follows the ownership audit.
+
+| Record group | Responsibility |
+| --- | --- |
+| Creator identities and content ownership | Personal/school ownership and authorized editors |
+| School memberships and scoped roles | Teacher/reviewer assignments and author/publish/sell permissions; extend existing instructor structures where suitable |
+| Curriculum mappings and teaching plans | Supplied framework/source versions, outcome coverage, term/week sequence, teacher-reviewed variants |
+| Review submissions and decisions | Draft version submitted, reviewer comments, approval/return state, actor and audit history |
+| Reviewer verification and version endorsements | Verification evidence/status, exact content version, reviewer/institution, review scope/date, disclosure, revocation history |
+| Creator/seller eligibility and consent | Publishing/selling eligibility, age-appropriate permissions, necessary guardian/school authorization and audit |
+| Learning profiles | Goal-relevant preferences without duplicating account identity |
+| Objectives and content-objective mappings | Observable outcomes, prerequisites, evidence criteria |
+| Learning paths, versions, and ordered steps | Reusable authored roadmap and referenced content |
+| Course versions and versioned lesson blocks | Immutable publication snapshots and editable drafts |
+| Resources, attachments, and source segments | Original files, derivatives, extraction state, provenance |
+| Generation and processing jobs | Durable execution, idempotency, cancellation, progress, recovery |
+| Study plans and plan steps | Learner-specific route and approved adaptations |
+| Tutor sessions and messages | Private conversations tied to objectives and versions |
+| Learning evidence and objective progress | Assessment evidence, misconceptions, revision needs |
+| Invitations and share grants | Scoped access offers, acceptance, expiry, revocation |
+| Offers, purchases, settlements, entitlements | Access and money linked through auditable operations |
+| Store associations and channel-offer mappings | Extend existing course/store/product/fulfillment links with deliberate distribution, content versions, course/path target type, beneficiary and immutable settlement provenance |
+| AI usage reservations and events | Budgets, model usage, failed calls, reconciliation |
+| AI allowances, packages, and experiment attribution | Introductory/paid/institutional allowance source, consumption/expiry under policy, cost and cohort attribution distinct from content entitlements |
+| Reports and moderation decisions | Review state, actions, reasons, audit trail |
+
+Reuse enrollments/progress/assessments where their semantics match. Add appropriate foreign keys, uniqueness, indexes, pagination, and tenant/environment boundaries. Store private answer keys separately from learner-facing payloads. Avoid large mutable chat-history JSON fields when individual messages and resumable sessions are required.
+
+## 12. API and service boundaries
+
+Proposed capabilities, fitted to existing route conventions during implementation:
+
+- Profile and dashboard reads/writes.
+- Create draft, edit outline/content, clone owned draft, inspect revisions.
+- Start/cancel/retry generation; get job progress; accept generated changes.
+- Generate school coverage maps, schemes of work, and lesson plans; propose selected teacher edits; submit/review institutional drafts.
+- Manage scoped school membership/resource permissions and class/cohort assignments within platform policy.
+- Invite scoped educator collaboration/review, record version-specific findings and endorsements, inspect label evidence, revoke endorsements, and enforce creator/seller/age eligibility.
+- Inspect AI allowance and package offers/consumption, attribute school usage and experimental outcomes, and keep AI purchases separate from course entitlements.
+- Adapt Merchant Elite LMS/store APIs to shared versioned authoring and offer/entitlement services, including explicit association, sync/reconciliation status, selected-business permissions, and compatible legacy payloads.
+- Authorize upload, complete upload, list/update resources, request processing, authorized preview/download.
+- Publish new version, inspect storefront, archive, list creator publications.
+- Create/accept/revoke invitations; resolve canonical links and shared-message cards.
+- Quote and purchase an offer; inspect purchase state and learner entitlement.
+- Create/resume tutor session, send message, stream response, inspect objective progress.
+- View creator sales/earnings, submit reports, and perform permissioned moderation.
+
+Every operation validates the authenticated actor, ownership/role, current entitlement, environment, version, feature readiness, rate limits, and input contract on the server. Streaming needs disconnect handling, durable final messages, and a recoverable state for interrupted responses.
+
+## 13. Admin controls and operations
+
+All behavioral settings live in `settings`, are validated in settings routes, appear on an Admin page, and create activity-log records. Product choices below are recommended defaults that Admin can change, not hardcoded constants.
+
+Extend the existing merchant LMS option registry and Marketplace/Commerce Options pages where they already own a policy. Do not add a Learn toggle that contradicts `lms_learn_sync_mode`, `lms_payment_path`, `lms_content_protection`, `lms_certificates`, `lms_drip_default`, or effective Elite entitlement. Document precedence: platform availability/safety and commercial policy -> effective business plan -> scoped role -> authorized creator/course choices -> learner preferences. Keep store listing, Learn discovery, purchased access, and AI allowance distinct.
+
+| Area | Controls |
+| --- | --- |
+| Availability | Personal creation, AI generation, tutoring, uploads, sharing, discovery, sales |
+| AI | Allowed provider/model, templates/teaching modes, budgets, quotas, context and output limits, concurrency, retries |
+| Schools and teachers | School AI eligibility/budgets, per-teacher allowance policy, allowed authoring modes, curriculum-source rules, review requirements, delegation limits, institutional sharing/selling permissions |
+| Merchant Elite LMS | Existing plan/management/sales gates, intentional store association, sync/listing and channel-price policy, business AI allowance, original payment/beneficiary mapping, expiry servicing and path-offer eligibility |
+| Learning | Mastery criteria, revision intervals, diagnostic behavior, progression rules |
+| Materials | Allowed types, sizes, counts, duration limits, OCR/transcription, embed hosts, downloads |
+| Publishing | Creator eligibility, review requirements, permitted visibility, samples, content limits |
+| Trust and eligibility | Reviewer verification workflow, endorsement/revalidation policy, self-review disclosure, public/seller onboarding, age-appropriate permissions and guardian/school authorization |
+| Commerce | Price bounds, commission, selling eligibility, payout/refund rules, bundled tutor allowance |
+| AI monetization experiments | Introductory allowances, paid AI packages, institutional plans, experiment cohorts, budget and profitability thresholds; paid review-service rules before enabling that extension |
+| Sharing | Invite limits/expiry, allowed grants, copying/remixing policy |
+| Privacy and retention | Transcript/source retention, creator analytics access, deletion behavior |
+
+New capabilities default off until migrations, credentials, processing infrastructure, and checks are ready. Manual authoring and existing Learn functions continue when AI is unavailable. Missing keys or exhausted budgets produce clear feature-specific states without breaking ordinary course access.
+
+Admin needs job failures/retries, AI usage and budget visibility, pending moderation, purchase reconciliation, refund handling, and feature kill switches. Monitor generation success, queue delay, material-processing success, grounding coverage, study resumption, objective evidence, sharing acceptance, purchases, refunds, and net settlement. Define metric events and denominators during foundation work; targets remain configurable.
+
+## 14. UI and accessibility rules
+
+Use existing cream, ink, gold, and surface tokens. Multi-part inputs use `field-box` for one edge-to-edge fill; selected tabs may use their existing states. Keep implementation/provider details out of learner flows unless needed for a meaningful choice.
+
+Support narrow screens, keyboard operation, focus management, screen readers, captioned media, readable document fallbacks, recoverable upload errors, and explicit autosave state. Display progress and errors in text rather than colour alone. Shared links preserve their destination through authentication.
+
+## 15. Delivery sequence and acceptance gates
+
+Each phase is a bounded implementation milestone, with separate reviewable PRs where needed. Do not enable public sales simply because course generation works.
+
+| Phase | Deliverable | Exit evidence |
+| --- | --- | --- |
+| 0. Foundation | Ownership and Merchant Elite integration audit, role/review/plan matrix, schema/API contracts, admin controls, job/runtime and payment recovery design | School and Elite workflows compatible; private drafts cannot auto-link to stores; ownership, budget attribution, channel offer and settlement policy documented |
+| 1. Personal authoring | Private manual courses/paths, creator identity, learner dashboard, outline editor, autosave | User creates and resumes a course without creating a school; another user cannot access its draft |
+| 2. AI generation | Shared personal, school/teacher, and Merchant Elite entry points; syllabus import, objectives, coverage maps, schemes of work, staged lessons/assessments, scoped budgets, recoverable jobs | Drafts survive refresh/retry/failure in every channel; school generation maps to sources; Elite roles/plan checked; common editor preserves rich content |
+| 3. Materials | Multiple resources and inline media, video/image/animated GIF/PDF/DOCX support, preview/download, processing and provenance | Authorized learner can use materials; GIF playback respects motion controls; failed extraction remains honest and recoverable; private assets remain private |
+| 4. Tutor and adaptation | Persistent sessions, grounded answers, objective evidence, private plan adjustments | Two learners on the same course have separate sessions/progress; real references; existing grading rules preserved |
+| 5. Publishing and sharing | Immutable versions, creator eligibility, evidence-based labels, scoped teacher collaboration/review, school approval, class/cohort assignment, storefront/sample, direct links, messages, free enrollments/invites | School gates/class access enforced; friend begins private study from a card/link; revoked invites rejected; review labels match actual version evidence |
+| 6. Commerce | Shared Learn/store course and path offers, entitlements, retry-safe settlement across existing LMS payment modes, earnings/refunds | Cross-channel retries cannot duplicate debit/payout/enrollment; refunds reverse original rail/beneficiary; Elite expiry preserves buyer access and servicing |
+| 7. Public launch | Discovery, moderation, outcome/retention/conversion/cost analytics, controlled monetization experiments, operational controls, rollout documentation | Full create-edit-share-buy-study-update-refund flow passes; quality and unit-economics gates met; monitoring and rollback exercised |
+
+Phases 2 and 3 follow foundation authoring; phase 4 needs objectives and source processing; phase 5 needs stable content versions; phase 6 needs publication and verified payment recovery. Scope delivery by these gates rather than an unsupported calendar promise. Legacy document conversion, advanced video processing, offline downloads, and multi-creator commercial bundles can follow the core release where infrastructure warrants; PDF, DOCX, video attachments, sharing, and selling remain required core outcomes.
+
+## 16. Validation strategy
+
+Use existing education integration test patterns and add meaningful tests for changed behavior:
+
+- Legacy school authoring/enrollment remains functional with and without new migrations.
+- School teachers can generate only within their assigned contexts; editing, approval, publishing, and selling permissions are independently enforced.
+- Curriculum maps cite actual supplied source versions, flag gaps, and do not label unverified alignment as official compliance.
+- School generation uses the correct budget; role removal blocks future school access and preserves institution-owned content.
+- Teacher-only answers/rubrics stay out of learner payloads and tutor retrieval; adaptations do not alter official grades or the published base course.
+- School-owned sales credit the configured institutional beneficiary; teachers cannot export school materials into personal sales without authorization.
+- Learner creators can become eligible public sellers through onboarding; teacher status cannot bypass publishing checks.
+- Merchant Elite AI creation and editing use canonical Learn IDs/versions; rich lessons, images/GIFs, files, objective maps, assessments, and endorsements survive round trips through both UIs.
+- Automatic/manual/store-only listing modes remain enforced; sync never attaches private drafts, crosses business ownership, publishes a draft, or revives a withdrawn offer. Concurrent edits yield an explicit conflict rather than silent data loss.
+- Store and Learn checkout produce coherent access/progress for the same learner/course; repeat cross-channel purchase attempts cannot cause unintended double charges. Refunds preserve unrelated valid grants and reverse the recorded original payment path/beneficiary.
+- Effective Elite expiry, selected `X-Merchant-Id`, `manage_digital`, business AI budgets, and admin feature switches are enforced; existing buyers retain permitted access/refund servicing. Course/path offer typing cannot confuse a path ID with a course ID.
+- Existing digital downloads/license products, student identity modes, module drip, completion, certificate modes, catalog visibility, and store-only offers retain their intended behavior.
+- Scoped review invitations do not expose private study data or grant ownership/publishing rights. Review labels require recorded evidence, disclose self-review, and never transfer silently to changed content.
+- Age-appropriate sharing/selling/purchase permissions and guardian/school requirements are enforced server-side, including unresolved eligibility states.
+- Introductory/paid/school AI allowances are consumed and reconciled correctly, distinct from content access; experiments report platform contribution after variable costs rather than gross sales alone.
+- Private drafts, published content, paid content, source files, and tutor sessions enforce the access matrix.
+- Invalid model output, cyclic paths, provider failures, exhausted budgets, retries, and cancellation preserve integrity.
+- Invalid file signatures, hostile document content, processing failures, source deletion, and unauthorized retrieval are handled.
+- A shared link or message never exposes the sender's progress or grants paid content accidentally.
+- Publish/update/unpublish does not silently change a buyer's content version or erase progress.
+- Purchase idempotency, concurrent checkout, interrupted debit/payout, refunds, and sandbox/live separation reconcile correctly.
+- Tutor citations refer to actual accessible sources, and protected assessment answers remain protected.
+- Mobile/desktop browser verification covers manual creation, AI creation, editing, upload, publication, sharing, checkout, tutoring, and creator earnings.
+
+Extend the existing `marketplace/digital-lms.test.ts`, `security/lms.test.ts`, `security/digital.test.ts`, merchant hardening tests, and education integration tests with the cross-channel cases above. Existing source tests were inspected for this plan; they were not executed as part of this documentation change. Runtime acceptance must include a merchant/storefront -> checkout -> Learn player -> progress/reporting -> refund exercise under each configured payment mode.
+
+Record a fixed educational evaluation set for objectives and grounded tutoring with explicit rubrics, including insufficient-source cases. Automated structural tests and educational review serve different purposes; both are required before broad AI rollout.
+
+Run the affected applications' existing type/lint/build and integration checks. This planning-only change requires document/diff verification, not runtime tests.
+
+## 17. Migration and rollout procedure
+
+Use additive migrations with a manifest in each implementation PR listing exact files and application order. Migrations are applied manually to live D1; deployment never implies migration completion. Guard new columns with `hasColumn()` and new tables with readiness checks, or keep all dependent paths behind default-off flags. Do not leave existing hot paths querying absent schema.
+
+Roll out in order: compatible dormant code -> manually applied migrations -> processing/job infrastructure and credentials -> readiness verification -> internal creators -> invited learners -> free sharing -> limited paid offers -> broader discovery. Keep feature flags independently reversible and stop new sales without stranding existing buyers. Disabling AI must leave purchased content and non-AI study accessible.
+
+After the internal readiness pilot, open private generation to both eligible learners and educators under controlled allowances. Pilot public publishing and sales with a smaller onboarded creator group, including learner creators as well as educators. Expand discovery/publishing based on recorded educational quality, corrections/reports, learning outcomes, retention, conversion, and contribution after AI/processing costs. Define the cohort size, quality/economic thresholds, evaluation windows, and rollback criteria in Admin; do not promise profitability or expand solely because learner signup volume is high.
+
+For each code milestone: fetch origin, use an isolated `codex/<task>` worktree from current `origin/main`, preserve unrelated work, run relevant checks, commit and push, review and merge via PR. Deploy only from clean main matching origin/main, through `scripts/preflight-deploy.mjs`. This document itself requires no deployment.
+
+## 18. Decisions carried into implementation
+
+Working assumptions: personal and school creators coexist; one-time UGX wallet purchases first; one seller per offer; third-party paid course access sold separately; private drafts by default; tutor usage disclosed separately from content ownership; no implicit resale/remix rights; no automatic publication or message delivery.
+
+Creation is available to learners and educators; public publishing, selling, and official approval have separate eligibility/authorization checks. Evidence-based authorship, educator review, and school approval labels distinguish accountability without guaranteeing absence of bias. Core scope includes educator review invitations; paid review services follow their own operational/settlement design. Private generation opens to both audiences after readiness, while public publishing/sales expand through quality and economic gates. Introductory AI allowance, paid AI packages, school plans, and commission are admin-controlled monetization experiments rather than fixed promises.
+
+School and teacher authoring is core release scope, using the shared generation engine rather than a later separate product. Institutional review, curriculum mappings, scoped resource access, school budget attribution, and authorized classroom delivery are included. Recommended school review defaults and delegation remain configurable in platform Admin; school-level choices operate within those constraints.
+
+Foundation work must resolve: exact personal ownership schema, existing messaging capabilities, durable job infrastructure, document/video processing providers, payment recovery primitives, and how creator eligibility/refund/update policies appear in Admin. These are bounded implementation decisions, not reasons to omit the create/share/sell journey.
+
+Merchant Elite integration is a core dependency, not a later synchronization add-on. Resolve shared authoring contracts, safe store association, course/path offer targets, channel prices and settlement provenance, plan expiry, and legacy migration behavior before enabling the new generator for merchant distribution. The existing shared Learn course tables remain the starting point; extend them and their services without creating parallel course/progress systems.
+
+The release is complete when a user can generate a bookkeeping course from a goal, edit objectives and lessons, add videos, images, animated GIFs, and supporting PDF/Word material, publish a version, send it to a friend by message or link, sell access to another learner, have each learner study privately with a grounded tutor, and see reconciled earnings while retaining the existing school-based Learn experience.
+
+It must also support a school teacher generating a source-mapped course from an approved syllabus, editing and enriching it, obtaining any required school approval, assigning it to the correct class, and optionally publishing/selling under institutional authorization, with school ownership, budgets, private assessment material, and learner access preserved throughout.
+
+It must also support an authorized Merchant Elite business generating and editing that same canonical learning content, publishing through its store and permitted Learn listing, selling course/path access, and seeing consistent learner progress, settlement, and refunds. Private learner/school drafts remain isolated from store association; business plan changes do not strand existing buyers.
