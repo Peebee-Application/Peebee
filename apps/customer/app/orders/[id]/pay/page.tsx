@@ -16,6 +16,7 @@ import { api, errorMessage } from "../../../../lib/api";
 import { formatUgx } from "../../../../lib/order-display";
 import { useLivePolling } from "../../../../lib/use-live-polling";
 import { useNetworkStatus } from "../../../../lib/use-network-status";
+import { useRegisterOrderNavContext } from "../../../../lib/order-nav-context";
 import { useRegisterNavPrimaryAction, useRegisterNavBack } from "../../../../lib/nav-primary-action";
 import { payReturnKey } from "../../../../lib/taxipress-draft";
 
@@ -39,6 +40,7 @@ export default function PaymentPage() {
   const router = useRouter();
   const online = useNetworkStatus();
   const [detail, setDetail] = useState<OrderDetail | null>(null);
+  useRegisterOrderNavContext(detail?.order);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [method, setMethod] = useState<Method>("mobile_money");
   const [phone, setPhone] = useState("");

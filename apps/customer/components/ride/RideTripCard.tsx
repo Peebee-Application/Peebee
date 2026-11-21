@@ -10,22 +10,24 @@ import { stageLabel } from "../../lib/order-display";
 import { rideProgress, whenLabel, toLocalInput } from "../../lib/ride-home";
 import { RiderProfileModal } from "../RiderProfileModal";
 
-type CarInfo = { scheduledFor: string | null; categoryName?: string; plate?: string; vehicleName?: string; driverName?: string };
+type CarInfo = { scheduledFor: string | null; categoryName?: string | null; vehicleKind?: string | null; serviceGroup?: "standard" | "luxury" | "ambulance"; plate?: string; vehicleName?: string; driverName?: string };
 type RiderFacts = { verified: boolean; vehicleInfo: string | null; rating: number | null };
 
 /** Extra fields some order payloads carry (Peebee Car joins, practice mode). */
 type CarFields = { car_plate?: string | null; car_make?: string | null; car_model?: string | null };
 
 export function useRideTripDetails(order: OrderRow | null) {
-  const [car, setCar] = useState<CarInfo | null>(null);
+  const [carResult, setCarResult] = useState<{ orderId: string; car: CarInfo | null; known: boolean } | null>(null);
   const [rider, setRider] = useState<RiderFacts | null>(null);
   const orderId = order?.id ?? null;
   const riderId = order?.rider_id ?? null;
 
   useEffect(() => {
-    if (!orderId) return setCar(null);
+    if (!orderId) return;
     let live = true;
-    api.carBookingInfo(orderId).then((info) => live && setCar(info)).catch(() => live && setCar(null));
+    api.carBookingInfo(orderId)
+      .then((info) => { if (live) setCarResult({ orderId, car: info, known: true }); })
+      .catch((error) => { if (live) setCarResult({ orderId, car: null, known: error?.status === 404 }); });
     return () => { live = false; };
   }, [orderId]);
 
@@ -43,7 +45,7 @@ export function useRideTripDetails(order: OrderRow | null) {
     return () => { live = false; };
   }, [orderId, riderId]);
 
-  return { car, rider };
+  return { car: carResult?.orderId === orderId ? carResult.car : null, rider, vehicleKnown: carResult?.orderId === orderId && carResult.known };
 }
 
 /** Concept 3's live-trip card: who's coming, in what, and one-tap chat / call / share. */

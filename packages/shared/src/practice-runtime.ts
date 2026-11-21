@@ -1286,9 +1286,9 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
   if (method === "GET" && path === `/v1/orders/${PRACTICE_ORDER_ID}/checkout`) return jsonResponse({ baseAmount: state.total, mobileMoney: state.total, wallet: state.total, cash: state.total });
   if (method === "GET" && path === `/v1/car/bookings/${PRACTICE_ORDER_ID}/info`) {
     // A Name-your-fare ride is a boda, not a car booking (the live API answers 404 too).
-    if (state.acceptedRiderName || state.fareOffer != null) return jsonResponse({ error: "not_found" }, 404);
+    if (!state.carCategoryId || state.acceptedRiderName || state.fareOffer != null) return jsonResponse({ error: "not_found" }, 404);
     const car = practiceCar(state.demoCarRiderId);
-    return jsonResponse({ car: true, scheduledFor: null, categoryName: car.name, vehicleName: `${car.make} ${car.model}`, plate: car.plate, ownerName: car.owner, driverName: car.driver });
+    return jsonResponse({ car: true, scheduledFor: null, serviceGroup: practiceSpecialCategory(state.carCategoryId)?.service_group ?? "standard", vehicleKind: PRACTICE_CARGO_RIDERS.some((rider) => rider.id === state.demoCarRiderId || rider.category === state.carCategoryId) ? "cargo" : "passenger", categoryName: car.name, vehicleName: `${car.make} ${car.model}`, plate: car.plate, ownerName: car.owner, driverName: car.driver });
   }
   if (method === "POST" && path === `/v1/orders/${PRACTICE_ORDER_ID}/match`) {
     save({ riderClaimed: true, stage: "Match" });

@@ -67,6 +67,7 @@ import { useCart } from "../lib/cart";
 import { filterByModule, useModules } from "../lib/modules";
 import { SPOTLIGHT_FILTERS, setSpotlightFilter, useSpotlightFilter, type SpotlightFilter } from "../lib/spotlight-filter";
 import { SPACE_PAGES, selectedMenuScroll } from "../lib/nav-layout";
+import { useOrderNavContext } from "../lib/order-nav-context";
 import { NavAction } from "./NavAction";
 import { goBackOr, useNavBack, useNavPrimaryAction } from "../lib/nav-primary-action";
 
@@ -209,8 +210,11 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
   const menuRef = useRef<HTMLUListElement>(null);
   const [activeOrder, setActiveOrder] = useState<OrderRow | null>(null);
   const [trackerDrawerOpen, setTrackerDrawerOpen] = useState(false);
-  const menuGroup = groupForPath(pathname);
-  const selectedItem = itemForPath(pathname);
+  const orderContext = useOrderNavContext();
+  const resolvedOrder = orderContext?.path === pathname ? orderContext : null;
+  const loadingOrder = /^\/orders\/[^/]+(?:\/pay)?$/.test(pathname) && pathname !== "/orders/history" && pathname !== "/orders/new" && !resolvedOrder;
+  const menuGroup = resolvedOrder?.group ?? (loadingOrder ? "original" : groupForPath(pathname));
+  const selectedItem = resolvedOrder?.group === "ride" || loadingOrder ? null : itemForPath(pathname);
   const t = useTranslate();
   const homeMenu = useHomeMenu();
   const special = useSpecialCarServices();
@@ -228,7 +232,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
   //  - "cart":   shopping screens with something in the shared bag get one
   //              "View cart" button instead of the links (no floating bars).
   //  - "links":  the normal menu.
-  const inShopping = groupForPath(pathname) === "shopping";
+  const inShopping = menuGroup === "shopping";
   //  A page-provided action wins (it is only registered while that page is
   //  mounted): /cart's gold Checkout, or a restaurant's own cart on food routes,
   //  which never mixes with the shopping cart.
