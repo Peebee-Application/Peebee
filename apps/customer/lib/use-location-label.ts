@@ -48,11 +48,12 @@ function pickCity(address: NominatimAddress | undefined): string | null {
  * same free OSM Nominatim endpoint the map picker uses, caches the result
  * for 30 minutes so we don't refetch on every page, and falls back to a
  * generic label if geolocation is denied or unavailable. */
-export function useLocationLabel() {
+export function useLocationLabel(enabled = true) {
   const [label, setLabel] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "locating" | "done" | "error">("idle");
 
   useEffect(() => {
+    if (!enabled) return;
     const cached = readCache();
     if (cached && Date.now() - cached.at < CACHE_MAX_AGE_MS) {
       setLabel(cached.label);
@@ -85,7 +86,7 @@ export function useLocationLabel() {
       () => setStatus("error"),
       { timeout: 10000 },
     );
-  }, []);
+  }, [enabled]);
 
   return { label, status };
 }

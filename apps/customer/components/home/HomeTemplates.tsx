@@ -17,9 +17,11 @@ import { canRotateHome, chooseHomeSelection, initialHomeSelection, type HomeSele
 import { Greeting } from "./Greeting";
 import { ExplorePeebeeCard, HomeLaunch } from "./HomeScreensaver";
 import "@peebee/shared/home-artwork.css";
+import { PersonalizedHome } from "./PersonalizedHome";
 
 /** Replaces home content only. BrandHeader and BottomNav remain owned by AppShell. */
-export function HomeExperience({ legacy, children }: { legacy: ReactNode; children: ReactNode }) {
+export function HomeExperience({ legacy, urgent, children }: { legacy: ReactNode; urgent?: ReactNode; children: ReactNode }) {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<DeliverySettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
@@ -37,8 +39,9 @@ export function HomeExperience({ legacy, children }: { legacy: ReactNode; childr
   }, [load]);
   if (!settings) return error ? <><div role="status" className="mx-4 my-3 rounded-xl border border-[var(--border-faint)] p-3 text-sm">Home designs could not load. Your services are still available.<button type="button" onClick={() => void load()} className="ml-2 min-h-11 font-bold underline">Try again</button></div>{legacy}</> : <div className="dh px-4 py-4"><Greeting compact /><div aria-label="Loading home" aria-busy="true" className="dh-loading" /></div>;
   const config = resolveHomeTemplates(settings.homeTemplates);
+  if (config.personalization.enabled) return <PersonalizedHome key={`${user?.id ?? "guest"}:${isPracticeMode()}`} config={config} settings={settings} urgent={urgent}>{children}</PersonalizedHome>;
   if (!config.enabled) return legacy;
-  return <DynamicHome config={config} settings={settings}>{children}</DynamicHome>;
+  return <DynamicHome config={config} settings={settings}>{urgent}{children}</DynamicHome>;
 }
 
 function DynamicHome({ config, settings, children }: { config: HomeTemplatesSettings; settings: DeliverySettings; children: ReactNode }) {

@@ -1,3 +1,4 @@
+import { DEFAULT_HOME_PERSONALIZATION, resolveHomePersonalization, type HomePersonalizationSettings } from "./home-personalization.js";
 /** The ten approved home layouts. IDs match the customer's design shortlist. */
 export const HOME_TEMPLATES = [
   { id: "04", name: "The Day Ticket", title: "A little help. A better day." },
@@ -60,6 +61,7 @@ export const HOME_SHORTCUT_IDS = HOME_SHORTCUTS.map((s) => s.id) as [HomeShortcu
 /** Bounds protect timers and renderable layouts; all operating values below are editable in Admin. */
 export const HOME_TEMPLATE_LIMITS = { minSeconds: 10, maxSeconds: 86400, maxShortcuts: 6, maxWeight: 20, maxInteractionSeconds: 120 } as const;
 export type HomeTemplatesSettings = {
+  personalization: HomePersonalizationSettings;
   enabled: boolean;
   rotateOnReturn: boolean;
   templates: HomeTemplateId[];
@@ -75,6 +77,7 @@ export type HomeTemplatesSettings = {
   exploreLines: { module: "ride" | "eat" | "buy" | "work" | "learn"; text: string }[];
 };
 export const DEFAULT_HOME_TEMPLATES: HomeTemplatesSettings = {
+  personalization: { ...DEFAULT_HOME_PERSONALIZATION },
   enabled: true,
   rotateOnReturn: false,
   templates: [...HOME_TEMPLATE_IDS],
@@ -115,7 +118,7 @@ export function resolveHomeTemplates(value: unknown): HomeTemplatesSettings {
   if (v.rotateOnReturn !== undefined && typeof v.rotateOnReturn !== "boolean") return fallback();
   if (v.exploreHoldSeconds !== undefined && !integer(v.exploreHoldSeconds, 2, 30)) return fallback();
   if (v.exploreLines !== undefined && (!Array.isArray(v.exploreLines) || v.exploreLines.length < 1 || v.exploreLines.length > 30 || !v.exploreLines.every((entry) => entry && typeof entry === "object" && ["ride", "eat", "buy", "work", "learn"].includes(entry.module) && typeof entry.text === "string" && entry.text.trim().length > 0 && entry.text.length <= 120))) return fallback();
-  return structuredClone({ ...v, rotateOnReturn: v.rotateOnReturn ?? false, exploreTypeMs: v.exploreTypeMs ?? DEFAULT_HOME_TEMPLATES.exploreTypeMs,
+  return structuredClone({ ...v, personalization: resolveHomePersonalization(v.personalization), rotateOnReturn: v.rotateOnReturn ?? false, exploreTypeMs: v.exploreTypeMs ?? DEFAULT_HOME_TEMPLATES.exploreTypeMs,
     exploreHoldSeconds: v.exploreHoldSeconds ?? DEFAULT_HOME_TEMPLATES.exploreHoldSeconds,
     exploreLines: v.exploreLines ?? DEFAULT_HOME_TEMPLATES.exploreLines }) as HomeTemplatesSettings;
 }

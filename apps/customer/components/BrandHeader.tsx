@@ -12,6 +12,8 @@ import {useResolvedTheme,useThemeMode} from "../lib/theme";
 import {useChatDrawer} from "../lib/chat-drawer";
 import {useHomeMenu} from "../lib/home-menu";
 import {BrandLogo} from "./BrandLogo";
+import {useLocationLabel} from "../lib/use-location-label";
+import {homeFont} from "./home/home-font";
 import {SavedCartsList,useCartRows} from "./SavedCarts";
 
 type MenuCounts={wallet:number|null;unreadChats:number;inProgress:number;attention:number};
@@ -50,6 +52,8 @@ function MenuTile({href,label,Icon,badge,badgeLabel,onNavigate}:{href:string;lab
 export function BrandHeader() {
   const {user}=useAuth();
   const pathname=usePathname();
+  const home=pathname==="/";
+  const {label:locationLabel,status:locationStatus}=useLocationLabel(home);
   const {setMode}=useThemeMode();
   const activeTheme=useResolvedTheme();
   const {totalQuantity:cartCount}=useCart();
@@ -116,9 +120,9 @@ export function BrandHeader() {
   },[expanded]);
   const walletText=counts.wallet==null?"Balance, top up and history":`UGX ${counts.wallet.toLocaleString("en-UG")}`;
   return <>
-    <header className={`customer-header sticky top-0 z-40 ${expanded?"is-menu-open":""}`}>
+    <header className={`customer-header sticky top-0 z-40 ${home?`ph-header ${homeFont.className}`:""} ${expanded?"is-menu-open":""}`}>
       <div className="mx-auto flex h-16 max-w-lg items-center justify-between gap-3 px-4">
-        <Link href="/" aria-label={`Go to home${modeLabel ? ", demo mode" : ""}`} className="flex shrink-0 items-start gap-1"><BrandLogo variant={isDark ? "dark" : "light"}/>{modeLabel&&<sup aria-hidden="true" className="pt-1 text-[10px] font-bold leading-none text-gold">{modeLabel}</sup>}</Link>
+        <Link href="/" aria-label={`Go to home${modeLabel ? ", demo mode" : ""}`} className={home?"ph-brand-link min-w-0":"flex shrink-0 items-start gap-1"}><span className="flex items-start gap-1"><BrandLogo variant={home ? "light" : isDark ? "dark" : "light"}/>{modeLabel&&<sup aria-hidden="true" className="pt-1 text-[10px] font-bold leading-none text-gold">{modeLabel}</sup>}</span>{home&&<span className="ph-header-location" aria-label="Current detected location"><MapPinned size={14} aria-hidden/><span>{locationStatus==="locating"?"Locating…":locationLabel??"Location unavailable"}</span></span>}</Link>
         <div className="flex shrink-0 items-center gap-1">
           <button ref={toggleRef} type="button" aria-label={expanded?"Close menu":"Open menu"} aria-expanded={expanded} aria-controls="header-menu" onClick={()=>setExpanded(value=>!value)} className="customer-header-toggle relative flex h-11 w-11 items-center justify-center rounded-full">
             <ChevronDown size={24} className={`transition-transform duration-300 ${expanded?"rotate-180":""}`} aria-hidden/>
