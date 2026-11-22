@@ -20,7 +20,7 @@ export default function HomePage() {
         <ModuleOnly any={["buy.shopping"]}><RecentLists /></ModuleOnly>
         <WalletCard />
       </div>
-    </HomeLaunch>} urgent={<><FeeProposalCard /><ActiveOrderCard personalized /></>}>
+    </HomeLaunch>} urgent={<><FeeProposalCard /><ActiveOrderCard /></>}>
       <ModuleOnly any={["buy.shopping"]}>
         <RecentLists personalized />
       </ModuleOnly>
