@@ -53,11 +53,11 @@ export function WalletPreview({ onOpen }: { onOpen: () => void }) {
           <p className="customer-preview-balance">{balance == null ? "—" : money(balance)}</p>
           <p className="customer-preview-muted">Available balance</p>
         </div>
-        <Link href={walletTabHref("topup")} onClick={onOpen} className="customer-preview-topup">
+        <Link href={walletTabHref("topup")} className="customer-preview-topup">
           + Top up
         </Link>
       </div>
-      <Link href={walletTabHref("transactions")} onClick={onOpen} className="customer-preview-details">
+      <Link href={walletTabHref("transactions")} className="customer-preview-details">
         Details →
       </Link>
       {tx && (
