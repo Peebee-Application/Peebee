@@ -20,7 +20,7 @@ export function NavAction({ action }: { action: NavPrimaryAction }) {
 
 function NavConfirmation({ action }: { action: NavPrimaryAction }) {
   const threshold = useHomeMenu().navigation.confirmPercent / 100;
-  const label = /^(slide|swipe)\b/i.test(action.label) ? action.label : /^pay\b/i.test(action.label) ? "Slide to pay" : "Slide to confirm";
+  const label = action.confirmationLabel ?? (/^(slide|swipe)\b/i.test(action.label) ? action.label : /^pay\b/i.test(action.label) ? "Slide to pay" : "Slide to confirm");
   const detail = action.detail ?? (label !== action.label ? action.label : action.sublabel);
   const gesture = useRef<{ id: number; start: number; distance: number; max: number } | null>(null);
   const lock = useRef(false);

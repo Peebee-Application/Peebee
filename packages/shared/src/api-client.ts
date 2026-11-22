@@ -1203,6 +1203,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async pickedUpOrder(orderId: string) {
       return request<{ order: OrderRow }>(`/v1/orders/${orderId}/picked-up`, { method: "POST" });
     },
+    async confirmRideCashPaid(orderId: string) {
+      return request<{ ok: true }>(`/v1/orders/${encodeURIComponent(orderId)}/cash-paid`, { method: "POST", body: "{}" });
+    },
     async handoverOrder(orderId: string, pin: string) {
       return request<{ order: OrderRow }>(`/v1/orders/${orderId}/handover`, {
         method: "POST",

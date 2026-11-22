@@ -245,7 +245,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
   const walletTab = useSyncExternalStore(subscribeWalletTab, getWalletTab, () => "home" as WalletTab);
   const backAction = onWallet
     ? () => goBackOr(router, "/")
-    : navBack ?? (rightMode !== "links"
+    : primaryAction?.closeToHome ? () => router.push("/") : navBack ?? (rightMode !== "links"
     ? () => goBackOr(router, "/")
     : menuGroup !== "original" && menuGroup !== "spotlight" ? () => router.push("/") : null);
   const onHomeScreen = pathname === "/" && menuGroup === "original";
@@ -359,10 +359,10 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
 
           <div className="customer-nav-shell pointer-events-auto flex w-full items-stretch">
             <div className="customer-nav-anchor">
-              <button type="button" aria-label={onWallet ? "Back" : backAction ? primaryAction?.confirmation ? "Cancel confirmation" : navBack || rightMode !== "links" ? "Back" : "Back to Home" : onHomeScreen ? homeMenu.navigation.streamLabel : "Home"}
+              <button type="button" aria-label={onWallet ? "Back" : primaryAction?.closeToHome ? "Close and go to Home" : backAction ? primaryAction?.confirmation ? "Cancel confirmation" : navBack || rightMode !== "links" ? "Back" : "Back to Home" : onHomeScreen ? homeMenu.navigation.streamLabel : "Home"}
                 onClick={backAction ?? (() => router.push(onHomeScreen ? "/spotlight" : "/"))}
                 className="customer-nav-anchor-button">
-                {backAction ? primaryAction?.confirmation ? <X aria-hidden /> : <ChevronLeft aria-hidden /> : onHomeScreen ? <Flame aria-hidden /> : <Home aria-hidden />}
+                {backAction ? primaryAction?.confirmation || primaryAction?.closeToHome ? <X aria-hidden /> : <ChevronLeft aria-hidden /> : onHomeScreen ? <Flame aria-hidden /> : <Home aria-hidden />}
                 {onWallet ? <span>Back</span> : !backAction && <span>{onHomeScreen ? homeMenu.navigation.streamLabel : t("nav_home")}</span>}
               </button>
             </div>

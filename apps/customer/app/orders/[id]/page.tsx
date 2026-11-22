@@ -607,6 +607,7 @@ export default function OrderDetailPage() {
       <>
         <PracticeRiderCall orderId={orderId} stage={order.stage} riderName={order.rider_name ?? null} isRide />
         <RideJourney
+          key={order.id}
           detail={detail}
           busy={busy}
           error={error}
@@ -616,6 +617,7 @@ export default function OrderDetailPage() {
           onChanged={() => void load().catch(() => {})}
           onRated={handleRated}
           onComplete={() => run(() => api.handoverOrder(orderId, order.pin_code as string))}
+          onCashPaid={() => run(() => api.confirmRideCashPaid(orderId))}
         />
         {overlays}
       </>
