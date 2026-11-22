@@ -1,5 +1,7 @@
 /* Floating bank-card-sized deck. Card colours stay consistent in both themes. */
-.home-wallet { --wallet-gold: var(--color-gold-400); overflow: visible; color: rgb(var(--color-ink)); padding: 8px 0 0; }
+/* Clip at the app edges, not at the inset card section. The full-width gutter is transparent. */
+.home-wallet { --wallet-gold: var(--color-gold-400); overflow-x: clip; overflow-y: visible; color: rgb(var(--color-ink)); margin-inline: -16px; padding: 8px 16px 0; }
+.ph-home > .home-wallet { margin-inline: -20px; padding-inline: 20px; }
 .home-wallet .home-wallet__heading { text-align: center; text-transform: uppercase; letter-spacing: .22em; font-size: 17px; line-height: 1.3; font-weight: 750; margin: 0 0 20px; }
 .home-wallet__deck { position: relative; width: 100%; max-width: 320px; margin-inline: auto; padding-top: 32px; container-type: inline-size; touch-action: pan-y; outline-offset: 8px; perspective: 1000px; perspective-origin: 50% 30%; transform-style: flat; }
 .home-wallet__deck::before { content: ""; display: block; width: 100%; aspect-ratio: 85.6 / 53.98; pointer-events: none; }
