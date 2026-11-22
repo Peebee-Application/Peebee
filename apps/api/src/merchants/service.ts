@@ -7,6 +7,8 @@ import { hasColumn } from "../lib/schema.js";
 import { merchantCodeFor } from "../lib/profile-codes.js";
 import { resolveMerchantPolicy } from "./policy.js";
 
+import { listPurchase, purchaseConfirmationStatements, releaseListPurchases } from "./list-purchases.js";
+
 type Row = Record<string, unknown>;
 
 export async function merchantPaymentsEnabled(environment: PlatformEnvironment): Promise<boolean> {
@@ -284,6 +286,7 @@ export async function settleMerchantOrderFinancials(input: {
   actorId: string;
   riderPayout: number;
 }): Promise<void> {
+  await releaseListPurchases(input.orderId, input.actorId);
   const orderResult = await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [input.orderId] });
   const order = orderResult.rows[0] as Row | undefined;
   if (!order?.rider_id) throw new Error("Funded merchant order has no rider");
@@ -345,7 +348,8 @@ export async function finalizeMerchantPayment(paymentId: string, actorId: string
   await ensureOrderBudget(String(payment.order_id));
   const amount = Number(payment.amount);
   const environment = payment.environment as PlatformEnvironment;
-  const held = payment.risk_state === "held";
+  const purchase = await listPurchase(paymentId);
+  const held = !!purchase || payment.risk_state === "held";
   const destinationPurpose = held ? "payable_held" : "payable_available";
   const transaction = await postLedgerTransaction({
     kind: "merchant_purchase",
@@ -353,7 +357,7 @@ export async function finalizeMerchantPayment(paymentId: string, actorId: string
     environment,
     referenceType: "merchant_payment",
     referenceId: paymentId,
-    description: held
+    description: purchase ? "List purchase pending customer receipt" : held
       ? "Order principal allocated to merchant and held for risk review"
       : "Order principal allocated to merchant after confirmed goods handover",
     actorId,
@@ -362,6 +366,7 @@ export async function finalizeMerchantPayment(paymentId: string, actorId: string
       { ownerType: "merchant", ownerId: String(payment.merchant_id), purpose: destinationPurpose, environment, amount },
     ],
     additionalStatements: [
+      ...(purchase ? purchaseConfirmationStatements(paymentId, actorId) : []),
       {
         // The CHECK constraint is the final concurrent-spend guard. An
         // over-allocation aborts this whole ledger batch.

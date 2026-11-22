@@ -581,3 +581,21 @@ test("Taxipress demo books the way the app does: who travels and what they bring
   assert.equal(fam.amount, route.farePerSeat * 3);
   t.mock.restoreAll();
 });
+
+
+test("list purchase practice keeps merchant money pending until receipt without live requests",async()=>{
+ installStorage();
+ const fetcher=createPracticeFetch('rider',(async()=>{throw new Error('Live payment forbidden in practice');}) as typeof fetch);
+ startPracticeMode('rider');
+ const read=async(path:string)=>(await (await fetcher('https://api.test/v1'+path)).json()) as any;
+ const post=(path:string,body:object)=>fetcher('https://api.test/v1'+path,{method:'POST',body:JSON.stringify(body)});
+ const detail=await read('/orders/practice-order');
+ const item=detail.items[0];
+ const request=await post('/merchant-payments',{orderId:'practice-order',outletCode:'PEEBEE-DEMO',amount:1000,items:[{itemId:item.id,amount:1000}]});
+ const created=await request.json() as any;assert.ok(created.payment?.purchase_code,JSON.stringify(created));
+ const id=created.payment.id;
+ await post(`/merchant-payments/${id}/merchant-confirm`,{amount:1000});
+ const pending=await read('/rider/orders/practice-order/merchant-purchases');assert.equal(pending.purchases[0].delivery_pending,true);assert.equal(pending.purchases[0].status,'held');
+ await post('/orders/practice-order/handover',{pin:'2468'});
+ const received=await read('/rider/orders/practice-order/merchant-purchases');assert.equal(received.purchases[0].purchase_status,'released');assert.equal(received.purchases[0].status,'available');
+});

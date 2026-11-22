@@ -247,6 +247,8 @@ export type {
   MerchantSettlement,
   AdminMerchantSettlement,
   MerchantPayment,
+  ListPurchaseItem,
+  ListPurchaseBudget,
   MerchantSettlementAccount,
   MerchantCustodyApproval,
   AdminMerchantSettlementAccount,

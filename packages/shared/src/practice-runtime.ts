@@ -1,3 +1,4 @@
+import type { MerchantPayment } from "./domain.js";
 import { endServerPractice, isServerPractice } from "./practice-server.js";
 import { practiceTalentRequest, resetPracticeTalent } from "./practice-talent.js";
 import { practiceTaxipressRequest, rememberPracticeTaxipressOptions, resetPracticeTaxipress } from "./practice-taxipress.js";
@@ -328,6 +329,7 @@ type PracticeState = {
   destinationLat: number | null;
   destinationLng: number | null;
   merchantPaymentStatus: "none" | "awaiting_confirmation" | "available";
+  listPurchases?: MerchantPayment[];
   merchantBalance: number;
   settlementStatus: "none" | "successful";
   settlementAmount: number;
@@ -834,6 +836,8 @@ function practiceGuestRequest(path: string, method: string, body: Record<string,
 function handlePracticeRequest(role: PracticeRole, path: string, method: string, body: Record<string, unknown>, query = new URLSearchParams()): Response {
   let state = loadState(role);
   const save = (patch: Partial<PracticeState>) => {
+    // A new simulated checkout must not inherit the previous order's purchases.
+    if (patch.hasOrder === true && patch.stage && ["Create", "Match"].includes(patch.stage)) patch = { ...patch, listPurchases: [] };
     state = { ...state, ...patch };
     saveState(state);
   };
@@ -1309,6 +1313,11 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
   }
   if (method === "POST" && path === `/v1/orders/${PRACTICE_ORDER_ID}/deliver`) {
     if (state.isRide) { save({ stage: "Deliver" }); return jsonResponse({ order: orderFor(state) }); }
+    if(state.listPurchases?.some(p=>p.purchase_status!=='cancelled')) {
+      const bought=new Set(state.listPurchases.filter(p=>p.purchase_status==='pending_delivery'||p.purchase_status==='released').flatMap(p=>p.items?.map(item=>item.list_item_id)??[]));
+      if(itemsFor(state).some(item=>!bought.has(item.id)))return practiceError("Record the remaining practice item purchases before delivery.");
+    }
+    if (state.listPurchases?.some(p=>p.status==='awaiting_confirmation')) return practiceError("A practice merchant still needs to confirm a purchase.");
     if (state.orderType === "shopping" && state.merchantPaymentStatus !== "available") return practiceError("Confirm the practice merchant purchase first, just as you must in a live shopping job.");
     save({ stage: "Deliver" });
     return jsonResponse({ order: orderFor(state) });
@@ -1318,11 +1327,15 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
     return jsonResponse({ order: orderFor(state) });
   }
   if (method === "POST" && path === `/v1/orders/${PRACTICE_ORDER_ID}/handover`) {
-    save({ stage: "Settle" });
+    const listPurchases=(state.listPurchases??[]).map(p=>p.purchase_status==='pending_delivery'?{...p,status:'available' as const,purchase_status:'released' as const,delivery_pending:false}:p);
+    const received=(state.listPurchases??[]).filter(p=>p.purchase_status==='pending_delivery').reduce((sum,p)=>sum+p.amount,0);
+    save({ stage: "Settle",listPurchases,merchantBalance:state.merchantBalance+received });
     return jsonResponse({ order: orderFor(state) });
   }
   if (method === "POST" && path === `/v1/orders/${PRACTICE_ORDER_ID}/settle`) {
-    save({ stage: "Settle" });
+    const listPurchases=(state.listPurchases??[]).map(p=>p.purchase_status==='pending_delivery'?{...p,status:'available' as const,purchase_status:'released' as const,delivery_pending:false}:p);
+    const received=(state.listPurchases??[]).filter(p=>p.purchase_status==='pending_delivery').reduce((sum,p)=>sum+p.amount,0);
+    save({ stage: "Settle",listPurchases,merchantBalance:state.merchantBalance+received });
     return jsonResponse({ order: orderFor(state) });
   }
   if (method === "POST" && path === `/v1/orders/${PRACTICE_ORDER_ID}/rate`) return jsonResponse({ ok: true, rating: Number(body.rating ?? 5), comment: body.comment ?? null, recommended: body.recommended === true });
@@ -1387,6 +1400,39 @@ function handlePracticeRequest(role: PracticeRole, path: string, method: string,
     return jsonResponse({ ok: true });
   }
 
+  if (method === "GET" && path.startsWith("/v1/rider/merchant-outlets/")) {
+    if(decodeURIComponent(path.split('/').pop()??'').toUpperCase()!=='PEEBEE-DEMO') return practiceError("Use the practice merchant code PEEBEE-DEMO.");
+    return jsonResponse({outlets:[{id:PRACTICE_OUTLET_ID,code:"PEEBEE-DEMO",name:"Practice outlet",display_name:"Peebee Practice Mart",address:"Entebbe City"}]});
+  }
+  if (method === "GET" && path===`/v1/rider/orders/${PRACTICE_ORDER_ID}/merchant-purchases`) {
+    const purchases=state.listPurchases??[],funded=state.total-state.deliveryFee;
+    const allocated=purchases.filter(p=>p.purchase_status==='pending_delivery'||p.purchase_status==='released').reduce((sum,p)=>sum+p.amount,0);
+    const reserved=purchases.filter(p=>p.status==='awaiting_confirmation').reduce((sum,p)=>sum+p.amount,0);
+    return jsonResponse({purchases,budget:{funded,allocated,reserved,remaining:Math.max(0,funded-allocated-reserved)}});
+  }
+  const practicePurchase=(state.listPurchases??[]).find(p=>path===`/v1/merchant-payments/${p.id}`||path===`/v1/merchant-payments/${p.purchase_code}`||path===`/v1/merchant-payments/${p.id}/merchant-confirm`||path===`/v1/merchant-payments/${p.id}/rider-cancel`);
+  if(practicePurchase){
+    if(method==='GET')return jsonResponse({payment:practicePurchase});
+    if(method==='POST'&&path.endsWith('/merchant-confirm')){
+      if(practicePurchase.status!=='awaiting_confirmation'||Number(body.amount)!==practicePurchase.amount)return practiceError("Check the practice purchase amount and status.");
+      const updated:MerchantPayment={...practicePurchase,status:'held',purchase_status:'pending_delivery',delivery_pending:true,merchant_confirmed_at:nowIso(),risk_state:'passed'};
+      save({listPurchases:state.listPurchases!.map(p=>p.id===updated.id?updated:p),merchantPaymentStatus:'available'});return jsonResponse({payment:updated});
+    }
+    if(method==='POST'&&path.endsWith('/rider-cancel')){
+      if(practicePurchase.status!=='awaiting_confirmation')return practiceError("This purchase is already confirmed.");
+      save({listPurchases:state.listPurchases!.map(p=>p.id===practicePurchase.id?{...p,status:'declined',purchase_status:'cancelled'}:p)});return jsonResponse({ok:true});
+    }
+  }
+  if(method==='POST'&&path==='/v1/merchant-payments'&&Array.isArray(body.items)){
+    const selections=body.items as Array<{itemId:string;amount:number}>,purchases=state.listPurchases??[];
+    const used=new Set(purchases.filter(p=>p.purchase_status!=='cancelled').flatMap(p=>p.items?.map(item=>item.list_item_id)??[]));
+    const lines=selections.map(selection=>{const item=itemsFor(state).find(item=>item.id===selection.itemId);return item?{list_item_id:item.id,name:item.name,quantity:item.quantity,amount:Number(selection.amount)}:null;});
+    if(!lines.length||lines.some(item=>!item||used.has(item.list_item_id)||!Number.isSafeInteger(item.amount)||item.amount<=0)||new Set(selections.map(item=>item.itemId)).size!==lines.length)return practiceError("Choose unpaid list items and whole-UGX amounts.");
+    const amount=lines.reduce((sum,item)=>sum+item!.amount,0),spent=purchases.filter(p=>p.purchase_status!=='cancelled').reduce((sum,p)=>sum+p.amount,0);
+    if(amount!==Number(body.amount)||amount+spent>state.total-state.deliveryFee)return practiceError("The purchase exceeds the practice list budget.");
+    const payment:MerchantPayment={id:`practice-purchase-${crypto.randomUUID()}`,order_id:PRACTICE_ORDER_ID,merchant_id:PRACTICE_MERCHANT_ID,outlet_id:PRACTICE_OUTLET_ID,outlet_name:'Peebee Practice Mart',amount,status:'awaiting_confirmation',purchase_status:'awaiting_merchant',purchase_code:`LP-${crypto.randomUUID().replaceAll('-','').slice(0,16).toUpperCase()}`,items:lines.filter((item):item is NonNullable<typeof item>=>!!item),confirmation_mode:'dual_confirm',rider_id:'practice-rider',rider_confirmed_at:nowIso(),merchant_confirmed_at:null,risk_state:'passed',environment:'sandbox',created_at:nowIso()};
+    save({listPurchases:[...purchases,payment]});return jsonResponse({payment});
+  }
   if (method === "POST" && path === "/v1/merchant-payments") {
     save({ merchantPaymentStatus: "awaiting_confirmation" });
     return jsonResponse({ payment: paymentFor(state) });

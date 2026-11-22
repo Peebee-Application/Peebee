@@ -145,6 +145,7 @@ import type {
   MerchantCustodyApproval,
   MerchantProviderOperation,
   MerchantPayment,
+  ListPurchaseBudget,
   MerchantReconciliationRow,
   MerchantSettlement,
   MerchantSettlementAccount,
@@ -1608,6 +1609,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       orderId: string;
       outletCode?: string;
       amount: number;
+      items?: Array<{ itemId: string; amount: number }>;
       riderLat?: number;
       riderLng?: number;
       accuracyM?: number;
@@ -1620,6 +1622,15 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
         headers: { "Idempotency-Key": idempotencyKey },
         body: JSON.stringify(input),
       });
+    },
+    async lookupPurchaseOutlet(code: string) {
+      return request<{outlets:Array<{id:string;code:string;name:string;address:string|null;display_name:string}>}>(`/v1/rider/merchant-outlets/${encodeURIComponent(code)}`);
+    },
+    async listMerchantPurchases(orderId: string) {
+      return request<{budget:ListPurchaseBudget;purchases:MerchantPayment[]}>(`/v1/rider/orders/${orderId}/merchant-purchases`);
+    },
+    async cancelListMerchantPurchase(id: string) {
+      return request<{ok:true}>(`/v1/merchant-payments/${id}/rider-cancel`,{method:"POST"});
     },
     async merchantPayment(id: string) {
       return request<{ payment: MerchantPayment }>(`/v1/merchant-payments/${id}`);
