@@ -1,11 +1,10 @@
 "use client";
 
-import { ChevronRight, LogOut, Settings, Shield, Wallet } from "lucide-react";
+import { LogOut, Shield, Wallet } from "lucide-react";
 import Link from "next/link";
 import { ChannelEntryCard } from "../../components/channels/ChannelEntryCard";
 import { DisplayNameSettings } from "../../components/DisplayNameSettings";
 import { ProfilePhoto } from "../../components/ProfilePhoto";
-import { PracticeModeCard } from "../../components/PracticeMode";
 import { SavedLocations } from "../../components/SavedLocations";
 import { useAuth } from "../../lib/auth-context";
 import { useTranslate } from "../../lib/i18n";
@@ -16,8 +15,6 @@ export default function AccountPage() {
 
   return (
     <div className="space-y-5 px-4 pb-6 pt-4">
-      <h1 className="text-xl font-bold text-ink">{t("account_title")}</h1>
-
       <section className="home-card flex items-center gap-3">
         <ProfilePhoto />
         <span>
@@ -26,6 +23,8 @@ export default function AccountPage() {
           {user?.accountCode && <span className="mt-1 block font-mono text-xs text-ink-500">Peebee ID · {user.accountCode}</span>}
         </span>
       </section>
+
+      <DisplayNameSettings />
 
       <Link
         href="/wallet"
@@ -37,20 +36,7 @@ export default function AccountPage() {
 
       <ChannelEntryCard />
 
-      <DisplayNameSettings />
-
-      <PracticeModeCard role="customer" />
-
       <SavedLocations />
-
-      <Link
-        href="/settings"
-        className="home-card flex items-center gap-3 !rounded-2xl !py-3 text-sm font-semibold text-ink"
-      >
-        <Settings className="h-5 w-5 text-gold" strokeWidth={1.75} aria-hidden />
-        <span className="flex-1">Settings</span>
-        <ChevronRight className="h-4 w-4 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
-      </Link>
 
       {user?.role === "admin" && (
         <Link
