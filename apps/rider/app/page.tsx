@@ -6,11 +6,11 @@ import type { AvailableJob, OrderRow, RelayOpenLeg, Rider } from "@peebee/shared
 import { isRiderProfileComplete } from "@peebee/shared";
 import {
   ArrowUpDown, Bike, Briefcase, Bus, Check, ChevronLeft, ChevronRight, ChevronUp, ClipboardList, Fuel, HandCoins, LayoutGrid, MapPin,
-  Package, Power, ShoppingCart, TriangleAlert, Utensils, Zap,
+  Package, Power, RefreshCw, ShoppingCart, TriangleAlert, Utensils, Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FareOfferPanel } from "../components/FareOfferPanel";
 import { JobPreviewModal } from "../components/JobPreviewModal";
 import { StageSavingsCard } from "../components/StageSavingsCard";
@@ -74,25 +74,39 @@ export default function JobsHomePage() {
   const [page, setPage] = useState(0);
   const online = useNetworkStatus();
 
-  const load = useCallback(() => {
-    Promise.all([api.myRiderProfile(), api.myRiderOrders(), api.availableJobs(), api.myRiderSubscription()])
-      .then(([r, o, j, s]) => {
-        setRider(r.rider);
-        setOrders(o.orders);
-        observeNotificationSnapshot("rider-jobs", j.jobs.map((job) => job.id));
-        setAvailableJobs(j.jobs);
-        // A type with no jobs left drops out of the filters, so a rider filtered to it goes back to All.
-        setCategoryFilter((prev) => (prev === "all" || j.jobs.some((job) => jobCategory(job) === prev) ? prev : "all"));
-        setSubscriptionOk(!s.subscription.required || s.subscription.current);
-        setLoaded(true);
-      })
-      .catch((err) => setError(errorMessage(err)));
-    // Relay pickups are optional: a failure here never blocks the feed.
-    api
-      .listOpenRelayLegs()
-      .then((res) => setRelayLegs(res.legs))
-      .catch(() => setRelayLegs([]));
+  const [refreshing, setRefreshing] = useState(false);
+  const inFlight = useRef(new Map<string, Promise<void>>());
+  const load = useCallback((): Promise<void> => {
+    // Focus, polling and manual refresh share in-flight requests. Each response
+    // updates independently, so subscription/profile failures cannot freeze jobs.
+    const once = (key: string, request: () => Promise<void>) => {
+      const existing = inFlight.current.get(key);
+      if (existing) return existing;
+      const pending = request().finally(() => { inFlight.current.delete(key); });
+      inFlight.current.set(key, pending);
+      return pending;
+    };
+    const profile = once("profile", () => api.myRiderProfile().then((r) => setRider(r.rider)));
+    const subscription = once("subscription", () => api.myRiderSubscription().then((s) => setSubscriptionOk(!s.subscription.required || s.subscription.current)));
+    const jobs = once("jobs", () => api.availableJobs().then((j) => {
+      observeNotificationSnapshot("rider-jobs", j.jobs.map((job) => job.id));
+      setAvailableJobs(j.jobs);
+      setCategoryFilter((prev) => (prev === "all" || j.jobs.some((job) => jobCategory(job) === prev) ? prev : "all"));
+    }));
+    const orders = once("orders", () => api.myRiderOrders().then((o) => setOrders(o.orders)));
+    // Keep the last relay snapshot on a transient error instead of hiding jobs.
+    const relay = once("relay", () => api.listOpenRelayLegs().then((r) => setRelayLegs(r.legs)));
+    return Promise.allSettled([profile, subscription, jobs, orders, relay]).then((results) => {
+      if (results[0].status === "fulfilled" && results[1].status === "fulfilled") setLoaded(true);
+      const failed = results.find((result) => result.status === "rejected");
+      setError(failed?.status === "rejected" ? errorMessage(failed.reason) : null);
+    });
   }, []);
+
+  async function refreshJobs() {
+    setRefreshing(true);
+    try { await load(); } finally { setRefreshing(false); }
+  }
 
   useLivePolling(load, 6000, [load]);
 
@@ -113,6 +127,7 @@ export default function JobsHomePage() {
     try {
       const res = await api.setRiderOnline(!rider.is_online);
       setRider(res.rider);
+      await load();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -245,10 +260,16 @@ export default function JobsHomePage() {
   return (
     <div className="space-y-4 px-4 pb-6 pt-4">
       <header className="flex flex-col gap-4">
-        <h1 className="break-words text-2xl font-extrabold leading-tight tracking-tight text-ink">
+        <div className="flex items-center justify-between gap-3">
+        <h1 className="min-w-0 break-words text-2xl font-extrabold leading-tight tracking-tight text-ink">
           {t("home_hi")}
           {user?.name ? `, ${user.name.trim().split(/\s+/)[0]}` : ""}
         </h1>
+        <button type="button" onClick={() => void refreshJobs()} disabled={refreshing || !online} aria-label={t("home_refresh_jobs")} aria-busy={refreshing} className="flex min-h-14 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[rgb(var(--surface-muted))] px-4 text-base font-bold text-ink disabled:opacity-50">
+          <RefreshCw className={`h-6 w-6 ${refreshing ? "motion-safe:animate-spin" : ""}`} aria-hidden />
+          {t(refreshing ? "home_refreshing" : "home_refresh")}
+        </button>
+        </div>
         <div className="flex items-center gap-4">
         <Link href="/fuel" aria-label="Peebee Gas" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
           <Fuel className="h-6 w-6" aria-hidden />

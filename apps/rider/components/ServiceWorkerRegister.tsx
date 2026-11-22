@@ -13,7 +13,7 @@ export function ServiceWorkerRegister() {
     // the background; when the server copy differs it says so here, and live
     // screens (see useLivePolling) reload that one piece of data.
     const onMessage = (e: MessageEvent) => {
-      if (e.data?.type === "peebee-data-updated") window.dispatchEvent(new CustomEvent("peebee:data-updated"));
+      if (e.data?.type === "peebee-data-updated" || e.data?.type === "peebee-notification") window.dispatchEvent(new CustomEvent("peebee:data-updated"));
     };
     navigator.serviceWorker?.addEventListener("message", onMessage);
     return () => {

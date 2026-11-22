@@ -30,6 +30,10 @@ const STRINGS: Record<string, { en: string; lg: string }> = {
   change_location: { en: "Change location", lg: "Kyusa ekifo" },
   locating: { en: "Locating…", lg: "Nnoonya ekifo…" },
 
+  home_refresh: { en: "Refresh", lg: "Ddamu" },
+  home_refreshing: { en: "Refreshing…", lg: "Nnongoosa…" },
+  home_refresh_jobs: { en: "Refresh jobs", lg: "Ddamu okulaba emirimu" },
+
   // Home / jobs
   loading: { en: "Loading…", lg: "Kaloze…" },
   home_online: { en: "Online", lg: "Ali ku layini" },
