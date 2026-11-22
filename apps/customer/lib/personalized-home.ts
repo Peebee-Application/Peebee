@@ -6,6 +6,12 @@ export const EMPTY_HOME_PREFERENCES: HomePreferences = { enabled: true, interest
 export const HOME_INTERESTS: HomeInterest[] = ["ride", "buy", "eat", "work", "learn"];
 export type HomeSuggestion = { id: string; interest: HomeInterest; title: string; detail: string; reason: string; action: string; href: string; image: string };
 
+/** Hero artwork is separate from the screensaver's existing service imagery. */
+export function homeHeroImage(image: string): string {
+  const generated: Record<string, string> = { boda: "morning-boda", "eat-hero": "lunch-matooke", "street-food": "evening-rolex", clean: "cleaning-laundry", laundry: "cleaning-laundry" };
+  return generated[image] ? `/home-hero/${generated[image]}.webp` : `/home-screensaver/${image}.webp`;
+}
+
 export function homePeriod(date: Date, r: HomePersonalizationSettings): "morning" | "afternoon" | "evening" | "night" {
   const h = date.getHours();
   return h < r.morningHour || h >= r.nightHour ? "night" : h < r.afternoonHour ? "morning" : h < r.eveningHour ? "afternoon" : "evening";

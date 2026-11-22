@@ -5,7 +5,7 @@ import type { CardInput, CustomerWallet, CustomerWalletSummary, PaymentNextActio
 import { ApiError } from "@peebee/shared";
 import { ArrowDownToLine, ArrowLeftRight, BookUser, Check, ChevronDown, ChevronRight, Eye, EyeOff, Gift, HandHeart, Plus, Search, Send, Snowflake, Trash2, UserRoundPlus, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRegisterNavBack, useRegisterNavPrimaryAction } from "../../lib/nav-primary-action";
 import { contactInputError, contactPicker, firstContact, type PickedContact } from "../../lib/wallet-contact";
 import { parseWalletTab, getWalletTab, setWalletTab, subscribeWalletTab, walletTabHref, type WalletTab } from "../../lib/wallet-tab";
@@ -159,6 +159,7 @@ export function WalletScreen() {
   const [payRequest, setPayRequest] = useState<WalletMoneyRequest | null>(null);
   const [requestAmount, setRequestAmount] = useState("");
   const [intoId, setIntoId] = useState("primary");
+  const openedAccount = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -227,6 +228,27 @@ export function WalletScreen() {
   useEffect(() => {
     setWalletTab(parseWalletTab(search.get("tab")));
   }, [search]);
+  useEffect(() => {
+    // Home's account links open the existing detail/move sheets, never a new payment flow.
+    const accountId = search.get("account");
+    const action = search.get("action");
+    const handoff = accountId ? `${accountId}:${action ?? "details"}` : null;
+    if (!handoff) { openedAccount.current = null; return; }
+    if (openedAccount.current === handoff || loading) return;
+    const account = wallets.find(item => item.id === accountId);
+    if (!account) return;
+    openedAccount.current = handoff;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize the existing sheet with an external account URL
+    setSettingsFor(account.id);
+    setRename(account.name);
+    setFormError(null);
+    if (action === "move" && !account.isPrimary && !account.frozen) {
+      setMoveFrom(wallets.find(item => item.isPrimary)?.id ?? "primary");
+      setMoveTo(account.id);
+      setMoveAmount("");
+      setSheet("move");
+    } else setSheet("settings");
+  }, [search, wallets, loading]);
   function hide(id: string) {
     const next = { ...hidden, [id]: !hidden[id] };
     setHidden(next);

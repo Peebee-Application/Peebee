@@ -1,6 +1,6 @@
 "use client";
 import { availableHomeShortcuts, isModuleOn, isPracticeMode, resolveHomeMenu, type DeliverySettings, type HomeHistoryEntry, type HomeTemplatesSettings, type LearnEnrollment } from "@peebee/shared";
-import { BookOpen, BriefcaseBusiness, Building2, Check, ChevronRight, CloudOff, MoreHorizontal, Route, ShoppingBag, UtensilsCrossed } from "lucide-react";
+import { BookOpen, BriefcaseBusiness, Building2, ChevronRight, CloudOff, MoreHorizontal, Route, ShoppingBag, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { api } from "../../lib/api";
@@ -8,8 +8,8 @@ import { useAuth } from "../../lib/auth-context";
 import { useSpecialCarServices } from "../../lib/special-car";
 import { useTaxipress } from "../../lib/taxipress";
 import { useHireAvailability } from "../../lib/home-menu";
-import { EMPTY_HOME_PREFERENCES, HOME_INTERESTS, homeSuggestions, parseHomePreferences, type HomePreferences, type HomeSuggestion } from "../../lib/personalized-home";
-import { BottomDrawer } from "../BottomDrawer";
+import { homeHeroImage, homeSuggestions, parseHomePreferences, type HomePreferences, type HomeSuggestion } from "../../lib/personalized-home";
+import { HomePreferences as HomePreferencesSheet } from "./HomePreferences";
 import { HomeClock } from "./HomeClock";
 import { homeFont } from "./home-font";
 import { ExplorePeebeeCard, HomeLaunch } from "./HomeScreensaver";
@@ -21,12 +21,11 @@ const SERVICES = [
   { id: "learn", label: "Learn", href: "/learn", module: "learn", Icon: BookOpen },
   { id: "work", label: "Work", href: "/services", module: "hive", Icon: BriefcaseBusiness },
 ] as const;
-const INTEREST_LABELS = { ride: "Ride", buy: "Shopping", eat: "Food", work: "Help at home", learn: "Learning" };
 
 function SuggestionCard({ suggestion, onOptions }: { suggestion: HomeSuggestion; onOptions: () => void }) {
-  return <section className="ph-hero" aria-label="Suggested next move">
+  return <section className={`ph-hero ${homeHeroImage(suggestion.image).startsWith("/home-hero/") ? "ph-hero--photographic" : ""}`} aria-label="Suggested next move">
     {/* eslint-disable-next-line @next/next/no-img-element */}
-    <img src={`/home-screensaver/${suggestion.image}.webp`} alt="" fetchPriority="high" />
+    <img src={homeHeroImage(suggestion.image)} alt="" fetchPriority="high" />
     <div className="ph-hero-shade" />
     <button type="button" aria-label="Suggestion preferences" className="ph-hero-options" onClick={onOptions}><MoreHorizontal size={26} aria-hidden /></button>
     <div className="ph-hero-copy"><h2>{suggestion.title}</h2><p className="ph-hero-detail">{suggestion.detail}</p><p className="ph-hero-reason">{suggestion.reason}</p></div>
@@ -110,14 +109,6 @@ export function PersonalizedHome({ settings, config, urgent, children }: { setti
     {children}
     <ExplorePeebeeCard timing={config} />
     {on("channels") && <section><h2 className="ph-section-title">Discover something new</h2><Link className="ph-stream-row" href="/spotlight"><BookOpen size={24} aria-hidden /><span>Watch Stream</span><ChevronRight size={24} aria-hidden /></Link></section>}
-    <BottomDrawer isOpen={sheet} onClose={() => setSheet(false)} title="Your home" className="ph-preferences">
-      <label className="ph-preference-row"><span>Use my activity</span><input type="checkbox" checked={preferences.enabled} onChange={e => save({ ...preferences, enabled: e.target.checked })} /></label>
-      <p>Suggestions use completed activity and interests you choose.</p>
-      <h3>What do you enjoy?</h3>
-      {HOME_INTERESTS.map(interest => <button className="ph-preference-row" type="button" key={interest} aria-pressed={preferences.interests.includes(interest)} onClick={() => save({ ...preferences, interests: preferences.interests.includes(interest) ? preferences.interests.filter(i => i !== interest) : [...preferences.interests, interest] })}><span>{INTEREST_LABELS[interest]}</span>{preferences.interests.includes(interest) && <Check size={24} className="text-gold" aria-hidden />}</button>)}
-      {suggestion && <button className="ph-secondary" type="button" onClick={() => { save({ ...preferences, hidden: [...preferences.hidden, suggestion.id] }); setSheet(false); }}>Hide this suggestion</button>}
-      {preferences.hidden.length > 0 && <button type="button" className="ph-secondary" onClick={() => save({ ...preferences, hidden: [] })}>Restore hidden suggestions</button>}
-      <button type="button" className="ph-primary" onClick={() => setSheet(false)}>Done</button>
-    </BottomDrawer>
+    <HomePreferencesSheet open={sheet} onClose={() => setSheet(false)} preferences={preferences} suggestion={suggestion} onSave={save} />
   </div></HomeLaunch>;
 }
