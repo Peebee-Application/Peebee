@@ -30,6 +30,10 @@ export interface NavPrimaryAction {
   busy?: boolean;
   /** Final commitment: the nav requires a deliberate slide (or keyboard confirmation). */
   confirmation?: boolean;
+  /** Exact approved swipe label when it differs from the default payment/confirmation copy. */
+  confirmationLabel?: string;
+  /** The left navigation control closes this screen to Home, without cancelling its underlying job. */
+  closeToHome?: boolean;
   /** Leading icon for tone "gold" (defaults to the shopping bag), e.g. a bike for "Book Boda". */
   icon?: ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: boolean }>;
   onClick: () => void | Promise<void>;
@@ -83,6 +87,8 @@ export function useRegisterNavPrimaryAction(action: NavPrimaryAction | null, pri
   const disabled = action?.disabled;
   const busy = action?.busy;
   const confirmation = action?.confirmation;
+  const confirmationLabel = action?.confirmationLabel;
+  const closeToHome = action?.closeToHome;
   const icon = action?.icon;
   const enabled = action !== null;
 
@@ -109,10 +115,10 @@ export function useRegisterNavPrimaryAction(action: NavPrimaryAction | null, pri
     slots.set(id, {
       seq,
       priority,
-      action: { tone, count, sublabel, label, detail, disabled, busy, confirmation, icon, onClick: () => handlerRef.current?.() },
+      action: { tone, count, sublabel, label, detail, disabled, busy, confirmation, confirmationLabel, closeToHome, icon, onClick: () => handlerRef.current?.() },
     });
     recompute();
-  }, [enabled, tone, count, sublabel, label, detail, disabled, busy, confirmation, icon, priority]);
+  }, [enabled, tone, count, sublabel, label, detail, disabled, busy, confirmation, confirmationLabel, closeToHome, icon, priority]);
 }
 
 /* ------------------------------------------------------------------ */

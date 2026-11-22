@@ -58,7 +58,7 @@ import { buildLugandaListNarration } from "./list-narration.js";
 import { synthesizeLuganda } from "../speech/gemini.js";
 import { isProSubscriptionCurrent } from "../riders/pro-subscription.js";
 import type { MatchingMode, MobileMoneyNetwork } from "@peebee/shared";
-import { roundFare } from "@peebee/shared";
+import { CASH_PAID_NOTE, cashPaidEventId, paymentMethodEventId, roundFare } from "@peebee/shared";
 import { cardSchema } from "../payments/card.js";
 import type { PaymentNextAction } from "../payments/gateway.js";
 import { snapshotTimeFees, getOrderTimeFees, cancelCustomerOrder, finishWaiting, closeWaiting } from "./time-fees.js";
@@ -2386,6 +2386,10 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
       }, 502);
     }
   }
+  await db.execute({
+    sql: "INSERT OR IGNORE INTO order_events (id,order_id,stage,note,actor_id) VALUES (?,?,'Fund',?,?)",
+    args: [paymentMethodEventId(paymentId), id, parsed.data.paymentMethod === "card" ? "card" : "mobile_money", user.sub],
+  });
   await logEvent(
     id,
     "Fund",
@@ -3292,6 +3296,26 @@ orderRoutes.post("/orders/:id/handover", async (c) => {
   await logEvent(id, "Handover", "PIN confirmed, handover complete", user.sub);
 
   return c.json({ order: await getOrder(id) });
+});
+
+/** Customer acknowledgement only: never marks a collection successful or settles the rider's funds. */
+orderRoutes.post("/orders/:id/cash-paid", async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const order = await getOrder(id);
+  if (!order) return c.json({ error: "not_found" }, 404);
+  if (user.role !== "customer" || order.customer_id !== user.sub) return c.json({ error: "forbidden" }, 403);
+  if (!order.is_ride || order.payment_rail !== "float") return c.json({ error: "not_cash_ride" }, 409);
+  if (!["Handover", "Settle"].includes(String(order.stage))) return c.json({ error: "invalid_stage", message: "Confirm arrival before acknowledging cash payment." }, 409);
+  if (order.stage === "Settle") return c.json({ ok: true });
+  const result = await db.execute({
+    sql: "INSERT OR IGNORE INTO order_events (id,order_id,stage,note,actor_id) SELECT ?,id,'Handover',?,? FROM orders WHERE id=? AND customer_id=? AND stage='Handover' AND payment_rail='float' AND is_ride=1",
+    args: [cashPaidEventId(id), CASH_PAID_NOTE, user.sub, id, user.sub],
+  });
+  if (result.rowsAffected > 0 && order.rider_id) background(c, notifyUser(String(order.rider_id), {
+    title: "Customer reports cash paid", body: "Please confirm the cash you received and complete the ride.", url: `/jobs/${id}`, tag: `cash-paid-${id}`,
+  }));
+  return c.json({ ok: true });
 });
 
 // Settling is the rider's own confirmation that the job is done — the
