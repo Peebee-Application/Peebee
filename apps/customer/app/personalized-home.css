@@ -104,7 +104,7 @@
 .ph-header-location > svg { flex-shrink: 0; }
 .ph-header-location > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .customer-header:has(.ph-header-location) > div:first-child { min-height: 80px; height: auto; padding-block: 10px; }
-.customer-header.ph-header { background: transparent !important; color: white !important; }
+.customer-header.ph-header { background: rgb(var(--color-black-700)) !important; color: white !important; }
 .customer-header.ph-header .customer-header-toggle { color: white !important; border-color: transparent !important; }
 .ph-header .ph-header-location svg { color: rgb(var(--color-gold)); }
 :root[data-theme="dark"] .ph-hero,:root[data-theme="dark"] .ph-active-order { background: rgb(var(--surface-card)); border-color: rgb(var(--color-gold) / .35); }

@@ -1,8 +1,9 @@
 "use client";
 import {ChevronDown,ChevronUp,MapPinned,MessagesSquare} from "lucide-react";
 import Link from "next/link";
-import {usePathname,useRouter} from "next/navigation";
+import {usePathname} from "next/navigation";
 import {useCallback,useEffect,useRef,useState} from "react";
+import {useResolvedTheme} from "../lib/theme";
 import {isPracticeMode,type PlatformEnvironment} from "@peebee/shared";
 import {api} from "../lib/api";
 import {useCart} from "../lib/cart";
@@ -10,7 +11,7 @@ import {loadOrderFeed} from "../lib/order-feed";
 import {useChatDrawer} from "../lib/chat-drawer";
 import {useHomeMenu} from "../lib/home-menu";
 import {HeaderExtensionOutlet} from "../lib/header-extension";
-import {drawerSectionForPath,pathForDrawerSection,useHeaderDrawer} from "../lib/header-drawer";
+import {useHeaderDrawer} from "../lib/header-drawer";
 import {BrandLogo} from "./BrandLogo";
 import {useLocationLabel} from "../lib/use-location-label";
 import {homeFont} from "./home/home-font";
@@ -39,7 +40,6 @@ async function loadMenuCounts():Promise<MenuCounts>{
 
 export function BrandHeader() {
   const pathname=usePathname();
-  const router=useRouter();
   const drawer=useHeaderDrawer();
   const open=drawer.mode!=="closed";
   const home=pathname==="/";
@@ -52,7 +52,8 @@ export function BrandHeader() {
   const openCarts=cartRows.some(row=>row.kind!=="earlier");
   const toggleRef=useRef<HTMLButtonElement>(null);
   const releaseTimer=useRef<number|undefined>(undefined);
-  const leavingRef=useRef(false);
+  const activeTheme=useResolvedTheme();
+  const isDark=activeTheme==="dark";
   const [counts,setCounts]=useState<MenuCounts>(EMPTY_COUNTS);
   const [environment,setEnvironment]=useState<PlatformEnvironment|null>(null);
   const [practiceActive,setPracticeActive]=useState(false);
@@ -60,15 +61,8 @@ export function BrandHeader() {
   const modeLabel=!practiceActive&&environment==="sandbox"?"*demo":null;
 
   const closeMenu=useCallback(()=>{
-    const sectionPath=drawerSectionForPath(pathname);
-    if(sectionPath){
-      leavingRef.current=true;
-      drawer.close();
-      router.push("/");
-      return;
-    }
     drawer.close();
-  },[drawer,pathname,router]);
+  },[drawer]);
 
   useEffect(()=>{if(chat.open && drawer.mode!=="closed") drawer.close();},[chat.open, drawer]);
 
@@ -82,39 +76,36 @@ export function BrandHeader() {
     });
     return()=>{live=false;};
   },[chatEnabled,chat.open]);
+  const pathRef=useRef(pathname);
   useEffect(()=>{
-    const fromPath=drawerSectionForPath(pathname);
-    if(leavingRef.current){
-      if(!fromPath) leavingRef.current=false;
-      else return;
+    // The drawer is not route-driven: visiting /account or /settings directly
+    // is a normal page. If the user navigates away while it is open, close it.
+    if(pathRef.current!==pathname){
+      pathRef.current=pathname;
+      if(drawer.mode!=="closed") drawer.close();
     }
-    if(fromPath){
-      drawer.openSection(fromPath);
-      return;
-    }
-    // Leave the first-drop menu open when Back from Wallet returns home.
-    if(drawer.mode==="menu") return;
-    if(drawer.mode==="section" && pathForDrawerSection(drawer.section)===pathname) return;
-    if(drawer.mode!=="closed") drawer.close();
   },[pathname, drawer]);
-  useEffect(()=>()=>{window.clearTimeout(releaseTimer.current);document.documentElement.classList.remove("customer-menu-open","customer-section-open");},[]);
+  useEffect(()=>()=>{window.clearTimeout(releaseTimer.current);document.documentElement.classList.remove("customer-menu-open","customer-drawer-expanded","customer-drawer-stage");},[]);
   useEffect(()=>{
     const root=document.documentElement;
     const screen=document.querySelector("main");
     const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     window.clearTimeout(releaseTimer.current);
     if(drawer.mode==="menu"){
-      root.classList.add("customer-menu-open");
-      root.classList.remove("customer-section-open");
+      root.classList.add("customer-drawer-stage","customer-menu-open");
+      root.classList.remove("customer-drawer-expanded");
       screen?.setAttribute("inert","");
     }else if(drawer.mode==="section"){
-      root.classList.add("customer-section-open");
+      root.classList.add("customer-drawer-stage","customer-drawer-expanded");
       root.classList.remove("customer-menu-open");
       screen?.removeAttribute("inert");
     }else{
-      root.classList.remove("customer-section-open");
+      // Hold the stage classes through the reverse close motion, then revert
+      // to the pre-#503 page surfaces.
       screen?.removeAttribute("inert");
-      releaseTimer.current=window.setTimeout(()=>root.classList.remove("customer-menu-open"),reduce?0:420);
+      releaseTimer.current=window.setTimeout(()=>{
+        root.classList.remove("customer-menu-open","customer-drawer-expanded","customer-drawer-stage");
+      },reduce?0:420);
     }
     return()=>screen?.removeAttribute("inert");
   },[drawer.mode]);
@@ -135,9 +126,9 @@ export function BrandHeader() {
   },[open,closeMenu]);
   const walletJoined=pathname==="/wallet"||pathname.startsWith("/wallet/");
   return <>
-    <header className={`customer-header sticky top-0 z-40 ${home?`ph-header ${homeFont.className}`:""} ${drawer.mode==="menu"?"is-menu-open":""} ${drawer.mode==="section"?"is-section-open":""} ${walletJoined||drawer.section==="wallet"?"is-wallet-joined":""}`}>
+    <header className={`customer-header sticky top-0 z-40 ${home?`ph-header ${homeFont.className}`:""} ${drawer.mode==="menu"?"is-menu-open":""} ${drawer.mode==="section"?"is-section-open":""} ${!open&&walletJoined?"is-wallet-joined":""}`}>
       <div className="mx-auto flex h-16 max-w-lg items-center justify-between gap-3 px-4">
-        <Link href="/" aria-label={`Go to home${modeLabel ? ", demo mode" : ""}`} className={home?"ph-brand-link min-w-0":"flex shrink-0 items-start gap-1"}><span className="flex items-start gap-1"><BrandLogo variant="light"/>{modeLabel&&<sup aria-hidden="true" className="pt-1 text-[10px] font-bold leading-none text-gold">{modeLabel}</sup>}</span>{home&&<span className="ph-header-location" aria-label="Current detected location"><MapPinned size={14} aria-hidden/><span>{locationStatus==="locating"?"Locating…":locationLabel??"Location unavailable"}</span></span>}</Link>
+        <Link href="/" aria-label={`Go to home${modeLabel ? ", demo mode" : ""}`} className={home?"ph-brand-link min-w-0":"flex shrink-0 items-start gap-1"}><span className="flex items-start gap-1"><BrandLogo variant={open||home?"light":isDark?"dark":"light"}/>{modeLabel&&<sup aria-hidden="true" className="pt-1 text-[10px] font-bold leading-none text-gold">{modeLabel}</sup>}</span>{home&&<span className="ph-header-location" aria-label="Current detected location"><MapPinned size={14} aria-hidden/><span>{locationStatus==="locating"?"Locating…":locationLabel??"Location unavailable"}</span></span>}</Link>
         <div className="flex shrink-0 items-center gap-1">
           <button ref={toggleRef} type="button" aria-label={open?"Close menu":"Open menu"} aria-expanded={open} aria-controls="header-menu" onClick={()=>{ if(open){ closeMenu(); toggleRef.current?.focus(); } else { drawer.openMenu(); } }} className="customer-header-toggle relative flex h-11 w-11 items-center justify-center rounded-full">
             {open?<ChevronUp size={24} aria-hidden/>:<ChevronDown size={24} aria-hidden/>}

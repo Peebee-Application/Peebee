@@ -1,12 +1,8 @@
 "use client";
 
 import { Bell, Settings, User, Wallet, type LucideIcon } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  pathForDrawerSection,
-  useHeaderDrawer,
-  type HeaderDrawerSection,
-} from "../../lib/header-drawer";
+import { useHeaderDrawer, type HeaderDrawerSection } from "../../lib/header-drawer";
+import { NotificationsExpanded, ProfileExpanded, SettingsExpanded, WalletExpanded } from "./expanded";
 import { NotificationsPreview, ProfilePreview, SettingsPreview, WalletPreview } from "./previews";
 
 const TABS: { id: HeaderDrawerSection; label: string; Icon: LucideIcon }[] = [
@@ -28,25 +24,15 @@ export function HeaderDrawerCard({
   notificationCount: number;
 }) {
   const drawer = useHeaderDrawer();
-  const router = useRouter();
-  const pathname = usePathname();
   const section = drawer.section;
   const preview = drawer.mode !== "section";
 
   function onTab(next: HeaderDrawerSection) {
     if (drawer.mode === "section") {
       drawer.openSection(next);
-      const href = pathForDrawerSection(next);
-      if (pathname !== href && !pathname.startsWith(`${href}/`)) router.push(href);
       return;
     }
     drawer.selectTab(next);
-  }
-
-  function openSection(next: HeaderDrawerSection) {
-    drawer.openSection(next);
-    const href = pathForDrawerSection(next);
-    if (pathname !== href && !pathname.startsWith(`${href}/`)) router.push(href);
   }
 
   return (
@@ -83,14 +69,21 @@ export function HeaderDrawerCard({
           );
         })}
       </div>
-      {preview && (
+      {preview ? (
         <div className="customer-drawer-preview" role="tabpanel">
-          {section === "profile" && <ProfilePreview onOpen={() => openSection("profile")} />}
-          {section === "wallet" && <WalletPreview onOpen={() => openSection("wallet")} />}
+          {section === "profile" && <ProfilePreview onOpen={() => drawer.openSection("profile")} />}
+          {section === "wallet" && <WalletPreview onOpen={() => drawer.openSection("wallet")} />}
           {section === "notifications" && (
-            <NotificationsPreview onOpen={() => openSection("notifications")} />
+            <NotificationsPreview onOpen={() => drawer.openSection("notifications")} />
           )}
-          {section === "settings" && <SettingsPreview onOpen={() => openSection("settings")} />}
+          {section === "settings" && <SettingsPreview onOpen={() => drawer.openSection("settings")} />}
+        </div>
+      ) : (
+        <div className="customer-drawer-body" role="tabpanel">
+          {section === "profile" && <ProfileExpanded />}
+          {section === "wallet" && <WalletExpanded />}
+          {section === "notifications" && <NotificationsExpanded />}
+          {section === "settings" && <SettingsExpanded />}
         </div>
       )}
     </div>

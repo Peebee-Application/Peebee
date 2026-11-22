@@ -14,9 +14,10 @@ import { PracticeModeCard } from "../../components/PracticeMode";
 export default function SettingsPage() {
   return (
     <div className="space-y-5 px-4 pb-6 pt-4">
+      <h1 className="text-xl font-bold text-ink">Settings</h1>
       <AppearanceSettings />
-      <LanguageSettings />
       <NotificationSettings />
+      <LanguageSettings />
       <MatchingPreference />
       <PracticeModeCard role="customer" />
       <Link href="/help" className="home-card flex items-center gap-3 !rounded-2xl !py-3 text-sm font-semibold text-ink">
