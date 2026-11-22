@@ -760,12 +760,21 @@ orderRoutes.get("/orders/recent-places", async (c) => {
 
 orderRoutes.get("/orders/active", async (c) => {
   const user = c.get("user");
+  const supportsFood = await hasColumn("orders", "restaurant_id") && await hasTable("restaurants");
+  const supportsStore = await hasColumn("orders", "store_id") && await hasTable("stores");
   const activeOrderSort = await hasColumn("orders", "delivery_bundle_id")
     ? "CASE WHEN o.delivery_bundle_id=o.id THEN 0 ELSE 1 END,o.updated_at DESC"
     : "o.updated_at DESC";
   const res = await db.execute({
-    sql: `SELECT o.*, u.name as customer_name FROM orders o
+    sql: `SELECT o.*, u.name as customer_name, rider.name AS rider_name,
+                 (SELECT COUNT(*) FROM list_items li WHERE li.list_id=o.list_id) AS item_count
+                 ${supportsFood ? ", food.name AS restaurant_name" : ""}
+                 ${supportsStore ? ", store.name AS store_name, store.category AS store_category" : ""}
+          FROM orders o
           LEFT JOIN users u ON u.id = o.customer_id
+          LEFT JOIN users rider ON rider.id=o.rider_id
+          ${supportsFood ? "LEFT JOIN restaurants food ON food.id=o.restaurant_id" : ""}
+          ${supportsStore ? "LEFT JOIN stores store ON store.id=o.store_id" : ""}
           WHERE o.customer_id = ? AND o.stage NOT IN ('Settle', 'Cancelled') AND o.environment = ?
           ORDER BY ${activeOrderSort} LIMIT 1`,
     args: [user.sub, await getPlatformEnvironment()],

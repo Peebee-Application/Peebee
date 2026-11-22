@@ -1,8 +1,9 @@
 "use client";
 
-import { type HiveShortcutId, type HomeMenuSettings } from "@peebee/shared";
+import { isPracticeMode, type HiveShortcutId, type HomeMenuSettings } from "@peebee/shared";
 
 import type { OrderRow } from "@peebee/shared";
+import { publishActiveOrder } from "../lib/active-order-store";
 import {
   Ambulance,
   Bike,
@@ -296,12 +297,14 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
   useLivePolling(
     () => {
       if (!user) return;
+        const scope = `${user.id}:${isPracticeMode()?"practice":"live"}`;
       api
         .getActiveOrder()
         .then((res) => {
           const order = res.activeOrder;
           // Stage updates are silent; arrival and deliberate follow-up calls own the beep.
           setActiveOrder(order);
+            publishActiveOrder(scope, order);
         })
         .catch(() => setActiveOrder(null));
     },

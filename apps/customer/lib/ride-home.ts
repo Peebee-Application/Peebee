@@ -115,6 +115,7 @@ export function rideProgress(stage: string): number {
     case "Shop": return 0.45;
     case "Deliver": return 0.7;
     case "Arrived": return 0.85;
+    case "PickedUp": return 0.9;
     case "Handover": return 0.95;
     case "Settle": return 1;
     default: return 0.3;
