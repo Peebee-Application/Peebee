@@ -15,8 +15,9 @@ const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
  * who they're delivering to. Tapping the avatar replaces it; there's no
  * separate "edit" mode since a photo either exists or it doesn't.
  */
-export function ProfilePhoto() {
+export function ProfilePhoto({ size = "md", initials }: { size?: "md" | "lg"; initials?: string } = {}) {
   const { user, updateUser } = useAuth();
+  const large = size === "lg";
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +25,7 @@ export function ProfilePhoto() {
 
   useEffect(() => {
     if (!user?.id || !user.hasProfilePhoto) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear a stale object URL when the photo is removed
       setPhotoUrl(null);
       return;
     }
@@ -83,17 +85,19 @@ export function ProfilePhoto() {
         onClick={() => inputRef.current?.click()}
         disabled={busy}
         aria-label={photoUrl ? "Change profile photo" : "Add profile photo"}
-        className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-gold/15 text-gold disabled:opacity-60"
+        className={`flex items-center justify-center overflow-hidden rounded-full disabled:opacity-60 ${large ? "h-[112px] w-[112px] bg-gold text-[42px] font-extrabold tracking-tight text-[#111]" : "h-12 w-12 bg-gold/15 text-gold"}`}
       >
         {photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+        ) : initials ? (
+          <span aria-hidden>{initials}</span>
         ) : (
-          <User className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+          <User className={large ? "h-8 w-8" : "h-6 w-6"} strokeWidth={1.75} aria-hidden />
         )}
       </button>
-      <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-white ring-2 ring-[rgb(var(--surface-card))]">
-        <Camera className="h-2.5 w-2.5" strokeWidth={2.5} aria-hidden />
+      <span className={`absolute flex items-center justify-center rounded-full bg-ink text-white ${large ? "-bottom-0.5 -right-0.5 h-8 w-8 ring-[3px] ring-[var(--stage-card,#faf7f0)]" : "-bottom-0.5 -right-0.5 h-5 w-5 ring-2 ring-[rgb(var(--surface-card))]"}`}>
+        <Camera className={large ? "h-3.5 w-3.5" : "h-2.5 w-2.5"} strokeWidth={2.5} aria-hidden />
       </span>
       {error && <span className="absolute left-0 top-14 w-40 text-xs text-red-600">{error}</span>}
     </span>

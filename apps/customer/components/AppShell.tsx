@@ -11,7 +11,6 @@ import { useAuth } from "../lib/auth-context";
 import { AuthGate } from "./AuthGate";
 import { BottomNav } from "./BottomNav";
 import { BrandHeader } from "./BrandHeader";
-import { HeaderExtensionProvider } from "../lib/header-extension";
 import { HeaderDrawerProvider } from "../lib/header-drawer";
 import { ChatDrawerShell } from "../lib/chat-drawer";
 import { FoodBusinessTheme } from "./FoodBusinessTheme";
@@ -63,7 +62,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {user && !isAuthPage && <PracticeModeBanner role="customer" />}
       {!isAuthPage && <OfflineBanner />}
       <HeaderDrawerProvider>
-      <HeaderExtensionProvider>
       {showHeader && <BrandHeader />}
       <main
         className={`mx-auto max-w-lg ${showHeader ? "min-h-[calc(100dvh-4rem)]" : "min-h-dvh"} ${showNav && !isSpotlight ? "customer-nav-content-clearance" : ""}`}
@@ -71,7 +69,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {foodBusinessId ? <FoodBusinessTheme key={foodBusinessId} id={foodBusinessId}>{gated}</FoodBusinessTheme> : gated}
       </main>
       {showNav && <BottomNav />}
-      </HeaderExtensionProvider>
       </HeaderDrawerProvider>
       </ChatDrawerShell>
     </AuthGate>

@@ -2,7 +2,9 @@
 
 import { Bell, Settings, User, Wallet, type LucideIcon } from "lucide-react";
 import { useHeaderDrawer, type HeaderDrawerSection } from "../../lib/header-drawer";
+import { drawerFont } from "./drawer-font";
 import { NotificationsExpanded, ProfileExpanded, SettingsExpanded, WalletExpanded } from "./expanded";
+import "./header-drawer.css";
 import { NotificationsPreview, ProfilePreview, SettingsPreview, WalletPreview } from "./previews";
 
 const TABS: { id: HeaderDrawerSection; label: string; Icon: LucideIcon }[] = [
@@ -38,7 +40,7 @@ export function HeaderDrawerCard({
   return (
     <div
       id="header-menu"
-      className={`customer-drawer ${open ? (preview ? "is-menu" : "is-section") : ""}`}
+      className={`customer-drawer ${drawerFont.className} ${open ? (preview ? "is-menu" : "is-section") : ""}`}
       inert={!open}
       aria-hidden={!open}
     >

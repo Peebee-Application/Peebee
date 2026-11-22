@@ -1,7 +1,7 @@
 "use client";
 import {ChevronDown,ChevronUp,MapPinned,MessagesSquare} from "lucide-react";
 import Link from "next/link";
-import {usePathname} from "next/navigation";
+import {usePathname,useRouter} from "next/navigation";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {isPracticeMode,type PlatformEnvironment} from "@peebee/shared";
 import {api} from "../lib/api";
@@ -9,8 +9,7 @@ import {useCart} from "../lib/cart";
 import {loadOrderFeed} from "../lib/order-feed";
 import {useChatDrawer} from "../lib/chat-drawer";
 import {useHomeMenu} from "../lib/home-menu";
-import {HeaderExtensionOutlet} from "../lib/header-extension";
-import {useHeaderDrawer} from "../lib/header-drawer";
+import {shouldAutoOpenDrawerSection,useHeaderDrawer} from "../lib/header-drawer";
 import {BrandLogo} from "./BrandLogo";
 import {useLocationLabel} from "../lib/use-location-label";
 import {homeFont} from "./home/home-font";
@@ -39,7 +38,9 @@ async function loadMenuCounts():Promise<MenuCounts>{
 
 export function BrandHeader() {
   const pathname=usePathname();
+  const router=useRouter();
   const drawer=useHeaderDrawer();
+  const lastNonChromePath=useRef("/");
   const open=drawer.mode!=="closed";
   const home=pathname==="/";
   const {label:locationLabel,status:locationStatus}=useLocationLabel(home);
@@ -58,8 +59,13 @@ export function BrandHeader() {
   const modeLabel=!practiceActive&&environment==="sandbox"?"*demo":null;
 
   const closeMenu=useCallback(()=>{
+    if(shouldAutoOpenDrawerSection(pathname)){
+      const back=lastNonChromePath.current&&lastNonChromePath.current!==pathname?lastNonChromePath.current:"/";
+      router.replace(back);
+      return;
+    }
     drawer.close();
-  },[drawer]);
+  },[drawer, pathname, router]);
 
   useEffect(()=>{if(chat.open && drawer.mode!=="closed") drawer.close();},[chat.open, drawer]);
 
@@ -73,14 +79,18 @@ export function BrandHeader() {
     });
     return()=>{live=false;};
   },[chatEnabled,chat.open]);
-  const pathRef=useRef(pathname);
+  const pathRef=useRef<string|null>(null);
   useEffect(()=>{
-    // The drawer is not route-driven: visiting /account or /settings directly
-    // is a normal page. If the user navigates away while it is open, close it.
-    if(pathRef.current!==pathname){
-      pathRef.current=pathname;
-      if(drawer.mode!=="closed") drawer.close();
-    }
+    // /settings, /account, and /notifications open the expanded drawer
+    // (the new UI lives there). Other route changes close it. /wallet is
+    // left alone so the real wallet page stays a normal screen.
+    const auto=shouldAutoOpenDrawerSection(pathname);
+    const changed=pathRef.current!==pathname;
+    if(!auto) lastNonChromePath.current=pathname;
+    pathRef.current=pathname;
+    if(!changed) return;
+    if(auto) drawer.openSection(auto);
+    else if(drawer.mode!=="closed") drawer.close();
   },[pathname, drawer]);
   useEffect(()=>()=>{window.clearTimeout(releaseTimer.current);document.documentElement.classList.remove("customer-menu-open","customer-drawer-expanded","customer-drawer-stage");},[]);
   useEffect(()=>{
@@ -88,23 +98,33 @@ export function BrandHeader() {
     const screen=document.querySelector("main");
     const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     window.clearTimeout(releaseTimer.current);
+    let frame=0;
     if(drawer.mode==="menu"){
-      root.classList.add("customer-drawer-stage","customer-menu-open");
+      root.classList.add("customer-drawer-stage");
       root.classList.remove("customer-drawer-expanded");
-      screen?.setAttribute("inert","");
+      const addOpen=()=>{
+        root.classList.add("customer-menu-open");
+        screen?.setAttribute("inert","");
+      };
+      if(reduce) addOpen();
+      else frame=requestAnimationFrame(()=>{frame=requestAnimationFrame(addOpen);});
     }else if(drawer.mode==="section"){
       root.classList.add("customer-drawer-stage","customer-drawer-expanded");
       root.classList.remove("customer-menu-open");
       screen?.removeAttribute("inert");
     }else{
-      // Hold the stage classes through the reverse close motion, then revert
-      // to the pre-#503 page surfaces.
+      // Drop the push immediately so the page slides back up; keep the ink
+      // stage through the reverse motion, then revert to closed surfaces.
       screen?.removeAttribute("inert");
+      root.classList.remove("customer-menu-open","customer-drawer-expanded");
       releaseTimer.current=window.setTimeout(()=>{
-        root.classList.remove("customer-menu-open","customer-drawer-expanded","customer-drawer-stage");
+        root.classList.remove("customer-drawer-stage");
       },reduce?0:420);
     }
-    return()=>screen?.removeAttribute("inert");
+    return()=>{
+      if(frame) cancelAnimationFrame(frame);
+      screen?.removeAttribute("inert");
+    };
   },[drawer.mode]);
   useEffect(()=>{
     const syncPractice=()=>setPracticeActive(isPracticeMode());
@@ -121,9 +141,8 @@ export function BrandHeader() {
     window.addEventListener("keydown",onKey);
     return()=>{cancelled=true;window.removeEventListener("keydown",onKey);};
   },[open,closeMenu]);
-  const walletJoined=pathname==="/wallet"||pathname.startsWith("/wallet/");
   return <>
-    <header className={`customer-header sticky top-0 z-40 ${home?`ph-header ${homeFont.className}`:""} ${drawer.mode==="menu"?"is-menu-open":""} ${drawer.mode==="section"?"is-section-open":""} ${!open&&walletJoined?"is-wallet-joined":""}`}>
+    <header className={`customer-header sticky top-0 z-40 ${home?`ph-header ${homeFont.className}`:""} ${drawer.mode==="menu"?"is-menu-open":""} ${drawer.mode==="section"?"is-section-open":""}`}>
       <div className="mx-auto flex h-16 max-w-lg items-center justify-between gap-3 px-4">
         <Link href="/" aria-label={`Go to home${modeLabel ? ", demo mode" : ""}`} className={home?"ph-brand-link min-w-0":"flex shrink-0 items-start gap-1"}><span className="flex items-start gap-1"><BrandLogo variant="light"/>{modeLabel&&<sup aria-hidden="true" className="pt-1 text-[10px] font-bold leading-none text-gold">{modeLabel}</sup>}</span>{home&&<span className="ph-header-location" aria-label="Current detected location"><MapPinned size={14} aria-hidden/><span>{locationStatus==="locating"?"Locating…":locationLabel??"Location unavailable"}</span></span>}</Link>
         <div className="flex shrink-0 items-center gap-1">
@@ -137,7 +156,6 @@ export function BrandHeader() {
           </button>}
         </div>
       </div>
-      <HeaderExtensionOutlet />
     </header>
     <HeaderDrawerCard open={open} notificationCount={counts.attention} />
     {/* The pushed-down screen below the menu: one tap anywhere on it closes the menu. */}

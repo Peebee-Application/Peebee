@@ -73,3 +73,11 @@ export function pathForDrawerSection(section: HeaderDrawerSection): string {
   if (section === "notifications") return "/notifications";
   return "/settings";
 }
+
+/** /settings, /account, and /notifications open the expanded drawer
+ *  instead of their standalone pages. /wallet stays a real page. */
+export function shouldAutoOpenDrawerSection(pathname: string): HeaderDrawerSection | null {
+  const section = drawerSectionForPath(pathname);
+  if (section === "profile" || section === "settings" || section === "notifications") return section;
+  return null;
+}
