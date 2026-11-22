@@ -1169,7 +1169,6 @@ select:focus {
 :root { --scene-primary: 26 26 26; --scene-secondary: 45 45 45; --scene-warm: 201 162 39; --glass-opacity: .94; --glass-drawer-opacity: .98; --glass-shine: 255 255 255; --glass-edge: rgb(255 255 255 / .2); --glass-edge-side: rgb(255 255 255 / .08); }
 .customer-nav-content-clearance { padding-bottom: var(--customer-nav-content-gap, calc(87px + env(safe-area-inset-bottom))); }
 .customer-header { background: rgb(var(--color-black-700)); color: white; border-bottom: 1px solid rgb(255 255 255 / .08); }
-:root[data-theme="dark"] .customer-header { background: #000; }
 .customer-profile-reveal { grid-template-rows: 0fr; transition: grid-template-rows 280ms ease, opacity 220ms ease; opacity: 0; }
 .customer-profile-reveal.is-expanded { grid-template-rows: 1fr; opacity: 1; }
 /* One continuous shell, matching the Customer navigation design board. */
@@ -1254,7 +1253,7 @@ select:focus {
 .customer-nav-cart:focus-visible { outline: 2px solid rgb(var(--color-gold)); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .customer-profile-reveal, .customer-header svg { transition: none; } }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .customer-header, :root:not([data-theme="light"]) .customer-nav-capsule { background: #000; border-color: rgb(255 255 255 / .16); }
+  :root:not([data-theme="light"]) .customer-nav-capsule { background: #000; border-color: rgb(255 255 255 / .16); }
 }
 
 /* Padding scrolls with the cards; the clipping boundary stays at the page edge. */
@@ -1272,34 +1271,9 @@ select:focus {
 /* A rail inside a padded card also cancels that card's border and padding. */
 .edge-carousel-card { --carousel-gutter: calc(1rem + var(--pad-card) + 1px); }
 
-/* In dark mode, the customer chrome switches to the gold-and-black brand palette. */
-:root[data-theme="dark"] .customer-header {
-  background: rgb(var(--color-gold));
-  color: #111;
-  border-bottom-color: rgb(0 0 0 / .14);
-}
-:root[data-theme="dark"] .customer-header-toggle {
-  color: #111;
-  border: 1px solid rgb(0 0 0 / .18);
-}
-:root[data-theme="dark"] .customer-header-toggle:hover { background: rgb(0 0 0 / .08); }
-
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .customer-header {
-    background: rgb(var(--color-gold));
-    color: #111;
-    border-bottom-color: rgb(0 0 0 / .14);
-  }
-  :root:not([data-theme="light"]) .customer-header-toggle { color: #111; border-color: rgb(0 0 0 / .18); }
-  :root:not([data-theme="light"]) .customer-header-toggle:hover { background: rgb(0 0 0 / .08); }
   :root:not([data-theme="light"]) .customer-header.is-wallet-joined,
   :root:not([data-theme="light"]) .customer-header.is-wallet-joined.is-menu-open { border-bottom: 0; border-radius: 0 0 32px 32px; overflow: hidden; }
-  :root:not([data-theme="light"]) .wallet-root .w-hero,
-  :root:not([data-theme="light"]) .wallet-root .w-band { background: rgb(var(--color-gold)); color: #111; }
-  :root:not([data-theme="light"]) .wallet-root .w-dim { color: rgb(17 17 17 / 0.62); }
-  :root:not([data-theme="light"]) .wallet-root .w-cur { color: rgb(17 17 17 / 0.5); }
-  :root:not([data-theme="light"]) .wallet-root .w-pill-ghost { background: rgb(0 0 0 / 0.08); border-color: rgb(0 0 0 / 0.16); color: #111; }
-  :root:not([data-theme="light"]) .wallet-root .w-pill-send { background: rgb(var(--color-ink)); color: rgb(var(--color-cream)); box-shadow: none; }
 }
 
 
@@ -1311,7 +1285,7 @@ select:focus {
    screen it pushed down. */
 .customer-profile-reveal.customer-menu-reveal { background: rgb(var(--color-black-700)); }
 .customer-header.is-menu-open { border-bottom-color: transparent; }
-:root[data-theme="dark"] .customer-profile-reveal.customer-menu-reveal { background: rgb(var(--color-gold)); }
+:root[data-theme="dark"] .customer-profile-reveal.customer-menu-reveal { background: rgb(var(--color-black-700)); }
 :root[data-theme="dark"] .customer-header.is-menu-open { border-bottom-color: transparent; }
 /* Wallet: the header bar and the hero are one ink surface. The hero renders
    inside the header, so opening the menu carries it down with the bar. */
@@ -1324,23 +1298,6 @@ select:focus {
 }
 .customer-header.is-wallet-joined .customer-profile-reveal.customer-menu-reveal:not(.is-expanded) { background: transparent; }
 .customer-header-extension:empty { display: none; }
-:root[data-theme="dark"] .wallet-root .w-hero,
-:root[data-theme="dark"] .wallet-root .w-band {
-  background: rgb(var(--color-gold));
-  color: #111;
-}
-:root[data-theme="dark"] .wallet-root .w-dim { color: rgb(17 17 17 / 0.62); }
-:root[data-theme="dark"] .wallet-root .w-cur { color: rgb(17 17 17 / 0.5); }
-:root[data-theme="dark"] .wallet-root .w-pill-ghost {
-  background: rgb(0 0 0 / 0.08);
-  border-color: rgb(0 0 0 / 0.16);
-  color: #111;
-}
-:root[data-theme="dark"] .wallet-root .w-pill-send {
-  background: rgb(var(--color-ink));
-  color: rgb(var(--color-cream));
-  box-shadow: none;
-}
 /* Keep the screen where the push puts it: no scroll anchoring (which would
    scroll content back up under the menu) and no scrolling while open. */
 :root.customer-menu-open { overflow-anchor: none; overflow: hidden; }
@@ -1374,8 +1331,8 @@ select:focus {
   overflow: visible;
 }
 :root[data-theme="dark"].customer-section-open .customer-header.is-section-open.is-wallet-joined {
-  background: rgb(var(--color-gold));
-  color: #111;
+  background: rgb(var(--color-black-700));
+  color: #fff;
 }
 :root.customer-section-open {
   --wallet-fg: #faf8ef;
@@ -1440,7 +1397,6 @@ select:focus {
 :root[data-theme="dark"] .customer-menu-switch { background: rgb(0 0 0 / .22); }
 :root[data-theme="dark"] .customer-menu-switch.is-on { background: rgb(var(--color-gold)); }
 :root[data-theme="dark"] .customer-menu-switch-knob { background: #111; box-shadow: 0 1px 3px rgb(0 0 0 / .5); }
-:root[data-theme="dark"] .customer-header-dot { background: #111; box-shadow: 0 0 0 2px rgb(var(--color-gold)); }
 @media (prefers-reduced-motion: reduce) {
   .customer-profile-reveal.customer-menu-reveal, .customer-menu-sheet, .customer-menu-switch, .customer-menu-switch-knob, .customer-menu-tile { transition: none; }
 }

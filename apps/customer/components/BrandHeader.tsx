@@ -3,7 +3,6 @@ import {ChevronDown,ChevronUp,MapPinned,MessagesSquare} from "lucide-react";
 import Link from "next/link";
 import {usePathname} from "next/navigation";
 import {useCallback,useEffect,useRef,useState} from "react";
-import {useResolvedTheme} from "../lib/theme";
 import {isPracticeMode,type PlatformEnvironment} from "@peebee/shared";
 import {api} from "../lib/api";
 import {useCart} from "../lib/cart";
@@ -52,8 +51,6 @@ export function BrandHeader() {
   const openCarts=cartRows.some(row=>row.kind!=="earlier");
   const toggleRef=useRef<HTMLButtonElement>(null);
   const releaseTimer=useRef<number|undefined>(undefined);
-  const activeTheme=useResolvedTheme();
-  const isDark=activeTheme==="dark";
   const [counts,setCounts]=useState<MenuCounts>(EMPTY_COUNTS);
   const [environment,setEnvironment]=useState<PlatformEnvironment|null>(null);
   const [practiceActive,setPracticeActive]=useState(false);
@@ -128,7 +125,7 @@ export function BrandHeader() {
   return <>
     <header className={`customer-header sticky top-0 z-40 ${home?`ph-header ${homeFont.className}`:""} ${drawer.mode==="menu"?"is-menu-open":""} ${drawer.mode==="section"?"is-section-open":""} ${!open&&walletJoined?"is-wallet-joined":""}`}>
       <div className="mx-auto flex h-16 max-w-lg items-center justify-between gap-3 px-4">
-        <Link href="/" aria-label={`Go to home${modeLabel ? ", demo mode" : ""}`} className={home?"ph-brand-link min-w-0":"flex shrink-0 items-start gap-1"}><span className="flex items-start gap-1"><BrandLogo variant={open||home?"light":isDark?"dark":"light"}/>{modeLabel&&<sup aria-hidden="true" className="pt-1 text-[10px] font-bold leading-none text-gold">{modeLabel}</sup>}</span>{home&&<span className="ph-header-location" aria-label="Current detected location"><MapPinned size={14} aria-hidden/><span>{locationStatus==="locating"?"Locating…":locationLabel??"Location unavailable"}</span></span>}</Link>
+        <Link href="/" aria-label={`Go to home${modeLabel ? ", demo mode" : ""}`} className={home?"ph-brand-link min-w-0":"flex shrink-0 items-start gap-1"}><span className="flex items-start gap-1"><BrandLogo variant="light"/>{modeLabel&&<sup aria-hidden="true" className="pt-1 text-[10px] font-bold leading-none text-gold">{modeLabel}</sup>}</span>{home&&<span className="ph-header-location" aria-label="Current detected location"><MapPinned size={14} aria-hidden/><span>{locationStatus==="locating"?"Locating…":locationLabel??"Location unavailable"}</span></span>}</Link>
         <div className="flex shrink-0 items-center gap-1">
           <button ref={toggleRef} type="button" aria-label={open?"Close menu":"Open menu"} aria-expanded={open} aria-controls="header-menu" onClick={()=>{ if(open){ closeMenu(); toggleRef.current?.focus(); } else { drawer.openMenu(); } }} className="customer-header-toggle relative flex h-11 w-11 items-center justify-center rounded-full">
             {open?<ChevronUp size={24} aria-hidden/>:<ChevronDown size={24} aria-hidden/>}
