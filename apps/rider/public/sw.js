@@ -194,6 +194,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Job availability is live data: never show a cached open/assigned job feed.
+  // In particular, Refresh must wait for the server rather than an old snapshot.
+  if (["/v1/riders/jobs/available", "/v1/riders/me/orders", "/v1/relay/legs/open", "/v1/riders/me"].includes(url.pathname)) {
+    event.respondWith(fetch(request, { cache: "no-store" }));
+    return;
+  }
+
   if (isApiGet(url)) {
     event.respondWith(staleWhileRevalidate(event, request, RUNTIME_CACHE, (o, n) => announceIfChanged(url.pathname + url.search, o, n)));
     return;

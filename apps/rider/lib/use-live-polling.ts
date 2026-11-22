@@ -26,7 +26,7 @@ function scaledIntervalMs(base: number): number {
  */
 export function useLivePolling(callback: () => void, intervalMs: number, deps: unknown[]): void {
   const callbackRef = useRef(callback);
-  callbackRef.current = callback;
+  useEffect(() => { callbackRef.current = callback; }, [callback]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -51,6 +51,8 @@ export function useLivePolling(callback: () => void, intervalMs: number, deps: u
 
     document.addEventListener("visibilitychange", runIfActive);
     window.addEventListener("online", runIfActive);
+    window.addEventListener("focus", runIfActive);
+    window.addEventListener("pageshow", runIfActive);
     window.addEventListener("peebee:data-updated", runIfActive);
 
     return () => {
@@ -58,6 +60,8 @@ export function useLivePolling(callback: () => void, intervalMs: number, deps: u
       if (timer) clearTimeout(timer);
       document.removeEventListener("visibilitychange", runIfActive);
       window.removeEventListener("online", runIfActive);
+      window.removeEventListener("focus", runIfActive);
+      window.removeEventListener("pageshow", runIfActive);
       window.removeEventListener("peebee:data-updated", runIfActive);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

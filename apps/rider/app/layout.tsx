@@ -5,6 +5,7 @@ import Script from "next/script";
 import "./globals.css";
 import { AppShell } from "../components/AppShell";
 import { CallOverlay } from "../components/CallOverlay";
+import { JobAvailabilityWatcher } from "../components/JobAvailabilityWatcher";
 import { InstallPrompt } from "../components/InstallPrompt";
 import { OfflineBanner } from "../components/OfflineBanner";
 import { PushNotifications } from "../components/PushNotifications";
@@ -75,6 +76,7 @@ export default function RootLayout({
           <LanguageProvider>
             <CallsProvider>
               <AppShell><DataRefresh>{children}</DataRefresh></AppShell>
+              <JobAvailabilityWatcher />
               <PushNotifications />
               <CallOverlay />
             </CallsProvider>
