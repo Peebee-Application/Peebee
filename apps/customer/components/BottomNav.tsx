@@ -22,6 +22,11 @@ import {
   Crown,
   Clapperboard,
   Flame,
+  Send,
+  ReceiptText,
+  Plus,
+  LayoutDashboard,
+  HandHeart,
   GraduationCap,
   Heart,
   HardHat,
@@ -51,7 +56,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
-import { getWalletTab, setWalletTab, subscribeWalletTab, walletTabHref, type WalletTab } from "../lib/wallet-tab";
+import { WALLET_TABS, getWalletTab, setWalletTab, subscribeWalletTab, walletTabHref, type WalletTab } from "../lib/wallet-tab";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
@@ -70,6 +75,7 @@ import { SPACE_PAGES, selectedMenuScroll } from "../lib/nav-layout";
 import { useOrderNavContext } from "../lib/order-nav-context";
 import { NavAction } from "./NavAction";
 import { goBackOr, useNavBack, useNavPrimaryAction } from "../lib/nav-primary-action";
+import { useHeaderDrawerOptional } from "../lib/header-drawer";
 
 type MenuGroup = "original" | "ride" | "shopping" | "food" | "hive" | "learn" | "spotlight" | "spaces" | "wallet";
 type MenuItem = { id: string; label: string; /** The Services module that shows or hides this button. */ module?: string; /** A second name that swaps with `label`. */ alt?: { label: string; seconds: number }; icon: LucideIcon; href?: string; group?: Exclude<MenuGroup, "original" | "spotlight" | "wallet">; disabled?: boolean; /** Its module is off and Admin chose to grey it out: the button stays, inactive. */ offline?: boolean; /** A Spotlight filter this button switches on. */ spotlight?: SpotlightFilter };
@@ -240,12 +246,18 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
     primaryAction ? "action" : cartCount > 0 && inShopping ? "cart" : "links";
 
 
-  // Flow-owned Back wins; ordinary submenus return Home as the design specifies.
   const onWallet = menuGroup === "wallet";
-  const walletTab = useSyncExternalStore(subscribeWalletTab, getWalletTab, () => "home" as WalletTab);
-  const backAction = onWallet
-    ? () => goBackOr(router, "/")
-    : primaryAction?.closeToHome ? () => router.push("/") : navBack ?? (rightMode !== "links"
+  const walletTab = useSyncExternalStore(subscribeWalletTab, getWalletTab, () => "central" as WalletTab);
+  const headerDrawer = useHeaderDrawerOptional();
+  // Flow-owned Back wins (wallet review cancel, etc.). On wallet, Back opens
+  // the header menu. closeToHome (ride arrival/payment) returns to Home without
+  // cancelling the underlying job. Ordinary submenus return Home.
+  const backAction = navBack ?? (onWallet
+    ? () => {
+        headerDrawer?.openMenu();
+        goBackOr(router, "/");
+      }
+    : primaryAction?.closeToHome ? () => router.push("/") : rightMode !== "links"
     ? () => goBackOr(router, "/")
     : menuGroup !== "original" && menuGroup !== "spotlight" ? () => router.push("/") : null);
   const onHomeScreen = pathname === "/" && menuGroup === "original";
@@ -266,7 +278,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
   const itemSignature = menuItems.map((item) => item.id).join(",");
   useEffect(() => {
     const menu = menuRef.current;
-    if (!menu || rightMode !== "links") return;
+    if (!menu || (rightMode !== "links" && !onWallet)) return;
     const align = () => {
       const active = menu.querySelector<HTMLElement>('[aria-current="page"]');
       const itemLeft = active ? active.getBoundingClientRect().left - menu.getBoundingClientRect().left + menu.scrollLeft : 0;
@@ -277,7 +289,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
     const resize = new ResizeObserver(align);
     resize.observe(menu);
     return () => resize.disconnect();
-  }, [selectedKey, menuGroup, rightMode, itemSignature]);
+  }, [selectedKey, menuGroup, rightMode, itemSignature, onWallet, walletTab]);
 
 
 
@@ -363,34 +375,44 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
                 onClick={backAction ?? (() => router.push(onHomeScreen ? "/spotlight" : "/"))}
                 className="customer-nav-anchor-button">
                 {backAction ? primaryAction?.confirmation || primaryAction?.closeToHome ? <X aria-hidden /> : <ChevronLeft aria-hidden /> : onHomeScreen ? <Flame aria-hidden /> : <Home aria-hidden />}
-                {onWallet ? <span>Back</span> : !backAction && <span>{onHomeScreen ? homeMenu.navigation.streamLabel : t("nav_home")}</span>}
+                {!onWallet && !backAction && <span>{onHomeScreen ? homeMenu.navigation.streamLabel : t("nav_home")}</span>}
               </button>
             </div>
-            {onWallet ? (
-              <div className="customer-nav-menu-track customer-nav-swap" style={{ "--nav-count": 3 } as CSSProperties}>
+            {rightMode === "action" && primaryAction ? <NavAction action={primaryAction} />
+            : onWallet ? (
+              <div className="customer-nav-menu-track customer-nav-swap" style={{ "--nav-count": WALLET_TABS.length } as CSSProperties}>
                 <ul
+                  ref={menuRef}
                   role="tablist"
                   aria-label={t("wallet_title")}
                   className="customer-nav-items"
                   onKeyDown={(event) => {
-                    const order: WalletTab[] = ["recipients", "home", "accounts"];
+                    const order = WALLET_TABS;
                     const index = Math.max(0, order.indexOf(walletTab));
-                    const next = event.key === "ArrowRight" || event.key === "ArrowDown" ? order[(index + 1) % 3]
-                      : event.key === "ArrowLeft" || event.key === "ArrowUp" ? order[(index + 2) % 3]
+                    const next = event.key === "ArrowRight" || event.key === "ArrowDown" ? order[(index + 1) % order.length]
+                      : event.key === "ArrowLeft" || event.key === "ArrowUp" ? order[(index - 1 + order.length) % order.length]
                       : event.key === "Home" ? order[0]
-                      : event.key === "End" ? order[2]
+                      : event.key === "End" ? order[order.length - 1]
                       : null;
                     if (!next) return;
                     event.preventDefault();
+                    if (next === "give") {
+                      router.push("/give");
+                      return;
+                    }
                     setWalletTab(next);
                     router.replace(walletTabHref(next));
                     event.currentTarget.querySelector<HTMLButtonElement>(`#wallet-tab-${next}`)?.focus();
                   }}
                 >
                   {([
-                    ["recipients", t("wallet_recipients"), UsersRound],
-                    ["home", t("wallet_home_tab"), Home],
+                    ["central", t("wallet_central"), LayoutDashboard],
+                    ["topup", t("wallet_top_up"), Plus],
+                    ["send", t("send"), Send],
+                    ["give", t("wallet_give_tab"), HandHeart],
                     ["accounts", t("wallet_accounts"), Wallet],
+                    ["transactions", t("wallet_transactions"), ReceiptText],
+                    ["recipients", t("wallet_recipients"), UsersRound],
                   ] as const).map(([id, label, Icon]) => {
                     const active = walletTab === id;
                     return (
@@ -402,7 +424,14 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
                           aria-selected={active}
                           aria-current={active ? "page" : undefined}
                           tabIndex={active ? 0 : -1}
-                          onClick={() => { setWalletTab(id); router.replace(walletTabHref(id)); }}
+                          onClick={() => {
+                            if (id === "give") {
+                              router.push("/give");
+                              return;
+                            }
+                            setWalletTab(id);
+                            router.replace(walletTabHref(id));
+                          }}
                           className={`customer-nav-item ${active ? "is-active" : ""}`}
                         >
                           <Icon aria-hidden />
@@ -413,7 +442,7 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
                   })}
                 </ul>
               </div>
-            ) : rightMode === "action" && primaryAction ? <NavAction action={primaryAction} />
+            )
               : rightMode === "cart" ? <NavAction action={{ tone: "cart", label: "View cart", sublabel: `${cartCount} item${cartCount === 1 ? "" : "s"}`, detail: `UGX ${cartTotal.toLocaleString()}`, count: cartCount, onClick: () => setCartOpen(true) }} />
               : <div key="nav-links" className="customer-nav-menu-track customer-nav-swap" style={{ "--nav-count": Math.max(1, menuItems.length) } as CSSProperties}>
                 <ul ref={menuRef} key={menuGroup} className="customer-nav-items" aria-label={menuGroup === "original" ? "Main menu" : `${menuGroup === "spotlight" ? "Stream" : menuGroup === "hive" ? "Work" : menuGroup} menu`}>

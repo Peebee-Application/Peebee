@@ -26,6 +26,9 @@ export async function fetchPublicChannel(handle: string): Promise<{ channel: Cha
 export async function fetchPublicCause(slug: string): Promise<{ cause: CauseView } | null> {
   return getJson<{ cause: CauseView }>(`/public/causes/${encodeURIComponent(slug)}`);
 }
+export async function fetchPublicCauses(): Promise<{ causes: CauseView[] } | null> {
+  return getJson<{ causes: CauseView[] }>(`/public/causes`);
+}
 export async function fetchPublicPost(id: string): Promise<{ post: PostView } | null> {
   return getJson<{ post: PostView }>(`/posts/${encodeURIComponent(id)}`);
 }

@@ -1309,8 +1309,10 @@ select:focus {
    whole screen below slides down by the menu's height instead of being covered.
    The page colour sits behind the sheet so its rounded corners blend into the
    screen it pushed down. */
-.customer-profile-reveal.customer-menu-reveal { background: rgb(var(--color-cream)); }
-.customer-header.is-menu-open, :root[data-theme="dark"] .customer-header.is-menu-open { border-bottom-color: rgb(var(--color-cream)); }
+.customer-profile-reveal.customer-menu-reveal { background: rgb(var(--color-black-700)); }
+.customer-header.is-menu-open { border-bottom-color: transparent; }
+:root[data-theme="dark"] .customer-profile-reveal.customer-menu-reveal { background: rgb(var(--color-gold)); }
+:root[data-theme="dark"] .customer-header.is-menu-open { border-bottom-color: transparent; }
 /* Wallet: the header bar and the hero are one ink surface. The hero renders
    inside the header, so opening the menu carries it down with the bar. */
 .customer-header.is-wallet-joined,
@@ -1346,22 +1348,63 @@ select:focus {
 .customer-menu-catcher { pointer-events: none; background: transparent; }
 .customer-menu-catcher.is-active { pointer-events: auto; cursor: pointer; }
 .customer-menu-sheet {
-  max-height: calc(100dvh - 4rem - 12px);
+  /* First drop is about two-thirds of the viewport; the page sheet stays visible underneath. */
+  max-height: calc(66dvh - 4rem);
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: #fff;
-  color: #111;
+  background: rgb(var(--color-black-700));
+  color: #faf8ef;
   border-radius: 0 0 28px 28px;
-  box-shadow: 0 22px 44px -12px rgb(0 0 0 / .22), 0 2px 0 rgb(var(--color-gold) / .55) inset;
+  box-shadow: 0 22px 44px -12px rgb(0 0 0 / .35);
   transform: translateY(-10px);
   transition: transform 280ms cubic-bezier(.2,.8,.2,1);
+}
+:root.customer-menu-open main {
+  border-radius: 28px 28px 0 0;
+  overflow: hidden;
+}
+/* Full-height drawer section (Wallet, Profile, …): the header bar and the page share one canvas. */
+:root.customer-section-open .customer-header.is-section-open {
+  border-bottom: 0;
+}
+:root.customer-section-open .customer-header.is-section-open.is-wallet-joined {
+  background: rgb(var(--color-black-700));
+  color: #fff;
+  border-radius: 0;
+  overflow: visible;
+}
+:root[data-theme="dark"].customer-section-open .customer-header.is-section-open.is-wallet-joined {
+  background: rgb(var(--color-gold));
+  color: #111;
+}
+:root.customer-section-open {
+  --wallet-fg: #faf8ef;
+  --wallet-filter-on-bg: #faf8ef;
+  --wallet-filter-on-fg: #0a0a0a;
+  --wallet-new-bg: rgb(var(--color-gold));
+  --wallet-new-fg: rgb(var(--color-ink-gold));
+  --wallet-step-on: rgb(var(--color-gold));
+}
+:root.customer-section-open main {
+  background: rgb(var(--color-black-700));
+}
+:root[data-theme="dark"].customer-section-open {
+  --wallet-fg: #0a0a0a;
+  --wallet-filter-on-bg: #0a0a0a;
+  --wallet-filter-on-fg: #faf8ef;
+  --wallet-new-bg: rgb(var(--color-ink));
+  --wallet-new-fg: rgb(var(--color-cream));
+  --wallet-step-on: #0a0a0a;
+}
+:root[data-theme="dark"].customer-section-open main {
+  background: rgb(var(--color-gold));
 }
 .customer-profile-reveal.is-expanded .customer-menu-sheet { transform: none; }
 /* No fade: a half-transparent reveal would let the header colour wash over it. */
 .customer-profile-reveal.customer-menu-reveal { opacity: 1; transition: grid-template-rows 320ms cubic-bezier(.2,.8,.2,1); }
-.customer-menu-muted { color: rgb(0 0 0 / .56); }
+.customer-menu-muted { color: rgb(var(--color-gold)); }
 .customer-menu-row { transition: background-color 160ms ease; }
-.customer-menu-row:hover { background: rgb(var(--color-gold) / .07); }
+.customer-menu-row:hover { background: rgb(255 255 255 / .06); }
 .customer-menu-avatar { color: #111; background: rgb(var(--color-gold) / .14); box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgb(var(--color-gold)); }
 .customer-menu-pill { color: #111; background: rgb(var(--color-gold) / .16); border: 1px solid rgb(var(--color-gold) / .35); }
 .customer-menu-wallet {
@@ -1370,30 +1413,31 @@ select:focus {
   box-shadow: 0 10px 24px -14px rgb(var(--color-gold)), inset 0 1px 0 rgb(255 255 255 / .45);
 }
 .customer-menu-wallet-icon { background: rgb(0 0 0 / .1); }
-.customer-menu-tile { color: #111; background: #faf8f2; border: 1px solid rgb(0 0 0 / .05); transition: transform 160ms ease, background-color 160ms ease; }
-.customer-menu-tile:hover { background: rgb(var(--color-gold) / .1); }
+.customer-menu-tile { color: #faf8ef; background: #232326; border: 1px solid rgb(255 255 255 / .08); transition: transform 160ms ease, background-color 160ms ease; }
+.customer-menu-tile:hover { background: #2a2a2d; }
 .customer-menu-tile:active { transform: scale(.97); }
-.customer-menu-tile-icon { color: #7a5d06; background: linear-gradient(135deg, rgb(var(--color-gold) / .1), rgb(var(--color-gold) / .26)); }
-.customer-menu-badge { color: #111; background: rgb(var(--color-gold)); box-shadow: 0 0 0 2px #fff; }
-.customer-menu-theme { border: 1px solid rgb(0 0 0 / .06); }
-.customer-menu-switch { background: rgb(0 0 0 / .14); transition: background-color 200ms ease; }
+.customer-menu-tile-lg { min-height: 100px; }
+.customer-menu-tile-icon { color: #e8d48a; background: rgba(212, 165, 42, 0.16); }
+.customer-menu-badge { color: #111; background: rgb(var(--color-gold)); box-shadow: 0 0 0 2px #232326; }
+.customer-menu-theme { color: #faf8ef; background: #1c1c1e; border: 1px solid rgb(255 255 255 / .08); }
+.customer-menu-switch { background: rgb(255 255 255 / .18); transition: background-color 200ms ease; }
 .customer-menu-switch.is-on { background: rgb(var(--color-gold)); }
 .customer-menu-switch-knob { background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .3); transition: transform 200ms ease; }
 .customer-menu-switch.is-on .customer-menu-switch-knob { transform: translateX(20px); }
 .customer-menu-sheet a:focus-visible, .customer-menu-sheet button:focus-visible { outline: 2px solid rgb(var(--color-gold)); outline-offset: 2px; }
 .customer-header-dot { background: rgb(var(--color-gold)); box-shadow: 0 0 0 2px rgb(var(--color-black-700)); }
 
-:root[data-theme="dark"] .customer-menu-sheet { background: #0b0b0b; color: #f5f5f5; box-shadow: 0 22px 44px -12px rgb(0 0 0 / .8), inset 0 -1px 0 rgb(255 255 255 / .06); }
-:root[data-theme="dark"] .customer-menu-muted { color: rgb(255 255 255 / .58); }
-:root[data-theme="dark"] .customer-menu-row:hover { background: rgb(255 255 255 / .05); }
+:root[data-theme="dark"] .customer-menu-sheet { background: rgb(var(--color-gold)); color: #111; box-shadow: none; }
+:root[data-theme="dark"] .customer-menu-muted { color: #7a5d06; }
+:root[data-theme="dark"] .customer-menu-row:hover { background: rgb(0 0 0 / .06); }
 :root[data-theme="dark"] .customer-menu-avatar { color: rgb(var(--color-gold)); background: rgb(var(--color-gold) / .14); box-shadow: 0 0 0 2px #0b0b0b, 0 0 0 4px rgb(var(--color-gold)); }
 :root[data-theme="dark"] .customer-menu-pill { color: rgb(var(--color-gold)); background: rgb(var(--color-gold) / .12); border-color: rgb(var(--color-gold) / .35); }
-:root[data-theme="dark"] .customer-menu-tile { color: #f5f5f5; background: #161616; border-color: rgb(255 255 255 / .06); }
-:root[data-theme="dark"] .customer-menu-tile:hover { background: #1d1d1d; }
-:root[data-theme="dark"] .customer-menu-tile-icon { color: rgb(var(--color-gold-400)); background: linear-gradient(135deg, rgb(var(--color-gold) / .08), rgb(var(--color-gold) / .22)); }
-:root[data-theme="dark"] .customer-menu-badge { box-shadow: 0 0 0 2px #161616; }
-:root[data-theme="dark"] .customer-menu-theme { border-color: rgb(255 255 255 / .07); }
-:root[data-theme="dark"] .customer-menu-switch { background: rgb(255 255 255 / .18); }
+:root[data-theme="dark"] .customer-menu-tile { color: #111; background: #faf3e4; border-color: rgb(0 0 0 / .04); }
+:root[data-theme="dark"] .customer-menu-tile:hover { background: #fff8ea; }
+:root[data-theme="dark"] .customer-menu-tile-icon { color: #7a5d06; background: rgba(212, 165, 42, 0.18); }
+:root[data-theme="dark"] .customer-menu-badge { box-shadow: 0 0 0 2px #faf3e4; }
+:root[data-theme="dark"] .customer-menu-theme { color: #111; background: rgb(0 0 0 / .12); border-color: rgb(0 0 0 / .08); }
+:root[data-theme="dark"] .customer-menu-switch { background: rgb(0 0 0 / .22); }
 :root[data-theme="dark"] .customer-menu-switch.is-on { background: rgb(var(--color-gold)); }
 :root[data-theme="dark"] .customer-menu-switch-knob { background: #111; box-shadow: 0 1px 3px rgb(0 0 0 / .5); }
 :root[data-theme="dark"] .customer-header-dot { background: #111; box-shadow: 0 0 0 2px rgb(var(--color-gold)); }

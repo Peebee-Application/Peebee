@@ -47,7 +47,7 @@ function worker() {
         for (const map of stores.values()) if (map.has(url)) return map.get(url)!.clone();
         return undefined;
       },
-      keys: async () => ["peebee-assets-v1", "peebee-pages-v12", "peebee-runtime-v11", "peebee-pages-v13", "peebee-runtime-v12"],
+      keys: async () => ["peebee-assets-v1", "peebee-pages-v13", "peebee-runtime-v12", "peebee-pages-v14", "peebee-runtime-v13"],
       delete: async (name: string) => { deletedCaches.push(name); stores.delete(name); return true; },
     },
     fetch: async (input: Request | string) => {
@@ -61,14 +61,14 @@ function worker() {
 
 test("customer worker drops stale pages and the leaked wallet CSS, and keeps other assets", async () => {
   const w = worker();
-  assert.match(source, /peebee-pages-v14/);
-  assert.match(source, /peebee-runtime-v13/);
+  assert.match(source, /peebee-pages-v15/);
+  assert.match(source, /peebee-runtime-v14/);
   assert.match(source, /skipWaiting\(\)/);
   let done: Promise<unknown> | undefined;
   w.handlers.get("activate")!({ waitUntil: (promise: Promise<unknown>) => { done = promise; } });
   await done;
   assert.ok(w.claimed());
-  assert.deepEqual(w.deletedCaches.sort(), ["peebee-pages-v12", "peebee-pages-v13", "peebee-runtime-v11", "peebee-runtime-v12"]);
+  assert.deepEqual(w.deletedCaches.sort(), ["peebee-pages-v13", "peebee-pages-v14", "peebee-runtime-v12", "peebee-runtime-v13"]);
   const assets = w.stores.get("peebee-assets-v1")!;
   assert.equal(assets.has(w.badUrl), false);
   assert.equal(assets.has(w.leakedUrl), false);
