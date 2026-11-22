@@ -4,7 +4,7 @@ import { ModuleRouteGate } from "@peebee/shared/module-gate";
 import { MODULE_ROUTES } from "../lib/module-routes";
 import { useModules } from "../lib/modules";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useSyncExternalStore } from "react";
 import { noteInAppNavigation } from "../lib/nav-primary-action";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
@@ -53,6 +53,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const showHeader = !isAuthPage && !isChatThread && !isFoodDetail && !isImmersiveFullscreen && !isSpotlight;
   const showNav = !isAuthPage && !isChatThread && !isFoodDetail && !navigationOverlayOpen && !isImmersiveFullscreen;
 
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("customer-stage", showHeader);
+    return () => root.classList.remove("customer-stage");
+  }, [showHeader]);
+
   return (
     <GuestAccessProvider>
     <AuthGate>
@@ -66,7 +72,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <HeaderExtensionProvider>
       {showHeader && <BrandHeader />}
       <main
-        className={`mx-auto max-w-lg ${showHeader ? "min-h-[calc(100dvh-4rem)]" : "min-h-dvh"} ${showNav && !isSpotlight ? "customer-nav-content-clearance" : ""}`}
+        className={`mx-auto max-w-lg ${showHeader ? "customer-page-card min-h-[calc(100dvh-4rem)]" : "min-h-dvh"} ${showNav && !isSpotlight ? "customer-nav-content-clearance" : ""}`}
       >
         {foodBusinessId ? <FoodBusinessTheme key={foodBusinessId} id={foodBusinessId}>{gated}</FoodBusinessTheme> : gated}
       </main>

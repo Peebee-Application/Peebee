@@ -4,12 +4,15 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 
 /** The header drawer has three heights: the bar, the first drop (~2/3), and a full section. */
 export type HeaderDrawerMode = "closed" | "menu" | "section";
-export type HeaderDrawerSection = "wallet" | "profile" | "notifications" | "settings";
+export type HeaderDrawerSection = "profile" | "wallet" | "notifications" | "settings";
+
+export const DRAWER_SECTIONS: HeaderDrawerSection[] = ["profile", "wallet", "notifications", "settings"];
 
 type HeaderDrawerContextValue = {
   mode: HeaderDrawerMode;
-  section: HeaderDrawerSection | null;
+  section: HeaderDrawerSection;
   openMenu: () => void;
+  selectTab: (section: HeaderDrawerSection) => void;
   openSection: (section: HeaderDrawerSection) => void;
   close: () => void;
 };
@@ -18,11 +21,14 @@ const HeaderDrawerContext = createContext<HeaderDrawerContextValue | null>(null)
 
 export function HeaderDrawerProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<HeaderDrawerMode>("closed");
-  const [section, setSection] = useState<HeaderDrawerSection | null>(null);
+  const [section, setSection] = useState<HeaderDrawerSection>("profile");
 
   const openMenu = useCallback(() => {
-    setSection(null);
     setMode("menu");
+  }, []);
+
+  const selectTab = useCallback((next: HeaderDrawerSection) => {
+    setSection(next);
   }, []);
 
   const openSection = useCallback((next: HeaderDrawerSection) => {
@@ -32,12 +38,11 @@ export function HeaderDrawerProvider({ children }: { children: ReactNode }) {
 
   const close = useCallback(() => {
     setMode("closed");
-    setSection(null);
   }, []);
 
   const value = useMemo(
-    () => ({ mode, section, openMenu, openSection, close }),
-    [mode, section, openMenu, openSection, close],
+    () => ({ mode, section, openMenu, selectTab, openSection, close }),
+    [mode, section, openMenu, selectTab, openSection, close],
   );
 
   return <HeaderDrawerContext.Provider value={value}>{children}</HeaderDrawerContext.Provider>;
@@ -56,6 +61,9 @@ export function useHeaderDrawerOptional(): HeaderDrawerContextValue | null {
 
 export function drawerSectionForPath(pathname: string): HeaderDrawerSection | null {
   if (pathname === "/wallet" || pathname.startsWith("/wallet/")) return "wallet";
+  if (pathname === "/account" || pathname.startsWith("/account/")) return "profile";
+  if (pathname === "/notifications" || pathname.startsWith("/notifications/")) return "notifications";
+  if (pathname === "/settings" || pathname.startsWith("/settings/")) return "settings";
   return null;
 }
 
