@@ -10,7 +10,7 @@ import {loadOrderFeed} from "../lib/order-feed";
 import {useChatDrawer} from "../lib/chat-drawer";
 import {useHomeMenu} from "../lib/home-menu";
 import {HeaderExtensionOutlet} from "../lib/header-extension";
-import {useHeaderDrawer} from "../lib/header-drawer";
+import {shouldAutoOpenDrawerSection,useHeaderDrawer} from "../lib/header-drawer";
 import {BrandLogo} from "./BrandLogo";
 import {useLocationLabel} from "../lib/use-location-label";
 import {homeFont} from "./home/home-font";
@@ -73,14 +73,17 @@ export function BrandHeader() {
     });
     return()=>{live=false;};
   },[chatEnabled,chat.open]);
-  const pathRef=useRef(pathname);
+  const pathRef=useRef<string|null>(null);
   useEffect(()=>{
-    // The drawer is not route-driven: visiting /account or /settings directly
-    // is a normal page. If the user navigates away while it is open, close it.
-    if(pathRef.current!==pathname){
-      pathRef.current=pathname;
-      if(drawer.mode!=="closed") drawer.close();
-    }
+    // /settings, /account, and /notifications open the expanded drawer
+    // (the new UI lives there). Other route changes close it. /wallet is
+    // left alone so the real wallet page stays a normal screen.
+    const auto=shouldAutoOpenDrawerSection(pathname);
+    const changed=pathRef.current!==pathname;
+    pathRef.current=pathname;
+    if(!changed) return;
+    if(auto) drawer.openSection(auto);
+    else if(drawer.mode!=="closed") drawer.close();
   },[pathname, drawer]);
   useEffect(()=>()=>{window.clearTimeout(releaseTimer.current);document.documentElement.classList.remove("customer-menu-open","customer-drawer-expanded","customer-drawer-stage");},[]);
   useEffect(()=>{
@@ -88,23 +91,33 @@ export function BrandHeader() {
     const screen=document.querySelector("main");
     const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     window.clearTimeout(releaseTimer.current);
+    let frame=0;
     if(drawer.mode==="menu"){
-      root.classList.add("customer-drawer-stage","customer-menu-open");
+      root.classList.add("customer-drawer-stage");
       root.classList.remove("customer-drawer-expanded");
-      screen?.setAttribute("inert","");
+      const addOpen=()=>{
+        root.classList.add("customer-menu-open");
+        screen?.setAttribute("inert","");
+      };
+      if(reduce) addOpen();
+      else frame=requestAnimationFrame(()=>{frame=requestAnimationFrame(addOpen);});
     }else if(drawer.mode==="section"){
       root.classList.add("customer-drawer-stage","customer-drawer-expanded");
       root.classList.remove("customer-menu-open");
       screen?.removeAttribute("inert");
     }else{
-      // Hold the stage classes through the reverse close motion, then revert
-      // to the pre-#503 page surfaces.
+      // Drop the push immediately so the page slides back up; keep the ink
+      // stage through the reverse motion, then revert to closed surfaces.
       screen?.removeAttribute("inert");
+      root.classList.remove("customer-menu-open","customer-drawer-expanded");
       releaseTimer.current=window.setTimeout(()=>{
-        root.classList.remove("customer-menu-open","customer-drawer-expanded","customer-drawer-stage");
+        root.classList.remove("customer-drawer-stage");
       },reduce?0:420);
     }
-    return()=>screen?.removeAttribute("inert");
+    return()=>{
+      if(frame) cancelAnimationFrame(frame);
+      screen?.removeAttribute("inert");
+    };
   },[drawer.mode]);
   useEffect(()=>{
     const syncPractice=()=>setPracticeActive(isPracticeMode());

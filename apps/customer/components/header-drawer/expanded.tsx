@@ -18,6 +18,7 @@ import { NotificationSettings } from "../NotificationSettings";
 import { PracticeModeCard } from "../PracticeMode";
 import { ProfilePhoto } from "../ProfilePhoto";
 import { SavedLocations } from "../SavedLocations";
+import { ChannelEntryCard } from "../channels/ChannelEntryCard";
 
 function money(amount: number) {
   return `UGX ${Math.abs(amount).toLocaleString("en-UG")}`;
@@ -77,15 +78,15 @@ function DrawerEditProfile() {
       <button
         type="button"
         onClick={() => { setMessage(null); setEditing(true); }}
-        className="home-card flex min-h-12 w-full items-center gap-3 !rounded-2xl !py-3 text-sm font-semibold text-ink"
+        className="customer-drawer-edit"
       >
-        <Pencil className="h-4 w-4 text-gold" strokeWidth={1.9} aria-hidden />
         Edit profile
+        <Pencil className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden />
       </button>
     );
   }
   return (
-    <form onSubmit={save} className="home-card space-y-3">
+    <form onSubmit={save} className="home-card space-y-3 text-left">
       <h2 className="text-sm font-semibold">Display name</h2>
       <input
         aria-label="Display name"
@@ -111,59 +112,78 @@ export function ProfileExpanded() {
   const t = useTranslate();
   const { user, logout } = useAuth();
   const drawer = useHeaderDrawer();
+  const initial = (user?.name?.trim()?.[0] ?? "P").toUpperCase();
   return (
     <div className="space-y-5 pb-2 pt-1">
-      <section className="home-card flex items-center gap-3">
-        <ProfilePhoto />
-        <span>
-          <span className="block text-[15px] font-bold text-ink">{user?.name ?? "—"}</span>
-          <span className="block text-sm text-ink-500">{user?.phone}</span>
-          {user?.accountCode && <span className="mt-1 block font-mono text-xs text-ink-500">Peebee ID · {user.accountCode}</span>}
+      <h1 className="customer-drawer-title">Profile</h1>
+      <section className="customer-drawer-hero">
+        <span className="customer-drawer-avatar">
+          <ProfilePhoto size="lg" initials={initial} />
         </span>
+        <span className="customer-drawer-hero-name">{user?.name ?? "—"}</span>
+        {user?.phone && <span className="customer-drawer-hero-meta">{user.phone}</span>}
+        {user?.accountCode && <span className="customer-drawer-hero-id">Peebee ID · {user.accountCode}</span>}
+        <DrawerEditProfile />
       </section>
-      <DrawerEditProfile />
-      <DrawerLink href="/wallet" className="home-card flex items-center gap-3 !rounded-2xl !py-3 text-sm font-semibold text-ink">
-        <Wallet className="h-5 w-5 text-gold" strokeWidth={1.75} aria-hidden />
-        {t("nav_wallet")}
-      </DrawerLink>
+      <div className="customer-drawer-stack">
+        <button
+          type="button"
+          className="customer-drawer-row"
+          onClick={() => drawer.openSection("wallet")}
+        >
+          <Wallet className="h-5 w-5 shrink-0 text-gold" strokeWidth={1.75} aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="customer-drawer-row-label block">{t("nav_wallet")}</span>
+            <span className="customer-drawer-row-sub block">Open your wallet</span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
+        </button>
+        <div onClick={() => drawer.close()}>
+          <ChannelEntryCard />
+        </div>
+      </div>
       <SavedLocations />
       {user?.role === "admin" && (
-        <DrawerLink href="/admin" className="home-card flex items-center gap-3 !rounded-2xl !py-3 text-sm font-semibold text-ink">
-          <Shield className="h-5 w-5 text-green" strokeWidth={1.75} aria-hidden />
-          Rider verification (admin)
+        <DrawerLink href="/admin" className="customer-drawer-row">
+          <Shield className="h-5 w-5 shrink-0 text-green" strokeWidth={1.75} aria-hidden />
+          <span className="customer-drawer-row-label flex-1">Rider verification (admin)</span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
         </DrawerLink>
       )}
       <button
         onClick={() => { drawer.close(); logout(); }}
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border-faint)] px-4 text-sm font-bold text-ink"
+        className="customer-drawer-logout"
       >
         <LogOut className="h-4 w-4" strokeWidth={2} aria-hidden />
         {t("log_out")}
       </button>
-      <DrawerLink href="/account" className="customer-drawer-open">
-        Open account page
-      </DrawerLink>
     </div>
   );
 }
 
 export function SettingsExpanded() {
+  const drawer = useHeaderDrawer();
   return (
     <div className="space-y-5 pb-2 pt-1">
+      <h1 className="customer-drawer-title">Settings</h1>
       <AppearanceSettings />
       <LanguageSettings />
       <NotificationSettings />
       <MatchingPreference />
-      <PracticeModeCard role="customer" />
-      <DrawerLink href="/help" className="home-card flex items-center gap-3 !rounded-2xl !py-3 text-sm font-semibold text-ink">
-        <LifeBuoy className="h-5 w-5 text-gold" strokeWidth={1.75} aria-hidden />
-        <span className="flex-1">Help &amp; support</span>
+      <Link
+        href="/help"
+        onClick={() => drawer.close()}
+        className="customer-drawer-row"
+      >
+        <LifeBuoy className="h-5 w-5 shrink-0 text-gold" strokeWidth={1.75} aria-hidden />
+        <span className="min-w-0 flex-1">
+          <span className="customer-drawer-row-label block">Help &amp; support</span>
+          <span className="customer-drawer-row-sub block">Ask the assistant or talk to the team</span>
+        </span>
         <ChevronRight className="h-4 w-4 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
-      </DrawerLink>
+      </Link>
+      <PracticeModeCard role="customer" />
       <ChangePasswordPanel />
-      <DrawerLink href="/settings" className="customer-drawer-open">
-        Open settings page
-      </DrawerLink>
     </div>
   );
 }
@@ -185,31 +205,38 @@ export function NotificationsExpanded() {
     return () => { cancelled = true; };
   }, []);
 
-  const visible = items;
+  const unreadCount = items?.length ?? 0;
+  const visible = filter === "unread" ? (items ?? []).slice() : items;
+
   async function markWalletRead() {
     await api.markWalletAlertsRead().catch(() => undefined);
     await reload();
   }
 
   return (
-    <div className="space-y-5 pb-2 pt-1">
-      <div className="flex items-center justify-between gap-3">
-        <div className="customer-preview-seg" role="group" aria-label="Notification filter">
-          <button type="button" aria-pressed={filter === "all"} className={filter === "all" ? "is-on" : ""} onClick={() => setFilter("all")}>All</button>
-          <button type="button" aria-pressed={filter === "unread"} className={filter === "unread" ? "is-on" : ""} onClick={() => setFilter("unread")}>Unread</button>
-        </div>
+    <div className="space-y-4 pb-2 pt-1">
+      <h1 className="customer-drawer-title">Notifications</h1>
+      <div className="customer-preview-note-bar">
+        <span className="customer-preview-unread">{items == null ? "Notifications" : `${unreadCount} unread`}</span>
         {items && items.length > 0 && (
-          <button type="button" className="text-sm font-bold text-gold" onClick={() => void markWalletRead()}>
+          <button type="button" className="customer-preview-mark" onClick={() => void markWalletRead()}>
             Mark all read
           </button>
         )}
       </div>
+      <div className="customer-preview-seg" role="group" aria-label="Notification filter">
+        <button type="button" aria-pressed={filter === "all"} className={filter === "all" ? "is-on" : ""} onClick={() => setFilter("all")}>All</button>
+        <button type="button" aria-pressed={filter === "unread"} className={filter === "unread" ? "is-on" : ""} onClick={() => setFilter("unread")}>Unread</button>
+      </div>
       <section className="space-y-2.5" aria-label="Activity">
         {items === null && <div className="home-card h-[70px] animate-pulse !rounded-2xl" aria-busy="true" aria-label="Loading" />}
         {visible?.length === 0 && (
-          <div className="home-card flex items-center gap-3 !rounded-2xl">
+          <div className="customer-drawer-row">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold"><BellRing className="h-5 w-5" strokeWidth={1.9} aria-hidden /></span>
-            <span><span className="block text-sm font-bold text-ink">You&apos;re all caught up</span><span className="block text-xs text-ink-500">New messages and order updates will show up here.</span></span>
+            <span>
+              <span className="customer-drawer-row-label block">You&apos;re all caught up</span>
+              <span className="customer-drawer-row-sub block">New messages and order updates will show up here.</span>
+            </span>
           </div>
         )}
         {visible && visible.length > 0 && (
@@ -221,16 +248,16 @@ export function NotificationsExpanded() {
                   <Link
                     href={item.href}
                     onClick={() => drawer.close()}
-                    className="home-card flex items-center gap-3 !rounded-2xl !py-3"
+                    className="customer-drawer-row"
                   >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold">
                       <Icon className="h-5 w-5" strokeWidth={1.9} aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold text-ink">{item.title}</span>
-                      <span className="block truncate text-xs text-ink-500">{item.detail}</span>
+                      <span className="customer-drawer-row-label block truncate">{item.title}</span>
+                      <span className="customer-drawer-row-sub block truncate">{item.detail}</span>
                     </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-ink-500/60" strokeWidth={1.75} aria-hidden />
+                    <span className="customer-preview-dot" aria-hidden />
                   </Link>
                 </li>
               );
@@ -238,9 +265,6 @@ export function NotificationsExpanded() {
           </ul>
         )}
       </section>
-      <DrawerLink href="/notifications" className="customer-drawer-open">
-        Open notifications page
-      </DrawerLink>
     </div>
   );
 }

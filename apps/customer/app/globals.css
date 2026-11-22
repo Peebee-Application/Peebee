@@ -1316,9 +1316,9 @@ select:focus {
   transform: translateY(-10px);
   transition: transform 280ms cubic-bezier(.2,.8,.2,1);
 }
+/* The page under the drawer stays full-width and unstyled; only the drawer is a card. */
 :root.customer-menu-open main {
-  border-radius: 28px 28px 0 0;
-  overflow: hidden;
+  border-radius: 0;
 }
 /* Full-height drawer section (Wallet, Profile, …): the header bar and the page share one canvas. */
 :root.customer-section-open .customer-header.is-section-open {
@@ -1458,21 +1458,29 @@ select:focus {
 }
 :root.customer-drawer-stage body { overflow-anchor: none; overflow: hidden; }
 
-/* 2/3 open: the current page is pushed down as its own card on the ink stage. */
-:root.customer-drawer-stage.customer-menu-open main {
+/* 2/3 open: the current page keeps its normal full-width look and only
+   translates down beneath the drawer. Close is the reverse motion.
+   Only the drawer itself is a floating rounded container. */
+:root.customer-drawer-stage main,
+:root.customer-drawer-stage .customer-nav,
+:root.customer-drawer-stage .customer-nav-scrim {
   position: relative;
   z-index: 1;
-  width: calc(100% - 40px);
-  margin-left: auto;
-  margin-right: auto;
-  margin-top: 8px;
-  background: var(--stage-card);
-  border: 1px solid var(--stage-card-border);
-  border-radius: 28px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
-  overflow: hidden;
-  transform: translateY(calc(66.667dvh - var(--header-h)));
+  transform: translateY(0);
   transition: transform 320ms var(--stage-ease);
+}
+:root.customer-drawer-stage main {
+  width: 100%;
+  background-color: rgb(var(--color-cream));
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+:root.customer-drawer-stage.customer-menu-open main,
+:root.customer-drawer-stage.customer-menu-open .customer-nav,
+:root.customer-drawer-stage.customer-menu-open .customer-nav-scrim {
+  transform: translateY(calc(66.667dvh - var(--header-h)));
 }
 
 .customer-drawer {
@@ -1671,8 +1679,113 @@ html[data-theme="dark"] .customer-drawer {
   outline-offset: 2px;
 }
 
+
+.customer-drawer-title {
+  margin: 2px 0 12px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: rgb(var(--color-ink));
+}
+.customer-drawer-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 8px 8px 16px;
+}
+.customer-drawer-hero-name {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: rgb(var(--color-ink));
+}
+.customer-drawer-hero-meta,
+.customer-drawer-hero-id {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgb(var(--color-ink-500));
+}
+.customer-drawer-hero-id {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+.customer-drawer-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  min-height: 44px;
+  padding: 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: rgb(var(--color-gold));
+  background: transparent;
+}
+.customer-drawer-logout {
+  display: flex;
+  min-height: 56px;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-faint);
+  background: transparent;
+  color: rgb(var(--color-ink));
+  font-size: 15px;
+  font-weight: 800;
+}
+.customer-drawer-row {
+  display: flex;
+  min-height: 56px;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: rgb(var(--surface-card));
+  color: rgb(var(--color-ink));
+  text-align: left;
+}
+:root[data-theme="dark"] .customer-drawer-row {
+  background: rgb(var(--surface-card));
+}
+.customer-drawer-row-label { font-size: 15px; font-weight: 700; color: rgb(var(--color-ink)); }
+.customer-drawer-row-sub { font-size: 12px; font-weight: 500; color: rgb(var(--color-ink-500)); }
+.customer-drawer-stack { display: flex; flex-direction: column; gap: 8px; }
+.customer-drawer .home-card { border-radius: 20px; }
+.customer-preview-note-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.customer-preview-unread {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgb(var(--color-gold) / 0.18);
+  color: rgb(var(--color-ink));
+  font-size: 13px;
+  font-weight: 800;
+}
+.customer-preview-mark {
+  font-size: 13px;
+  font-weight: 800;
+  color: rgb(var(--color-gold));
+  background: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  :root.customer-drawer-stage.customer-menu-open main,
+  :root.customer-drawer-stage main,
+  :root.customer-drawer-stage .customer-nav,
+  :root.customer-drawer-stage .customer-nav-scrim,
   .customer-drawer,
   .customer-header svg { transition: none !important; }
 }

@@ -88,16 +88,15 @@ export function ProfilePreview({ onOpen }: { onOpen: () => void }) {
   const labels = places.slice(0, 2).map((p) => p.label).filter(Boolean);
   return (
     <div className="customer-preview">
-      <div className="customer-preview-identity">
+      <div className="customer-drawer-hero" style={{ paddingBottom: 8 }}>
         <span className="customer-preview-avatar" aria-hidden>{initial}</span>
-        <span className="min-w-0">
-          <span className="block truncate text-[17px] font-extrabold text-ink">{user?.name ?? "—"}</span>
-          <span className="block truncate text-sm text-ink-500">{user?.phone ?? ""}</span>
-        </span>
+        <span className="customer-drawer-hero-name">{user?.name ?? "—"}</span>
+        {user?.phone && <span className="customer-drawer-hero-meta">{user.phone}</span>}
       </div>
       <button type="button" className="customer-preview-row" onClick={onOpen}>
         <Pencil size={16} strokeWidth={1.9} aria-hidden />
         <span className="flex-1 text-left">Display name</span>
+        {user?.name && <span className="max-w-[45%] truncate text-xs text-ink-500">{user.name}</span>}
       </button>
       <button type="button" className="customer-preview-row" onClick={onOpen}>
         <MapPin size={16} strokeWidth={1.9} aria-hidden />
@@ -117,10 +116,20 @@ export function NotificationsPreview({ onOpen }: { onOpen: () => void }) {
     return () => { live = false; };
   }, []);
   const unread = items?.length ?? 0;
+  async function markAllRead() {
+    await api.markWalletAlertsRead().catch(() => undefined);
+    const next = await loadActivity().catch(() => []);
+    setItems(next);
+  }
   return (
     <div className="customer-preview">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-bold text-ink">{items == null ? "Notifications" : `${unread} unread`}</p>
+      <div className="customer-preview-note-bar">
+        <span className="customer-preview-unread">{items == null ? "Notifications" : `${unread} unread`}</span>
+        {items && items.length > 0 && (
+          <button type="button" className="customer-preview-mark" onClick={() => void markAllRead()}>
+            Mark all read
+          </button>
+        )}
       </div>
       <ul className="customer-preview-list">
         {(items ?? []).slice(0, 3).map((item) => (
@@ -180,10 +189,12 @@ export function SettingsPreview({ onOpen }: { onOpen: () => void }) {
       <button type="button" className="customer-preview-row" onClick={onOpen}>
         <Bell size={16} strokeWidth={1.9} aria-hidden />
         <span className="flex-1 text-left">Push notifications</span>
+        <span className="text-xs text-ink-500">On this device</span>
       </button>
       <button type="button" className="customer-preview-row" onClick={onOpen}>
         <HelpCircle size={16} strokeWidth={1.9} aria-hidden />
         <span className="flex-1 text-left">Help &amp; support</span>
+        <span className="max-w-[45%] truncate text-xs text-ink-500">Ask the assistant or the team</span>
       </button>
       <OpenButton label="Open Settings" onClick={onOpen} />
     </div>
