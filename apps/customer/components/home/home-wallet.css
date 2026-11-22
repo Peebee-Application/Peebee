@@ -1,6 +1,7 @@
 /* Full-bleed wallet deck. Gold and ink stay consistent in both app themes. */
 .home-wallet { --wallet-gold: var(--color-gold-400); overflow: hidden; color: white; background: linear-gradient(180deg,color-mix(in srgb,rgb(var(--color-black-700)),white 18%),rgb(var(--color-black-700)) 68%,rgb(var(--color-black-900))); padding: 28px 20px 14px; }
 :root:not([data-theme="dark"]) .home-wallet { background: linear-gradient(180deg,color-mix(in srgb,rgb(var(--color-black-700)),white 62%),color-mix(in srgb,rgb(var(--color-black-700)),white 30%) 55%,color-mix(in srgb,rgb(var(--color-black-700)),white 12%)); }
+:root:not([data-theme="dark"]) .home-wallet .home-wallet__heading { color: rgb(var(--color-ink-gold)); }
 .home-wallet--personalized { margin-inline: -20px; }
 .home-wallet--legacy { margin-inline: -16px; }
 .home-wallet .home-wallet__heading { text-align: center; text-transform: uppercase; letter-spacing: .3em; font-size: 18px; line-height: 1.3; font-weight: 750; margin: 0 0 26px; }
