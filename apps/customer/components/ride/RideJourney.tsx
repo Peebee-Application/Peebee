@@ -1,13 +1,16 @@
 "use client";
 
-import type { OrderDetail, OrderRating } from "@peebee/shared";
-import { Ambulance, Bike, Car, CheckCircle2, Crown, MapPin, Navigation, Route, Truck, Wallet } from "lucide-react";
+import { rideArrivalPayment, type OrderDetail, type OrderRating } from "@peebee/shared";
+import { Ambulance, Bike, Car, CheckCircle2, CreditCard, Crown, MapPin, Navigation, ReceiptText, Route, Smartphone, Truck, Wallet } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { RideApplicants } from "./RideApplicants";
 import { RideSearch } from "./RideSearch";
 import { LiveTrackingMap } from "../LiveTrackingMap";
 import { RateDeliveryCard } from "../RateDeliveryCard";
-import { SwipeToConfirm } from "../SwipeToConfirm";
+import { BottomDrawer } from "../BottomDrawer";
+import { useRegisterNavPrimaryAction } from "../../lib/nav-primary-action";
 import { formatUgx } from "../../lib/order-display";
 import { RideStopsList } from "./RideStopsList";
 import { RideTripCard, useRideTripDetails } from "./RideTripCard";
@@ -40,6 +43,7 @@ export function RideJourney({
   busy,
   error,
   onComplete,
+  onCashPaid,
   onCancel,
   onChanged,
   onRated,
@@ -50,6 +54,7 @@ export function RideJourney({
   busy: boolean;
   error: string | null;
   onComplete: () => Promise<void>;
+  onCashPaid: () => Promise<void>;
   onCancel: () => void;
   onChanged: () => void;
   onRated: (rating: OrderRating) => void;
@@ -57,6 +62,8 @@ export function RideJourney({
   paymentRequired?: boolean;
 }) {
   const { order } = detail;
+  const router = useRouter();
+  const [receiptOpen, setReceiptOpen] = useState(false);
   const trip = useRideTripDetails(order);
   const moment = rideMoment(order.stage, !!order.rider_id);
   const group = trip.car?.serviceGroup;
@@ -68,6 +75,7 @@ export function RideJourney({
 
   const paid = detail.payments.some((p) => p.type === "collection" && p.status === "successful");
   const cash = order.payment_rail === "float";
+  const arrivalPayment = rideArrivalPayment(detail);
   const fare = order.final_total ?? order.delivery_fee ?? order.estimated_total ?? null;
   const awaitingPay = moment === "finding" && !!order.rider_id && order.stage === "Match" && !cash && !paid;
   // A booking made for later keeps its pickup time; once the rider is moving the live stages take over.
@@ -99,6 +107,18 @@ export function RideJourney({
   }
 
   const at = STEPS.indexOf(moment);
+
+  useRegisterNavPrimaryAction(moment === "riding" ? {
+    label: "I’VE ARRIVED", confirmation: true, confirmationLabel: "I’VE ARRIVED", closeToHome: true,
+    disabled: busy || !order.pin_code, busy, onClick: onComplete,
+  } : moment === "arrived" ? arrivalPayment.receiptAvailable ? {
+    label: "View receipt", icon: ReceiptText, closeToHome: true, onClick: () => setReceiptOpen(true),
+  } : cash ? {
+    label: arrivalPayment.cashReported ? "Waiting for rider" : "I have Paid", icon: CheckCircle2, closeToHome: true,
+    disabled: busy || arrivalPayment.cashReported, busy, onClick: onCashPaid,
+  } : {
+    label: "Check payment", icon: Wallet, closeToHome: true, disabled: busy, onClick: () => router.push(`/orders/${order.id}/pay`),
+  } : null, 10);
 
   if (order.stage === "Cancelled") return <div className="ride-search"><header className="ride-search-heading"><h1>Ride cancelled</h1></header><Link href="/ride" className="flex min-h-14 items-center justify-center rounded-full bg-gold px-5 text-lg font-bold text-ink-gold">Back to rides</Link></div>;
 
@@ -158,22 +178,19 @@ export function RideJourney({
         </section>
       )}
 
-      {moment === "riding" && (
-        <SwipeToConfirm label="Slide when you’ve arrived" confirmedLabel="Trip complete" onConfirm={onComplete} disabled={busy || !order.pin_code} />
-      )}
-
       {moment === "arrived" && (
         <>
           <section className="home-card space-y-1 text-center" aria-label="Fare">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-              {cash && order.stage !== "Settle" ? "To pay" : "Paid"}
+              {arrivalPayment.noCharge ? "No payment due" : arrivalPayment.receiptAvailable ? "Paid" : arrivalPayment.cashReported ? "Awaiting rider confirmation" : cash ? "To pay" : "Payment not confirmed"}
             </p>
             <p className="text-3xl font-bold tabular-nums text-ink">{fare != null ? formatUgx(fare) : "—"}</p>
             <p className="text-sm text-ink-500">
-              {cash
-                ? order.stage === "Settle" ? "In cash to your rider" : `Hand the cash to ${firstName ?? "your rider"}`
-                : paid ? "In the app — nothing more to pay" : "Settled in the app"}
+              {arrivalPayment.noCharge ? "Nothing to pay" : cash
+                ? arrivalPayment.cashSettled ? "In cash to your rider" : arrivalPayment.cashReported ? "You reported paying cash to your rider" : `Hand the cash to ${firstName ?? "your rider"}`
+                : arrivalPayment.digitalPaid ? arrivalPayment.method : "Check your payment status in the app"}
             </p>
+            {arrivalPayment.digitalPaid && <p className="pt-2 text-sm text-ink-500">No cash to hand over</p>}
           </section>
           {order.stage === "Settle" && <section className="home-card"><RateDeliveryCard orderId={order.id} rating={detail.rating} onRated={onRated} /></section>}
         </>
@@ -184,6 +201,17 @@ export function RideJourney({
       {canCancel && moment !== "arrived" && (
         <button type="button" onClick={onCancel} className="mx-auto block min-h-10 px-4 text-sm font-bold text-ink-500">Cancel ride</button>
       )}
+      <BottomDrawer isOpen={receiptOpen && arrivalPayment.receiptAvailable} onClose={() => setReceiptOpen(false)} title="Trip receipt">
+        <div className="space-y-4 text-[17px]">
+          <div className="flex justify-center"><CheckCircle2 size={40} className="text-gold" aria-hidden /></div>
+          <p className="text-center font-bold">{arrivalPayment.noCharge ? "No payment due" : "Paid"}</p>
+          <p className="text-center text-3xl font-bold tabular-nums">{fare != null ? formatUgx(fare) : "—"}</p>
+          <p className="flex items-center justify-center gap-2">{arrivalPayment.method === "Card" ? <CreditCard size={24} aria-hidden /> : arrivalPayment.method === "Mobile money" ? <Smartphone size={24} aria-hidden /> : <Wallet size={24} aria-hidden />}{arrivalPayment.method}</p>
+          {!cash && arrivalPayment.collected !== fare && <p className="text-center text-sm text-ink-500">Amount collected: {formatUgx(arrivalPayment.collected)}</p>}
+          <dl className="space-y-3"><div><dt className="text-sm text-ink-500">Pickup</dt><dd>{order.pickup_area || "Pickup location"}</dd></div><div><dt className="text-sm text-ink-500">Destination</dt><dd>{destination}</dd></div><div><dt className="text-sm text-ink-500">Ride reference</dt><dd className="break-all">{order.id}</dd></div></dl>
+          <button type="button" onClick={() => setReceiptOpen(false)} className="flex min-h-14 w-full items-center justify-center rounded-full bg-gold px-5 font-bold text-ink-gold">Done</button>
+        </div>
+      </BottomDrawer>
     </div>
   );
 }

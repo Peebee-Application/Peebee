@@ -246,16 +246,18 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
     primaryAction ? "action" : cartCount > 0 && inShopping ? "cart" : "links";
 
 
-  // Flow-owned Back wins; ordinary submenus return Home as the design specifies.
   const onWallet = menuGroup === "wallet";
   const walletTab = useSyncExternalStore(subscribeWalletTab, getWalletTab, () => "central" as WalletTab);
   const headerDrawer = useHeaderDrawerOptional();
+  // Flow-owned Back wins (wallet review cancel, etc.). On wallet, Back opens
+  // the header menu. closeToHome (ride arrival/payment) returns to Home without
+  // cancelling the underlying job. Ordinary submenus return Home.
   const backAction = navBack ?? (onWallet
     ? () => {
         headerDrawer?.openMenu();
         goBackOr(router, "/");
       }
-    : rightMode !== "links"
+    : primaryAction?.closeToHome ? () => router.push("/") : rightMode !== "links"
     ? () => goBackOr(router, "/")
     : menuGroup !== "original" && menuGroup !== "spotlight" ? () => router.push("/") : null);
   const onHomeScreen = pathname === "/" && menuGroup === "original";
@@ -369,10 +371,10 @@ export function BottomNav({ overlay = false }: { overlay?: boolean }) {
 
           <div className="customer-nav-shell pointer-events-auto flex w-full items-stretch">
             <div className="customer-nav-anchor">
-              <button type="button" aria-label={onWallet ? "Back" : backAction ? primaryAction?.confirmation ? "Cancel confirmation" : navBack || rightMode !== "links" ? "Back" : "Back to Home" : onHomeScreen ? homeMenu.navigation.streamLabel : "Home"}
+              <button type="button" aria-label={onWallet ? "Back" : primaryAction?.closeToHome ? "Close and go to Home" : backAction ? primaryAction?.confirmation ? "Cancel confirmation" : navBack || rightMode !== "links" ? "Back" : "Back to Home" : onHomeScreen ? homeMenu.navigation.streamLabel : "Home"}
                 onClick={backAction ?? (() => router.push(onHomeScreen ? "/spotlight" : "/"))}
                 className="customer-nav-anchor-button">
-                {backAction ? primaryAction?.confirmation ? <X aria-hidden /> : <ChevronLeft aria-hidden /> : onHomeScreen ? <Flame aria-hidden /> : <Home aria-hidden />}
+                {backAction ? primaryAction?.confirmation || primaryAction?.closeToHome ? <X aria-hidden /> : <ChevronLeft aria-hidden /> : onHomeScreen ? <Flame aria-hidden /> : <Home aria-hidden />}
                 {!onWallet && !backAction && <span>{onHomeScreen ? homeMenu.navigation.streamLabel : t("nav_home")}</span>}
               </button>
             </div>
