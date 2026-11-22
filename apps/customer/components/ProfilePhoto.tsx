@@ -85,7 +85,7 @@ export function ProfilePhoto({ size = "md", initials }: { size?: "md" | "lg"; in
         onClick={() => inputRef.current?.click()}
         disabled={busy}
         aria-label={photoUrl ? "Change profile photo" : "Add profile photo"}
-        className={`flex items-center justify-center overflow-hidden rounded-full disabled:opacity-60 ${large ? "h-20 w-20 bg-gold text-[28px] font-extrabold text-[#111]" : "h-12 w-12 bg-gold/15 text-gold"}`}
+        className={`flex items-center justify-center overflow-hidden rounded-full disabled:opacity-60 ${large ? "h-[112px] w-[112px] bg-gold text-[42px] font-extrabold tracking-tight text-[#111]" : "h-12 w-12 bg-gold/15 text-gold"}`}
       >
         {photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -96,7 +96,7 @@ export function ProfilePhoto({ size = "md", initials }: { size?: "md" | "lg"; in
           <User className={large ? "h-8 w-8" : "h-6 w-6"} strokeWidth={1.75} aria-hidden />
         )}
       </button>
-      <span className={`absolute flex items-center justify-center rounded-full bg-ink text-white ring-2 ring-[rgb(var(--surface-card))] ${large ? "-bottom-0.5 -right-0.5 h-7 w-7" : "-bottom-0.5 -right-0.5 h-5 w-5"}`}>
+      <span className={`absolute flex items-center justify-center rounded-full bg-ink text-white ${large ? "-bottom-0.5 -right-0.5 h-8 w-8 ring-[3px] ring-[var(--stage-card,#faf7f0)]" : "-bottom-0.5 -right-0.5 h-5 w-5 ring-2 ring-[rgb(var(--surface-card))]"}`}>
         <Camera className={large ? "h-3.5 w-3.5" : "h-2.5 w-2.5"} strokeWidth={2.5} aria-hidden />
       </span>
       {error && <span className="absolute left-0 top-14 w-40 text-xs text-red-600">{error}</span>}

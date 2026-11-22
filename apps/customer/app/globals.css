@@ -1271,12 +1271,6 @@ select:focus {
 /* A rail inside a padded card also cancels that card's border and padding. */
 .edge-carousel-card { --carousel-gutter: calc(1rem + var(--pad-card) + 1px); }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .customer-header.is-wallet-joined,
-  :root:not([data-theme="light"]) .customer-header.is-wallet-joined.is-menu-open { border-bottom: 0; border-radius: 0 0 32px 32px; overflow: hidden; }
-}
-
-
 /* Header menu: a drop-down sheet under the header bar. Bright in light mode,
    black in dark mode; gold stays the one accent in both. */
 /* Push-down: the menu opens inside the sticky header, in normal flow, so the
@@ -1287,17 +1281,6 @@ select:focus {
 .customer-header.is-menu-open { border-bottom-color: transparent; }
 :root[data-theme="dark"] .customer-profile-reveal.customer-menu-reveal { background: rgb(var(--color-black-700)); }
 :root[data-theme="dark"] .customer-header.is-menu-open { border-bottom-color: transparent; }
-/* Wallet: the header bar and the hero are one ink surface. The hero renders
-   inside the header, so opening the menu carries it down with the bar. */
-.customer-header.is-wallet-joined,
-:root[data-theme="dark"] .customer-header.is-wallet-joined,
-:root[data-theme="dark"] .customer-header.is-wallet-joined.is-menu-open {
-  border-bottom: 0;
-  border-radius: 0 0 32px 32px;
-  overflow: hidden;
-}
-.customer-header.is-wallet-joined .customer-profile-reveal.customer-menu-reveal:not(.is-expanded) { background: transparent; }
-.customer-header-extension:empty { display: none; }
 /* Keep the screen where the push puts it: no scroll anchoring (which would
    scroll content back up under the menu) and no scrolling while open. */
 :root.customer-menu-open { overflow-anchor: none; overflow: hidden; }
@@ -1323,16 +1306,6 @@ select:focus {
 /* Full-height drawer section (Wallet, Profile, …): the header bar and the page share one canvas. */
 :root.customer-section-open .customer-header.is-section-open {
   border-bottom: 0;
-}
-:root.customer-section-open .customer-header.is-section-open.is-wallet-joined {
-  background: rgb(var(--color-black-700));
-  color: #fff;
-  border-radius: 0;
-  overflow: visible;
-}
-:root[data-theme="dark"].customer-section-open .customer-header.is-section-open.is-wallet-joined {
-  background: rgb(var(--color-black-700));
-  color: #fff;
 }
 :root.customer-section-open {
   --wallet-fg: #faf8ef;
@@ -1432,8 +1405,7 @@ select:focus {
 :root.customer-drawer-stage .customer-header,
 :root.customer-drawer-stage .customer-header.ph-header,
 :root.customer-drawer-stage .customer-header.is-menu-open,
-:root.customer-drawer-stage .customer-header.is-section-open,
-:root.customer-drawer-stage .customer-header.is-wallet-joined {
+:root.customer-drawer-stage .customer-header.is-section-open {
   background: transparent !important;
   color: #fff !important;
   border: 0 !important;
@@ -1461,26 +1433,39 @@ select:focus {
 /* 2/3 open: the current page keeps its normal full-width look and only
    translates down beneath the drawer. Close is the reverse motion.
    Only the drawer itself is a floating rounded container. */
-:root.customer-drawer-stage main,
-:root.customer-drawer-stage .customer-nav,
-:root.customer-drawer-stage .customer-nav-scrim {
+:root.customer-drawer-stage main {
   position: relative;
   z-index: 1;
-  transform: translateY(0);
-  transition: transform 320ms var(--stage-ease);
-}
-:root.customer-drawer-stage main {
   width: 100%;
   background-color: rgb(var(--color-cream));
   border: 0;
   border-radius: 0;
   box-shadow: none;
   overflow: visible;
+  transform: translateY(0);
+  transition: transform 320ms var(--stage-ease);
+}
+/* Keep the nav fixed so it stays on the ink stage in expanded mode.
+   Only translate it (still position: fixed) while the 2/3 drawer is open. */
+:root.customer-drawer-stage .customer-nav,
+:root.customer-drawer-stage .customer-nav-scrim {
+  transform: translateY(0);
+  transition: transform 320ms var(--stage-ease);
 }
 :root.customer-drawer-stage.customer-menu-open main,
 :root.customer-drawer-stage.customer-menu-open .customer-nav,
 :root.customer-drawer-stage.customer-menu-open .customer-nav-scrim {
   transform: translateY(calc(66.667dvh - var(--header-h)));
+}
+/* Expanded: the ink stage is the only surface around the floating
+   container. Hide the page so it cannot peek below or beside the drawer. */
+:root.customer-drawer-expanded main {
+  visibility: hidden;
+  pointer-events: none;
+}
+/* The install banner is z-60 and would sit on top of the drawer. */
+:root.customer-drawer-stage [class*="bottom-20"][class*="z-[60]"] {
+  display: none !important;
 }
 
 .customer-drawer {
@@ -1515,7 +1500,8 @@ html[data-theme="dark"] .customer-drawer {
 }
 .customer-drawer.is-menu { bottom: 33.333%; }
 .customer-drawer.is-section {
-  bottom: calc(var(--customer-nav-content-gap, calc(87px + env(safe-area-inset-bottom))) + 8px);
+  /* Sit just above the fixed nav pill (~128px in the v6 mockups). */
+  bottom: max(108px, calc(var(--customer-nav-content-gap, 108px) - 7px));
   overflow: hidden;
   border-radius: 28px;
 }
