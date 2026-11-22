@@ -10,6 +10,7 @@ import { ArrivedAttention } from "../../../components/ArrivedAttention";
 import { Accordion } from "../../../components/Accordion";
 import { CodeQr } from "../../../components/CodeQr";
 import { GoodsOverview } from "../../../components/GoodsOverview";
+import { ListMerchantPurchases } from "../../../components/ListMerchantPurchases";
 import { JobAction } from "../../../components/JobAction";
 import { CustomerPhotos, useOrderPhotos } from "../../../components/CustomerPhotos";
 import { DeliveryNavigation } from "../../../components/DeliveryNavigation";
@@ -37,6 +38,7 @@ export default function JobDetailPage() {
   const router = useRouter();
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [busy, setBusy] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [etaMinutes, setEtaMinutes] = useState("15");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -550,6 +552,7 @@ export default function JobDetailPage() {
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-base text-red-700">{error}</p>}
 
 
+      {canDeliver && order.type === "shopping" && !order.restaurant_id && !order.store_id && <ListMerchantPurchases key={order.id} detail={detail} onActive={setPurchasing} />}
       {canPropose && listBlock}
 
       <section className="job-workflow space-y-6">
@@ -584,7 +587,7 @@ export default function JobDetailPage() {
           </ul>
         )}
 
-        {order.type === "shopping" && order.funds_model === "merchant_allocations_v1" && canDeliver && (
+        {order.type === "shopping" && order.funds_model === "merchant_allocations_v1" && (!!order.restaurant_id || !!order.store_id) && canDeliver && (
           <div className="space-y-3 border-t border-[var(--border-faint)] pt-3">
             <div>
               <p className="text-sm font-semibold text-ink">Pay a Peebee merchant</p>
@@ -642,9 +645,9 @@ export default function JobDetailPage() {
             <label className="block space-y-3 text-base font-semibold" htmlFor="job-eta">Delivery ETA (minutes)
               <input id="job-eta" value={etaMinutes} onChange={(e) => setEtaMinutes(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric" className="block min-h-14 w-full rounded-2xl border border-[var(--border-faint)] text-xl" />
             </label>
-            <JobAction><button type="button" disabled={busy || pendingCount > 0 || substitutions.some((sub) => sub.status === "pending")} onClick={() => void run(() => api.deliverOrder(orderId, Number(etaMinutes) || undefined))} className="job-primary">
+            {!purchasing && <JobAction><button type="button" disabled={busy || pendingCount > 0 || substitutions.some((sub) => sub.status === "pending")} onClick={() => void run(() => api.deliverOrder(orderId, Number(etaMinutes) || undefined))} className="job-primary">
               {busy ? "Processing…" : order.restaurant_id ? "Confirm food pickup" : order.store_id ? "Confirm item pickup" : order.type === "parcel" ? "Confirm parcel pickup" : "Start delivery"}
-            </button></JobAction>
+            </button></JobAction>}
           </>
         )}
 

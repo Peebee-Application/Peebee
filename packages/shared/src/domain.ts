@@ -1543,6 +1543,7 @@ export type MerchantTransaction = {
 };
 
 export type MerchantPaymentSummary = {
+  delivery_pending?: boolean;
   id: string;
   order_id: string;
   outlet_id: string;
@@ -1619,7 +1620,14 @@ export type AdminMerchantProfileResponse = {
   range: AdminMerchantRange;
 };
 
+export type ListPurchaseItem = { list_item_id: string; name: string; quantity: number; amount: number };
+export type ListPurchaseBudget = { funded: number; allocated: number; reserved: number; remaining: number };
+
 export type MerchantPayment = {
+  purchase_code?: string;
+  delivery_pending?: boolean;
+  purchase_status?: "awaiting_merchant" | "pending_delivery" | "released" | "cancelled";
+  items?: ListPurchaseItem[];
   id: string;
   order_id: string;
   merchant_id: string;

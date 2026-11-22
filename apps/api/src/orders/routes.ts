@@ -1,3 +1,4 @@
+import { assertListPurchasesReadyForDelivery, releaseListPurchases } from "../merchants/list-purchases.js";
 import { getAttentionSettings } from "./attention.js";
 import { primeDemoAccounts, ridersForThisWorld } from "../practice/people.js";
 import { settleLoyalty } from "../marketplace/loyalty.js";
@@ -3178,6 +3179,8 @@ orderRoutes.post("/orders/:id/deliver", async (c) => {
     }
   }
 
+  try { await assertListPurchasesReadyForDelivery(id); } catch(error) { return c.json({error:"list_purchase_incomplete",message:error instanceof Error?error.message:"Merchant purchases are incomplete."},409); }
+
   const pin = (order.pin_code as string | null) ?? newPin();
   const departed = await db.execute({
     sql: "UPDATE orders SET stage = 'Deliver', eta_minutes = ?, pin_code = ?, rider_departed_at = ?, updated_at = datetime('now') WHERE id = ? AND rider_id = ? AND stage = ?",
@@ -3287,7 +3290,7 @@ orderRoutes.post("/orders/:id/handover", async (c) => {
     if (e instanceof HttpError) return c.json({ error: e.message }, e.status);
     throw e;
   }
-  if (!["Deliver", "Arrived", "PickedUp"].includes(order.stage as string)) {
+  if (!["Deliver", "Arrived", "PickedUp", "Handover", "Settle"].includes(order.stage as string)) {
     return c.json({ error: "invalid_stage", message: `Cannot hand over from stage ${order.stage}` }, 409);
   }
 
@@ -3297,12 +3300,14 @@ orderRoutes.post("/orders/:id/handover", async (c) => {
   if (parsed.data.pin !== order.pin_code) {
     return c.json({ error: "pin_mismatch" }, 400);
   }
+  if (["Handover","Settle"].includes(String(order.stage))) { await releaseListPurchases(id,user.sub); return c.json({order:await getOrder(id)}); }
   if (await relayBlocksFinalSteps(id)) {
     return c.json({ error: "relay_leg_pending", message: "Your parcel hasn't reached the last rider yet." }, 409);
   }
 
   if (!await finishWaiting(order, "Handover", user.sub)) return c.json({ error: "invalid_stage" }, 409);
   await logEvent(id, "Handover", "PIN confirmed, handover complete", user.sub);
+  await releaseListPurchases(id,user.sub);
 
   return c.json({ order: await getOrder(id) });
 });

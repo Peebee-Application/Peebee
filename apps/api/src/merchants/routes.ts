@@ -29,6 +29,8 @@ import {
 } from "./service.js";
 import { resolveMerchantPolicy } from "./policy.js";
 
+import { listPurchasesReady, listPurchase, purchaseDetails, purchaseReservation, releaseListPurchases } from "./list-purchases.js";
+
 export const merchantRoutes = new Hono();
 type Row = Record<string, unknown>;
 
@@ -406,10 +408,12 @@ merchantRoutes.get("/merchants/:id/payments", requireAuth, async (c) => {
   const merchantId = String(c.req.param("id"));
   const member = await membership(user.sub, merchantId);
   if (!member) return c.json({ error: "forbidden" }, 403);
+  const listReady = await listPurchasesReady();
   const result = await db.execute({
     sql: `SELECT mp.id, mp.order_id, mp.outlet_id, o.name AS outlet_name, mp.amount, mp.status,
                  mp.confirmation_mode, mp.risk_state, mp.receipt_reference, mp.rider_id,
-                 u.name AS rider_name, mp.created_at, mp.updated_at
+                 u.name AS rider_name, mp.created_at, mp.updated_at,
+                 ${listReady ? "EXISTS(SELECT 1 FROM list_merchant_purchases p WHERE p.payment_id=mp.id AND p.status='pending_delivery' AND p.delivered_at IS NULL)" : "0"} AS delivery_pending
           FROM merchant_payments mp
           JOIN merchant_outlets o ON o.id=mp.outlet_id
           JOIN users u ON u.id=mp.rider_id
@@ -475,9 +479,47 @@ merchantRoutes.post("/merchants/:id/disputes", requireAuth, async (c) => {
   return c.json({ dispute: result.rows[0] }, 201);
 });
 
+/** Scan a verified merchant's outlet QR, or choose an outlet from its business code. */
+merchantRoutes.get("/rider/merchant-outlets/:code", requireAuth, requireRole("rider"), async (c) => {
+  const code=String(c.req.param("code")).trim();
+  if (!code || code.length>100) return c.json({error:"invalid_code"},400);
+  const merchantCode=await hasColumn("merchants","merchant_code");
+  const result=await db.execute({sql:`SELECT o.id,o.code,o.name,o.address,m.display_name FROM merchant_outlets o JOIN merchants m ON m.id=o.merchant_id
+    WHERE o.status='active' AND m.status='active' AND EXISTS(SELECT 1 FROM merchant_kyc_cases k WHERE k.merchant_id=m.id AND k.status='approved')
+    AND (upper(o.code)=upper(?) ${merchantCode ? "OR upper(m.merchant_code)=upper(?)" : ""}) ORDER BY o.name`,args:merchantCode ? [code,code] : [code]});
+  if (!result.rows.length) return c.json({error:"merchant_not_verified",message:"No active verified merchant was found for this code."},404);
+  return c.json({outlets:result.rows});
+});
+merchantRoutes.get("/rider/orders/:id/merchant-purchases", requireAuth, requireRole("rider"), async(c)=>{
+  const order=(await db.execute({sql:"SELECT * FROM orders WHERE id=?",args:[String(c.req.param("id"))]})).rows[0] as Row|undefined;
+  if (!order || order.rider_id!==c.get("user").sub) return c.json({error:"not_found"},404);
+  if (!await listPurchasesReady()) return c.json({error:"list_purchases_not_ready",message:"Item-linked merchant payments are awaiting database setup."},503);
+  const budget=(await db.execute({sql:"SELECT principal_funded,principal_allocated,principal_refunded FROM order_budgets WHERE order_id=?",args:[String(order.id)]})).rows[0] as Row|undefined;
+  const rows=(await db.execute({sql:`SELECT mp.*,o.name AS outlet_name,m.display_name FROM merchant_payments mp JOIN list_merchant_purchases p ON p.payment_id=mp.id
+    JOIN merchant_outlets o ON o.id=mp.outlet_id JOIN merchants m ON m.id=mp.merchant_id WHERE mp.order_id=? ORDER BY mp.created_at`,args:[String(order.id)]})).rows as Row[];
+  const reserved=rows.filter(row=>row.status==='awaiting_confirmation').reduce((sum,row)=>sum+Number(row.amount),0);
+  return c.json({budget:{funded:Number(budget?.principal_funded??0),allocated:Number(budget?.principal_allocated??0),reserved,remaining:Math.max(0,Number(budget?.principal_funded??0)-Number(budget?.principal_allocated??0)-Number(budget?.principal_refunded??0)-reserved)},purchases:await Promise.all(rows.map(async row=>({...row,...await purchaseDetails(String(row.id))})))});
+});
+merchantRoutes.post("/merchant-payments/:id/rider-cancel",requireAuth,requireRole("rider"),async(c)=>{
+  if (!await listPurchasesReady()) return c.json({error:"list_purchases_not_ready"},503);
+  const id=String(c.req.param("id")),user=c.get("user");
+  const payment=(await db.execute({sql:"SELECT * FROM merchant_payments WHERE id=?",args:[id]})).rows[0] as Row|undefined;
+  if (!payment || payment.rider_id!==user.sub) return c.json({error:"not_found"},404);
+  const purchase=await listPurchase(id);
+  if (!purchase || purchase.status!=='awaiting_merchant' || payment.status!=='awaiting_confirmation') return c.json({error:"purchase_already_confirmed",message:"Confirmed goods need a dispute or return, not cancellation."},409);
+  try { await executeBatch([
+    {sql:`UPDATE list_merchant_purchases SET lock_check=CASE WHEN status='awaiting_merchant' AND EXISTS(SELECT 1 FROM merchant_payments mp WHERE mp.id=payment_id AND mp.status='awaiting_confirmation') THEN 1 ELSE 0 END WHERE payment_id=?`,args:[id]},
+    {sql:"UPDATE merchant_payments SET status='declined',updated_at=datetime('now') WHERE id=?",args:[id]},
+    {sql:"UPDATE list_merchant_purchases SET status='cancelled' WHERE payment_id=?",args:[id]},
+    {sql:"UPDATE list_merchant_purchase_items SET active=0 WHERE payment_id=?",args:[id]}
+  ]); } catch { return c.json({error:"purchase_changed",message:"Merchant confirmation is already in progress."},409); }
+  return c.json({ok:true});
+});
+
 const riderPaymentSchema = z.object({
   orderId: z.string(),
   outletCode: z.string().min(4).max(40).optional(),
+  items: z.array(z.object({ itemId: z.string().min(1), amount: z.number().int().positive().refine(Number.isSafeInteger) })).min(1).optional(),
   amount: z.number().int().positive(),
   riderLat: z.number().min(-90).max(90).optional(),
   riderLng: z.number().min(-180).max(180).optional(),
@@ -511,6 +553,25 @@ merchantRoutes.post("/merchant-payments", requireAuth, requireRole("rider"), asy
   if (!(await merchantPaymentsEnabled(order.environment as "live" | "sandbox"))) {
     return c.json({ error: "merchant_payments_not_ready", message: "Merchant payments are not approved for this environment." }, 409);
   }
+  const isList = order.type === "shopping" && !order.restaurant_id && !order.store_id;
+  let purchaseItems: Array<{itemId:string;name:string;quantity:number;amount:number}> = [];
+  if (isList) {
+    if (!await listPurchasesReady()) return c.json({ error:"list_purchases_not_ready", message:"Item-linked purchases need the list-purchases database migration." },503);
+    const selections = parsed.data.items;
+    if (!selections?.length || new Set(selections.map(item=>item.itemId)).size !== selections.length) return c.json({error:"list_items_required"},400);
+    const total = selections.reduce((sum,item)=>sum+item.amount,0);
+    if (!Number.isSafeInteger(total) || total !== parsed.data.amount) return c.json({error:"item_total_mismatch"},400);
+    const rows = (await db.execute({sql:"SELECT id,name,quantity FROM list_items WHERE list_id=?",args:[String(order.list_id)]})).rows as Row[];
+    const approved=(await db.execute({sql:"SELECT original_name,substitute_name FROM substitutions WHERE order_id=? AND status='approved' ORDER BY created_at DESC,id DESC",args:[String(order.id)]})).rows as Row[];
+    for (const selection of selections) {
+      const item=rows.find(row=>row.id===selection.itemId);
+      if (!item) return c.json({error:"item_not_in_order"},400);
+      const substitute=approved.find(row=>row.original_name===item.name);
+      if(substitute?.substitute_name==='Not available')return c.json({error:"item_removed_by_customer"},409);
+      purchaseItems.push({itemId:selection.itemId,name:String(substitute?.substitute_name??item.name),quantity:Number(item.quantity),amount:selection.amount});
+    }
+    if ((await db.execute({sql:"SELECT 1 FROM substitutions WHERE order_id=? AND status='pending' LIMIT 1",args:[String(order.id)]})).rows.length) return c.json({error:"customer_approval_pending"},409);
+  } else if (parsed.data.items) return c.json({error:"not_a_list_order"},409);
   // A food order is fulfilled by the restaurant whose menu the customer
   // ordered from. Never accept a rider-selected outlet for that order.
   const requiredOutletCode = order.restaurant_id ? String(order.restaurant_outlet_code ?? "") : parsed.data.outletCode;
@@ -525,6 +586,7 @@ merchantRoutes.post("/merchant-payments", requireAuth, requireRole("rider"), asy
   if (!outlet || outlet.status !== "active" || outlet.merchant_status !== "active") {
     return c.json({ error: "merchant_not_available" }, 409);
   }
+  if (isList && !(await db.execute({sql:"SELECT 1 FROM merchant_kyc_cases WHERE merchant_id=? AND status='approved' LIMIT 1",args:[String(outlet.merchant_id)]})).rows.length) return c.json({error:"merchant_not_verified",message:"Choose a verified Peebee merchant."},409);
   if (await getPlatformEnvironment() !== order.environment) return c.json({ error: "environment_mismatch" }, 409);
   const related = await db.execute({
     sql: "SELECT 1 FROM merchant_members WHERE merchant_id = ? AND user_id = ? AND status = 'active' LIMIT 1",
@@ -556,18 +618,29 @@ merchantRoutes.post("/merchant-payments", requireAuth, requireRole("rider"), asy
   if (policy.paymentConfirmationMode === "merchant_request") {
     return c.json({ error: "merchant_request_required", message: "Ask the merchant to create the payment request." }, 409);
   }
+  if (isList && policy.orderBudgetMode !== "prefunded_cap") return c.json({error:"purchase_policy_requires_approval",message:"This merchant's purchase policy requires a separate approval flow."},409);
   await ensureOrderBudget(parsed.data.orderId);
   const existing = await db.execute({
     sql: "SELECT * FROM merchant_payments WHERE environment = ? AND idempotency_key = ?",
     args: [String(order.environment), idempotencyKey],
   });
-  if (existing.rows[0]) return c.json({ payment: existing.rows[0] });
+  if (existing.rows[0]) {
+    const prior=existing.rows[0] as Row;
+    if (prior.rider_id !== user.sub || prior.order_id !== order.id || Number(prior.amount) !== parsed.data.amount || prior.outlet_id !== outlet.id) return c.json({error:"idempotency_conflict"},409);
+    const details=await purchaseDetails(String(prior.id));
+    if (isList) {
+      const before=JSON.stringify((details.items ?? []).map(item=>[item.list_item_id,Number(item.amount)]).sort());
+      const after=JSON.stringify(purchaseItems.map(item=>[item.itemId,item.amount]).sort());
+      if(before!==after)return c.json({error:"idempotency_conflict"},409);
+    }
+    return c.json({payment:{...prior,...details}});
+  }
 
   const id = newId("mpay");
-  const immediate = policy.paymentConfirmationMode === "rider_only";
+  const immediate = !isList && policy.paymentConfirmationMode === "rider_only";
   const paymentRiskState = policy.settlementReleaseMode === "manual_hold" ? "held" : "passed";
   const paymentRiskReason = paymentRiskState === "held" ? "merchant_policy_manual_hold" : risk.reason;
-  await executeBatch([
+  try { await executeBatch([
     {
       sql: `INSERT INTO merchant_payments
           (id, order_id, merchant_id, outlet_id, amount, confirmation_mode, rider_id, initiated_by,
@@ -575,7 +648,7 @@ merchantRoutes.post("/merchant-payments", requireAuth, requireRole("rider"), asy
            location_captured_at, outlet_distance_m, evidence_mode, receipt_reference, risk_reason,
            policy_version, idempotency_key, environment)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [id, order.id, outlet.merchant_id, outlet.id, parsed.data.amount, policy.paymentConfirmationMode,
+      args: [id, order.id, outlet.merchant_id, outlet.id, parsed.data.amount, isList ? "dual_confirm" : policy.paymentConfirmationMode,
         user.sub, user.sub, immediate ? new Date().toISOString() : null, paymentRiskState,
         parsed.data.riderLat ?? null, parsed.data.riderLng ?? null, parsed.data.accuracyM ?? null,
         parsed.data.capturedAt ?? null, risk.distanceM, parsed.data.evidenceMode ?? "gps",
@@ -588,14 +661,19 @@ merchantRoutes.post("/merchant-payments", requireAuth, requireRole("rider"), asy
       args: [newId("mrd"), id, paymentRiskState === "held" ? "hold" : "pass", risk.distanceM, parsed.data.accuracyM ?? null,
         JSON.stringify([paymentRiskReason]), JSON.stringify({ mode: parsed.data.evidenceMode ?? "gps", receiptReference: parsed.data.receiptReference ?? null })],
     },
-  ]);
+    ...(isList ? purchaseReservation(id,String(order.id),parsed.data.amount,`LP-${crypto.randomUUID().replaceAll("-","").slice(0,16).toUpperCase()}`,purchaseItems) : []),
+  ]); } catch (error) {
+    if (!isList) throw error;
+    return c.json({error:"purchase_reservation_failed",message:"An item is already assigned to a purchase, or this purchase exceeds the remaining list budget."},409);
+  }
   const payment = immediate ? await finalizeMerchantPayment(id, user.sub) : (await db.execute({ sql: "SELECT * FROM merchant_payments WHERE id = ?", args: [id] })).rows[0];
-  return c.json({ payment }, 201);
+  return c.json({ payment: {...payment,...await purchaseDetails(id)} }, 201);
 });
 
 merchantRoutes.get("/merchant-payments/:id", requireAuth, async (c) => {
   const user = c.get("user");
-  const id = String(c.req.param("id"));
+  let id = String(c.req.param("id"));
+  if (await listPurchasesReady()) { const match=(await db.execute({sql:"SELECT payment_id FROM list_merchant_purchases WHERE upper(code)=upper(?)",args:[id]})).rows[0] as Row|undefined; if(match) id=String(match.payment_id); }
   const result = await db.execute({
     sql: `SELECT mp.id, mp.order_id, mp.merchant_id, mp.outlet_id, mp.amount, mp.status,
                  mp.confirmation_mode, mp.rider_id, mp.rider_confirmed_at, mp.merchant_confirmed_at,
@@ -613,7 +691,7 @@ merchantRoutes.get("/merchant-payments/:id", requireAuth, async (c) => {
   if (member?.role === "cashier" && String(member.outlet_id ?? "") !== String(payment.outlet_id)) {
     return c.json({ error: "forbidden" }, 403);
   }
-  return c.json({ payment });
+  return c.json({ payment: {...payment,...await purchaseDetails(id)} });
 });
 
 const merchantConfirmationSchema = z.object({ amount: z.number().int().positive() });
@@ -625,6 +703,9 @@ merchantRoutes.post("/merchant-payments/:id/merchant-confirm", requireAuth, asyn
   const result = await db.execute({ sql: "SELECT * FROM merchant_payments WHERE id = ?", args: [id] });
   const payment = result.rows[0] as Row | undefined;
   if (!payment) return c.json({ error: "not_found" }, 404);
+  if (await listPurchase(id)) {
+    if (payment.environment !== await getPlatformEnvironment() || !await merchantPaymentsEnabled(payment.environment as "live"|"sandbox")) return c.json({error:"merchant_payments_not_ready"},409);
+  }
   const member = await membership(user.sub, String(payment.merchant_id));
   if (!member) return c.json({ error: "forbidden" }, 403);
   if (member.role === "cashier" && String(member.outlet_id ?? "") !== String(payment.outlet_id)) {
@@ -635,7 +716,7 @@ merchantRoutes.post("/merchant-payments/:id/merchant-confirm", requireAuth, asyn
   }
   await db.execute({ sql: "UPDATE merchant_payments SET merchant_confirmed_at = datetime('now') WHERE id = ?", args: [id] });
   try {
-    return c.json({ payment: await finalizeMerchantPayment(id, user.sub) });
+    return c.json({ payment: {...await finalizeMerchantPayment(id, user.sub),...await purchaseDetails(id)} });
   } catch (error) {
     return c.json({ error: "payment_confirmation_failed", message: error instanceof Error ? error.message : "Unable to confirm" }, 409);
   }
@@ -1313,6 +1394,14 @@ merchantRoutes.post("/admin/merchant-payments/:id/release", requireAuth, require
   const payment = result.rows[0] as Row | undefined;
   if (!payment) return c.json({ error: "not_found" }, 404);
   if (payment.status !== "held") return c.json({ error: "payment_not_held" }, 409);
+  const purchase = await listPurchase(String(payment.id));
+  if (purchase) {
+    const order = (await db.execute({sql:"SELECT stage FROM orders WHERE id=?",args:[String(payment.order_id)]})).rows[0] as Row|undefined;
+    if (!order || !["Handover","Settle"].includes(String(order.stage))) return c.json({error:"customer_receipt_required"},409);
+    if (payment.risk_state==='passed') { await releaseListPurchases(String(payment.order_id),admin.sub); return c.json({payment:(await db.execute({sql:"SELECT * FROM merchant_payments WHERE id=?",args:[String(payment.id)]})).rows[0]}); }
+
+  }
+
   const amount = Number(payment.amount);
   const environment = payment.environment as "live" | "sandbox";
   await postLedgerTransaction({
@@ -1327,6 +1416,7 @@ merchantRoutes.post("/admin/merchant-payments/:id/release", requireAuth, require
       { ownerType: "merchant", ownerId: String(payment.merchant_id), purpose: "payable_available", environment, amount },
     ],
     additionalStatements: [
+      ...(purchase ? [{sql:"UPDATE list_merchant_purchases SET status='released',delivered_at=datetime('now') WHERE payment_id=?",args:[String(payment.id)]}] : []),
       {
         sql: `UPDATE merchant_balances SET held = held - ?, available = available + ?, updated_at = datetime('now')
               WHERE merchant_id = ? AND environment = ?`,
