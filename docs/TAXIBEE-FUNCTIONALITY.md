@@ -80,14 +80,12 @@ the server can enforce it, while leaving the practice flows available.
    configured discounts/expiry, route/direction validity, date changes,
    redemption and partial cancellation/refund accounting. Two unrelated bookings
    must not be advertised as an atomic prepaid return package.
-2. **Parcels:** map the existing relay service's routes, eligible taxis, quotes,
-   recipient/collection proof, photos, handover codes, payments and tracking to
-   the parcel screens. Add any missing shared API/admin capabilities; never
-   synthesize a receipt or collection PIN on the client.
-3. **Charter:** map the existing car service's real inventory, availability,
-   quote, reservation, assignment and payment lifecycle to the special-hire
-   screens. Hourly/day packages and preferred-driver commitments need server
-   support and admin-controlled rules.
+2. **Parcel parity beyond shared delivery:** declared-value insurance and guaranteed
+   priority departures still need backend rules. Shared direct/relay quotes, real
+   orders, collection/delivery codes, photos, checkout, chat and status are connected.
+3. **Charter parity beyond Peebee Car:** fixed-day packages and preferred-driver
+   guarantees still need backend rules. Approved category booking, optional luxury
+   chauffeur hours, configured scheduled pickup, assignment and checkout are connected.
 4. **Corporate and voucher parity:** shared offers are connected, but the
    prototype's corporate account/credit and voucher settlement models are not.
    They need real account authorization, limits, eligibility and accounting.
@@ -114,3 +112,19 @@ the server can enforce it, while leaving the practice flows available.
 - Review and merge through PR; deploy the shared API first, then Taxibee, from
   clean current `main` through the existing preflight. Select only the intended
   apps in the existing deployment workflow; do not redeploy unrelated apps.
+
+### Parcel and charter integration
+
+No migration or new admin policy is introduced. The public service catalogue respects
+existing parcel/ride, relay, Car, luxury and scheduling switches and fleet visibility.
+Only approved passenger inventory is offered. Price calculation reuses shared relay
+and car formulas; confirmation re-quotes, and payment separately rechecks checkout.
+Anonymous progress survives sign-in/reload, with fresh consent; signing out clears
+private progress, photos and late responses. A lost creation response requires
+checking shared history before a separate new request.
+
+Validation adds `src/taxibee/services.integration.test.ts` (public settings, pricing,
+inventory visibility and history ownership) and `scripts/services-smoke.mjs`
+(guest preparation, login, relay collection, wallet/mobile money, actual photo/chat
+APIs, reload and interrupted-write recovery, scheduled hourly hire and sign-out).
+Browser fixtures do not establish live driver availability or provider settlement.

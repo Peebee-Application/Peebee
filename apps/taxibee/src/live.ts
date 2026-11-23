@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { installCustomerFeatures } from './customer-features';
 import { installCustomerAuth } from './customer-auth';
 import { installSeatSelection } from './seat-selection';
+import { installParcelCharter } from './parcel-charter';
 
 // The presentation is intentionally retained verbatim. This boundary is the only
 // place that translates Peebee records into the source interface's view model.
@@ -32,6 +33,7 @@ let features: ReturnType<typeof installCustomerFeatures> | undefined;
 let account: ReturnType<typeof installCustomerAuth> | undefined;
 let booting = true;
 let seating: ReturnType<typeof installSeatSelection> | undefined;
+let services: ReturnType<typeof installParcelCharter> | undefined;
 const original = Object.fromEntries(['renderAuth', 'renderHome', 'renderBook', 'renderCurrentScreen', 'navigate', 'renderWallet', 'renderProfile', 'renderDigitalTicketCard', 'getTicketsData', 'confirmBooking', 'renderTracking'].map(k => [k, ui[k]]));
 const $ = (s: string) => document.querySelector(s) as HTMLInputElement | null;
 const escape = (s: unknown) => ui.escapeHtml(String(s ?? ''));
@@ -69,6 +71,7 @@ function clearSession(discardDraft = true) {
   ++sessionVersion; loading = false;
   features?.reset();
   seating?.reset();
+  services?.reset(discardDraft);
   user = null; bookings = []; wallet = null; selectedBooking = null; pendingOrder = null; pendingPayment = null;
   localStorage.removeItem(TOKEN); sessionStorage.removeItem(TOKEN);
   state.tickets = []; state.walletBalance = 0; appData.transactions = [];
@@ -379,6 +382,7 @@ if (!preview) account = installCustomerAuth({
 });
 if (!preview) seating = installSeatSelection({ ui,api,user: () => user,quantity: () => ui.passengerTotal(),
   requestLogin: screen => account?.open(screen),remember: () => account?.rememberBooking() });
+if (!preview) services = installParcelCharter({ui,api,user:()=>user,token:()=>sessionStorage.getItem(TOKEN)||localStorage.getItem(TOKEN),login:screen=>account?.open(screen)});
 
 document.addEventListener('input', event => {
   if (!preview && (event.target as HTMLElement).id === 'taxibee-offer-code') state.taxibeeOfferCode = (event.target as HTMLInputElement).value;
@@ -417,6 +421,7 @@ document.addEventListener('click', async event => {
   }
   if (preview) return;
   const block = () => { event.preventDefault(); event.stopImmediatePropagation(); };
+  if(action.startsWith('svc-')) return;
   if (action === 'open-demo-panel') { block(); account?.rememberBooking(); location.assign('/?preview=1'); return; }
   if (['select-route-card', 'select-route-card-step', 'book-searched-route', 'flip-route-direction', 'swap-home-route', 'swap-route'].includes(action)) {
     block();
@@ -449,7 +454,7 @@ document.addEventListener('click', async event => {
     state.passengerDetails[0] = { ...state.passengerDetails[0], name: state.isBookingForSomeoneElse ? state.otherTravelerName : user?.name, phone: state.isBookingForSomeoneElse ? state.otherTravelerPhone : user?.phone };
     ui.renderCurrentScreen(); return;
   }
-  const safeScreens = new Set(['home', 'book', 'available-vans', 'trip-details', 'passengers', 'returns', 'luggage', 'checkout', 'success', 'ticket', 'tickets', 'trips', 'wallet', 'profile', 'about', 'support', 'notifications', 'tracking', 'live', 'search-results']);
+  const safeScreens = new Set(['home', 'book', 'available-vans', 'trip-details', 'passengers', 'returns', 'luggage', 'checkout', 'success', 'ticket', 'tickets', 'trips', 'wallet', 'profile', 'about', 'support', 'notifications', 'tracking', 'live', 'search-results','parcel','parcel-receipt','trackparcel','trackparcel-list','parcel-status','special-hire']);
   if (screen && !safeScreens.has(screen.dataset.screen || '')) {
     block(); ui.toast('This service is available in the Peebee customer app.', 'info');
     ui.openModal('Continue in Peebee', '<p>Use your same Peebee account for this service.</p>', '<a class="button button--primary" href="https://app.peebee.online/ride">Open Peebee</a>'); return;

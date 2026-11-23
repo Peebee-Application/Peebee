@@ -71,7 +71,7 @@ const quoteSchema = z.object({
 });
 
 /** The relay a long parcel would take and what each leg costs, or relay: null for a normal delivery. */
-relayRoutes.get("/relay/quote", async (c) => {
+export async function customerRelayQuote(c: Context) {
   const parsed = quoteSchema.safeParse(c.req.query());
   if (!parsed.success) return c.json({ error: "invalid_query" }, 400);
   const d = parsed.data;
@@ -103,7 +103,8 @@ relayRoutes.get("/relay/quote", async (c) => {
       legs: plan.legs.map((leg) => ({ leg: leg.leg, kind: leg.kind, fromName: leg.fromName, toName: leg.toName, distanceKm: leg.distanceKm, fee: leg.fee })),
     },
   });
-});
+}
+relayRoutes.get('/relay/quote',customerRelayQuote);
 
 /** Everyone involved in a relayed order follows it here: the customer, the
  * riders, the matatu operator and the seller (staff use the admin view). */

@@ -93,8 +93,8 @@ in `docs/TAXIBEE-FUNCTIONALITY.md` before enabling it.
 
 Some source mockup behaviours have no equivalent in the current TaxiPress
 API: bundled return packages, corporate/voucher
-mock payments, synthetic traffic tracking, and its separate parcel/charter
-simulators. They remain in the labelled design preview. The live interface
+mock payments, synthetic traffic tracking, fixed-day hire packages and
+preferred-driver guarantees. They remain in the labelled design preview. The live interface
 does not fabricate them; services outside this integration direct customers
 to Peebee. This release does not claim full backend parity with every mockup
 screen. Changes to those services belong in Peebee's shared API and admin
@@ -107,3 +107,24 @@ The existing deployment preflight is required. The Worker is
 `peebee-taxibee`; Wrangler attaches `taxibee.peebee.online` as a custom domain.
 Only the existing Peebee Cloudflare account and zone are used. Existing apps,
 Workers, DNS records, and the shared API are not redeployed by this command.
+
+## Parcels and special hire
+
+Live parcel preparation uses shared delivery/relay quotes and creates real Peebee
+parcel orders after sign-in and explicit confirmation. Sender/recipient contacts
+travel in the order item instructions. The status view uses server-issued delivery
+and collection codes, relay legs, actual order photos, chat and shared checkout.
+Direct rider delivery remains available where relay is not offered.
+
+Special Hire uses approved passenger categories from Peebee Car, category fares,
+optional hourly luxury chauffeur hire and scheduled pickup where enabled by Admin.
+A category request does not reserve a specific driver or vehicle; assignment is
+shown when confirmed by the server. Fixed-day packages, self-drive and preferred
+driver guarantees are outside this integration.
+
+Public service catalogue/quotes use `/v1/taxibee-services/*`; history requires a
+customer session and is restricted to its owner and platform environment. Existing
+shared creation/payment/assignment endpoints remain authoritative. Interrupted
+creation blocks automatic resubmission and directs the customer to history. No
+migration, service switch change, separate database or production test purchase
+is required. Practice mode continues using isolated sample flows.
