@@ -1505,6 +1505,8 @@ orderRoutes.post("/orders/:id/claim", requireRole("rider"), async (c) => {
   if (!order) return c.json({ error: "not_found" }, 404);
   if (await isSecondaryBundleOrder(id, order)) return c.json({ error: "bundled_stop", message: "Claim the combined delivery from its first pickup." }, 409);
   if (await isBundleWindowOpen(order)) return c.json({ error: "bundle_window_open", message: "This order is waiting for the customer's pickup choice." }, 409);
+  // A retry after a lost response resumes the job this rider already claimed.
+  if (order.rider_id === user.sub && !["Settle", "Cancelled"].includes(String(order.stage))) return c.json({ order });
   if (order.rider_id) {
     return c.json({ error: "already_claimed", message: "This job is no longer available or you already have an active job" }, 409);
   }
@@ -1574,6 +1576,12 @@ orderRoutes.post("/orders/:id/claim", requireRole("rider"), async (c) => {
     }
   }
   const outOfRange = distanceKm != null && distanceKm > serviceRangeKm;
+
+  const activeJob = (await db.execute({
+    sql: "SELECT id FROM orders WHERE rider_id=? AND environment=? AND stage NOT IN ('Settle','Cancelled') LIMIT 1",
+    args: [user.sub, String(order.environment)],
+  })).rows[0];
+  if (activeJob) return c.json({ error: "rider_busy", message: "Finish or cancel your active job before claiming another one.", activeOrderId: activeJob.id }, 409);
 
   const assigned = await assignRider(id, order, user.sub, rider.name as string, outOfRange);
   if (!assigned) {

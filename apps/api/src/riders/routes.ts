@@ -343,6 +343,11 @@ riderRoutes.get("/riders/jobs/available", requireAuth, requireRole("rider"), asy
   if (!rider?.verified || !rider.is_online) {
     return c.json({ jobs: [] });
   }
+  // Use the same active-job restriction as the atomic assignment guard.
+  // Showing these cards to a busy rider made Claim fail and reappear forever.
+  const active = await db.execute({sql: "SELECT id FROM orders WHERE rider_id=? AND environment=? AND stage NOT IN ('Settle','Cancelled') LIMIT 1", args: [user.sub, environment]});
+  if (active.rows.length) return c.json({jobs: []});
+
   const monetizationSettings = await getMonetizationSettings();
   if (monetizationSettings.subscriptionEnabled && !isSubscriptionCurrent(rider)) {
     return c.json({ jobs: [] });
