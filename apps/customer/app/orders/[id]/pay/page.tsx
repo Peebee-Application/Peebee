@@ -159,6 +159,7 @@ export default function PaymentPage() {
   const payFirst = !!quote?.payBeforeRider;
   const ready = !pending && (payFirst || (detail?.order.stage === "Match" && !!detail.order.rider_id
     && (combinedStops.length < 2 || combinedStops.every((stop) => stop.stage === "Match"))));
+  const waitingForRider = !!detail && !payFirst && !detail.order.rider_id && ["Create", "Match"].includes(detail.order.stage);
   const methods = METHODS.filter((m) => (m.id !== "cash" || !payFirst) && (m.id !== "card" || cardAvailable));
   const insufficient = method === "wallet" && selectedWallet?.balance != null && amount != null && selectedWallet.balance < amount;
   const disabled = busy || !!cardStep || (method === "cash" && !!cashBlocked) || !online || !ready || amount == null ||
@@ -225,9 +226,9 @@ export default function PaymentPage() {
   useRegisterNavBack(true, () => router.push(afterPay(id, ticketId.current)));
   useRegisterNavPrimaryAction({
     tone: "gold",
-    confirmation: true,
-    label: method === "cash" ? "Continue with cash" : `Pay${amount == null ? "" : ` ${formatUgx(amount)}`}`,
-    sublabel: !busy && !pending && method === "mobile_money" && network ? `with ${mobileMoneyNetworkLabel(network)}` : method === "wallet" && !busy && !pending ? "from wallet" : undefined,
+    confirmation: !waitingForRider,
+    label: waitingForRider ? "Finding your rider…" : method === "cash" ? "Continue with cash" : `Pay${amount == null ? "" : ` ${formatUgx(amount)}`}`,
+    sublabel: waitingForRider ? "Confirm payment once a rider accepts" : !busy && !pending && method === "mobile_money" && network ? `with ${mobileMoneyNetworkLabel(network)}` : method === "wallet" && !busy && !pending ? "from wallet" : undefined,
     disabled,
     busy: busy || pending,
     onClick: pay,
@@ -352,7 +353,7 @@ export default function PaymentPage() {
       {detail && !detail.order.rider_id && !payFirst && (
         <section className="home-card">
           {detail.order.matching_mode === "customer_selects" ? <ApplicantPicker orderId={id} onSelected={() => void load()} /> :
-            <p className="text-sm text-ink-500">Finding your rider. You can choose your payment option while you wait.</p>}
+            <p className="text-sm text-ink-500">Finding your rider. Choose your payment option now; confirmation opens automatically once a rider accepts.</p>}
         </section>
       )}
       {pending && <p role="status" className="rounded-xl bg-gold/10 p-4 text-sm">{method === "card" ? "We’re waiting for your bank to confirm the card payment. You will not be charged again." : "Approve the payment request on your phone. We’re waiting for confirmation. You will not be charged again."}</p>}

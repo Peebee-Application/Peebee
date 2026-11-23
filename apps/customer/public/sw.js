@@ -275,6 +275,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Checkout must observe assignment immediately, not an old unmatched snapshot.
+  if (/^\/v1\/orders\/[^/]+(?:\/checkout)?$/.test(url.pathname)) {
+    event.respondWith(fetch(request, { cache: "no-store" }));
+    return;
+  }
+
   if (isApiGet(url)) {
     event.respondWith(staleWhileRevalidate(event, request, RUNTIME_CACHE, (o, n) => announceIfChanged(url.pathname + url.search, o, n)));
     return;

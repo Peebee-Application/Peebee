@@ -47,7 +47,7 @@ function CategoryIcon({ category }: { category: JobCategory }) {
 
 /** The API refuses a claim/apply with 409 when the job left the open pool after the list loaded. */
 function jobIsGone(err: unknown): boolean {
-  return err instanceof ApiError && err.status === 409 && ["invalid_stage", "rider_unavailable", "already_claimed"].includes(err.code ?? "");
+  return err instanceof ApiError && err.status === 409 && ["invalid_stage", "already_claimed"].includes(err.code ?? "");
 }
 
 export default function JobsHomePage() {
@@ -99,11 +99,12 @@ export default function JobsHomePage() {
     return Promise.allSettled([profile, subscription, jobs, orders, relay]).then((results) => {
       if (results[0].status === "fulfilled" && results[1].status === "fulfilled") setLoaded(true);
       const failed = results.find((result) => result.status === "rejected");
-      setError(failed?.status === "rejected" ? errorMessage(failed.reason) : null);
+      if (failed?.status === "rejected") setError(errorMessage(failed.reason));
     });
   }, []);
 
   async function refreshJobs() {
+    setError(null);
     setRefreshing(true);
     try { await load(); } finally { setRefreshing(false); }
   }
@@ -154,7 +155,10 @@ export default function JobsHomePage() {
       await api.claimOrder(id);
       router.push(`/jobs/${id}`);
     } catch (err) {
-      if (jobIsGone(err)) {
+      if (err instanceof ApiError && err.code === "rider_busy") {
+        setTab("mine");
+        setError(errorMessage(err));
+      } else if (jobIsGone(err)) {
         setAvailableJobs((prev) => prev.filter((j) => j.id !== id));
         setError("That job was just cancelled or taken by someone else.");
       } else {
@@ -293,6 +297,7 @@ export default function JobsHomePage() {
         </div>
       </header>
 
+      {activeOrders.length > 0 && tab === "jobs" && <Link href={`/jobs/${activeOrders[0].id}`} className="home-card flex min-h-16 items-center justify-between gap-3 !p-4"><span><strong className="block text-lg">Continue your active job</strong><span className="text-base text-ink-500">{jobTitle(activeOrders[0])} · {stageLabel(activeOrders[0].stage, activeOrders[0].type, !!activeOrders[0].is_ride)}</span></span><ChevronRight className="h-6 w-6 shrink-0" aria-hidden /></Link>}
       {error && <p role="alert" className="rounded-xl bg-gold/10 px-4 py-3 text-base text-ink">{error}</p>}
 
       <div role="tablist" aria-label="Jobs" className="grid grid-cols-2 gap-2 rounded-2xl bg-[rgb(var(--surface-muted))] p-1.5">
@@ -407,7 +412,7 @@ export default function JobsHomePage() {
                 </article>
               ))}
 
-              {availableJobs.length === 0 && relayLegs.length === 0 && (
+              {availableJobs.length === 0 && relayLegs.length === 0 && activeOrders.length === 0 && (
                 <div className="home-card flex flex-col items-center gap-2 py-10 text-center">
                   <Briefcase className="h-12 w-12 text-ink-500" aria-hidden />
                   <p className="text-lg font-bold text-ink-500">{t("home_no_jobs")}</p>
