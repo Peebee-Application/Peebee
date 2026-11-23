@@ -295,6 +295,10 @@ if (!preview) {
   ui.renderBook = () => {
     if (!config?.enabled || !trips.length) return empty('No bookable taxis', error || 'There are no taxis accepting bookings right now.');
     const template = document.createElement('template'); template.innerHTML = original.renderBook();
+    const childFareHint = [...template.content.querySelectorAll('.stepper-card .muted.text-small')].find(el => el.textContent?.includes('Lap travel is free.'));
+    if (childFareHint) childFareHint.textContent = state.ticketType === 'return'
+      ? 'Reserved child seats are priced for each direction. The final package quote applies the configured child fare and return discount.'
+      : `Reserved child seat: ${money(Math.round((state.activeTrip?.fare || 0) * (config?.childSeatFarePercent ?? 100) / 100))}. Lap travel follows the current child allowance.`;
     const traveller = template.content.querySelector('#other-traveler-phone')?.closest('.field');
     if (traveller && state.isBookingForSomeoneElse) traveller.insertAdjacentHTML('afterend', `<div class="field"><label for="taxibee-traveller-emergency">Traveller emergency contact</label><input id="taxibee-traveller-emergency" type="tel" value="${escape(state.emergencyContact)}"></div>`);
     return template.innerHTML;

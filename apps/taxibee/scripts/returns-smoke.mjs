@@ -40,6 +40,9 @@ try{
     await r.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
   });
   await page.goto(base);await page.waitForSelector('.home-redesign');
+  await page.evaluate(()=>{const s=window.TaxibeeSource.state;s.childCount=1;s.ticketType='return';s.bookingStep=2;window.navigate('book');});
+  await page.waitForFunction(()=>document.body.innerText.includes('final package quote applies the configured child fare'));
+  assert.doesNotMatch(await page.locator('#main-content').innerText(),/9,000\s*\/\s*child/);
   await page.evaluate(()=>{const s=window.TaxibeeSource.state;s.passengerCount=1;s.childCount=0;s.ticketType='return';s.returnMode='open';s.paymentMethod='wallet';s.bookingDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Kampala'}).format(new Date());window.navigate('checkout');});
   await page.check('#booking-conditions');await page.click('[data-action="confirm-booking"]');
   await page.waitForSelector('#return-package-consent');
