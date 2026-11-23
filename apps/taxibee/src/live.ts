@@ -1,10 +1,11 @@
-import { createApiClient } from '../../../packages/shared/src/api-client';
+import { createApiClient,type TaxipressBookingInput } from '../../../packages/shared/src/api-client';
 import type { AuthUser, CustomerWallet } from '../../../packages/shared/src/domain';
 import type { TaxipressBooking, TaxipressConfig } from '../../../packages/shared/src/taxipress';
 import QRCode from 'qrcode';
 import { installCustomerFeatures } from './customer-features';
 import { installCustomerAuth } from './customer-auth';
 import { installSeatSelection } from './seat-selection';
+import {installReturnPackages} from './return-packages';
 
 // The presentation is intentionally retained verbatim. This boundary is the only
 // place that translates Peebee records into the source interface's view model.
@@ -32,6 +33,7 @@ let features: ReturnType<typeof installCustomerFeatures> | undefined;
 let account: ReturnType<typeof installCustomerAuth> | undefined;
 let booting = true;
 let seating: ReturnType<typeof installSeatSelection> | undefined;
+let returnPackages:ReturnType<typeof installReturnPackages>|undefined;
 const original = Object.fromEntries(['renderAuth', 'renderHome', 'renderBook', 'renderCurrentScreen', 'navigate', 'renderWallet', 'renderProfile', 'renderDigitalTicketCard', 'getTicketsData', 'confirmBooking', 'renderTracking'].map(k => [k, ui[k]]));
 const $ = (s: string) => document.querySelector(s) as HTMLInputElement | null;
 const escape = (s: unknown) => ui.escapeHtml(String(s ?? ''));
@@ -69,6 +71,7 @@ function clearSession(discardDraft = true) {
   ++sessionVersion; loading = false;
   features?.reset();
   seating?.reset();
+  returnPackages?.reset();
   user = null; bookings = []; wallet = null; selectedBooking = null; pendingOrder = null; pendingPayment = null;
   localStorage.removeItem(TOKEN); sessionStorage.removeItem(TOKEN);
   state.tickets = []; state.walletBalance = 0; appData.transactions = [];
@@ -177,6 +180,15 @@ function renderLiveTicket(b: TaxipressBooking | null = selectedBooking || bookin
     <button class="button button--ghost" data-action="taxibee-refresh">Refresh status</button></article>`;
 }
 
+function bookingInput(seatHoldId?:string):TaxipressBookingInput {
+  return {queueId:state.activeTrip.id,adults:state.passengerCount,children:state.childCount,childSeats:childSeats(),
+    luggage:config?.luggageEnabled?state.luggageQuantities:undefined,
+    assistance:config?.assistanceEnabled?({'None required':'none','Boarding help':'boarding','Priority seating':'priority','Mobility support':'mobility'} as any)[state.assistance]||'none':undefined,
+    language:config?.languageEnabled?config.languages?.find(l=>l.name===state.language)?.code:undefined,
+    forSomeoneElse:state.isBookingForSomeoneElse,travellerName:state.isBookingForSomeoneElse?state.otherTravelerName:undefined,
+    travellerPhone:state.isBookingForSomeoneElse?state.otherTravelerPhone:undefined,emergencyPhone:state.isBookingForSomeoneElse?state.emergencyContact||undefined:undefined,
+    openTicket:state.taxibeeOpenTicket===true,seatHoldId};
+}
 async function confirmBooking() {
   if (preview) return original.confirmBooking();
   if (!user) { account?.open('checkout'); return; }
@@ -186,23 +198,13 @@ async function confirmBooking() {
   if (state.bookingDate !== today && !pendingOrder) return ui.toast('These are current stage departures. Choose today to book; scheduled future departures are not offered yet.', 'info');
   if ((!state.activeTrip || !config?.enabled) && !pendingOrder) return ui.toast('Choose a currently available taxi.', 'danger');
   if (pendingOrder && state.activeTrip?.id !== pendingOrder.booking.taxi.queueId) return ui.toast('Finish or cancel the existing unpaid ticket in My Tickets before booking another taxi.', 'danger');
-  if (state.ticketType === 'return') return ui.toast('Book each direction separately; a return package is not offered by this service.', 'info');
+  if(state.ticketType==='return'&&!pendingOrder){try{await returnPackages?.review();}catch(e){report(e);}return;}
   if (uncertainBooking) return ui.openModal('Check My Tickets before booking again', '<p>The previous booking response was interrupted. Refresh My Tickets to check whether Peebee saved it before starting a new booking.</p>', '<button class="button button--primary" data-action="taxibee-check-bookings">Check My Tickets</button>');
   busy = true;
   try {
     const seatHoldId = pendingOrder ? undefined : await seating?.prepare();
     uncertainBooking = !pendingOrder;
-    pendingOrder ??= await api.bookTaxipressSeats({ queueId: state.activeTrip.id, adults: state.passengerCount, children: state.childCount, childSeats: childSeats(),
-      luggage: config.luggageEnabled ? state.luggageQuantities : undefined,
-      assistance: config.assistanceEnabled ? ({ 'None required': 'none', 'Boarding help': 'boarding', 'Priority seating': 'priority', 'Mobility support': 'mobility' } as any)[state.assistance] || 'none' : undefined,
-      language: config.languageEnabled ? config.languages?.find(l => l.name === state.language)?.code : undefined,
-      forSomeoneElse: state.isBookingForSomeoneElse,
-      travellerName: state.isBookingForSomeoneElse ? state.otherTravelerName : undefined,
-      travellerPhone: state.isBookingForSomeoneElse ? state.otherTravelerPhone : undefined,
-      emergencyPhone: state.isBookingForSomeoneElse ? state.emergencyContact || undefined : undefined,
-      openTicket: state.taxibeeOpenTicket === true,
-      seatHoldId,
-    });
+    pendingOrder ??= await api.bookTaxipressSeats(bookingInput(seatHoldId));
     account?.clearDraft();
     seating?.consumed();
     uncertainBooking = false;
@@ -287,7 +289,7 @@ if (!preview) {
   ui.passengerTotal = () => state.passengerCount + childSeats();
   ui.luggageTotal = () => config?.luggageEnabled ? appData.luggage.reduce((sum: number, l: any) => sum + (config?.luggagePrices?.[l.id as keyof NonNullable<TaxipressConfig['luggagePrices']>] ?? 0) * (state.luggageQuantities[l.id] || 0), 0) : 0;
   ui.seatReservationFee = () => seating?.fee() || 0;
-  ui.checkoutTotal = () => pendingOrder?.booking.amount ?? ui.checkoutBaseFare() + ui.luggageTotal() + ui.seatReservationFee();
+  ui.checkoutTotal = () => {const p=state.ticketType==='return'?returnPackages?.estimate():null;return pendingOrder?.booking.amount??(p?p.out+p.back:ui.checkoutBaseFare()+ui.luggageTotal()+ui.seatReservationFee());};
   ui.confirmBooking = confirmBooking;
   ui.renderHome = cleanHome;
   ui.renderBook = () => {
@@ -379,6 +381,8 @@ if (!preview) account = installCustomerAuth({
 });
 if (!preview) seating = installSeatSelection({ ui,api,user: () => user,quantity: () => ui.passengerTotal(),
   requestLogin: screen => account?.open(screen),remember: () => account?.rememberBooking() });
+if(!preview)returnPackages=installReturnPackages({ui,api,user:()=>user,config:()=>config,trips:()=>trips,bookings:()=>bookings,selected:()=>selectedBooking,
+  input:bookingInput,prepareSeats:async()=>seating?.prepare(),refresh,select:b=>{selectedBooking=b;},requestLogin:s=>account?.open(s),clearDraft:()=>{account?.clearDraft();seating?.consumed();}});
 
 document.addEventListener('input', event => {
   if (!preview && (event.target as HTMLElement).id === 'taxibee-offer-code') state.taxibeeOfferCode = (event.target as HTMLInputElement).value;

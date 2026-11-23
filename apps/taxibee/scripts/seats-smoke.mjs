@@ -22,6 +22,7 @@ try {
     if (method !== 'GET') writes.push({ path,body: request.postDataJSON() });
     let data,status = 200;
     if (path === '/v1/auth/me') data = { user };
+    else if(path==='/v1/taxipress/return-packages')data={packages:[]};
     else if (path.endsWith('/config') && path.includes('taxipress')) data = cfg;
     else if (path.endsWith('/queue')) data = { route,line: [{ id: 'seat-queue',bookable: true,position: 2,seatsLeft: 16,seatLayout: '18',plate: 'UBM 818A',driverName: 'Seat Driver' }],onRoad: [] };
     else if (path.endsWith('/seat-queue/seats')) data = map();

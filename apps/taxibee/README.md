@@ -91,8 +91,14 @@ are server-controlled. Existing departures keep their allocation; older clients
 get automatic numbers without a seat-choice fee. See the rollout instructions
 in `docs/TAXIBEE-FUNCTIONALITY.md` before enabling it.
 
+Prepaid return bundles use a server quote, one combined wallet/provider payment,
+linked outbound/return allocations, reverse-route redemption, date conditions
+and unused-return refunds. Apply migration 0169 and configure Admin → Taxipress
+before offering them. Return capacity is chosen after outbound boarding, against
+the actual queue; this does not promise a scheduled future departure.
+
 Some source mockup behaviours have no equivalent in the current TaxiPress
-API: bundled return packages, corporate/voucher
+API: corporate/voucher
 mock payments, synthetic traffic tracking, and its separate parcel/charter
 simulators. They remain in the labelled design preview. The live interface
 does not fabricate them; services outside this integration direct customers

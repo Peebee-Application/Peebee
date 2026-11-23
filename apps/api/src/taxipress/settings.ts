@@ -23,6 +23,9 @@ export type TaxipressSettings = {
   numberedSeatsEnabled: boolean;
   seatHoldSeconds: number;
   returnDiscountPercent: number;
+  returnPackagesEnabled: boolean;
+  returnValidityDays: number;
+  returnRefundPercent: number;
   maxSeatsPerBooking: number;
   /** Which taxi may take a relay parcel: only the one Boarding Now, or any taxi in the line. */
   parcelAcceptRule: "boarding_now" | "any_in_line";
@@ -214,6 +217,9 @@ export async function getTaxipressSettings(): Promise<TaxipressSettings> {
     numberedSeatsEnabled: (await getSetting('taxipress_numbered_seats_enabled')) === '1',
     seatHoldSeconds: Math.max(30,whole(await getSetting('taxipress_seat_hold_seconds'),120,900)),
     returnDiscountPercent: percent(discount),
+    returnPackagesEnabled: (await getSetting('taxipress_return_packages_enabled')) === '1',
+    returnValidityDays: Math.max(1,whole(await getSetting('taxipress_return_validity_days'),7,365)),
+    returnRefundPercent: percent(await getSetting('taxipress_return_refund_percent')),
     maxSeatsPerBooking: Math.max(1, whole(maxSeats, 4, 30)),
     parcelAcceptRule: accept === "any_in_line" ? "any_in_line" : "boarding_now",
     maxParcels14: whole(p14, 0, 50),
@@ -264,6 +270,9 @@ export async function setTaxipressSettings(next: Partial<TaxipressSettings>): Pr
   if (next.numberedSeatsEnabled != null) await setSetting('taxipress_numbered_seats_enabled',flag(next.numberedSeatsEnabled));
   if (next.seatHoldSeconds != null) await setSetting('taxipress_seat_hold_seconds',String(next.seatHoldSeconds));
   if (next.returnDiscountPercent != null) await setSetting("taxipress_return_discount_percent", String(next.returnDiscountPercent));
+  if (next.returnPackagesEnabled != null) await setSetting('taxipress_return_packages_enabled',flag(next.returnPackagesEnabled));
+  if (next.returnValidityDays != null) await setSetting('taxipress_return_validity_days',String(next.returnValidityDays));
+  if (next.returnRefundPercent != null) await setSetting('taxipress_return_refund_percent',String(next.returnRefundPercent));
   if (next.maxSeatsPerBooking != null) await setSetting("taxipress_max_seats_per_booking", String(next.maxSeatsPerBooking));
   if (next.parcelAcceptRule != null) await setSetting("taxipress_parcel_accept_rule", next.parcelAcceptRule);
   if (next.maxParcels14 != null) await setSetting("taxipress_max_parcels_14", String(next.maxParcels14));

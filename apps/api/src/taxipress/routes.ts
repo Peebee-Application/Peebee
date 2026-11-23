@@ -19,6 +19,7 @@ import { isFreshLocation } from "@peebee/shared";
 import { confirmBoarding, settlementReport } from "./settlement.js";
 import { getTaxipressRoute, listActiveTaxipressRoutes, listTaxipressRoutes, taxipressReady } from "./service.js";
 import { SeatError, createSeatHold, releaseSeatHold, seatingReady, seatMap } from './seats.js';
+import {ReturnError,returnsReady,quoteReturn,createReturnPackage,returnPackageView,listReturnPackages,redeemReturn,cancelUnusedReturn,changeReturnDate} from './returns.js';
 
 type Row = Record<string, unknown>;
 
@@ -32,7 +33,7 @@ taxipressRoutes.use("/admin/taxipress/*", requireAuth, requireRole("admin"));
 const ip = (c: Context) => c.req.header("cf-connecting-ip") ?? null;
 
 function fail(c: Context, e: unknown) {
-  if (e instanceof TaxipressError || e instanceof SeatError) return c.json({ error: e.code, message: e.message }, e.status);
+  if (e instanceof TaxipressError || e instanceof SeatError || e instanceof ReturnError) return c.json({ error: e.code, message: e.message }, e.status);
   throw e;
 }
 
@@ -94,6 +95,8 @@ async function customerConfig(c: Context) {
     numberedSeatsEnabled: settings.numberedSeatsEnabled && await seatingReady(),
     seatHoldSeconds: settings.seatHoldSeconds,
     returnDiscountPercent: settings.returnDiscountPercent,
+    returnPackagesEnabled:settings.returnPackagesEnabled && await returnsReady(),
+    returnValidityDays:settings.returnValidityDays,returnRefundPercent:settings.returnRefundPercent,
     maxSeatsPerBooking: settings.maxSeatsPerBooking,
     payWithinMinutes: settings.payWithinMinutes,
     parcelFitText: settings.parcelFitText,
@@ -296,6 +299,33 @@ taxipressRoutes.post("/taxipress/bookings", async (c) => {
   if (!parsed.success) return c.json({ error: "invalid_body", message: "Choose a taxi, the seats and how you will pay." }, 400);
   return bookSeats(c, parsed.data as Parameters<typeof bookSeats>[1]);
 });
+const returnTerms=z.object({mode:z.enum(['open','same-day','date-specific']),date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()});
+taxipressRoutes.post('/taxipress/return-quotes',requireRole('customer'),async c=>{
+  const body=await c.req.json().catch(()=>({})),booking=bookSchema.safeParse(body),terms=returnTerms.safeParse(body);
+  if(!booking.success||!terms.success) return c.json({error:'invalid_body',message:'Choose the outbound passengers and return conditions.'},400);
+  try{return c.json({package:await quoteReturn(c.get('user').sub,booking.data,terms.data.mode,terms.data.date)},201);}catch(e){return fail(c,e);}
+});
+taxipressRoutes.post('/taxipress/return-packages',requireRole('customer'),async c=>{
+  const parsed=z.object({quoteId:z.string().min(1).max(100)}).safeParse(await c.req.json().catch(()=>null));
+  if(!parsed.success) return c.json({error:'invalid_body'},400);
+  try{return c.json({package:await createReturnPackage(c,parsed.data.quoteId)},201);}catch(e){return fail(c,e);}
+});
+taxipressRoutes.get('/taxipress/return-packages',async c=>c.json({packages:await listReturnPackages(c.get('user').sub)}));
+taxipressRoutes.get('/taxipress/return-packages/:id',async c=>{
+  try{return c.json({package:await returnPackageView(c.req.param('id'),c.get('user').sub)});}catch(e){return fail(c,e);}
+});
+taxipressRoutes.post('/taxipress/return-packages/:id/redeem',async c=>{
+  const body=z.object({queueId:z.string().min(1).max(100)}).safeParse(await c.req.json().catch(()=>null));
+  if(!body.success)return c.json({error:'invalid_body'},400);
+  try{return c.json(await redeemReturn(c,c.req.param('id'),body.data.queueId));}catch(e){return fail(c,e);}
+});
+taxipressRoutes.post('/taxipress/return-packages/:id/cancel-return',async c=>{
+  try{return c.json({package:await cancelUnusedReturn(c.req.param('id'),c.get('user').sub)});}catch(e){return fail(c,e);}
+});
+taxipressRoutes.put('/taxipress/return-packages/:id/date',async c=>{
+  const terms=returnTerms.safeParse(await c.req.json().catch(()=>null));if(!terms.success)return c.json({error:'invalid_body'},400);
+  try{return c.json({package:await changeReturnDate(c.req.param('id'),c.get('user').sub,terms.data.mode,terms.data.date)});}catch(e){return fail(c,e);}
+});
 
 taxipressRoutes.get("/taxipress/bookings/mine", async (c) => {
   await expireOpenTickets().catch(() => 0);
@@ -367,6 +397,7 @@ const settingsSchema = patchSchema(z.object({
   numberedSeatsEnabled: z.boolean(),
   seatHoldSeconds: z.number().int().min(30).max(900),
   returnDiscountPercent: z.number().min(0).max(100),
+  returnPackagesEnabled:z.boolean(),returnValidityDays:z.number().int().min(1).max(365),returnRefundPercent:z.number().min(0).max(100),
   maxSeatsPerBooking: z.number().int().min(1).max(30),
   parcelAcceptRule: z.enum(["boarding_now", "any_in_line"]),
   maxParcels14: z.number().int().min(0).max(50),
