@@ -322,6 +322,8 @@ app.route("/v1/trips", tripRoutes);
 // Public ticket page for a Taxipress ticket code (a traveller with no smartphone, or not on Peebee) — also before the sign-in routers.
 app.route("/v1/taxipress-ticket", ticketCodeRoutes);
 app.route("/v1", publicTaxipressRoutes);
+// Visitor chat authenticates with its own capability; staff routes have explicit guards.
+app.route("/v1", supportChatRoutes);
 app.route("/v1/gas", relayStationRoutes);
 app.route("/v1/gas", gasRoutes);
 // Public, sign-in-free data for shared links; before the order routes' catch-all sign-in.
@@ -374,7 +376,6 @@ app.route("/v1", emailKeyRoutes);
 app.route("/v1", mobileNumberRoutes);
 app.route("/v1", callRoutes);
 app.route("/v1", attentionRoutes);
-app.route("/v1", supportChatRoutes);
 app.route("/v1", settingsRoutes);
 app.route("/v1", homeRoutes);
 app.route("/v1", practiceRoutes);
