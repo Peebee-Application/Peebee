@@ -53,7 +53,11 @@
     "build:customer-mobile": "pnpm --filter customer-mobile build",
     "apk:customer": "pnpm --filter customer-mobile apk:debug",
     "ios:customer": "pnpm --filter customer-mobile sync:ios",
-    "ipa:customer": "pnpm --filter customer-mobile ipa:unsigned"
+    "ipa:customer": "pnpm --filter customer-mobile ipa:unsigned",
+    "dev:taxibee": "pnpm --filter taxibee dev",
+    "build:taxibee": "pnpm --filter taxibee build",
+    "test:taxibee": "pnpm --filter taxibee test",
+    "deploy:taxibee": "pnpm --filter taxibee deploy"
   },
   "engines": {
     "node": ">=22"

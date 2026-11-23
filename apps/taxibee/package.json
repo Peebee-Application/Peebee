@@ -1,0 +1,28 @@
+{
+  "name": "taxibee",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "pnpm build && wrangler dev --port 3015",
+    "test": "node --test src/*.test.mjs",
+    "deploy": "node ../../scripts/preflight-deploy.mjs && pnpm build && wrangler deploy",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:browser": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "@peebee/shared": "workspace:*",
+    "qrcode": "^1.5.4",
+    "lucide": "0.468.0",
+    "leaflet": "^1.9.4",
+    "jsbarcode": "^3.11.6"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "wrangler": "^4.151.3",
+    "typescript": "^5.7.3",
+    "@types/qrcode": "^1.5.6",
+    "playwright": "1.65.1"
+  }
+}
