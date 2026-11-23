@@ -438,7 +438,7 @@ const USERS_STORAGE_KEY = 'taxibee_users';
 
 // Authentication and customer data are supplied by live.js via the shared Peebee API.
 function getAuthSession() { return window.Taxibee?.session() || null; }
-function isPlatformAuthenticated() { return window.Taxibee?.authenticated() || false; }
+function isPlatformAuthenticated() { return window.Taxibee?.canBrowse?.() || window.Taxibee?.authenticated() || false; }
 function updateLoginLogBadges() {}
 function getLoginLogs() { return []; }
 function formatRelativeTime() { return ""; }
@@ -7796,35 +7796,6 @@ function detectNearestCity() {
     }
   }, () => { /* Permission denied or error — keep defaults */ }, { timeout: 5000 });
 }
-
-// ---------- Screen Protection & Focus Security ----------
-(function() {
-  function isMobileDevice() {
-    return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  }
-
-  function handleSecurityTrigger(active) {
-    if (!isMobileDevice()) return;
-    const overlay = document.getElementById('security-overlay');
-    const mainContent = document.getElementById('main-content') || document.body;
-    if (!overlay) return;
-
-    if (active) {
-      overlay.classList.add('is-visible');
-      if (mainContent) mainContent.classList.add('secure-blur');
-    } else {
-      overlay.classList.remove('is-visible');
-      if (mainContent) mainContent.classList.remove('secure-blur');
-    }
-  }
-
-  // Obfuscate when app switcher or other app active
-  window.addEventListener('blur', () => handleSecurityTrigger(true));
-  window.addEventListener('focus', () => handleSecurityTrigger(false));
-  document.addEventListener('visibilitychange', () => {
-    handleSecurityTrigger(document.hidden);
-  });
-})();
 
 // ---------- Dynamic Transparent Vehicle Background Cut-out ----------
 function makeImageTransparent(imgUrl, callback) {

@@ -33,7 +33,7 @@ import { tripRoutes } from "./passengers/trips.js";
 import { merchantRoutes } from "./merchants/routes.js";
 import { orderRoutes } from "./orders/routes.js";
 import { relayRoutes } from "./relay/routes.js";
-import { taxipressRoutes } from "./taxipress/routes.js";
+import { publicTaxipressRoutes, taxipressRoutes } from "./taxipress/routes.js";
 import { ticketCodeRoutes } from "./taxipress/ticket-share.js";
 import { relayStationRoutes } from "./relay/station-routes.js";
 import { paymentRoutes } from "./payments/routes.js";
@@ -321,6 +321,7 @@ app.route("/v1/auth", verifyRoutes);
 app.route("/v1/trips", tripRoutes);
 // Public ticket page for a Taxipress ticket code (a traveller with no smartphone, or not on Peebee) — also before the sign-in routers.
 app.route("/v1/taxipress-ticket", ticketCodeRoutes);
+app.route("/v1", publicTaxipressRoutes);
 app.route("/v1/gas", relayStationRoutes);
 app.route("/v1/gas", gasRoutes);
 // Public, sign-in-free data for shared links; before the order routes' catch-all sign-in.

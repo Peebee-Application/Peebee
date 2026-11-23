@@ -22,6 +22,23 @@ in app configuration or browser code.
 Accounts and records are shared. Browser sessions are separate per origin:
 customers sign in with their existing Peebee credentials in either app.
 
+The app opens directly for everyone. Only account actions and submitting a
+booking require sign-in. The on-demand account screen reuses the Customer app's
+artwork, styles, identifier rules and shared authentication endpoints: Google,
+or email/phone and password, including account creation and recovery. Google
+uses the existing public OAuth client ID from `/v1/auth/config`; the OAuth
+client must authorize `https://taxibee.peebee.online` as a JavaScript origin.
+
+Booking choices survive reload and sign-in in this tab's session storage.
+They contain no credentials, prices or payment consent; current availability
+and prices are loaded again before confirmation. Sign-in never automatically
+submits a booking. Signing out clears account-owned progress and private data.
+Public routes expose current catalogue/aggregate availability and public taxi
+profiles; booking, wallet and tracking endpoints remain authenticated.
+
+Screen-protection overlays, focus/visibility hiding and print blocking have
+been removed from both live and practice modes. Screenshots and printing work.
+
 ## Run and check
 
 From the repository root with Node >=22 and pnpm 9.15.0:
@@ -35,8 +52,9 @@ pnpm build:taxibee
 pnpm --filter taxibee test:browser
 ```
 
-The development Worker listens on port 3015. Browser tests expect Chromium at
-`/usr/bin/chromium`; override `CHROMIUM_PATH` when needed. Use
+The development Worker listens on port 3015. Install the test browser with
+`pnpm --filter taxibee exec playwright install chromium`, or set `CHROMIUM_PATH`
+to an existing Chrome/Chromium executable. Use
 `TAXIBEE_TEST_URL` for another local test server. The browser suite uses
 controlled API fixtures and does not write to the live database or move money.
 
@@ -47,10 +65,18 @@ command. Production uses Cloudflare's network and the fixed Peebee API origin.
 
 ## Review the replica
 
-`/?preview=1` exposes the complete source mockup with sample data. Select
-**Enter design preview**. A persistent banner distinguishes this mode; it
+`/?preview=1` exposes the complete UI for customer practice with sample data. Select
+**Enter practice mode**. A persistent banner distinguishes this mode; it
 does not authenticate, book, pay, or write through the API. This is the
 surface for reviewing the full Fly Express replica before later redesigns.
+
+The functional rollout, connected capabilities and remaining backend work are
+tracked in [`docs/TAXIBEE-FUNCTIONALITY.md`](../../docs/TAXIBEE-FUNCTIONALITY.md).
+Practice remains isolated from production account APIs. Live customer tools
+also use shared account verification/password recovery, support conversations,
+driver profiles/chat/tracking, ticket exports/sharing, offers, wallet transfers
+and statements, saved contacts/places and account alerts. Admin configuration
+and server eligibility determine availability.
 
 The normal live app supports customer sign-in/registration, current route
 queues, passenger/luggage bookings, wallet and mobile-money/cash payment,

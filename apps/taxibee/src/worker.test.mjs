@@ -52,3 +52,18 @@ test('upstream network errors produce a non-cacheable API error without internal
     assert.doesNotMatch(await r.text(), /private network/);
   } finally { globalThis.fetch = oldFetch; }
 });
+
+test('support capability is forwarded only to the fixed support-chat endpoint', async () => {
+  const original = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (url, init) => { seen.push({ url: String(url), secret: init.headers.get('x-chat-secret'), cookie: init.headers.get('cookie') }); return Response.json({ ok: true }); };
+  try {
+    for (const path of ['/api/v1/support-chat/session/messages', '/api/v1/wallet']) {
+      await handleRequest(new Request('https://taxibee.peebee.online' + path, { headers: { 'X-Chat-Secret': 'support-test-capability', Cookie: 'private=1' } }), {});
+    }
+    assert.deepEqual(seen, [
+      { url: 'https://api.peebee.online/v1/support-chat/session/messages', secret: 'support-test-capability', cookie: null },
+      { url: 'https://api.peebee.online/v1/wallet', secret: null, cookie: null },
+    ]);
+  } finally { globalThis.fetch = original; }
+});

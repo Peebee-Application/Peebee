@@ -2,11 +2,14 @@ import { createApiClient } from '../../../packages/shared/src/api-client';
 import type { AuthUser, CustomerWallet } from '../../../packages/shared/src/domain';
 import type { TaxipressBooking, TaxipressConfig } from '../../../packages/shared/src/taxipress';
 import QRCode from 'qrcode';
+import { installCustomerFeatures } from './customer-features';
+import { installCustomerAuth } from './customer-auth';
 
 // The presentation is intentionally retained verbatim. This boundary is the only
 // place that translates Peebee records into the source interface's view model.
 const ui = window as unknown as Record<string, any>;
 const { appData, state, driversData } = ui.TaxibeeSource;
+const luggageCatalog = appData.luggage.map((item: any) => ({ ...item }));
 const preview = new URLSearchParams(location.search).get('preview') === '1';
 const TOKEN = 'taxibee_customer_token';
 let user: AuthUser | null = null;
@@ -14,6 +17,8 @@ let config: TaxipressConfig | null = null;
 let bookings: TaxipressBooking[] = [];
 let trips: any[] = [];
 let loading = false;
+let sessionVersion = 0;
+let refreshSequence = 0;
 let error = '';
 let busy = false;
 let uncertainBooking = false;
@@ -22,6 +27,9 @@ let pendingOrder: { booking: TaxipressBooking; order: { id: string } } | null = 
 let pendingPayment: string | null = null;
 let wallet: CustomerWallet | null = null;
 let previewEntered = false;
+let features: ReturnType<typeof installCustomerFeatures> | undefined;
+let account: ReturnType<typeof installCustomerAuth> | undefined;
+let booting = true;
 const original = Object.fromEntries(['renderAuth', 'renderHome', 'renderBook', 'renderCurrentScreen', 'navigate', 'renderWallet', 'renderProfile', 'renderDigitalTicketCard', 'getTicketsData', 'confirmBooking', 'renderTracking'].map(k => [k, ui[k]]));
 const $ = (s: string) => document.querySelector(s) as HTMLInputElement | null;
 const escape = (s: unknown) => ui.escapeHtml(String(s ?? ''));
@@ -30,7 +38,16 @@ const message = (e: unknown) => e instanceof Error ? e.message : 'Please try aga
 const api = createApiClient({
   baseUrl: location.origin + '/api',
   getToken: () => sessionStorage.getItem(TOKEN) || localStorage.getItem(TOKEN),
-  onUnauthorized: () => { clearSession(); ui.showAuth('signin'); },
+  onUnauthorized: () => { if (!user && !sessionStorage.getItem(TOKEN) && !localStorage.getItem(TOKEN)) return; account?.rememberBooking(); clearSession(false); if (!booting) account?.open(state.screen, false); },
+  fetchImpl: async (input, init) => {
+    const version = sessionVersion;
+    const response = await fetch(input, init);
+    if (version !== sessionVersion) {
+      await response.body?.cancel();
+      throw new Error('The signed-in session changed.');
+    }
+    return response;
+  },
 });
 // Compatibility for the source's QR constructor, bundled locally for offline use.
 ui.QRCode = class {
@@ -43,14 +60,22 @@ ui.QRCode = class {
 };
 const empty = (title: string, copy: string) => `<section class="taxibee-empty" role="status"><h2>${escape(title)}</h2><p>${escape(copy)}</p><button class="button button--primary" type="button" data-action="taxibee-refresh">Refresh</button></section>`;
 const report = (e: unknown) => ui.toast(message(e), 'danger');
+ui.emptyState = (_icon: string, title: string, copy: string) => `<div class="empty-state"><h3>${escape(title)}</h3><p>${escape(copy)}</p></div>`;
 
-function clearSession() {
+function clearSession(discardDraft = true) {
+  if (discardDraft) account?.clearDraft();
+  ++sessionVersion; loading = false;
+  features?.reset();
   user = null; bookings = []; wallet = null; selectedBooking = null; pendingOrder = null; pendingPayment = null;
   localStorage.removeItem(TOKEN); sessionStorage.removeItem(TOKEN);
   state.tickets = []; state.walletBalance = 0; appData.transactions = [];
+  state.taxibeeOfferCode = ''; state.taxibeeOpenTicket = false;
+  state.emergencyContact = ''; state.otherTravelerName = ''; state.otherTravelerPhone = ''; state.isBookingForSomeoneElse = false;
+  ui.closeModal();
 }
 function applyUser(next: AuthUser) {
   user = next;
+  features?.restorePreferences();
   state.userName = escape(next.name); state.userEmail = escape(next.email); state.userPhone = escape(next.phone);
   state.userAvatar = 'assets/peebee-logo.svg';
   state.contactName = next.name;
@@ -61,25 +86,15 @@ function applyUser(next: AuthUser) {
   const drawerPhone = document.querySelector('.side-drawer__header p'); if (drawerPhone) drawerPhone.textContent = next.phone || '';
   document.querySelectorAll('.account-item small').forEach(el => { el.textContent = next.name; });
   $('#notification-badge')?.classList.add('is-hidden');
+  const signOut = document.querySelector('.drawer-nav-item--signout span'); if (signOut) signOut.textContent = 'Sign out';
 }
-async function authenticate(register = false) {
-  if (busy) return;
-  busy = true;
-  try {
-    const result = register
-      ? await api.register({ name: $('#reg-name')?.value.trim() || '', phone: $('#reg-username')?.value.trim() || undefined, email: $('#reg-email')?.value.trim() || undefined, password: $('#reg-passcode')?.value || '', role: 'customer' })
-      : await api.login({ identifier: $('#signin-username')?.value.trim() || '', password: $('#signin-passcode')?.value || '' });
-    if (result.user.role !== 'customer') { await apiLogoutToken(result.token); throw new Error('Please use a Peebee customer account.'); }
-    clearSession();
-    ($('#signin-remember')?.checked ? localStorage : sessionStorage).setItem(TOKEN, result.token);
-    applyUser(result.user);
-    await refresh();
-    ui.enterApp(`Welcome, ${result.user.name}.`);
-  } catch (e) {
-    const banner = $('#signin-error');
-    if (banner) { $('#signin-error-text')!.textContent = message(e); banner.classList.remove('is-hidden'); }
-    else report(e);
-  } finally { busy = false; }
+function applyGuest() {
+  state.userName = 'Guest'; state.userPhone = ''; state.userEmail = ''; state.userAvatar = 'assets/peebee-logo.svg';
+  appData.passenger = { name: 'Guest', phone: '', email: '', preferredRoute: '' };
+  document.querySelectorAll<HTMLImageElement>('.desktop-profile-btn img, .profile-avatar').forEach(img => { img.src = 'assets/peebee-logo.svg'; img.alt = 'Sign in to Peebee'; });
+  const name = document.querySelector('.side-drawer__header h3'); if (name) name.textContent = 'Guest';
+  const phone = document.querySelector('.side-drawer__header p'); if (phone) phone.textContent = 'Browse freely · sign in to book';
+  const signOut = document.querySelector('.drawer-nav-item--signout span'); if (signOut) signOut.textContent = 'Sign in';
 }
 async function apiLogoutToken(token: string) {
   await fetch('/api/v1/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => undefined);
@@ -88,6 +103,9 @@ async function apiLogoutToken(token: string) {
 function routeImage(name: string) {
   const n = name.toLowerCase();
   return `assets/${['entebbe', 'kampala', 'masaka', 'mbarara', 'lyantonde', 'nambole'].find(k => n.includes(k)) || 'kampala'}.jpg`;
+}
+function childSeats() {
+  return Math.max(0, state.childCount - (config?.maxLapChildren ?? 0), Math.min(state.childCount, state.reservedChildSeatsCount || 0));
 }
 function ticket(b: TaxipressBooking) {
   return {
@@ -101,11 +119,16 @@ function ticket(b: TaxipressBooking) {
   };
 }
 async function refresh() {
-  if (preview || loading) return;
+  if (preview) return;
+  const run = ++refreshSequence, version = sessionVersion;
+  const valid = () => run === refreshSequence && version === sessionVersion;
   loading = true; error = '';
   try {
-    config = await api.getTaxipressConfig();
-    const queues = await Promise.all(config.routes.map(async route => ({ route, queue: await api.getTaxipressQueue(route.id) })));
+    const nextConfig = await (user ? api.getTaxipressConfig() : api.getPublicTaxipressConfig());
+    if (!valid()) return;
+    const queues = await Promise.all(nextConfig.routes.map(async route => ({ route, queue: await (user ? api.getTaxipressQueue(route.id) : api.getPublicTaxipressQueue(route.id)) })));
+    if (!valid()) return;
+    config = nextConfig;
     appData.routeCards = config.routes.map(r => ({ key: r.id, cityA: escape(r.fromName), cityB: escape(r.toName), stageA: escape(r.fromName), stageB: escape(r.toName), via: escape(r.directionLabel), price: money(r.farePerSeat), imageA: routeImage(r.fromName), imageB: routeImage(r.toName), corridor: (r.stops || []).map(escape).join(' • '), coordA: null, coordB: null }));
     appData.routes = [...new Set(config.routes.flatMap(r => [r.fromName, r.toName, ...(r.stops || [])]))];
     trips = queues.flatMap(({ route, queue }) => queue.line.filter(v => v.bookable === true).map(v => ({
@@ -122,15 +145,17 @@ async function refresh() {
     if (state.activeTrip && !config.routes.some(r => r.fromName === state.searchFrom && r.toName === state.searchTo)) {
       state.searchFrom = state.activeTrip.boarding; state.searchTo = state.activeTrip.destination;
     }
-    appData.luggage = appData.luggage.filter((l: any) => config?.luggageTypes?.includes(l.id)).map((l: any) => ({ ...l, price: config?.luggagePrices?.[l.id as keyof NonNullable<TaxipressConfig['luggagePrices']>] ?? l.price }));
+    appData.trips = trips;
+    appData.luggage = luggageCatalog.filter((l: any) => config?.luggageEnabled && config.luggageTypes?.includes(l.id)).map((l: any) => ({ ...l, price: config?.luggagePrices?.[l.id as keyof NonNullable<TaxipressConfig['luggagePrices']>] ?? 0 }));
     if (user) {
       const [mine, balance] = await Promise.all([api.getMyTaxipressBookings(), api.getWallet()]);
+      if (!valid()) return;
       bookings = mine.bookings; wallet = balance; state.walletBalance = balance.balance;
       state.tickets = bookings.map(ticket);
       appData.transactions = balance.ledger.map((l: any) => ({ type: l.amount >= 0 ? 'deposit' : 'trip', title: escape(l.note || l.type || 'Wallet activity'), date: escape(l.created_at), amount: Math.abs(l.amount), direction: l.amount >= 0 ? 'in' : 'out', icon: l.amount >= 0 ? 'arrow-down-left' : 'arrow-up-right' }));
     }
-  } catch (e) { error = message(e); throw e; }
-  finally { loading = false; }
+  } catch (e) { if (valid()) { error = message(e); throw e; } }
+  finally { if (valid()) loading = false; }
 }
 
 function renderLiveTicket(b: TaxipressBooking | null = selectedBooking || bookings[0]) {
@@ -147,8 +172,11 @@ function renderLiveTicket(b: TaxipressBooking | null = selectedBooking || bookin
 
 async function confirmBooking() {
   if (preview) return original.confirmBooking();
+  if (!user) { account?.open('checkout'); return; }
   if (busy) return;
   if (!$('#booking-conditions')?.checked) return ui.toast('Accept the booking conditions to continue.', 'danger');
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date());
+  if (state.bookingDate !== today && !pendingOrder) return ui.toast('These are current stage departures. Choose today to book; scheduled future departures are not offered yet.', 'info');
   if ((!state.activeTrip || !config?.enabled) && !pendingOrder) return ui.toast('Choose a currently available taxi.', 'danger');
   if (pendingOrder && state.activeTrip?.id !== pendingOrder.booking.taxi.queueId) return ui.toast('Finish or cancel the existing unpaid ticket in My Tickets before booking another taxi.', 'danger');
   if (state.ticketType === 'return') return ui.toast('Book each direction separately; a return package is not offered by this service.', 'info');
@@ -157,14 +185,17 @@ async function confirmBooking() {
   busy = true;
   try {
     uncertainBooking = !pendingOrder;
-    pendingOrder ??= await api.bookTaxipressSeats({ queueId: state.activeTrip.id, adults: state.passengerCount, children: state.childCount,
+    pendingOrder ??= await api.bookTaxipressSeats({ queueId: state.activeTrip.id, adults: state.passengerCount, children: state.childCount, childSeats: childSeats(),
       luggage: config.luggageEnabled ? state.luggageQuantities : undefined,
       assistance: config.assistanceEnabled ? ({ 'None required': 'none', 'Boarding help': 'boarding', 'Priority seating': 'priority', 'Mobility support': 'mobility' } as any)[state.assistance] || 'none' : undefined,
       language: config.languageEnabled ? config.languages?.find(l => l.name === state.language)?.code : undefined,
       forSomeoneElse: state.isBookingForSomeoneElse,
       travellerName: state.isBookingForSomeoneElse ? state.otherTravelerName : undefined,
       travellerPhone: state.isBookingForSomeoneElse ? state.otherTravelerPhone : undefined,
+      emergencyPhone: state.isBookingForSomeoneElse ? state.emergencyContact || undefined : undefined,
+      openTicket: state.taxibeeOpenTicket === true,
     });
+    account?.clearDraft();
     uncertainBooking = false;
     await payPending();
   } catch (e) { report(e); }
@@ -175,8 +206,10 @@ async function payPending() {
   const method = state.paymentMethod;
   if (!['wallet', 'mobile', 'cash'].includes(method)) throw new Error('Choose wallet, mobile money or cash.');
   if (method === 'cash' && !config?.cashEnabled) throw new Error('Cash is not enabled by the operator.');
+  if (method === 'cash' && (state.taxibeeOpenTicket || pendingOrder.booking.openTicket)) throw new Error('An open ticket must be paid in the app.');
   if (pendingOrder.booking.paymentStatus === 'unpaid') {
-    const result = await api.fundOrder(pendingOrder.order.id, { paymentMethod: method === 'mobile' ? 'mobile_money' : method, msisdn: method === 'mobile' ? $('#taxibee-msisdn')?.value : undefined });
+    const result = await api.fundOrder(pendingOrder.order.id, { paymentMethod: method === 'mobile' ? 'mobile_money' : method, useWallet: method === 'wallet', msisdn: method === 'mobile' ? $('#taxibee-msisdn')?.value : undefined, offerCode: $('#taxibee-offer-code')?.value.trim() || undefined });
+    if (result.payment?.status === 'failed') throw new Error('Payment failed. Check your payment details and try again.');
     pendingPayment = result.payment?.id || null;
     if (result.redirectUrl) { location.assign(result.redirectUrl); return; }
   }
@@ -191,8 +224,9 @@ async function payPending() {
 ui.Taxibee = {
   session: () => user ? { username: user.id, name: user.name, avatar: 'assets/peebee-logo.svg' } : previewEntered ? { username: 'preview', name: 'Design preview' } : null,
   authenticated: () => !!user || (preview && previewEntered),
-  login: () => preview ? ui.toast('Use Enter design preview; preview does not sign in to Peebee.', 'info') : authenticate(),
-  register: () => preview ? ui.toast('Return to live Taxibee to create a Peebee account.', 'info') : authenticate(true),
+  canBrowse: () => !preview || previewEntered,
+  login: () => preview ? ui.toast('Practice does not sign in to Peebee.', 'info') : account?.open('profile'),
+  register: () => preview ? ui.toast('Return to live Taxibee to create a Peebee account.', 'info') : account?.open('profile'),
 };
 
 function cleanHome() {
@@ -212,31 +246,62 @@ function cleanHome() {
     if (el.querySelector('[data-screen="returns"]') && !el.querySelector('#servicesTitle')) el.remove();
   }
   for (const el of template.content.querySelectorAll('.wallet-credit')) el.textContent = `${money(wallet?.credit || 0)} promotional credit available`;
+  if (!user) {
+    const balance = template.content.querySelector('.wallet-card .wallet-balance'); if (balance) balance.textContent = 'Sign in to view your balance';
+    const credit = template.content.querySelector('.wallet-credit'); if (credit) credit.textContent = 'Use your existing Peebee account';
+  }
   for (const el of template.content.querySelectorAll('.notice')) el.remove();
   return template.innerHTML + (bookings[0] ? `<section class="card"><h3>Your latest journey</h3><p>${escape(bookings[0].route.fromName)} → ${escape(bookings[0].route.toName)}</p><button class="button button--primary" data-action="taxibee-ticket" data-id="${escape(bookings[0].id)}">View ticket</button></section>` : '') + (error ? empty('Unable to refresh departures', error) : !config?.enabled ? empty('TaxiPress is not running right now', 'Peebee administrators control when this service is available.') : !trips.length ? empty('No bookable departures', 'Check again when a taxi joins a running route.') : '');
 }
 
 if (!preview) {
   // Public screens must never fabricate stock, people, tickets or money.
-  appData.routeCards = []; appData.routes = []; appData.transactions = []; appData.notifications = [];
+  appData.routeCards = []; appData.routes = []; appData.trips = []; appData.transactions = []; appData.notifications = [];
   state.tickets = []; state.walletBalance = 0; state.userName = ''; state.userPhone = ''; state.userEmail = ''; state.activeTrip = null;
   state.unreadNotifications = 0;
+  state.emergencyContact = '';
+  state.bookingDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date());
   ui.getAvailableTrips = () => trips;
   ui.getSearchResults = () => trips.filter(t => t.boarding === state.searchFrom && t.destination === state.searchTo);
   ui.getTicketsData = () => state.tickets || [];
+  ui.getDriverAvatar = () => 'assets/peebee-logo.svg';
+  ui.getDriverHeroImage = () => state.activeTrip?.img || 'assets/taxibee-van.png';
+  ui.getTripVehicleImage = (vehicle: string) => vehicle?.includes('18') ? 'assets/taxibee-highroof-branded.png' : 'assets/taxibee-van.png';
   ui.detectNearestCity = () => {};
+  ui.simulateNavigation = (_message: string, screen: string) => ui.navigate(screen);
   ui.startLiveProgress = () => {}; // Tracking is based on API state, never an animation of a fictional journey.
   ui.checkoutBaseFare = () => {
     const adults = state.passengerCount;
-    const children = Math.max(0, state.childCount - (config?.maxLapChildren ?? 0));
-    return Math.round((state.activeTrip?.fare || 0) * (adults + children * (config?.childSeatFarePercent ?? 100) / 100));
+    const fare = state.activeTrip?.fare || 0;
+    return fare * adults + Math.round(fare * (config?.childSeatFarePercent ?? 100) / 100) * childSeats();
   };
+  ui.passengerTotal = () => state.passengerCount + childSeats();
+  ui.luggageTotal = () => config?.luggageEnabled ? appData.luggage.reduce((sum: number, l: any) => sum + (config?.luggagePrices?.[l.id as keyof NonNullable<TaxipressConfig['luggagePrices']>] ?? 0) * (state.luggageQuantities[l.id] || 0), 0) : 0;
   ui.seatReservationFee = () => 0;
   ui.checkoutTotal = () => pendingOrder?.booking.amount ?? ui.checkoutBaseFare() + ui.luggageTotal();
   ui.confirmBooking = confirmBooking;
   ui.renderHome = cleanHome;
-  ui.renderBook = () => !config?.enabled || !trips.length ? empty('No bookable taxis', error || 'There are no taxis accepting bookings right now.') : original.renderBook();
-  ui.renderPaymentPanel = () => `<div class="payment-panel"><p>${state.paymentMethod === 'wallet' ? `Your Peebee balance: ${money(state.walletBalance)}. The final amount is confirmed by Peebee.` : state.paymentMethod === 'cash' ? 'Pay the driver at the stage. Your ticket will reflect the server payment status.' : 'Approve the mobile-money prompt sent by your payment provider.'}</p>${state.paymentMethod === 'mobile' ? `<label for="taxibee-msisdn">Mobile-money number</label><input id="taxibee-msisdn" autocomplete="tel" inputmode="tel" value="${escape(user?.phone)}">` : ''}</div>`;
+  ui.renderBook = () => {
+    if (!config?.enabled || !trips.length) return empty('No bookable taxis', error || 'There are no taxis accepting bookings right now.');
+    const template = document.createElement('template'); template.innerHTML = original.renderBook();
+    const traveller = template.content.querySelector('#other-traveler-phone')?.closest('.field');
+    if (traveller && state.isBookingForSomeoneElse) traveller.insertAdjacentHTML('afterend', `<div class="field"><label for="taxibee-traveller-emergency">Traveller emergency contact</label><input id="taxibee-traveller-emergency" type="tel" value="${escape(state.emergencyContact)}"></div>`);
+    return template.innerHTML;
+  };
+  ui.renderCheckout = (() => {
+    const originalCheckout = ui.renderCheckout;
+    return () => {
+      const template = document.createElement('template'); template.innerHTML = originalCheckout()
+        .replace('Checkout and payment preview', 'Checkout and payment')
+        .replace('Review the service total and choose a simulated payment method. No money will be processed.', 'Review your booking and choose how to pay through Peebee.')
+        .replace('Demo mode', 'Peebee booking')
+        .replace('This confirms only a presentation-state booking and does not create a real reservation.', 'Confirming creates a real booking. Current availability, price and cancellation rules apply.')
+        .replace('No backend, gateway, mobile-money service or database will be contacted.', 'Bookings and payments are processed by Peebee. Mobile-money payments require provider approval.');
+      template.content.querySelector('#booking-conditions')?.removeAttribute('checked');
+      return template.innerHTML;
+    };
+  })();
+  ui.renderPaymentPanel = () => `<div class="payment-panel"><p>${state.paymentMethod === 'wallet' ? `Your Peebee balance: ${money(state.walletBalance)}. The final amount is confirmed by Peebee.` : state.paymentMethod === 'cash' ? 'Pay the driver at the stage. Your ticket will reflect the server payment status.' : 'Approve the mobile-money prompt sent by your payment provider.'}</p>${state.paymentMethod === 'mobile' ? `<label for="taxibee-msisdn">Mobile-money number</label><input id="taxibee-msisdn" autocomplete="tel" inputmode="tel" value="${escape(user?.phone)}">` : ''}<label for="taxibee-offer-code">Peebee offer code (optional)</label><input id="taxibee-offer-code" autocomplete="off" value="${escape(state.taxibeeOfferCode || '')}"><p>Peebee checks eligibility and the final amount when you pay.</p>${config?.openTicketsEnabled ? `<label><input type="checkbox" id="taxibee-open-ticket" ${state.taxibeeOpenTicket ? 'checked' : ''}>Open ticket: valid on any taxi on this route, subject to Peebee's validity rules.</label>` : ''}</div>`;
   ui.renderStandardPaymentOptions = (method: string, name = 'payment-method') => `<div class="radio-cards">${ui.paymentChoiceTile('wallet', 'Peebee Wallet', `Available: ${money(state.walletBalance)}`, 'wallet-cards', method, name)}${ui.paymentChoiceTile('mobile', 'Mobile Money', 'Use your existing Peebee payment providers', 'smartphone', method, name)}${config?.cashEnabled ? ui.paymentChoiceTile('cash', 'Cash at Stage', 'Pay the driver before boarding', 'banknote', method, name) : ''}</div>`;
   ui.renderTicket = () => renderLiveTicket();
   ui.renderSuccess = () => renderLiveTicket();
@@ -275,10 +340,48 @@ if (!preview) {
   // Source maps contain demonstration paths and synthetic live progress.
   for (const name of ['initTripMap', 'initBookingStep2Map', 'initLiveTravelMap', 'initTrackingMap', 'initTrackingCardMaps']) ui[name] = () => {};
   ui.renderTripTabContent = () => bookings.map(b => `<article class="card"><h3>${escape(b.route.fromName)} → ${escape(b.route.toName)}</h3><p>${escape(b.taxi.plate)} · ${escape(b.status)} · ${money(b.amount)}</p><button class="button button--primary" data-action="taxibee-ticket" data-id="${escape(b.id)}">View ticket</button></article>`).join('') || empty('No journeys yet', 'Bookings made in either customer app appear here.');
-  ui.signOut = async () => { try { await api.logout(); } finally { clearSession(); $('#app-shell')?.classList.add('is-hidden'); ui.showAuth('signin'); } };
+  ui.signOut = async () => {
+    if (!user) { account?.open('profile'); return; }
+    try { await api.logout(); } finally { clearSession(); applyGuest(); await refresh().catch(report); account?.browse('home'); }
+  };
 }
 
+if (!preview) features = installCustomerFeatures({
+  ui, api,
+  token: () => sessionStorage.getItem(TOKEN) || localStorage.getItem(TOKEN),
+  user: () => user, config: () => config, bookings: () => bookings,
+  selected: () => selectedBooking, select: b => { selectedBooking = b; },
+  applyUser, refresh,
+  saveToken: token => { ++sessionVersion; (localStorage.getItem(TOKEN) ? localStorage : sessionStorage).setItem(TOKEN, token); },
+  requestLogin: screen => account?.open(screen),
+  finishSession: result => account!.finish(result),
+});
+
+if (!preview) account = installCustomerAuth({
+  ui, api, user: () => user, trips: () => trips,
+  canSaveDraft: () => !pendingOrder && !uncertainBooking,
+  discardToken: apiLogoutToken,
+  establish: async result => {
+    clearSession(false);
+    localStorage.setItem(TOKEN, result.token); applyUser(result.user);
+    await refresh().catch(report);
+    if (user?.id !== result.user.id) throw new Error('Please sign in again.');
+  },
+});
+
+document.addEventListener('input', event => {
+  if (!preview && (event.target as HTMLElement).id === 'taxibee-offer-code') state.taxibeeOfferCode = (event.target as HTMLInputElement).value;
+  if (!preview && (event.target as HTMLElement).id === 'taxibee-traveller-emergency') state.emergencyContact = (event.target as HTMLInputElement).value;
+});
+document.addEventListener('change', event => {
+  if (!preview && (event.target as HTMLElement).id === 'taxibee-open-ticket') {
+    state.taxibeeOpenTicket = (event.target as HTMLInputElement).checked;
+    if (state.taxibeeOpenTicket && state.paymentMethod === 'cash') state.paymentMethod = 'wallet';
+  }
+});
+
 ui.renderAuth = () => {
+  if (!preview) { account?.open(state.intendedScreen || 'profile'); return; }
   original.renderAuth();
   const root = $('#auth-content');
   if (!root) return;
@@ -288,8 +391,9 @@ ui.renderAuth = () => {
     for (const id of ['reg-name','reg-username','reg-passcode','reg-email']) { const input = $('#' + id); if (input) input.value = ''; }
     root.querySelector('label[for="reg-username"]')!.textContent = 'Phone number';
   }
-  root.insertAdjacentHTML('beforeend', '<p class="center"><a href="?preview=1" class="text-button">Preview the Taxibee app design</a></p>');
-  if (preview) root.insertAdjacentHTML('beforeend', '<p class="center"><button class="button button--primary" data-action="taxibee-preview">Enter design preview</button></p>');
+  root.insertAdjacentHTML('beforeend', '<p class="center"><a href="?preview=1" class="text-button">Practice using Taxibee</a></p>');
+  if (!preview) root.insertAdjacentHTML('beforeend', '<p class="center"><button type="button" class="text-button" data-action="taxibee-password-reset-form">Forgot password?</button></p>');
+  if (preview) root.insertAdjacentHTML('beforeend', '<p class="center"><button class="button button--primary" data-action="taxibee-preview">Enter practice mode</button></p>');
   ui.refreshIcons();
 };
 
@@ -298,10 +402,42 @@ document.addEventListener('click', async event => {
   const screen = (event.target as Element).closest<HTMLElement>('[data-screen]');
   const action = button?.dataset.action || '';
   if (action === 'taxibee-preview' && preview) {
-    event.stopImmediatePropagation(); previewEntered = true; ui.enterApp('Design preview — no real transactions.'); return;
+    event.stopImmediatePropagation(); previewEntered = true; ui.enterApp('Practice mode — no real transactions.'); return;
   }
   if (preview) return;
   const block = () => { event.preventDefault(); event.stopImmediatePropagation(); };
+  if (action === 'open-demo-panel') { block(); account?.rememberBooking(); location.assign('/?preview=1'); return; }
+  if (['select-route-card', 'select-route-card-step', 'book-searched-route', 'flip-route-direction', 'swap-home-route', 'swap-route'].includes(action)) {
+    block();
+    let route = config?.routes.find(r => r.id === button?.dataset.route) || config?.routes.find(r => r.fromName === state.searchFrom && r.toName === state.searchTo);
+    if (['flip-route-direction', 'swap-home-route', 'swap-route'].includes(action)) route = config?.routes.find(r => r.id === route?.reverseId) || config?.routes.find(r => r.fromName === state.searchTo && r.toName === state.searchFrom);
+    if (!route) return ui.toast('This route is not running in that direction.', 'info');
+    state.selectedRoute = route.id; state.searchFrom = route.fromName; state.searchTo = route.toName;
+    state.activeTrip = trips.find(t => t.routeId === route.id) || null;
+    if (action === 'book-searched-route') { state.bookingStep = 2; ui.navigate('book'); } else ui.renderCurrentScreen();
+    return;
+  }
+  if (['select-departure', 'select-departure-direct', 'choose-trip'].includes(action)) {
+    block();
+    const trip = button?.dataset.tripId ? trips.find(t => t.id === button.dataset.tripId) : trips.find(t => t.depart === button?.dataset.trip && t.boarding === state.searchFrom && t.destination === state.searchTo);
+    if (!trip) return ui.toast('This departure is no longer available. Refresh departures.', 'info');
+    state.activeTrip = trip; state.searchFrom = trip.boarding; state.searchTo = trip.destination; ui.navigate('trip-details'); return;
+  }
+  const countActions: Record<string, [string, number]> = { 'increment-adults': ['passengerCount', 1], 'add-adult': ['passengerCount', 1], 'decrement-adults': ['passengerCount', -1], 'decrease-passengers': ['passengerCount', -1], 'increment-children': ['childCount', 1], 'add-child': ['childCount', 1], 'decrement-children': ['childCount', -1], 'decrease-child': ['childCount', -1], 'increment-child-seats': ['reservedChildSeatsCount', 1], 'decrement-child-seats': ['reservedChildSeatsCount', -1] };
+  if (countActions[action]) {
+    block(); const [key, delta] = countActions[action], before = state[key];
+    state[key] = Math.max(key === 'passengerCount' ? 1 : 0, state[key] + delta);
+    const minChild = Math.max(0, state.childCount - (config?.maxLapChildren ?? 0));
+    if (key === 'reservedChildSeatsCount' && (state[key] < minChild || state[key] > state.childCount)) state[key] = before;
+    if (state.passengerCount + childSeats() > Math.min(config?.maxSeatsPerBooking ?? 0, state.activeTrip?.seats ?? 0) || state.passengerCount + state.childCount > 18) { state[key] = before; ui.toast('This choice exceeds the current Peebee booking limit or available spaces.', 'info'); }
+    state.reservedChildSeatsCount = childSeats(); ui.renderCurrentScreen(); return;
+  }
+  if (action === 'toggle-book-for-someone-else') {
+    block(); if (!config?.bookForOthersEnabled) return ui.toast('Booking for someone else is switched off.', 'info');
+    state.isBookingForSomeoneElse = !state.isBookingForSomeoneElse;
+    state.passengerDetails[0] = { ...state.passengerDetails[0], name: state.isBookingForSomeoneElse ? state.otherTravelerName : user?.name, phone: state.isBookingForSomeoneElse ? state.otherTravelerPhone : user?.phone };
+    ui.renderCurrentScreen(); return;
+  }
   const safeScreens = new Set(['home', 'book', 'available-vans', 'trip-details', 'passengers', 'returns', 'luggage', 'checkout', 'success', 'ticket', 'tickets', 'trips', 'wallet', 'profile', 'about', 'support', 'notifications', 'tracking', 'live', 'search-results']);
   if (screen && !safeScreens.has(screen.dataset.screen || '')) {
     block(); ui.toast('This service is available in the Peebee customer app.', 'info');
@@ -341,6 +477,7 @@ document.addEventListener('click', async event => {
     return;
   }
   if (['open-add-funds', 'deposit', 'deposit-wallet', 'wallet-deposit', 'wallet-topup'].includes(action)) {
+    if (!user) { block(); account?.open('wallet'); return; }
     block(); ui.openModal('Add to your Peebee wallet', `<label for="taxibee-topup-amount">Amount (UGX)</label><input id="taxibee-topup-amount" type="number" min="1" inputmode="numeric"><label for="taxibee-topup-phone">Mobile-money number</label><input id="taxibee-topup-phone" type="tel" value="${escape(user?.phone)}">`, '<button class="button button--primary" data-action="taxibee-topup">Request top-up</button>'); return;
   }
   const blocked = ['continue-guest','continue-google','continue-signin','verify-otp','create-account','resend-otp','proceed-reg-verification','fill-creds','simulate-login-test','deposit-state','ticket-states','send-chat-demo','save-profile','submit-support','submit-lost-property','confirm-hire-payment','parcel-next','complete-parcel','confirm-parcel','confirm-parcel-payment','transfer-wallet','wallet-pin','quick-return-toggle','toggle-return-switch','booking-option','book-preferred-seat','capacity-mode','select-ticket-type','return-mode','apply-voucher','open-demo-panel','demo-state','toggle-connection'];
@@ -351,13 +488,28 @@ document.addEventListener('click', async event => {
 document.addEventListener('DOMContentLoaded', async () => {
   if (preview) {
     document.body.classList.add('taxibee-preview');
-    document.body.insertAdjacentHTML('beforeend', '<div class="taxibee-mode">Design preview · sample data · no real bookings or payments<a href="/">Return to live Taxibee</a></div>');
+    document.body.insertAdjacentHTML('beforeend', '<div class="taxibee-mode">Practice mode · sample data · no real bookings or payments<a href="?preview=1">Restart practice</a><a href="/">Return to live Taxibee</a></div>');
     ui.init(); return;
   }
-  try {
-    if (sessionStorage.getItem(TOKEN) || localStorage.getItem(TOKEN)) applyUser((await api.me()).user);
-    await refresh();
-  } catch (e) { error = message(e); }
+  const publicCode = new URLSearchParams(location.search).get('ticket');
+  if (publicCode) {
+    ui.init();
+    $('#splash-screen')?.classList.add('is-hidden'); $('#onboarding')?.classList.add('is-hidden');
+    $('#app-shell')?.classList.add('is-hidden'); $('#auth-layer')?.classList.remove('is-hidden');
+    try {
+      const { ticket: t } = await api.getTaxipressTicketByCode(publicCode);
+      $('#auth-content')!.innerHTML = `<article class="card"><h1>Taxibee passenger ticket</h1><h2>${escape(t.route.fromName)} → ${escape(t.route.toName)}</h2><p>Traveller: ${escape(t.travellerName || 'Passenger')}</p><p>${escape(t.status)} · ${escape(t.paymentStatus)}</p><p>${t.seats} space(s) · ${escape(t.taxi.plate)}</p>${t.amountDue != null ? `<p>Cash due: ${money(t.amountDue)}</p>` : ''}<p>Boarding code: <strong>${escape(t.code)}</strong></p><a class="button button--primary" href="/">Open Taxibee</a></article>`;
+    } catch (e) { $('#auth-content')!.innerHTML = `<article class="card"><h1>Ticket unavailable</h1><p>${escape(message(e))}</p><a href="/">Open Taxibee</a></article>`; }
+    return;
+  }
+  if (sessionStorage.getItem(TOKEN) || localStorage.getItem(TOKEN)) {
+    try { applyUser((await api.me()).user); } catch { clearSession(false); }
+  }
+  if (!user) applyGuest();
+  await refresh().catch(e => { error = message(e); });
   ui.init();
-  if (user) { $('#splash-screen')?.classList.add('is-hidden'); $('#onboarding')?.classList.add('is-hidden'); ui.enterApp('Welcome to Taxibee.'); }
+  const practiceButton = document.querySelector('[data-action="open-demo-panel"]'); if (practiceButton) practiceButton.innerHTML = '<i data-lucide="flask-conical"></i>Practice mode';
+  const restored = !location.hash && !new URLSearchParams(location.search).get('screen') ? account?.restoreDraft() : null;
+  account?.browse(restored?.screen || state.screen || 'home');
+  booting = false;
 });

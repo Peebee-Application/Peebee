@@ -5,6 +5,12 @@ import { build } from 'esbuild';
 await rm('dist', { recursive: true, force: true });
 await mkdir('dist', { recursive: true });
 await cp('public', 'dist', { recursive: true });
+// Reuse the Customer app's actual account styling and existing assets.
+await cp('../customer/app/account-auth.css', 'dist/customer-auth.css');
+await mkdir('dist/brand', { recursive: true });
+for (const name of ['peebee-logo-light.svg', 'peebee-logo-dark.svg', 'auth-illustration.webp']) {
+  await cp(`../customer/public/brand/${name}`, `dist/brand/${name}`);
+}
 const require = createRequire(import.meta.url);
 await mkdir('dist/vendor', { recursive: true });
 const leafletRoot = new URL('./', pathToFileURL(require.resolve('leaflet/package.json')));

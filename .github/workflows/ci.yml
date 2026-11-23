@@ -86,5 +86,18 @@ jobs:
         run: pnpm --filter taxibee typecheck
       - name: Test Taxibee gateway
         run: pnpm test:taxibee
+      - name: Test booking draft isolation
+        run: pnpm --filter api exec tsx --test ../taxibee/src/booking-draft.test.ts
       - name: Build Taxibee
         run: pnpm build:taxibee
+      - name: Install browser
+        run: pnpm --filter taxibee exec playwright install --with-deps chromium
+      - name: Test public browsing, customer sign-in and booking flows
+        run: |
+          pnpm --filter taxibee exec wrangler dev --port 3015 > /tmp/taxibee-dev.log 2>&1 &
+          trap 'kill $!' EXIT
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3015/ > /dev/null; then break; fi
+            sleep 1
+          done
+          pnpm --filter taxibee test:browser

@@ -290,7 +290,7 @@ export async function bookSeats(c: Context, input: BookInput) {
   if (withDetails && input.forSomeoneElse && (!input.travellerName || !input.travellerPhone || !input.emergencyPhone)) {
     return c.json({ error: "traveller_missing", message: "Add the traveller's name, phone and an emergency contact." }, 400);
   }
-  const preview = priceBooking({ adults, children, luggage }, 0, settings);
+  const preview = priceBooking({ adults, children, childSeats: input.childSeats, luggage }, 0, settings);
   if (preview.error) return c.json({ error: "invalid_passengers", message: preview.error }, 400);
   const seatCount = preview.seats;
   if (seatCount + (children - preview.childSeats) > 18) return c.json({ error: "too_many_passengers", message: "A booking can carry up to 18 passengers." }, 400);
@@ -324,7 +324,7 @@ export async function bookSeats(c: Context, input: BookInput) {
   }
 
   const farePerSeat = Number(entry.fare_per_seat);
-  const priced = priceBooking({ adults, children, luggage }, farePerSeat, settings);
+  const priced = priceBooking({ adults, children, childSeats: input.childSeats, luggage }, farePerSeat, settings);
   const amount = withDetails ? priced.amount : farePerSeat * seatCount;
   if (!(amount > 0)) return c.json({ error: "no_fare", message: "This route has no fare set yet." }, 409);
 
