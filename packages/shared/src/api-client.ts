@@ -876,8 +876,8 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       return request<{ ok: boolean }>("/v1/taxipress/driver/leave", { method: "POST", body: "{}" });
     },
     /** Seats sold at the stage without the app (negative gives some back). */
-    async taxipressWalkUp(delta: number) {
-      return request<{ entry: TaxipressLineEntry }>("/v1/taxipress/driver/walk-up", { method: "POST", body: JSON.stringify({ delta }) });
+    async taxipressWalkUp(delta: number,seat?: string) {
+      return request<{ entry: TaxipressLineEntry }>("/v1/taxipress/driver/walk-up", { method: "POST", body: JSON.stringify({ delta,seat }) });
     },
     async taxipressSendLocation(lat: number, lng: number) {
       return request<{ ok: boolean }>("/v1/taxipress/driver/location", { method: "POST", body: JSON.stringify({ lat, lng }) });

@@ -115,7 +115,8 @@ CREATE TRIGGER taxipress_walk_up_seats AFTER UPDATE OF walk_up_seats ON taxipres
 WHEN EXISTS (SELECT 1 FROM taxipress_seat_maps WHERE queue_id = NEW.id)
 BEGIN
   DELETE FROM taxipress_seat_claims WHERE queue_id = NEW.id AND walk_up = 1 AND seat IN
-    (SELECT seat FROM taxipress_seat_claims WHERE queue_id = NEW.id AND walk_up = 1 ORDER BY seat DESC LIMIT MAX(0,OLD.walk_up_seats - NEW.walk_up_seats));
+    (SELECT seat FROM taxipress_seat_claims WHERE queue_id = NEW.id AND walk_up = 1 ORDER BY seat DESC
+      LIMIT MAX(0,(SELECT COUNT(*) FROM taxipress_seat_claims WHERE queue_id = NEW.id AND walk_up = 1) - NEW.walk_up_seats));
   INSERT INTO taxipress_seat_claims(queue_id,seat,walk_up)
     SELECT NEW.id, j.value, 1 FROM taxipress_seat_maps m, json_each(m.labels) j
     WHERE m.queue_id = NEW.id AND NOT EXISTS (SELECT 1 FROM taxipress_seat_claims c WHERE c.queue_id = NEW.id AND c.seat = j.value)
@@ -129,6 +130,11 @@ END;
 CREATE TRIGGER taxipress_booking_seats_move AFTER UPDATE OF queue_id ON taxipress_bookings
 WHEN NEW.queue_id <> OLD.queue_id AND NEW.seat_reservation_id IS NOT NULL
 BEGIN
+  SELECT CASE WHEN EXISTS (SELECT 1 FROM taxipress_seat_reservations r
+    JOIN taxipress_seat_maps old_map ON old_map.queue_id = OLD.queue_id
+    JOIN taxipress_seat_maps new_map ON new_map.queue_id = NEW.queue_id
+    WHERE r.id = NEW.seat_reservation_id AND r.chosen = 1 AND old_map.layout <> new_map.layout)
+    THEN RAISE(ABORT,'taxipress_seat_conflict') END;
   SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM taxipress_seat_maps WHERE queue_id = NEW.queue_id)
     AND EXISTS (SELECT 1 FROM taxipress_seat_reservations WHERE id = NEW.seat_reservation_id AND chosen = 1)
     THEN RAISE(ABORT,'taxipress_seat_conflict') END;

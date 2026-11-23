@@ -1,6 +1,6 @@
 import { visibleHere } from "../practice/people.js";
 import { db, executeBatch } from "../db/client.js";
-import { SEAT_LABELS, cleanupSeatHolds, heldSeatCount, seatingReady } from './seats.js';
+import { SEAT_LABELS, cleanupSeatHolds, heldSeatCount, seatingReady,walkUpSeatNumbers } from './seats.js';
 import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
 import { hasColumn,hasTable } from "../lib/schema.js";
@@ -92,8 +92,9 @@ export async function applyTaxi(userId: string, input: { relayRouteId: string; p
   const seats = Number(input.seatLayout);
   if (existing) {
     const changed = existing.relayRouteId !== input.relayRouteId || existing.plate !== plate || existing.seatLayout !== input.seatLayout;
+    const resetLayout = changed && await hasColumn('taxipress_taxis','numbered_seats_enabled');
     await db.execute({
-      sql: `UPDATE taxipress_taxis SET relay_route_id = ?, plate = ?, seat_layout = ?, seats = ?, ${changed ? "status = 'pending', approved_by = NULL, approved_at = NULL," : ""} updated_at = datetime('now') WHERE user_id = ?`,
+      sql: `UPDATE taxipress_taxis SET relay_route_id = ?, plate = ?, seat_layout = ?, seats = ?, ${changed ? "status = 'pending', approved_by = NULL, approved_at = NULL," : ""} ${resetLayout ? 'numbered_seats_enabled = 0,' : ''} updated_at = datetime('now') WHERE user_id = ?`,
       args: [input.relayRouteId, plate, input.seatLayout, seats, userId],
     });
     return;
@@ -425,7 +426,7 @@ export async function removeFromLine(queueId: string, reason = "removed_by_staff
 }
 
 /** The driver sells (or gives back) seats at the stage without the app. */
-export async function walkUp(driverId: string, delta: number): Promise<LineEntry> {
+export async function walkUp(driverId: string, delta: number,seat?: string): Promise<LineEntry> {
   await cleanupSeatHolds();
   const entry = await mustHave(driverId, "in_line", "boarding", "on_road");
   if (entry.status === "on_road" && (await getTaxipressSettings()).departureRule === "full_only") {
@@ -434,6 +435,16 @@ export async function walkUp(driverId: string, delta: number): Promise<LineEntry
   const next = entry.walkUpSeats + delta;
   if (next < 0) throw new TaxipressError(409, "none_to_remove", "No walk-up seats to remove.");
   if (delta > 0 && entry.seatsTaken + delta > entry.seatsTotal) throw new TaxipressError(409, "no_seats_left", "Every seat is taken.");
+  if (seat) {
+    if (delta !== -1 || !(await seatingReady())) throw new TaxipressError(409,'invalid_seat','Choose a numbered stage seat to remove.');
+    const result = await executeBatch([
+      {sql: `DELETE FROM taxipress_seat_claims WHERE queue_id = ? AND seat = ? AND walk_up = 1
+        AND EXISTS (SELECT 1 FROM taxipress_queue WHERE id = ? AND status IN ${ACTIVE} AND walk_up_seats > 0)`,args: [entry.id,seat,entry.id]},
+      {sql: `UPDATE taxipress_queue SET walk_up_seats = walk_up_seats - 1,updated_at = datetime('now') WHERE id = ? AND walk_up_seats > 0 AND changes() = 1 AND status IN ${ACTIVE}`,args: [entry.id]},
+    ]);
+    if (!result[1]) throw new TaxipressError(409,'invalid_seat','That seat is not a stage sale on your departure.');
+    return (await activeEntry(driverId))!;
+  }
   const changed = await db.execute({
     sql: `UPDATE taxipress_queue SET walk_up_seats = walk_up_seats + ?, updated_at = datetime('now')
           WHERE id = ? AND status IN ${ACTIVE} AND walk_up_seats + ? >= 0 AND seats_booked + walk_up_seats + ? <= seats_total`,
@@ -482,6 +493,7 @@ export async function driverView(driverId: string) {
     applyRoutes,
     routes,
     entry,
+    walkUpSeatNumbers: entry ? await walkUpSeatNumbers(entry.id) : [],
     line: entry && entry.status !== "on_road" ? await lineOf(entry.taxipressRouteId) : [],
     canGoOnRoad: check?.allowed ?? false,
     onRoadReason: check?.reason ?? null,

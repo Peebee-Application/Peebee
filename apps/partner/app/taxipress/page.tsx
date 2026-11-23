@@ -242,6 +242,13 @@ function Board({ view, onChange }: { view: TaxipressDriverView; onChange: () => 
             </div>
           </div>
         )}
+        {!!view.walkUpSeatNumbers?.length && <div className="space-y-2 text-sm">
+          <p className="font-bold text-ink">Stage seats: {view.walkUpSeatNumbers.join(', ')}</p>
+          {!onRoad && <>
+            <p className="text-xs text-ink-500">Seat stage passengers at these numbers. The minus button releases the last listed seat, or choose a seat below.</p>
+            <div className="flex flex-wrap gap-2">{view.walkUpSeatNumbers.map(seat => <button key={seat} type="button" disabled={busy} onClick={() => run(() => api.taxipressWalkUp(-1,seat))} className="rounded-full border border-[var(--border-faint)] px-3 py-2 font-bold text-ink disabled:opacity-40">Release {seat}</button>)}</div>
+          </>}
+        </div>}
         {error && <p className={errorBox}>{error}</p>}
 
         {entry.status === "in_line" && (

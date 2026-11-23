@@ -54,6 +54,10 @@ layout after checking it against the existing 14/18-seat diagram. Both switches
 default off. Only that taxi's next departure receives a numbered inventory;
 changing settings does not renumber an active trip. Bookings from older apps
 get automatic numbers on those departures, without a seat-choice fee.
+Changing a vehicle's plate, route or layout clears its numbered-layout approval.
+Drivers see stage-sale seat numbers and can release the exact stage seat when
+its passenger leaves. Chosen seats move only onto the same verified layout,
+with all chosen numbers available; otherwise the booking is refunded in full.
 
 An unpaid confirmed booking retains the existing admin payment deadline;
 selection holds have their separate, shorter deadline. Cancellation, no-show,

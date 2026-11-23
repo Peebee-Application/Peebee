@@ -28,6 +28,10 @@ export async function heldSeatCount(queueId: string) {
   return Number((await db.execute({ sql: `SELECT COALESCE(SUM(quantity),0) AS n FROM taxipress_seat_reservations
     WHERE queue_id = ? AND state = 'held' AND expires_at > datetime('now')`, args: [queueId] })).rows[0]?.n ?? 0);
 }
+export async function walkUpSeatNumbers(queueId: string) {
+  if (!(await seatingReady())) return [] as string[];
+  return (await db.execute({sql: 'SELECT seat FROM taxipress_seat_claims WHERE queue_id = ? AND walk_up = 1 ORDER BY seat',args: [queueId]})).rows.map(r => String(r.seat));
+}
 export async function bookingSeats(bookingId: string) {
   if (!(await seatingReady())) return { seatNumbers: [] as string[], seatChoiceFee: 0 };
   const rows = (await db.execute({ sql: `SELECT c.seat,r.fee FROM taxipress_seat_reservations r

@@ -239,6 +239,7 @@ export type TaxipressBookingDetails = {
 
 /** Everything the driver's Taxipress screen needs. */
 export type TaxipressDriverView = {
+  walkUpSeatNumbers?: string[];
   /** False until the Taxipress taxi and line tables exist. */
   ready: boolean;
   enabled: boolean;

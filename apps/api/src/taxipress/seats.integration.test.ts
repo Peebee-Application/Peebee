@@ -115,6 +115,11 @@ test('numbered seats: concurrent ownership, expiry and all booking paths',async 
       assert.deepEqual(b.seatNumbers,['1A']); assert.equal(b.amount,5000); assert.equal(b.seatChoiceFee,0);
       assert.equal((await call('d1','taxipress/driver/walk-up',{ delta: 1 })).status,200);
       const occupied = (await map('')).seats.filter((s: any) => s.status === 'occupied'); assert.equal(occupied.length,2);
+      assert.equal((await call('d1','taxipress/driver/walk-up',{ delta: 1 })).status,200);
+      assert.deepEqual((await json(await call('d1','taxipress/taxi/me'))).walkUpSeatNumbers,['1B','2A']);
+      assert.equal((await call('d1','taxipress/driver/walk-up',{ delta: -1,seat: '1A' })).status,409,'A driver cannot release a passenger booking as a stage sale');
+      assert.equal((await call('d1','taxipress/driver/walk-up',{ delta: -1,seat: '1B' })).status,200);
+      assert.deepEqual((await json(await call('d1','taxipress/taxi/me'))).walkUpSeatNumbers,['2A']);
       assert.equal((await call('d1','taxipress/driver/walk-up',{ delta: -1 })).status,200);
       await call('b',`taxipress/bookings/${b.id}/cancel`,{});
     });
@@ -183,6 +188,14 @@ test('numbered seats: concurrent ownership, expiry and all booking paths',async 
       assert.equal(boarded.status,200,JSON.stringify(await boarded.clone().json()));
       const used = (await json(await call('c',`taxipress/bookings/${b.id}`))).booking;
       assert.equal(used.status,'boarded'); assert.equal(used.taxi.queueId,target); assert.deepEqual(used.seatNumbers,['1B']);
+    });
+    await t.test('changing the vehicle clears layout approval until staff check it again',async () => {
+      assert.equal((await call('d1','taxipress/taxi/apply',{ relayRouteId: relay.id,plate: 'UBA NEW1',seatLayout: '18' })).status,201);
+      const taxi = (await json(await call('d1','taxipress/taxi/me'))).taxi;
+      assert.equal(taxi.status,'pending'); assert.equal(taxi.numberedSeatsEnabled,false);
+      assert.equal((await call('staff',`admin/taxipress/taxis/${taxi.id}`,{ status: 'approved' })).status,200);
+      const q = (await json(await call('d1','taxipress/driver/join',{ routeId: route.id }))).entry.id;
+      assert.equal((await map('',q)).enabled,false,'Ordinary taxi approval must not imply a verified numbered layout');
     });
   } finally {
     setD1Binding(undefined); resetSchemaCache(); client.close();

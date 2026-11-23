@@ -254,9 +254,9 @@ taxipressRoutes.post("/taxipress/driver/no-show", async (c) => {
 });
 
 taxipressRoutes.post("/taxipress/driver/walk-up", async (c) => {
-  const parsed = z.object({ delta: z.number().int().min(-14).max(14).refine((n) => n !== 0) }).safeParse(await c.req.json().catch(() => ({})));
+  const parsed = z.object({ delta: z.number().int().min(-14).max(14).refine((n) => n !== 0),seat: z.string().regex(/^[1-5][A-D]$/).optional() }).safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body" }, 400);
-  try { return c.json({ entry: await walkUp(c.get("user").sub, parsed.data.delta) }); } catch (e) { return fail(c, e); }
+  try { return c.json({ entry: await walkUp(c.get("user").sub, parsed.data.delta,parsed.data.seat) }); } catch (e) { return fail(c, e); }
 });
 
 taxipressRoutes.post("/taxipress/driver/location", async (c) => {
