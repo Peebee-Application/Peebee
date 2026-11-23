@@ -90,7 +90,11 @@ function applyUser(next: AuthUser) {
 }
 function applyGuest() {
   state.userName = 'Guest'; state.userPhone = ''; state.userEmail = ''; state.userAvatar = 'assets/peebee-logo.svg';
+  state.contactName = '';
+  state.passengerDetails = [{ name: 'Guest', phone: '', category: 'Adult passenger', assistance: 'None required', emergency: '' }];
   appData.passenger = { name: 'Guest', phone: '', email: '', preferredRoute: '' };
+  $('#notification-badge')?.classList.add('is-hidden');
+  document.querySelectorAll('.account-item small').forEach(el => { el.textContent = 'Sign in'; });
   document.querySelectorAll<HTMLImageElement>('.desktop-profile-btn img, .profile-avatar').forEach(img => { img.src = 'assets/peebee-logo.svg'; img.alt = 'Sign in to Peebee'; });
   const name = document.querySelector('.side-drawer__header h3'); if (name) name.textContent = 'Guest';
   const phone = document.querySelector('.side-drawer__header p'); if (phone) phone.textContent = 'Browse freely · sign in to book';

@@ -128,6 +128,8 @@ try {
   await p.waitForSelector('.home-redesign');
   assert.equal(await p.locator('#auth-layer').isVisible(), false, 'Browsing must not have an access gate');
   assert.equal(writes.length, 0, 'Opening the app must not create accounts or bookings');
+  assert.doesNotMatch(await p.locator('#main-content').innerText(), /Christo/i, 'Public browsing must not display the sample customer');
+  assert.equal(await p.locator('#notification-badge').isVisible(), false, 'Public browsing must not display sample unread notifications');
   assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Live shell must not overflow horizontally');
   assert.match(await p.locator('#main-content').innerText(), /Sign in to view your balance/);
   assert.doesNotMatch(await p.locator('#main-content').innerText(), /FXP-260718|Seat position 04|Confirmed/);
