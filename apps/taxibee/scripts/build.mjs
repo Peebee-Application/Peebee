@@ -1,12 +1,13 @@
 import { cp, mkdir, rm, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 await rm('dist', { recursive: true, force: true });
 await mkdir('dist', { recursive: true });
 await cp('public', 'dist', { recursive: true });
 const require = createRequire(import.meta.url);
 await mkdir('dist/vendor', { recursive: true });
-const leafletRoot = new URL('./', new URL(require.resolve('leaflet/package.json'), 'file:'));
+const leafletRoot = new URL('./', pathToFileURL(require.resolve('leaflet/package.json')));
 await cp(new URL('dist/images/', leafletRoot), 'dist/images', { recursive: true });
 await cp(new URL('dist/images/', leafletRoot), 'dist/vendor/images', { recursive: true });
 for (const [pkg, file, out] of [
@@ -14,7 +15,7 @@ for (const [pkg, file, out] of [
   ['leaflet', 'dist/leaflet.js', 'leaflet.js'],
   ['jsbarcode', 'dist/JsBarcode.all.min.js', 'barcode.js'],
 ]) {
-  const root = new URL('./', new URL(require.resolve(`${pkg}/package.json`), 'file:'));
+  const root = new URL('./', pathToFileURL(require.resolve(`${pkg}/package.json`)));
   await cp(new URL(file, root), `dist/vendor/${out}`);
 }
 let html = await readFile('dist/index.html', 'utf8');
