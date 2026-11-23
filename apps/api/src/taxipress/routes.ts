@@ -18,6 +18,7 @@ import { getRideTrackingSettings } from "../settings/ride-tracking.js";
 import { isFreshLocation } from "@peebee/shared";
 import { confirmBoarding, settlementReport } from "./settlement.js";
 import { getTaxipressRoute, listActiveTaxipressRoutes, listTaxipressRoutes, taxipressReady } from "./service.js";
+import { SeatError, createSeatHold, releaseSeatHold, seatingReady, seatMap } from './seats.js';
 
 type Row = Record<string, unknown>;
 
@@ -31,7 +32,7 @@ taxipressRoutes.use("/admin/taxipress/*", requireAuth, requireRole("admin"));
 const ip = (c: Context) => c.req.header("cf-connecting-ip") ?? null;
 
 function fail(c: Context, e: unknown) {
-  if (e instanceof TaxipressError) return c.json({ error: e.code, message: e.message }, e.status);
+  if (e instanceof TaxipressError || e instanceof SeatError) return c.json({ error: e.code, message: e.message }, e.status);
   throw e;
 }
 
@@ -90,6 +91,8 @@ async function customerConfig(c: Context) {
     openTicketsEnabled: settings.openTicketsEnabled && (await openTicketColumnsReady()),
     cashEnabled: settings.cashEnabled,
     seatChoiceFeeUgx: settings.seatChoiceFeeUgx,
+    numberedSeatsEnabled: settings.numberedSeatsEnabled && await seatingReady(),
+    seatHoldSeconds: settings.seatHoldSeconds,
     returnDiscountPercent: settings.returnDiscountPercent,
     maxSeatsPerBooking: settings.maxSeatsPerBooking,
     payWithinMinutes: settings.payWithinMinutes,
@@ -99,6 +102,38 @@ async function customerConfig(c: Context) {
 }
 taxipressRoutes.get("/taxipress/config", customerConfig);
 publicTaxipressRoutes.get("/taxipress-public/config", customerConfig);
+
+async function visibleSeatQueue(c: Context) {
+  const settings = await getTaxipressSettings();
+  if (!settings.enabled) return null;
+  const row = (await db.execute({ sql: 'SELECT taxipress_route_id,driver_id FROM taxipress_queue WHERE id = ?',args: [c.req.param('queueId') ?? ''] })).rows[0] as Row | undefined;
+  if (!row || !(await listActiveTaxipressRoutes()).some(r => r.id === String(row.taxipress_route_id))) return null;
+  return row;
+}
+publicTaxipressRoutes.get('/taxipress-public/queue/:queueId/seats',async c => {
+  c.header('Cache-Control','no-store');
+  if (!(await seatingReady()) || !(await visibleSeatQueue(c))) return c.json({ enabled: false, seats: [], hold: null });
+  return c.json(await seatMap(c.req.param('queueId')));
+});
+taxipressRoutes.get('/taxipress/queue/:queueId/seats',async c => {
+  c.header('Cache-Control','no-store');
+  if (!(await seatingReady()) || !(await visibleSeatQueue(c))) return c.json({ enabled: false, seats: [], hold: null });
+  return c.json(await seatMap(c.req.param('queueId'),c.get('user').sub));
+});
+taxipressRoutes.post('/taxipress/queue/:queueId/seat-holds',requireRole('customer'),async c => {
+  const parsed = z.object({ seats: z.array(z.string().regex(/^[1-5][A-D]$/)).min(1).max(18) }).safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: 'invalid_seats',message: 'Choose passenger seats from this taxi.' },400);
+  const queue = await visibleSeatQueue(c), who = c.get('user').sub;
+  if (!queue || queue.driver_id === who) return c.json({ error: 'not_available',message: 'Choose an available departure.' },409);
+  const line = await decorateLine(String(queue.taxipress_route_id),await lineOf(String(queue.taxipress_route_id)),await getTaxipressSettings());
+  if (!line.some(e => e.id === c.req.param('queueId') && e.bookable)) return c.json({ error: 'not_bookable',message: 'This departure is no longer accepting bookings.' },409);
+  try { return c.json({ hold: await createSeatHold(c.req.param('queueId')!,who,parsed.data.seats.length,parsed.data.seats) },201); }
+  catch (e) { return fail(c,e); }
+});
+taxipressRoutes.delete('/taxipress/seat-holds/:holdId',async c => {
+  await releaseSeatHold(c.req.param('holdId'),c.get('user').sub);
+  return c.json({ ok: true });
+});
 
 // ---------------------------------------------------------------------------
 // The line: what drivers do, and what passengers see
@@ -237,6 +272,7 @@ taxipressRoutes.post("/taxipress/driver/location", async (c) => {
 
 const phone = z.string().trim().min(7).max(20).regex(/^[+0-9 ()-]+$/);
 const bookSchema = z.object({
+  seatHoldId: z.string().min(1).max(100).optional(),
   queueId: z.string().min(1),
   seats: z.number().int().min(1).max(30).optional(),
   /** Optional since v5: cash is chosen on the checkout screen. */
@@ -328,6 +364,8 @@ const settingsSchema = patchSchema(z.object({
   maxOwedUgx: z.number().int().min(0).max(100_000_000),
   cashEnabled: z.boolean(),
   seatChoiceFeeUgx: z.number().int().min(0).max(100_000),
+  numberedSeatsEnabled: z.boolean(),
+  seatHoldSeconds: z.number().int().min(30).max(900),
   returnDiscountPercent: z.number().min(0).max(100),
   maxSeatsPerBooking: z.number().int().min(1).max(30),
   parcelAcceptRule: z.enum(["boarding_now", "any_in_line"]),
@@ -447,6 +485,7 @@ taxipressRoutes.patch("/admin/taxipress/routes/:id", requirePermission("settings
 taxipressRoutes.get("/admin/taxipress/taxis", requirePermission("riders.view"), async (c) => c.json({ taxis: await listTaxis() }));
 
 const taxiPatch = patchSchema(z.object({
+  numberedSeatsEnabled: z.boolean(),
   status: z.enum(["pending", "approved", "suspended"]),
   passengersEnabled: z.boolean(),
   parcelsEnabled: z.boolean(),

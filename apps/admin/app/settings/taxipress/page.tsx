@@ -73,6 +73,7 @@ function SettingsTab() {
       commissionDigitalPercent: String(next.commissionDigitalPercent), commissionCashPercent: String(next.commissionCashPercent),
       commissionFlatUgx: String(next.commissionFlatUgx), maxOwedUgx: String(next.maxOwedUgx),
       returnDiscountPercent: String(next.returnDiscountPercent), maxSeatsPerBooking: String(next.maxSeatsPerBooking),
+      seatChoiceFeeUgx: String(next.seatChoiceFeeUgx), seatHoldSeconds: String(next.seatHoldSeconds),
       maxParcels14: String(next.maxParcels14), maxParcels18: String(next.maxParcels18),
       waitMinutes: String(next.waitMinutes), stageRadiusM: String(next.stageRadiusM),
       payWithinMinutes: String(next.payWithinMinutes), maxCashBookings: String(next.maxCashBookings),
@@ -117,6 +118,7 @@ function SettingsTab() {
         commissionType: s.commissionType, commissionDigitalPercent: n("commissionDigitalPercent"), commissionCashPercent: n("commissionCashPercent"),
         commissionFlatUgx: n("commissionFlatUgx"), blockWhenOwing: s.blockWhenOwing, maxOwedUgx: n("maxOwedUgx"), cashEnabled: s.cashEnabled,
         returnDiscountPercent: n("returnDiscountPercent"), maxSeatsPerBooking: n("maxSeatsPerBooking"),
+        numberedSeatsEnabled: s.numberedSeatsEnabled,seatHoldSeconds: n('seatHoldSeconds'),seatChoiceFeeUgx: n('seatChoiceFeeUgx'),
         parcelAcceptRule: s.parcelAcceptRule, maxParcels14: n("maxParcels14"), maxParcels18: n("maxParcels18"), parcelFitText: s.parcelFitText,
         waitMinutes: n("waitMinutes"), stageRadiusM: n("stageRadiusM"), payWithinMinutes: n("payWithinMinutes"), maxCashBookings: n("maxCashBookings"),
         freeCancelMinutes: n("freeCancelMinutes"), cancelRetentionPercent: n("cancelRetentionPercent"), feeTo: s.feeTo,
@@ -165,6 +167,12 @@ function SettingsTab() {
       </Fold>
 
       <Fold title="Seats and fares">
+        <label className="flex items-center gap-3 text-sm"><Switch checked={s.numberedSeatsEnabled} onChange={e => set('numberedSeatsEnabled',e.target.checked)} />Offer numbered seats on new departures</label>
+        <p className="text-xs text-ink-500">Requires migration 0168. Applies when an approved 14- or 18-seat taxi next joins the line. Confirm its physical layout matches the passenger diagram. Existing trips keep their current allocation.</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Seat selection hold (seconds)" hint="30–900 seconds. One active selection per customer; expiry releases the seats.">{field('seatHoldSeconds',true)}</Field>
+          <Field label="Fee per chosen seat (UGX)" hint="Automatic best-available allocation has no seat-choice fee.">{field('seatChoiceFeeUgx',true)}</Field>
+        </div>
         <p className="text-xs text-ink-500">The fare per seat is set on each route. Mid-route fares are a per-route switch.</p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Most seats in one booking">{field("maxSeatsPerBooking", true)}</Field>
@@ -476,6 +484,8 @@ function TaxisTab() {
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="text-sm font-bold text-ink">{t.plate} · {t.seats} seats</p>
+              <label className="mt-2 flex items-center gap-2 text-sm"><Switch checked={!!t.numberedSeatsEnabled} disabled={busy === t.id} onChange={e => void update(t,{ numberedSeatsEnabled: e.target.checked })} />Numbered layout checked: {t.seatLayout}-seat diagram</label>
+              <p className="text-xs text-ink-500">Enable only after checking the taxi against the passenger diagram. Takes effect on its next departure.</p>
               <p className="text-xs text-ink-500">{t.driverName ?? "Driver"}{t.driverPhone ? ` · ${t.driverPhone}` : ""} · {t.routeName ?? "Route"}</p>
             </div>
             <Badge tone={t.status === "approved" ? "good" : t.status === "pending" ? "warn" : "bad"}>{t.status}</Badge>

@@ -292,6 +292,7 @@ function Board({ view, onChange }: { view: TaxipressDriverView; onChange: () => 
               <li key={b.id} className="flex items-center justify-between gap-3 rounded-xl bg-[rgb(var(--surface-muted))] px-3 py-2">
                 <span className="min-w-0">
                   <span className="block truncate text-lg font-bold text-ink">{b.travellerName ?? b.passengerName ?? "Passenger"} · {b.seats} seat{b.seats === 1 ? "" : "s"}</span>
+                  {!!b.seatNumbers?.length && <span className="block text-sm font-bold text-ink">Seats: {b.seatNumbers.join(', ')}</span>}
                   {(b.children ?? 0) + (b.bags ?? 0) > 0 && (
                     <span className="block truncate text-sm text-ink-500">{b.adults ?? b.seats} adult{(b.adults ?? b.seats) === 1 ? "" : "s"}{b.children ? `, ${b.children} child${b.children === 1 ? "" : "ren"}` : ""}{b.bags ? ` · ${b.bags} bag${b.bags === 1 ? "" : "s"}` : ""}</span>
                   )}

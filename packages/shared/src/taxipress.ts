@@ -13,6 +13,8 @@ export type TaxipressSettings = {
   maxOwedUgx: number;
   cashEnabled: boolean;
   seatChoiceFeeUgx: number;
+  numberedSeatsEnabled: boolean;
+  seatHoldSeconds: number;
   returnDiscountPercent: number;
   maxSeatsPerBooking: number;
   parcelAcceptRule: "boarding_now" | "any_in_line";
@@ -90,6 +92,8 @@ export const TAXIPRESS_DEFAULT_LANGUAGES: Array<{ code: string; name: string }> 
 
 /** What the customer app needs to decide whether to show Taxipress, and what to say. */
 export type TaxipressConfig = {
+  numberedSeatsEnabled?: boolean;
+  seatHoldSeconds?: number;
   /** True only when staff switched it on and at least one route is running. */
   enabled: boolean;
   routes: Array<{
@@ -151,6 +155,7 @@ export type TaxipressRelayRoute = { id: string; name: string; stageAName: string
 
 /** A taxi (matatu, minibus) approved to run on a route. One approval, two switches. */
 export type TaxipressTaxi = {
+  numberedSeatsEnabled?: boolean;
   id: string;
   userId: string;
   relayRouteId: string;
@@ -280,6 +285,8 @@ export type TaxipressOutcome = {
 };
 
 export type TaxipressBooking = {
+  seatNumbers?: string[];
+  seatChoiceFee?: number;
   id: string;
   /** The order behind the booking: payment, chat, calls and tracking use it. */
   orderId: string;
@@ -313,6 +320,7 @@ export type TaxipressBooking = {
 
 /** A passenger on a driver's taxi. */
 export type TaxipressManifestPassenger = {
+  seatNumbers?: string[];
   id: string;
   passengerName: string | null;
   passengerPhone: string | null;
@@ -332,6 +340,16 @@ export type TaxipressQueueView = {
   line: TaxipressLineEntry[];
   onRoad: TaxipressLineEntry[];
   route: { id: string; fromName: string; toName: string; directionLabel: string; farePerSeat: number } | null;
+};
+
+export type TaxipressSeatMap = {
+  enabled: boolean;
+  queueId?: string;
+  layout?: '14' | '18';
+  seats: Array<{ id: string; status: 'available' | 'held' | 'mine' | 'occupied' }>;
+  feePerSeat?: number;
+  holdSeconds?: number;
+  hold: { id: string; seats: string[]; expiresAt: string; fee: number } | null;
 };
 
 /** What happened when a driver confirmed a passenger's ticket at boarding. */
@@ -375,6 +393,7 @@ export function taxipressTown(stageName: string): string {
 
 /** What a ticket code shows to anyone who has it: the trip and the seat, never who paid or how to reach anyone. */
 export type PublicTaxipressTicket = {
+  seatNumbers?: string[];
   code: string;
   status: TaxipressBookingStatus;
   paymentStatus: TaxipressPaymentStatus;

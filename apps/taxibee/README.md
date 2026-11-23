@@ -85,8 +85,14 @@ display-name updates. Prices, availability and eligibility come from Peebee.
 Provider approval is required for real mobile-money settlement; no client
 button can simulate it.
 
+Numbered selection uses real departure inventory after migration 0168 and
+staff approval of each taxi's layout. Holds, expiry, fees and payment deadlines
+are server-controlled. Existing departures keep their allocation; older clients
+get automatic numbers without a seat-choice fee. See the rollout instructions
+in `docs/TAXIBEE-FUNCTIONALITY.md` before enabling it.
+
 Some source mockup behaviours have no equivalent in the current TaxiPress
-API: numbered-seat allocation, bundled return packages, corporate/voucher
+API: bundled return packages, corporate/voucher
 mock payments, synthetic traffic tracking, and its separate parcel/charter
 simulators. They remain in the labelled design preview. The live interface
 does not fabricate them; services outside this integration direct customers

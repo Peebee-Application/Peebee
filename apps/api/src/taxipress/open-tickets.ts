@@ -1,9 +1,10 @@
-import { db } from "../db/client.js";
+import { db, executeBatch } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { hasColumn } from "../lib/schema.js";
 import { notifyUser } from "../lib/webpush.js";
 import { getTaxipressSettings } from "./settings.js";
 import { TaxipressError, type LineEntry } from "./queue.js";
+import { cleanupSeatHolds } from './seats.js';
 
 type Row = Record<string, unknown>;
 
@@ -34,6 +35,7 @@ export async function markOpenTicket(bookingId: string): Promise<void> {
  * Returns false when the ticket is not an open ticket (the caller then reports the wrong taxi).
  */
 export async function moveOpenTicketOnto(booking: Row, entry: LineEntry & { taxipressRouteId: string }, driverId: string): Promise<boolean> {
+  await cleanupSeatHolds();
   if (!(await openTicketColumnsReady())) return false;
   const info = await openTicketOf(String(booking.id));
   if (!info) return false;
@@ -43,17 +45,16 @@ export async function moveOpenTicketOnto(booking: Row, entry: LineEntry & { taxi
   if (info.expired) throw new TaxipressError(409, "ticket_expired", "This open ticket has expired.");
   const seats = Number(booking.seats);
   const oldQueue = String(booking.queue_id);
-  const reserved = await db.execute({
+  const result = await executeBatch([{
     sql: `UPDATE taxipress_queue SET seats_booked = seats_booked + ?, updated_at = datetime('now')
           WHERE id = ? AND status IN ('in_line', 'boarding') AND seats_booked + walk_up_seats + ? <= seats_total`,
     args: [seats, entry.id, seats],
-  });
-  if (reserved.rowsAffected === 0) throw new TaxipressError(409, "no_room", "This taxi has no room for the seats on this open ticket.");
-  const moved = await db.execute({
-    sql: "UPDATE taxipress_bookings SET queue_id = ?, driver_id = ?, updated_at = datetime('now') WHERE id = ? AND status = 'booked' AND queue_id = ?",
+  },{
+    sql: "UPDATE taxipress_bookings SET queue_id = ?, driver_id = ?, updated_at = datetime('now') WHERE id = ? AND status = 'booked' AND queue_id = ? AND changes() = 1",
     args: [entry.id, driverId, String(booking.id), oldQueue],
-  });
-  if (moved.rowsAffected === 0) {
+  }]).catch(() => { throw new TaxipressError(409,'no_room','This taxi cannot accommodate the seats on this open ticket.'); });
+  if (result[0] === 0) throw new TaxipressError(409, "no_room", "This taxi has no room for the seats on this open ticket.");
+  if (result[1] === 0) {
     await db.execute({ sql: "UPDATE taxipress_queue SET seats_booked = MAX(0, seats_booked - ?) WHERE id = ?", args: [seats, entry.id] });
     throw new TaxipressError(409, "not_valid", "This ticket was already dealt with.");
   }
