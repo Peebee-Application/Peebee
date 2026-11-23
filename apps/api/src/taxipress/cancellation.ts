@@ -9,6 +9,7 @@ import { cancelTermsFor, collectedFor, feeOf, minutesSince, type CancelTerms } f
 import { activeEntry, lineOf, TaxipressError } from "./queue.js";
 import { getTaxipressSettings } from "./settings.js";
 import { cleanupSeatHolds } from './seats.js';
+import {returnsReady, ReturnError} from './returns.js';
 
 type Row = Record<string, unknown>;
 
@@ -39,11 +40,27 @@ async function endBooking(
   const settings = await getTaxipressSettings();
   const bookingId = String(row.id);
   const orderId = String(row.order_id);
-  const claimed = await db.execute({
+  const claim = {
     sql: "UPDATE taxipress_bookings SET status = ?, updated_at = datetime('now') WHERE id = ? AND status = 'booked' AND queue_id = ?",
     args: [kind === "no_show" ? "no_show" : "cancelled", bookingId,String(row.queue_id)],
-  });
-  if (claimed.rowsAffected === 0) throw new TaxipressError(409, "not_cancellable", "This booking has already been dealt with.");
+  };
+  // Claim the outbound and refund its unused return in one transaction. A boarding
+  // race must not refund a return when the outbound cancellation lost its claim.
+  let claimed: number;
+  if (await returnsReady()) {
+    try {
+      const changes = await executeBatch([claim, {
+        sql: `UPDATE taxipress_return_packages SET return_state = 'cancelled',
+          refund_percent = CASE WHEN ? = 'taxi_removed' THEN 100 ELSE refund_percent END
+          WHERE outbound_booking_id = ? AND state = 'ready' AND return_state = 'pending' AND changes() = 1`,
+        args: [kind, bookingId],
+      }]);
+      claimed = changes[0];
+    } catch {
+      throw new ReturnError(409, 'payment_pending', 'The package payment is still pending. Refresh its status before cancelling.');
+    }
+  } else claimed = (await db.execute(claim)).rowsAffected;
+  if (claimed === 0) throw new TaxipressError(409, "not_cancellable", "This booking has already been dealt with.");
 
   const method = row.payment_method === "cash" ? "cash" : "app";
   const collected = method === "app" ? await collectedFor(orderId) : 0;

@@ -16,6 +16,9 @@ export type TaxipressSettings = {
   numberedSeatsEnabled: boolean;
   seatHoldSeconds: number;
   returnDiscountPercent: number;
+  returnPackagesEnabled:boolean;
+  returnValidityDays:number;
+  returnRefundPercent:number;
   maxSeatsPerBooking: number;
   parcelAcceptRule: "boarding_now" | "any_in_line";
   /** Most parcels one taxi takes per trip, by seat count. 0 means none until staff set it. */
@@ -92,6 +95,9 @@ export const TAXIPRESS_DEFAULT_LANGUAGES: Array<{ code: string; name: string }> 
 
 /** What the customer app needs to decide whether to show Taxipress, and what to say. */
 export type TaxipressConfig = {
+  returnPackagesEnabled?:boolean;
+  returnValidityDays?:number;
+  returnRefundPercent?:number;
   numberedSeatsEnabled?: boolean;
   seatHoldSeconds?: number;
   /** True only when staff switched it on and at least one route is running. */
@@ -286,6 +292,7 @@ export type TaxipressOutcome = {
 };
 
 export type TaxipressBooking = {
+  returnPackage?:{id:string;leg:'outbound'|'return'}|null;
   seatNumbers?: string[];
   seatChoiceFee?: number;
   id: string;
@@ -317,6 +324,15 @@ export type TaxipressBooking = {
   sentBy?: string | null;
   route: { id: string; fromName: string; toName: string; directionLabel: string };
   taxi: { queueId: string; plate: string; seatLayout: "14" | "18"; driverName: string | null; driverPhone: string | null; status: string; position: number | null; seatsLeft: number };
+};
+
+export type TaxipressReturnPackage = {
+  payment?:{id:string;status:string}|null;
+  id:string;state:string;returnState:string;mode:string;returnDate:string|null;validUntil:string;quoteUntil:string;
+  outboundAmount:number;returnAmount:number;total:number;discountPercent:number;refundPercent:number;refunded:number;
+  outboundPaid:number;returnPaid:number;outboundBookingId:string|null;returnBookingId:string|null;orderId:string|null;
+  returnRouteId:string;returnRoute:{fromName:string;toName:string}|null;
+  checkout:{wallet:number;mobileMoney:number;baseAmount:number}|null;wallet?:number;mobileMoney?:number;
 };
 
 /** A passenger on a driver's taxi. */

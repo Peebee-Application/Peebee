@@ -73,6 +73,7 @@ function SettingsTab() {
       commissionDigitalPercent: String(next.commissionDigitalPercent), commissionCashPercent: String(next.commissionCashPercent),
       commissionFlatUgx: String(next.commissionFlatUgx), maxOwedUgx: String(next.maxOwedUgx),
       returnDiscountPercent: String(next.returnDiscountPercent), maxSeatsPerBooking: String(next.maxSeatsPerBooking),
+      returnValidityDays:String(next.returnValidityDays),returnRefundPercent:String(next.returnRefundPercent),
       seatChoiceFeeUgx: String(next.seatChoiceFeeUgx), seatHoldSeconds: String(next.seatHoldSeconds),
       maxParcels14: String(next.maxParcels14), maxParcels18: String(next.maxParcels18),
       waitMinutes: String(next.waitMinutes), stageRadiusM: String(next.stageRadiusM),
@@ -118,6 +119,7 @@ function SettingsTab() {
         commissionType: s.commissionType, commissionDigitalPercent: n("commissionDigitalPercent"), commissionCashPercent: n("commissionCashPercent"),
         commissionFlatUgx: n("commissionFlatUgx"), blockWhenOwing: s.blockWhenOwing, maxOwedUgx: n("maxOwedUgx"), cashEnabled: s.cashEnabled,
         returnDiscountPercent: n("returnDiscountPercent"), maxSeatsPerBooking: n("maxSeatsPerBooking"),
+        returnPackagesEnabled:s.returnPackagesEnabled,returnValidityDays:n('returnValidityDays'),returnRefundPercent:n('returnRefundPercent'),
         numberedSeatsEnabled: s.numberedSeatsEnabled,seatHoldSeconds: n('seatHoldSeconds'),seatChoiceFeeUgx: n('seatChoiceFeeUgx'),
         parcelAcceptRule: s.parcelAcceptRule, maxParcels14: n("maxParcels14"), maxParcels18: n("maxParcels18"), parcelFitText: s.parcelFitText,
         waitMinutes: n("waitMinutes"), stageRadiusM: n("stageRadiusM"), payWithinMinutes: n("payWithinMinutes"), maxCashBookings: n("maxCashBookings"),
@@ -167,6 +169,9 @@ function SettingsTab() {
       </Fold>
 
       <Fold title="Seats and fares">
+        <label className="flex items-center gap-3 text-sm"><Switch checked={s.returnPackagesEnabled} onChange={e=>set('returnPackagesEnabled',e.target.checked)}/>Sell prepaid return packages</label>
+        <p className="text-xs text-ink-500">Requires migration 0169 and both directions of a relay route. One payment funds both journeys; return capacity is reserved when redeemed after outbound boarding.</p>
+        <div className="grid gap-3 sm:grid-cols-2"><Field label="Return validity (days)">{field('returnValidityDays',true)}</Field><Field label="Unused return refund (%)" hint="Snapshot when purchased; applies to cancellation or expiry of the unused return allocation.">{field('returnRefundPercent',false)}</Field></div>
         <label className="flex items-center gap-3 text-sm"><Switch checked={s.numberedSeatsEnabled} onChange={e => set('numberedSeatsEnabled',e.target.checked)} />Offer numbered seats on new departures</label>
         <p className="text-xs text-ink-500">Requires migration 0168. Applies when an approved 14- or 18-seat taxi next joins the line. Confirm its physical layout matches the passenger diagram. Existing trips keep their current allocation.</p>
         <div className="grid gap-3 sm:grid-cols-2">

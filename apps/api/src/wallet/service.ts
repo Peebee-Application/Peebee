@@ -6,7 +6,7 @@
  * reconstruct it from.
  */
 
-import { db } from "../db/client.js";
+import { db,executeBatch,type DbStatement } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import type { CreditModule } from "@peebee/shared";
 import { creditPaidForOrder, grantCredit, payWithCreditAndCash } from "../offers/credit.js";
@@ -289,6 +289,7 @@ export async function payFromWalletWithCredit(input: {
  * or null if the balance did not cover the total (nothing is changed then).
  */
 export async function payBundleFromWallet(input: {
+  atomic?:boolean;
   userId: string;
   parts: Array<{ orderId: string; amount: number }>;
   environment: PlatformEnvironment;
@@ -298,6 +299,23 @@ export async function payBundleFromWallet(input: {
 }): Promise<string[] | null> {
   if (await walletIsFrozen(input.userId, input.walletId)) return null;
   const total = input.parts.reduce((sum, part) => sum + part.amount, 0);
+  if(input.atomic){
+    if(!input.parts.length||input.parts.some(p=>!Number.isSafeInteger(p.amount)||p.amount<=0))throw new Error('Invalid bundle payment amounts');
+    const column=input.walletId?(input.environment==='sandbox'?'balance_sandbox':'balance'):balanceColumn(input.environment);
+    const table=input.walletId?'wallets':'users',where=input.walletId?'id = ? AND owner_id = ?':'id = ?',who=input.walletId?[input.walletId,input.userId]:[input.userId];
+    const paymentIds=input.parts.map(()=>newId('pay')),ledgerIds=input.parts.map(()=>newId('wl'));
+    const statements:DbStatement[]=[{sql:`UPDATE ${table} SET ${column} = ${column} - ?,updated_at=datetime('now') WHERE ${where} AND ${column} >= ?`,args:[total,...who,total]}];
+    let through=0;
+    for(const [i,part]of input.parts.entries()){
+      through+=part.amount;
+      statements.push({sql:`INSERT INTO wallet_ledger(id,user_id,type,amount,balance_after,order_id,note,actor_id,environment,wallet_id)
+        SELECT ?,?,'order_payment',?,${column}+?,?,?, ?,?,? FROM ${table} WHERE ${where} AND ${i===0?'changes() = 1':'EXISTS (SELECT 1 FROM wallet_ledger WHERE id = ?)'} `,
+        args:[ledgerIds[i],input.userId,-part.amount,total-through,part.orderId,input.note??null,input.actorId??null,input.environment,input.walletId??null,...who,...(i===0?[]:[ledgerIds[0]])]});
+      statements.push({sql:"INSERT INTO payments(id,order_id,type,provider,amount,currency,status) SELECT ?,?,'collection','wallet',?,'UGX','successful' WHERE EXISTS (SELECT 1 FROM wallet_ledger WHERE id = ?)",args:[paymentIds[i],part.orderId,part.amount,ledgerIds[0]]});
+    }
+    const changed=await executeBatch(statements);
+    return changed[0]?paymentIds:null;
+  }
   const balanceAfter = await applyDebit(input.userId, total, input.environment, input.walletId);
   if (balanceAfter === null) return null;
   let running = balanceAfter + total;

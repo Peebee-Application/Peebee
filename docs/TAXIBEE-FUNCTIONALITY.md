@@ -25,6 +25,7 @@ enabled it, a provider is configured, or a real production payment was tested.
 | Numbered seats and holds | New departures with a staff-verified 14/18-seat layout use real numbered inventory. Atomic account-owned holds expire, one selection per customer; driver/walk-up seats and other tickets cannot be selected. Best available assigns real numbers without a choice fee. Chosen numbers/fees appear on tickets, downloads and the driver manifest. Reassignment preserves chosen numbers or refunds the whole booking when none can honour them; open tickets use automatic allocation. |
 | Luggage | Only offered types appear. Prices and disabled state follow admin config. Items assessed at the stage have no invented up-front price. |
 | Open tickets | Existing open-ticket option, exposed only when enabled and the shared API is ready. This is not a discounted return package. |
+| Bundled returns | Server-issued quote and linked outbound/return allocations; one wallet debit or provider collection. Open, same-day and date-specific conditions use Kampala dates. Paid returns are redeemed on the reverse route after outbound boarding against real capacity, without another charge. Date changes stay within original validity; unused-return cancellation/expiry refunds its own allocation under the snapshotted admin policy. |
 | Offers | Account-eligible offers come from Peebee; entered codes go to server-side payment eligibility/pricing. No client-side discount or fake corporate credit. |
 | Tickets | Server codes, printable downloadable ticket, public code-status page, ticket sending, shared-account persistence, receipt link and cancellation. Downloads record their time; current server status determines boarding. |
 | Driver | Real public profile fields, booking-assigned phone link and persisted order chat. Missing data is omitted; demo identities and ratings are not substituted. |
@@ -71,31 +72,71 @@ partner ticket/manifest surfaces, then Taxibee. Existing service switches and
 routes remain under the operator's control. No production seats or payments
 are created merely to demonstrate this feature.
 
+### Bundled-return rollout
+
+Apply **`0169_taxipress_return_packages.sql`** explicitly on reviewed clean main,
+after 0168. It adds the entitlement table, booking references and transactional
+link/refund constraints; deployment does not apply migrations. Older bookings and
+the ordinary booking/payment paths remain usable before it lands.
+
+In Admin → Taxipress, configure **Prepaid return packages**, the existing fare
+discount, validity days and unused-return refund percentage. The new sales switch
+defaults off. Both directions of the same enabled Relay route need active
+TaxiPress fares. No service, route or driver is activated by this migration.
+Turning off new sales does not remove customers' existing paid entitlements.
+
+Discounts apply to each direction's real passenger fare; luggage is charged for
+both journeys and any selected-seat fee applies only outbound. The confirmation
+shows each allocation, payment-method total and refund conditions before consent.
+Pay using the customer's primary Peebee wallet or one mobile/card provider
+collection; Taxibee exposes wallet and mobile money. Cash, stacked offers, other
+wallets and open-ticket checkout are excluded from this prepaid product.
+The fare has a structural minimum of UGX 1 per leg for payment accounting.
+
+An unused return waits outside ride matching. After outbound boarding, customers
+choose a current taxi on the exact reverse direction. Return seats receive
+best-available numbers where enabled, with no extra seat-choice charge. This
+reserves current capacity, never a future taxi or calendar departure. Same-day
+and selected-date returns expire at the end of their Kampala travel day; open
+returns expire under admin validity. Date changes cannot extend the original
+deadline. Cancellation and expiry credit the unused return's net collection
+times the quoted refund percentage to the same customer's wallet/environment.
+Each boarded leg settles independently through existing TaxiPress accounting.
+Taxi removal that cannot reassign the outbound refunds the unused return in full.
+
+Creation replays the quote ID instead of making duplicate bookings; payment
+reservations prevent double charges. Wallet allocations/debit commit atomically;
+provider reconciliation resolves linked allocations together. Pending provider
+approval blocks cancellation. Interrupted redemption leases recover on cleanup;
+only the current lease can publish a return booking. Expiry runs through the
+existing TaxiPress cleanup and entitlement-list reads. No live transaction is
+created merely to demonstrate this rollout.
+
+Release order: explicit migration, API, Admin and Taxibee. Keep the shared
+database, operator settings and practice interface intact. Confirmed sandbox
+provider checks do not substitute for production merchant/provider approval.
+
 ## Remaining production parity work
 
 The following work is still required. Keep it out of live success paths until
 the server can enforce it, while leaving the practice flows available.
 
-1. **Return packages:** server quote and linked outbound/return entitlement,
-   configured discounts/expiry, route/direction validity, date changes,
-   redemption and partial cancellation/refund accounting. Two unrelated bookings
-   must not be advertised as an atomic prepaid return package.
-2. **Parcels:** map the existing relay service's routes, eligible taxis, quotes,
+1. **Parcels:** map the existing relay service's routes, eligible taxis, quotes,
    recipient/collection proof, photos, handover codes, payments and tracking to
    the parcel screens. Add any missing shared API/admin capabilities; never
    synthesize a receipt or collection PIN on the client.
-3. **Charter:** map the existing car service's real inventory, availability,
+2. **Charter:** map the existing car service's real inventory, availability,
    quote, reservation, assignment and payment lifecycle to the special-hire
    screens. Hourly/day packages and preferred-driver commitments need server
    support and admin-controlled rules.
-4. **Corporate and voucher parity:** shared offers are connected, but the
+3. **Corporate and voucher parity:** shared offers are connected, but the
    prototype's corporate account/credit and voucher settlement models are not.
    They need real account authorization, limits, eligibility and accounting.
-5. **Remaining account capabilities:** production Google origin/provider verification,
+4. **Remaining account capabilities:** production Google origin/provider verification,
    profile photos and verified contact changes, wallet PIN/auto-pay policies,
    browser push/preference integration, session/security history, and verified
    support/safety contacts. About links to Peebee's published legal/privacy pages.
-6. **Remaining journey tools:** real scheduled dates/calendar export, saved
+5. **Remaining journey tools:** real scheduled dates/calendar export, saved
    departure persistence, configurable search filters, chat media and in-app
    call controls, formal lost-property/support-case workflows and attachments.
    A saved address is not a new TaxiPress stop or an arbitrary pickup promise.

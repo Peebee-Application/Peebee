@@ -155,6 +155,8 @@ export async function fundBundle(input: {
   body: BundleFundBody;
   /** A relay bag paid before any rider: the pickups have no rider yet and wait in Match once paid. */
   payFirst?: boolean;
+  /** Trusted TaxiPress group: the return allocation has no assigned driver yet. */
+  taxipressReturn?: boolean;
   deps: Deps;
 }): Promise<Response> {
   const { c, user, group, body, deps } = input;
@@ -175,12 +177,12 @@ export async function fundBundle(input: {
 
   // Reserve every pickup in one transaction (stage + token) so a double tap or a
   // concurrent cancel can't leave half of the delivery paid.
-  const holdWhere = payFirst ? "stage IN ('Create', 'Match') AND rider_id IS NULL" : "stage = 'Match' AND rider_id = ?";
+  const holdWhere = input.taxipressReturn ? 'stage = ? AND rider_id IS ?' : payFirst ? "stage IN ('Create', 'Match') AND rider_id IS NULL" : "stage = 'Match' AND rider_id = ?";
   const reserveSql = (stage: string, rail: string) => `UPDATE orders SET payment_rail = '${rail}', stage = '${stage}', time_action_token = ?, updated_at = datetime('now')
     WHERE id = ? AND ${holdWhere} AND COALESCE(final_total, estimated_total, 0) = ?
     AND NOT EXISTS (SELECT 1 FROM payments WHERE order_id = ? AND status IN ('pending', 'unknown', 'successful'))`;
   const reserveArgs = (part: Part): DbStatement["args"] =>
-    payFirst ? [token, String(part.order.id), part.base, String(part.order.id)] : [token, String(part.order.id), riderId, part.base, String(part.order.id)];
+    input.taxipressReturn ? [token,String(part.order.id),String(part.order.stage),part.order.rider_id ?? null,part.base,String(part.order.id)] : payFirst ? [token, String(part.order.id), part.base, String(part.order.id)] : [token, String(part.order.id), riderId, part.base, String(part.order.id)];
   const reserve = async (stage: string, rail: string) => {
     const changes = await executeBatch(parts.map((part) => ({
       sql: reserveSql(stage, rail),
@@ -238,14 +240,21 @@ export async function fundBundle(input: {
       return c.json({ error: "account_frozen", message: "This account is frozen. Unfreeze it to pay. Money can still come in." }, 409);
     }
     if (!(await reserve("Fund", "escrow"))) return changed();
-    const paymentIds = await payBundleFromWallet({
+    let paymentIds: string[] | null;
+    try { paymentIds = await payBundleFromWallet({
+      atomic:input.taxipressReturn,
       userId: walletOwnerId,
       parts: parts.map((part) => ({ orderId: String(part.order.id), amount: part.wallet })),
       environment,
-      note: `Combined delivery ${leadId}`,
+      note: `${input.taxipressReturn ? 'Return package' : 'Combined delivery'} ${leadId}`,
       actorId: sharedSpend ? user.sub : undefined,
       walletId,
-    });
+    }); } catch (error) {
+      if (!input.taxipressReturn) throw error;
+      // This payment branch is atomic: a failed insert has debited neither leg.
+      await executeBatch(unholdStatements(parts));
+      return c.json({ error: 'payment_unavailable', message: 'No wallet payment was taken. Please retry.' }, 503);
+    }
     if (!paymentIds) {
       await executeBatch(unholdStatements(parts));
       return c.json({ error: "insufficient_wallet_balance" }, 409);

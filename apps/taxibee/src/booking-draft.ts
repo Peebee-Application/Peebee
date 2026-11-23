@@ -23,6 +23,7 @@ export function captureDraft(state: Record<string, any>, owner: string | null): 
       assistance: text(state.assistance, 80), language: text(state.language, 80), paymentMethod: ['wallet', 'cash', 'mobile'].includes(state.paymentMethod) ? state.paymentMethod : 'wallet',
       isBookingForSomeoneElse: state.isBookingForSomeoneElse === true, otherTravelerName: text(state.otherTravelerName, 80), otherTravelerPhone: text(state.otherTravelerPhone, 20), emergencyContact: text(state.emergencyContact, 20),
       capacityMode: state.capacityMode === 'seats' ? 'seats' : 'capacity', ticketType: state.ticketType === 'return' ? 'return' : 'oneway',
+      returnMode:['open','same-day','date-specific'].includes(state.returnMode)?state.returnMode:'open',returnDate:text(state.returnDate,10),
       selectedSeats: Array.isArray(state.selectedSeats) ? [...new Set<string>(state.selectedSeats.filter((s: unknown): s is string => typeof s === 'string' && /^[1-5][A-D]$/.test(s)))].slice(0,18) : [],
       taxibeeOpenTicket: state.taxibeeOpenTicket === true, taxibeeOfferCode: text(state.taxibeeOfferCode, 30),
     },
