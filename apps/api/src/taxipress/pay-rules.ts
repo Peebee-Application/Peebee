@@ -1,6 +1,7 @@
 import { db } from "../db/client.js";
 import { hasTable } from "../lib/schema.js";
 import { getTaxipressSettings } from "./settings.js";
+import { openTicketOf } from "./open-tickets.js";
 
 type Row = Record<string, unknown>;
 
@@ -22,6 +23,7 @@ export async function taxipressPayRules(orderId: string, customerId: string): Pr
   const found = await db.execute({ sql: "SELECT id, payment_method FROM taxipress_bookings WHERE order_id = ? LIMIT 1", args: [orderId] });
   const booking = found.rows[0] as Row | undefined;
   if (!booking) return null;
+  if (await openTicketOf(String(booking.id))) return { bookingId: String(booking.id), cashAllowed: false, cashReason: "An open ticket must be paid in the app." };
   // Booked as cash on the TaxiPress screen: that booking already passed the cash checks.
   if (booking.payment_method === "cash") return { bookingId: String(booking.id), cashAllowed: true, cashReason: null };
   const settings = await getTaxipressSettings();

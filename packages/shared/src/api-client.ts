@@ -486,6 +486,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
         body: JSON.stringify({ idToken, role }),
       });
     },
+    async getAuthConfig() {
+      return request<{ googleClientId: string | null }>("/v1/auth/config");
+    },
     async me() {
       return request<{ user: AuthUser }>("/v1/auth/me");
     },
@@ -812,6 +815,16 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async getTaxipressConfig() {
       return request<TaxipressConfig>("/v1/taxipress/config");
     },
+    async getPublicTaxipressConfig() {
+      return request<TaxipressConfig>("/v1/taxipress-public/config");
+    },
+    async getPublicTaxipressQueue(routeId: string) {
+      type Entry = Pick<TaxipressLineEntry, 'id' | 'plate' | 'seatLayout' | 'status' | 'position' | 'seatsLeft' | 'driverName' | 'bookable' | 'departsAt'>;
+      return request<{ line: Entry[]; onRoad: Entry[]; route: TaxipressQueueView['route'] }>(`/v1/taxipress-public/routes/${encodeURIComponent(routeId)}/queue`);
+    },
+    async getPublicTaxipressTaxiProfile(queueId: string) {
+      return request<{ profile: TaxipressTaxiProfile }>(`/v1/taxipress-public/taxis/${encodeURIComponent(queueId)}/profile`);
+    },
     async adminGetTaxipressSettings() {
       return request<{ settings: TaxipressSettings; ready: boolean }>("/v1/admin/taxipress/settings");
     },
@@ -865,7 +878,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       return request<TaxipressQueueView>(`/v1/taxipress/routes/${encodeURIComponent(routeId)}/queue`);
     },
     /** Book seats on a taxi in the line. Pay next on the order's pay screen, or hand cash to the driver. */
-    async bookTaxipressSeats(input: { queueId: string; seats?: number; payment?: "app" | "cash"; adults?: number; children?: number; luggage?: Partial<Record<TaxipressLuggageType, number>>; assistance?: TaxipressAssistance | null; language?: TaxipressLanguage | null; forSomeoneElse?: boolean; travellerName?: string | null; travellerPhone?: string | null; emergencyPhone?: string | null; openTicket?: boolean }) {
+    async bookTaxipressSeats(input: { queueId: string; seats?: number; payment?: "app" | "cash"; adults?: number; children?: number; childSeats?: number; luggage?: Partial<Record<TaxipressLuggageType, number>>; assistance?: TaxipressAssistance | null; language?: TaxipressLanguage | null; forSomeoneElse?: boolean; travellerName?: string | null; travellerPhone?: string | null; emergencyPhone?: string | null; openTicket?: boolean }) {
       return request<{ booking: TaxipressBooking; order: { id: string } }>("/v1/taxipress/bookings", { method: "POST", body: JSON.stringify(input) });
     },
     async getTaxipressTaxiProfile(queueId: string) {
@@ -880,6 +893,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     },
     async getTaxipressBooking(id: string) {
       return request<{ booking: TaxipressBooking }>(`/v1/taxipress/bookings/${encodeURIComponent(id)}`);
+    },
+    async getTaxipressTracking(id: string) {
+      return request<import("./taxipress.js").TaxipressTracking>(`/v1/taxipress/bookings/${encodeURIComponent(id)}/tracking`);
     },
     /** Public: the details behind a ticket code, for a traveller who is not signed in. */
     async getTaxipressTicketByCode(code: string) {

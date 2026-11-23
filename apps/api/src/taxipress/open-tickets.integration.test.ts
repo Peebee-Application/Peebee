@@ -112,6 +112,7 @@ test("taxipress: an open ticket works on any taxi on the route", async () => {
     const bought = await json<Booked & { booking: { amount: number; openTicket: { validUntil: string | null } | null } }>(res);
     assert.equal(bought.booking.amount, 5000, "normal fare");
     assert.equal(bought.booking.openTicket?.validUntil, null, "never expires");
+    assert.equal((await call("a", `orders/${bought.order.id}/fund`, { paymentMethod: "cash" })).status, 409, "checkout cannot turn a prepaid open ticket into cash");
     await payWallet("a", bought);
 
     // Taxi 1 leaves without the passenger: an ordinary booking would be a no-show, an open ticket stays valid.

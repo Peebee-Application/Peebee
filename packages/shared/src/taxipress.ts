@@ -260,6 +260,13 @@ export type TaxipressDriverView = {
 export type TaxipressAdminQueueEntry = TaxipressLineEntry & { taxipressRouteId: string; driverPhone: string | null };
 
 export type TaxipressBookingStatus = "booked" | "boarded" | "no_show" | "cancelled" | "completed";
+/** Location is disclosed only to the booking's buyer or recipient, while their trip is active. */
+export type TaxipressTracking = {
+  enabled: boolean;
+  pollAfterSeconds: number;
+  booking: TaxipressBooking;
+  location: { lat: number; lng: number; updatedAt: string } | null;
+};
 /** unpaid: an app payment is still due. paid: collected in the app. pay_driver: cash, to be paid to the driver. */
 export type TaxipressPaymentStatus = "unpaid" | "paid" | "pay_driver" | "cancelled";
 

@@ -24,6 +24,8 @@ import { requireAuth } from "./middleware.js";
 import { activateGoogleAgent } from "../onboarding/access.js";
 
 export const authRoutes = new Hono();
+// OAuth client IDs are public configuration; signing keys and provider secrets are never exposed.
+authRoutes.get('/config', (c) => c.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || null }));
 
 /** Per-IP ceilings. Generous enough that a household or office sharing one
  * address never notices, low enough that scripted abuse stalls immediately. */

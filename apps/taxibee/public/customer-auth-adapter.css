@@ -1,0 +1,18 @@
+/* Customer app account components use its existing RGB tokens. Keep them scoped to login. */
+.taxibee-customer-auth {
+  --color-gold: 201 162 39; --color-gold-400: 224 185 61;
+  --color-ink: 10 10 10; --color-ink-500: 92 102 112; --color-ink-gold: 10 10 10;
+  --color-cream: 250 248 239; --color-cream-100: 241 238 228;
+  --color-danger: 217 45 32; --color-danger-ink: 155 28 18;
+  --surface-card: 255 255 255; --surface-muted: 242 242 242; --surface-input: 255 255 255;
+  --border-faint: rgba(10,10,10,.08);
+  display: block; padding: 0; overflow-y: auto; background: #faf8ef;
+}
+.taxibee-customer-auth .account-screen { width: min(100%, 520px); margin: 0 auto; }
+.taxibee-customer-auth .account-field { background: rgb(var(--surface-input)); }
+.taxibee-customer-auth .account-field input { background: transparent !important; box-shadow: none; border: 0; }
+.taxibee-customer-auth .account-body { padding-top: 0; }
+.taxibee-customer-auth .account-textlink { display: flex; justify-content: center; padding: 12px; }
+.taxibee-customer-auth .taxibee-google-native { min-height: 44px; display: flex; justify-content: center; }
+.taxibee-customer-auth #auth-notice:empty { display: none; }
+.taxibee-customer-auth input:focus { outline: none; }

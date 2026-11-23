@@ -8,10 +8,12 @@ import { signToken } from "../auth/jwt.js";
 import { setD1Binding, type D1Database } from "../db/client.js";
 import { splitSqlStatements } from "../db/split-sql.js";
 import { resetSchemaCache } from "../lib/schema.js";
+import { setSetting } from "../lib/settings.js";
+import { DEFAULT_RIDE_TRACKING_SETTINGS } from "@peebee/shared";
 import { orderRoutes } from "../orders/routes.js";
 import { relayRoutes } from "../relay/routes.js";
 import { releaseStaleBookings } from "./bookings.js";
-import { taxipressRoutes } from "./routes.js";
+import { publicTaxipressRoutes, taxipressRoutes } from "./routes.js";
 
 function bindDatabase(client: Client) {
   const prepare = (sql: string) => ({
@@ -56,7 +58,7 @@ test("taxipress: passengers book seats", async (t) => {
     }
     await client.execute("UPDATE users SET admin_role = 'super_admin' WHERE id = 'staff'");
 
-    const app = new Hono().route("/v1", orderRoutes).route("/v1", relayRoutes).route("/v1", taxipressRoutes);
+    const app = new Hono().route("/v1", publicTaxipressRoutes).route("/v1", orderRoutes).route("/v1", relayRoutes).route("/v1", taxipressRoutes);
     const tokens = Object.fromEntries(await Promise.all(people.map(async ([sub, role]) => [sub, await signToken({ sub, role } as never)] as const)));
     const call = (who: string, path: string, body?: object, method?: string) => app.request(`/v1/${path}`, {
       method: method ?? (body ? "POST" : "GET"),
@@ -85,6 +87,26 @@ test("taxipress: passengers book seats", async (t) => {
     assert.equal((await call("d2", "taxipress/driver/join", { routeId: route.id, ...KAMPALA })).status, 201);
     const line = await json<{ line: Array<{ id: string; plate: string }>; route: { farePerSeat: number; fromName: string } }>(await call("a", `taxipress/routes/${route.id}/queue`));
     const [van1, van2] = line.line;
+    await t.test('anyone may browse current routes and aggregate availability, but cannot book anonymously', async () => {
+      const configResponse = await app.request('/v1/taxipress-public/config');
+      assert.equal(configResponse.status, 200);
+      assert.equal((await json<{ enabled: boolean }>(configResponse)).enabled, true);
+      const response = await app.request(`/v1/taxipress-public/routes/${route.id}/queue`);
+      assert.equal(response.status, 200);
+      const available = await json<{ line: Record<string, unknown>[] }>(response);
+      assert.equal(available.line.length, 2);
+      assert.ok(available.line.some(v => v.id === van1.id));
+      for (const entry of available.line) {
+        for (const privateField of ['driverId', 'taxiId', 'last_lat', 'last_lng', 'lastLat', 'lastLng', 'driverPhone', 'bookings', 'ticketCode']) assert.equal(privateField in entry, false);
+      }
+      assert.equal((await app.request(`/v1/taxipress-public/taxis/${van1.id}/profile`)).status, 200);
+      await client.execute({ sql: 'UPDATE taxipress_routes SET active = 0 WHERE id = ?', args: [route.id] });
+      assert.deepEqual((await json<{ line: unknown[] }>(await app.request(`/v1/taxipress-public/routes/${route.id}/queue`))).line, []);
+      assert.equal((await app.request(`/v1/taxipress-public/taxis/${van1.id}/profile`)).status, 404);
+      await client.execute({ sql: 'UPDATE taxipress_routes SET active = 1 WHERE id = ?', args: [route.id] });
+      assert.equal((await app.request('/v1/taxipress/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ queueId: van1.id, adults: 1 }) })).status, 401);
+      assert.equal((await client.execute('SELECT COUNT(*) AS n FROM taxipress_bookings')).rows[0].n, 0);
+    });
     assert.equal(line.route.farePerSeat, 5000);
     const book = (who: string, queueId: string, seats: number, payment: "app" | "cash") => call(who, "taxipress/bookings", { queueId, seats, payment });
 
@@ -108,6 +130,31 @@ test("taxipress: passengers book seats", async (t) => {
       assert.equal(body.order.stage, "Match");
       const order = await client.execute({ sql: "SELECT total_amount, estimated_total, is_ride, customer_id FROM orders WHERE id = ?", args: [first.orderId] }).catch(() => null);
       if (order) assert.equal(order.rows[0].customer_id, "a");
+    });
+
+    await t.test("tracking is private, admin controlled, fresh and limited to active trips", async () => {
+      const path = `taxipress/bookings/${first.id}/tracking`;
+      assert.equal((await app.request(`/v1/${path}`)).status, 401);
+      assert.equal((await call("b", path)).status, 404, "another customer cannot locate this passenger's taxi");
+      assert.equal((await call("d2", path)).status, 404, "an unrelated driver cannot locate the trip");
+      await call("d1", "taxipress/driver/location", { lat: 0.2, lng: 32.5 });
+      const response = await call("a", path);
+      assert.equal(response.headers.get("cache-control"), "no-store");
+      const fresh = await json<{ enabled: boolean; location: { lat: number; lng: number }; pollAfterSeconds: number }>(response);
+      assert.deepEqual({ lat: fresh.location.lat, lng: fresh.location.lng }, { lat: 0.2, lng: 32.5 });
+      assert.equal(fresh.pollAfterSeconds, DEFAULT_RIDE_TRACKING_SETTINGS.routeRefreshSeconds);
+      await client.execute({ sql: "UPDATE taxipress_queue SET last_location_at = datetime('now', '-10 minutes') WHERE id = ?", args: [van1.id] });
+      assert.equal((await json<{ location: unknown }>(await call("a", path))).location, null, "stale coordinates are withheld");
+      await call("d1", "taxipress/driver/location", { lat: 0.2, lng: 32.5 });
+      await setSetting("ride_tracking", JSON.stringify({ ...DEFAULT_RIDE_TRACKING_SETTINGS, enabled: false, routeRefreshSeconds: 45 }));
+      const disabled = await json<{ enabled: boolean; location: unknown; pollAfterSeconds: number }>(await call("a", path));
+      assert.equal(disabled.enabled, false);
+      assert.equal(disabled.location, null);
+      assert.equal(disabled.pollAfterSeconds, 45);
+      await setSetting("ride_tracking", JSON.stringify(DEFAULT_RIDE_TRACKING_SETTINGS));
+      await client.execute({ sql: "UPDATE taxipress_bookings SET status = 'completed' WHERE id = ?", args: [first.id] });
+      assert.equal((await json<{ location: unknown }>(await call("a", path))).location, null, "completed bookings grant no ongoing location access");
+      await client.execute({ sql: "UPDATE taxipress_bookings SET status = 'booked' WHERE id = ?", args: [first.id] });
     });
 
     await t.test("a booking is checked", async () => {

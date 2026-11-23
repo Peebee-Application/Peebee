@@ -4602,52 +4602,6 @@ body[data-active-screen="driver-profile"] .main-content {
   }
 }
 
-/* =========================================================
-   Screenshot & Security Protection
-   ========================================================= */
-
-@media print {
-  body { display: none !important; }
-}
-
-#security-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--charcoal);
-  color: white;
-  z-index: 99999;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 24px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-#security-overlay.is-visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.secure-blur {
-  filter: blur(20px) !important;
-  pointer-events: none !important;
-  user-select: none !important;
-}
-
-/* Prevent text copying and selection on mobile devices */
-@media (max-width: 768px) {
-  body {
-    -webkit-user-select: none !important;
-    -moz-user-select: none !important;
-    -ms-user-select: none !important;
-    user-select: none !important;
-  }
-}
-
 /* Stepper rows responsive layout styling */
 .steppers-row {
   display: flex;

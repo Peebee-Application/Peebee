@@ -14,6 +14,8 @@ import { getTaxipressSettings, LANGUAGE_CODE, LUGGAGE_TYPES, MAX_LANGUAGES, offe
 import { cancelBooking, expireOpenTickets, markNoShow } from "./cancellation.js";
 import { sendTicket } from "./ticket-share.js";
 import { openTicketColumnsReady } from "./open-tickets.js";
+import { getRideTrackingSettings } from "../settings/ride-tracking.js";
+import { isFreshLocation } from "@peebee/shared";
 import { confirmBoarding, settlementReport } from "./settlement.js";
 import { getTaxipressRoute, listActiveTaxipressRoutes, listTaxipressRoutes, taxipressReady } from "./service.js";
 
@@ -21,6 +23,8 @@ type Row = Record<string, unknown>;
 
 /** Taxipress: scheduled shared-taxi seats on fixed routes. See docs/FLYEXPRESS_INTEGRATION_BREAKDOWN.md. */
 export const taxipressRoutes = new Hono();
+/** Mount before shared routers with catch-all authentication. */
+export const publicTaxipressRoutes = new Hono();
 taxipressRoutes.use("/taxipress/*", requireAuth);
 taxipressRoutes.use("/admin/taxipress/*", requireAuth, requireRole("admin"));
 
@@ -56,7 +60,7 @@ taxipressRoutes.get("/taxipress/queue/:queueId/driver-photo", requireAuth, async
   });
 });
 
-taxipressRoutes.get("/taxipress/config", async (c) => {
+async function customerConfig(c: Context) {
   const settings = await getTaxipressSettings();
   const routes = settings.enabled && (await taxipressReady()) ? await listActiveTaxipressRoutes() : [];
   const stops = settings.showStops ? await Promise.all(routes.map((r) => stopsFor(r.relayRouteId, r.direction))) : routes.map(() => []);
@@ -92,7 +96,9 @@ taxipressRoutes.get("/taxipress/config", async (c) => {
     parcelFitText: settings.parcelFitText,
     parcelNotAllowed: settings.parcelNotAllowed,
   });
-});
+}
+taxipressRoutes.get("/taxipress/config", customerConfig);
+publicTaxipressRoutes.get("/taxipress-public/config", customerConfig);
 
 // ---------------------------------------------------------------------------
 // The line: what drivers do, and what passengers see
@@ -110,8 +116,25 @@ taxipressRoutes.get("/taxipress/routes/:id/queue", async (c) => {
   });
 });
 
+/** Public browsing exposes aggregate availability, never driver IDs or live coordinates. */
+publicTaxipressRoutes.get("/taxipress-public/routes/:id/queue", async (c) => {
+  const id = c.req.param("id") as string;
+  const settings = await getTaxipressSettings();
+  const route = settings.enabled && (await taxipressReady()) ? (await listActiveTaxipressRoutes()).find(r => r.id === id) : null;
+  if (!route || !route.active || !route.relayActive) return c.json({ line: [], onRoad: [], route: null });
+  const [raw, onRoad] = await Promise.all([lineOf(id), onRoadOf(id)]);
+  const line = await decorateLine(id, raw, settings);
+  const publicEntry = (e: Awaited<ReturnType<typeof lineOf>>[number] & { bookable?: boolean; departsAt?: string | null }) => ({
+    id: e.id, plate: e.plate, seatLayout: e.seatLayout, status: e.status,
+    position: e.position, seatsLeft: e.seatsLeft, driverName: e.driverName,
+    bookable: e.bookable === true, departsAt: e.departsAt ?? null,
+  });
+  c.header("Cache-Control", "no-store");
+  return c.json({ line: line.map(publicEntry), onRoad: onRoad.map(publicEntry), route: { id: route.id, fromName: route.fromName, toName: route.toName, directionLabel: route.directionLabel, farePerSeat: route.farePerSeat } });
+});
+
 /** A taxi's profile, from real records only: what has no data yet is null and the app hides it. */
-taxipressRoutes.get("/taxipress/taxis/:queueId/profile", async (c) => {
+async function customerTaxiProfile(c: Context) {
   const queueId = c.req.param("queueId") as string;
   const row = (await db.execute({ sql: "SELECT taxipress_route_id FROM taxipress_queue WHERE id = ?", args: [queueId] }).catch(() => ({ rows: [] }))).rows[0] as Row | undefined;
   if (!row) return c.json({ error: "not_found" }, 404);
@@ -120,6 +143,14 @@ taxipressRoutes.get("/taxipress/taxis/:queueId/profile", async (c) => {
   const entry = (await decorateLine(routeId, await lineOf(routeId), settings)).find((e) => e.id === queueId);
   if (!route || !entry) return c.json({ error: "not_found", message: "That taxi has left the line." }, 404);
   return c.json({ profile: await taxiProfile(entry, route, settings.showStops) });
+}
+taxipressRoutes.get("/taxipress/taxis/:queueId/profile", customerTaxiProfile);
+publicTaxipressRoutes.get("/taxipress-public/taxis/:queueId/profile", async c => {
+  if (!(await getTaxipressSettings()).enabled) return c.json({ error: 'not_found' }, 404);
+  const row = (await db.execute({ sql: "SELECT taxipress_route_id FROM taxipress_queue WHERE id = ?", args: [c.req.param('queueId')] }).catch(() => ({ rows: [] }))).rows[0] as Row | undefined;
+  if (!row || !(await listActiveTaxipressRoutes()).some(r => r.id === String(row.taxipress_route_id))) return c.json({ error: 'not_found' }, 404);
+  c.header('Cache-Control', 'no-store');
+  return customerTaxiProfile(c);
 });
 
 /** The driver's taxi, their place in the line and what they can do next. */
@@ -212,6 +243,7 @@ const bookSchema = z.object({
   payment: z.enum(["app", "cash"]).optional(),
   adults: z.number().int().min(1).max(18).optional(),
   children: z.number().int().min(0).max(17).optional(),
+  childSeats: z.number().int().min(0).max(17).optional(),
   luggage: z.partialRecord(z.enum(LUGGAGE_TYPES as [string, ...string[]]), z.number().int().min(0).max(10)).optional(),
   assistance: z.enum(["none", "boarding", "priority", "mobility"]).nullable().optional(),
   language: z.string().trim().min(2).max(20).nullable().optional(),
@@ -252,6 +284,28 @@ taxipressRoutes.post("/taxipress/bookings/:id/send", async (c) => {
 taxipressRoutes.get("/taxipress/bookings/:id", async (c) => {
   const booking = await bookingFor(c.req.param("id") as string, c.get("user").sub);
   return booking ? c.json({ booking }) : c.json({ error: "not_found" }, 404);
+});
+
+/** A customer's own active trip only; old positions are never presented as live. */
+taxipressRoutes.get("/taxipress/bookings/:id/tracking", async (c) => {
+  const booking = await bookingFor(c.req.param("id") as string, c.get("user").sub);
+  if (!booking) return c.json({ error: "not_found" }, 404);
+  const settings = await getRideTrackingSettings();
+  let location: { lat: number; lng: number; updatedAt: string } | null = null;
+  if (settings.enabled && ["booked", "boarded"].includes(booking.status)) {
+    const row = (await db.execute({
+      sql: "SELECT last_lat, last_lng, last_location_at FROM taxipress_queue WHERE id = ? AND status IN ('in_line', 'boarding', 'on_road')",
+      args: [booking.taxi.queueId],
+    })).rows[0] as Row | undefined;
+    if (row && row.last_lat != null && row.last_lng != null && isFreshLocation(String(row.last_location_at ?? ""), Date.now(), settings.staleAfterSeconds)) {
+      const lat = Number(row.last_lat), lng = Number(row.last_lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+        location = { lat, lng, updatedAt: String(row.last_location_at) };
+      }
+    }
+  }
+  c.header("Cache-Control", "no-store");
+  return c.json({ enabled: settings.enabled, pollAfterSeconds: settings.routeRefreshSeconds, booking, location });
 });
 
 // ---------------------------------------------------------------------------

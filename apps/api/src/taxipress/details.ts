@@ -34,6 +34,8 @@ export type Language = string;
 export type BookingDetailsInput = {
   adults: number;
   children: number;
+  /** Optional explicit seats for children who could otherwise travel on a lap. */
+  childSeats?: number;
   luggage: Partial<Record<LuggageType, number>>;
   assistance: Assistance | null;
   language: Language | null;
@@ -52,8 +54,9 @@ export type Priced = { seats: number; childSeats: number; fareAmount: number; lu
  * every further child needs a seat (reserved = max(0, children - 2)), priced at childSeatFarePercent of the fare.
  * Luggage priced per item; a type priced null (commercial) is assessed at the stage and adds nothing now.
  */
-export function priceBooking(input: Pick<BookingDetailsInput, "adults" | "children" | "luggage">, farePerSeat: number, settings: TaxipressSettings): Priced {
-  const childSeats = Math.max(0, input.children - settings.maxLapChildren);
+export function priceBooking(input: Pick<BookingDetailsInput, "adults" | "children" | "childSeats" | "luggage">, farePerSeat: number, settings: Pick<TaxipressSettings, "maxLapChildren" | "childSeatFarePercent" | "luggageEnabled" | "luggageOptionsShown" | "luggagePrices">): Priced {
+  const minimum = Math.max(0, input.children - settings.maxLapChildren);
+  const childSeats = input.childSeats ?? minimum;
   const seats = input.adults + childSeats;
   const childFare = Math.round((farePerSeat * settings.childSeatFarePercent) / 100);
   const fareAmount = farePerSeat * input.adults + childFare * childSeats;
@@ -65,7 +68,8 @@ export function priceBooking(input: Pick<BookingDetailsInput, "adults" | "childr
       if (qty > 0 && price != null) luggageAmount += price * qty;
     }
   }
-  const error = input.adults < 1 ? "At least one adult travels on a booking." : null;
+  const error = input.adults < 1 ? "At least one adult travels on a booking."
+    : !Number.isInteger(childSeats) || childSeats < minimum || childSeats > input.children ? `Choose between ${minimum} and ${input.children} child seats.` : null;
   return { seats, childSeats, fareAmount, luggageAmount, amount: fareAmount + luggageAmount, error };
 }
 
