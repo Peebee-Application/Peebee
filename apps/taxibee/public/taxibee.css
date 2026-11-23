@@ -1,0 +1,25 @@
+/* Peebee identity; source geometry, spacing and responsive behaviour are retained. */
+:root {
+  --brand-red: #c9a227; --brand-red-dark: #a58218;
+  --brand-blue: #1a1a1a; --brand-blue-dark: #0a0a0a;
+  --route-blue: #c9a227; --brand-gold: #c9a227;
+  --charcoal: #1a1a1a; --slate: #5c6670; --muted: #757575;
+  --bg: #f1eee4; --page: #faf8ef; --surface: #fff; --surface-alt: #f1eee4;
+  --border: #e6e1d3; --border-strong: #d5cebb; --info-soft: #faf8ef;
+}
+.button--primary { color: #0a0a0a; background: #c9a227; border-color: #c9a227; }
+.button--primary:hover { background: #e0b93d; border-color: #e0b93d; }
+.button--secondary { color: #fff; background: #1a1a1a; }
+.logo-frame { background: #faf8ef; }
+.logo-frame img { object-fit: contain; }
+.input-group { background: #f1eee4; }
+.input-group input { background: transparent; }
+.taxibee-mode { position: fixed; bottom: 0; left: 0; right: 0; z-index: 99999; padding: 7px 14px; background: #c9a227; color: #0a0a0a; text-align: center; font: 600 12px/1.4 system-ui; }
+.taxibee-mode a { color: inherit; text-decoration: underline; margin-left: 10px; }
+body.taxibee-preview { padding-bottom: 32px; }
+.taxibee-error { padding: 14px; border-radius: 12px; background: #fff0f1; color: #bf3038; }
+.taxibee-empty { padding: 24px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
+.taxibee-empty h2 { margin-top: 0; }
+.seat-brand-front { position:absolute; z-index:1; left:43%; top:5%; width:15%; height:6.2%; background:#f5f5f5 url('assets/peebee-logo.svg') center/contain no-repeat; }
+.seat-brand-back { position:absolute; z-index:1; left:16%; top:92.7%; width:68%; height:2.6%; border-radius:25%; background:#1a1a1a; color:#c9a227; display:grid; place-items:center; font-size:clamp(9px,2.5vw,15px); font-weight:850; letter-spacing:.15em; }
+.seat-brand-stripe { position:absolute; z-index:1; left:28.8%; top:4.5%; width:2.2%; height:8.5%; background:#1a1a1a; }
