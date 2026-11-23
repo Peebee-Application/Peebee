@@ -836,6 +836,9 @@ const DEFAULTS = {
   taxipress_numbered_seats_enabled: "0",
   taxipress_seat_hold_seconds: "120",
   taxipress_return_discount_percent: "0",
+  taxipress_return_packages_enabled: "0",
+  taxipress_return_validity_days: "7",
+  taxipress_return_refund_percent: "100",
   taxipress_max_seats_per_booking: "4",
   // Which taxi may take a relay parcel: only the one Boarding Now, or any taxi in the line.
   taxipress_parcel_accept_rule: "boarding_now",

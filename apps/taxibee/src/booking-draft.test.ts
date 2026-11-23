@@ -6,6 +6,7 @@ const state = {
   screen: 'checkout', activeTrip: { id: 'queue', routeId: 'route', fare: 5000, seats: 14 },
   passengerCount: 2, childCount: 1, reservedChildSeatsCount: 1, luggageQuantities: { standard: 2 },
   searchFrom: 'Entebbe', searchTo: 'Kampala', bookingDate: '2026-11-23',
+  ticketType: 'return', returnMode: 'date-specific', returnDate: '2026-11-25',
   password: 'never-save', token: 'never-save', walletBalance: 70000, accepted: true,
 };
 function storage() {
@@ -19,6 +20,9 @@ test('anonymous progress survives a reload and sign-in without preserving creden
   const draft = readDraft(s, 'new-customer')!;
   assert.equal(draft.queueId, 'queue');
   assert.equal(draft.values.passengerCount, 2);
+  assert.equal(draft.values.ticketType, 'return');
+  assert.equal(draft.values.returnMode, 'date-specific');
+  assert.equal(draft.values.returnDate, '2026-11-25');
   assert.deepEqual(draft.values.luggageQuantities, { personal: 0, standard: 2, large: 0, excess: 0, fragile: 0, commercial: 0 });
 });
 test('an account-owned booking cannot be restored into a different account or an anonymous browser', () => {

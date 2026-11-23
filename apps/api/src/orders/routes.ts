@@ -84,6 +84,7 @@ import { getPricingConfig } from "../costing/config.js";
 import { checkoutBreakdown, deliveryOrders } from "./checkout-breakdown.js";
 import { taxipressPayRules } from "../taxipress/pay-rules.js";
 import { bundleCheckoutQuote, fundBundle, notifyRiderOfCombinedDelivery, prepaidBundleGroup, unfundedBundleGroup, unpaidBundleGroup } from "./bundle-funding.js";
+import {fundReturnOrder,returnGroupForOrder} from '../taxipress/returns.js';
 import { stepSandboxCar } from "../car/sandbox-demo.js";
 import { stepSandboxRelay } from "../relay/sandbox-demo.js";
 import { isSubscriptionCurrent } from "../riders/subscription.js";
@@ -2102,6 +2103,8 @@ orderRoutes.get("/orders/:id/checkout", async (c) => {
   if (order.customer_id !== c.get("user").sub) return c.json({ error: "forbidden" }, 403);
   // A combined delivery is paid once, from its first pickup: the quote is the total for every pickup,
   // from the moment it's ordered (before a rider accepts it too).
+  const returnGroup=await returnGroupForOrder(String(order.id));
+  if (returnGroup?.group && order.id===returnGroup.p.outbound_order_id && returnGroup.p.return_state==='pending') return c.json(await bundleCheckoutQuote(returnGroup.group));
   const bundleGroup = await unpaidBundleGroup(order);
   // A relay can be paid straight away, before any rider (admin switch): the pay screen shows Pay now.
   const payBeforeRider = (await orderPaysBeforeRider(order)) &&
@@ -2156,6 +2159,10 @@ orderRoutes.post("/orders/:id/fund", async (c) => {
     throw e;
   }
   // A relay order may be paid as soon as it is placed (admin switch), before any rider:
+  const returnBody=await c.req.raw.clone().json().catch(()=>({}));
+  const returnParsed=fundSchema.safeParse(returnBody);
+  const returnFunding=returnParsed.success ? await fundReturnOrder(c,order,returnParsed.data,{getOrder,touchOrder,logEvent,paymentReturnUrl}) : null;
+  if (returnFunding) return returnFunding;
   // it is held in escrow and goes straight to Shop once the first-leg rider is assigned.
   const payFirst = await orderPaysBeforeRider(order);
   if (order.stage !== "Match" && !payFirst) {

@@ -9,7 +9,7 @@
     "test": "node --test src/*.test.mjs",
     "deploy": "node ../../scripts/preflight-deploy.mjs && pnpm build && wrangler deploy",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test:browser": "node scripts/smoke.mjs && node scripts/seats-smoke.mjs && node scripts/services-smoke.mjs"
+    "test:browser": "node scripts/smoke.mjs && node scripts/seats-smoke.mjs && node scripts/returns-smoke.mjs && node scripts/services-smoke.mjs"
   },
   "dependencies": {
     "@peebee/shared": "workspace:*",

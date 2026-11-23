@@ -394,6 +394,7 @@ export type CardContinueInput =
   | { otp: string; flowRef: string; returnUrl?: string }
   | { card: CardInput; authorization: { mode: "pin"; pin: string } | { mode: "avs"; address: string; city: string; state: string; country: string; zipcode: string }; returnUrl?: string };
 
+export type TaxipressBookingInput = { queueId: string; seatHoldId?: string; seats?: number; payment?: "app" | "cash"; adults?: number; children?: number; childSeats?: number; luggage?: Partial<Record<TaxipressLuggageType, number>>; assistance?: TaxipressAssistance | null; language?: TaxipressLanguage | null; forSomeoneElse?: boolean; travellerName?: string | null; travellerPhone?: string | null; emergencyPhone?: string | null; openTicket?: boolean };
 export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, rawSettings }: CreateApiClientOptions) {
   const root = baseUrl.replace(/\/$/, "");
   const f = fetchImpl ?? fetch;
@@ -828,6 +829,15 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async getTaxipressSeatMap(queueId: string, signedIn = true) {
       return request<import('./taxipress.js').TaxipressSeatMap>(`/v1/${signedIn ? 'taxipress' : 'taxipress-public'}/queue/${encodeURIComponent(queueId)}/seats`);
     },
+    async quoteTaxipressReturn(input: TaxipressBookingInput&{mode:'open'|'same-day'|'date-specific';date?:string}) {
+      return request<{package:import('./taxipress.js').TaxipressReturnPackage}>('/v1/taxipress/return-quotes',{method:'POST',body:JSON.stringify(input)});
+    },
+    async createTaxipressReturn(quoteId:string) {return request<{package:import('./taxipress.js').TaxipressReturnPackage}>('/v1/taxipress/return-packages',{method:'POST',body:JSON.stringify({quoteId})});},
+    async getTaxipressReturns() {return request<{packages:import('./taxipress.js').TaxipressReturnPackage[]}>('/v1/taxipress/return-packages');},
+    async getTaxipressReturn(id:string) {return request<{package:import('./taxipress.js').TaxipressReturnPackage}>(`/v1/taxipress/return-packages/${encodeURIComponent(id)}`);},
+    async redeemTaxipressReturn(id:string,queueId:string) {return request<{package:import('./taxipress.js').TaxipressReturnPackage;booking:TaxipressBooking}>(`/v1/taxipress/return-packages/${encodeURIComponent(id)}/redeem`,{method:'POST',body:JSON.stringify({queueId})});},
+    async cancelTaxipressReturn(id:string) {return request<{package:import('./taxipress.js').TaxipressReturnPackage}>(`/v1/taxipress/return-packages/${encodeURIComponent(id)}/cancel-return`,{method:'POST',body:'{}'});},
+    async changeTaxipressReturnDate(id:string,input:{mode:'open'|'same-day'|'date-specific';date?:string}) {return request<{package:import('./taxipress.js').TaxipressReturnPackage}>(`/v1/taxipress/return-packages/${encodeURIComponent(id)}/date`,{method:'PUT',body:JSON.stringify(input)});},
     async holdTaxipressSeats(queueId: string, seats: string[]) {
       return request<{ hold: { id: string; quantity: number; fee: number; expiresAt: string } }>(`/v1/taxipress/queue/${encodeURIComponent(queueId)}/seat-holds`,{ method: 'POST',body: JSON.stringify({ seats }) });
     },
@@ -887,7 +897,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       return request<TaxipressQueueView>(`/v1/taxipress/routes/${encodeURIComponent(routeId)}/queue`);
     },
     /** Book seats on a taxi in the line. Pay next on the order's pay screen, or hand cash to the driver. */
-    async bookTaxipressSeats(input: { queueId: string; seatHoldId?: string; seats?: number; payment?: "app" | "cash"; adults?: number; children?: number; childSeats?: number; luggage?: Partial<Record<TaxipressLuggageType, number>>; assistance?: TaxipressAssistance | null; language?: TaxipressLanguage | null; forSomeoneElse?: boolean; travellerName?: string | null; travellerPhone?: string | null; emergencyPhone?: string | null; openTicket?: boolean }) {
+    async bookTaxipressSeats(input: TaxipressBookingInput) {
       return request<{ booking: TaxipressBooking; order: { id: string } }>("/v1/taxipress/bookings", { method: "POST", body: JSON.stringify(input) });
     },
     async getTaxipressTaxiProfile(queueId: string) {

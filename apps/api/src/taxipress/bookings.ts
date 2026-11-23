@@ -2,7 +2,8 @@ import type { Context } from "hono";
 import { markOpenTicket, openTicketColumnsReady, openTicketOf } from "./open-tickets.js";
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
-import { hasTable } from "../lib/schema.js";
+import { hasTable,hasColumn } from "../lib/schema.js";
+import { expireReturnPackages } from './returns.js';
 import { getPlatformEnvironment } from "../lib/settings.js";
 import { notifyUser } from "../lib/webpush.js";
 import { createOrderFromInput } from "../orders/routes.js";
@@ -54,6 +55,7 @@ export type TaxipressBooking = {
   openTicket?: { validUntil: string | null; expired: boolean } | null;
   /** True when someone else bought this ticket and sent it to the signed-in person. */
   sharedWithMe?: boolean;
+  returnPackage?:{id:string;leg:'outbound'|'return'}|null;
   /** The first name of whoever bought a ticket that was sent to you. */
   sentBy?: string | null;
 };
@@ -106,8 +108,10 @@ async function toBooking(row: Row, forPassenger: boolean): Promise<TaxipressBook
   let details: BookingDetails | null = null;
   details = await loadDetails(String(row.bk_id));
   const createdMs = Date.parse(`${String(row.bk_created_at).replace(" ", "T")}Z`);
+  const packageRow=await hasColumn('taxipress_bookings','return_package_id') ? (await db.execute({sql:'SELECT return_package_id,return_leg FROM taxipress_bookings WHERE id = ?',args:[String(row.bk_id)]})).rows[0] : null;
   return {
     id: String(row.bk_id),
+    returnPackage:packageRow?.return_package_id ? {id:String(packageRow.return_package_id),leg:packageRow.return_leg as 'outbound'|'return'} : null,
     orderId: String(row.bk_order_id),
     status: row.bk_status as TaxipressBookingStatus,
     seats: Number(row.seats),
@@ -229,6 +233,7 @@ export async function manifestFor(queueId: string): Promise<ManifestPassenger[]>
  */
 export async function releaseStaleBookings(): Promise<number> {
   await cleanupSeatHolds();
+  await expireReturnPackages();
   if (!(await bookingsReady())) return 0;
   const { payWithinMinutes } = await getTaxipressSettings();
   // Cash picked on the checkout screen moves the order to the cash rail; the booking follows so boarding settles it as cash.
@@ -274,7 +279,7 @@ function newTicketCode(): string {
 /** Books seats on a taxi in the line. The passenger pays next, on the order's pay screen (or hands cash to the driver). */
 export type BookInput = { queueId: string; seats?: number; payment?: "app" | "cash"; openTicket?: boolean; seatHoldId?: string } & Partial<BookingDetailsInput>;
 
-export async function bookSeats(c: Context, input: BookInput) {
+export async function bookSeats(c: Context, input: BookInput, bundle?: {packageId:string;leg:'outbound'|'return';amount:number;existingOrderId?:string;redemptionToken?:string}) {
   const user = c.get("user");
   if (!(await bookingsReady())) return unavailable(c);
   const settings = await getTaxipressSettings();
@@ -331,7 +336,7 @@ export async function bookSeats(c: Context, input: BookInput) {
 
   const farePerSeat = Number(entry.fare_per_seat);
   const priced = priceBooking({ adults, children, childSeats: input.childSeats, luggage }, farePerSeat, settings);
-  let amount = withDetails ? priced.amount : farePerSeat * seatCount;
+  let amount = bundle?.amount ?? (withDetails ? priced.amount : farePerSeat * seatCount);
   if (!(amount > 0)) return c.json({ error: "no_fare", message: "This route has no fare set yet." }, 409);
   let allocation: Awaited<ReturnType<typeof reserveNumberedBooking>>;
   try { allocation = await reserveNumberedBooking(input.queueId,user.sub,seatCount,input.seatHoldId); }
@@ -340,7 +345,7 @@ export async function bookSeats(c: Context, input: BookInput) {
     await releaseReservedBooking(allocation.id);
     return c.json({ error: 'open_ticket_seat_choice',message: 'Open tickets use best-available seating. Choose a departure ticket to reserve numbered seats.' },409);
   }
-  amount += allocation?.fee ?? 0;
+  if (!bundle) amount += allocation?.fee ?? 0;
 
   // Race-safe: only one request can take the last seats, and only while the taxi is still in the line.
   const taken = allocation ? { rowsAffected: 1 } : await db.execute({
@@ -360,11 +365,11 @@ export async function bookSeats(c: Context, input: BookInput) {
   let bookingInserted = false;
   let createdOrderId: string | null = null;
   try {
-    await db.execute({
+    if (!bundle?.existingOrderId) await db.execute({
       sql: "INSERT INTO lists (id, customer_id, title, status, environment) VALUES (?, ?, ?, 'draft', ?)",
       args: [listId, user.sub, `Taxipress: ${from.name} → ${to.name}`, environment],
     });
-    const response = await createOrderFromInput(
+    const response = bundle?.existingOrderId ? c.json({order:{id:bundle.existingOrderId}},201) : await createOrderFromInput(
       c,
       {
         listId, type: "parcel", isRide: true,
@@ -383,11 +388,14 @@ export async function bookSeats(c: Context, input: BookInput) {
     createdOrderId = orderId;
     const bookingId = newId("tpb");
     const seatColumns = await seatingReady();
-    await db.execute({
-      sql: `INSERT INTO taxipress_bookings (id, order_id, queue_id, taxipress_route_id, passenger_id, driver_id, seats, fare_per_seat, amount, payment_method, ticket_code, environment${seatColumns ? ',seat_reservation_id' : ''})
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${seatColumns ? ',?' : ''})`,
-      args: [bookingId, orderId, input.queueId, String(entry.taxipress_route_id), user.sub, String(entry.driver_id), seatCount, farePerSeat, amount, payment, newTicketCode(), environment,...(seatColumns ? [allocation?.id ?? null] : [])],
+    const packageColumns = !!bundle;
+    const inserted = await db.execute({
+      sql: `INSERT INTO taxipress_bookings (id, order_id, queue_id, taxipress_route_id, passenger_id, driver_id, seats, fare_per_seat, amount, payment_method, ticket_code, environment${seatColumns ? ',seat_reservation_id' : ''}${packageColumns ? ',return_package_id,return_leg' : ''})
+            SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${seatColumns ? ',?' : ''}${packageColumns ? ',?,?' : ''}
+            ${bundle?.redemptionToken ? "WHERE EXISTS (SELECT 1 FROM taxipress_return_packages WHERE id = ? AND redeem_token = ? AND return_state = 'redeeming' AND redeem_until > datetime('now'))" : ''}`,
+      args: [bookingId, orderId, input.queueId, String(entry.taxipress_route_id), user.sub, String(entry.driver_id), seatCount, farePerSeat, amount, payment, newTicketCode(), environment,...(seatColumns ? [allocation?.id ?? null] : []),...(bundle ? [bundle.packageId,bundle.leg] : []),...(bundle?.redemptionToken ? [bundle.packageId,bundle.redemptionToken] : [])],
     });
+    if (!inserted.rowsAffected) throw new Error('Return redemption claim expired');
     bookingInserted = true;
     if (input.openTicket) await markOpenTicket(bookingId);
     if (withDetails) {
@@ -402,7 +410,7 @@ export async function bookSeats(c: Context, input: BookInput) {
       }, { customerId: user.sub, environment });
     }
     // The seat belongs to this taxi's driver from the start; the passenger pays next.
-    await db.execute({ sql: "UPDATE orders SET rider_id = ?, stage = 'Match', updated_at = datetime('now') WHERE id = ? AND rider_id IS NULL", args: [String(entry.driver_id), orderId] });
+    await db.execute({ sql: "UPDATE orders SET rider_id = ?, stage = ?, updated_at = datetime('now') WHERE id = ? AND rider_id IS NULL", args: [String(entry.driver_id),bundle?.existingOrderId ? 'Shop' : 'Match', orderId] });
     await db.execute({ sql: "UPDATE chat_messages SET rider_id = ? WHERE order_id = ? AND rider_id IS NULL", args: [String(entry.driver_id), orderId] });
     await db.execute({
       sql: "INSERT INTO order_events (id, order_id, stage, note, actor_id) VALUES (?, ?, 'Match', ?, ?)",
@@ -419,7 +427,7 @@ export async function bookSeats(c: Context, input: BookInput) {
   } catch (err) {
     if (!bookingInserted) {
       await release();
-      if (createdOrderId) await db.execute({ sql: "UPDATE orders SET stage = 'Cancelled',updated_at = datetime('now') WHERE id = ? AND stage IN ('Create','Match')",args: [createdOrderId] });
+      if (createdOrderId && !bundle?.existingOrderId) await db.execute({ sql: "UPDATE orders SET stage = 'Cancelled',updated_at = datetime('now') WHERE id = ? AND stage IN ('Create','Match')",args: [createdOrderId] });
     }
     console.error("Taxipress booking failed:", err);
     return c.json({ error: "booking_failed", message: "Couldn't book those seats. Please try again." }, 500);
