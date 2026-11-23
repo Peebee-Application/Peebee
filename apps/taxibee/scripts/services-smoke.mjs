@@ -11,7 +11,7 @@ try{
  const user={id:'service-customer',role:'customer',name:'Service Customer',phone:'+256772111222',email:'service@example.test'};
  const catalog={parcelEnabled:true,relayEnabled:true,charterEnabled:true,onDemandEnabled:true,maxHireHours:72,scheduled:{minLeadMinutes:30,maxAdvanceHours:168},tracking:{enabled:true,pollAfterSeconds:300,staleAfterSeconds:60},
  routes:[{id:'r1',name:'Kampala - Entebbe',stage_a_name:'Kampala Stage',stage_a_lat:0.3,stage_a_lng:32.58,stage_b_name:'Entebbe Stage',stage_b_lat:0.05,stage_b_lng:32.46}],categories:[{id:'luxury-real',name:'Approved luxury',seats:4,service_group:'luxury',rate_per_hour:5000}]};
- const quotes={boda:{fee:18000,distanceKm:35},relay:{direction:'KLA - EBB',total:12000,collectTotal:9000,dropMode:'station',choiceAtOrder:true,station:{name:'Real Station'},meetStages:[],legs:[{kind:'boda',fromName:'Pickup',toName:'Kampala Stage'},{kind:'matatu',fromName:'Kampala Stage',toName:'Real Station'}]}};
+ const quotes={boda:{fee:18000,distanceKm:35},relay:{direction:'KLA - EBB',total:12000,collectTotal:9000,dropMode:'station',choiceAtOrder:false,station:{name:'Real Station'},meetStages:[],legs:[{kind:'boda',fromName:'Pickup',toName:'Kampala Stage'},{kind:'matatu',fromName:'Kampala Stage',toName:'Real Station'}]}};
  const orders=[],payments=new Map(),items=new Map();let listNo=0,parcelCreated=0,charterCreated=0,postedPhoto=false,chat='',pending=false,interruptCreation=false,delayed=null,release=null;
  await page.route('**/api/v1/**',async r=>{
   const request=r.request(),path=new URL(request.url()).pathname.replace('/api',''),method=request.method();let data={},status=200,body;
@@ -55,6 +55,7 @@ try{
  await page.click('[data-action="svc-place"]');await page.click('[data-action="svc-pick-place"][data-index="0"]');await page.click('[data-action="svc-next"]');
  await page.fill('#svc-recipientName','Real Receiver');await page.fill('#svc-recipientPhone','+256772888999');await page.click('[data-action="svc-place"]');await page.click('[data-action="svc-pick-place"][data-index="1"]');await page.click('[data-action="svc-next"]');
  await page.fill('#svc-description','Documents for recipient');await page.fill('#svc-instructions','Handle carefully');await page.click('[data-action="svc-next"]');await page.click('[data-action="svc-quote"]');
+ await page.waitForFunction(()=>document.querySelector('#main-content').innerText.includes('paid rider after the parcel arrives'));assert.match(await page.locator('#main-content').innerText(),/9,000/);quotes.relay.choiceAtOrder=true;await page.click('[data-action="svc-quote"]');
  await page.waitForSelector('#svc-lastMile');await page.selectOption('#svc-lastMile','collect');await page.click('[data-action="svc-next"]');await page.check('#svc-consent');await page.click('[data-action="svc-confirm"]');
  await page.waitForSelector('[data-auth-action="identifier"]');assert.equal(parcelCreated,0);assert.equal(listNo,0,'Guest confirmation must not create a production record');
  await page.click('[data-auth-action="identifier"]');await page.fill('#identifier',user.email);await page.click('[data-auth-form="identifier"] button[type="submit"]');await page.fill('#password','test-password');await page.click('[data-auth-form="login"] button[type="submit"]');
