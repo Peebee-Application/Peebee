@@ -13,8 +13,8 @@ try{
   const routes=[{id:'out',relayRouteId:'relay',direction:'a_to_b',fromName:'Entebbe',toName:'Kampala',farePerSeat:5000},{id:'back',relayRouteId:'relay',direction:'b_to_a',fromName:'Kampala',toName:'Entebbe',farePerSeat:6000}];
   const cfg={enabled:true,routes,maxSeatsPerBooking:4,maxLapChildren:2,childSeatFarePercent:100,luggageEnabled:false,luggageTypes:[],languages:[],returnPackagesEnabled:true,returnDiscountPercent:10,returnValidityDays:7,returnRefundPercent:100};
   const taxi={queueId:'out-queue',plate:'UBM 100A',seatLayout:'14',driverName:'Driver',status:'in_line',seatsLeft:12};
-  const booking={id:'out-booking',orderId:'out-order',status:'booked',seats:1,amount:4500,paymentMethod:'app',paymentStatus:'unpaid',ticketCode:'TXP-RET123',createdAt:new Date().toISOString(),route:routes[0],taxi,returnPackage:{id:'return-package',leg:'outbound'},cancel:{allowed:true,free:true,fee:0,refund:0}};
-  const pkg={id:'return-package',state:'quoted',returnState:'pending',mode:'open',returnDate:null,validUntil:new Date(Date.now()+7*86400000).toISOString(),quoteUntil:new Date(Date.now()+120000).toISOString(),outboundAmount:4500,returnAmount:5400,total:9900,wallet:9900,mobileMoney:9900,discountPercent:10,refundPercent:100,refunded:0,outboundPaid:0,returnPaid:0,returnRouteId:'back',returnRoute:{fromName:'Kampala',toName:'Entebbe'},checkout:null};
+  const booking={id:'out-booking',orderId:'out-order',status:'booked',seats:1,amount:4500,paymentMethod:'app',paymentStatus:'unpaid',ticketCode:'TXP-RET123',createdAt:new Date().toISOString(),route:routes[0],taxi,returnPackage:{id:'tpr_12345678-1234-1234-1234-123456789abc',leg:'outbound'},cancel:{allowed:true,free:true,fee:0,refund:0}};
+  const pkg={id:'tpr_12345678-1234-1234-1234-123456789abc',state:'quoted',returnState:'pending',mode:'open',returnDate:null,validUntil:new Date(Date.now()+7*86400000).toISOString(),quoteUntil:new Date(Date.now()+120000).toISOString(),outboundAmount:4500,returnAmount:5400,total:9900,wallet:9900,mobileMoney:9900,discountPercent:10,refundPercent:100,refunded:0,outboundPaid:0,returnPaid:0,returnRouteId:'back',returnRoute:{fromName:'Kampala',toName:'Entebbe'},checkout:null};
   let created=false,returned=null,failedRedeem=true;
   await page.route('**/api/v1/**',async r=>{
     const req=r.request(),path=new URL(req.url()).pathname.replace('/api',''),method=req.method(),body=method==='GET'?null:req.postDataJSON();
@@ -51,6 +51,7 @@ try{
   await page.waitForSelector('[data-action="return-redeem-form"]');
   assert.equal(writes.filter(w=>w.path.endsWith('/fund')).length,1);
   assert.equal(writes.filter(w=>w.path==='/v1/taxipress/bookings').length,0,'Package checkout must not create unrelated bookings');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await page.screenshot({path:evidence+'/return-package-mobile.png',fullPage:true});
   await page.click('[data-action="return-redeem-form"]');await page.click('[data-action="return-redeem"]');
   await page.waitForFunction(()=>document.body.innerText.includes('That return departure filled'));

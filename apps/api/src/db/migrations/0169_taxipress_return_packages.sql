@@ -49,6 +49,7 @@ BEGIN
     AND ((NEW.return_leg = 'outbound' AND p.state = 'preparing' AND p.outbound_booking_id IS NULL
       AND NEW.taxipress_route_id = p.outbound_route_id AND NEW.amount = p.outbound_amount)
       OR (NEW.return_leg = 'return' AND p.state = 'ready' AND p.return_state = 'redeeming' AND p.redeem_until > datetime('now')
+        AND p.valid_until > datetime('now') AND (p.return_date IS NULL OR p.return_date = date('now','+3 hours'))
         AND p.return_booking_id IS NULL AND NEW.order_id = p.return_order_id
         AND NEW.taxipress_route_id = p.return_route_id AND NEW.amount = p.return_amount)))
     THEN RAISE(ABORT,'taxipress_return_conflict') END;

@@ -92,7 +92,7 @@ export async function createReturnPackage(c: Context,id: string) {
   const who=c.get('user').sub,p=await packageRow(id,who);
   if (p.state === 'ready') return returnPackageView(id,who);
   if (!(await getTaxipressSettings()).returnPackagesEnabled) throw new ReturnError(409,'returns_off','New return packages are switched off.');
-  const claimed=await db.execute({sql:"UPDATE taxipress_return_packages SET state = 'preparing' WHERE id = ? AND state = 'quoted' AND quote_until > datetime('now')",args:[id]});
+  const claimed=await db.execute({sql:"UPDATE taxipress_return_packages SET state = 'preparing' WHERE id = ? AND state = 'quoted' AND quote_until > datetime('now') AND valid_until > datetime('now')",args:[id]});
   if (!claimed.rowsAffected) throw new ReturnError(409,'quote_expired','The package quote expired or is already being prepared. Refresh your packages before retrying.');
   try {
     const res=await bookSeats(c,JSON.parse(String(p.input_json)),{packageId:id,leg:'outbound',amount:Number(p.outbound_amount)});
@@ -144,7 +144,7 @@ export async function redeemReturn(c:Context,id:string,queueId:string) {
   const q=(await db.execute({sql:'SELECT taxipress_route_id FROM taxipress_queue WHERE id = ?',args:[queueId]})).rows[0];
   if (q?.taxipress_route_id!==p.return_route_id) throw new ReturnError(409,'wrong_return_route','Choose a taxi in the return direction of this route.');
   const redemptionToken=newId('rdr'),lease=`+${(await getTaxipressSettings()).seatHoldSeconds} seconds`;
-  const claimed=await db.execute({sql:"UPDATE taxipress_return_packages SET return_state = 'redeeming',redeem_token = ?,redeem_until = datetime('now',?) WHERE id = ? AND state = 'ready' AND return_state = 'pending' AND valid_until > datetime('now')",args:[redemptionToken,lease,id]});
+  const claimed=await db.execute({sql:"UPDATE taxipress_return_packages SET return_state = 'redeeming',redeem_token = ?,redeem_until = datetime('now',?) WHERE id = ? AND state = 'ready' AND return_state = 'pending' AND valid_until > datetime('now') AND (return_date IS NULL OR return_date = ?)",args:[redemptionToken,lease,id,today]});
   if (!claimed.rowsAffected) throw new ReturnError(409,'return_unavailable','This return is expired, cancelled or being redeemed. Refresh before retrying.');
   const input=JSON.parse(String(p.input_json)); delete input.seatHoldId;
   try {
