@@ -40,6 +40,8 @@ export function installCustomerAuth(c: Context) {
     try { if (layer().classList.contains('is-hidden') && c.canSaveDraft()) saveDraft(sessionStorage, state, c.user()?.id || null); } catch { /* Browsing remains available if storage is blocked. */ }
   }
   function clearDraft() { sessionStorage.removeItem(BOOKING_DRAFT_KEY); }
+  const renderScreen = ui.renderCurrentScreen;
+  ui.renderCurrentScreen = (...args: any[]) => { renderScreen(...args); rememberBooking(); };
   function restoreDraft() {
     const draft = readDraft(sessionStorage, c.user()?.id || null);
     if (!draft) return null;

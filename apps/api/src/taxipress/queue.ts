@@ -1,8 +1,9 @@
 import { visibleHere } from "../practice/people.js";
-import { db } from "../db/client.js";
+import { db, executeBatch } from "../db/client.js";
+import { SEAT_LABELS, cleanupSeatHolds, heldSeatCount, seatingReady,walkUpSeatNumbers } from './seats.js';
 import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
-import { hasTable } from "../lib/schema.js";
+import { hasColumn,hasTable } from "../lib/schema.js";
 import { getPlatformEnvironment } from "../lib/settings.js";
 import { getTaxipressSettings } from "./settings.js";
 import { taxipressReady } from "./service.js";
@@ -40,6 +41,7 @@ export type TaxipressTaxi = {
   seats: number;
   passengersEnabled: boolean;
   parcelsEnabled: boolean;
+  numberedSeatsEnabled?: boolean;
   status: "pending" | "approved" | "suspended";
   driverName?: string | null;
   driverPhone?: string | null;
@@ -56,6 +58,7 @@ function toTaxi(row: Row): TaxipressTaxi {
     seats: Number(row.seats),
     passengersEnabled: Number(row.passengers_enabled) === 1,
     parcelsEnabled: Number(row.parcels_enabled) === 1,
+    numberedSeatsEnabled: Number(row.numbered_seats_enabled) === 1,
     status: row.status === "approved" || row.status === "suspended" ? row.status : "pending",
     ...(row.driver_name !== undefined ? { driverName: row.driver_name as string | null, driverPhone: (row.driver_phone as string | null) ?? null } : {}),
   };
@@ -89,8 +92,9 @@ export async function applyTaxi(userId: string, input: { relayRouteId: string; p
   const seats = Number(input.seatLayout);
   if (existing) {
     const changed = existing.relayRouteId !== input.relayRouteId || existing.plate !== plate || existing.seatLayout !== input.seatLayout;
+    const resetLayout = changed && await hasColumn('taxipress_taxis','numbered_seats_enabled');
     await db.execute({
-      sql: `UPDATE taxipress_taxis SET relay_route_id = ?, plate = ?, seat_layout = ?, seats = ?, ${changed ? "status = 'pending', approved_by = NULL, approved_at = NULL," : ""} updated_at = datetime('now') WHERE user_id = ?`,
+      sql: `UPDATE taxipress_taxis SET relay_route_id = ?, plate = ?, seat_layout = ?, seats = ?, ${changed ? "status = 'pending', approved_by = NULL, approved_at = NULL," : ""} ${resetLayout ? 'numbered_seats_enabled = 0,' : ''} updated_at = datetime('now') WHERE user_id = ?`,
       args: [input.relayRouteId, plate, input.seatLayout, seats, userId],
     });
     return;
@@ -105,7 +109,7 @@ export async function applyTaxi(userId: string, input: { relayRouteId: string; p
 export async function updateTaxi(
   id: string,
   actorId: string,
-  patch: Partial<{ status: "pending" | "approved" | "suspended"; passengersEnabled: boolean; parcelsEnabled: boolean }>,
+  patch: Partial<{ status: "pending" | "approved" | "suspended"; passengersEnabled: boolean; parcelsEnabled: boolean; numberedSeatsEnabled: boolean }>,
 ): Promise<TaxipressTaxi> {
   await requireReady();
   const before = (await db.execute({ sql: `${TAXI_SQL} WHERE x.id = ?`, args: [id] })).rows[0] as Row | undefined;
@@ -119,6 +123,10 @@ export async function updateTaxi(
   }
   if (patch.passengersEnabled != null) { sets.push("passengers_enabled = ?"); args.push(patch.passengersEnabled ? 1 : 0); }
   if (patch.parcelsEnabled != null) { sets.push("parcels_enabled = ?"); args.push(patch.parcelsEnabled ? 1 : 0); }
+  if (patch.numberedSeatsEnabled != null) {
+    if (!(await hasColumn('taxipress_taxis','numbered_seats_enabled'))) throw new TaxipressError(503,'migration_pending','Apply numbered-seat migration 0168 first.');
+    sets.push('numbered_seats_enabled = ?'); args.push(patch.numberedSeatsEnabled ? 1 : 0);
+  }
   if (sets.length) await db.execute({ sql: `UPDATE taxipress_taxis SET ${sets.join(", ")}, updated_at = datetime('now') WHERE id = ?`, args: [...args, id] });
   // Not working any more: it leaves any line it is in (a taxi already On Road finishes its trip).
   const after = (await db.execute({ sql: `${TAXI_SQL} WHERE x.id = ?`, args: [id] })).rows[0] as Row;
@@ -165,7 +173,7 @@ const ENTRY_SQL = `SELECT q.*, x.plate, x.seat_layout, u.name AS driver_name,
   FROM taxipress_queue q JOIN taxipress_taxis x ON x.id = q.taxi_id LEFT JOIN users u ON u.id = q.driver_id
   LEFT JOIN riders rd ON rd.user_id = q.driver_id`;
 
-function toEntry(row: Row, position: number | null): LineEntry {
+async function toEntry(row: Row, position: number | null): Promise<LineEntry> {
   const total = Number(row.seats_total);
   const taken = Number(row.seats_booked) + Number(row.walk_up_seats);
   return {
@@ -180,7 +188,7 @@ function toEntry(row: Row, position: number | null): LineEntry {
     seatsBooked: Number(row.seats_booked),
     walkUpSeats: Number(row.walk_up_seats),
     seatsTaken: taken,
-    seatsLeft: Math.max(0, total - taken),
+    seatsLeft: Math.max(0, total - taken - await heldSeatCount(String(row.id))),
     fullyBooked: taken >= total,
     joinedAt: String(row.joined_at),
     boardingAt: (row.boarding_at as string | null) ?? null,
@@ -198,7 +206,7 @@ export async function lineOf(taxipressRouteId: string): Promise<LineEntry[]> {
           ORDER BY CASE q.status WHEN 'boarding' THEN 0 ELSE 1 END, q.joined_at, q.id`,
     args: [taxipressRouteId],
   })).rows as Row[];
-  return rows.map((row, index) => toEntry(row, index + 1));
+  return Promise.all(rows.map((row, index) => toEntry(row, index + 1)));
 }
 
 export async function onRoadOf(taxipressRouteId: string): Promise<LineEntry[]> {
@@ -207,7 +215,7 @@ export async function onRoadOf(taxipressRouteId: string): Promise<LineEntry[]> {
     sql: `${ENTRY_SQL} WHERE q.taxipress_route_id = ? AND q.status = 'on_road' ORDER BY q.departed_at`,
     args: [taxipressRouteId],
   })).rows as Row[];
-  return rows.map((row) => toEntry(row, null));
+  return Promise.all(rows.map((row) => toEntry(row, null)));
 }
 
 /** The driver's current trip: in the line, boarding, or on the road. */
@@ -217,7 +225,7 @@ export async function activeEntry(driverId: string): Promise<(LineEntry & { taxi
   if (!row) return null;
   const routeId = String(row.taxipress_route_id);
   const position = row.status === "on_road" ? null : ((await lineOf(routeId)).find((e) => e.id === String(row.id))?.position ?? null);
-  return { ...toEntry(row, position), taxipressRouteId: routeId };
+  return { ...await toEntry(row, position), taxipressRouteId: routeId };
 }
 
 type RouteStage = { id: string; relayRouteId: string; fromName: string; fromLat: number; fromLng: number; active: boolean };
@@ -277,11 +285,12 @@ export async function joinLine(driverId: string, taxipressRouteId: string, at: {
 
   const id = newId("tpq");
   try {
-    await db.execute({
+    const numbered = settings.numberedSeatsEnabled && taxi.numberedSeatsEnabled && await seatingReady() && taxi.seats === SEAT_LABELS[taxi.seatLayout].length;
+    await executeBatch([{
       sql: `INSERT INTO taxipress_queue (id, taxipress_route_id, taxi_id, driver_id, seats_total, last_lat, last_lng, last_location_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ${at.lat != null ? "datetime('now')" : "NULL"})`,
       args: [id, taxipressRouteId, taxi.id, driverId, taxi.seats, at.lat ?? null, at.lng ?? null],
-    });
+    },...(numbered ? [{ sql: 'INSERT INTO taxipress_seat_maps(queue_id,layout,labels) VALUES (?,?,?)',args: [id,taxi.seatLayout,JSON.stringify(SEAT_LABELS[taxi.seatLayout])] }] : [])]);
   } catch {
     throw new TaxipressError(409, "already_in_line", "You are already in a line.");
   }
@@ -365,13 +374,14 @@ export async function departureCheck(entry: LineEntry): Promise<{ allowed: boole
 
 /** The taxi leaves the line. Everyone behind moves up. */
 export async function goOnRoad(driverId: string): Promise<LineEntry> {
+  await cleanupSeatHolds();
   const entry = await mustHave(driverId, "boarding");
   const check = await departureCheck(entry);
   if (!check.allowed) throw new TaxipressError(409, "not_full", check.reason ?? "The taxi isn't full yet.");
   const moved = await db.execute({
     sql: "UPDATE taxipress_queue SET status = 'on_road', departed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status = 'boarding'",
     args: [entry.id],
-  });
+  }).catch(() => { throw new TaxipressError(409,'booking_in_progress','A passenger booking is finishing. Refresh before departing.'); });
   if (!moved.rowsAffected) throw new TaxipressError(409, "wrong_state", "Your taxi has already moved on.");
   await afterDeparture(entry.id);
   return (await activeEntry(driverId))!;
@@ -416,7 +426,8 @@ export async function removeFromLine(queueId: string, reason = "removed_by_staff
 }
 
 /** The driver sells (or gives back) seats at the stage without the app. */
-export async function walkUp(driverId: string, delta: number): Promise<LineEntry> {
+export async function walkUp(driverId: string, delta: number,seat?: string): Promise<LineEntry> {
+  await cleanupSeatHolds();
   const entry = await mustHave(driverId, "in_line", "boarding", "on_road");
   if (entry.status === "on_road" && (await getTaxipressSettings()).departureRule === "full_only") {
     throw new TaxipressError(409, "wrong_state", "Seats can't be added once the taxi is on the road.");
@@ -424,11 +435,21 @@ export async function walkUp(driverId: string, delta: number): Promise<LineEntry
   const next = entry.walkUpSeats + delta;
   if (next < 0) throw new TaxipressError(409, "none_to_remove", "No walk-up seats to remove.");
   if (delta > 0 && entry.seatsTaken + delta > entry.seatsTotal) throw new TaxipressError(409, "no_seats_left", "Every seat is taken.");
+  if (seat) {
+    if (delta !== -1 || !(await seatingReady())) throw new TaxipressError(409,'invalid_seat','Choose a numbered stage seat to remove.');
+    const result = await executeBatch([
+      {sql: `DELETE FROM taxipress_seat_claims WHERE queue_id = ? AND seat = ? AND walk_up = 1
+        AND EXISTS (SELECT 1 FROM taxipress_queue WHERE id = ? AND status IN ${ACTIVE} AND walk_up_seats > 0)`,args: [entry.id,seat,entry.id]},
+      {sql: `UPDATE taxipress_queue SET walk_up_seats = walk_up_seats - 1,updated_at = datetime('now') WHERE id = ? AND walk_up_seats > 0 AND changes() = 1 AND status IN ${ACTIVE}`,args: [entry.id]},
+    ]);
+    if (!result[1]) throw new TaxipressError(409,'invalid_seat','That seat is not a stage sale on your departure.');
+    return (await activeEntry(driverId))!;
+  }
   const changed = await db.execute({
-    sql: `UPDATE taxipress_queue SET walk_up_seats = ?, updated_at = datetime('now')
-          WHERE id = ? AND status IN ${ACTIVE} AND seats_booked + ? <= seats_total`,
-    args: [next, entry.id, next],
-  });
+    sql: `UPDATE taxipress_queue SET walk_up_seats = walk_up_seats + ?, updated_at = datetime('now')
+          WHERE id = ? AND status IN ${ACTIVE} AND walk_up_seats + ? >= 0 AND seats_booked + walk_up_seats + ? <= seats_total`,
+    args: [delta, entry.id, delta,delta],
+  }).catch(() => { throw new TaxipressError(409,'no_seats_left','Those seats are booked or held by another customer.'); });
   if (!changed.rowsAffected) throw new TaxipressError(409, "no_seats_left", "Every seat is taken.");
   return (await activeEntry(driverId))!;
 }
@@ -472,6 +493,7 @@ export async function driverView(driverId: string) {
     applyRoutes,
     routes,
     entry,
+    walkUpSeatNumbers: entry ? await walkUpSeatNumbers(entry.id) : [],
     line: entry && entry.status !== "on_road" ? await lineOf(entry.taxipressRouteId) : [],
     canGoOnRoad: check?.allowed ?? false,
     onRoadReason: check?.reason ?? null,
@@ -487,5 +509,5 @@ export async function activeQueue() {
   if (!(await queueReady())) return [];
   const rows = (await db.execute(`${ENTRY_SQL.replace("u.name AS driver_name", "u.name AS driver_name, u.phone AS driver_phone")}
     WHERE q.status IN ${ACTIVE} ORDER BY q.taxipress_route_id, CASE q.status WHEN 'boarding' THEN 0 WHEN 'in_line' THEN 1 ELSE 2 END, q.joined_at`)).rows as Row[];
-  return rows.map((row) => ({ ...toEntry(row, null), taxipressRouteId: String(row.taxipress_route_id), driverPhone: (row.driver_phone as string | null) ?? null }));
+  return Promise.all(rows.map(async (row) => ({ ...await toEntry(row, null), taxipressRouteId: String(row.taxipress_route_id), driverPhone: (row.driver_phone as string | null) ?? null })));
 }

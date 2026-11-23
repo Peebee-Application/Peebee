@@ -22,6 +22,7 @@ enabled it, a provider is configured, or a real production payment was tested.
 | Screenshots and printing | No protection overlay, blur/focus/visibility hiding or print blocking in live or practice. |
 | Departure selection | Route/direction/vehicle selection uses current queue IDs and running routes, never source demo routes or fallback departures. |
 | Passengers | Adult/child counters follow available capacity and admin booking/lap rules. Optional child seats are priced and persisted by the shared API; old clients retain the default lap policy. Traveller details include an entered emergency contact. |
+| Numbered seats and holds | New departures with a staff-verified 14/18-seat layout use real numbered inventory. Atomic account-owned holds expire, one selection per customer; driver/walk-up seats and other tickets cannot be selected. Best available assigns real numbers without a choice fee. Chosen numbers/fees appear on tickets, downloads and the driver manifest. Reassignment preserves chosen numbers or refunds the whole booking when none can honour them; open tickets use automatic allocation. |
 | Luggage | Only offered types appear. Prices and disabled state follow admin config. Items assessed at the stage have no invented up-front price. |
 | Open tickets | Existing open-ticket option, exposed only when enabled and the shared API is ready. This is not a discounted return package. |
 | Offers | Account-eligible offers come from Peebee; entered codes go to server-side payment eligibility/pricing. No client-side discount or fake corporate credit. |
@@ -33,40 +34,68 @@ enabled it, a provider is configured, or a real production payment was tested.
 | Support | Existing customer support service, AI/staff handoff, persisted conversation, ending/restarting chat, visitor/account-scoped session capability. Admin availability is respected. |
 | Contacts and settings | Shared saved passengers/pickup points; display settings persist on this device per customer. Completed journeys may be rated through their shared order. |
 
-No schema migration is needed for this release. Optional child-seat selections
+The initial public-access release needed no migration. Optional child-seat selections
 use the existing details columns or their established pre-migration fallback.
 The tracking endpoint reads existing queue location columns. Existing pricing,
 ownership and settlement rules remain authoritative.
+
+### Numbered-seat rollout
+
+Apply **`0168_taxipress_numbered_seats.sql`** explicitly through the existing
+reviewed database-migration workflow on clean main. App deployment never runs
+SQL migrations. This additive migration creates inventory/hold tables and
+transactional constraints, adds the booking allocation reference and a taxi
+layout-approval flag. Until it is applied, normal bookings keep working and
+numbered selection is unavailable. Existing departures are never backfilled.
+
+In Admin → Taxipress, set the hold duration (30–900 seconds), fee per chosen seat
+and master numbered-seat switch. In Taxis, approve each vehicle's numbered
+layout after checking it against the existing 14/18-seat diagram. Both switches
+default off. Only that taxi's next departure receives a numbered inventory;
+changing settings does not renumber an active trip. Bookings from older apps
+get automatic numbers on those departures, without a seat-choice fee.
+Changing a vehicle's plate, route or layout clears its numbered-layout approval.
+Drivers see stage-sale seat numbers and can release the exact stage seat when
+its passenger leaves. Chosen seats move only onto the same verified layout,
+with all chosen numbers available; otherwise the booking is refunded in full.
+
+An unpaid confirmed booking retains the existing admin payment deadline;
+selection holds have their separate, shorter deadline. Cancellation, no-show,
+abandoned order creation and taxi removal release claims without double-selling.
+Open tickets cannot buy a numbered-seat preference: their automatic allocation
+may change when redeemed on another taxi. Numbered seats held by another account
+are shown unavailable, without exposing account identities or hold capabilities.
+
+Release order: review/merge, explicit migration, shared API, Admin, customer and
+partner ticket/manifest surfaces, then Taxibee. Existing service switches and
+routes remain under the operator's control. No production seats or payments
+are created merely to demonstrate this feature.
 
 ## Remaining production parity work
 
 The following work is still required. Keep it out of live success paths until
 the server can enforce it, while leaving the practice flows available.
 
-1. **Numbered seats:** admin enablement, real per-taxi layout/availability,
-   atomic seat holds and assignments, fees, race/conflict handling, expiry,
-   cancellation, walk-up seats, driver manifest and taxi-removal rebooking.
-   Aggregate seat counts cannot safely be presented as specific seat IDs.
-2. **Return packages:** server quote and linked outbound/return entitlement,
+1. **Return packages:** server quote and linked outbound/return entitlement,
    configured discounts/expiry, route/direction validity, date changes,
    redemption and partial cancellation/refund accounting. Two unrelated bookings
    must not be advertised as an atomic prepaid return package.
-3. **Parcels:** map the existing relay service's routes, eligible taxis, quotes,
+2. **Parcels:** map the existing relay service's routes, eligible taxis, quotes,
    recipient/collection proof, photos, handover codes, payments and tracking to
    the parcel screens. Add any missing shared API/admin capabilities; never
    synthesize a receipt or collection PIN on the client.
-4. **Charter:** map the existing car service's real inventory, availability,
+3. **Charter:** map the existing car service's real inventory, availability,
    quote, reservation, assignment and payment lifecycle to the special-hire
    screens. Hourly/day packages and preferred-driver commitments need server
    support and admin-controlled rules.
-5. **Corporate and voucher parity:** shared offers are connected, but the
+4. **Corporate and voucher parity:** shared offers are connected, but the
    prototype's corporate account/credit and voucher settlement models are not.
    They need real account authorization, limits, eligibility and accounting.
-6. **Remaining account capabilities:** production Google origin/provider verification,
+5. **Remaining account capabilities:** production Google origin/provider verification,
    profile photos and verified contact changes, wallet PIN/auto-pay policies,
    browser push/preference integration, session/security history, and verified
    support/safety contacts. About links to Peebee's published legal/privacy pages.
-7. **Remaining journey tools:** real scheduled dates/calendar export, saved
+6. **Remaining journey tools:** real scheduled dates/calendar export, saved
    departure persistence, configurable search filters, chat media and in-app
    call controls, formal lost-property/support-case workflows and attachments.
    A saved address is not a new TaxiPress stop or an arbitrary pickup promise.

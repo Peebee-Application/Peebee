@@ -825,6 +825,15 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async getPublicTaxipressTaxiProfile(queueId: string) {
       return request<{ profile: TaxipressTaxiProfile }>(`/v1/taxipress-public/taxis/${encodeURIComponent(queueId)}/profile`);
     },
+    async getTaxipressSeatMap(queueId: string, signedIn = true) {
+      return request<import('./taxipress.js').TaxipressSeatMap>(`/v1/${signedIn ? 'taxipress' : 'taxipress-public'}/queue/${encodeURIComponent(queueId)}/seats`);
+    },
+    async holdTaxipressSeats(queueId: string, seats: string[]) {
+      return request<{ hold: { id: string; quantity: number; fee: number; expiresAt: string } }>(`/v1/taxipress/queue/${encodeURIComponent(queueId)}/seat-holds`,{ method: 'POST',body: JSON.stringify({ seats }) });
+    },
+    async releaseTaxipressSeatHold(id: string) {
+      return request<{ ok: true }>(`/v1/taxipress/seat-holds/${encodeURIComponent(id)}`,{ method: 'DELETE' });
+    },
     async adminGetTaxipressSettings() {
       return request<{ settings: TaxipressSettings; ready: boolean }>("/v1/admin/taxipress/settings");
     },
@@ -867,8 +876,8 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       return request<{ ok: boolean }>("/v1/taxipress/driver/leave", { method: "POST", body: "{}" });
     },
     /** Seats sold at the stage without the app (negative gives some back). */
-    async taxipressWalkUp(delta: number) {
-      return request<{ entry: TaxipressLineEntry }>("/v1/taxipress/driver/walk-up", { method: "POST", body: JSON.stringify({ delta }) });
+    async taxipressWalkUp(delta: number,seat?: string) {
+      return request<{ entry: TaxipressLineEntry }>("/v1/taxipress/driver/walk-up", { method: "POST", body: JSON.stringify({ delta,seat }) });
     },
     async taxipressSendLocation(lat: number, lng: number) {
       return request<{ ok: boolean }>("/v1/taxipress/driver/location", { method: "POST", body: JSON.stringify({ lat, lng }) });
@@ -878,7 +887,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       return request<TaxipressQueueView>(`/v1/taxipress/routes/${encodeURIComponent(routeId)}/queue`);
     },
     /** Book seats on a taxi in the line. Pay next on the order's pay screen, or hand cash to the driver. */
-    async bookTaxipressSeats(input: { queueId: string; seats?: number; payment?: "app" | "cash"; adults?: number; children?: number; childSeats?: number; luggage?: Partial<Record<TaxipressLuggageType, number>>; assistance?: TaxipressAssistance | null; language?: TaxipressLanguage | null; forSomeoneElse?: boolean; travellerName?: string | null; travellerPhone?: string | null; emergencyPhone?: string | null; openTicket?: boolean }) {
+    async bookTaxipressSeats(input: { queueId: string; seatHoldId?: string; seats?: number; payment?: "app" | "cash"; adults?: number; children?: number; childSeats?: number; luggage?: Partial<Record<TaxipressLuggageType, number>>; assistance?: TaxipressAssistance | null; language?: TaxipressLanguage | null; forSomeoneElse?: boolean; travellerName?: string | null; travellerPhone?: string | null; emergencyPhone?: string | null; openTicket?: boolean }) {
       return request<{ booking: TaxipressBooking; order: { id: string } }>("/v1/taxipress/bookings", { method: "POST", body: JSON.stringify(input) });
     },
     async getTaxipressTaxiProfile(queueId: string) {
@@ -916,7 +925,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async adminListTaxipressTaxis() {
       return request<{ taxis: TaxipressTaxi[] }>("/v1/admin/taxipress/taxis");
     },
-    async adminUpdateTaxipressTaxi(id: string, input: Partial<{ status: "pending" | "approved" | "suspended"; passengersEnabled: boolean; parcelsEnabled: boolean }>) {
+    async adminUpdateTaxipressTaxi(id: string, input: Partial<{ status: "pending" | "approved" | "suspended"; passengersEnabled: boolean; parcelsEnabled: boolean; numberedSeatsEnabled: boolean }>) {
       return request<{ taxi: TaxipressTaxi }>(`/v1/admin/taxipress/taxis/${encodeURIComponent(id)}`, { method: "POST", body: JSON.stringify(input) });
     },
     async adminTaxipressReport(days = 30) {

@@ -145,6 +145,8 @@ export default function TaxipressTicketPage() {
             <Row label="Taxi" value={`${taxi.plate} · ${taxi.seatLayout}-seater`} />
             <Row label="Driver" value={taxi.driverName ?? "—"} />
             <Row label="Seats" value={seatsText(booking)} />
+            {!!booking.seatNumbers?.length && <Row label="Seat numbers" value={booking.seatNumbers.join(', ')} />}
+            {!!booking.seatChoiceFee && <Row label="Seat-choice fee (included)" value={ugx(booking.seatChoiceFee)} />}
             {booking.details?.forSomeoneElse && booking.details.travellerName && <Row label="Passenger" value={`${booking.details.travellerName}${booking.details.travellerPhone ? ` · ${booking.details.travellerPhone}` : ""}`} />}
             {booking.details?.emergencyPhone && <Row label="Emergency contact" value={booking.details.emergencyPhone} />}
             {luggageText(booking) && <Row label="Luggage" value={luggageText(booking)!} />}

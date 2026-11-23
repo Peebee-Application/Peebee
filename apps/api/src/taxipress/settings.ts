@@ -20,6 +20,8 @@ export type TaxipressSettings = {
   maxOwedUgx: number;
   cashEnabled: boolean;
   seatChoiceFeeUgx: number;
+  numberedSeatsEnabled: boolean;
+  seatHoldSeconds: number;
   returnDiscountPercent: number;
   maxSeatsPerBooking: number;
   /** Which taxi may take a relay parcel: only the one Boarding Now, or any taxi in the line. */
@@ -209,6 +211,8 @@ export async function getTaxipressSettings(): Promise<TaxipressSettings> {
     maxOwedUgx: whole(owed, 0, 100_000_000),
     cashEnabled: bool(cashOn, true),
     seatChoiceFeeUgx: whole(seatFee, 0, 100_000),
+    numberedSeatsEnabled: (await getSetting('taxipress_numbered_seats_enabled')) === '1',
+    seatHoldSeconds: Math.max(30,whole(await getSetting('taxipress_seat_hold_seconds'),120,900)),
     returnDiscountPercent: percent(discount),
     maxSeatsPerBooking: Math.max(1, whole(maxSeats, 4, 30)),
     parcelAcceptRule: accept === "any_in_line" ? "any_in_line" : "boarding_now",
@@ -257,6 +261,8 @@ export async function setTaxipressSettings(next: Partial<TaxipressSettings>): Pr
   if (next.maxOwedUgx != null) await setSetting("taxipress_max_owed_ugx", String(next.maxOwedUgx));
   if (next.cashEnabled != null) await setSetting("taxipress_cash_enabled", flag(next.cashEnabled));
   if (next.seatChoiceFeeUgx != null) await setSetting("taxipress_seat_choice_fee_ugx", String(next.seatChoiceFeeUgx));
+  if (next.numberedSeatsEnabled != null) await setSetting('taxipress_numbered_seats_enabled',flag(next.numberedSeatsEnabled));
+  if (next.seatHoldSeconds != null) await setSetting('taxipress_seat_hold_seconds',String(next.seatHoldSeconds));
   if (next.returnDiscountPercent != null) await setSetting("taxipress_return_discount_percent", String(next.returnDiscountPercent));
   if (next.maxSeatsPerBooking != null) await setSetting("taxipress_max_seats_per_booking", String(next.maxSeatsPerBooking));
   if (next.parcelAcceptRule != null) await setSetting("taxipress_parcel_accept_rule", next.parcelAcceptRule);

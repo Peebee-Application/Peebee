@@ -11,6 +11,7 @@ import { cancelTermsFor, collectedFor } from "./cancel-terms.js";
 import { lineOf, queueReady } from "./queue.js";
 import { decorateLine, detailsColumnsReady, loadDetails, luggageCount, phoneTail, priceBooking, saveDetails, type BookingDetails, type BookingDetailsInput } from "./details.js";
 import { getTaxipressSettings, offeredLanguages, offeredLuggageTypes } from "./settings.js";
+import { SeatError, bookingSeats, cleanupSeatHolds, releaseReservedBooking, reserveNumberedBooking, seatingReady } from './seats.js';
 
 type Row = Record<string, unknown>;
 
@@ -28,6 +29,8 @@ export type TaxipressBooking = {
   orderId: string;
   status: TaxipressBookingStatus;
   seats: number;
+  seatNumbers?: string[];
+  seatChoiceFee?: number;
   farePerSeat: number;
   amount: number;
   paymentMethod: "app" | "cash";
@@ -108,6 +111,7 @@ async function toBooking(row: Row, forPassenger: boolean): Promise<TaxipressBook
     orderId: String(row.bk_order_id),
     status: row.bk_status as TaxipressBookingStatus,
     seats: Number(row.seats),
+    ...(await bookingSeats(String(row.bk_id))),
     farePerSeat: Number(row.fare_per_seat),
     amount: Number(row.amount),
     paymentMethod: cash ? "cash" : "app",
@@ -212,6 +216,7 @@ export async function manifestFor(queueId: string): Promise<ManifestPassenger[]>
     return {
       id: b.id, passengerName: (row.passenger_name as string | null) ?? null, passengerPhone: (d?.forSomeoneElse && d.travellerPhone) || ((row.passenger_phone as string | null) ?? null),
       seats: b.seats, amount: b.amount, paymentMethod: b.paymentMethod, paymentStatus: b.paymentStatus, status: b.status,
+      seatNumbers: b.seatNumbers,
       adults: d?.adults ?? b.seats, children: d?.children ?? 0, bags: d ? luggageCount(JSON.stringify(d.luggage)) : 0,
       travellerName: d?.forSomeoneElse ? d.travellerName : null,
     };
@@ -223,6 +228,7 @@ export async function manifestFor(queueId: string): Promise<ManifestPassenger[]>
  * from the scheduled sweep, so seat counts stay right without touching the order cancellation code.
  */
 export async function releaseStaleBookings(): Promise<number> {
+  await cleanupSeatHolds();
   if (!(await bookingsReady())) return 0;
   const { payWithinMinutes } = await getTaxipressSettings();
   // Cash picked on the checkout screen moves the order to the cash rail; the booking follows so boarding settles it as cash.
@@ -266,7 +272,7 @@ function newTicketCode(): string {
 }
 
 /** Books seats on a taxi in the line. The passenger pays next, on the order's pay screen (or hands cash to the driver). */
-export type BookInput = { queueId: string; seats?: number; payment?: "app" | "cash"; openTicket?: boolean } & Partial<BookingDetailsInput>;
+export type BookInput = { queueId: string; seats?: number; payment?: "app" | "cash"; openTicket?: boolean; seatHoldId?: string } & Partial<BookingDetailsInput>;
 
 export async function bookSeats(c: Context, input: BookInput) {
   const user = c.get("user");
@@ -325,17 +331,25 @@ export async function bookSeats(c: Context, input: BookInput) {
 
   const farePerSeat = Number(entry.fare_per_seat);
   const priced = priceBooking({ adults, children, childSeats: input.childSeats, luggage }, farePerSeat, settings);
-  const amount = withDetails ? priced.amount : farePerSeat * seatCount;
+  let amount = withDetails ? priced.amount : farePerSeat * seatCount;
   if (!(amount > 0)) return c.json({ error: "no_fare", message: "This route has no fare set yet." }, 409);
+  let allocation: Awaited<ReturnType<typeof reserveNumberedBooking>>;
+  try { allocation = await reserveNumberedBooking(input.queueId,user.sub,seatCount,input.seatHoldId); }
+  catch (e) { if (e instanceof SeatError) return c.json({ error: e.code,message: e.message },e.status); throw e; }
+  if (input.openTicket && allocation?.chosen) {
+    await releaseReservedBooking(allocation.id);
+    return c.json({ error: 'open_ticket_seat_choice',message: 'Open tickets use best-available seating. Choose a departure ticket to reserve numbered seats.' },409);
+  }
+  amount += allocation?.fee ?? 0;
 
   // Race-safe: only one request can take the last seats, and only while the taxi is still in the line.
-  const taken = await db.execute({
+  const taken = allocation ? { rowsAffected: 1 } : await db.execute({
     sql: `UPDATE taxipress_queue SET seats_booked = seats_booked + ?, updated_at = datetime('now')
           WHERE id = ? AND status IN ('in_line', 'boarding') AND seats_booked + walk_up_seats + ? <= seats_total`,
     args: [seatCount, input.queueId, seatCount],
   });
   if (taken.rowsAffected === 0) return c.json({ error: "not_available", message: "Those seats aren't available any more." }, 409);
-  const release = () =>
+  const release = () => allocation ? releaseReservedBooking(allocation.id) :
     db.execute({ sql: "UPDATE taxipress_queue SET seats_booked = MAX(0, seats_booked - ?), updated_at = datetime('now') WHERE id = ?", args: [seatCount, input.queueId] });
 
   const environment = (await getPlatformEnvironment()) === "sandbox" ? "sandbox" : "live";
@@ -343,6 +357,8 @@ export async function bookSeats(c: Context, input: BookInput) {
   const from = { name: String(aToB ? entry.stage_a_name : entry.stage_b_name), lat: Number(aToB ? entry.stage_a_lat : entry.stage_b_lat), lng: Number(aToB ? entry.stage_a_lng : entry.stage_b_lng) };
   const to = { name: String(aToB ? entry.stage_b_name : entry.stage_a_name), lat: Number(aToB ? entry.stage_b_lat : entry.stage_a_lat), lng: Number(aToB ? entry.stage_b_lng : entry.stage_a_lng) };
   const listId = newId("list");
+  let bookingInserted = false;
+  let createdOrderId: string | null = null;
   try {
     await db.execute({
       sql: "INSERT INTO lists (id, customer_id, title, status, environment) VALUES (?, ?, ?, 'draft', ?)",
@@ -364,12 +380,15 @@ export async function bookSeats(c: Context, input: BookInput) {
     }
     const order = ((await response.clone().json()) as { order: Row }).order;
     const orderId = String(order.id);
+    createdOrderId = orderId;
     const bookingId = newId("tpb");
+    const seatColumns = await seatingReady();
     await db.execute({
-      sql: `INSERT INTO taxipress_bookings (id, order_id, queue_id, taxipress_route_id, passenger_id, driver_id, seats, fare_per_seat, amount, payment_method, ticket_code, environment)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [bookingId, orderId, input.queueId, String(entry.taxipress_route_id), user.sub, String(entry.driver_id), seatCount, farePerSeat, amount, payment, newTicketCode(), environment],
+      sql: `INSERT INTO taxipress_bookings (id, order_id, queue_id, taxipress_route_id, passenger_id, driver_id, seats, fare_per_seat, amount, payment_method, ticket_code, environment${seatColumns ? ',seat_reservation_id' : ''})
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${seatColumns ? ',?' : ''})`,
+      args: [bookingId, orderId, input.queueId, String(entry.taxipress_route_id), user.sub, String(entry.driver_id), seatCount, farePerSeat, amount, payment, newTicketCode(), environment,...(seatColumns ? [allocation?.id ?? null] : [])],
     });
+    bookingInserted = true;
     if (input.openTicket) await markOpenTicket(bookingId);
     if (withDetails) {
       await saveDetails(bookingId, {
@@ -398,7 +417,10 @@ export async function bookSeats(c: Context, input: BookInput) {
     const booking = await bookingFor(bookingId, user.sub);
     return c.json({ booking, order: { ...order, rider_id: entry.driver_id, stage: "Match" } }, 201);
   } catch (err) {
-    await release();
+    if (!bookingInserted) {
+      await release();
+      if (createdOrderId) await db.execute({ sql: "UPDATE orders SET stage = 'Cancelled',updated_at = datetime('now') WHERE id = ? AND stage IN ('Create','Match')",args: [createdOrderId] });
+    }
     console.error("Taxipress booking failed:", err);
     return c.json({ error: "booking_failed", message: "Couldn't book those seats. Please try again." }, 500);
   }

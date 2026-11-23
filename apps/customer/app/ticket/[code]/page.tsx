@@ -54,6 +54,7 @@ export default function TicketCodePage() {
             <Row label="Taxi number" value={ticket.taxi.plate} />
             {ticket.taxi.driverName && <Row label="Driver" value={ticket.taxi.driverName} />}
             <Row label="Seats" value={ticket.children > 0 ? `${ticket.seats} (${ticket.adults} adult${ticket.adults === 1 ? "" : "s"}, ${ticket.children} child${ticket.children === 1 ? "" : "ren"})` : String(ticket.seats)} />
+            {!!ticket.seatNumbers?.length && <Row label="Seat numbers" value={ticket.seatNumbers.join(', ')} />}
             {ticket.bags > 0 && <Row label="Bags" value={String(ticket.bags)} />}
             {ticket.assistance && <Row label="Help needed" value={ticket.assistance} />}
             {ticket.amountDue != null && ticket.amountDue > 0 && <Row label="Pay the driver" value={ugx(ticket.amountDue)} />}

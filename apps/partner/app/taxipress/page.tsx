@@ -242,6 +242,13 @@ function Board({ view, onChange }: { view: TaxipressDriverView; onChange: () => 
             </div>
           </div>
         )}
+        {!!view.walkUpSeatNumbers?.length && <div className="space-y-2 text-sm">
+          <p className="font-bold text-ink">Stage seats: {view.walkUpSeatNumbers.join(', ')}</p>
+          {!onRoad && <>
+            <p className="text-xs text-ink-500">Seat stage passengers at these numbers. The minus button releases the last listed seat, or choose a seat below.</p>
+            <div className="flex flex-wrap gap-2">{view.walkUpSeatNumbers.map(seat => <button key={seat} type="button" disabled={busy} onClick={() => run(() => api.taxipressWalkUp(-1,seat))} className="rounded-full border border-[var(--border-faint)] px-3 py-2 font-bold text-ink disabled:opacity-40">Release {seat}</button>)}</div>
+          </>}
+        </div>}
         {error && <p className={errorBox}>{error}</p>}
 
         {entry.status === "in_line" && (
@@ -292,6 +299,7 @@ function Board({ view, onChange }: { view: TaxipressDriverView; onChange: () => 
               <li key={b.id} className="flex items-center justify-between gap-3 rounded-xl bg-[rgb(var(--surface-muted))] px-3 py-2">
                 <span className="min-w-0">
                   <span className="block truncate text-lg font-bold text-ink">{b.travellerName ?? b.passengerName ?? "Passenger"} · {b.seats} seat{b.seats === 1 ? "" : "s"}</span>
+                  {!!b.seatNumbers?.length && <span className="block text-sm font-bold text-ink">Seats: {b.seatNumbers.join(', ')}</span>}
                   {(b.children ?? 0) + (b.bags ?? 0) > 0 && (
                     <span className="block truncate text-sm text-ink-500">{b.adults ?? b.seats} adult{(b.adults ?? b.seats) === 1 ? "" : "s"}{b.children ? `, ${b.children} child${b.children === 1 ? "" : "ren"}` : ""}{b.bags ? ` · ${b.bags} bag${b.bags === 1 ? "" : "s"}` : ""}</span>
                   )}

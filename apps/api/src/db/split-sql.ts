@@ -15,6 +15,7 @@ export function splitSqlStatements(sql: string): string[] {
   const statements: string[] = [];
   let current = "";
   let i = 0;
+  let trigger = false, blockDepth = 0;
 
   while (i < sql.length) {
     const ch = sql[i];
@@ -58,9 +59,22 @@ export function splitSqlStatements(sql: string): string[] {
       continue;
     }
 
+    if (/[A-Za-z_]/.test(ch)) {
+      const start = i++;
+      while (i < sql.length && /[A-Za-z0-9_]/.test(sql[i])) i++;
+      const word = sql.slice(start, i);
+      current += word;
+      if (word.toUpperCase() === 'TRIGGER' && /^\s*CREATE\s+(?:TEMP(?:ORARY)?\s+)?TRIGGER\b/i.test(current)) trigger = true;
+      if (trigger && /^(BEGIN|CASE)$/i.test(word)) blockDepth++;
+      if (trigger && /^END$/i.test(word)) blockDepth--;
+      continue;
+    }
+
+    if (ch === ";" && trigger && blockDepth > 0) { current += ch; i++; continue; }
     if (ch === ";") {
       statements.push(current);
       current = "";
+      trigger = false; blockDepth = 0;
       i += 1;
       continue;
     }

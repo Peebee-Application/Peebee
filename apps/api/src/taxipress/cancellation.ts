@@ -1,4 +1,4 @@
-import { db } from "../db/client.js";
+import { db, executeBatch } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { hasTable } from "../lib/schema.js";
 import { notifyUser } from "../lib/webpush.js";
@@ -8,6 +8,7 @@ import { openTicketColumnsReady, openTicketOf } from "./open-tickets.js";
 import { cancelTermsFor, collectedFor, feeOf, minutesSince, type CancelTerms } from "./cancel-terms.js";
 import { activeEntry, lineOf, TaxipressError } from "./queue.js";
 import { getTaxipressSettings } from "./settings.js";
+import { cleanupSeatHolds } from './seats.js';
 
 type Row = Record<string, unknown>;
 
@@ -39,8 +40,8 @@ async function endBooking(
   const bookingId = String(row.id);
   const orderId = String(row.order_id);
   const claimed = await db.execute({
-    sql: "UPDATE taxipress_bookings SET status = ?, updated_at = datetime('now') WHERE id = ? AND status = 'booked'",
-    args: [kind === "no_show" ? "no_show" : "cancelled", bookingId],
+    sql: "UPDATE taxipress_bookings SET status = ?, updated_at = datetime('now') WHERE id = ? AND status = 'booked' AND queue_id = ?",
+    args: [kind === "no_show" ? "no_show" : "cancelled", bookingId,String(row.queue_id)],
   });
   if (claimed.rowsAffected === 0) throw new TaxipressError(409, "not_cancellable", "This booking has already been dealt with.");
 
@@ -157,6 +158,7 @@ export async function markRemainingNoShows(queueId: string): Promise<number> {
  * refunded in full. Passengers who already boarded were settled and are not touched.
  */
 export async function reassignOrRefund(queueId: string): Promise<{ moved: number; refunded: number }> {
+  await cleanupSeatHolds();
   if (!(await refundsReady())) return { moved: 0, refunded: 0 };
   const settings = await getTaxipressSettings();
   const rows = (await db.execute({ sql: `${BOOKING} WHERE b.queue_id = ? AND b.status = 'booked'`, args: [queueId] })).rows as Row[];
@@ -165,32 +167,32 @@ export async function reassignOrRefund(queueId: string): Promise<{ moved: number
   let moved = 0;
   let refunded = 0;
 
-  for (const row of rows) {
+  bookingLoop: for (const row of rows) {
     const seats = Number(row.seats);
     let target: { id: string; driverId: string; plate: string } | null = null;
     if (settings.rebookOnRemoval) {
       for (const candidate of await lineOf(routeId)) {
         if (candidate.id === queueId) continue;
-        const reserved = await db.execute({
+        const result = await executeBatch([{
           sql: `UPDATE taxipress_queue SET seats_booked = seats_booked + ?, updated_at = datetime('now')
                 WHERE id = ? AND status IN ('in_line', 'boarding') AND seats_booked + walk_up_seats + ? <= seats_total`,
           args: [seats, candidate.id, seats],
-        });
-        if (reserved.rowsAffected > 0) {
+        },{ sql: "UPDATE taxipress_bookings SET queue_id = ?, driver_id = ?, updated_at = datetime('now') WHERE id = ? AND status = 'booked' AND queue_id = ? AND changes() = 1",
+          args: [candidate.id,candidate.driverId,String(row.id),queueId] }]).catch(e => {
+            if (/taxipress_seat_conflict|UNIQUE constraint failed: taxipress_seat_claims/.test(String(e))) return null;
+            throw e;
+          });
+        if (result && result[0] > 0 && result[1] === 0) {
+          await db.execute({ sql: 'UPDATE taxipress_queue SET seats_booked = MAX(0,seats_booked - ?) WHERE id = ?',args: [seats,candidate.id] });
+          continue bookingLoop;
+        }
+        if (result && result[1] > 0) {
           target = { id: candidate.id, driverId: candidate.driverId, plate: candidate.plate };
           break;
         }
       }
     }
     if (target) {
-      const flipped = await db.execute({
-        sql: "UPDATE taxipress_bookings SET queue_id = ?, driver_id = ?, updated_at = datetime('now') WHERE id = ? AND status = 'booked'",
-        args: [target.id, target.driverId, String(row.id)],
-      });
-      if (flipped.rowsAffected === 0) {
-        await db.execute({ sql: "UPDATE taxipress_queue SET seats_booked = MAX(0, seats_booked - ?) WHERE id = ?", args: [seats, target.id] });
-        continue;
-      }
       await db.execute({ sql: "UPDATE orders SET rider_id = ?, updated_at = datetime('now') WHERE id = ?", args: [target.driverId, String(row.order_id)] });
       await db.execute({ sql: "UPDATE chat_messages SET rider_id = ? WHERE order_id = ?", args: [target.driverId, String(row.order_id)] });
       await db.execute({ sql: "UPDATE taxipress_queue SET seats_booked = MAX(0, seats_booked - ?), updated_at = datetime('now') WHERE id = ?", args: [seats, queueId] });

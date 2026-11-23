@@ -4,6 +4,7 @@ import type { TaxipressBooking, TaxipressConfig } from '../../../packages/shared
 import QRCode from 'qrcode';
 import { installCustomerFeatures } from './customer-features';
 import { installCustomerAuth } from './customer-auth';
+import { installSeatSelection } from './seat-selection';
 
 // The presentation is intentionally retained verbatim. This boundary is the only
 // place that translates Peebee records into the source interface's view model.
@@ -30,6 +31,7 @@ let previewEntered = false;
 let features: ReturnType<typeof installCustomerFeatures> | undefined;
 let account: ReturnType<typeof installCustomerAuth> | undefined;
 let booting = true;
+let seating: ReturnType<typeof installSeatSelection> | undefined;
 const original = Object.fromEntries(['renderAuth', 'renderHome', 'renderBook', 'renderCurrentScreen', 'navigate', 'renderWallet', 'renderProfile', 'renderDigitalTicketCard', 'getTicketsData', 'confirmBooking', 'renderTracking'].map(k => [k, ui[k]]));
 const $ = (s: string) => document.querySelector(s) as HTMLInputElement | null;
 const escape = (s: unknown) => ui.escapeHtml(String(s ?? ''));
@@ -66,6 +68,7 @@ function clearSession(discardDraft = true) {
   if (discardDraft) account?.clearDraft();
   ++sessionVersion; loading = false;
   features?.reset();
+  seating?.reset();
   user = null; bookings = []; wallet = null; selectedBooking = null; pendingOrder = null; pendingPayment = null;
   localStorage.removeItem(TOKEN); sessionStorage.removeItem(TOKEN);
   state.tickets = []; state.walletBalance = 0; appData.transactions = [];
@@ -116,7 +119,7 @@ function ticket(b: TaxipressBooking) {
     id: b.id, bookingRef: b.id, route: `${escape(b.route.fromName)} → ${escape(b.route.toName)}`,
     cityA: escape(b.route.fromName), cityB: escape(b.route.toName), stageA: escape(b.route.fromName), stageB: escape(b.route.toName),
     via: escape(b.route.directionLabel), date: new Date(b.createdAt).toLocaleDateString('en-UG', { timeZone: 'Africa/Kampala' }),
-    time: b.taxi.status === 'on_road' ? 'On the road' : 'Stage departure', seat: `${b.seats} reserved space${b.seats === 1 ? '' : 's'}`,
+    time: b.taxi.status === 'on_road' ? 'On the road' : 'Stage departure', seat: b.seatNumbers?.length ? b.seatNumbers.join(', ') : `${b.seats} reserved space${b.seats === 1 ? '' : 's'}`,
     passenger: escape(user?.name), price: money(b.amount), status: ['booked', 'boarded'].includes(b.status) ? 'active' : 'used',
     vanNumber: escape(b.taxi.plate), driver: escape(b.taxi.driverName || 'Driver'), avatar: 'assets/peebee-logo.svg',
     qrData: b.ticketCode ? `https://app.peebee.online/ticket/${encodeURIComponent(b.ticketCode)}` : '',
@@ -184,10 +187,10 @@ async function confirmBooking() {
   if ((!state.activeTrip || !config?.enabled) && !pendingOrder) return ui.toast('Choose a currently available taxi.', 'danger');
   if (pendingOrder && state.activeTrip?.id !== pendingOrder.booking.taxi.queueId) return ui.toast('Finish or cancel the existing unpaid ticket in My Tickets before booking another taxi.', 'danger');
   if (state.ticketType === 'return') return ui.toast('Book each direction separately; a return package is not offered by this service.', 'info');
-  if (state.capacityMode === 'seats') return ui.toast('The service reserves spaces, not numbered seats. Choose best available.', 'info');
   if (uncertainBooking) return ui.openModal('Check My Tickets before booking again', '<p>The previous booking response was interrupted. Refresh My Tickets to check whether Peebee saved it before starting a new booking.</p>', '<button class="button button--primary" data-action="taxibee-check-bookings">Check My Tickets</button>');
   busy = true;
   try {
+    const seatHoldId = pendingOrder ? undefined : await seating?.prepare();
     uncertainBooking = !pendingOrder;
     pendingOrder ??= await api.bookTaxipressSeats({ queueId: state.activeTrip.id, adults: state.passengerCount, children: state.childCount, childSeats: childSeats(),
       luggage: config.luggageEnabled ? state.luggageQuantities : undefined,
@@ -198,8 +201,10 @@ async function confirmBooking() {
       travellerPhone: state.isBookingForSomeoneElse ? state.otherTravelerPhone : undefined,
       emergencyPhone: state.isBookingForSomeoneElse ? state.emergencyContact || undefined : undefined,
       openTicket: state.taxibeeOpenTicket === true,
+      seatHoldId,
     });
     account?.clearDraft();
+    seating?.consumed();
     uncertainBooking = false;
     await payPending();
   } catch (e) { report(e); }
@@ -281,8 +286,8 @@ if (!preview) {
   };
   ui.passengerTotal = () => state.passengerCount + childSeats();
   ui.luggageTotal = () => config?.luggageEnabled ? appData.luggage.reduce((sum: number, l: any) => sum + (config?.luggagePrices?.[l.id as keyof NonNullable<TaxipressConfig['luggagePrices']>] ?? 0) * (state.luggageQuantities[l.id] || 0), 0) : 0;
-  ui.seatReservationFee = () => 0;
-  ui.checkoutTotal = () => pendingOrder?.booking.amount ?? ui.checkoutBaseFare() + ui.luggageTotal();
+  ui.seatReservationFee = () => seating?.fee() || 0;
+  ui.checkoutTotal = () => pendingOrder?.booking.amount ?? ui.checkoutBaseFare() + ui.luggageTotal() + ui.seatReservationFee();
   ui.confirmBooking = confirmBooking;
   ui.renderHome = cleanHome;
   ui.renderBook = () => {
@@ -346,7 +351,7 @@ if (!preview) {
   ui.renderTripTabContent = () => bookings.map(b => `<article class="card"><h3>${escape(b.route.fromName)} → ${escape(b.route.toName)}</h3><p>${escape(b.taxi.plate)} · ${escape(b.status)} · ${money(b.amount)}</p><button class="button button--primary" data-action="taxibee-ticket" data-id="${escape(b.id)}">View ticket</button></article>`).join('') || empty('No journeys yet', 'Bookings made in either customer app appear here.');
   ui.signOut = async () => {
     if (!user) { account?.open('profile'); return; }
-    try { await api.logout(); } finally { clearSession(); applyGuest(); await refresh().catch(report); account?.browse('home'); }
+    try { await seating?.release(); await api.logout(); } finally { clearSession(); applyGuest(); await refresh().catch(report); account?.browse('home'); }
   };
 }
 
@@ -372,6 +377,8 @@ if (!preview) account = installCustomerAuth({
     if (user?.id !== result.user.id) throw new Error('Please sign in again.');
   },
 });
+if (!preview) seating = installSeatSelection({ ui,api,user: () => user,quantity: () => ui.passengerTotal(),
+  requestLogin: screen => account?.open(screen),remember: () => account?.rememberBooking() });
 
 document.addEventListener('input', event => {
   if (!preview && (event.target as HTMLElement).id === 'taxibee-offer-code') state.taxibeeOfferCode = (event.target as HTMLInputElement).value;
@@ -502,7 +509,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('#app-shell')?.classList.add('is-hidden'); $('#auth-layer')?.classList.remove('is-hidden');
     try {
       const { ticket: t } = await api.getTaxipressTicketByCode(publicCode);
-      $('#auth-content')!.innerHTML = `<article class="card"><h1>Taxibee passenger ticket</h1><h2>${escape(t.route.fromName)} → ${escape(t.route.toName)}</h2><p>Traveller: ${escape(t.travellerName || 'Passenger')}</p><p>${escape(t.status)} · ${escape(t.paymentStatus)}</p><p>${t.seats} space(s) · ${escape(t.taxi.plate)}</p>${t.amountDue != null ? `<p>Cash due: ${money(t.amountDue)}</p>` : ''}<p>Boarding code: <strong>${escape(t.code)}</strong></p><a class="button button--primary" href="/">Open Taxibee</a></article>`;
+      $('#auth-content')!.innerHTML = `<article class="card"><h1>Taxibee passenger ticket</h1><h2>${escape(t.route.fromName)} → ${escape(t.route.toName)}</h2><p>Traveller: ${escape(t.travellerName || 'Passenger')}</p><p>${escape(t.status)} · ${escape(t.paymentStatus)}</p><p>${t.seats} space(s) · ${escape(t.taxi.plate)}</p>${t.seatNumbers?.length ? `<p>Seat numbers: ${escape(t.seatNumbers.join(', '))}</p>` : ''}${t.amountDue != null ? `<p>Cash due: ${money(t.amountDue)}</p>` : ''}<p>Boarding code: <strong>${escape(t.code)}</strong></p><a class="button button--primary" href="/">Open Taxibee</a></article>`;
     } catch (e) { $('#auth-content')!.innerHTML = `<article class="card"><h1>Ticket unavailable</h1><p>${escape(message(e))}</p><a href="/">Open Taxibee</a></article>`; }
     return;
   }
@@ -513,6 +520,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await refresh().catch(e => { error = message(e); });
   ui.init();
   const practiceButton = document.querySelector('[data-action="open-demo-panel"]'); if (practiceButton) practiceButton.innerHTML = '<i data-lucide="flask-conical"></i>Practice mode';
+  const sidebarStatus = document.querySelector('.sidebar__footer .connection-state'); if (sidebarStatus) sidebarStatus.textContent = 'Peebee account services';
+  const sidebarMode = document.querySelector('.sidebar__footer > p'); if (sidebarMode) sidebarMode.textContent = 'Live Taxibee';
   const restored = !location.hash && !new URLSearchParams(location.search).get('screen') ? account?.restoreDraft() : null;
   account?.browse(restored?.screen || state.screen || 'home');
   booting = false;

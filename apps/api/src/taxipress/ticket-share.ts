@@ -31,6 +31,7 @@ export type PublicTicket = {
   /** What still has to be paid to the driver in cash. */
   amountDue: number | null;
   seats: number;
+  seatNumbers?: string[];
   adults: number;
   children: number;
   bags: number;
@@ -62,6 +63,7 @@ export async function publicTicket(code: string): Promise<PublicTicket | null> {
     paymentStatus: booking.paymentStatus,
     amountDue: booking.paymentStatus === "pay_driver" || booking.paymentStatus === "unpaid" ? booking.amount : null,
     seats: booking.seats,
+    seatNumbers: booking.seatNumbers,
     adults: d?.adults ?? booking.seats,
     children: d?.children ?? 0,
     bags: d ? Object.values(d.luggage ?? {}).reduce((sum, n) => sum + Number(n || 0), 0) : 0,
