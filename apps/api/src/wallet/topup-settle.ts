@@ -25,6 +25,8 @@ async function providerStatus(topup: Row): Promise<TopupResult> {
     provider: String(topup.provider),
     provider_ref: (topup.provider_ref as string | null) ?? null,
     created_at: String(topup.created_at),
+    expectedAmount: Number(topup.amount),
+    expectedCurrency: "UGX",
   });
   if (status === "successful") return "successful";
   if (status === "failed") return "failed";

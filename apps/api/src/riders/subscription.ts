@@ -157,7 +157,7 @@ export async function renewSubscriptions(): Promise<{ attempted: number; renewed
       // once right away rather than leaving it pending until a rider
       // happens to open the app and trigger a refresh, which is what the
       // customer/rider-initiated flows rely on elsewhere.
-      const status = await checkPaymentStatus({ provider: initiated.provider, provider_ref: initiated.providerRef, created_at: toSqliteTimestamp(new Date()) });
+      const status = await checkPaymentStatus({ provider: initiated.provider, provider_ref: initiated.providerRef, created_at: toSqliteTimestamp(new Date()), expectedAmount: settings.subscriptionAmount, expectedCurrency: "UGX" });
       if (status === "successful") {
         await db.execute({
           sql: "UPDATE rider_subscription_payments SET status = 'successful', updated_at = datetime('now') WHERE id = ?",
