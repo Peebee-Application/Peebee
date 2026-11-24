@@ -7,7 +7,7 @@ import { Hono } from 'hono';
 import { setD1Binding,type D1Database } from '../db/client.js';
 import { splitSqlStatements } from '../db/split-sql.js';
 import { resetSchemaCache } from '../lib/schema.js';
-import { setSetting } from '../lib/settings.js';
+import { setPlatformEnvironment,setSetting } from '../lib/settings.js';
 import { signToken } from '../auth/jwt.js';
 import { orderRoutes } from '../orders/routes.js';
 import { relayRoutes } from '../relay/routes.js';
@@ -60,6 +60,23 @@ test('numbered seats: concurrent ownership, expiry and all booking paths',async 
     const hold = (who: string,seats: string[],q = q1) => call(who,`taxipress/queue/${q}/seat-holds`,{ seats });
     const release = (who: string,id: string) => call(who,`taxipress/seat-holds/${id}`,undefined,'DELETE');
     const book = (who: string,n: number,seatHoldId?: string,q = q1) => call(who,'taxipress/bookings',{ queueId: q,adults: n,...(seatHoldId ? { seatHoldId } : {}) });
+    await t.test('saved departures sync to the owning customer and reject unavailable inventory',async()=>{
+      assert.equal((await call('','taxipress/saved-departures')).status,401);
+      assert.equal((await call('staff','taxipress/saved-departures')).status,403);
+      assert.equal((await call('a',`taxipress/saved-departures/${q1}`,{},'PUT')).status,200);
+      assert.equal((await call('a',`taxipress/saved-departures/${q1}`,{},'PUT')).status,200,'saving twice is idempotent');
+      assert.deepEqual((await json(await call('a','taxipress/saved-departures'))).savedIds,[q1]);
+      assert.deepEqual((await json(await call('b','taxipress/saved-departures'))).savedIds,[],'another account cannot read the saved departure');
+      await setPlatformEnvironment('sandbox');assert.deepEqual((await json(await call('a','taxipress/saved-departures'))).savedIds,[],'saved departures never cross live/sandbox environments');await setPlatformEnvironment('live');
+      assert.equal((await call('a','taxipress/saved-departures/not-a-queue',{},'PUT')).status,409);
+      await call('b',`taxipress/saved-departures/${q1}`,undefined,'DELETE');
+      assert.deepEqual((await json(await call('a','taxipress/saved-departures'))).savedIds,[q1],'another account cannot remove the saved departure');
+      assert.equal((await call('a',`taxipress/saved-departures/${q1}`,undefined,'DELETE')).status,200);
+      assert.deepEqual((await json(await call('a','taxipress/saved-departures'))).savedIds,[]);
+      for(let i=0;i<30;i++)await client.execute({sql:'INSERT INTO taxipress_saved_departures(user_id,environment,departure_id) VALUES(?,?,?)',args:['a','live',`filler-${i}`]});
+      assert.equal((await call('a',`taxipress/saved-departures/${q1}`,{},'PUT')).status,409,'customer save limit must be enforced server-side');
+      await client.execute({sql:'DELETE FROM taxipress_saved_departures WHERE user_id=?',args:['a']});
+    });
     await t.test('public maps describe real labels and availability without identities or capabilities',async () => {
       assert.deepEqual((await map('')).seats.map((s: any) => s.id),SEAT_LABELS['14']);
       assert.deepEqual((await map('',q3)).seats.map((s: any) => s.id),SEAT_LABELS['18']);

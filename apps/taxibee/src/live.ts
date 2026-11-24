@@ -21,6 +21,8 @@ let user: AuthUser | null = null;
 let config: TaxipressConfig | null = null;
 let bookings: TaxipressBooking[] = [];
 let trips: any[] = [];
+let queueDepartureTimes = new Map<string,string>();
+let savedDepartureServerReady=false;
 let scheduledDepartures: Array<{id:string;routeId:string;departsAt:string;seatsLeft:number;farePerSeat:number;plate:string;seatLayout:string;fromName:string;toName:string}> = [];
 let selectedSchedule: (typeof scheduledDepartures)[number] | null = null;
 let scheduledTickets: Record<string,any>[] = [];
@@ -34,6 +36,7 @@ let error = '';
 let busy = false;
 let uncertainBooking = false;
 let selectedBooking: TaxipressBooking | null = null;
+let searchFilters:{vehicle:'all'|'14'|'18';minSpaces:number;period:'any'|'morning'|'afternoon'|'evening'}={vehicle:'all',minSpaces:1,period:'any'};
 let pendingOrder: { booking: TaxipressBooking; order: { id: string } } | null = null;
 let pendingPayment: string | null = null;
 let wallet: CustomerWallet | null = null;
@@ -78,25 +81,67 @@ ui.QRCode = class {
 const empty = (title: string, copy: string) => `<section class="taxibee-empty" role="status"><h2>${escape(title)}</h2><p>${escape(copy)}</p><button class="button button--primary" type="button" data-action="taxibee-refresh">Refresh</button></section>`;
 const report = (e: unknown) => ui.toast(message(e), 'danger');
 ui.emptyState = (_icon: string, title: string, copy: string) => `<div class="empty-state"><h3>${escape(title)}</h3><p>${escape(copy)}</p></div>`;
+async function savedDepartureRequest(method:'GET'|'PUT'|'DELETE',queueId?:string) {
+  const version=sessionVersion,token=sessionStorage.getItem(TOKEN)||localStorage.getItem(TOKEN);
+  const response=await fetch(`/api/v1/taxipress/saved-departures${queueId?`/${encodeURIComponent(queueId)}`:''}`,{method,headers:{...(token?{Authorization:`Bearer ${token}`}:{})}});
+  if(version!==sessionVersion){await response.body?.cancel();throw new Error('The signed-in session changed.');}
+  const result=await response.json();
+  if(!response.ok)throw new Error(result.message||'Saved departures could not be updated.');
+  return result as {ready:boolean;savedIds:string[];saved:boolean};
+}
 
 function clearSession(discardDraft = true) {
   if (discardDraft) account?.clearDraft();
   ++sessionVersion; loading = false;
   features?.reset();
+  savedDepartureServerReady=false;
   seating?.reset();
   accountTools?.reset();
   services?.reset(discardDraft);
   returnPackages?.reset();
   travelCredit?.reset();
   user = null; bookings = []; scheduledTickets=[]; selectedScheduledTicket=null; scheduledPending=null; selectedSchedule=null; wallet = null; selectedBooking = null; pendingOrder = null; pendingPayment = null;
+  restoreSavedDepartures();restoreSearchFilters();
   localStorage.removeItem(TOKEN); sessionStorage.removeItem(TOKEN);
   state.tickets = []; state.walletBalance = 0; appData.transactions = [];
   state.taxibeeOfferCode = ''; state.taxibeeOpenTicket = false;
   state.emergencyContact = ''; state.otherTravelerName = ''; state.otherTravelerPhone = ''; state.isBookingForSomeoneElse = false;
   ui.closeModal();
 }
+function restoreSavedDepartures() {
+  try {
+    const saved=JSON.parse(localStorage.getItem(`taxibee-saved-departures:${user?.id||'guest'}`)||'[]');
+    state.savedDepartures=Array.isArray(saved)?[...new Set(saved.filter((id:unknown)=>typeof id==='string'&&id.length<=100))].slice(0,30):[];
+  } catch { state.savedDepartures=[]; }
+}
+function restoreSearchFilters() {
+  try {
+    const raw=JSON.parse(localStorage.getItem(`taxibee-search-filters:${user?.id||'guest'}`)||'{}');
+    searchFilters={vehicle:['all','14','18'].includes(raw.vehicle)?raw.vehicle:'all',minSpaces:[1,2,3,4,5,6,8,10].includes(raw.minSpaces)?raw.minSpaces:1,period:['any','morning','afternoon','evening'].includes(raw.period)?raw.period:'any'};
+  } catch { searchFilters={vehicle:'all',minSpaces:1,period:'any'}; }
+}
+function filteredTrips(source:any[]) {
+  return source.filter(t=>{
+    if(searchFilters.vehicle!=='all'&&!String(t.vehicle||'').includes(searchFilters.vehicle)) return false;
+    if(Number(t.seats||0)<searchFilters.minSpaces) return false;
+    if(searchFilters.period!=='any') {
+      if(!t.departsAt) return false;
+      const date=new Date(t.departsAt);if(!Number.isFinite(date.getTime())) return false;
+      const hour=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Kampala',hour:'2-digit',hourCycle:'h23'}).format(date));
+      if(searchFilters.period==='morning'&&(hour<5||hour>=12)) return false;
+      if(searchFilters.period==='afternoon'&&(hour<12||hour>=17)) return false;
+      if(searchFilters.period==='evening'&&(hour<17||hour>23)) return false;
+    }
+    return true;
+  });
+}
+function openLiveSearchFilters() {
+  ui.openModal('Search filters',`<p class="muted">These filters narrow Peebee’s current live departures. Availability and fares remain controlled by Peebee.</p><div class="form-grid"><div class="field"><label for="taxibee-filter-vehicle">Vehicle type</label><select id="taxibee-filter-vehicle"><option value="all" ${searchFilters.vehicle==='all'?'selected':''}>All vehicles</option><option value="14" ${searchFilters.vehicle==='14'?'selected':''}>Commuter · 14 seats</option><option value="18" ${searchFilters.vehicle==='18'?'selected':''}>Highroof · 18 seats</option></select></div><div class="field"><label for="taxibee-filter-spaces">Minimum available spaces</label><select id="taxibee-filter-spaces">${[1,2,3,4,5,6,8,10].map(n=>`<option value="${n}" ${searchFilters.minSpaces===n?'selected':''}>${n}+ spaces</option>`).join('')}</select></div><div class="field"><label for="taxibee-filter-period">Estimated departure time</label><select id="taxibee-filter-period"><option value="any" ${searchFilters.period==='any'?'selected':''}>Any time</option><option value="morning" ${searchFilters.period==='morning'?'selected':''}>Morning · 05:00–11:59</option><option value="afternoon" ${searchFilters.period==='afternoon'?'selected':''}>Afternoon · 12:00–16:59</option><option value="evening" ${searchFilters.period==='evening'?'selected':''}>Evening · 17:00–23:59</option></select></div></div>`,`<button class="button button--ghost" type="button" data-action="close-modal">Cancel</button><button class="button button--primary" type="button" data-action="taxibee-search-filters-save">Apply filters</button>`);
+}
 function applyUser(next: AuthUser) {
   user = next;
+  restoreSavedDepartures();
+  restoreSearchFilters();
   void accountTools?.sync();
   features?.restorePreferences();
   state.userName = escape(next.name); state.userEmail = escape(next.email); state.userPhone = escape(next.phone);
@@ -112,6 +157,8 @@ function applyUser(next: AuthUser) {
   const signOut = document.querySelector('.drawer-nav-item--signout span'); if (signOut) signOut.textContent = 'Sign out';
 }
 function applyGuest() {
+  restoreSavedDepartures();
+  restoreSearchFilters();
   state.userName = 'Guest'; state.userPhone = ''; state.userEmail = ''; state.userAvatar = 'assets/peebee-logo.svg';
   state.contactName = '';
   state.passengerDetails = [{ name: 'Guest', phone: '', category: 'Adult passenger', assistance: 'None required', emergency: '' }];
@@ -157,13 +204,30 @@ async function refresh() {
     const nextSchedules = nextConfig.scheduledDeparturesEnabled ? await api.getTaxipressPublicDepartures({from:new Date().toISOString(),to:scheduleTo}) : {departures:[],ready:false};
     if (!valid()) return;
     scheduledDepartures = nextSchedules.departures;
+    const savedPromise=user?savedDepartureRequest('GET').catch(()=>({ready:false,savedIds:[],saved:false})):Promise.resolve({ready:false,savedIds:[],saved:false});
     const queues = await Promise.all(nextConfig.routes.map(async route => ({ route, queue: await (user ? api.getTaxipressQueue(route.id) : api.getPublicTaxipressQueue(route.id)) })));
     if (!valid()) return;
+    const savedState=await savedPromise;
+    if (!valid()) return;
+    queueDepartureTimes = new Map(queues.flatMap(({queue})=>queue.line.flatMap(entry=>entry.departsAt?[[entry.id,entry.departsAt] as [string,string]]:[])));
+    const activeDepartureIds=new Set(queues.flatMap(({queue})=>queue.line.filter(entry=>entry.bookable===true).map(entry=>entry.id)));
+    const localSaved=(Array.isArray(state.savedDepartures)?state.savedDepartures:[]).filter((id:string)=>activeDepartureIds.has(id));
+    savedDepartureServerReady=!!user&&savedState.ready;
+    if(savedDepartureServerReady) {
+      const remoteSaved=savedState.savedIds.filter(id=>activeDepartureIds.has(id));
+      state.savedDepartures=[...new Set([...remoteSaved,...localSaved])].slice(0,30);
+      const localOnly=localSaved.filter(id=>!remoteSaved.includes(id));
+      if(localOnly.length) {
+        const synced=await Promise.all(localOnly.map(id=>savedDepartureRequest('PUT',id).then(()=>true,()=>false)));
+        if(synced.some(ok=>!ok))savedDepartureServerReady=false;
+      }
+    } else state.savedDepartures=localSaved;
+    try { localStorage.setItem(`taxibee-saved-departures:${user?.id||'guest'}`,JSON.stringify(state.savedDepartures)); } catch { /* Keep in-memory choices for this session. */ }
     config = nextConfig;
     appData.routeCards = config.routes.map(r => ({ key: r.id, cityA: escape(r.fromName), cityB: escape(r.toName), stageA: escape(r.fromName), stageB: escape(r.toName), via: escape(r.directionLabel), price: money(r.farePerSeat), imageA: routeImage(r.fromName), imageB: routeImage(r.toName), corridor: (r.stops || []).map(escape).join(' • '), coordA: null, coordB: null }));
     appData.routes = [...new Set(config.routes.flatMap(r => [r.fromName, r.toName, ...(r.stops || [])]))];
     trips = queues.flatMap(({ route, queue }) => queue.line.filter(v => v.bookable === true).map(v => ({
-      id: v.id, routeId: route.id, depart: v.departsAt ? new Date(v.departsAt).toLocaleTimeString('en-UG', { timeZone: 'Africa/Kampala', hour: 'numeric', minute: '2-digit' }) : 'Stage departure',
+      id: v.id, routeId: route.id, departsAt:v.departsAt||null, depart: v.departsAt ? new Date(v.departsAt).toLocaleTimeString('en-UG', { timeZone: 'Africa/Kampala', hour: 'numeric', minute: '2-digit' }) : 'Stage departure',
       arrive: 'On arrival', seats: v.seatsLeft, status: v.seatsLeft ? 'Available' : 'Full', vehicle: `${v.seatLayout === '18' ? 'Highroof' : 'Commuter'} (${v.seatLayout})`,
       plate: escape(v.plate), duration: 'Stage service', fare: route.farePerSeat, boarding: escape(route.fromName), destination: escape(route.toName),
       currentStage: escape(route.fromName), comingFrom: escape(route.fromName), headingTo: escape(route.toName), markerIndex: 0,
@@ -199,17 +263,36 @@ function renderLiveTicket(b: TaxipressBooking | null = selectedBooking || bookin
     const when=new Date(String(t.departsAt).replace(' ','T')+(String(t.departsAt).endsWith('Z')?'':'Z')).toLocaleString('en-UG',{timeZone:'Africa/Kampala',dateStyle:'full',timeStyle:'short'});
     const operatorCancelled=t.departureState==='cancelled'&&stateText==='reserved';
     return `${ui.screenHead('Scheduled departure ticket','Your booking is saved with Peebee.')}
-      <article class="card"><h2>${escape(t.fromName)} → ${escape(t.toName)}</h2><p>${escape(when)} · Kampala time</p><p>${escape(t.plate)} · ${Number(t.seats)} seat${Number(t.seats)===1?'':'s'}</p><p>Booking: ${operatorCancelled?'Departure cancelled · refund processing':escape(stateText)} · Payment: ${paid?'Paid':pending?'Provider confirmation pending':'Payment required'}</p><p>Total: ${money(Number(t.amount))}</p>${t.ticketCode?`<p>Boarding code: <strong>${escape(t.ticketCode)}</strong></p>`:''}${stateText==='reserved'&&!paid&&!operatorCancelled?`<button class="button button--primary" data-action="taxibee-future-pay" data-id="${escape(t.id)}">Pay ${money(Number(t.amount))}</button>`:''}${stateText==='reserved'&&t.queueId==null&&!operatorCancelled?`<button class="button button--ghost" data-action="taxibee-future-cancel" data-id="${escape(t.id)}">Cancel scheduled booking</button>`:''}<button class="button button--ghost" data-action="taxibee-future-refresh" data-id="${escape(t.id)}">Refresh status</button></article>`;
+      <article class="card"><h2>${escape(t.fromName)} → ${escape(t.toName)}</h2><p>${escape(when)} · Kampala time</p><p>${escape(t.plate)} · ${Number(t.seats)} seat${Number(t.seats)===1?'':'s'}</p><p>Booking: ${operatorCancelled?'Departure cancelled · refund processing':escape(stateText)} · Payment: ${paid?'Paid':pending?'Provider confirmation pending':'Payment required'}</p><p>Total: ${money(Number(t.amount))}</p>${t.ticketCode?`<p>Boarding code: <strong>${escape(t.ticketCode)}</strong></p>`:''}${stateText==='reserved'&&t.departureState==='published'&&paid&&isFutureDeparture(t.departsAt)?`<button class="button button--ghost" data-action="taxibee-calendar-export" data-kind="scheduled" data-id="${escape(t.id)}">Add departure to calendar</button>`:''}${stateText==='reserved'&&!paid&&!operatorCancelled?`<button class="button button--primary" data-action="taxibee-future-pay" data-id="${escape(t.id)}">Pay ${money(Number(t.amount))}</button>`:''}${stateText==='reserved'&&t.queueId==null&&!operatorCancelled?`<button class="button button--ghost" data-action="taxibee-future-cancel" data-id="${escape(t.id)}">Cancel scheduled booking</button>`:''}<button class="button button--ghost" data-action="taxibee-future-refresh" data-id="${escape(t.id)}">Refresh status</button></article>`;
   }
   if (!b) return empty('No tickets yet', 'Bookings made in either Taxibee or Peebee appear here.');
   const status = b.paymentStatus === 'unpaid' ? 'Payment required' : b.paymentMethod === 'cash' ? 'Cash due at stage' : b.paymentStatus;
   const q = b.ticketCode;
+  const estimatedDeparture=queueDepartureTimes.get(b.taxi.queueId);
   return `${ui.screenHead('Digital passenger ticket', 'Your Peebee TaxiPress booking.')}
     ${ui.renderDigitalTicketCard(ticket(b), false)}
     <article class="card"><div class="detail-list">${ui.ticketField('Booking status', escape(b.status))}${ui.ticketField('Payment', escape(status))}${ui.ticketField('Boarding code', escape(q || 'Available after payment'))}</div>
+    ${b.status==='booked'&&['paid','pay_driver'].includes(b.paymentStatus)&&estimatedDeparture&&isFutureDeparture(estimatedDeparture)?`<button class="button button--ghost" data-action="taxibee-calendar-export" data-kind="stage" data-id="${escape(b.id)}">Add estimated departure to calendar</button>`:''}
     ${b.paymentStatus === 'unpaid' ? `<button class="button button--primary" data-action="taxibee-pay" data-id="${escape(b.id)}">Pay for this booking</button>` : ''}
     ${b.cancel.allowed ? `<button class="button button--ghost" data-action="taxibee-cancel" data-id="${escape(b.id)}">Cancel · ${b.cancel.free ? 'No fee' : money(b.cancel.fee)}</button>` : ''}
     <button class="button button--ghost" data-action="taxibee-refresh">Refresh status</button></article>`;
+}
+
+function calendarText(value: unknown) { return String(value ?? '').replace(/\\/g,'\\\\').replace(/\r?\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;'); }
+function departureInstant(rawValue:unknown) {
+  const raw=String(rawValue??'');
+  const parsed=new Date(raw.replace(' ','T')+(raw.endsWith('Z')?'':'Z'));
+  return Number.isFinite(parsed.getTime())?parsed:null;
+}
+function isFutureDeparture(rawValue:unknown) { const date=departureInstant(rawValue);return !!date&&date.getTime()>Date.now(); }
+function downloadCalendar(ticket: Record<string, any>, estimated=false) {
+  const departure=departureInstant(ticket.departsAt);
+  if(!departure||departure.getTime()<=Date.now()) throw new Error('Peebee has not provided a future departure time for this ticket.');
+  const stamp=(date:Date)=>date.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}Z$/,'Z');
+  const kind=estimated?'Estimated stage departure':'Scheduled departure';
+  const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Peebee//Taxibee//EN','CALSCALE:GREGORIAN','BEGIN:VEVENT',`UID:taxibee-${calendarText(ticket.id)}@taxibee.peebee.online`,`DTSTAMP:${stamp(new Date())}`,`DTSTART:${stamp(departure)}`,`SUMMARY:${calendarText(`${estimated?'Estimated ':''}Taxibee departure: ${ticket.fromName} to ${ticket.toName}`)}`,`LOCATION:${calendarText(`Peebee stage, ${ticket.fromName}`)}`,`DESCRIPTION:${calendarText(`${kind}. ${estimated?'This time is an estimate from Peebee and may change. ':''}Booking reference: ${ticket.id}. Check the Taxibee ticket for current status.`)}`,'END:VEVENT','END:VCALENDAR'];
+  const blob=new Blob([lines.join('\r\n')+'\r\n'],{type:'text/calendar;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=`Taxibee-${String(ticket.id).replace(/[^a-z0-9_-]/gi,'')}.ics`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
 function bookingInput(seatHoldId?:string):TaxipressBookingInput {
@@ -332,7 +415,9 @@ function cleanHome() {
     const credit = template.content.querySelector('.wallet-credit'); if (credit) credit.textContent = 'Use your existing Peebee account';
   }
   for (const el of template.content.querySelectorAll('.notice')) el.remove();
-  return template.innerHTML + (scheduledTickets[0] ? `<section class="card"><h3>Your scheduled journey</h3><p>${escape(scheduledTickets[0].fromName)} → ${escape(scheduledTickets[0].toName)}</p><button class="button button--primary" data-action="taxibee-future-ticket" data-id="${escape(scheduledTickets[0].id)}">View scheduled ticket</button></section>` : '') + (bookings[0] ? `<section class="card"><h3>Your latest journey</h3><p>${escape(bookings[0].route.fromName)} → ${escape(bookings[0].route.toName)}</p><button class="button button--primary" data-action="taxibee-ticket" data-id="${escape(bookings[0].id)}">View ticket</button></section>` : '') + (error ? empty('Unable to refresh departures', error) : !config?.enabled && !scheduledDepartures.length ? empty('TaxiPress is not running right now', 'Peebee administrators control when this service is available.') : !trips.length && !scheduledDepartures.length ? empty('No bookable departures', 'Check again when a taxi joins a running route.') : '');
+  const savedTrips=(Array.isArray(state.savedDepartures)?state.savedDepartures:[]).map((id:string)=>trips.find(t=>t.id===id)).filter(Boolean);
+  const savedPanel=savedTrips.length?`<section class="card"><h2>Saved departures</h2><p class="muted">Current Peebee availability. Saved departures can leave the queue at any time.</p>${savedTrips.map(t=>`<article class="ticket-list-item"><div><strong>${escape(t.boarding)} → ${escape(t.destination)}</strong><p>${escape(t.depart)} · ${escape(t.plate)} · ${Number(t.seats)} spaces · ${escape(money(t.fare))}</p></div><div class="button-row"><button class="button button--primary" data-action="select-departure-direct" data-trip-id="${escape(t.id)}">Choose</button><button class="button button--ghost" data-action="toggle-save-departure" data-dep-id="${escape(t.id)}" aria-label="Remove saved departure">Remove</button></div></article>`).join('')}</section>`:'';
+  return template.innerHTML + savedPanel + (scheduledTickets[0] ? `<section class="card"><h3>Your scheduled journey</h3><p>${escape(scheduledTickets[0].fromName)} → ${escape(scheduledTickets[0].toName)}</p><button class="button button--primary" data-action="taxibee-future-ticket" data-id="${escape(scheduledTickets[0].id)}">View scheduled ticket</button></section>` : '') + (bookings[0] ? `<section class="card"><h3>Your latest journey</h3><p>${escape(bookings[0].route.fromName)} → ${escape(bookings[0].route.toName)}</p><button class="button button--primary" data-action="taxibee-ticket" data-id="${escape(bookings[0].id)}">View ticket</button></section>` : '') + (error ? empty('Unable to refresh departures', error) : !config?.enabled && !scheduledDepartures.length ? empty('TaxiPress is not running right now', 'Peebee administrators control when this service is available.') : !trips.length && !scheduledDepartures.length ? empty('No bookable departures', 'Check again when a taxi joins a running route.') : '');
 }
 
 if (!preview) {
@@ -342,8 +427,8 @@ if (!preview) {
   state.unreadNotifications = 0;
   state.emergencyContact = '';
   state.bookingDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date());
-  ui.getAvailableTrips = () => trips;
-  ui.getSearchResults = () => trips.filter(t => t.boarding === state.searchFrom && t.destination === state.searchTo);
+  ui.getAvailableTrips = () => filteredTrips(trips);
+  ui.getSearchResults = () => filteredTrips(trips).filter(t => t.boarding === state.searchFrom && t.destination === state.searchTo);
   ui.getTicketsData = () => state.tickets || [];
   ui.getDriverAvatar = () => 'assets/peebee-logo.svg';
   ui.getDriverHeroImage = () => state.activeTrip?.img || 'assets/taxibee-van.png';
@@ -512,6 +597,36 @@ document.addEventListener('click', async event => {
   if (preview) return;
   const block = () => { event.preventDefault(); event.stopImmediatePropagation(); };
   if(action.startsWith('svc-')||action.startsWith('tools-')) return;
+  if(action==='show-search-filters') { block(); openLiveSearchFilters(); return; }
+  if(action==='taxibee-search-filters-save') {
+    block();
+    const vehicle=(document.getElementById('taxibee-filter-vehicle') as HTMLSelectElement|null)?.value||'all';
+    const minSpaces=Number((document.getElementById('taxibee-filter-spaces') as HTMLSelectElement|null)?.value||1);
+    const period=(document.getElementById('taxibee-filter-period') as HTMLSelectElement|null)?.value||'any';
+    if(!['all','14','18'].includes(vehicle)||!Number.isInteger(minSpaces)||minSpaces<1||minSpaces>18||!['any','morning','afternoon','evening'].includes(period)) return ui.toast('Choose valid trip filters.','danger');
+    searchFilters={vehicle:vehicle as typeof searchFilters.vehicle,minSpaces,period:period as typeof searchFilters.period};
+    try { localStorage.setItem(`taxibee-search-filters:${user?.id||'guest'}`,JSON.stringify(searchFilters)); }
+    catch { return ui.toast('Your browser could not save these filters on this device.','danger'); }
+    ui.closeModal();ui.renderCurrentScreen();return;
+  }
+  if(action==='toggle-save-departure') {
+    block();
+    const id=button?.dataset.depId;
+    if(!id) return ui.toast('This departure cannot be saved.', 'danger');
+    const saved=new Set<string>(Array.isArray(state.savedDepartures)?state.savedDepartures:[]);
+    const removing=saved.has(id);
+    if(!removing&&saved.size>=30) return ui.toast('You can save up to 30 active departures.','info');
+    if(removing) saved.delete(id); else saved.add(id);
+    state.savedDepartures=[...saved].slice(-30);
+    let accountSynced=false;
+    if(user&&savedDepartureServerReady) {
+      try { await savedDepartureRequest(removing?'DELETE':'PUT',id);accountSynced=true; }
+      catch { savedDepartureServerReady=false; }
+    }
+    try { localStorage.setItem(`taxibee-saved-departures:${user?.id||'guest'}`,JSON.stringify(state.savedDepartures)); }
+    catch { return ui.toast('Your browser could not save this departure on this device.', 'danger'); }
+    ui.renderCurrentScreen();ui.toast(user&&accountSynced?(removing?'Removed from your Peebee account.':'Saved to your Peebee account.'):(removing?'Removed from this device.':'Saved on this device only; account sync is not available.'),user&&accountSynced?'success':'info');return;
+  }
   if(action==='taxibee-schedule-choose') {
     block();
     selectedSchedule=scheduledDepartures.find(d=>d.id===button?.dataset.id)||null;
@@ -560,7 +675,25 @@ document.addEventListener('click', async event => {
   if (action.startsWith('taxibee-')) {
     block();
     try {
-      if (action === 'taxibee-refresh') {
+      if (action === 'taxibee-calendar-export') {
+        const id=button?.dataset.id;
+        if(button?.dataset.kind==='stage') {
+          const b=id?bookings.find(booking=>booking.id===id):null;
+          if(!b||b.id!==(selectedBooking||bookings[0])?.id) throw new Error('Open this booking again before exporting its calendar event.');
+          if(b.status!=='booked'||!['paid','pay_driver'].includes(b.paymentStatus)) throw new Error('Only a confirmed upcoming booking can be added to your calendar.');
+          const currentQueue=await api.getTaxipressQueue(b.route.id),currentTaxi=currentQueue.line.find(entry=>entry.id===b.taxi.queueId);
+          const departsAt=currentTaxi?.departsAt||null;
+          if(!departsAt||!isFutureDeparture(departsAt)) throw new Error('Peebee has no current future departure estimate for this taxi.');
+          downloadCalendar({id:b.id,departsAt,fromName:b.route.fromName,toName:b.route.toName},true);
+        } else {
+          if(!id||String(id)!==String(selectedScheduledTicket?.id)) throw new Error('Open the scheduled ticket again before exporting its calendar event.');
+          const t=(await api.getTaxipressScheduledTicket(id)).ticket;
+          scheduledTickets=[t,...scheduledTickets.filter(ticket=>String(ticket.id)!==String(t.id))];selectedScheduledTicket=t;
+          if(t.departureState!=='published'||t.state!=='reserved'||!isFutureDeparture(t.departsAt)) throw new Error('This ticket is no longer an upcoming published departure.');
+          if(Number(t.paid)!==1) throw new Error('The calendar event is available after Peebee confirms payment.');
+          downloadCalendar(t);
+        }
+      } else if (action === 'taxibee-refresh') {
         if (pendingPayment) { await api.refreshPayment(pendingPayment); pendingPayment = null; }
         await refresh();
         if (selectedBooking) selectedBooking = (await api.getTaxipressBooking(selectedBooking.id)).booking;
