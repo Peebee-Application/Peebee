@@ -61,7 +61,9 @@ Use **Workbook → Actuals** to record monthly historical results. Historical re
 
 ## Taxibee (formerly TaxiPress)
 
-Open the **Taxibee** navigation tab for the dedicated Taxibee financial model across seven linked views: **Executive Dashboard** (3-Year vs 5-Year comparison and charts), **Assumptions & Capital**, **Y1 Monthly Ramp**, **3-Year Model**, **5-Year Model**, **Loan & DSCR** (simple fleet loan with manually adjustable interest rate, tenor, and grace period), and **Stress Tests & Gate** (Base and Scenarios A–D with the UGX 100M CapEx-gating covenant).
+Use the **Simple / Advanced** switch in the top bar to toggle between the layman-friendly view (plain-English **Overview**, **Taxibee → Summary / Edit Numbers / Loan & Safety Check**, and **Business Setup**) and the full institutional **Advanced** workbook (all 7 Taxibee sheets plus Peebee's Schedules, Financial Statements, Taxes, CAPEX, DCF, and Workbook sheets).
+
+Open the **Taxibee** navigation tab for the dedicated Taxibee financial model across its linked views: **Executive Dashboard** (3-Year vs 5-Year comparison and charts), **Assumptions & Capital**, **Y1 Monthly Ramp**, **3-Year Model**, **5-Year Model**, **Loan & DSCR** (simple fleet loan with manually adjustable interest rate, tenor, and grace period), and **Stress Tests & Gate** (Base and Scenarios A–D with the UGX 100M CapEx-gating covenant).
 
 Use the **Taxibee · VIP Fleet / TaxiPress · Fly Express** toggle on the Taxibee banner, the Dashboard **Forecast modules** card, or **Assumptions → Revenue modules** to switch both the Taxibee views and Peebee’s consolidated statements between the owned VIP Fleet model (rolling fleet revenue, direct trip & gateway costs, driver payroll, van fixed OpEx, corporate overhead, fleet/tech CapEx, and fleet loan/equity into Peebee’s consolidated statements) and the Fly Express partner-commission streams synced from Admin.
 

@@ -8,7 +8,7 @@
   const { buildAnalysis, renderAnalysis, renderChart, monthlyEarnings, exportRows } = globalThis.FinancialAnalysis;
   const { company, catalog, technologyCosts, infrastructureRows, createDefaults, loadStarterRevenue } = globalThis.PeebeeDefaults;
   const { readState: readTaxibeeState } = globalThis.TaxibeeModel;
-  const { views: taxibeeViews, viewSet: taxibeeViewSet, renderView: renderTaxibeeView } = globalThis.TaxibeeUI;
+  const { views: taxibeeViews, simpleViews: taxibeeSimpleViews, viewSet: taxibeeViewSet, renderView: renderTaxibeeView } = globalThis.TaxibeeUI;
   const dataNote = "Starter estimates model a launch scenario across all channels. Volumes, average values and unverified fees are illustrative. The scenario includes features that may be off in Admin. Apply available Admin fees to matching lines, and enter Peebee’s costs and opening balances.";
   const stepLabels = {
     currency: "Currency", customCurrency: "Currency code", start: "Forecast start", months: "Forecast length",
@@ -22,6 +22,16 @@
   const app = document.querySelector("#app");
   const storageKey = "peebee-financial-model-multichannel-v1";
   const autosaveKey = "peebee-financial-model-autosave";
+  const complexityKey = "peebee-financial-model-complexity";
+  let advancedMode = false;
+  try { advancedMode = localStorage.getItem(complexityKey) === "advanced"; } catch { /* Keep default Simple mode. */ }
+  const complexityButtons = document.querySelectorAll("[data-complexity]");
+  function syncComplexityButtons() {
+    for (const button of complexityButtons) {
+      button.setAttribute("aria-pressed", String((button.dataset.complexity === "advanced") === advancedMode));
+    }
+  }
+  syncComplexityButtons();
   const settingsDialog = document.querySelector("#settings-dialog");
   const unsavedDialog = document.querySelector("#unsaved-dialog");
   const autosaveControls = document.querySelectorAll("[data-autosave]");
@@ -101,7 +111,7 @@
   const workbookUtilities = new Set(["admin-defaults", "workbook-intro", "workbook-actuals", "workbook-exports", "workbook-map", "workbook-changes", ...taxibeeViewSet]);
   const privateSheets = new Set(["assumptions", "workbook-settings", "admin-defaults", "workbook-actuals", "workbook-exports", "taxibee-assumptions"]);
   const reportLinks = reports.map(({ id, name }) => [id, name]);
-  const navigation = [
+  const advancedNavigation = [
     { id: "home", name: "Home", views: [["overview", "Dashboard"], ["analysis", "Dashboard Charts"]] },
     ...(!guestMode ? [{ id: "model", name: "Model", views: [["assumptions", "Assumptions"], ["workbook-settings", "Forecast settings"], ["admin-defaults", "Admin defaults"]] }] : []),
     { id: "taxibee", name: "Taxibee", views: taxibeeViews.filter(([id]) => !guestMode || !privateSheets.has(id)).map(([id, label]) => [id, label]) },
@@ -114,6 +124,12 @@
         .filter(id => !guestMode || !privateSheets.has(id)).map(id => workbookById.get(id).slice(0, 2)),
     ] },
   ];
+  const simpleNavigation = [
+    { id: "home", name: "Overview", views: [["overview", "Summary"], ["analysis", "Visual Charts"]] },
+    { id: "taxibee", name: "Taxibee", views: taxibeeSimpleViews.filter(([id]) => !guestMode || !privateSheets.has(id)).map(([id, label]) => [id, label]) },
+    ...(!guestMode ? [{ id: "model", name: "Setup", views: [["assumptions", "Business Setup"]] }] : []),
+  ];
+  const activeNavigation = () => (advancedMode ? advancedNavigation : simpleNavigation);
   const primaryNav = document.querySelector("#primary-nav");
   const secondaryNav = document.querySelector("#secondary-nav");
 
@@ -124,20 +140,51 @@
   }
 
   function renderNavigation() {
+    const nav = activeNavigation();
     const view = currentView();
-    const group = navigation.find(item => item.views.some(([id]) => id === view)) || navigation[0];
-    primaryNav.innerHTML = radio(navigation.map(item => [item.id, item.name]), group.id, "primary");
+    const group = nav.find(item => item.views.some(([id]) => id === view)) || nav[0];
+    primaryNav.innerHTML = radio(nav.map(item => [item.id, item.name]), group.id, "primary");
     secondaryNav.innerHTML = radio(group.views, view, "view");
+    syncComplexityButtons();
+  }
+
+  function setAdvancedMode(next, focusId) {
+    if (advancedMode === next) return;
+    advancedMode = next;
+    try { localStorage.setItem(complexityKey, advancedMode ? "advanced" : "simple"); } catch { /* Ignore storage errors. */ }
+    syncComplexityButtons();
+    if (!advancedMode) {
+      const view = currentView();
+      const inSimple = simpleNavigation.some(group => group.views.some(([id]) => id === view));
+      if (!inSimple) {
+        const fallback = taxibeeViewSet.has(view)
+          ? (view === "taxibee-stress" ? "taxibee-debt" : "taxibee-dashboard")
+          : (view === "workbook-settings" || view === "admin-defaults" ? "assumptions" : "overview");
+        selectView(fallback);
+        history.replaceState(null, "", "#sheet/" + fallback);
+      }
+    }
+    render(focusId);
+  }
+
+  for (const button of complexityButtons) {
+    button.addEventListener("click", () => setAdvancedMode(button.dataset.complexity === "advanced", button.id));
   }
 
   function addressView() {
     const hash = location.hash;
     const view = hash.startsWith("#forecast-setting-") ? "workbook-settings"
       : hash.startsWith("#sheet/") ? hash.slice("#sheet/".length) : "";
-    return navigation.some(group => group.views.some(([id]) => id === view)) ? view : "";
+    return advancedNavigation.some(group => group.views.some(([id]) => id === view)) ? view : "";
   }
 
   function selectView(view) {
+    if (!advancedMode && !simpleNavigation.some(group => group.views.some(([id]) => id === view)) &&
+        advancedNavigation.some(group => group.views.some(([id]) => id === view))) {
+      advancedMode = true;
+      try { localStorage.setItem(complexityKey, "advanced"); } catch { /* Ignore storage errors. */ }
+      syncComplexityButtons();
+    }
     if (view === "assumptions") screen = "review";
     else if (view === "workbook-settings") screen = view;
     else screen = workbookUtilities.has(view) ? "workbook-sheet" : "report";
@@ -146,7 +193,7 @@
   }
 
   function openView(view, focusId, push = true) {
-    if (!navigation.some(group => group.views.some(([id]) => id === view))) return;
+    if (!advancedNavigation.some(group => group.views.some(([id]) => id === view))) return;
     if (view === currentView() && screen !== "wizard") return;
     navigate(() => {
       selectView(view);
@@ -165,7 +212,7 @@
   primaryNav.addEventListener("click", event => {
     const button = event.target.closest("[data-primary]");
     if (!button || button.getAttribute("aria-pressed") === "true") return;
-    const group = navigation.find(item => item.id === button.dataset.primary);
+    const group = activeNavigation().find(item => item.id === button.dataset.primary);
     const destination = group.views[0][0];
     openView(destination, button.id);
   });
@@ -1456,28 +1503,39 @@
       <dt>${escape(prompt.label)}</dt><dd><button class="text-button" type="button" data-edit="${escape(prompt.id)}" aria-label="${editLabel(prompt)}">${escape(displayAnswer(prompt, answers[prompt.id]))} <span aria-hidden="true">↗</span></button></dd>
       ${lineItems(prompt).length ? `<dd class="review-lines">${preview(prompt)}</dd>` : ""}
     </div>`;
+    const simpleSectionLabels = {
+      Company: "Basics",
+      Revenue: "Business Lines",
+      Costs: "Running Costs",
+      "Working capital": "Starting Cash & Bills",
+      Investment: "Equipment & Assets",
+      Funding: "Loans & Investors",
+      Scenarios: "What-Ifs",
+    };
+    const sectionLabel = section => advancedMode ? (section === "Revenue" ? "Revenue modules" : section) : (simpleSectionLabels[section] || section);
     const sectionPanels = sections.map((section, index) => {
       const prompts = list.filter(prompt => prompt.section === section);
       const revenue = section === "Revenue";
       return `<section class="panel review-section" data-review-section="${escape(section)}" aria-labelledby="review-section-${index}">
-        <div class="review-section-head"><h2 id="review-section-${index}">${revenue ? "Revenue modules" : escape(section)}</h2>
+        <div class="review-section-head"><h2 id="review-section-${index}">${escape(sectionLabel(section))}</h2>
         ${revenue ? '<button type="button" class="button secondary small" data-edit="channels" data-review-item data-search="Revenue modules channels manage add remove">Manage channels</button>' : ""}</div>
         ${revenue ? `<div class="review-module-grid">${prompts.filter(prompt => prompt.channelId).map(moduleCard).join("")}</div>` : `<dl>${prompts.map(reviewRow).join("")}</dl>`}
       </section>`;
     }).join("");
-    app.innerHTML = `<div class="review-head"><div><h1 id="review-title" tabindex="-1">Assumptions</h1><p class="muted">${escape(workbookById.get("assumptions")[2])}</p></div>
+    app.innerHTML = `<div class="review-head"><div><h1 id="review-title" tabindex="-1">${advancedMode ? "Assumptions" : "Business Setup"}</h1><p class="muted">${escape(advancedMode ? workbookById.get("assumptions")[2] : "Adjust the everyday numbers behind Peebee’s forecast. Switch to Advanced view anytime for full accounting controls.")}</p></div>
       <div class="toolbar">
-        ${currencyOf(answers) === "UGX" ? '<button type="button" id="starter-revenue" class="button secondary">Load starter revenue estimates</button>' : ""}
-        <button type="button" id="generate" class="button gold">Generate forecast <span aria-hidden="true">→</span></button></div></div>
-      <details class="notice review-data-note"><summary>About starter estimates</summary><p>${escape(dataNote)}</p></details>
+        ${!advancedMode ? '<button type="button" class="button secondary" data-switch-advanced>Advanced settings →</button>' : ""}
+        ${currencyOf(answers) === "UGX" && advancedMode ? '<button type="button" id="starter-revenue" class="button secondary">Load starter revenue estimates</button>' : ""}
+        <button type="button" id="generate" class="button gold">${advancedMode ? "Generate forecast" : "View Overview"} <span aria-hidden="true">→</span></button></div></div>
+      ${advancedMode ? `<details class="notice review-data-note"><summary>About starter estimates</summary><p>${escape(dataNote)}</p></details>` : ""}
       ${forecastError ? `<p class="notice" id="forecast-error" role="alert" tabindex="-1">${escape(forecastError)}</p>` : ""}
-      ${missing ? `<p class="notice">Required before generating the forecast <button type="button" class="text-button" data-edit="${escape(missing.id)}">${escape(stepLabel(missing))}</button></p>` : ""}
+      ${missing ? `<p class="notice">Required before viewing the forecast <button type="button" class="text-button" data-edit="${escape(missing.id)}">${escape(stepLabel(missing))}</button></p>` : ""}
       <div class="review-workspace">
-        <nav class="review-sections" aria-label="Assumption sections">
-          ${sections.map(section => `<button type="button" data-review-tab="${escape(section)}">${section === "Revenue" ? "Revenue modules" : escape(section)}</button>`).join("")}
+        <nav class="review-sections" aria-label="Setup sections">
+          ${sections.map(section => `<button type="button" data-review-tab="${escape(section)}">${escape(sectionLabel(section))}</button>`).join("")}
         </nav>
         <div class="stack review-content">
-          <label class="review-search">Search assumptions<input type="search" id="review-search" placeholder="Search modules, settings or line items" value="${escape(reviewSearch)}"></label>
+          <label class="review-search">${advancedMode ? "Search assumptions" : "Search settings"}<input type="search" id="review-search" placeholder="Search business lines, costs or loans" value="${escape(reviewSearch)}"></label>
           <p class="muted" id="review-search-status" role="status" hidden></p>
           ${sectionPanels}
         </div>
@@ -1515,6 +1573,7 @@
     updateReview();
     app.querySelectorAll("[data-edit]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.edit, true)));
     app.querySelectorAll("[data-open-taxibee]").forEach(button => button.addEventListener("click", () => openView(button.dataset.openTaxibee)));
+    app.querySelectorAll("[data-switch-advanced]").forEach(button => button.addEventListener("click", () => setAdvancedMode(true)));
     app.querySelectorAll("[data-review-tb-mode]").forEach(button => button.addEventListener("click", () => {
       const nextMode = button.dataset.reviewTbMode;
       if (answers.taxibeeMode === nextMode) return;
@@ -1738,6 +1797,35 @@
       ["Peak funding gap", item => money(item.fundingGap)],
     ];
     if (model.valuation) comparison.push(["DCF enterprise value", item => money(item.valuation.enterprise)]);
+    if (!advancedMode) {
+      const shortMoney = value => `${currencyOf(answers)} ${compactFormat.format(Math.abs(value) < halfCent ? 0 : value)}`;
+      const simpleAnnualRows = model.annual.map(row => [
+        row.period,
+        [shortMoney(row.revenue), shortMoney(row.cogs + row.payroll + row.overhead), shortMoney(row.profit), shortMoney(row.cash)],
+      ]);
+      return `<div class="forecast-dashboard">${moduleControls()}<section class="forecast-overview" aria-label="Forecast results"><div class="metrics">
+        ${metric("Money coming in", sum(yearOne, "revenue"), yearOneLabel)}
+        ${metric("Operating profit", sum(yearOne, "ebitda"), yearOneLabel)}
+        ${metric("Cash left in bank", last.cash, `By ${last.period}`)}
+        ${metric("Extra cash needed", model.fundingGap, model.shortfall ? `Lowest cash in ${model.lowCash.period}` : "Cash stays positive every month")}
+        </div>
+        ${model.shortfall ? `<p class="notice">Cash dips below zero in <strong>${model.shortfall.period}</strong>. You would need extra funding or lower spending before that month.</p>` : ""}
+        <div class="stack">
+        <section class="panel"><h2>Year-by-year money summary</h2>
+          ${table("Year", ["Money coming in", "Running costs", "Take-home profit", "Cash in bank"], simpleAnnualRows)}
+        </section>
+        <section class="panel"><h2>Money coming in by year</h2><ul class="plot">
+          ${model.annual.map(row => `<li><span>${row.period}</span><span class="track" aria-hidden="true"><span class="bar" style="width:${100 * row.revenue / maxRevenue}%"></span></span><strong title="${escape(money(row.revenue))}">${escape(compactFormat.format(row.revenue))}</strong></li>`).join("")}
+        </ul></section>
+        ${renderChart(chart, { escape, format, table })}
+        <section class="panel simple-callout">
+          <div>
+            <strong>Need full accounting statements?</strong>
+            <p class="muted">Switch to Advanced view for Income Statement, Balance Sheet, Cash Flow, COGS, SG&amp;A, CAPEX, VAT &amp; Taxes, and DCF valuation.</p>
+          </div>
+          <button type="button" class="button gold" data-switch-advanced>Open Advanced Financials →</button>
+        </section></div></section></div>`;
+    }
     return `<div class="forecast-dashboard">${moduleControls()}<section class="forecast-overview" aria-label="Forecast results"><div class="metrics">
       ${metric("Revenue", sum(yearOne, "revenue"), yearOneLabel)}
       ${metric("EBITDA", sum(yearOne, "ebitda"), yearOneLabel)}
@@ -1958,6 +2046,7 @@
         viewId: id,
         answers,
         guestMode,
+        advancedMode,
         escape,
         onUpdate(nextAnswers) {
           answers = nextAnswers;
@@ -1970,6 +2059,9 @@
           outcomes = null;
           save();
           renderWorkbookSheet();
+        },
+        onComplexityChange(nextAdvanced) {
+          setAdvancedMode(nextAdvanced);
         },
         onReset(applyReset) {
           confirmAction(
@@ -2113,8 +2205,13 @@
 
   function renderReport() {
     const page = workbookById.get(selectedReport);
-    const pageTitle = page?.[1] ?? navigation.flatMap(group => group.views).find(([id]) => id === selectedReport)?.[1] ?? "Dashboard";
-    const description = page?.[2] ?? "Review this supporting view of the Peebee financial forecast.";
+    const simplePageTitle = selectedReport === "overview" ? "Business Overview"
+      : selectedReport === "analysis" ? "Visual Charts" : null;
+    const simpleDescription = selectedReport === "overview"
+      ? "Plain-English view of money coming in, running costs, profit, and cash left in the bank."
+      : selectedReport === "analysis" ? "Visual charts of Peebee’s money coming in, expenses, and cash." : null;
+    const pageTitle = (!advancedMode && simplePageTitle) || page?.[1] || advancedNavigation.flatMap(group => group.views).find(([id]) => id === selectedReport)?.[1] || "Dashboard";
+    const description = (!advancedMode && simpleDescription) || page?.[2] || "Review this supporting view of the Peebee financial forecast.";
     const missing = firstMissing(answers);
     if (missing) {
       app.innerHTML = `<header class="workbook-sheet-heading"><h1 id="report-title" tabindex="-1">${escape(pageTitle)}</h1>
@@ -2179,6 +2276,7 @@
       ${analysis ? renderAnalysis(analysis, { escape, format, table, currency }) : report ? reportBody : isSummary ? renderMonthlySummary(model) : overview(model, overviewChart)}`;
     app.querySelector("#review")?.addEventListener("click", () =>
       editEntry ? goTo(editEntry[0], true, selectedReport) : showReview());
+    app.querySelectorAll("[data-switch-advanced]").forEach(button => button.addEventListener("click", () => setAdvancedMode(true)));
     app.querySelector("#summary-month")?.addEventListener("change", event => {
       summaryMonth = event.target.value;
       render("summary-month");

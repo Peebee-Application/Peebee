@@ -17,6 +17,13 @@
     const scaled = Math.abs(value) < 5e4 ? 0 : value / 1e6;
     return `${dec1Fmt.format(scaled)}M`;
   };
+  const fmtPlain = value => {
+    if (value == null || !Number.isFinite(value)) return "—";
+    const abs = Math.abs(value);
+    if (abs < 5e4) return "0";
+    if (abs >= 1e9) return `${dec1Fmt.format(value / 1e9)}B`;
+    return `${dec1Fmt.format(value / 1e6)}M`;
+  };
   const fmtMNum = value => {
     if (value == null || !Number.isFinite(value)) return "—";
     const scaled = Math.abs(value) < 5e4 ? 0 : value / 1e6;
@@ -36,8 +43,15 @@
     ["taxibee-stress", "Stress Tests & Gate", "Load, fare, and cost shocks comparing unconstrained cash flows against the UGX 100M CapEx gate."],
   ];
 
+  const simpleViews = [
+    ["taxibee-dashboard", "Summary", "Plain-English overview of money coming in, running costs, profit, and cash in the bank."],
+    ["taxibee-assumptions", "Edit Numbers", "Change vans, ticket price, loan interest rate, and daily running costs in plain English."],
+    ["taxibee-debt", "Loan & Safety Check", "Simple loan payback calculator and plain-English what-if safety checks."],
+  ];
+
   const viewSet = new Set(views.map(([id]) => id));
   const viewById = new Map(views.map(entry => [entry[0], entry]));
+  const simpleViewById = new Map(simpleViews.map(entry => [entry[0], entry]));
 
   function renderTable(escape, caption, columns, rows) {
     const renderRow = row => {
@@ -61,18 +75,22 @@
     </div>`;
   }
 
-  function modeBanner(escape, model, answers, guestMode) {
+  function modeBanner(escape, model, answers, guestMode, advancedMode) {
     const mode = answers.taxibeeMode === "fly-express" ? "fly-express" : "vip-fleet";
     const channel = (answers.channels || []).find(c => c.key === "taxipress");
     const channelOn = !channel || channel.enabled !== "no";
     const statusCopy = !channelOn
-      ? "Taxibee channel is currently switched Off in Dashboard → Forecast modules."
+      ? "Taxibee is currently turned Off in Peebee’s Overview."
       : mode === "vip-fleet"
-        ? "VIP Fleet is active and rolling fleet revenue, direct costs, driver payroll, van OpEx, CapEx, and fleet loan schedules into Peebee’s consolidated statements."
-        : "TaxiPress (Fly Express) partner commission lines are active in Peebee’s consolidated statements. Switch to VIP Fleet to roll this owned-fleet model into consolidated reports.";
+        ? (advancedMode
+          ? "VIP Fleet is active and rolling fleet revenue, direct costs, driver payroll, van OpEx, CapEx, and fleet loan schedules into Peebee’s consolidated statements."
+          : "Using owned VIP Vans. All van sales, running costs, new van purchases, and loan payments are included in Peebee’s total forecast.")
+        : (advancedMode
+          ? "TaxiPress (Fly Express) partner commission lines are active in Peebee’s consolidated statements. Switch to VIP Fleet to roll this owned-fleet model into consolidated reports."
+          : "Using partner vans (Fly Express commission model). Peebee earns a commission per booking with zero van purchase or loan costs.");
     return `<section class="panel taxibee-mode-bar" aria-label="Taxibee operating model switch">
       <div class="taxibee-mode-copy">
-        <strong>Consolidated Peebee Mode · Taxibee (formerly TaxiPress)</strong>
+        <strong>${advancedMode ? "Consolidated Peebee Mode · Taxibee (formerly TaxiPress)" : "Business Model · Taxibee (formerly TaxiPress)"}</strong>
         <p class="muted">${escape(statusCopy)}</p>
       </div>
       <div class="taxibee-mode-controls">
@@ -80,7 +98,8 @@
           <button type="button" data-taxibee-mode="vip-fleet" aria-pressed="${mode === "vip-fleet"}" ${guestMode ? "disabled" : ""}>Taxibee · VIP Fleet</button>
           <button type="button" data-taxibee-mode="fly-express" aria-pressed="${mode === "fly-express"}" ${guestMode ? "disabled" : ""}>TaxiPress · Fly Express</button>
         </div>
-        ${!guestMode ? '<button type="button" class="button secondary small" id="taxibee-export-csv">Export Taxibee CSV ↓</button>' : ""}
+        <button type="button" class="button ${advancedMode ? "secondary" : "gold"} small" id="taxibee-toggle-complexity">${advancedMode ? "Switch to Simple view" : "Advanced financials →"}</button>
+        ${!guestMode && advancedMode ? '<button type="button" class="button secondary small" id="taxibee-export-csv">Export CSV ↓</button>' : ""}
       </div>
     </section>`;
   }
@@ -841,14 +860,340 @@
       </section>`;
   }
 
-  function renderView({ app, viewId, answers, guestMode, escape, onUpdate, onModeChange, onReset, onExport, onEditFlyExpress }) {
-    const [, title, description] = viewById.get(viewId) || views[0];
+  function renderSimpleVipSummary(escape, model) {
+    const p = model.inputs;
+    const m5 = model.model5y;
+    const ue = model.unitEconomics;
+    const r = model.ramp;
+    const breakevenSeats = Math.ceil(ue.breakevenLoadFactor * p.seatsPerVan);
+    const seatsAt75 = Math.round(0.75 * p.seatsPerVan);
+    const maxRev = Math.max(1, ...m5.rows.map(row => row.totalRevenue));
+    const maxRampCash = Math.max(1, model.capital.m0CashBuffer, ...r.months.map(m => Math.abs(m.endingCash)));
+
+    const kpis = [
+      ["Money Needed to Start", `UGX ${fmtPlain(model.capital.totalSources)}`, `Investors UGX ${fmtPlain(p.udbEquity)} + Loan UGX ${fmtPlain(p.udbLoan)} (${(p.loanRate * 100).toFixed(2).replace(/\.?0+$/, "")}%/yr)`],
+      ["Total Sales (5 Years)", `UGX ${fmtPlain(m5.totals.totalRevenue)}`, `Starts with ${p.initialVans} vans, grows to ${m5.totals.endingVans} vans from profits`],
+      ["Take-Home Profit (5 Years)", `UGX ${fmtPlain(m5.totals.pat)}`, "After fuel, drivers, repairs, office, loan interest & tax"],
+      ["Cash in Bank after 5 Years", `UGX ${fmtPlain(m5.totals.endCash)}`, `Day-1 cushion UGX ${fmtM(model.capital.m0CashBuffer)} · Lowest point UGX ${fmtM(r.troughCash)}`],
+    ];
+
+    const yearRows = [
+      ...m5.rows.map(row => ({
+        label: String(row.calendarYear),
+        cells: [
+          `${row.vans} vans`,
+          `UGX ${fmtPlain(row.totalRevenue)}`,
+          `UGX ${fmtPlain(row.cogs + row.totalOpex)}`,
+          `UGX ${fmtPlain(row.pat)}`,
+          `UGX ${fmtPlain(row.endCash)}`,
+          `UGX ${fmtPlain(row.debt)}`,
+        ],
+      })),
+      {
+        label: "5-Year Total / End",
+        cells: [
+          `${m5.totals.endingVans} vans`,
+          `UGX ${fmtPlain(m5.totals.totalRevenue)}`,
+          `UGX ${fmtPlain(m5.totals.cogs + m5.totals.totalOpex)}`,
+          `UGX ${fmtPlain(m5.totals.pat)}`,
+          `UGX ${fmtPlain(m5.totals.endCash)}`,
+          `UGX ${fmtPlain(m5.totals.debt)}`,
+        ],
+        style: "footer",
+      },
+    ];
+
+    return `<div class="metrics">
+        ${kpis.map(([label, value, sub]) => `<div class="panel metric">
+          <span>${escape(label)}</span>
+          <div class="metric-value"><strong>${escape(value)}</strong></div>
+          <small>${escape(sub)}</small>
+        </div>`).join("")}
+      </div>
+      <section class="panel">
+        <h2>How One VIP Van Performs Each Month</h2>
+        <p class="muted">Based on a ${p.seatsPerVan}-seat VIP van making ${p.tripsPerDay} trips per day, ${p.operatingDaysPerMonth} days a month, at UGX ${fmtUgx(p.y1SeatFare)} per seat.</p>
+        <div class="simple-highlights">
+          <div class="simple-highlight-card">
+            <span>Seats needed to cover all van costs</span>
+            <strong>About ${breakevenSeats} of ${p.seatsPerVan} seats (${fmtPct1(ue.breakevenLoadFactor)})</strong>
+            <span>Covers fuel, tolls, stage fees, driver pay, insurance &amp; repairs.</span>
+          </div>
+          <div class="simple-highlight-card">
+            <span>Monthly running cost per van</span>
+            <strong>UGX ${fmtM(ue.totalMonthlyVanOpCostBeforeGw)}</strong>
+            <span>Fuel/tolls UGX ${fmtM(ue.monthlyDirectTripCosts)} · Driver UGX ${fmtM(ue.driverPayrollPerVan)} · Upkeep UGX ${fmtM(ue.vanFixedOpexPerVan)}</span>
+          </div>
+          <div class="simple-highlight-card">
+            <span>Monthly profit per van at 75% full</span>
+            <strong>UGX ${fmtM(ue.netContributionAt75)} / van</strong>
+            <span>At ~${seatsAt75} seats filled (UGX ${fmtM(ue.seatRevAt75)} sales), goes toward office &amp; loan.</span>
+          </div>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>5-Year Money Plan (Year by Year)</h2>
+        ${renderTable(escape, "Year", ["Vans on Road", "Money Coming In", "Running Costs", "Take-Home Profit", "Cash in Bank", "Loan Still Owed"], yearRows)}
+      </section>
+      <div class="taxibee-chart-grid">
+        <section class="panel">
+          <h2>Sales vs Take-Home Profit Each Year</h2>
+          <div class="taxibee-bar-list">
+            ${m5.rows.map(row => `<div class="taxibee-bar-group">
+              <div class="taxibee-bar-head"><span>${row.calendarYear} (${row.vans} vans)</span><strong>In ${fmtPlain(row.totalRevenue)} · Profit ${fmtPlain(row.pat)}</strong></div>
+              <div class="taxibee-bar-tracks">
+                <div class="track"><span class="bar" style="width:${(100 * row.totalRevenue / maxRev).toFixed(1)}%"></span></div>
+                <div class="track"><span class="bar taxibee-bar-ink" style="width:${Math.max(0, 100 * row.pat / maxRev).toFixed(1)}%"></span></div>
+              </div>
+            </div>`).join("")}
+          </div>
+          <p class="muted taxibee-legend"><span><i class="taxibee-swatch-gold"></i>Money Coming In</span><span><i class="taxibee-swatch-ink"></i>Take-Home Profit</span></p>
+        </section>
+        <section class="panel">
+          <h2>First 12 Months: Cash Cushion &amp; Breakeven</h2>
+          <ul class="simple-story-list">
+            <li><strong>Day 1 Bank Cushion:</strong> UGX ${fmtM(model.capital.m0CashBuffer)} left after buying the first ${p.initialVans} vans, app setup, and licences.</li>
+            <li><strong>Operations turn profitable:</strong> ${escape(r.operatingBreakevenMonth ? `Month ${r.operatingBreakevenMonth.monthIndex} (${r.operatingBreakevenMonth.label})` : "Not yet reached")}</li>
+            <li><strong>Cash grows even after loan interest:</strong> ${escape(r.cashflowBreakevenMonth ? `Month ${r.cashflowBreakevenMonth.monthIndex} (${r.cashflowBreakevenMonth.label})` : "Not yet reached")}</li>
+            <li><strong>Lowest cash point in Year 1:</strong> UGX ${fmtM(r.troughCash)} (${escape(r.troughMonth)}) — cash never runs out.</li>
+          </ul>
+          <ul class="plot" style="margin-top:14px">
+            ${r.months.filter((_, i) => i % 2 === 0 || i === 11).map(m => `<li><span>${escape(m.label)}</span><span class="track"><span class="bar" style="width:${Math.max(0, 100 * m.endingCash / maxRampCash).toFixed(1)}%"></span></span><strong>UGX ${fmtM(m.endingCash)}</strong></li>`).join("")}
+          </ul>
+        </section>
+      </div>
+      <section class="panel simple-callout">
+        <div>
+          <strong>Want the full accounting breakdown?</strong>
+          <p class="muted">Switch to Advanced view for 3-Year &amp; 5-Year Balance Sheets, EBITDA, DSCR, DCF (NPV &amp; IRR), and full monthly ramp tables.</p>
+        </div>
+        <button type="button" class="button gold" data-open-advanced>Open Advanced Financials →</button>
+      </section>`;
+  }
+
+  function renderSimpleFlySummary(escape, fly) {
+    const m5 = fly.model5y;
+    const maxRev = Math.max(1, ...m5.rows.map(r => r.totalRevenue));
+    const kpis = [
+      ["Startup Loan Needed", "UGX 0", "Partner operators own & maintain the vans"],
+      ["Commission Earned (5 Years)", `UGX ${fmtPlain(m5.totals.totalRevenue)}`, `From ${fly.activeStreams.length} active partner booking streams`],
+      ["Take-Home Profit (5 Years)", `UGX ${fmtPlain(m5.totals.pat)}`, `After ${fmtPct1(fly.taxRate)} tax & scoped running costs`],
+      ["Cash Earned (5 Years)", `UGX ${fmtPlain(m5.totals.endCash)}`, "Zero vehicle loan repayments"],
+    ];
+    const yearRows = [
+      ...m5.rows.map(r => ({
+        label: String(r.calendarYear),
+        cells: [fmtUgx(r.bookings), `UGX ${fmtPlain(r.totalRevenue)}`, `UGX ${fmtPlain(r.cogs + r.opex)}`, `UGX ${fmtPlain(r.pat)}`, `UGX ${fmtPlain(r.endCash)}`],
+      })),
+      {
+        label: "5-Year Total / End",
+        cells: [fmtUgx(m5.totals.bookings), `UGX ${fmtPlain(m5.totals.totalRevenue)}`, `UGX ${fmtPlain(m5.totals.cogs + m5.totals.opex)}`, `UGX ${fmtPlain(m5.totals.pat)}`, `UGX ${fmtPlain(m5.totals.endCash)}`],
+        style: "footer",
+      },
+    ];
+    return `<div class="metrics">
+        ${kpis.map(([label, value, sub]) => `<div class="panel metric">
+          <span>${escape(label)}</span>
+          <div class="metric-value"><strong>${escape(value)}</strong></div>
+          <small>${escape(sub)}</small>
+        </div>`).join("")}
+      </div>
+      <section class="panel">
+        <h2>5-Year Partner Commission Plan (Fly Express)</h2>
+        ${renderTable(escape, "Year", ["Bookings / Units", "Money Coming In", "Running Costs", "Take-Home Profit", "Cash Earned"], yearRows)}
+      </section>
+      <section class="panel">
+        <h2>Commission Money Coming In vs Profit</h2>
+        <div class="taxibee-bar-list">
+          ${m5.rows.map(r => `<div class="taxibee-bar-group">
+            <div class="taxibee-bar-head"><span>${r.calendarYear}</span><strong>In UGX ${fmtPlain(r.totalRevenue)} · Profit UGX ${fmtPlain(r.pat)}</strong></div>
+            <div class="taxibee-bar-tracks">
+              <div class="track"><span class="bar" style="width:${(100 * r.totalRevenue / maxRev).toFixed(1)}%"></span></div>
+              <div class="track"><span class="bar taxibee-bar-ink" style="width:${Math.max(0, 100 * r.pat / maxRev).toFixed(1)}%"></span></div>
+            </div>
+          </div>`).join("")}
+        </div>
+      </section>
+      <section class="panel simple-callout">
+        <div>
+          <strong>Want full accounting statements?</strong>
+          <p class="muted">Switch to Advanced view for 3-Year &amp; 5-Year statements, NPV valuation, and commission stress tests.</p>
+        </div>
+        <button type="button" class="button gold" data-open-advanced>Open Advanced Financials →</button>
+      </section>`;
+  }
+
+  function renderSimpleVipEdit(escape, model, answers, guestMode) {
+    const state = readState(answers);
+    const cfg = state.taxibeeConfig[0];
+    const p = model.inputs;
+    const ue = model.unitEconomics;
+    const ro = guestMode ? "disabled" : "";
+    const field = (label, key, unit, step = "any") => `<label class="taxibee-ramp-cell">
+      <span>${escape(label)}</span>
+      <div class="field-box taxibee-input-box compact">
+        <input type="number" step="${step}" min="0" data-tb-config="${escape(key)}" value="${escape(cfg[key])}" ${ro}>
+        ${unit ? `<span>${escape(unit)}</span>` : ""}
+      </div>
+    </label>`;
+    const schedInput = (i, f, val, step = "any") =>
+      `<div class="field-box taxibee-input-box compact"><input type="number" step="${step}" data-tb-sched="${i}" data-tb-field="${f}" value="${escape(val)}" ${ro}></div>`;
+    const growthRows = state.taxibeeSchedule.map((row, idx) => ({
+      label: `Year ${idx + 1} (${p.schedule[idx].calendarYear})`,
+      cells: [
+        `${p.schedule[idx].activeVans} vans`,
+        idx === 0 ? "0 (bought at start)" : { html: schedInput(idx, "newVans", row.newVans, "1"), cls: "taxibee-input-cell" },
+        idx === 0 ? `UGX ${fmtUgx(p.y1SeatFare)}` : { html: schedInput(idx, "fare", row.fare, "500"), cls: "taxibee-input-cell" },
+        idx === 0 ? `${fmtPct1(p.y1AvgLoad)} (Year 1 ramp)` : { html: schedInput(idx, "load", row.load, "1"), cls: "taxibee-input-cell" },
+        idx === 0 ? `UGX ${fmtM(p.schedule[0].corpOverhead)}` : { html: schedInput(idx, "corpOverhead", row.corpOverhead, "10000000"), cls: "taxibee-input-cell" },
+      ],
+    }));
+
+    return `<section class="panel">
+        <div class="review-section-head">
+          <h2>1. Startup Money &amp; Fleet Loan</h2>
+          ${!guestMode ? '<button type="button" class="button secondary small" id="taxibee-reset-defaults">Reset defaults</button>' : ""}
+        </div>
+        <p class="muted">Change any number below — every summary, profit figure, and cash balance updates right away.</p>
+        <div class="taxibee-loan-grid">
+          ${field("Starting Vans", "initialVans", "Vans", "1")}
+          ${field("Cost per VIP Van", "unitVanCapex", "UGX", "1000000")}
+          ${field("Loan Amount", "udbLoan", "UGX", "1000000")}
+          ${field("Loan Interest Rate", "loanRatePct", "% / yr", "0.25")}
+          ${field("Years to Repay Loan", "loanTenorYears", "Years", "1")}
+          ${field("Investor Money", "udbEquity", "UGX", "1000000")}
+        </div>
+        <p class="simple-field-summary">Day-1 Cash Cushion Left in Bank: UGX ${fmtUgx(model.capital.m0CashBuffer)} (from UGX ${fmtPlain(model.capital.totalSources)} total financing minus UGX ${fmtPlain(model.capital.initialFleetCapex)} for ${p.initialVans} vans &amp; startup costs).</p>
+      </section>
+      <section class="panel">
+        <h2>2. Daily Van Operations &amp; Costs</h2>
+        <div class="taxibee-loan-grid">
+          ${field("Seats per Van", "seatsPerVan", "Seats", "1")}
+          ${field("Trips per Day", "tripsPerDay", "Trips", "1")}
+          ${field("Operating Days / Month", "operatingDaysPerMonth", "Days", "1")}
+          ${field("Year 1 Ticket Price", "y1SeatFare", "UGX", "500")}
+          ${field("Fuel Cost per Trip", "fuelPerTrip", "UGX", "1000")}
+          ${field("Expressway Toll / Trip", "tollPerTrip", "UGX", "500")}
+          ${field("Driver Monthly Salary", "driverSalaryMonthly", "UGX", "50000")}
+          ${field("Monthly Office Costs (Y1)", "y1CorpOverheadMonthly", "UGX", "500000")}
+        </div>
+        <p class="simple-field-summary">Each van covers all its running costs once about ${Math.ceil(ue.breakevenLoadFactor * p.seatsPerVan)} of ${p.seatsPerVan} seats (${fmtPct1(ue.breakevenLoadFactor)}) are filled. At 75% full, each van clears UGX ${fmtM(ue.netContributionAt75)}/month.</p>
+      </section>
+      <section class="panel">
+        <h2>3. 5-Year Fleet Growth Plan</h2>
+        ${renderTable(escape, "Year", ["Total Vans", "New Vans Bought", "Ticket Price (UGX)", "Avg % Seats Filled", "Yearly Office Costs (UGX)"], growthRows)}
+      </section>
+      <section class="panel simple-callout">
+        <div>
+          <strong>Need detailed accounting inputs?</strong>
+          <p class="muted">Switch to Advanced view to edit depreciation lives, tax rate, receivables/payables, monthly ramp percentages, and stress multipliers.</p>
+        </div>
+        <button type="button" class="button secondary" data-open-advanced>Open Advanced Assumptions →</button>
+      </section>`;
+  }
+
+  function renderSimpleLoanSafety(escape, model, answers, guestMode) {
+    const p = model.inputs;
+    const cfg = readState(answers).taxibeeConfig[0];
+    const ro = guestMode ? "disabled" : "";
+    const rateLabel = `${(p.loanRate * 100).toFixed(2).replace(/\.?0+$/, "")}%`;
+    const loanInput = (label, key, unit, step = "any") => `<label class="taxibee-ramp-cell">
+      <span>${escape(label)}</span>
+      <div class="field-box taxibee-input-box compact">
+        <input type="number" step="${step}" min="0" data-tb-config="${escape(key)}" value="${escape(cfg[key])}" ${ro}>
+        ${unit ? `<span>${escape(unit)}</span>` : ""}
+      </div>
+    </label>`;
+    const payRows = [
+      ...model.debtSchedule.map(r => ({
+        label: String(r.calendarYear),
+        cells: [
+          `UGX ${fmtM(r.opening)}`,
+          `UGX ${fmtM(r.interest)}`,
+          `UGX ${fmtM(r.principal)}`,
+          `UGX ${fmtM(r.totalService)}`,
+          `UGX ${fmtM(r.closing)}`,
+        ],
+      })),
+      {
+        label: `Total (${p.loanTenorYears} Years)`,
+        cells: [
+          `UGX ${fmtM(model.debtTotals.opening)}`,
+          `UGX ${fmtM(model.debtTotals.interest)}`,
+          `UGX ${fmtM(model.debtTotals.principal)}`,
+          `UGX ${fmtM(model.debtTotals.totalService)}`,
+          `UGX ${fmtM(model.debtTotals.closing)}`,
+        ],
+        style: "footer",
+      },
+    ];
+    const plainStressNames = {
+      base: "Normal Plan",
+      "low-load": "15% Fewer Passengers",
+      "fare-drop": "Lower Ticket Price (UGX 15,000)",
+      "cost-infl": "15% Higher Running Costs",
+      severe: "Worst-Case Storm (Fewer riders + 15k fare + higher costs)",
+    };
+    const safetyRows = model.stressResults.map(s => {
+      const safe = !s.creditVerdict.startsWith("TRIGGERS");
+      return {
+        label: plainStressNames[s.key] || s.name,
+        cells: [
+          `${s.y5Fleet} vans`,
+          `UGX ${fmtM(s.gatedMinCash)}`,
+          `UGX ${fmtM(s.gatedY5Cash)}`,
+          { html: `<span class="taxibee-badge ${safe ? "pass" : "warn"}">${safe ? "SAFE" : "STOP RULE"}</span>` },
+          s.gateAction,
+        ],
+      };
+    });
+    return `<section class="panel">
+        <h2>Simple Loan Calculator</h2>
+        <p class="muted">Adjust the loan amount, interest rate, or payback period below to see how your yearly repayments change.</p>
+        <div class="taxibee-loan-grid">
+          ${loanInput("Loan Amount", "udbLoan", "UGX", "1000000")}
+          ${loanInput("Interest Rate", "loanRatePct", "% / yr", "0.25")}
+          ${loanInput("Years to Repay", "loanTenorYears", "Years", "1")}
+          ${loanInput("Interest-Only Grace", "loanGraceYears", "Years", "1")}
+        </div>
+        <p class="simple-field-summary">Year 1 monthly interest: UGX ${fmtUgx(p.udbLoan * p.loanRate / 12)}/month · Total interest over ${p.loanTenorYears} years at ${escape(rateLabel)}: UGX ${fmtM(model.debtTotals.interest)}.</p>
+      </section>
+      <section class="panel">
+        <h2>Year-by-Year Loan Payback</h2>
+        ${renderTable(escape, "Year", ["Owed at Start", `Yearly Interest (${rateLabel})`, "Loan Payback", "Total Paid This Year", "Still Owed at End"], payRows)}
+      </section>
+      <section class="panel">
+        <h2>What If Business Is Slower? (Safety Check)</h2>
+        <p class="muted">We keep a UGX ${fmtM(p.cashGateFloor)} cash safety rule: if cash gets close to that floor, we pause buying extra vans so the business stays safe and pays its loan on time.</p>
+        ${renderTable(escape, "What-If Scenario", ["Vans by Year 5", "Lowest Cash in Bank", "Cash After 5 Years", "Status", "Safety Action"], safetyRows)}
+      </section>
+      <section class="panel simple-callout">
+        <div>
+          <strong>Need DSCR covenant ratios and unconstrained stress tables?</strong>
+          <p class="muted">Switch to Advanced view for lender DSCR coverage ratios and full Year 1 &amp; Year 2 cash-flow shock tables.</p>
+        </div>
+        <button type="button" class="button secondary" data-open-advanced>Open Advanced Loan &amp; Stress Views →</button>
+      </section>`;
+  }
+
+  function renderView({ app, viewId, answers, guestMode, advancedMode = false, escape, onUpdate, onModeChange, onComplexityChange, onReset, onExport, onEditFlyExpress }) {
+    const [, title, description] = (advancedMode ? viewById.get(viewId) : simpleViewById.get(viewId)) || viewById.get(viewId) || views[0];
     const isFly = answers.taxibeeMode === "fly-express";
     const model = isFly ? null : compute(answers);
     const fly = isFly ? computeFlyExpress(answers) : null;
 
     let body = "";
-    if (isFly) {
+    if (!advancedMode) {
+      if (isFly) {
+        if (viewId === "taxibee-assumptions") body = renderFlyAssumptions(escape, fly, answers, guestMode);
+        else if (viewId === "taxibee-debt") body = renderFlyDebt(escape, guestMode) + renderFlyStress(escape, fly);
+        else body = renderSimpleFlySummary(escape, fly);
+      } else {
+        if (viewId === "taxibee-assumptions") body = renderSimpleVipEdit(escape, model, answers, guestMode);
+        else if (viewId === "taxibee-debt") body = renderSimpleLoanSafety(escape, model, answers, guestMode);
+        else body = renderSimpleVipSummary(escape, model);
+      }
+    } else if (isFly) {
       if (viewId === "taxibee-dashboard") body = renderFlyDashboard(escape, fly);
       else if (viewId === "taxibee-assumptions") body = renderFlyAssumptions(escape, fly, answers, guestMode);
       else if (viewId === "taxibee-ramp") body = renderFlyRamp(escape, fly);
@@ -867,16 +1212,20 @@
     }
 
     const headingTitle = isFly ? `TaxiPress (Fly Express) · ${title}` : `Taxibee (VIP Fleet) · ${title}`;
-    const headingSub = isFly
-      ? `TAXIPRESS · FLY EXPRESS PARTNER COMMISSION MODEL · ${fly.activeStreams.length} Active Streams · Asset-Light (UGX 0 Fleet Loan)`
-      : `TAXIBEE (PEEBEE GROUP LTD) · Launch ${model.inputs.raw.taxibeeConfig[0].launchStart} · Launch Financing UGX ${fmtM(model.capital.totalSources)} (${fmtM(model.inputs.udbEquity)} Equity + ${fmtM(model.inputs.udbLoan)} Loan @ ${(model.inputs.loanRate * 100).toFixed(2).replace(/\.?0+$/, "")}% p.a.) · ${description}`;
+    const headingSub = !advancedMode
+      ? (isFly
+        ? `Simple view · Partner commission model (${fly.activeStreams.length} active streams, UGX 0 loan)`
+        : `Simple view · ${model.inputs.initialVans} → ${model.model5y.totals.endingVans} VIP vans · UGX ${fmtPlain(model.capital.totalSources)} startup financing · ${description}`)
+      : (isFly
+        ? `TAXIPRESS · FLY EXPRESS PARTNER COMMISSION MODEL · ${fly.activeStreams.length} Active Streams · Asset-Light (UGX 0 Fleet Loan)`
+        : `TAXIBEE (PEEBEE GROUP LTD) · Launch ${model.inputs.raw.taxibeeConfig[0].launchStart} · Launch Financing UGX ${fmtM(model.capital.totalSources)} (${fmtM(model.inputs.udbEquity)} Equity + ${fmtM(model.inputs.udbLoan)} Loan @ ${(model.inputs.loanRate * 100).toFixed(2).replace(/\.?0+$/, "")}% p.a.) · ${description}`);
 
     app.innerHTML = `<div class="taxibee-root"><header class="workbook-sheet-heading">
         <h1 id="workbook-sheet-title" tabindex="-1">${escape(headingTitle)}</h1>
         <p class="muted">${escape(headingSub)}</p>
       </header>
       <div class="stack">
-        ${modeBanner(escape, model, answers, guestMode)}
+        ${modeBanner(escape, model, answers, guestMode, advancedMode)}
         ${body}
       </div></div>`;
 
@@ -886,6 +1235,13 @@
         if (guestMode || btn.getAttribute("aria-pressed") === "true") return;
         onModeChange(btn.dataset.taxibeeMode);
       });
+    });
+
+    root.querySelector("#taxibee-toggle-complexity")?.addEventListener("click", () => {
+      onComplexityChange?.(!advancedMode);
+    });
+    root.querySelectorAll("[data-open-advanced]").forEach(btn => {
+      btn.addEventListener("click", () => onComplexityChange?.(true));
     });
 
     root.querySelector("#taxibee-export-csv")?.addEventListener("click", () => {
@@ -947,5 +1303,5 @@
     }
   }
 
-  globalThis.TaxibeeUI = { views, viewSet, viewById, renderView };
+  globalThis.TaxibeeUI = { views, simpleViews, viewSet, viewById, renderView };
 })();
