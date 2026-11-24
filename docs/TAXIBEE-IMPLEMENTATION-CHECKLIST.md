@@ -6,7 +6,7 @@ services, database and Admin controls; do not claim preview behavior is a live
 integration.
 
 Status key: `[ ]` not started, `[~]` implementation in progress or awaiting
-verification, `[x]` implemented in the current branch (release checks may remain).
+verification, `[x]` implemented and released to production.
 
 ## Production readiness
 
@@ -28,9 +28,9 @@ verification, `[x]` implemented in the current branch (release checks may remain
 - [x] Export calendar events for confirmed journeys using authoritative departure
   times and Kampala timezone handling. In progress: paid scheduled tickets and
   current stage bookings with an explicitly estimated departure time.
-- [~] Persist saved departures server-side per customer and environment, with
-  device-local fallback until migration 0173 is applied; remove inactive queue
-  entries from the customer list.
+- [x] Persist saved departures server-side per customer and environment; remove
+  inactive queue entries from the customer list. Migration 0173 was applied and
+  API plus Taxibee were deployed on 2026-11-24.
 - [x] Add configurable vehicle, minimum-space and estimated-time filters over
   authoritative Peebee departure results. Filter preferences are per-account on
   this device; they never alter server availability or fares.
@@ -78,3 +78,15 @@ verification, `[x]` implemented in the current branch (release checks may remain
   behavior without creating unintended charges.
 - [ ] Enable customer-facing options only after operating configuration and
   end-to-end verification are complete.
+
+## Verified live release
+
+- [x] PR #521 merged to `main`; all CI checks passed.
+- [x] Migration 0173 applied through the reviewed migration workflow.
+- [x] Shared API deployed before the Taxibee Worker; the Worker was then deployed
+  alone from clean `main`.
+- [x] Live site and account configuration returned HTTP 200. Browser verification
+  confirmed public access, practice entry, and no screenshot-protection overlay.
+- [x] Public TaxiPress config reports the service and scheduled sales disabled;
+  the departures endpoint is ready with zero published departures. No live trip
+  or payment was created for verification.
