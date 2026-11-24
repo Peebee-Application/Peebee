@@ -70,7 +70,7 @@ body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeti
 .taxibee-install-dismiss { display: grid; flex: 0 0 28px; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: transparent; color: #1a1a1a; }
 .taxibee-install-dismiss svg { width: 17px; height: 17px; }
 @media (max-width: 900px) {
-  :root { --mobile-nav-height: 90px; }
+  :root { --mobile-nav-height: 102px; }
   #mobile-nav.mobile-nav {
     position: fixed !important;
     inset: auto 0 0 !important;
@@ -82,8 +82,8 @@ body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeti
     transition: none !important;
     z-index: 50 !important;
     display: block !important;
-    height: calc(90px + var(--safe-bottom)) !important;
-    padding: 0 12px calc(8px + var(--safe-bottom)) !important;
+    height: calc(var(--mobile-nav-height) + var(--safe-bottom)) !important;
+    padding: 0 9px calc(8px + var(--safe-bottom)) !important;
     overflow: visible !important;
     border: 0 !important;
     border-radius: 0 !important;
@@ -95,16 +95,15 @@ body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeti
   .taxibee-nav-shell {
     display: flex;
     align-items: center;
-    gap: 8px;
     width: min(100%, 520px);
-    height: 76px;
+    height: 94px;
     margin: 0 auto;
-    padding: 7px;
-    border-radius: 25px;
+    padding: 8px;
+    border-radius: 30px;
     background: #0a0a0a;
     box-shadow: 0 8px 26px rgb(10 10 10 / .2);
   }
-  .taxibee-nav-anchor { flex: 0 0 58px; height: 100%; }
+  .taxibee-nav-anchor { flex: 0 0 clamp(62px, 20vw, 83px); height: 100%; }
   .taxibee-nav-home {
     display: grid;
     align-content: center;
@@ -118,18 +117,19 @@ body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeti
     background: transparent;
     color: #faf8ef;
     cursor: pointer;
-    font: 700 10px/1 system-ui, sans-serif;
+    font: 800 13px/1 system-ui, sans-serif;
   }
   .taxibee-nav-home.is-active { color: #c9a227; }
-  .taxibee-nav-home svg { width: 20px; height: 20px; }
+  .taxibee-nav-home svg { width: 24px; height: 24px; }
   .taxibee-nav-menu-track {
+    position: relative;
     flex: 1 1 auto;
     min-width: 0;
     height: 100%;
     overflow-x: auto;
     overflow-y: hidden;
-    border-radius: 19px;
-    background: #c9a227;
+    border-radius: 24px;
+    background: var(--brand-gold);
     scrollbar-width: none;
     overscroll-behavior-x: contain;
   }
@@ -140,10 +140,11 @@ body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeti
     min-width: 100%;
     height: 100%;
     margin: 0;
-    padding: 0 4px;
+    padding: 0;
     list-style: none;
   }
-  .taxibee-nav-items li { flex: 1 0 max(52px, 20%); height: 100%; }
+  .taxibee-nav-items li { flex: 1 0 44px; min-width: 0; height: 100%; }
+  .taxibee-nav-items li.is-selected { flex-basis: clamp(96px, 31vw, 125px); flex-grow: 0; }
   #mobile-nav .mobile-nav-item {
     display: grid !important;
     align-content: center !important;
@@ -154,25 +155,34 @@ body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeti
     height: 100% !important;
     padding: 0 2px !important;
     border: 0 !important;
-    border-radius: 15px !important;
+    border-radius: 19px !important;
     background: transparent !important;
     color: #0a0a0a !important;
-    font-size: 9px !important;
+    font-size: 14px !important;
     line-height: 1.1 !important;
     white-space: nowrap;
   }
-  #mobile-nav .mobile-nav-item svg { width: 19px !important; height: 19px !important; }
-  #mobile-nav .mobile-nav-item span {
+  #mobile-nav .mobile-nav-item svg { width: 22px !important; height: 22px !important; }
+  #mobile-nav .mobile-nav-item:not(.is-active) span {
+    position: absolute;
+    clip-path: inset(50%);
+  }
+  #mobile-nav .mobile-nav-item.is-active span {
     max-width: 100% !important;
-    opacity: 1 !important;
     font-size: inherit !important;
+    font-weight: 850;
   }
   #mobile-nav .mobile-nav-item.is-active { background: #faf8ef !important; color: #0a0a0a !important; }
+  #mobile-nav .mobile-nav-item:focus-visible,
+  #mobile-nav .taxibee-nav-home:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -4px;
+  }
   #mobile-nav .mobile-nav-item .nav-count { background: #0a0a0a !important; color: #faf8ef !important; }
 
   .taxibee-install-prompt {
     right: 14px;
-    bottom: calc(98px + var(--safe-bottom));
+    bottom: calc(var(--mobile-nav-height) + 8px + var(--safe-bottom));
     left: 14px;
     max-width: 520px;
     margin: 0 auto;
