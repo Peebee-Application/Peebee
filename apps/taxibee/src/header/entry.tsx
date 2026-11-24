@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { createPortal } from "react-dom";
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ChevronRight, Shield } from "lucide-react";
+import { ChevronRight, Menu, Shield } from "lucide-react";
 import { BrandHeader } from "../../../customer/components/BrandHeader";
 import { ChatDrawerShell, useChatDrawer } from "../../../customer/lib/chat-drawer";
 import { HeaderDrawerProvider, useHeaderDrawer } from "../../../customer/lib/header-drawer";
@@ -27,6 +27,10 @@ function Chrome({ target }: { target: HTMLElement }) {
   const chat = useChatDrawer();
   const user = useSyncExternalStore(subscribe, () => host.getUser());
   const [profile, setProfile] = useState<Element | null>(null);
+  const [headerRow, setHeaderRow] = useState<Element | null>(null);
+  useLayoutEffect(() => {
+    setHeaderRow(target.querySelector(".customer-header > div"));
+  }, [target]);
   useLayoutEffect(() => {
     const onAuth = () => { drawer.close(); if (chat.open) chat.close(); };
     document.addEventListener("taxibee-auth-open", onAuth);
@@ -39,6 +43,12 @@ function Chrome({ target }: { target: HTMLElement }) {
   }, [drawer.mode, drawer.section, target]);
   return createPortal(<>
     <BrandHeader />
+    {headerRow && createPortal(
+      <button type="button" className="customer-header-toggle taxibee-side-toggle"
+        aria-label="Open Taxibee menu" aria-controls="side-drawer" aria-expanded={false}
+        data-action="toggle-side-drawer" onClick={() => drawer.close()}>
+        <Menu size={24} aria-hidden />
+      </button>, headerRow)}
     {profile && createPortal(user ? <div className="d-card">
       <button type="button" className="d-row" onClick={() => { drawer.close(); host.openLocal("profile"); }}>
         <span className="d-ico"><Shield size={18} aria-hidden /></span>
