@@ -39,7 +39,14 @@ export async function handleRequest(request, env) {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(self), payment=()');
-  response.headers.set('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; frame-src https://accounts.google.com/gsi/; img-src 'self' data: blob: https:; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' https://accounts.google.com/gsi/ https://tile.openstreetmap.org https://nominatim.openstreetmap.org https://router.project-osrm.org");
+  response.headers.set('Content-Security-Policy', [
+    "default-src 'self'", "base-uri 'self'", "object-src 'none'", "frame-ancestors 'none'", "form-action 'self'",
+    "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client https://maps.googleapis.com https://maps.gstatic.com https://api.mapbox.com",
+    "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style https://api.mapbox.com",
+    "frame-src https://accounts.google.com/gsi/", "img-src 'self' data: blob: https:",
+    "font-src 'self' data:", "media-src 'self' blob:", "worker-src 'self' blob:",
+    "connect-src 'self' https://accounts.google.com/gsi/ https://tile.openstreetmap.org https://nominatim.openstreetmap.org https://router.project-osrm.org https://maps.googleapis.com https://maps.gstatic.com https://api.mapbox.com https://events.mapbox.com",
+  ].join('; '));
   return response;
 }
 export default { fetch: handleRequest };

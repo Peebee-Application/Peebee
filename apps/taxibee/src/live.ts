@@ -10,6 +10,7 @@ import { installParcelCharter } from './parcel-charter';
 import {installReturnPackages} from './return-packages';
 import {installTravelCredit} from './travel-credit';
 import { installPwa } from './pwa';
+import type { TaxibeeHeader } from './header/contracts';
 
 // The presentation is intentionally retained verbatim. This boundary is the only
 // place that translates Peebee records into the source interface's view model.
@@ -17,6 +18,7 @@ const ui = window as unknown as Record<string, any>;
 const { appData, state, driversData } = ui.TaxibeeSource;
 const luggageCatalog = appData.luggage.map((item: any) => ({ ...item }));
 const preview = new URLSearchParams(location.search).get('preview') === '1';
+const customerHeader = (window as Window & { TaxibeeHeader?: TaxibeeHeader }).TaxibeeHeader;
 installPwa();
 const TOKEN = 'taxibee_customer_token';
 let user: AuthUser | null = null;
@@ -103,6 +105,8 @@ function clearSession(discardDraft = true) {
   returnPackages?.reset();
   travelCredit?.reset();
   user = null; bookings = []; scheduledTickets=[]; selectedScheduledTicket=null; scheduledPending=null; selectedSchedule=null; wallet = null; selectedBooking = null; pendingOrder = null; pendingPayment = null;
+  document.documentElement.classList.remove('taxibee-header-signed-in');
+  customerHeader?.sync();
   restoreSavedDepartures();restoreSearchFilters();
   localStorage.removeItem(TOKEN); sessionStorage.removeItem(TOKEN);
   state.tickets = []; state.walletBalance = 0; appData.transactions = [];
@@ -140,16 +144,20 @@ function filteredTrips(source:any[]) {
 function openLiveSearchFilters() {
   ui.openModal('Search filters',`<p class="muted">These filters narrow Peebee’s current live departures. Availability and fares remain controlled by Peebee.</p><div class="form-grid"><div class="field"><label for="taxibee-filter-vehicle">Vehicle type</label><select id="taxibee-filter-vehicle"><option value="all" ${searchFilters.vehicle==='all'?'selected':''}>All vehicles</option><option value="14" ${searchFilters.vehicle==='14'?'selected':''}>Commuter · 14 seats</option><option value="18" ${searchFilters.vehicle==='18'?'selected':''}>Highroof · 18 seats</option></select></div><div class="field"><label for="taxibee-filter-spaces">Minimum available spaces</label><select id="taxibee-filter-spaces">${[1,2,3,4,5,6,8,10].map(n=>`<option value="${n}" ${searchFilters.minSpaces===n?'selected':''}>${n}+ spaces</option>`).join('')}</select></div><div class="field"><label for="taxibee-filter-period">Estimated departure time</label><select id="taxibee-filter-period"><option value="any" ${searchFilters.period==='any'?'selected':''}>Any time</option><option value="morning" ${searchFilters.period==='morning'?'selected':''}>Morning · 05:00–11:59</option><option value="afternoon" ${searchFilters.period==='afternoon'?'selected':''}>Afternoon · 12:00–16:59</option><option value="evening" ${searchFilters.period==='evening'?'selected':''}>Evening · 17:00–23:59</option></select></div></div>`,`<button class="button button--ghost" type="button" data-action="close-modal">Cancel</button><button class="button button--primary" type="button" data-action="taxibee-search-filters-save">Apply filters</button>`);
 }
-function applyUser(next: AuthUser) {
+function applyUser(next: AuthUser, preservePassenger = false) {
   user = next;
+  document.documentElement.classList.add('taxibee-header-signed-in');
+  customerHeader?.sync();
   restoreSavedDepartures();
   restoreSearchFilters();
   void accountTools?.sync();
   features?.restorePreferences();
   state.userName = escape(next.name); state.userEmail = escape(next.email); state.userPhone = escape(next.phone);
   state.userAvatar = 'assets/peebee-logo.svg';
-  state.contactName = next.name;
-  state.passengerDetails = [{ name: next.name, phone: next.phone || '', category: 'Adult passenger', assistance: 'None required', emergency: '' }];
+  if (!preservePassenger) {
+    state.contactName = next.name;
+    state.passengerDetails = [{ name: next.name, phone: next.phone || '', category: 'Adult passenger', assistance: 'None required', emergency: '' }];
+  }
   appData.passenger = { name: escape(next.name), phone: escape(next.phone), email: escape(next.email), preferredRoute: '' };
   document.querySelectorAll<HTMLImageElement>('.desktop-profile-btn img, .profile-avatar').forEach(img => { img.src = 'assets/peebee-logo.svg'; img.alt = next.name; });
   const drawerName = document.querySelector('.side-drawer__header h3'); if (drawerName) drawerName.textContent = next.name;
@@ -159,6 +167,8 @@ function applyUser(next: AuthUser) {
   const signOut = document.querySelector('.drawer-nav-item--signout span'); if (signOut) signOut.textContent = 'Sign out';
 }
 function applyGuest() {
+  document.documentElement.classList.remove('taxibee-header-signed-in');
+  customerHeader?.sync();
   restoreSavedDepartures();
   restoreSearchFilters();
   state.userName = 'Guest'; state.userPhone = ''; state.userEmail = ''; state.userAvatar = 'assets/peebee-logo.svg';
@@ -768,6 +778,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   const restored = !location.hash && !new URLSearchParams(location.search).get('screen') ? account?.restoreDraft() : null;
   account?.browse(restored?.screen || state.screen || 'home');
   booting = false;
+  const headerRoot = document.getElementById('taxibee-customer-header');
+  if (headerRoot && customerHeader) {
+    customerHeader.mount(headerRoot, {
+      api,
+      getUser: () => user,
+      getToken: () => sessionStorage.getItem(TOKEN) || localStorage.getItem(TOKEN),
+      updateUser: next => applyUser(next, true),
+      setSession: (token, next) => {
+        ++sessionVersion;
+        (localStorage.getItem(TOKEN) ? localStorage : sessionStorage).setItem(TOKEN, token);
+        applyUser(next, true);
+      },
+      signIn: () => account?.open(state.screen),
+      signOut: () => { void ui.signOut(); },
+      openLocal: (screen, action) => {
+        ui.navigate(screen);
+        if (!action) return;
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.dataset.action = action;
+        document.body.append(trigger);
+        trigger.click();
+        trigger.remove();
+      },
+      subscribePush: async () => {
+        if (!accountTools || !user) return false;
+        try { await accountTools.subscribePush(); return true; } catch { return false; }
+      },
+    });
+    const screenObserver = new MutationObserver(() => customerHeader.sync());
+    screenObserver.observe(document.body, { attributes: true, attributeFilter: ['data-active-screen'] });
+  }
 });
 
 document.addEventListener('change',event=>{

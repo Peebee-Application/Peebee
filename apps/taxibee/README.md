@@ -21,6 +21,12 @@ that fixed API origin.
 Customer responses are never cached. No Cloudflare deployment token belongs
 in app configuration or browser code.
 
+The live header, four-tab account drawer, and chat drawer are built from the
+Customer app's React source and styles. The Taxibee adapter supplies its existing
+Peebee customer session, local wallet/support routes, and push registration.
+Customer-only destinations use the Customer app. The standalone Taxibee practice
+mode keeps its isolated sample screens.
+
 Accounts and records are shared. Browser sessions are separate per origin:
 customers sign in with their existing Peebee credentials in either app.
 

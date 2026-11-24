@@ -2,6 +2,7 @@ import { cp, mkdir, rm, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
+import { buildHeader } from './build-header.mjs';
 await rm('dist', { recursive: true, force: true });
 await mkdir('dist', { recursive: true });
 await cp('public', 'dist', { recursive: true });
@@ -31,4 +32,5 @@ html = html.replace(/<script defer src="https:\/\/unpkg.com\/lucide[^>]*><\/scri
   .replace(/<script defer src="https:\/\/cdn.jsdelivr.net\/npm\/jsbarcode[^>]*><\/script>/, '<script defer src="vendor/barcode.js"></script>');
 await writeFile('dist/index.html', html);
 await build({ entryPoints: ['src/live.ts'], bundle: true, outfile: 'dist/live.js', format: 'iife', target: 'es2022', sourcemap: false, minify: true });
+await buildHeader();
 console.log('Taxibee built: Fly Express interface, Peebee API adapter, independent Worker.');
