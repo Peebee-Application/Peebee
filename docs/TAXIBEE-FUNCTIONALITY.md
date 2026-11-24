@@ -20,7 +20,7 @@ enabled it, a provider is configured, or a real production payment was tested.
 | Public access and authentication | Public home, route browsing and booking preparation; on-demand Customer-style Google or email/phone login/signup using existing Peebee identities. Password reset/change and phone/email verification use shared auth endpoints. Booking requires authentication; sign-in alone never books or pays. |
 | Booking progress | Tab session storage preserves allowlisted choices through reload and sign-in; account ownership prevents restoring another customer's draft. Prices/capacity are refreshed, payment consent is cleared, and signing out removes the draft. |
 | Screenshots and printing | No protection overlay, blur/focus/visibility hiding or print blocking in live or practice. |
-| Departure selection | Current route and queue browsing uses live TaxiPress inventory. Staff-published future departures reserve separate capacity and convert into ordinary queue bookings only when the assigned driver checks in. See the [future departure rollout](TAXIBEE-FUTURE-DEPARTURES.md); its sale switch defaults off. |
+| Departure selection | Current route and queue browsing uses live TaxiPress inventory. Saved queue departures sync to the customer's Peebee account after migration 0173 (device-local fallback before it). Vehicle, minimum-space and estimated-time filters only narrow Peebee's live results. Staff-published future departures reserve separate capacity and convert into ordinary queue bookings only when the assigned driver checks in. See the [future departure rollout](TAXIBEE-FUTURE-DEPARTURES.md); its sale switch defaults off. |
 | Passengers | Adult/child counters follow available capacity and admin booking/lap rules. Optional child seats are priced and persisted by the shared API; old clients retain the default lap policy. Traveller details include an entered emergency contact. |
 | Numbered seats and holds | New departures with a staff-verified 14/18-seat layout use real numbered inventory. Atomic account-owned holds expire, one selection per customer; driver/walk-up seats and other tickets cannot be selected. Best available assigns real numbers without a choice fee. Chosen numbers/fees appear on tickets, downloads and the driver manifest. Reassignment preserves chosen numbers or refunds the whole booking when none can honour them; open tickets use automatic allocation. |
 | Luggage | Only offered types appear. Prices and disabled state follow admin config. Items assessed at the stage have no invented up-front price. |
@@ -39,6 +39,16 @@ The initial public-access release needed no migration. Optional child-seat selec
 use the existing details columns or their established pre-migration fallback.
 The tracking endpoint reads existing queue location columns. Existing pricing,
 ownership and settlement rules remain authoritative.
+
+### Saved-departure account sync
+
+Apply **`0173_taxipress_saved_departures.sql`** explicitly through the reviewed
+database-migration workflow. Until it lands, saved departures remain on the current
+browser under a customer-specific key. Afterward, authenticated customer favorites
+sync to Peebee and remain isolated by customer and live/sandbox environment. Only
+active, bookable queue entries can be saved; inactive departures are omitted from
+the list. Search filters remain browser preferences and cannot change server fares,
+capacity or availability.
 
 ### Numbered-seat rollout
 
@@ -136,10 +146,14 @@ the server can enforce it, while leaving the practice flows available.
    wallet PIN/auto-pay policies, provider delivery and operational verification of
    configured support/safety contacts. Profile photos, verified contact changes,
    observed device-session management and browser push preferences are connected. About links to Peebee's published legal/privacy pages.
-5. **Remaining journey tools:** calendar export, saved current-departure
-   persistence and configurable search filters. Chat image/voice media,
-   real-provider in-app calls and owned lost-property case workflows are connected.
-   A saved address is not a new TaxiPress stop or an arbitrary pickup promise.
+5. **Journey tools:** calendar export is wired for paid scheduled tickets and
+   current queue bookings only when Peebee reports a departure estimate; stage
+   events are labelled estimates. Saved departures and vehicle/space/time search
+   filters persist per account in this browser and only narrow live Peebee results.
+   These additions still need the documented release checks. Chat image/voice
+   media, real-provider in-app calls and owned lost-property case workflows are
+   connected. A saved address is not a new TaxiPress stop or an arbitrary pickup
+   promise.
 
 ## Validation and release
 

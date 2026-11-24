@@ -21,6 +21,8 @@ import { getTaxipressRoute, listActiveTaxipressRoutes, listTaxipressRoutes, taxi
 import { SeatError, createSeatHold, releaseSeatHold, seatingReady, seatMap } from './seats.js';
 import {ReturnError,returnsReady,quoteReturn,createReturnPackage,returnPackageView,listReturnPackages,redeemReturn,cancelUnusedReturn,changeReturnDate} from './returns.js';
 import { adminDepartures, bookFutureDeparture, cancelDeparture, cancelFutureTicket, checkInForDeparture, customerFutureTickets, departuresForCustomers, driverDepartures, publishDeparture, scheduledDeparturesReady } from './scheduled.js';
+import { getPlatformEnvironment } from '../lib/settings.js';
+import { hasTable } from '../lib/schema.js';
 
 type Row = Record<string, unknown>;
 
@@ -121,6 +123,49 @@ taxipressRoutes.get("/taxipress/departures", async c => {
   if (!parsed.success) return c.json({ error: "invalid_query" }, 400);
   c.header("Cache-Control", "no-store");
   return c.json({ departures: await departuresForCustomers(parsed.data.routeId ?? null, parsed.data.from ?? null, parsed.data.to ?? null), ready: await scheduledDeparturesReady() });
+});
+taxipressRoutes.get("/taxipress/saved-departures", requireRole("customer"), async c => {
+  c.header('Cache-Control','no-store');
+  if (!(await hasTable('taxipress_saved_departures'))) return c.json({ ready:false, savedIds:[] });
+  const userId=c.get('user').sub,environment=await getPlatformEnvironment(),routes=await listActiveTaxipressRoutes();
+  if(!routes.length)return c.json({ready:true,savedIds:[]});
+  const settings=await getTaxipressSettings(),bookableIds=new Set((await Promise.all(routes.map(async route=>decorateLine(route.id,await lineOf(route.id),settings)))).flat().filter(entry=>entry.bookable).map(entry=>entry.id));
+  const routeIds=routes.map(r=>r.id),marks=routeIds.map(()=>'?').join(',');
+  const result=await db.execute({sql:`SELECT s.departure_id AS id FROM taxipress_saved_departures s
+    JOIN taxipress_queue q ON q.id=s.departure_id JOIN taxipress_taxis t ON t.id=q.taxi_id AND t.status='approved' AND t.passengers_enabled=1
+    JOIN taxipress_routes r ON r.id=q.taxipress_route_id
+    WHERE s.user_id=? AND s.environment=? AND q.status IN ('in_line','boarding')
+      AND r.id IN (${marks}) ORDER BY s.created_at DESC LIMIT 30`,args:[userId,environment,...routeIds]});
+  return c.json({ready:true,savedIds:result.rows.map(r=>String(r.id)).filter(id=>bookableIds.has(id))});
+});
+taxipressRoutes.put("/taxipress/saved-departures/:queueId", requireRole("customer"), async c => {
+  c.header('Cache-Control','no-store');
+  if (!(await hasTable('taxipress_saved_departures'))) return c.json({ready:false,message:'Account departure sync is not available yet.'},503);
+  const queueId=z.string().trim().min(1).max(100).safeParse(c.req.param('queueId'));
+  if(!queueId.success)return c.json({message:'Choose a valid departure.'},400);
+  const routes=await listActiveTaxipressRoutes(),routeIds=routes.map(r=>r.id);
+  if(!routeIds.length)return c.json({message:'This departure is no longer available.'},409);
+  const candidate=(await db.execute({sql:`SELECT taxipress_route_id AS routeId FROM taxipress_queue WHERE id=? AND taxipress_route_id IN (${routeIds.map(()=>'?').join(',')})`,args:[queueId.data,...routeIds]})).rows[0] as Row|undefined;
+  if(!candidate)return c.json({message:'This departure is no longer available to save.'},409);
+  const routeId=String(candidate.routeId),liveLine=await decorateLine(routeId,await lineOf(routeId),await getTaxipressSettings());
+  if(!liveLine.some(entry=>entry.id===queueId.data&&entry.bookable))return c.json({message:'This departure is no longer accepting bookings.'},409);
+  const userId=c.get('user').sub,environment=await getPlatformEnvironment();
+  const inserted=await db.execute({sql:`INSERT OR IGNORE INTO taxipress_saved_departures(user_id,environment,departure_id)
+    SELECT ?,?,? WHERE (SELECT COUNT(*) FROM taxipress_saved_departures WHERE user_id=? AND environment=?)<30
+      OR EXISTS(SELECT 1 FROM taxipress_saved_departures WHERE user_id=? AND environment=? AND departure_id=?)`,args:[userId,environment,queueId.data,userId,environment,userId,environment,queueId.data]});
+  if(!inserted.rowsAffected) {
+    const exists=(await db.execute({sql:'SELECT 1 FROM taxipress_saved_departures WHERE user_id=? AND environment=? AND departure_id=?',args:[userId,environment,queueId.data]})).rows.length>0;
+    if(!exists)return c.json({message:'You can save up to 30 active departures.'},409);
+  }
+  return c.json({saved:true});
+});
+taxipressRoutes.delete("/taxipress/saved-departures/:queueId", requireRole("customer"), async c => {
+  c.header('Cache-Control','no-store');
+  if (!(await hasTable('taxipress_saved_departures'))) return c.json({ready:false,message:'Account departure sync is not available yet.'},503);
+  const queueId=z.string().trim().min(1).max(100).safeParse(c.req.param('queueId'));
+  if(!queueId.success)return c.json({message:'Choose a valid departure.'},400);
+  await db.execute({sql:'DELETE FROM taxipress_saved_departures WHERE user_id=? AND environment=? AND departure_id=?',args:[c.get('user').sub,await getPlatformEnvironment(),queueId.data]});
+  return c.json({saved:false});
 });
 taxipressRoutes.get("/taxipress/departures/mine", async c => c.json({ tickets: await customerFutureTickets(c.get("user").sub) }));
 taxipressRoutes.get("/taxipress/driver/departures", async c => c.json({departures:await driverDepartures(c.get("user").sub)}));

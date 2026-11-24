@@ -62,7 +62,7 @@ try {
   const booking = { id: 'shared-booking', orderId: 'shared-order', status: 'booked', seats: 1, farePerSeat: 5000, amount: 5000, paymentMethod: 'app', paymentStatus: 'unpaid', ticketCode: null, createdAt: new Date().toISOString(), cancel: { allowed: true, free: true, fee: 0, refund: 0 }, route: routeData, taxi: { queueId: 'shared-queue', plate: 'UBM 123A', seatLayout: '14', driverName: 'Peebee Driver', status: 'in_line', seatsLeft: 10 } };
   const writes = []; let rejectedLogin = true;
   let balance = 70000, transferAttempt = 0, supportText = '', sentChat = '';
-  let savedPassengers = [], savedLocations = [];
+  let savedPassengers = [], savedLocations = [], savedDepartureIds=[];
   let reportedLocation = null;
   let bookingCreated = false;
   let delayedChat = null, releaseChat = null;
@@ -79,7 +79,9 @@ try {
     else if (path === '/v1/auth/google') data = { token: 'google-session-token', user };
     else if (path === '/v1/auth/register') data = { token: 'registered-session-token', user };
     else if (path === '/v1/taxipress/config' || path === '/v1/taxipress-public/config') data = cfg;
-    else if (path.endsWith('/queue')) data = { route: routeData, line: [{ id: 'shared-queue', bookable: true, position: 2, seatsLeft: 10, seatLayout: '14', plate: 'UBM 123A', driverName: 'Peebee Driver' }], onRoad: [] };
+    else if (path === '/v1/taxipress/saved-departures' && method === 'GET') data={ready:true,savedIds:savedDepartureIds};
+    else if (path.startsWith('/v1/taxipress/saved-departures/')) { const id=decodeURIComponent(path.split('/').at(-1));if(method==='PUT'){if(!savedDepartureIds.includes(id))savedDepartureIds.push(id);data={saved:true};}else if(method==='DELETE'){savedDepartureIds=savedDepartureIds.filter(x=>x!==id);data={saved:false};}else{status=405;data={message:'Unexpected method'};} }
+    else if (path.endsWith('/queue')) data = { route: routeData, line: [{ id: 'shared-queue', bookable: true, position: 2, seatsLeft: 10, seatLayout: '14', plate: 'UBM 123A', driverName: 'Peebee Driver', departsAt:new Date(Date.now()+60*60_000).toISOString() }], onRoad: [] };
     else if (path === '/v1/wallet') data = { balance, credit: 0, ledger: [], verified: true };
     else if (path === '/v1/taxipress/bookings/mine') data = { bookings: bookingCreated ? [booking] : [] };
     else if (path === '/v1/taxipress/departures/mine') data = { tickets: [] };
@@ -165,6 +167,21 @@ try {
   const draft = await p.evaluate(() => sessionStorage.getItem('taxibee-booking-draft-v1'));
   assert.doesNotMatch(draft, /test-password|fixture-peebee-token|walletBalance|booking-conditions/);
   assert.equal(writes.filter(w => w.path === '/v1/taxipress/bookings').length, 0, 'Login alone must not submit or pay for a booking');
+  await p.evaluate(() => window.navigate('home'));
+  await p.click('[data-action="show-search-filters"]');
+  await p.selectOption('#taxibee-filter-vehicle','18');await p.selectOption('#taxibee-filter-spaces','2');await p.selectOption('#taxibee-filter-period','afternoon');
+  await p.click('[data-action="taxibee-search-filters-save"]');
+  assert.equal(await p.evaluate(() => window.getAvailableTrips().length),0,'A search filter must narrow authoritative live departures');
+  assert.deepEqual(await p.evaluate(() => JSON.parse(localStorage.getItem('taxibee-search-filters:existing-peebee-customer'))),{vehicle:'18',minSpaces:2,period:'afternoon'});
+  await p.click('[data-action="show-search-filters"]');
+  await p.selectOption('#taxibee-filter-vehicle','all');await p.selectOption('#taxibee-filter-spaces','1');await p.selectOption('#taxibee-filter-period','any');
+  await p.click('[data-action="taxibee-search-filters-save"]');
+  const saveDepartureRequest=p.waitForRequest(r=>r.method()==='PUT'&&new URL(r.url()).pathname.endsWith('/v1/taxipress/saved-departures/shared-queue'));
+  await p.click('[data-action="toggle-save-departure"]');await saveDepartureRequest;
+  assert.deepEqual(savedDepartureIds,['shared-queue'],'A signed-in favorite must persist through the account API');
+  await p.waitForFunction(() => document.querySelector('#main-content').innerText.includes('Saved departures'));
+  assert.match(await p.locator('#main-content').innerText(),/Saved departures[\s\S]*Entebbe → Kampala/,'Saved live departures must be visible and selectable');
+  await p.evaluate(() => window.navigate('checkout'));
   await p.check('#booking-conditions');
   await p.click('[data-action="confirm-booking"]');
   await p.waitForSelector('[data-real-qr] img');
@@ -190,6 +207,9 @@ try {
   const ticketHtml = await readFile(await (await download).path(), 'utf8');
   assert.match(ticketHtml, /\?ticket=654321/);
   assert.doesNotMatch(ticketHtml, /482 915|FX-260718/);
+  const calendarDownload=p.waitForEvent('download');await p.click('[data-action="taxibee-calendar-export"][data-kind="stage"]');
+  const calendarText=await readFile(await (await calendarDownload).path(),'utf8');
+  assert.match(calendarText,/BEGIN:VCALENDAR/);assert.match(calendarText,/SUMMARY:Estimated Taxibee departure/);assert.match(calendarText,/may change/);
   await p.click('[data-action="taxibee-ticket-share-form"]');
   await p.fill('#taxibee-share-name', 'Real Traveller'); await p.fill('#taxibee-share-phone', '+256772000222');
   await p.click('[data-action="taxibee-ticket-share"]');
