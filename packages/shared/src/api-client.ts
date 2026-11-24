@@ -1151,6 +1151,17 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
         rail?: string;
       }>(`/v1/orders/${orderId}/fund`, { method: "POST", body: JSON.stringify(input) });
     },
+    async getTravelCredit(admin=false){return request<import('./travel-credit.js').TravelCreditOverview>(admin?'/v1/admin/travel-credit':'/v1/travel-credit/me');},
+    async getTravelCreditStatement(id:string,admin=false){return request<import('./travel-credit.js').TravelCreditStatement>(`/v1/${admin?'admin/':''}travel-credit/accounts/${encodeURIComponent(id)}`);},
+    async quoteTravelCredit(id:string,source:import('./travel-credit.js').TravelCreditSource){return request<import('./travel-credit.js').TravelCreditQuote>(`/v1/travel-credit/orders/${encodeURIComponent(id)}/quote`,{method:'POST',body:JSON.stringify(source)});},
+    async fundTravelCredit(id:string,source:import('./travel-credit.js').TravelCreditSource,acceptedAmount:number,acceptedSponsored:number){return request<{payment:{id:string;status:string};funded:boolean}>(`/v1/travel-credit/orders/${encodeURIComponent(id)}/fund`,{method:'POST',body:JSON.stringify({...source,acceptedAmount,acceptedSponsored})});},
+    async issueTravelVoucher(input:{recipient:string;amount:number;requestId:string}){return request<{id:string;code?:string;replayed:boolean}>('/v1/travel-credit/vouchers',{method:'POST',body:JSON.stringify(input)});},
+    async cancelTravelVoucher(id:string){return request<import('./travel-credit.js').TravelCreditOverview>(`/v1/travel-credit/vouchers/${encodeURIComponent(id)}/cancel`,{method:'POST',body:'{}'});},
+    async repayTravelCredit(id:string,amount:number,requestId:string){return request<import('./travel-credit.js').TravelCreditStatement>(`/v1/travel-credit/accounts/${encodeURIComponent(id)}/repay`,{method:'POST',body:JSON.stringify({amount,requestId})});},
+    async setTravelCreditSettings(input:{corporateEnabled:boolean;vouchersEnabled:boolean;voucherMax:number;voucherDays:number}){return request('/v1/admin/travel-credit/settings',{method:'PUT',body:JSON.stringify(input)});},
+    async createTravelCreditAccount(input:{name:string;owner:string;creditLimit:number}){return request<{id:string}>('/v1/admin/travel-credit/accounts',{method:'POST',body:JSON.stringify(input)});},
+    async setTravelCreditAccount(id:string,input:{active:boolean;creditLimit:number}){return request(`/v1/admin/travel-credit/accounts/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify(input)});},
+    async setTravelCreditMember(id:string,input:{customer:string;active:boolean;perBooking:number;monthlyLimit:number}){return request(`/v1/admin/travel-credit/accounts/${encodeURIComponent(id)}/members`,{method:'PUT',body:JSON.stringify(input)});},
     async proposeSubstitution(
       orderId: string,
       input: { itemId?: string; originalName: string; substituteName: string; priceDelta?: number },

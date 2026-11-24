@@ -2,7 +2,8 @@ import type {ApiClient,TaxipressBookingInput} from '../../../packages/shared/src
 import type {AuthUser} from '../../../packages/shared/src/domain';
 import type {TaxipressConfig,TaxipressReturnPackage,TaxipressBooking} from '../../../packages/shared/src/taxipress';
 type Context={ui:Record<string,any>;api:ApiClient;user:()=>AuthUser|null;config:()=>TaxipressConfig|null;trips:()=>any[];bookings:()=>TaxipressBooking[];selected:()=>TaxipressBooking|null;
-  input:(holdId?:string)=>TaxipressBookingInput;prepareSeats:()=>Promise<string|undefined>;refresh:()=>Promise<void>;select:(b:TaxipressBooking)=>void;requestLogin:(screen:string)=>void;clearDraft:()=>void};
+  input:(holdId?:string)=>TaxipressBookingInput;prepareSeats:()=>Promise<string|undefined>;refresh:()=>Promise<void>;select:(b:TaxipressBooking)=>void;requestLogin:(screen:string)=>void;clearDraft:()=>void;
+  sponsor?:{options:()=>string;fields:()=>string;review:(id:string,method:string)=>Promise<void>}};
 export function installReturnPackages(c:Context){
   const {ui,api}=c,state=ui.TaxibeeSource.state,esc=(v:unknown)=>ui.escapeHtml(String(v??'')),money=(n:number)=>ui.formatUGX(n);
   let packages:TaxipressReturnPackage[]=[],busy=false,epoch=0;
@@ -63,7 +64,9 @@ export function installReturnPackages(c:Context){
   ui.navigate=(screen:string,...args:any[])=>{navigate(screen,...args);if(c.user()&&['tickets','trips','ticket'].includes(screen))void load().then(()=>{if(['tickets','trips','ticket'].includes(state.screen))ui.renderCurrentScreen();}).catch(e=>ui.toast(e.message,'danger'));};
   let quoted:TaxipressReturnPackage|null=null;
   function showReview(q:TaxipressReturnPackage){
-    ui.openModal('Confirm return package',`<p>Outbound: ${esc(q.returnRoute?.toName)} → ${esc(q.returnRoute?.fromName)}<br>Return: ${esc(q.returnRoute?.fromName)} → ${esc(q.returnRoute?.toName)}</p><p>Outbound allocation: ${money(q.outboundAmount)}<br>Return allocation: ${money(q.returnAmount)}</p><p>Wallet total: ${money(q.checkout?.wallet??q.wallet??q.total)}<br>Mobile-money total: ${money(q.checkout?.mobileMoney??q.mobileMoney??q.total)}</p><p>Return ${esc(q.mode)}${q.returnDate?` · ${esc(q.returnDate)}`:''}, valid until ${esc(new Date(q.validUntil).toLocaleString('en-UG'))}. Reverse direction only; seats are reserved when you redeem after outbound boarding. Unused return refund: ${q.refundPercent}%.</p><label for="return-payment-method">Pay with</label><select id="return-payment-method"><option value="wallet">Peebee wallet</option><option value="mobile">Mobile money</option></select><label for="return-msisdn">Mobile-money phone</label><input id="return-msisdn" type="tel" value="${esc(c.user()?.phone||'')}"><label><input id="return-package-consent" type="checkbox"> I accept both journey allocations and return conditions.</label>`,button('return-buy','Buy prepaid package'));
+    ui.openModal('Confirm return package',`<p>Outbound: ${esc(q.returnRoute?.toName)} → ${esc(q.returnRoute?.fromName)}<br>Return: ${esc(q.returnRoute?.fromName)} → ${esc(q.returnRoute?.toName)}</p><p>Outbound allocation: ${money(q.outboundAmount)}<br>Return allocation: ${money(q.returnAmount)}</p><p>Wallet total: ${money(q.checkout?.wallet??q.wallet??q.total)}<br>Mobile-money total: ${money(q.checkout?.mobileMoney??q.mobileMoney??q.total)}</p><p>Return ${esc(q.mode)}${q.returnDate?` · ${esc(q.returnDate)}`:''}, valid until ${esc(new Date(q.validUntil).toLocaleString('en-UG'))}. Reverse direction only; seats are reserved when you redeem after outbound boarding. Unused return refund: ${q.refundPercent}%.</p><label for="return-payment-method">Pay with</label><select id="return-payment-method"><option value="wallet">Peebee wallet</option><option value="mobile">Mobile money</option>${c.sponsor?.options()||''}</select>${c.sponsor?.fields()||''}<label for="return-msisdn">Mobile-money phone</label><input id="return-msisdn" type="tel" value="${esc(c.user()?.phone||'')}"><label><input id="return-package-consent" type="checkbox"> I accept both journey allocations and return conditions.</label>`,button('return-buy','Buy prepaid package'));
+    const methods=document.getElementById('return-payment-method') as HTMLSelectElement|null;
+    if(methods&&[...methods.options].some(o=>o.value===state.paymentMethod))methods.value=state.paymentMethod;
   }
   async function review(){
     if(busy)return;
@@ -103,6 +106,7 @@ export function installReturnPackages(c:Context){
         c.select((await owned(api.getTaxipressBooking(created.outboundBookingId!))).booking);ui.navigate('ticket');
         ui.toast('Existing package payment found. Refresh its status before paying again.','info');return;
       }
+      if(['corporate','voucher'].includes(method)&&c.sponsor){ui.closeModal();await owned(c.sponsor.review(created.orderId!,method));return;}
       const accepted=method==='wallet'?(quoted.checkout?.wallet??quoted.wallet):(quoted.checkout?.mobileMoney??quoted.mobileMoney);
       if((method==='wallet'?created.checkout?.wallet:created.checkout?.mobileMoney)!==accepted){quoted=created;throw new Error('The payment total changed. Close this dialog and review the package again.');}
       const funded=await owned(api.fundOrder(created.orderId!,{paymentMethod:method==='wallet'?'wallet':'mobile_money',useWallet:method==='wallet',msisdn:method==='mobile'?msisdn:undefined,acceptedAmount:accepted}));
@@ -147,5 +151,5 @@ export function installReturnPackages(c:Context){
     event.preventDefault();event.stopImmediatePropagation();if(busy)return;busy=true;
     void act(action,el!).catch(e=>ui.toast(e.message,'danger')).finally(()=>{busy=false;});
   },true);
-  return {review,estimate,load,reset(){sessionStorage.removeItem(key());++epoch;packages=[];quoted=null;busy=false;paymentId=null;}};
+  return {review,estimate,load,settled(){sessionStorage.removeItem(key());},reset(){sessionStorage.removeItem(key());++epoch;packages=[];quoted=null;busy=false;paymentId=null;}};
 }

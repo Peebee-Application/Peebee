@@ -43,6 +43,7 @@ export default function TaxipressPage() {
             <Link href="/settings/relay" className="font-bold text-gold underline-offset-2 hover:underline">Relay delivery</Link>{" "}
             (stage names, locations and stops), then run here in each direction with a fare per seat. Taxipress and its routes start switched off.
           </p>
+          <Link href="/settings/travel-credit" className="text-sm font-bold text-gold underline">Corporate credit & funded travel vouchers</Link>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {([["settings", "Settings"], ["routes", "Routes"], ["taxis", "Taxis"], ["line", "The line"], ["money", "Money"]] as [Tab, string][]).map(([id, text]) => (
               <button key={id} type="button" onClick={() => setTab(id)} className={`${smallBtn} shrink-0 ${tab === id ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>{text}</button>

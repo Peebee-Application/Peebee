@@ -3,6 +3,7 @@ import { db, executeBatch, type DbStatement } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { getTimeFeeSettings } from "../lib/settings.js";
 import { reconcilePayment } from "../payments/reconciliation.js";
+import {hasTable} from '../lib/schema.js';
 
 type Row = Record<string, unknown>;
 const money = (amount: number) => `UGX ${amount.toLocaleString("en-UG")}`;
@@ -160,6 +161,7 @@ export async function cancelCustomerOrder(
   const refundId = newId("refund");
   const refundColumn = order.environment === "sandbox" ? "balance_sandbox" : "balance";
   const refundAmount = "(SELECT amount FROM payments WHERE id = ?)";
+  const sponsored=await hasTable('travel_charges') && (await db.execute({sql:'SELECT 1 FROM travel_charges WHERE order_id=?',args:[id]})).rows.length>0;
   const changes = await executeBatch([
     {
       sql: `UPDATE orders SET stage = 'Cancelled', waiting_closed_at = COALESCE(waiting_closed_at, ?), time_action_token = ?, updated_at = datetime('now')
@@ -174,7 +176,7 @@ export async function cancelCustomerOrder(
             WHERE o.id = ? AND o.time_action_token = ? GROUP BY o.id HAVING SUM(p.amount) > 0`,
       args: [refundId, id, token],
     },
-    walletId ? {
+    ...(!sponsored ? [walletId ? {
       sql: `UPDATE wallets SET ${refundColumn} = ${refundColumn} + ${refundAmount} WHERE id = ? AND owner_id = ? AND EXISTS (SELECT 1 FROM payments WHERE id = ?)`,
       args: [refundId, walletId, owner, refundId],
     } : {
@@ -187,6 +189,7 @@ export async function cancelCustomerOrder(
               ?, 'Cancelled order: payment returned to your Peebee wallet', ?, ?, ? FROM payments WHERE id = ?`,
       args: [newId("wl"), owner, walletId ?? owner, id, actorId, String(order.environment), walletId ?? null, refundId],
     },
+    ] : []),
     ...chargeStatements(order, token, "cancellation", quote.cancellationDue, actorId),
     {
       sql: `UPDATE lists SET status = '${opts.restoreDraft ? "draft" : "cancelled"}', updated_at = datetime('now') WHERE id = ? AND EXISTS (SELECT 1 FROM orders WHERE id = ? AND time_action_token = ?)`,
