@@ -59,6 +59,10 @@ export type GatewayResult = {
   redirectUrl?: string;
   providerTransactionId?: string;
   statusMessage?: string;
+  /** Provider-reported facts from a server-side verification request. These
+   * are checked against Peebee's expected reference, amount and currency
+   * before any ledger or booking is settled. */
+  verification?: { reference?: string | null; amount?: number | null; currency?: string | null };
   /** A direct card charge that needs more from the customer before it can
    * settle. Absent for everything else. */
   nextAction?: PaymentNextAction;

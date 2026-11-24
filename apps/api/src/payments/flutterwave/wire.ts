@@ -317,7 +317,7 @@ async function depositFunds(input: GatewayChargeInput): Promise<GatewayResult> {
 
 type VerifyResponse = {
   status: string;
-  data?: { status?: string; amount?: number; currency?: string; id?: number };
+  data?: { status?: string; amount?: number; currency?: string; tx_ref?: string; id?: number };
 };
 
 function mapStatus(raw: string | undefined): GatewayResult["status"] {
@@ -340,6 +340,11 @@ export async function checkStatus(transactionReference: string): Promise<Gateway
     status: body.status === "success" ? mapStatus(body.data?.status) : "PENDING",
     transactionReference,
     providerTransactionId: body.data?.id != null ? String(body.data.id) : undefined,
+    verification: {
+      reference: body.data?.tx_ref ?? null,
+      amount: typeof body.data?.amount === "number" && Number.isFinite(body.data.amount) ? body.data.amount : null,
+      currency: body.data?.currency ?? null,
+    },
   };
 }
 

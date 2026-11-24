@@ -130,6 +130,8 @@ async function watchLatePayment(payment: Row, op: Row): Promise<DbPaymentStatus>
       provider_ref: payment.provider_ref as string | null,
       created_at: String(payment.created_at),
       type: "collection",
+      expectedAmount: Number(payment.amount),
+      expectedCurrency: String(payment.currency),
     });
   } catch (err) {
     console.error("Late-payment check failed", paymentId, err);
@@ -237,6 +239,8 @@ export async function reconcilePayment(paymentId: string, actorId: string, opts:
       provider_ref: payment.provider_ref as string | null,
       created_at: String(payment.created_at),
       type: payment.type as "collection" | "disbursement" | "refund" | undefined,
+      expectedAmount: Number(payment.amount),
+      expectedCurrency: String(payment.currency),
     });
   } catch (err) {
     // A provider that errors must not keep an order locked: when giving up is forced, an unanswered check counts as pending.
@@ -329,6 +333,8 @@ export async function reconcileMerchantSettlement(settlementId: string): Promise
     provider_ref: settlement.provider_ref as string | null,
     created_at: String(settlement.created_at),
     type: "disbursement",
+    expectedAmount: Number(settlement.amount),
+    expectedCurrency: String(settlement.currency ?? "UGX"),
   });
   const operationResult = await db.execute({
     sql: "SELECT * FROM provider_operations WHERE business_type = 'merchant_settlement' AND business_id = ? ORDER BY created_at DESC LIMIT 1",

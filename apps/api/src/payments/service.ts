@@ -286,11 +286,31 @@ export async function checkPaymentStatus(payment: {
   provider_ref: string | null;
   created_at: string;
   type?: "collection" | "disbursement" | "refund";
+  expectedAmount?: number;
+  expectedCurrency?: string;
 }): Promise<DbPaymentStatus> {
   if (!payment.provider_ref) return "pending";
   const adapter = ADAPTERS[payment.provider as PaymentsProvider];
   if (!adapter) return "pending";
   const result = await adapter.checkStatus(payment.provider_ref, payment.created_at, payment.type);
+  if (payment.provider === "flutterwave" && (result.status === "SUCCEEDED" || result.status === "FAILED")) {
+    const proof = result.verification;
+    // Flutterwave's webhook is only a signal to re-query. A terminal
+    // provider result is accepted only when the verification response names
+    // the exact transaction. Successful collection value additionally
+    // requires an exact amount/currency match; mismatches remain reviewable
+    // as unknown rather than crediting a different or partially paid order.
+    if (proof?.reference !== payment.provider_ref) return "unknown";
+    if (result.status === "SUCCEEDED" && (
+      !Number.isSafeInteger(payment.expectedAmount) ||
+      payment.expectedAmount! <= 0 ||
+      !payment.expectedCurrency ||
+      !proof.amount ||
+      !proof.currency ||
+      proof.amount !== payment.expectedAmount ||
+      proof.currency?.toUpperCase() !== payment.expectedCurrency?.toUpperCase()
+    )) return "unknown";
+  }
   return toDbStatus(result.status);
 }
 

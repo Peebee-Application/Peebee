@@ -38,7 +38,10 @@ test("a customer who approves after the timeout is credited once, and watching h
   bindDatabase(client);
   const realFetch = globalThis.fetch;
   let providerStatus: "pending" | "successful" | "failed" = "pending";
-  globalThis.fetch = (async () => new Response(JSON.stringify({ status: "success", data: { status: providerStatus, id: 1 } }), { status: 200 })) as typeof fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const txRef = new URL(String(input)).searchParams.get("tx_ref");
+    return new Response(JSON.stringify({ status: "success", data: { status: providerStatus, id: 1, tx_ref: txRef, amount: 5500, currency: "UGX" } }), { status: 200 });
+  }) as typeof fetch;
   t.after(() => { globalThis.fetch = realFetch; delete process.env.FLUTTERWAVE_SECRET_KEY; delete process.env.FLUTTERWAVE_WEBHOOK_SECRET; });
 
   await client.execute("INSERT INTO users (id, phone, name, password_hash, role) VALUES ('cust', 'c', 'c', 'h', 'customer')");
