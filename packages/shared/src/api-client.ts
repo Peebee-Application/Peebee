@@ -927,15 +927,6 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async getMyTaxipressBookings() {
       return request<{ bookings: TaxipressBooking[] }>("/v1/taxipress/bookings/mine");
     },
-    async getTaxipressSavedDepartures() {
-      return request<{ ready:boolean; savedIds:string[] }>("/v1/taxipress/saved-departures");
-    },
-    async saveTaxipressDeparture(queueId:string) {
-      return request<{ saved:boolean }>(`/v1/taxipress/saved-departures/${encodeURIComponent(queueId)}`,{method:"PUT",body:"{}"});
-    },
-    async removeTaxipressSavedDeparture(queueId:string) {
-      return request<{ saved:boolean }>(`/v1/taxipress/saved-departures/${encodeURIComponent(queueId)}`,{method:"DELETE"});
-    },
     /** Checks a receipt by its reference (the QR on a receipt holds a link ending in it). Public: no sign-in needed. */
     async verifyReceipt(ref: string) {
       return request<PublicReceipt>(`/v1/public/receipts/${encodeURIComponent(ref)}`);

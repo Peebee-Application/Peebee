@@ -81,6 +81,14 @@ ui.QRCode = class {
 const empty = (title: string, copy: string) => `<section class="taxibee-empty" role="status"><h2>${escape(title)}</h2><p>${escape(copy)}</p><button class="button button--primary" type="button" data-action="taxibee-refresh">Refresh</button></section>`;
 const report = (e: unknown) => ui.toast(message(e), 'danger');
 ui.emptyState = (_icon: string, title: string, copy: string) => `<div class="empty-state"><h3>${escape(title)}</h3><p>${escape(copy)}</p></div>`;
+async function savedDepartureRequest(method:'GET'|'PUT'|'DELETE',queueId?:string) {
+  const version=sessionVersion,token=sessionStorage.getItem(TOKEN)||localStorage.getItem(TOKEN);
+  const response=await fetch(`/api/v1/taxipress/saved-departures${queueId?`/${encodeURIComponent(queueId)}`:''}`,{method,headers:{...(token?{Authorization:`Bearer ${token}`}:{})}});
+  if(version!==sessionVersion){await response.body?.cancel();throw new Error('The signed-in session changed.');}
+  const result=await response.json();
+  if(!response.ok)throw new Error(result.message||'Saved departures could not be updated.');
+  return result as {ready:boolean;savedIds:string[];saved:boolean};
+}
 
 function clearSession(discardDraft = true) {
   if (discardDraft) account?.clearDraft();
@@ -196,7 +204,7 @@ async function refresh() {
     const nextSchedules = nextConfig.scheduledDeparturesEnabled ? await api.getTaxipressPublicDepartures({from:new Date().toISOString(),to:scheduleTo}) : {departures:[],ready:false};
     if (!valid()) return;
     scheduledDepartures = nextSchedules.departures;
-    const savedPromise=user?api.getTaxipressSavedDepartures().catch(()=>({ready:false,savedIds:[]})):Promise.resolve({ready:false,savedIds:[]});
+    const savedPromise=user?savedDepartureRequest('GET').catch(()=>({ready:false,savedIds:[],saved:false})):Promise.resolve({ready:false,savedIds:[],saved:false});
     const queues = await Promise.all(nextConfig.routes.map(async route => ({ route, queue: await (user ? api.getTaxipressQueue(route.id) : api.getPublicTaxipressQueue(route.id)) })));
     if (!valid()) return;
     const savedState=await savedPromise;
@@ -210,7 +218,7 @@ async function refresh() {
       state.savedDepartures=[...new Set([...remoteSaved,...localSaved])].slice(0,30);
       const localOnly=localSaved.filter(id=>!remoteSaved.includes(id));
       if(localOnly.length) {
-        const synced=await Promise.all(localOnly.map(id=>api.saveTaxipressDeparture(id).then(()=>true,()=>false)));
+        const synced=await Promise.all(localOnly.map(id=>savedDepartureRequest('PUT',id).then(()=>true,()=>false)));
         if(synced.some(ok=>!ok))savedDepartureServerReady=false;
       }
     } else state.savedDepartures=localSaved;
@@ -612,7 +620,7 @@ document.addEventListener('click', async event => {
     state.savedDepartures=[...saved].slice(-30);
     let accountSynced=false;
     if(user&&savedDepartureServerReady) {
-      try { if(removing) await api.removeTaxipressSavedDeparture(id); else await api.saveTaxipressDeparture(id); accountSynced=true; }
+      try { await savedDepartureRequest(removing?'DELETE':'PUT',id);accountSynced=true; }
       catch { savedDepartureServerReady=false; }
     }
     try { localStorage.setItem(`taxibee-saved-departures:${user?.id||'guest'}`,JSON.stringify(state.savedDepartures)); }
