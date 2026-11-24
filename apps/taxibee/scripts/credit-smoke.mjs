@@ -11,7 +11,7 @@ try{
  const user={id:'credit-customer',name:'Credit Customer',role:'customer',phone:'+256772222333',email:'credit@example.test'};
  const route={id:'credit-route',fromName:'Entebbe',toName:'Kampala',farePerSeat:5000};
  const cfg={enabled:true,routes:[route],maxSeatsPerBooking:4,maxLapChildren:2,childSeatFarePercent:100,luggageEnabled:false,luggageTypes:[],languages:[],returnPackagesEnabled:false};
- const account={id:'tc_12345678123456781234',name:'Approved company',owner_id:user.id,active:1,credit_limit:20000,outstanding:0,member_active:1,per_booking:10000,monthly_limit:100000,monthly_used:0};
+ const account={id:'tc_12345678123456781234',name:'Approved company',owner_id:user.id,active:1,credit_limit:20000,outstanding:0,available:10000,member_active:1,per_booking:10000,monthly_limit:100000,monthly_used:0};
  const voucher={id:'tv_12345678123456781234',issuer_id:'other-issuer',recipient_id:user.id,amount:3000,balance:3000,state:'active',expires_at:new Date(Date.now()+86400000).toISOString()};
  const bookings=[];let wallet=4000;
  await page.route('**/api/v1/**',async r=>{

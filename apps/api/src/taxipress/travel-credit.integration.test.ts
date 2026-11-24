@@ -14,6 +14,7 @@ import {publicTaxipressRoutes,taxipressRoutes} from './routes.js';
 import {kampalaDate} from './returns.js';
 import {travelCreditRoutes} from '../travel-credit/routes.js';
 import {reconcilePayment} from '../payments/reconciliation.js';
+import {refundToWallet} from '../wallet/service.js';
 
 test('corporate receivables and wallet-backed travel vouchers settle and refund their actual sources',async t=>{
   const client=createClient({url:'file::memory:'}),oldSecret=process.env.JWT_SECRET;
@@ -160,4 +161,21 @@ test('corporate receivables and wallet-backed travel vouchers settle and refund 
       const id='travel-stale';assert.equal((await price(id)).status,404,'A revoked traveller cannot use an approved account');
     });
   }finally{setD1Binding(undefined);resetSchemaCache();client.close();if(oldSecret==null)delete process.env.JWT_SECRET;else process.env.JWT_SECRET=oldSecret;}
+});
+
+test('before migration 0170 the new methods stay off and legacy checkout/refunds remain usable',async()=>{
+ const client=createClient({url:'file::memory:'}),oldSecret=process.env.JWT_SECRET;process.env.JWT_SECRET='pre-credit-migration-test';
+ for(const f of readdirSync('src/db/migrations').filter(f=>f.endsWith('.sql')&&!f.startsWith('0170_')).sort())for(const sql of splitSqlStatements(readFileSync('src/db/migrations/'+f,'utf8')))await client.execute(sql);
+ const prepare=(sql:string)=>({sql,args:[] as unknown[],bind(...args:unknown[]){this.args=args;return this;},async all(){const r=await client.execute({sql:this.sql,args:this.args as InArgs});return {results:r.rows,success:true,meta:{changes:r.rowsAffected,last_row_id:Number(r.lastInsertRowid??0)}};}});
+ setD1Binding({prepare,async batch(s:ReturnType<typeof prepare>[]){return(await client.batch(s.map(x=>({sql:x.sql,args:x.args as InArgs})),'write')).map(r=>({results:r.rows,success:true,meta:{changes:r.rowsAffected,last_row_id:Number(r.lastInsertRowid??0)}}));}} as unknown as D1Database);resetSchemaCache();
+ try{
+  await client.execute("INSERT INTO users(id,name,phone,password_hash,role) VALUES('a','A','a','hash','customer')");
+  await client.execute("INSERT INTO lists(id,customer_id,title,status) VALUES('old-list','a','Existing','active')");
+  await client.execute("INSERT INTO orders(id,list_id,customer_id,type,stage,estimated_total) VALUES('old-order','old-list','a','parcel','Match',5000)");
+  const token=await signToken({sub:'a',role:'customer'} as never),app=new Hono().route('/v1',orderRoutes).route('/v1',travelCreditRoutes),headers={Authorization:`Bearer ${token}`};
+  const result=await app.request('/v1/travel-credit/me',{headers});assert.equal(result.status,200);const overview=await result.json() as any;assert.equal(overview.ready,false);assert.equal(overview.corporateEnabled,false);assert.deepEqual(overview.vouchers,[]);
+  assert.equal((await app.request('/v1/orders/old-order/checkout',{headers})).status,200);
+  await refundToWallet('a',500,{orderId:'old-order',environment:'live'});
+  assert.equal(Number((await client.execute("SELECT wallet_balance FROM users WHERE id='a'")).rows[0].wallet_balance),500);
+ }finally{setD1Binding(undefined);resetSchemaCache();client.close();if(oldSecret==null)delete process.env.JWT_SECRET;else process.env.JWT_SECRET=oldSecret;}
 });
