@@ -135,4 +135,3 @@ BEGIN
       FROM taxipress_return_packages p JOIN users u ON u.id = p.passenger_id WHERE p.id = NEW.id AND p.refunded > 0 AND NOT EXISTS (SELECT 1 FROM travel_charges WHERE order_id = NEW.return_order_id);
   UPDATE orders SET stage = 'Cancelled',updated_at = datetime('now') WHERE id = NEW.return_order_id;
 END;
-
