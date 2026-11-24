@@ -8,6 +8,7 @@ import { setD1Binding, type D1Database } from "../db/client.js";
 import { splitSqlStatements } from "../db/split-sql.js";
 import { paymentRoutes } from "./routes.js";
 import { reconcilePayment, sweepProviderOperations } from "./reconciliation.js";
+import { settleWithdrawalStatus } from "../wallet/customer-withdrawals.js";
 
 function bindDatabase(client: Client) {
   const prepare = (sql: string) => ({
@@ -38,9 +39,10 @@ test("a customer who approves after the timeout is credited once, and watching h
   bindDatabase(client);
   const realFetch = globalThis.fetch;
   let providerStatus: "pending" | "successful" | "failed" = "pending";
+  let providerAmount = 5500;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const txRef = new URL(String(input)).searchParams.get("tx_ref");
-    return new Response(JSON.stringify({ status: "success", data: { status: providerStatus, id: 1, tx_ref: txRef, amount: 5500, currency: "UGX" } }), { status: 200 });
+    return new Response(JSON.stringify({ status: "success", data: { status: providerStatus, id: 1, tx_ref: txRef, amount: providerAmount, currency: "UGX" } }), { status: 200 });
   }) as typeof fetch;
   t.after(() => { globalThis.fetch = realFetch; delete process.env.FLUTTERWAVE_SECRET_KEY; delete process.env.FLUTTERWAVE_WEBHOOK_SECRET; });
 
@@ -144,5 +146,18 @@ test("a customer who approves after the timeout is credited once, and watching h
     providerStatus = "successful";
     await reconcilePayment(s.payment, "test");
     assert.equal(await balance(), 11000, "nothing is credited when watching is off");
+  });
+
+  await t.test("a payout with an amount mismatch remains pending and is not called successful", async () => {
+    providerStatus = "successful";
+    providerAmount = 5499;
+    await client.execute({ sql: `INSERT INTO customer_withdrawals (id,user_id,amount,provider,provider_ref,msisdn,status,environment)
+      VALUES ('wd1','cust',5500,'flutterwave','wd-ref','+256700000000','pending','live')`, args: [] });
+    const before = await balance();
+    const pending = await row("SELECT * FROM customer_withdrawals WHERE id='wd1'");
+    const result = await settleWithdrawalStatus(pending);
+    assert.equal(result.status, "pending");
+    assert.equal(String((await row("SELECT status FROM customer_withdrawals WHERE id='wd1'")).status), "pending");
+    assert.equal(await balance(), before, "an unverified payout doesn't create a wallet credit");
   });
 });
