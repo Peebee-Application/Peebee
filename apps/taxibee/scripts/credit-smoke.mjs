@@ -36,9 +36,9 @@ try{
   else{status=404;data={message:path};}
   await r.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
  });
- await page.goto(base);await page.waitForSelector('.home-redesign');
+ await page.goto(base);await page.waitForSelector('.home-redesign');await page.waitForLoadState('networkidle');
  const checkout=method=>page.evaluate(method=>{const s=window.TaxibeeSource.state;s.paymentMethod=method;s.passengerCount=1;s.childCount=0;s.ticketType='oneway';s.capacityMode='capacity';s.bookingDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Kampala'}).format(new Date());window.navigate('checkout');},method);
- await checkout('corporate');await page.waitForSelector('#travel-account');await page.check('#booking-conditions');await page.click('[data-action="confirm-booking"]');await page.waitForSelector('#travel-payment-consent');
+ await checkout('corporate');await page.waitForSelector('#travel-account');assert.equal(await page.locator('#travel-account').inputValue(),account.id);await page.check('#booking-conditions');await page.click('[data-action="confirm-booking"]');await page.waitForSelector('#travel-payment-consent').catch(async e=>{console.error({text:(await page.locator('body').innerText()).slice(-2200),writes});throw e;});
  assert.match(await page.locator('#modal-root').innerText(),/Company credit charged: UGX 5,000/);
  await page.click('[data-action="travel-pay"]');await page.waitForFunction(()=>document.body.innerText.includes('Accept the funding conditions'));
  assert.equal(writes.filter(w=>w.path.endsWith('/fund')).length,0);

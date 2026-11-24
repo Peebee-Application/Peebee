@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {chromium} from 'playwright';
 const base=process.env.TAXIBEE_TEST_URL||'http://localhost:3015';
+const corporate=process.argv.includes('--corporate');
 const evidence=process.env.TAXIBEE_EVIDENCE||'/tmp/taxibee-evidence';
 await mkdir(evidence,{recursive:true});
 const browser=await chromium.launch({...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{}),headless:true,args:['--no-sandbox']});
@@ -27,10 +28,12 @@ try{
     else if(path==='/v1/taxipress/bookings/mine')data={bookings:created?[booking,...(returned?[returned]:[])]:[]};
     else if(path==='/v1/taxipress/return-quotes'){assert.equal(body.mode,'open');assert.equal(body.queueId,'out-queue');data={package:pkg};status=201;}
     else if(path==='/v1/taxipress/return-packages'&&method==='POST'){assert.equal(body.quoteId,pkg.id);created=true;Object.assign(pkg,{state:'ready',outboundBookingId:booking.id,orderId:booking.orderId,checkout:{wallet:9900,mobileMoney:9900}});data={package:pkg};status=201;}
-    else if(path==='/v1/travel-credit/me')data={ready:true,corporateEnabled:false,vouchersEnabled:false,voucherMax:0,voucherDays:30,accounts:[],vouchers:[]};
+    else if(path==='/v1/travel-credit/me')data={ready:true,corporateEnabled:corporate,vouchersEnabled:false,voucherMax:0,voucherDays:30,accounts:corporate?[{id:'company-return',name:'Approved employer',owner_id:'employer',active:1,member_active:1,available:20000,per_booking:20000,monthly_limit:100000,monthly_used:0}]:[],vouchers:[]};
     else if(path==='/v1/taxipress/return-packages')data={packages:created?[pkg]:[]};
     else if(path===`/v1/taxipress/return-packages/${pkg.id}`)data={package:pkg};
     else if(path==='/v1/orders/out-order/fund'){assert.equal(body.acceptedAmount,9900);assert.equal(body.useWallet,true);booking.paymentStatus='paid';Object.assign(pkg,{outboundPaid:4500,returnPaid:5400});data={order:{id:booking.orderId},payment:{id:'one-payment',status:'successful'}};}
+    else if(path==='/v1/travel-credit/orders/out-order/quote')data={total:9900,sponsored:9900,walletAmount:0,label:'Approved employer',allocations:[{orderId:'out-order',amount:4500},{orderId:'back-order',amount:5400}]};
+    else if(path==='/v1/travel-credit/orders/out-order/fund'){assert.equal(body.accountId,'company-return');assert.equal(body.acceptedSponsored,9900);booking.paymentStatus='paid';Object.assign(pkg,{outboundPaid:4500,returnPaid:5400});data={payment:{id:'company-payment',status:'successful'},funded:true};}
     else if(path===`/v1/taxipress/return-packages/${pkg.id}/redeem`){
       assert.equal(body.queueId,'back-queue');
       if(failedRedeem){failedRedeem=false;status=409;data={message:'That return departure filled. Choose another departure.'};}
@@ -40,11 +43,12 @@ try{
     else{status=404;data={message:path};}
     await r.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
   });
-  await page.goto(base);await page.waitForSelector('.home-redesign');
+  await page.goto(base);await page.waitForSelector('.home-redesign');await page.waitForLoadState('networkidle');
   await page.evaluate(()=>{const s=window.TaxibeeSource.state;s.childCount=1;s.ticketType='return';s.bookingStep=2;window.navigate('book');});
   await page.waitForFunction(()=>document.body.innerText.includes('final package quote applies the configured child fare'));
   assert.doesNotMatch(await page.locator('#main-content').innerText(),/9,000\s*\/\s*child/);
   await page.evaluate(()=>{const s=window.TaxibeeSource.state;s.passengerCount=1;s.childCount=0;s.ticketType='return';s.returnMode='open';s.paymentMethod='wallet';s.bookingDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Kampala'}).format(new Date());window.navigate('checkout');});
+  if(corporate)await page.evaluate(()=>{window.TaxibeeSource.state.paymentMethod='corporate';window.renderCurrentScreen();});
   await page.check('#booking-conditions');await page.click('[data-action="confirm-booking"]');
   await page.waitForSelector('#return-package-consent');
   assert.match(await page.locator('#modal-root').innerText(),/9,900/);
@@ -52,6 +56,7 @@ try{
   await page.waitForFunction(()=>document.body.innerText.includes('Accept the package conditions'));
   assert.equal(writes.filter(w=>w.path.endsWith('/fund')).length,0);
   await page.check('#return-package-consent');await page.click('[data-action="return-buy"]');
+  if(corporate){await page.waitForSelector('#travel-payment-consent');assert.match(await page.locator('#modal-root').innerText(),/Company credit charged: UGX 9,900/);await page.check('#travel-payment-consent');await page.click('[data-action="travel-pay"]');}
   await page.waitForSelector('[data-action="return-redeem-form"]');
   assert.equal(writes.filter(w=>w.path.endsWith('/fund')).length,1);
   assert.equal(writes.filter(w=>w.path==='/v1/taxipress/bookings').length,0,'Package checkout must not create unrelated bookings');
