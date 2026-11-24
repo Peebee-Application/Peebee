@@ -80,5 +80,5 @@ export function installAccountTools(c:Context){
   work?.catch(e=>{if(valid(run,user))ui.toast(e.message,'danger');});
  });
  navigator.serviceWorker?.addEventListener('message',e=>{if(e.data?.type==='taxibee-push-open'&&who())ui.navigate('notifications');});
- return{sync,detachPush,beforeSignOut:async()=>{await engine?.hangUp();stopCall();await detachPush();},reset(){void detachPush();configuration=null;++epoch;owner='';config=null;sessionRows=null;problem='';busy=false;modal='';orderId='';chat=[];caseView=null;caseRows=[];contactId='';reportKey='';if(refreshTimer)clearTimeout(refreshTimer);if(incomingTimer)clearTimeout(incomingTimer);recorded=null;sendRecording=false;stopRecording();clearMedia(true);stopCall();}};
+ return{sync,detachPush,subscribePush:async()=>{await sync();await enablePush();},beforeSignOut:async()=>{await engine?.hangUp();stopCall();await detachPush();},reset(){void detachPush();configuration=null;++epoch;owner='';config=null;sessionRows=null;problem='';busy=false;modal='';orderId='';chat=[];caseView=null;caseRows=[];contactId='';reportKey='';if(refreshTimer)clearTimeout(refreshTimer);if(incomingTimer)clearTimeout(incomingTimer);recorded=null;sendRecording=false;stopRecording();clearMedia(true);stopCall();}};
 }

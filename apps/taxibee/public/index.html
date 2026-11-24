@@ -25,7 +25,9 @@
   <link rel="preload" as="image" href="assets/taxibee-onboarding2-branded.png">
   <link rel="preload" as="image" href="assets/taxibee-onboarding3-branded.png">
   <script defer src="script.js?v=5"></script>
-  <script defer src="live.js"></script>
+  <script defer src="customer-header.js?v=1"></script>
+  <script defer src="live.js?v=6"></script>
+  <link rel="stylesheet" href="customer-header.css?v=1">
 <link rel="stylesheet" href="taxibee.css?v=5">
 <link rel="stylesheet" href="customer-auth.css">
 <link rel="stylesheet" href="customer-auth-adapter.css">
@@ -103,6 +105,7 @@
   </section>
 
   <div id="app-shell" class="app-shell is-hidden">
+    <div id="taxibee-header-slot"></div>
     <aside class="sidebar" aria-label="Primary navigation">
       <div class="sidebar__brand">
         <div class="logo-frame logo-frame--sidebar">
@@ -189,6 +192,7 @@
   </div>
 
   <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile navigation"></nav>
+  <div id="taxibee-customer-header"></div>
 
   <aside id="pwa-install-prompt" class="taxibee-install-prompt is-hidden" role="status" aria-live="polite">
     <img src="/icons/icon-192.png" width="40" height="40" alt="" class="taxibee-install-icon">

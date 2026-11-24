@@ -124,6 +124,7 @@ export function installCustomerAuth(c: Context) {
     if (step === 'welcome') { const run = generation; void mountGoogle(run).catch(e => { if (run === generation && step === 'welcome') { document.getElementById('taxibee-google-button')?.replaceChildren(); notice(e.message); } }); }
   }
   function open(screen = 'profile', preserve = true) {
+    document.dispatchEvent(new Event('taxibee-auth-open'));
     if (preserve) rememberBooking();
     ++generation; intended = screen; previous = state.screen || 'home'; step = 'welcome'; busy = false; password = ''; identifier = ''; name = '';
     ui.closeModal(); ui.closeSideDrawer(); ui.closeSheet();
