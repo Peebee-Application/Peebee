@@ -17,7 +17,7 @@ test('Taxibee service browsing and quotes respect shared settings and history ow
  const prepare=(sql:string)=>({sql,args:[] as unknown[],bind(...args:unknown[]){this.args=args;return this;},async all(){const r=await client.execute({sql:this.sql,args:this.args as InArgs});return{results:r.rows,success:true,meta:{changes:r.rowsAffected,last_row_id:Number(r.lastInsertRowid??0)}};}});
  setD1Binding({prepare,async batch(statements:ReturnType<typeof prepare>[]){return(await client.batch(statements.map(s=>({sql:s.sql,args:s.args as InArgs})),'write')).map(r=>({results:r.rows,success:true,meta:{changes:r.rowsAffected,last_row_id:Number(r.lastInsertRowid??0)}}));}} as unknown as D1Database);resetSchemaCache();
  try{
-  for(const id of ['a','b','owner','demo-car-driver-owner'])await client.execute({sql:"INSERT INTO users(id,phone,name,password_hash,role) VALUES(?,?,?,'hash','customer')",args:[id,id,id]});
+  for(const id of ['a','b','owner','demo-car-driver-owner','demo-rental-owner-1','demo-car-owner'])await client.execute({sql:"INSERT OR IGNORE INTO users(id,phone,name,password_hash,role) VALUES(?,?,?,'hash','customer')",args:[id,id,id]});
   const app=new Hono().route('/v1',taxibeeServiceRoutes).route('/v1',orderRoutes),tokens:Record<string,string>={};for(const sub of ['a','b'])tokens[sub]=await signToken({sub,role:'customer'});
   const call=(path:string,who?:string,body?:object)=>app.request('/v1/taxibee-services/'+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(who?{Authorization:'Bearer '+tokens[who]}:{})},...(body?{body:JSON.stringify(body)}:{})});
   const json=async(r:Response)=>await r.json() as any;
@@ -29,17 +29,20 @@ test('Taxibee service browsing and quotes respect shared settings and history ow
    await setSetting('service_parcel_enabled','1');
   });
   await client.execute("UPDATE vehicle_categories SET active=0");
-  await client.execute("INSERT INTO vehicle_categories(id,name,kind,seats,rate_per_km,minimum_fare,service_group,rate_per_hour) VALUES('lux','Chauffeur','passenger',4,1000,5000,'luxury',6000),('hidden','Demo only','passenger',4,1000,5000,'standard',0),('cargo','Cargo','cargo',2,1000,5000,'standard',0)");
-  await client.execute("INSERT INTO vehicles(id,owner_id,category_id,plate,status) VALUES('v','owner','lux','UBA001','approved'),('demo','demo-car-driver-owner','hidden','DEMO001','approved'),('c','owner','cargo','UBA002','approved')");
+  await client.execute("INSERT INTO vehicle_categories(id,name,kind,seats,rate_per_km,minimum_fare,service_group,rate_per_hour) VALUES('lux','Chauffeur','passenger',4,1000,5000,'luxury',6000),('hidden','Demo only','passenger',4,1000,5000,'standard',0),('cargo','Cargo','cargo',2,1000,5000,'standard',0),('legacy-rental','Legacy seeded rental','passenger',4,1000,5000,'standard',0),('legacy-car','Legacy seeded car','passenger',4,1000,5000,'standard',0),('legacy-vehicle','Seeded vehicle with unmarked owner','passenger',4,1000,5000,'standard',0)");
+  await client.execute("INSERT INTO vehicles(id,owner_id,category_id,plate,status) VALUES('v','owner','lux','UBA001','approved'),('demo','demo-car-driver-owner','hidden','DEMO001','approved'),('c','owner','cargo','UBA002','approved'),('demo-rent-regression','demo-rental-owner-1','legacy-rental','DEMO SD001','approved'),('demo-car-vehicle-regression','demo-car-owner','legacy-car','DEMO CAR001','approved'),('demo-stock','owner','legacy-vehicle','DEMO X001','approved')");
   await setSetting('car_enabled','1');
   await t.test('public categories expose approved passenger inventory without driver identities or demo-only stock',async()=>{
    const data=await json(await call('catalog'));assert.ok(data.charterEnabled);assert.deepEqual(data.categories.map((c:any)=>c.id),['lux']);
    assert.doesNotMatch(JSON.stringify(data.categories),/owner|UBA001|driver_id|last_lat/);
   });
+  await t.test('legacy seeded fleet is available only in the admin sandbox, without changing shared rows',async()=>{
+   await setSetting('platform_environment','sandbox');const ids=(await json(await call('catalog'))).categories.map((c:any)=>c.id);for(const id of ['legacy-rental','legacy-car','legacy-vehicle'])assert.ok(ids.includes(id));await setSetting('platform_environment','live');
+  });
   const route={categoryId:'lux',pickupLat:0.3,pickupLng:32.58,destinationLat:0.35,destinationLng:32.58};
   await t.test('charter prices come from the shared category formula, with server hourly limits and no fabricated daily price',async()=>{
    const trip=await json(await call('charter-quote',undefined,route));const hourly=await json(await call('charter-quote',undefined,{...route,hireHours:2}));assert.equal(hourly.fare-trip.fare,12000);
-   assert.equal((await call('charter-quote',undefined,{...route,hireHours:100000})).status,400);assert.equal((await call('charter-quote',undefined,{...route,categoryId:'hidden'})).status,409);
+   assert.equal((await call('charter-quote',undefined,{...route,hireHours:100000})).status,400);assert.equal((await call('charter-quote',undefined,{...route,categoryId:'hidden'})).status,409);for(const categoryId of ['legacy-rental','legacy-car','legacy-vehicle'])assert.equal((await call('charter-quote',undefined,{...route,categoryId})).status,409);
    await setSetting('service_ride_enabled','0');assert.equal((await call('charter-quote',undefined,route)).status,409);await setSetting('service_ride_enabled','1');
   });
   await t.test('public parcel quote validates coordinates and offers a real direct-delivery fallback',async()=>{
