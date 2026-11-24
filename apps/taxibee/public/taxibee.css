@@ -27,6 +27,16 @@ body.taxibee-preview { padding-bottom: 32px; }
 /* Live startup waits for current service data; keep the splash still while it loads. */
 .splash-screen .logo-frame--large { animation: none !important; }
 
+/* Live home can render again as data arrives. Keep existing content visible. */
+body:not(.taxibee-preview) .home-redesign.fade-in-up {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeting-card, .journey-card, .section) {
+  animation: none !important;
+}
+
 /* Keep connected account/support controls reachable within the existing modal layout. */
 .account-tools-dialog { overflow-wrap: anywhere; }
 .account-tools-dialog .modal__foot { flex-wrap: wrap; justify-content: flex-start; }
@@ -59,7 +69,7 @@ body.taxibee-preview { padding-bottom: 32px; }
 .taxibee-install-action.is-hidden { display: none; }
 .taxibee-install-dismiss { display: grid; flex: 0 0 28px; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: transparent; color: #1a1a1a; }
 .taxibee-install-dismiss svg { width: 17px; height: 17px; }
-@media (max-width: 767px) {
+@media (max-width: 900px) {
   :root { --mobile-nav-height: 90px; }
   #mobile-nav.mobile-nav {
     position: fixed !important;
@@ -69,6 +79,7 @@ body.taxibee-preview { padding-bottom: 32px; }
     max-inline-size: 100% !important;
     max-width: 100% !important;
     transform: none !important;
+    transition: none !important;
     z-index: 50 !important;
     display: block !important;
     height: calc(90px + var(--safe-bottom)) !important;
@@ -160,10 +171,6 @@ body.taxibee-preview { padding-bottom: 32px; }
     max-width: 520px;
     margin: 0 auto;
   }
-}
-
-@media (min-width: 420px) and (max-width: 767px) {
-  .taxibee-nav-items li { flex-basis: 20%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
