@@ -1432,6 +1432,18 @@ function getNavigationHtml(context) {
   `;
 }
 
+function alignMobileMenu(menu, animate = false) {
+  if (!menu.clientWidth) return;
+  const active = menu.querySelector('[aria-current="page"]');
+  const item = active?.parentElement;
+  let left = item?.offsetLeft ?? 0;
+  if (item && matchMedia('(min-width: 420px)').matches) {
+    left -= (menu.clientWidth - item.offsetWidth) / 2;
+  }
+  left = Math.max(0, Math.min(left, menu.scrollWidth - menu.clientWidth));
+  menu.scrollTo({ left, behavior: animate && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'instant' });
+}
+
 function renderNavigation() {
   const desktop = $('#desktop-nav');
   const mobile = $('#mobile-nav');
@@ -1445,9 +1457,6 @@ function renderNavigation() {
   }
   
   if (mobile) {
-    const previousTrack = mobile.querySelector('.taxibee-nav-menu-track');
-    const previousSelection = previousTrack?.querySelector('[aria-current="page"]')?.dataset.screen;
-    const previousScroll = previousTrack?.scrollLeft || 0;
     const isBookingFlow = ['book', 'trip-details', 'passengers', 'returns', 'luggage', 'checkout', 'trackparcel', 'parcel-status', 'special-hire', 'driver-call', 'driver-chat'].includes(state.screen);
     const isBookStep1 = state.screen === 'book' && (state.bookingStep || 1) === 1;
     if (isBookingFlow && !isBookStep1) {
@@ -1456,39 +1465,42 @@ function renderNavigation() {
       mobile.classList.remove('is-hidden');
     }
     const flowScreen = ['trip-details','passengers','returns','luggage','checkout'].includes(state.screen);
-    const items = [['available-vans','Departures','clock-arrow-up'],['book','Book','ticket-plus'],['tickets','Tickets','ticket'],['trips','Travels','route'],['wallet','Wallet','wallet-cards']];
     const activeScreen = screen => {
       if (screen === 'book' && flowScreen) return true;
       if (screen === 'tickets' && ['ticket','success'].includes(state.screen)) return true;
       if (screen === 'trips' && ['live','tracking'].includes(state.screen)) return true;
       return state.screen === screen;
     };
-    mobile.innerHTML = `
-      <div class="taxibee-nav-shell">
+    let menu = mobile.querySelector('.taxibee-nav-items');
+    const initial = !menu;
+    if (initial) {
+      const items = [['available-vans','Departures','clock-arrow-up'],['book','Book','ticket-plus'],['tickets','Tickets','ticket'],['trips','Travels','route'],['wallet','Wallet','wallet-cards']];
+      mobile.innerHTML = `
+      <div class="taxibee-nav-shell" style="--nav-count: ${items.length}">
         <div class="taxibee-nav-anchor">
-          <button class="taxibee-nav-home ${state.screen === 'home' ? 'is-active' : ''}" type="button" data-screen="home" ${state.screen === 'home' ? 'aria-current="page"' : ''}>
-            <i data-lucide="${state.screen === 'home' ? 'house' : 'house'}"></i><span>Home</span>
+          <button class="taxibee-nav-home" type="button" data-screen="home">
+            <i data-lucide="house" aria-hidden="true"></i><span>Home</span>
           </button>
         </div>
         <div class="taxibee-nav-menu-track">
           <ul class="taxibee-nav-items" aria-label="Main destinations">
-            ${items.map(([screen,label,icon]) => {
-              const active = activeScreen(screen);
-              return `<li${active ? ' class="is-selected"' : ''}><button class="mobile-nav-item ${active ? 'is-active' : ''}" type="button" data-screen="${screen}" ${active ? 'aria-current="page"' : ''}>
-                <i data-lucide="${icon}"></i><span>${label}</span>
-              </button></li>`;
-            }).join('')}
+            ${items.map(([screen,label,icon]) => `<li><button class="mobile-nav-item" type="button" data-screen="${screen}">
+                <i data-lucide="${icon}" aria-hidden="true"></i><span>${label}</span>
+              </button></li>`).join('')}
           </ul>
         </div>
       </div>`;
-    const track = mobile.querySelector('.taxibee-nav-menu-track');
-    const selected = track.querySelector('.is-selected');
-    const selection = selected?.querySelector('button').dataset.screen;
-    if (selected && selection !== previousSelection) {
-      track.scrollLeft = selected.offsetLeft - (track.clientWidth - selected.offsetWidth) / 2;
-    } else if (selection === previousSelection) {
-      track.scrollLeft = previousScroll;
+      menu = mobile.querySelector('.taxibee-nav-items');
+      if ('ResizeObserver' in window) new ResizeObserver(() => alignMobileMenu(menu)).observe(menu);
     }
+    const previous = menu.querySelector('[aria-current="page"]');
+    for (const button of mobile.querySelectorAll('button[data-screen]')) {
+      const active = activeScreen(button.dataset.screen);
+      button.classList.toggle('is-active', active);
+      if (active) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    }
+    if (initial || previous !== menu.querySelector('[aria-current="page"]')) alignMobileMenu(menu, !initial);
   }
   refreshIcons();
 }
