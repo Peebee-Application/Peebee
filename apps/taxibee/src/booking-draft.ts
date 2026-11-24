@@ -20,7 +20,7 @@ export function captureDraft(state: Record<string, any>, owner: string | null): 
       bookingStep: typeof state.bookingStep === 'number' ? count(state.bookingStep, 1, 6) : text(state.bookingStep, 4),
       passengerCount: count(state.passengerCount, 1, 18), childCount: count(state.childCount, 0, 17), reservedChildSeatsCount: count(state.reservedChildSeatsCount, 0, 17),
       luggageQuantities: Object.fromEntries(TAXIPRESS_LUGGAGE_TYPES.map(k => [k, count(state.luggageQuantities?.[k], 0, 10)])),
-      assistance: text(state.assistance, 80), language: text(state.language, 80), paymentMethod: ['wallet', 'cash', 'mobile'].includes(state.paymentMethod) ? state.paymentMethod : 'wallet',
+      assistance: text(state.assistance, 80), language: text(state.language, 80), paymentMethod: ['wallet', 'cash', 'mobile','corporate','voucher'].includes(state.paymentMethod) ? state.paymentMethod : 'wallet',
       isBookingForSomeoneElse: state.isBookingForSomeoneElse === true, otherTravelerName: text(state.otherTravelerName, 80), otherTravelerPhone: text(state.otherTravelerPhone, 20), emergencyContact: text(state.emergencyContact, 20),
       capacityMode: state.capacityMode === 'seats' ? 'seats' : 'capacity', ticketType: state.ticketType === 'return' ? 'return' : 'oneway',
       returnMode:['open','same-day','date-specific'].includes(state.returnMode)?state.returnMode:'open',returnDate:text(state.returnDate,10),

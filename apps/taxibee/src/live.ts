@@ -6,6 +6,7 @@ import { installCustomerFeatures } from './customer-features';
 import { installCustomerAuth } from './customer-auth';
 import { installSeatSelection } from './seat-selection';
 import {installReturnPackages} from './return-packages';
+import {installTravelCredit} from './travel-credit';
 
 // The presentation is intentionally retained verbatim. This boundary is the only
 // place that translates Peebee records into the source interface's view model.
@@ -34,6 +35,7 @@ let account: ReturnType<typeof installCustomerAuth> | undefined;
 let booting = true;
 let seating: ReturnType<typeof installSeatSelection> | undefined;
 let returnPackages:ReturnType<typeof installReturnPackages>|undefined;
+let travelCredit:ReturnType<typeof installTravelCredit>|undefined;
 const original = Object.fromEntries(['renderAuth', 'renderHome', 'renderBook', 'renderCurrentScreen', 'navigate', 'renderWallet', 'renderProfile', 'renderDigitalTicketCard', 'getTicketsData', 'confirmBooking', 'renderTracking'].map(k => [k, ui[k]]));
 const $ = (s: string) => document.querySelector(s) as HTMLInputElement | null;
 const escape = (s: unknown) => ui.escapeHtml(String(s ?? ''));
@@ -72,6 +74,7 @@ function clearSession(discardDraft = true) {
   features?.reset();
   seating?.reset();
   returnPackages?.reset();
+  travelCredit?.reset();
   user = null; bookings = []; wallet = null; selectedBooking = null; pendingOrder = null; pendingPayment = null;
   localStorage.removeItem(TOKEN); sessionStorage.removeItem(TOKEN);
   state.tickets = []; state.walletBalance = 0; appData.transactions = [];
@@ -161,6 +164,8 @@ async function refresh() {
       const [mine, balance] = await Promise.all([api.getMyTaxipressBookings(), api.getWallet()]);
       if (!valid()) return;
       bookings = mine.bookings; wallet = balance; state.walletBalance = balance.balance;
+      await travelCredit?.load().catch(()=>undefined);
+      if (!valid()) return;
       state.tickets = bookings.map(ticket);
       appData.transactions = balance.ledger.map((l: any) => ({ type: l.amount >= 0 ? 'deposit' : 'trip', title: escape(l.note || l.type || 'Wallet activity'), date: escape(l.created_at), amount: Math.abs(l.amount), direction: l.amount >= 0 ? 'in' : 'out', icon: l.amount >= 0 ? 'arrow-down-left' : 'arrow-up-right' }));
     }
@@ -215,6 +220,7 @@ async function confirmBooking() {
 async function payPending() {
   if (!pendingOrder) return;
   const method = state.paymentMethod;
+  if (['corporate','voucher'].includes(method)) { await travelCredit?.review(pendingOrder.order.id,method); return; }
   if (!['wallet', 'mobile', 'cash'].includes(method)) throw new Error('Choose wallet, mobile money or cash.');
   if (method === 'cash' && !config?.cashEnabled) throw new Error('Cash is not enabled by the operator.');
   if (method === 'cash' && (state.taxibeeOpenTicket || pendingOrder.booking.openTicket)) throw new Error('An open ticket must be paid in the app.');
@@ -386,7 +392,12 @@ if (!preview) account = installCustomerAuth({
 if (!preview) seating = installSeatSelection({ ui,api,user: () => user,quantity: () => ui.passengerTotal(),
   requestLogin: screen => account?.open(screen),remember: () => account?.rememberBooking() });
 if(!preview)returnPackages=installReturnPackages({ui,api,user:()=>user,config:()=>config,trips:()=>trips,bookings:()=>bookings,selected:()=>selectedBooking,
-  input:bookingInput,prepareSeats:async()=>seating?.prepare(),refresh,select:b=>{selectedBooking=b;},requestLogin:s=>account?.open(s),clearDraft:()=>{account?.clearDraft();seating?.consumed();}});
+  input:bookingInput,prepareSeats:async()=>seating?.prepare(),refresh,select:b=>{selectedBooking=b;},requestLogin:s=>account?.open(s),clearDraft:()=>{account?.clearDraft();seating?.consumed();},sponsor:{options:()=>travelCredit?.options()||'',fields:()=>travelCredit?.fields()||'',review:async(id,method)=>{await travelCredit?.review(id,method);}}});
+if(!preview)travelCredit=installTravelCredit({ui,api,user:()=>user,complete:async orderId=>{
+  const who=user?.id;await refresh();if(!who||who!==user?.id)return;
+  const b=bookings.find(b=>b.orderId===orderId);if(!b)throw new Error('Payment was saved. Refresh My Tickets to load the ticket.');
+  selectedBooking=b;pendingOrder=null;account?.clearDraft();seating?.consumed();returnPackages?.settled();ui.navigate('ticket');
+}});
 
 document.addEventListener('input', event => {
   if (!preview && (event.target as HTMLElement).id === 'taxibee-offer-code') state.taxibeeOfferCode = (event.target as HTMLInputElement).value;
