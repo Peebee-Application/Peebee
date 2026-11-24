@@ -701,7 +701,7 @@
         gateAction = `Caps fleet at ${y5Gated.vans} vans; eliminates negative cash risk`;
       } else if (y1Compliant && y2Positive) {
         creditVerdict = `SOLVENT - Meets Y1 ${p.minDscrCovenant.toFixed(2)}x DSCR`;
-        gateAction = "Pauses expansion vans; services 100% of UDB debt";
+        gateAction = "Pauses expansion vans; services 100% of fleet loan";
       } else {
         creditVerdict = "SOLVENT - Pauses Y2 van expansion";
         gateAction = `Pauses expansion vans; preserves UGX ${(gated.totals.minCash / 1e6).toFixed(1)}M+ liquidity`;
@@ -862,7 +862,7 @@
         ownedAssets.push({ name: "Taxibee · App Upgrade & Scheduling Platform", assetClass: "infrastructure", amount: String(remTechBook), life: String(remTechLife), replacement: "none", moduleScope: "taxipress" });
       }
       if (data.capital.m0CashBuffer > 0 && elapsedMonthsBeforeStart === 0) {
-        accounts.push({ name: "Taxibee · M0 Working Capital Buffer (UDB)", amount: String(data.capital.m0CashBuffer) });
+        accounts.push({ name: "Taxibee · M0 Working Capital Buffer", amount: String(data.capital.m0CashBuffer) });
       }
       const amortYears = Math.max(1, p.loanTenorYears - p.loanGraceYears);
       const principalRepaidBefore = Math.max(0, elapsedYearsBeforeStart - p.loanGraceYears) * (p.udbLoan / amortYears);
@@ -871,7 +871,7 @@
       const remGraceMonths = Math.max(0, p.loanGraceYears * 12 - elapsedMonthsBeforeStart);
       if (openingDebt > 0) {
         existingLoans.push({
-          name: "Taxibee · UDB Women Prosper Asset Loan",
+          name: "Taxibee · Fleet Asset Loan",
           amount: String(openingDebt),
           rate: String(p.loanRate * 100),
           term: String(remLoanMonths),
@@ -882,11 +882,11 @@
       }
     } else if (m0InForecast) {
       if (p.udbEquity + p.cashGrants > 0) {
-        contributions.push({ name: "Taxibee · UDB Minority Equity (30% Stake)", amount: String(p.udbEquity + p.cashGrants), month: String(m0Month) });
+        contributions.push({ name: "Taxibee · Investor Equity", amount: String(p.udbEquity + p.cashGrants), month: String(m0Month) });
       }
       if (p.udbLoan > 0) {
         newLoans.push({
-          name: "Taxibee · UDB Women Prosper Asset Loan",
+          name: "Taxibee · Fleet Asset Loan",
           amount: String(p.udbLoan),
           month: String(m0Month),
           rate: String(p.loanRate * 100),
@@ -986,7 +986,7 @@
       { name: "Taxibee · Van Fixed OpEx (Ins, Maint, Wi-Fi, Lic)", category: "other", basis: "schedule", schedule: vanFixedSeries, vatRate: "0", moduleScope: "taxipress" },
       { name: "Taxibee · Corporate Overhead", category: "other", basis: "schedule", schedule: corpOverheadSeries, vatRate: "0", moduleScope: "taxipress" },
       ...(m0InForecast && data.capital.m0Expensed > 0 ? [{
-        name: "Taxibee · Pre-Launch Licensing & UDB Appraisal Fee",
+        name: "Taxibee · Pre-Launch Licensing & Loan Appraisal Fee",
         category: "professional",
         basis: "schedule",
         schedule: prelaunchSeries,
@@ -1338,12 +1338,12 @@
       ["Cumulative EBITDA (UGX)", Math.round(model.model3y.totals.ebitda), Math.round(model.model5y.totals.ebitda)],
       ["Cumulative Net Profit After Tax (UGX)", Math.round(model.model3y.totals.pat), Math.round(model.model5y.totals.pat)],
       ["Ending Cash Balance (UGX)", Math.round(model.model3y.totals.endCash), Math.round(model.model5y.totals.endCash)],
-      ["Remaining UDB Debt Balance (UGX)", Math.round(model.model3y.totals.debt), Math.round(model.model5y.totals.debt)],
+      ["Remaining Loan Balance (UGX)", Math.round(model.model3y.totals.debt), Math.round(model.model5y.totals.debt)],
       ["Minimum Annual DSCR (x)", model.model3y.totals.minDscr?.toFixed(2) ?? "", model.model5y.totals.minDscr?.toFixed(2) ?? ""],
       [`Project NPV @ ${(p.udbDiscountRate * 100).toFixed(1)}% (UGX)`, Math.round(model.model3y.valuation.projectNpvUdb), Math.round(model.model5y.valuation.projectNpvUdb)],
       ["Project IRR (%)", pct(model.model3y.valuation.projectIrr), pct(model.model5y.valuation.projectIrr)],
-      [`UDB ${(p.udbEquityStake * 100).toFixed(0)}% Equity Value @ Y5 (${p.exitEbitdaMultiple}x EBITDA)`, "N/A", Math.round(model.model5y.valuation.udbStakeValueY5)],
-      ["UDB MOIC (x)", "N/A", model.model5y.valuation.udbMoicY5?.toFixed(2) ?? ""],
+      [`Investor ${(p.udbEquityStake * 100).toFixed(0)}% Equity Value @ Y5 (${p.exitEbitdaMultiple}x EBITDA)`, "N/A", Math.round(model.model5y.valuation.udbStakeValueY5)],
+      ["Equity Return Multiple (MOIC)", "N/A", model.model5y.valuation.udbMoicY5?.toFixed(2) ?? ""],
       [],
       ["2. 5-YEAR INTEGRATED MODEL (UGX)", ...model.model5y.rows.map(r => `Year ${r.yearIndex} (${r.calendarYear})`), "5-Year Total / End"],
       ["Active VIP Van Fleet", ...model.model5y.rows.map(r => r.vans), model.model5y.totals.endingVans],
@@ -1363,7 +1363,7 @@
       ["Capital Expenditures", ...model.model5y.rows.map(r => Math.round(r.totalCapex)), Math.round(model.model5y.totals.totalCapex)],
       ["Principal Repayment", ...model.model5y.rows.map(r => Math.round(r.principal)), Math.round(model.model5y.totals.principal)],
       ["Ending Cash Balance", ...model.model5y.rows.map(r => Math.round(r.endCash)), Math.round(model.model5y.totals.endCash)],
-      ["Ending UDB Debt", ...model.model5y.rows.map(r => Math.round(r.debt)), Math.round(model.model5y.totals.debt)],
+      ["Ending Loan Balance", ...model.model5y.rows.map(r => Math.round(r.debt)), Math.round(model.model5y.totals.debt)],
       ["DSCR (x)", ...model.model5y.rows.map(r => r.dscr?.toFixed(2) ?? ""), model.model5y.totals.minDscr?.toFixed(2) ?? ""],
       [],
       ["3. YEAR 1 MONTHLY RAMP (UGX M)", ...model.ramp.months.map(r => r.label), "FY Total / Avg"],

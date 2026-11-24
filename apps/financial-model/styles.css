@@ -816,10 +816,11 @@ body:has(.financial-landing) > :is(.masthead, .footer) { display: none; }
 .taxibee-input-cell { padding: 6px 10px; min-width: 150px; }
 .taxibee-input-box { min-height: 40px; border-radius: 8px; }
 .taxibee-input-box input { padding: 8px 10px; text-align: right; font-variant-numeric: tabular-nums; }
-.taxibee-input-box span { margin-inline-end: 10px; }
+.taxibee-input-box span { margin-inline-end: 10px; flex-shrink: 0; white-space: nowrap; }
 .taxibee-input-box.compact { min-height: 36px; }
 .taxibee-input-box.compact input { padding: 6px 8px; }
 .taxibee-ramp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-top: 12px; }
+.taxibee-loan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 12px; }
 .taxibee-ramp-cell { display: grid; gap: 5px; font-size: .84rem; font-weight: 650; }
 .taxibee-dl { margin-top: 18px !important; }
 .taxibee-chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 18px; }

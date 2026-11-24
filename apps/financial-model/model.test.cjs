@@ -777,7 +777,7 @@ test("shared forecasts validate their source and previews use the actual network
   assert.match(errorFor(prompt,a["channel-concierge"],a),/acquisition forecast/);
 });
 
-test("Taxibee VIP Fleet model matches UDB 3Y, 5Y, Y1 ramp, debt, and CapEx-gated stress benchmarks", () => {
+test("Taxibee VIP Fleet model matches 3Y, 5Y, Y1 ramp, adjustable loan, and CapEx-gated stress benchmarks", () => {
   const { compute, defaultState } = globalThis.TaxibeeModel;
   const model = compute(defaultState());
 
@@ -787,8 +787,21 @@ test("Taxibee VIP Fleet model matches UDB 3Y, 5Y, Y1 ramp, debt, and CapEx-gated
   near(model.capital.appraisalFee, 2_750_000);
   near(model.capital.m0CashBuffer, 118_800_000);
   near(model.collateral.forcedSaleValue, 630_760_000);
-  near(model.collateral.agfGuaranteeValue, 412_500_000);
   assert.ok(model.collateral.collateralCoverage > 1.14 && model.collateral.collateralCoverage < 1.15);
+
+  // Manual interest rate adjustment updates interest, DSCR, and keeps BS balanced
+  const highRate = defaultState();
+  highRate.taxibeeConfig[0].loanRatePct = "18";
+  const highModel = compute(highRate);
+  near(highModel.debtSchedule[0].interest, 99_000_000);
+  assert.ok(highModel.model5y.rows[0].dscr < model.model5y.rows[0].dscr);
+  for (const row of highModel.model5y.rows) assert.ok(Math.abs(row.bsCheck) < globalThis.FinancialModel.halfCent);
+
+  const zeroRate = defaultState();
+  zeroRate.taxibeeConfig[0].loanRatePct = "0";
+  const zeroModel = compute(zeroRate);
+  near(zeroModel.debtTotals.interest, 0);
+  for (const row of zeroModel.model5y.rows) assert.ok(Math.abs(row.bsCheck) < globalThis.FinancialModel.halfCent);
 
   // Y1 monthly launch ramp & liquidity trough
   assert.equal(model.ramp.operatingBreakevenMonth.monthIndex, 3);

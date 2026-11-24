@@ -70,7 +70,7 @@
       key: "taxipress", name: "Taxibee",
       streams: [orders("Digital seat commission", 220, 12000, 4), orders("Cash seat commission", 320, 12000, 3),
         units("Seat-choice fees", 45, 500)],
-      note: "Switch between Taxibee (VIP Fleet owned vans with UDB financing) and TaxiPress (Fly Express partner commissions). In Fly Express mode, cash and digital fares can carry separate commissions synced from Admin.",
+      note: "Switch between Taxibee (VIP Fleet owned vans with adjustable fleet loan) and TaxiPress (Fly Express partner commissions). In Fly Express mode, cash and digital fares can carry separate commissions synced from Admin.",
     },
     {
       key: "talent", name: "Peebee Jobs & Talent",

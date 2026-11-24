@@ -1431,9 +1431,9 @@
       if (prompt.channelId === "taxipress") {
         const mode = answers.taxibeeMode === "fly-express" ? "fly-express" : "vip-fleet";
         const isVip = mode === "vip-fleet";
-        return `<article class="review-module" data-review-item data-search="${searchText(prompt)} Taxibee TaxiPress VIP Fleet Fly Express UDB">
+        return `<article class="review-module" data-review-item data-search="${searchText(prompt)} Taxibee TaxiPress VIP Fleet Fly Express">
           <h3>${escape(prompt.title)} <span class="muted">(${isVip ? "VIP Fleet" : "Fly Express"})</span></h3>
-          <p class="muted">${isVip ? "VIP Fleet UDB model (5 → 38 vans)" : `${count} Fly Express commission streams`} · ${included(channel) ? "Included" : "Excluded"}</p>
+          <p class="muted">${isVip ? "VIP Fleet owned-vans model (5 → 38 vans)" : `${count} Fly Express commission streams`} · ${included(channel) ? "Included" : "Excluded"}</p>
           <div class="segmented taxibee-inline-toggle" role="group" aria-label="Taxibee mode">
             <button type="button" data-review-tb-mode="vip-fleet" aria-pressed="${isVip}">VIP Fleet</button>
             <button type="button" data-review-tb-mode="fly-express" aria-pressed="${!isVip}">Fly Express</button>
@@ -1629,7 +1629,7 @@
                 <button type="button" data-scope-tb-mode="fly-express" aria-pressed="${!isVip}" ${guestMode || !on ? "disabled" : ""}>Fly Express</button>
               </div>
               ${isVip
-                ? `<p class="muted taxibee-module-note">${on ? "VIP Fleet UDB model rolled into consolidated statements." : "Turn Taxibee on to include VIP Fleet in consolidated statements."} <button type="button" class="text-button" data-open-taxibee="taxibee-dashboard">Open Taxibee model →</button></p>`
+                ? `<p class="muted taxibee-module-note">${on ? "VIP Fleet model rolled into consolidated statements." : "Turn Taxibee on to include VIP Fleet in consolidated statements."} <button type="button" class="text-button" data-open-taxibee="taxibee-dashboard">Open Taxibee model →</button></p>`
                 : parts.length ? `<details data-scope-details="${escape(key)}" ${expandedModules.has(key) ? "open" : ""}>
                   <summary>${count} of ${parts.length} ${on ? "included" : "selected"} (Fly Express)<span class="sr-only"> in ${escape(name)}</span></summary>
                   <div class="forecast-module-parts">${parts.map(part => `<div class="forecast-module-line">
@@ -1676,7 +1676,7 @@
       answers = { ...answers, ...readTaxibeeState(answers), taxibeeMode: nextMode };
       outcomes = null;
       scopeMessage = nextMode === "vip-fleet"
-        ? "Switched Taxibee to VIP Fleet (UDB model rolled into consolidated statements)."
+        ? "Switched Taxibee to VIP Fleet (rolled into consolidated statements)."
         : "Switched Taxibee to TaxiPress (Fly Express commission lines).";
       if (!save()) scopeMessage = "The forecast was updated for this session. Browser storage is unavailable.";
       render();
@@ -1974,7 +1974,7 @@
         onReset(applyReset) {
           confirmAction(
             "Reset Taxibee model defaults?",
-            "This restores the UDB zero-collateral capital structure, unit economics, Year 1 monthly ramp, 5-year scaling schedule, and credit stress scenarios to their baseline values.",
+            "This restores the fleet financing terms, unit economics, Year 1 monthly ramp, 5-year scaling schedule, and stress scenarios to their baseline values.",
             "Reset Taxibee defaults",
             applyReset
           );

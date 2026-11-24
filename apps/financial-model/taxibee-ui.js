@@ -27,13 +27,13 @@
   const fmtPct2 = value => value == null || !Number.isFinite(value) ? "—" : pct2Fmt.format(Math.abs(value) < 0.00005 ? 0 : value);
 
   const views = [
-    ["taxibee-dashboard", "Executive Dashboard", "3-Year vs 5-Year UDB financial dashboard, headline KPIs, and 5-year scaling performance."],
-    ["taxibee-assumptions", "Assumptions & Capital", "Editable zero-collateral capital structure, unit economics, 5-year fleet schedule, and live per-van breakeven check."],
+    ["taxibee-dashboard", "Executive Dashboard", "3-Year vs 5-Year financial dashboard, headline KPIs, and 5-year scaling performance."],
+    ["taxibee-assumptions", "Assumptions & Capital", "Editable capital structure, loan terms, unit economics, 5-year fleet schedule, and live per-van breakeven check."],
     ["taxibee-ramp", "Y1 Monthly Ramp", "Month-by-month Year 1 launch ramp, operating and cash-flow breakeven, and liquidity trough tracker."],
     ["taxibee-3y", "3-Year Model", "Version 1 integrated P&L, cash flow, balance sheet, DSCR, and conservative book-value DCF (2027–2029)."],
     ["taxibee-5y", "5-Year Model", "Version 2 integrated P&L, cash flow, balance sheet, DSCR, DCF, and Year 5 equity valuation (2027–2031)."],
-    ["taxibee-debt", "UDB Debt & DSCR", "UDB Women Prosper 6-year amortization schedule (12-month principal grace) and 1.50x DSCR covenant tracker."],
-    ["taxibee-stress", "Stress Tests & Gate", "Credit committee load, fare, and cost shocks comparing unconstrained cash flows against the UGX 100M CapEx gate."],
+    ["taxibee-debt", "Loan & DSCR", "Simple fleet loan schedule with manually adjustable interest rate, tenor, grace period, and DSCR coverage."],
+    ["taxibee-stress", "Stress Tests & Gate", "Load, fare, and cost shocks comparing unconstrained cash flows against the UGX 100M CapEx gate."],
   ];
 
   const viewSet = new Set(views.map(([id]) => id));
@@ -68,7 +68,7 @@
     const statusCopy = !channelOn
       ? "Taxibee channel is currently switched Off in Dashboard → Forecast modules."
       : mode === "vip-fleet"
-        ? "VIP Fleet (UDB Plan) is active and rolling fleet revenue, direct costs, driver payroll, van OpEx, CapEx, and UDB debt into Peebee’s consolidated statements."
+        ? "VIP Fleet is active and rolling fleet revenue, direct costs, driver payroll, van OpEx, CapEx, and fleet loan schedules into Peebee’s consolidated statements."
         : "TaxiPress (Fly Express) partner commission lines are active in Peebee’s consolidated statements. Switch to VIP Fleet to roll this owned-fleet model into consolidated reports.";
     return `<section class="panel taxibee-mode-bar" aria-label="Taxibee operating model switch">
       <div class="taxibee-mode-copy">
@@ -103,17 +103,17 @@
         <p class="muted taxibee-legend"><span><i class="taxibee-swatch-gold"></i>Total Revenue</span><span><i class="taxibee-swatch-ink"></i>EBITDA</span></p>
       </section>
       <section class="panel">
-        <h2>Ending Cash vs Remaining UDB Debt (UGX Millions)</h2>
+        <h2>Ending Cash vs Remaining Fleet Loan (UGX Millions)</h2>
         <div class="taxibee-bar-list">
           ${rows.map(r => `<div class="taxibee-bar-group">
-            <div class="taxibee-bar-head"><span>${r.calendarYear} · DSCR ${fmtX(r.dscr)}</span><strong>Cash ${fmtM(r.endCash)} · Debt ${fmtM(r.debt)}</strong></div>
+            <div class="taxibee-bar-head"><span>${r.calendarYear} · DSCR ${fmtX(r.dscr)}</span><strong>Cash ${fmtM(r.endCash)} · Loan ${fmtM(r.debt)}</strong></div>
             <div class="taxibee-bar-tracks">
               <div class="track" title="Ending Cash ${fmtM(r.endCash)}"><span class="bar" style="width:${Math.max(0, 100 * r.endCash / maxCashDebt).toFixed(1)}%"></span></div>
-              <div class="track" title="UDB Debt ${fmtM(r.debt)}"><span class="bar taxibee-bar-muted" style="width:${Math.max(0, 100 * r.debt / maxCashDebt).toFixed(1)}%"></span></div>
+              <div class="track" title="Loan Balance ${fmtM(r.debt)}"><span class="bar taxibee-bar-muted" style="width:${Math.max(0, 100 * r.debt / maxCashDebt).toFixed(1)}%"></span></div>
             </div>
           </div>`).join("")}
         </div>
-        <p class="muted taxibee-legend"><span><i class="taxibee-swatch-gold"></i>Ending Cash</span><span><i class="taxibee-swatch-muted"></i>Remaining UDB Debt</span></p>
+        <p class="muted taxibee-legend"><span><i class="taxibee-swatch-gold"></i>Ending Cash</span><span><i class="taxibee-swatch-muted"></i>Remaining Loan Balance</span></p>
       </section>
     </div>`;
   }
@@ -125,22 +125,22 @@
     const y1Margin = fmtPct1(m5.rows[0].ebitdaMargin);
     const y5Margin = fmtPct1(m5.rows[4].ebitdaMargin);
     const kpis = [
-      ["Blended UDB Financing (M0)", `UGX ${fmtM(model.capital.totalSources)}`, `Equity ${fmtM(p.udbEquity)} + Debt ${fmtM(p.udbLoan)} · Zero Founder Cash`],
+      ["Total Launch Financing (M0)", `UGX ${fmtM(model.capital.totalSources)}`, `Equity ${fmtM(p.udbEquity)} + Loan ${fmtM(p.udbLoan)} @ ${fmtPct1(p.loanRate)} p.a.`],
       ["5-Year Cumulative Revenue", `UGX ${fmtM(m5.totals.totalRevenue)}`, `Fleet scales ${p.initialVans} → ${m5.totals.endingVans} VIP vans`],
       ["5-Year Ending Cash", `UGX ${fmtM(m5.totals.endCash)}`, `Opening buffer ${fmtM(model.capital.m0CashBuffer)} · Y1 trough ${fmtM(model.ramp.troughCash)}`],
-      ["Minimum Annual DSCR", fmtX(m5.totals.minDscr), `UDB minimum covenant ${fmtX(p.minDscrCovenant)} · 5Y IRR ${fmtPct1(m5.valuation.projectIrr)}`],
+      ["Minimum Annual DSCR", fmtX(m5.totals.minDscr), `Target covenant ${fmtX(p.minDscrCovenant)} · 5Y IRR ${fmtPct1(m5.valuation.projectIrr)}`],
     ];
     const compareRows = [
       { label: "Ending Active VIP Fleet (Vans)", cells: [String(m3.totals.endingVans), String(m5.totals.endingVans), `Self-funded organic scale from ${p.initialVans}-van pilot`] },
       { label: "Cumulative Total Revenue (UGX)", cells: [fmtUgx(m3.totals.totalRevenue), fmtUgx(m5.totals.totalRevenue), "Kampala-Entebbe core + regional expansion Y4–Y5"], style: "total" },
       { label: "Cumulative EBITDA (UGX)", cells: [fmtUgx(m3.totals.ebitda), fmtUgx(m5.totals.ebitda), `Expands from ${y1Margin} (Y1) to ${y5Margin} (Y5) margin`], style: "total" },
-      { label: "Cumulative Net Profit After Tax (UGX)", cells: [fmtUgx(m3.totals.pat), fmtUgx(m5.totals.pat), `After ${fmtPct1(p.citRate)} statutory URA corporate income tax`] },
+      { label: "Cumulative Net Profit After Tax (UGX)", cells: [fmtUgx(m3.totals.pat), fmtUgx(m5.totals.pat), `After ${fmtPct1(p.citRate)} statutory corporate income tax`] },
       { label: "Ending Cash Balance (UGX)", cells: [fmtUgx(m3.totals.endCash), fmtUgx(m5.totals.endCash), `Opening M0 buffer: UGX ${fmtM(model.capital.m0CashBuffer)}; Trough: UGX ${fmtM(model.ramp.troughCash)}`] },
-      { label: "Remaining UDB Debt Balance (UGX)", cells: [fmtUgx(m3.totals.debt), fmtUgx(m5.totals.debt), `Initial UGX ${fmtM(p.udbLoan)}; fully retired in Year ${p.loanTenorYears} (${p.start.year + p.loanTenorYears - 1})`] },
-      { label: "Minimum Annual DSCR (x)", cells: [fmtX(m3.totals.minDscr), fmtX(m5.totals.minDscr), `Exceeds UDB minimum ${fmtX(p.minDscrCovenant)} covenant every year`], style: "total" },
-      { label: `Project NPV @ ${fmtPct1(p.udbDiscountRate)} UDB Rate (UGX)`, cells: [fmtUgx(m3.valuation.projectNpvUdb), fmtUgx(m5.valuation.projectNpvUdb), "Conservative book terminal value (no exit multiple)"] },
+      { label: "Remaining Fleet Loan Balance (UGX)", cells: [fmtUgx(m3.totals.debt), fmtUgx(m5.totals.debt), `Initial UGX ${fmtM(p.udbLoan)} @ ${fmtPct1(p.loanRate)}; retired in Year ${p.loanTenorYears} (${p.start.year + p.loanTenorYears - 1})`] },
+      { label: "Minimum Annual DSCR (x)", cells: [fmtX(m3.totals.minDscr), fmtX(m5.totals.minDscr), `Meets minimum ${fmtX(p.minDscrCovenant)} target every year`], style: "total" },
+      { label: `Project NPV @ ${fmtPct1(p.udbDiscountRate)} Discount Rate (UGX)`, cells: [fmtUgx(m3.valuation.projectNpvUdb), fmtUgx(m5.valuation.projectNpvUdb), "Conservative book terminal value (no exit multiple)"] },
       { label: "Project IRR (%)", cells: [fmtPct1(m3.valuation.projectIrr), fmtPct1(m5.valuation.projectIrr), "Strong capital efficiency on asset-backed fleet"] },
-      { label: `UDB ${fmtPct1(p.udbEquityStake)} Equity Value @ Y5 (${p.exitEbitdaMultiple.toFixed(1)}x EBITDA)`, cells: ["N/A (Hold)", fmtUgx(m5.valuation.udbStakeValueY5), `${dec1Fmt.format(m5.valuation.udbMoicY5 ?? 0)}x MOIC on UGX ${fmtM(p.udbEquity)} UDB minority equity`], style: "footer" },
+      { label: `Investor ${fmtPct1(p.udbEquityStake)} Equity Value @ Y5 (${p.exitEbitdaMultiple.toFixed(1)}x EBITDA)`, cells: ["N/A (Hold)", fmtUgx(m5.valuation.udbStakeValueY5), `${dec1Fmt.format(m5.valuation.udbMoicY5 ?? 0)}x MOIC on UGX ${fmtM(p.udbEquity)} equity`], style: "footer" },
     ];
     const perfRows = m5.rows.map(r => ({
       label: String(r.calendarYear),
@@ -158,12 +158,12 @@
         ${renderTable(escape, "Key Performance Metric", [
           `Version 1: 3-Year (${p.start.year}–${p.start.year + 2})`,
           `Version 2: 5-Year (${p.start.year}–${p.start.year + 4})`,
-          "DFI / UDB Benchmark",
+          "Benchmark / Notes",
         ], compareRows)}
       </section>
       <section class="panel">
         <h2>2. 5-Year Performance Summary Table (UGX Millions)</h2>
-        ${renderTable(escape, "Year", ["Vans", "Revenue (M)", "EBITDA (M)", "Net Profit (M)", "Ending Cash (M)", "UDB Debt (M)", "DSCR (x)"], perfRows)}
+        ${renderTable(escape, "Year", ["Vans", "Revenue (M)", "EBITDA (M)", "Net Profit (M)", "Ending Cash (M)", "Loan Balance (M)", "DSCR (x)"], perfRows)}
       </section>
       ${renderDashboardBars(escape, m5.rows)}`;
   }
@@ -195,37 +195,36 @@
 
     const sec1 = [
       configRow("Launch Start Month", "launchStart", "YYYY-MM", "Month 1 of Year 1 ramp (M0 financing occurs the prior month)", "month"),
-      configRow("UDB Women Prosper Asset Acquisition Loan", "udbLoan", "UGX", "100M–900M window; Wife >=52% shares, >=30% women mgmt, >=40% women staff"),
-      configRow("UDB Minority Equity Investment", "udbEquity", "UGX", "USD 100k min @ 4,200 UGX/USD; covers 10–20% debt equity match & WC"),
-      configRow("UDB Minority Equity Stake", "udbEquityStakePct", "%", "Ownership share for Y5 exit equity valuation and MOIC"),
-      configRow("Cash Grants (Conservative Base)", "cashGrants", "UGX", "UGX 0 assumed; UDB BASE used for free technical advisory"),
-      calcRow("Total Sources of Capital (M0)", fmtUgx(model.capital.totalSources), "UGX", "100% institutional blended financing; zero founder cash required"),
+      configRow("Fleet Asset Acquisition Loan", "udbLoan", "UGX", "Simple term loan used for fleet acquisition"),
+      configRow("Investor Equity Investment", "udbEquity", "UGX", "Equity contribution covering fleet match & working capital"),
+      configRow("Investor Equity Stake", "udbEquityStakePct", "%", "Ownership share for Y5 exit equity valuation and MOIC"),
+      configRow("Cash Grants (Conservative Base)", "cashGrants", "UGX", "Optional non-dilutive grant funding (default UGX 0)"),
+      calcRow("Total Sources of Capital (M0)", fmtUgx(model.capital.totalSources), "UGX", "Total launch financing (Loan + Equity + Grants)"),
       calcRow(`Initial Fleet CapEx (${p.initialVans} VIP Vans @ ${fmtM(p.unitVanCapex)})`, fmtUgx(model.capital.initialFleetCapex), "UGX", "High-roof Hiace + VIP refit + registration & stamp duty", "detail"),
-      configRow("App Upgrade CapEx (Scheduling & Pricing)", "appCapexM0", "UGX", "Fixed departure timetable, dynamic pricing, SIMPO IP registration"),
+      configRow("App Upgrade CapEx (Scheduling & Pricing)", "appCapexM0", "UGX", "Fixed departure timetable, dynamic pricing, IP registration"),
       configRow("Pre-Launch Incorporation & Licensing (Expensed M0)", "prelaunchExpense", "UGX", "URSB, URA, PDPO, KCCA, MoWT s.70A app auth, launch marketing"),
-      calcRow(`UDB Loan Appraisal Fee (${p.appraisalFeeRate * 100}% of Loan)`, fmtUgx(model.capital.appraisalFee), "UGX", "Statutory UDB upfront appraisal fee (expensed at M0)", "detail"),
+      calcRow(`Upfront Loan Appraisal Fee (${p.appraisalFeeRate * 100}% of Loan)`, fmtUgx(model.capital.appraisalFee), "UGX", "Upfront loan fee expensed at M0 (set to 0% if none)", "detail"),
       calcRow("Opening Working Capital Cash Buffer (M0)", fmtUgx(model.capital.m0CashBuffer), "UGX", `Absorbs Y1 launch trough (UGX ${fmtM(model.ramp.troughCash)} min in ${model.ramp.troughMonth})`, "footer"),
     ];
 
     const sec2 = [
       configRow("Initial Fleet Size (Year 1 Pilot)", "initialVans", "Vans", "Kampala-Entebbe VIP shuttle launch route", "number", "1"),
       configRow("Unit CapEx per Refitted 13-Seat VIP Van", "unitVanCapex", "UGX", "2018–2020 Hiace (140M) + 15.5M refit + transfer/reg/duty"),
-      configRow("UDB Loan Annual Interest Rate", "loanRatePct", "% p.a.", "UDB Women Prosper concessional rate (10%–12%)"),
-      configRow("UDB Loan Total Tenor", "loanTenorYears", "Years", "72 months total (up to 8 yrs eligible)", "number", "1"),
-      configRow("UDB Principal Grace Period", "loanGraceYears", "Years", "12 months interest-only during Year 1 ramp", "number", "1"),
-      configRow("UDB Appraisal Fee Rate", "appraisalFeePct", "%", "0.50% of loan principal"),
-      configRow("Van Forced-Sale Valuation Haircut", "forcedSalePct", "%", "80% forced-sale value of financed vans"),
-      calcRow("Vans Forced-Sale Collateral Value", fmtUgx(model.collateral.forcedSaleValue), "UGX", `Chattel mortgage value of ${p.initialVans} vans alone`),
-      calcRow("Van-Only Collateral Coverage of UDB Loan", fmtPct1(model.collateral.collateralCoverage), "%", "Exceeds 100% debt coverage without land"),
-      configRow("AGF / AFAWA Portfolio Guarantee Rate", "agfGuaranteePct", "%", "75% guarantee for women-led SMEs via UDB"),
-      calcRow("AGF / AFAWA Guarantee Value", fmtUgx(model.collateral.agfGuaranteeValue), "UGX", "Secondary institutional credit enhancement"),
+      configRow("Loan Annual Interest Rate", "loanRatePct", "% p.a.", "Manually adjustable annual interest rate", "number", "0.25"),
+      configRow("Loan Total Tenor", "loanTenorYears", "Years", "Total repayment period in years", "number", "1"),
+      configRow("Principal Grace Period", "loanGraceYears", "Years", "Interest-only years before principal amortization starts (0 for none)", "number", "1"),
+      configRow("Loan Appraisal Fee Rate", "appraisalFeePct", "%", "Upfront fee as % of loan principal (set to 0 if not applicable)", "number", "0.1"),
+      configRow("Minimum DSCR Target", "minDscrCovenant", "x", "Target Debt Service Coverage Ratio benchmark", "number", "0.1"),
+      configRow("Van Forced-Sale Valuation Haircut", "forcedSalePct", "%", "Estimated forced-sale value % of financed vans"),
+      calcRow("Vans Forced-Sale Collateral Value", fmtUgx(model.collateral.forcedSaleValue), "UGX", `Estimated asset value of ${p.initialVans} vans`),
+      calcRow("Van-Only Collateral Coverage of Loan", fmtPct1(model.collateral.collateralCoverage), "%", "Asset coverage ratio against loan principal"),
       configRow("Corporate Income Tax Rate (Uganda URA)", "citRatePct", "%", "Statutory CIT; passenger fares remain VAT-exempt"),
-      configRow("UDB Project Discount Rate (WACC / DFI)", "udbDiscountRatePct", "%", "Standard UDB DCF appraisal discount rate"),
-      configRow("Equity Hurdle Discount Rate", "equityHurdleRatePct", "%", "Private/DFI equity hurdle benchmark"),
+      configRow("Project Discount Rate (WACC)", "udbDiscountRatePct", "%", "Primary DCF appraisal discount rate"),
+      configRow("Equity Hurdle Discount Rate", "equityHurdleRatePct", "%", "Secondary equity hurdle benchmark"),
       configRow("Van Depreciation Useful Life (Straight-Line)", "vanLifeYears", "Years", "Book depreciation life for Hiace VIP fleet", "number", "1"),
       configRow("App / Tech Amortization Life (Straight-Line)", "techLifeYears", "Years", "Software & telematics capitalization life", "number", "1"),
       configRow("Year 5 Exit EBITDA Multiple", "exitEbitdaMultiple", "x", "Conservative 4.0x EBITDA multiple for Y5 equity valuation"),
-      configRow("CapEx-Gating Minimum Cash Buffer", "cashGateFloor", "UGX", "Minimum cash reserve covenant triggering CapEx gate under stress"),
+      configRow("CapEx-Gating Minimum Cash Buffer", "cashGateFloor", "UGX", "Minimum cash reserve rule triggering CapEx gate under stress"),
     ];
 
     const sec3 = [
@@ -302,15 +301,15 @@
 
     return `<section class="panel">
         <div class="review-section-head">
-          <h2>1. Capital Structure &amp; Financing Terms (Month 0 — Zero Founder Cash &amp; Zero Land Collateral)</h2>
+          <h2>1. Capital Structure &amp; Financing Terms (Month 0)</h2>
           ${!guestMode ? '<button type="button" class="button secondary small" id="taxibee-reset-defaults">Reset Taxibee defaults</button>' : ""}
         </div>
-        <p class="muted">Every input updates the Y1 Ramp, 3-Year, 5-Year, UDB Debt, Stress Tests, and Peebee consolidated statements dynamically.</p>
-        ${renderTable(escape, "Line Item", ["Value", "Units / %", "Notes & DFI Structuring Basis"], sec1)}
+        <p class="muted">Every input updates the Y1 Ramp, 3-Year, 5-Year, Loan &amp; DSCR, Stress Tests, and Peebee consolidated statements dynamically.</p>
+        ${renderTable(escape, "Line Item", ["Value", "Units / %", "Notes"], sec1)}
       </section>
       <section class="panel">
-        <h2>2. Asset, Debt &amp; Collateral Coverage Parameters</h2>
-        ${renderTable(escape, "Parameter", ["Value", "Units / %", "Notes & DFI Structuring Basis"], sec2)}
+        <h2>2. Asset, Loan &amp; Valuation Parameters</h2>
+        ${renderTable(escape, "Parameter", ["Value", "Units / %", "Notes"], sec2)}
       </section>
       <section class="panel">
         <h2>3. Operational Unit Economics Inputs (Per Van — Year 1 Base)</h2>
@@ -357,15 +356,15 @@
       { label: "Corporate Overhead", cells: [...r.months.map(m => fmtUgx(m.corpOverhead)), fmtUgx(r.totals.corpOverhead)], style: "detail" },
       { label: "Total Operating Expenses (OpEx)", cells: [...r.months.map(m => fmtUgx(m.totalOpex)), fmtUgx(r.totals.totalOpex)] },
       { label: "EBITDA (Operating Cash Flow)", cells: [...r.months.map(m => fmtUgx(m.ebitda)), fmtUgx(r.totals.ebitda)], style: "total" },
-      { label: `UDB Monthly Interest (${(model.inputs.loanRate * 100).toFixed(1)}% p.a. Grace)`, cells: [...r.months.map(m => fmtUgx(m.interest)), fmtUgx(r.totals.interest)] },
+      { label: `Monthly Loan Interest (${(model.inputs.loanRate * 100).toFixed(2).replace(/\.?0+$/, "")}% p.a.)`, cells: [...r.months.map(m => fmtUgx(m.interest)), fmtUgx(r.totals.interest)] },
       { label: "Monthly Net Cash Flow (Pre-Tax)", cells: [...r.months.map(m => fmtUgx(m.netCashFlow)), fmtUgx(r.totals.netCashFlow)], style: "total" },
       { label: "Ending Cash Balance (Pre-Tax)", cells: [...r.months.map(m => fmtUgx(m.endingCash)), fmtUgx(r.totals.endingCash)], style: "footer" },
     ];
     const maxCash = Math.max(1, model.capital.m0CashBuffer, ...r.months.map(m => Math.abs(m.endingCash)));
     return `<div class="metrics">
-        <div class="panel metric"><span>Opening M0 Cash Buffer</span><div class="metric-value"><strong>UGX ${fmtM(model.capital.m0CashBuffer)}</strong></div><small>Post-fleet, app, licensing &amp; appraisal</small></div>
+        <div class="panel metric"><span>Opening M0 Cash Buffer</span><div class="metric-value"><strong>UGX ${fmtM(model.capital.m0CashBuffer)}</strong></div><small>Post-fleet, app, licensing &amp; loan fee</small></div>
         <div class="panel metric"><span>Operating Breakeven</span><div class="metric-value"><strong>${escape(r.operatingBreakevenMonth ? `Month ${r.operatingBreakevenMonth.monthIndex} (${r.operatingBreakevenMonth.label})` : "Not reached")}</strong></div><small>First month with positive EBITDA</small></div>
-        <div class="panel metric"><span>Cash-Flow Breakeven</span><div class="metric-value"><strong>${escape(r.cashflowBreakevenMonth ? `Month ${r.cashflowBreakevenMonth.monthIndex} (${r.cashflowBreakevenMonth.label})` : "Not reached")}</strong></div><small>First month positive after UDB interest</small></div>
+        <div class="panel metric"><span>Cash-Flow Breakeven</span><div class="metric-value"><strong>${escape(r.cashflowBreakevenMonth ? `Month ${r.cashflowBreakevenMonth.monthIndex} (${r.cashflowBreakevenMonth.label})` : "Not reached")}</strong></div><small>First month positive after loan interest</small></div>
         <div class="panel metric"><span>Y1 Liquidity Trough</span><div class="metric-value"><strong>UGX ${fmtM(r.troughCash)}</strong></div><small>Lowest cash in ${escape(r.troughMonth)}</small></div>
       </div>
       <section class="panel">
@@ -406,7 +405,7 @@
       { label: "EBITDA Margin (%)", cells: [...rows.map(r => fmtPct1(r.ebitdaMargin)), fmtPct1(t.ebitdaMargin)], style: "detail" },
       { label: `Depreciation & Amortization (${p.vanLifeYears}-yr Vans / ${p.techLifeYears}-yr Tech)`, cells: [...rows.map(r => fmtUgx(r.da)), fmtUgx(t.da)] },
       { label: "Operating Profit (EBIT)", cells: [...rows.map(r => fmtUgx(r.ebit)), fmtUgx(t.ebit)], style: "total" },
-      { label: `Finance Costs (UDB ${(p.loanRate * 100).toFixed(1)}% Interest)`, cells: [...rows.map(r => fmtUgx(r.interest)), fmtUgx(t.interest)] },
+      { label: `Finance Costs (Loan ${(p.loanRate * 100).toFixed(2).replace(/\.?0+$/, "")}% Interest)`, cells: [...rows.map(r => fmtUgx(r.interest)), fmtUgx(t.interest)] },
       { label: "Earnings Before Tax (EBT)", cells: [...rows.map(r => fmtUgx(r.ebt)), fmtUgx(t.ebt)] },
       { label: `Corporate Income Tax (${(p.citRate * 100).toFixed(1)}%)`, cells: [...rows.map(r => fmtUgx(r.tax)), fmtUgx(t.tax)] },
       { label: "Net Profit After Tax (PAT)", cells: [...rows.map(r => fmtUgx(r.pat)), fmtUgx(t.pat)], style: "total" },
@@ -417,7 +416,7 @@
       { label: "(-) Change in Net Working Capital (Delta NWC)", cells: [...rows.map(r => fmtUgx(-r.deltaNwc)), fmtUgx(-t.deltaNwc)] },
       { label: "Net Cash from Operating Activities (CFO)", cells: [...rows.map(r => fmtUgx(r.cfo)), fmtUgx(t.cfo)], style: "total" },
       { label: "(-) Capital Expenditures (Expansion Vans & Tech)", cells: [...rows.map(r => fmtUgx(-r.totalCapex)), fmtUgx(-t.totalCapex)] },
-      { label: "(-) UDB Debt Principal Repayment", cells: [...rows.map(r => fmtUgx(-r.principal)), fmtUgx(-t.principal)] },
+      { label: "(-) Loan Principal Repayment", cells: [...rows.map(r => fmtUgx(-r.principal)), fmtUgx(-t.principal)] },
       { label: "Net Change in Cash", cells: [...rows.map(r => fmtUgx(r.netCashChange)), fmtUgx(t.netCashChange)] },
       { label: "Ending Cash Balance", cells: [...rows.map(r => fmtUgx(r.endCash)), fmtUgx(t.endCash)], style: "total" },
       { section: "D. Balance Sheet & Debt Coverage" },
@@ -427,8 +426,8 @@
       { label: "Intangible Assets (Net App & Tech)", cells: [...rows.map(r => fmtUgx(r.netTech)), fmtUgx(rows[h - 1].netTech)] },
       { label: "TOTAL ASSETS", cells: [...rows.map(r => fmtUgx(r.totalAssets)), fmtUgx(rows[h - 1].totalAssets)], style: "total" },
       { label: `Accounts Payable (${(p.apPct * 100).toFixed(1)}% of COGS + OpEx)`, cells: [...rows.map(r => fmtUgx(r.ap)), fmtUgx(rows[h - 1].ap)] },
-      { label: "UDB Women Prosper Debt Balance", cells: [...rows.map(r => fmtUgx(r.debt)), fmtUgx(t.debt)] },
-      { label: "Paid-In Share Capital (UDB Equity)", cells: [...rows.map(r => fmtUgx(r.paidInEquity)), fmtUgx(rows[h - 1].paidInEquity)] },
+      { label: "Fleet Loan Balance", cells: [...rows.map(r => fmtUgx(r.debt)), fmtUgx(t.debt)] },
+      { label: "Paid-In Share Capital (Investor Equity)", cells: [...rows.map(r => fmtUgx(r.paidInEquity)), fmtUgx(rows[h - 1].paidInEquity)] },
       { label: "Retained Earnings", cells: [...rows.map(r => fmtUgx(r.retained)), fmtUgx(rows[h - 1].retained)] },
       { label: "TOTAL LIABILITIES & EQUITY", cells: [...rows.map(r => fmtUgx(r.totalLiabilitiesAndEquity)), fmtUgx(rows[h - 1].totalLiabilitiesAndEquity)], style: "total" },
       { label: "Balance Sheet Check (Must Equal 0)", cells: [...rows.map(r => fmtUgx(Math.abs(r.bsCheck) < 1 ? 0 : r.bsCheck)), fmtUgx(Math.abs(rows[h - 1].bsCheck) < 1 ? 0 : rows[h - 1].bsCheck)] },
@@ -452,19 +451,22 @@
         ${renderTable(escape, "Unlevered Cash Flow Stream (UGX)", valCols, valRows)}
         <dl class="taxibee-dl">
           <div><dt>Conservative Book Terminal Value (Net PPE + Net Tech + NWC)</dt><dd>UGX ${fmtUgx(v.bookTerminalValue)}</dd></div>
-          <div><dt>${h}-Year Project NPV @ ${fmtPct1(p.udbDiscountRate)} (UDB Discount Rate)</dt><dd>UGX ${fmtUgx(v.projectNpvUdb)}</dd></div>
+          <div><dt>${h}-Year Project NPV @ ${fmtPct1(p.udbDiscountRate)} (Discount Rate)</dt><dd>UGX ${fmtUgx(v.projectNpvUdb)}</dd></div>
           <div><dt>${h}-Year Project NPV @ ${fmtPct1(p.equityHurdleRate)} (Equity Hurdle Rate)</dt><dd>UGX ${fmtUgx(v.projectNpvEquity)}</dd></div>
           <div><dt>${h}-Year Project IRR (%)</dt><dd>${fmtPct1(v.projectIrr)}</dd></div>
           ${h === 5 ? `<div><dt>Year 5 Enterprise Value (Conservative ${p.exitEbitdaMultiple.toFixed(1)}x EBITDA)</dt><dd>UGX ${fmtUgx(v.enterpriseValueY5)}</dd></div>
             <div><dt>Year 5 Equity Value (EV − Debt + Cash)</dt><dd>UGX ${fmtUgx(v.equityValueY5)}</dd></div>
-            <div><dt>UDB ${fmtPct1(p.udbEquityStake)} Equity Stake Value at Year 5 (UGX)</dt><dd>UGX ${fmtUgx(v.udbStakeValueY5)}</dd></div>
-            <div><dt>UDB Equity Return Multiple (MOIC on UGX ${fmtM(p.udbEquity)})</dt><dd>${dec1Fmt.format(v.udbMoicY5 ?? 0)}x</dd></div>` : ""}
+            <div><dt>Investor ${fmtPct1(p.udbEquityStake)} Equity Stake Value at Year 5 (UGX)</dt><dd>UGX ${fmtUgx(v.udbStakeValueY5)}</dd></div>
+            <div><dt>Equity Return Multiple (MOIC on UGX ${fmtM(p.udbEquity)})</dt><dd>${dec1Fmt.format(v.udbMoicY5 ?? 0)}x</dd></div>` : ""}
         </dl>
       </section>`;
   }
 
-  function renderDebt(escape, model) {
+  function renderDebt(escape, model, answers, guestMode) {
     const p = model.inputs;
+    const cfg = readState(answers).taxibeeConfig[0];
+    const ro = guestMode ? "disabled" : "";
+    const rateLabel = `${(p.loanRate * 100).toFixed(2).replace(/\.?0+$/, "")}%`;
     const debtRows = [
       ...model.debtSchedule.map(r => ({
         label: `Year ${r.loanYear}`,
@@ -485,22 +487,41 @@
         fmtUgx(r.debtService),
         fmtX(r.dscr),
         fmtX(r.minCovenant),
-        { html: `<span class="taxibee-badge ${r.compliant ? "pass" : "warn"}">${r.compliant ? "COMPLIANT" : "BREACH"}</span>` },
+        { html: `<span class="taxibee-badge ${r.compliant ? "pass" : "warn"}">${r.compliant ? "COMPLIANT" : "BELOW TARGET"}</span>` },
       ],
     }));
+    const loanInput = (label, key, unit, step = "any") => `<label class="taxibee-ramp-cell">
+      <span>${escape(label)}</span>
+      <div class="field-box taxibee-input-box compact">
+        <input type="number" step="${step}" min="0" data-tb-config="${escape(key)}" value="${escape(cfg[key])}" ${ro}>
+        ${unit ? `<span>${escape(unit)}</span>` : ""}
+      </div>
+    </label>`;
     return `<div class="metrics">
-        <div class="panel metric"><span>UDB Loan Principal</span><div class="metric-value"><strong>UGX ${fmtM(p.udbLoan)}</strong></div><small>${fmtPct1(p.loanRate)} p.a. · ${p.loanTenorYears}-Year tenor</small></div>
-        <div class="panel metric"><span>Principal Grace Period</span><div class="metric-value"><strong>${p.loanGraceYears * 12} Months</strong></div><small>Interest-only during Y1 ramp</small></div>
-        <div class="panel metric"><span>Van Collateral Coverage</span><div class="metric-value"><strong>${fmtPct1(model.collateral.collateralCoverage)}</strong></div><small>UGX ${fmtM(model.collateral.forcedSaleValue)} forced-sale value</small></div>
-        <div class="panel metric"><span>AGF / AFAWA Guarantee</span><div class="metric-value"><strong>UGX ${fmtM(model.collateral.agfGuaranteeValue)}</strong></div><small>${fmtPct1(p.agfGuaranteeRate)} women-led SME credit enhancement</small></div>
+        <div class="panel metric"><span>Loan Principal</span><div class="metric-value"><strong>UGX ${fmtM(p.udbLoan)}</strong></div><small>${escape(rateLabel)} p.a. · ${p.loanTenorYears}-Year tenor</small></div>
+        <div class="panel metric"><span>Total Interest (${p.loanTenorYears} Yrs)</span><div class="metric-value"><strong>UGX ${fmtM(model.debtTotals.interest)}</strong></div><small>Updates live as you adjust the interest rate</small></div>
+        <div class="panel metric"><span>Principal Grace Period</span><div class="metric-value"><strong>${p.loanGraceYears * 12} Months</strong></div><small>${p.loanGraceYears > 0 ? "Interest-only during initial ramp" : "Principal starts Year 1"}</small></div>
+        <div class="panel metric"><span>Van Collateral Coverage</span><div class="metric-value"><strong>${fmtPct1(model.collateral.collateralCoverage)}</strong></div><small>UGX ${fmtM(model.collateral.forcedSaleValue)} estimated van value</small></div>
       </div>
       <section class="panel">
-        <h2>1. Annual Debt Service Schedule (${p.start.year} – ${p.start.year + p.loanTenorYears - 1})</h2>
-        ${renderTable(escape, "Loan Year", ["Calendar Year", "Opening Balance (UGX)", `Interest @ ${fmtPct1(p.loanRate)} (UGX)`, "Principal Repayment (UGX)", "Total Debt Service (UGX)", "Closing Balance (UGX)", "Payment Phase"], debtRows)}
+        <h2>Simple Loan Terms (Adjustable)</h2>
+        <p class="muted">Adjust the loan principal, annual interest rate, tenor, or grace period below to immediately recalculate interest expense, debt service, DSCR, cash flow, and consolidated Peebee statements.</p>
+        <div class="taxibee-loan-grid">
+          ${loanInput("Loan Principal", "udbLoan", "UGX", "1000000")}
+          ${loanInput("Annual Interest Rate", "loanRatePct", "% p.a.", "0.25")}
+          ${loanInput("Loan Tenor", "loanTenorYears", "Years", "1")}
+          ${loanInput("Grace Period", "loanGraceYears", "Years", "1")}
+          ${loanInput("Upfront Fee", "appraisalFeePct", "%", "0.1")}
+          ${loanInput("Min DSCR Target", "minDscrCovenant", "x", "0.1")}
+        </div>
       </section>
       <section class="panel">
-        <h2>2. UDB DSCR Covenant Compliance Summary (Minimum Benchmark: ${fmtX(p.minDscrCovenant)})</h2>
-        ${renderTable(escape, "Loan Year", ["Calendar Year", "EBITDA (UGX)", "CFADS (UGX)", "Total Debt Service (UGX)", "Projected DSCR", "UDB Min DSCR", "Covenant Status"], dscrRows)}
+        <h2>1. Annual Loan Repayment Schedule (${p.start.year} – ${p.start.year + p.loanTenorYears - 1})</h2>
+        ${renderTable(escape, "Loan Year", ["Calendar Year", "Opening Balance (UGX)", `Interest @ ${rateLabel} (UGX)`, "Principal Repayment (UGX)", "Total Debt Service (UGX)", "Closing Balance (UGX)", "Payment Phase"], debtRows)}
+      </section>
+      <section class="panel">
+        <h2>2. Debt Service Coverage Ratio (DSCR) Summary (Target: ${fmtX(p.minDscrCovenant)})</h2>
+        ${renderTable(escape, "Loan Year", ["Calendar Year", "EBITDA (UGX)", "CFADS (UGX)", "Total Debt Service (UGX)", "Projected DSCR", "Target DSCR", "Status"], dscrRows)}
       </section>`;
   }
 
@@ -584,7 +605,7 @@
       { label: "Cumulative EBITDA (UGX)", cells: [fmtUgx(m3.totals.ebitda), fmtUgx(m5.totals.ebitda), `${fmtPct1(m5.totals.ebitdaMargin)} margin before unallocated corporate overhead`], style: "total" },
       { label: "Cumulative Net Profit After Tax (UGX)", cells: [fmtUgx(m3.totals.pat), fmtUgx(m5.totals.pat), `After ${fmtPct1(fly.taxRate)} corporate income tax`] },
       { label: "Cumulative Cash Contribution (UGX)", cells: [fmtUgx(m3.totals.endCash), fmtUgx(m5.totals.endCash), "Zero vehicle CapEx or fleet maintenance drain"], style: "total" },
-      { label: "Fleet CapEx & UDB Debt", cells: ["UGX 0", "UGX 0", "Vehicles owned & maintained by partner operators"] },
+      { label: "Fleet CapEx & Fleet Loan", cells: ["UGX 0", "UGX 0", "Vehicles owned & maintained by partner operators"] },
       { label: "Project NPV @ 12.0% (UGX)", cells: [fmtUgx(m3.valuation.npv12), fmtUgx(m5.valuation.npv12), "Discounted unlevered commission cash flows"], style: "footer" },
     ];
     const perfRows = m5.rows.map(r => ({
@@ -688,7 +709,7 @@
         <h2>Capital Structure · Asset-Light Partner Basis</h2>
         <dl class="taxibee-dl">
           <div><dt>Vehicle Ownership</dt><dd>Partner-owned fleet (Fly Express operators)</dd></div>
-          <div><dt>Fleet CapEx &amp; UDB Loan Required</dt><dd>UGX 0</dd></div>
+          <div><dt>Fleet CapEx &amp; Fleet Loan Required</dt><dd>UGX 0</dd></div>
           <div><dt>Corporate Income Tax Rate (from Peebee Model)</dt><dd>${fmtPct1(fly.taxRate)}</dd></div>
           <div><dt>Admin Live Fee Sync</dt><dd>Supported via Model → Admin defaults &amp; Settings → Live Admin data</dd></div>
         </dl>
@@ -773,7 +794,7 @@
     ];
     return `<section class="panel">
         <h2>TaxiPress · Fly Express ${h}-Year Financial Model (${fly.start.year} – ${fly.start.year + h - 1})</h2>
-        <p class="muted">Asset-light partner commission model · Zero fleet CapEx · Zero UDB debt · Currency: UGX.</p>
+        <p class="muted">Asset-light partner commission model · Zero fleet CapEx · Zero fleet loan · Currency: UGX.</p>
         ${renderTable(escape, "Financial Line Item (UGX)", cols, tableRows)}
       </section>
       <section class="panel">
@@ -787,15 +808,15 @@
 
   function renderFlyDebt(escape, guestMode) {
     return `<div class="metrics">
-        <div class="panel metric"><span>Fleet Debt Balance</span><div class="metric-value"><strong>UGX 0</strong></div><small>No UDB vehicle acquisition loan required</small></div>
+        <div class="panel metric"><span>Fleet Loan Balance</span><div class="metric-value"><strong>UGX 0</strong></div><small>No vehicle acquisition loan required</small></div>
         <div class="panel metric"><span>Annual Debt Service</span><div class="metric-value"><strong>UGX 0</strong></div><small>Zero interest or principal burden</small></div>
         <div class="panel metric"><span>Collateral Required</span><div class="metric-value"><strong>None</strong></div><small>Partner operators own &amp; insure vehicles</small></div>
-        <div class="panel metric"><span>DSCR Covenant</span><div class="metric-value"><strong>N/A</strong></div><small>Debt-free commission structure</small></div>
+        <div class="panel metric"><span>DSCR Target</span><div class="metric-value"><strong>N/A</strong></div><small>Debt-free commission structure</small></div>
       </div>
       <section class="panel">
-        <h2>No Fleet Debt Under TaxiPress · Fly Express Mode</h2>
-        <p class="muted">In Fly Express partner-commission mode, Peebee earns digital seat commissions, cash seat commissions, and seat-choice fees on third-party vehicles without taking on vehicle CapEx or the UGX 550.0M UDB Women Prosper asset loan.</p>
-        ${!guestMode ? '<button type="button" class="button gold" data-taxibee-mode="vip-fleet">Switch to Taxibee · VIP Fleet to view UDB 6-Year Loan &amp; DSCR →</button>' : ""}
+        <h2>No Fleet Loan Under TaxiPress · Fly Express Mode</h2>
+        <p class="muted">In Fly Express partner-commission mode, Peebee earns digital seat commissions, cash seat commissions, and seat-choice fees on third-party vehicles without taking on vehicle CapEx or a fleet loan.</p>
+        ${!guestMode ? '<button type="button" class="button gold" data-taxibee-mode="vip-fleet">Switch to Taxibee · VIP Fleet to view Fleet Loan &amp; DSCR →</button>' : ""}
       </section>`;
   }
 
@@ -841,14 +862,14 @@
       else if (viewId === "taxibee-ramp") body = renderRamp(escape, model);
       else if (viewId === "taxibee-3y") body = renderIntegratedModel(escape, model, model.model3y);
       else if (viewId === "taxibee-5y") body = renderIntegratedModel(escape, model, model.model5y);
-      else if (viewId === "taxibee-debt") body = renderDebt(escape, model);
+      else if (viewId === "taxibee-debt") body = renderDebt(escape, model, answers, guestMode);
       else if (viewId === "taxibee-stress") body = renderStress(escape, model, answers, guestMode);
     }
 
     const headingTitle = isFly ? `TaxiPress (Fly Express) · ${title}` : `Taxibee (VIP Fleet) · ${title}`;
     const headingSub = isFly
-      ? `TAXIPRESS · FLY EXPRESS PARTNER COMMISSION MODEL · ${fly.activeStreams.length} Active Streams · Asset-Light (UGX 0 Fleet Debt)`
-      : `TAXIBEE (PEEBEE GROUP LTD) · Launch ${model.inputs.raw.taxibeeConfig[0].launchStart} · Blended UDB Financing UGX ${fmtM(model.capital.totalSources)} (${fmtM(model.inputs.udbEquity)} Equity + ${fmtM(model.inputs.udbLoan)} Debt) · ${description}`;
+      ? `TAXIPRESS · FLY EXPRESS PARTNER COMMISSION MODEL · ${fly.activeStreams.length} Active Streams · Asset-Light (UGX 0 Fleet Loan)`
+      : `TAXIBEE (PEEBEE GROUP LTD) · Launch ${model.inputs.raw.taxibeeConfig[0].launchStart} · Launch Financing UGX ${fmtM(model.capital.totalSources)} (${fmtM(model.inputs.udbEquity)} Equity + ${fmtM(model.inputs.udbLoan)} Loan @ ${(model.inputs.loanRate * 100).toFixed(2).replace(/\.?0+$/, "")}% p.a.) · ${description}`;
 
     app.innerHTML = `<div class="taxibee-root"><header class="workbook-sheet-heading">
         <h1 id="workbook-sheet-title" tabindex="-1">${escape(headingTitle)}</h1>
