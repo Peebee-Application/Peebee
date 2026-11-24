@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { installCustomerFeatures } from './customer-features';
 import { installCustomerAuth } from './customer-auth';
 import { installSeatSelection } from './seat-selection';
+import { installParcelCharter } from './parcel-charter';
 import {installReturnPackages} from './return-packages';
 import {installTravelCredit} from './travel-credit';
 
@@ -34,6 +35,7 @@ let features: ReturnType<typeof installCustomerFeatures> | undefined;
 let account: ReturnType<typeof installCustomerAuth> | undefined;
 let booting = true;
 let seating: ReturnType<typeof installSeatSelection> | undefined;
+let services: ReturnType<typeof installParcelCharter> | undefined;
 let returnPackages:ReturnType<typeof installReturnPackages>|undefined;
 let travelCredit:ReturnType<typeof installTravelCredit>|undefined;
 const original = Object.fromEntries(['renderAuth', 'renderHome', 'renderBook', 'renderCurrentScreen', 'navigate', 'renderWallet', 'renderProfile', 'renderDigitalTicketCard', 'getTicketsData', 'confirmBooking', 'renderTracking'].map(k => [k, ui[k]]));
@@ -73,6 +75,7 @@ function clearSession(discardDraft = true) {
   ++sessionVersion; loading = false;
   features?.reset();
   seating?.reset();
+  services?.reset(discardDraft);
   returnPackages?.reset();
   travelCredit?.reset();
   user = null; bookings = []; wallet = null; selectedBooking = null; pendingOrder = null; pendingPayment = null;
@@ -391,6 +394,7 @@ if (!preview) account = installCustomerAuth({
 });
 if (!preview) seating = installSeatSelection({ ui,api,user: () => user,quantity: () => ui.passengerTotal(),
   requestLogin: screen => account?.open(screen),remember: () => account?.rememberBooking() });
+if (!preview) services = installParcelCharter({ui,api,user:()=>user,token:()=>sessionStorage.getItem(TOKEN)||localStorage.getItem(TOKEN),login:screen=>account?.open(screen)});
 if(!preview)returnPackages=installReturnPackages({ui,api,user:()=>user,config:()=>config,trips:()=>trips,bookings:()=>bookings,selected:()=>selectedBooking,
   input:bookingInput,prepareSeats:async()=>seating?.prepare(),refresh,select:b=>{selectedBooking=b;},requestLogin:s=>account?.open(s),clearDraft:()=>{account?.clearDraft();seating?.consumed();},sponsor:{options:()=>travelCredit?.options()||'',fields:()=>travelCredit?.fields()||'',review:async(id,method)=>{await travelCredit?.review(id,method);}}});
 if(!preview)travelCredit=installTravelCredit({ui,api,user:()=>user,complete:async orderId=>{
@@ -436,6 +440,7 @@ document.addEventListener('click', async event => {
   }
   if (preview) return;
   const block = () => { event.preventDefault(); event.stopImmediatePropagation(); };
+  if(action.startsWith('svc-')) return;
   if (action === 'open-demo-panel') { block(); account?.rememberBooking(); location.assign('/?preview=1'); return; }
   if (['select-route-card', 'select-route-card-step', 'book-searched-route', 'flip-route-direction', 'swap-home-route', 'swap-route'].includes(action)) {
     block();
@@ -468,7 +473,7 @@ document.addEventListener('click', async event => {
     state.passengerDetails[0] = { ...state.passengerDetails[0], name: state.isBookingForSomeoneElse ? state.otherTravelerName : user?.name, phone: state.isBookingForSomeoneElse ? state.otherTravelerPhone : user?.phone };
     ui.renderCurrentScreen(); return;
   }
-  const safeScreens = new Set(['home', 'book', 'available-vans', 'trip-details', 'passengers', 'returns', 'luggage', 'checkout', 'success', 'ticket', 'tickets', 'trips', 'wallet', 'profile', 'about', 'support', 'notifications', 'tracking', 'live', 'search-results']);
+  const safeScreens = new Set(['home', 'book', 'available-vans', 'trip-details', 'passengers', 'returns', 'luggage', 'checkout', 'success', 'ticket', 'tickets', 'trips', 'wallet', 'profile', 'about', 'support', 'notifications', 'tracking', 'live', 'search-results','parcel','parcel-receipt','trackparcel','trackparcel-list','parcel-status','special-hire']);
   if (screen && !safeScreens.has(screen.dataset.screen || '')) {
     block(); ui.toast('This service is available in the Peebee customer app.', 'info');
     ui.openModal('Continue in Peebee', '<p>Use your same Peebee account for this service.</p>', '<a class="button button--primary" href="https://app.peebee.online/ride">Open Peebee</a>'); return;

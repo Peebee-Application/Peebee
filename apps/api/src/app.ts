@@ -35,6 +35,7 @@ import { orderRoutes } from "./orders/routes.js";
 import { relayRoutes } from "./relay/routes.js";
 import { publicTaxipressRoutes, taxipressRoutes } from "./taxipress/routes.js";
 import {travelCreditRoutes} from './travel-credit/routes.js';
+import { taxibeeServiceRoutes } from './taxibee/services.js';
 import { ticketCodeRoutes } from "./taxipress/ticket-share.js";
 import { relayStationRoutes } from "./relay/station-routes.js";
 import { paymentRoutes } from "./payments/routes.js";
@@ -323,6 +324,7 @@ app.route("/v1/trips", tripRoutes);
 // Public ticket page for a Taxipress ticket code (a traveller with no smartphone, or not on Peebee) — also before the sign-in routers.
 app.route("/v1/taxipress-ticket", ticketCodeRoutes);
 app.route("/v1", publicTaxipressRoutes);
+app.route('/v1',taxibeeServiceRoutes);
 // Visitor chat authenticates with its own capability; staff routes have explicit guards.
 app.route("/v1", supportChatRoutes);
 app.route("/v1/gas", relayStationRoutes);

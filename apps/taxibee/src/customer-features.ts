@@ -149,7 +149,7 @@ export function installCustomerFeatures(c: Context) {
   ui.navigate = (screen: string, ...args: any[]) => {
     if (poll) clearTimeout(poll);
     ++epoch; loaded = ''; loadError = ''; profile = null; tracking = null; messages = [];
-    const supported = new Set(['home', 'book', 'available-vans', 'trip-details', 'passengers', 'returns', 'luggage', 'checkout', 'success', 'ticket', 'tickets', 'trips', 'wallet', 'profile', 'about', 'search-results', ...featureScreens]);
+    const supported = new Set(['home', 'book', 'available-vans', 'trip-details', 'passengers', 'returns', 'luggage', 'checkout', 'success', 'ticket', 'tickets', 'trips', 'wallet', 'profile', 'about', 'search-results','parcel','parcel-receipt','trackparcel','trackparcel-list','parcel-status','special-hire', ...featureScreens]);
     if (!supported.has(screen)) {
       originalNavigate('home');
       ui.openModal('Continue in Peebee', '<p>This service is not connected in live Taxibee yet. Use your Peebee account in the customer app, or try the sample flow in practice mode.</p>', '<a class="button button--primary" href="https://app.peebee.online/ride">Open Peebee</a><a class="button button--ghost" href="/?preview=1">Practice mode</a>'); return;
