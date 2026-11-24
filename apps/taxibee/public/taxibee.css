@@ -24,6 +24,9 @@ body.taxibee-preview { padding-bottom: 32px; }
 .seat-brand-back { position:absolute; z-index:1; left:16%; top:92.7%; width:68%; height:2.6%; border-radius:25%; background:#1a1a1a; color:#c9a227; display:grid; place-items:center; font-size:clamp(9px,2.5vw,15px); font-weight:850; letter-spacing:.15em; }
 .seat-brand-stripe { position:absolute; z-index:1; left:28.8%; top:4.5%; width:2.2%; height:8.5%; background:#1a1a1a; }
 
+/* Live startup waits for current service data; keep the splash still while it loads. */
+.splash-screen .logo-frame--large { animation: none !important; }
+
 /* Keep connected account/support controls reachable within the existing modal layout. */
 .account-tools-dialog { overflow-wrap: anywhere; }
 .account-tools-dialog .modal__foot { flex-wrap: wrap; justify-content: flex-start; }
@@ -61,6 +64,11 @@ body.taxibee-preview { padding-bottom: 32px; }
   #mobile-nav.mobile-nav {
     position: fixed !important;
     inset: auto 0 0 !important;
+    inline-size: 100% !important;
+    width: 100% !important;
+    max-inline-size: 100% !important;
+    max-width: 100% !important;
+    transform: none !important;
     z-index: 50 !important;
     display: block !important;
     height: calc(90px + var(--safe-bottom)) !important;

@@ -1,12 +1,12 @@
 // Taxibee app-shell and push worker. It deliberately never caches API, account,
 // booking, ticket, payment, or attachment responses.
-const SHELL_CACHE = "taxibee-shell-v1";
+const SHELL_CACHE = "taxibee-shell-v2";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
   "/manifest.json",
   "/offline.html",
-  "/styles.css?v=355",
+  "/styles.css?v=356",
   "/taxibee.css",
   "/customer-auth.css",
   "/customer-auth-adapter.css",
