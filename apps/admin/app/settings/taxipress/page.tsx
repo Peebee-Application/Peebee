@@ -12,7 +12,7 @@ import { Badge, ErrorNote, Field, inputCls, ugx } from "../../../components/work
 import { api, errorMessage } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth-context";
 
-type Tab = "settings" | "routes" | "taxis" | "line" | "money";
+type Tab = "settings" | "routes" | "taxis" | "departures" | "line" | "money";
 const digits = (v: string) => v.replace(/[^\d]/g, "");
 const decimal = (v: string) => v.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
 const smallBtn = "min-h-9 rounded-full px-3 text-xs font-bold";
@@ -45,15 +45,58 @@ export default function TaxipressPage() {
           </p>
           <Link href="/settings/travel-credit" className="text-sm font-bold text-gold underline">Corporate credit & funded travel vouchers</Link>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {([["settings", "Settings"], ["routes", "Routes"], ["taxis", "Taxis"], ["line", "The line"], ["money", "Money"]] as [Tab, string][]).map(([id, text]) => (
+            {([["settings", "Settings"], ["routes", "Routes"], ["taxis", "Taxis"], ["departures", "Departures"], ["line", "The line"], ["money", "Money"]] as [Tab, string][]).map(([id, text]) => (
               <button key={id} type="button" onClick={() => setTab(id)} className={`${smallBtn} shrink-0 ${tab === id ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>{text}</button>
             ))}
           </div>
-          {tab === "settings" ? <SettingsTab /> : tab === "routes" ? <RoutesTab /> : tab === "taxis" ? <TaxisTab /> : tab === "line" ? <LineTab /> : <MoneyTab />}
+          {tab === "settings" ? <SettingsTab /> : tab === "routes" ? <RoutesTab /> : tab === "taxis" ? <TaxisTab /> : tab === "departures" ? <DeparturesTab /> : tab === "line" ? <LineTab /> : <MoneyTab />}
         </>
       )}
     </SettingsPageShell>
   );
+}
+
+function DeparturesTab() {
+  const [data, setData] = useState<{ departures: Record<string, any>[]; taxis: Record<string, any>[]; routes: Record<string, any>[]; ready: boolean } | null>(null);
+  const [routeId, setRouteId] = useState("");
+  const [taxiId, setTaxiId] = useState("");
+  const [departsAt, setDepartsAt] = useState("");
+  const [capacity, setCapacity] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  useEffect(() => { api.adminGetTaxipressDepartures().then(setData).catch(e => setError(errorMessage(e))); }, [version]);
+  async function create(e: React.FormEvent) {
+    e.preventDefault(); setBusy(true); setError(null);
+    try {
+      await api.adminCreateTaxipressDeparture({ routeId, taxiId, departsAt: new Date(departsAt).toISOString(), ...(capacity ? { capacity: Number(capacity) } : {}) });
+      setDepartsAt(""); setCapacity(""); setVersion(v => v + 1);
+    } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  }
+  async function cancel(id: string) {
+    if(!window.confirm("Cancel this published departure? Any collected customer payment will be refunded to their Peebee wallet.")) return;
+    setBusy(true); setError(null);
+    try { await api.adminCancelTaxipressDeparture(id); setVersion(v => v + 1); }
+    catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  }
+  if (!data) return <p className="text-sm text-ink-500">Loading future departures…</p>;
+  const selectedTaxi = data.taxis.find(t => t.id === taxiId);
+  return <section className="space-y-4">
+    {!data.ready ? <p className="rounded-2xl bg-gold/15 p-3 text-xs text-ink">Apply migration <b>0172_taxipress_scheduled_departures.sql</b> before publishing departures.</p> : null}
+    <p className="text-xs text-ink-500">Create a published trip on an approved taxi. Fare and route are copied from the active Taxipress route when published.</p>
+    <form onSubmit={create} className="grid gap-3 rounded-2xl border border-ink/10 p-4 md:grid-cols-2">
+      <Field label="Route"><select required value={routeId} onChange={e => setRouteId(e.target.value)} className={inputCls}><option value="">Choose route</option>{data.routes.map(r => <option key={r.id} value={r.id}>{r.direction === "a_to_b" ? r.stage_a_name + " → " + r.stage_b_name : r.stage_b_name + " → " + r.stage_a_name} · UGX {Number(r.fare_per_seat).toLocaleString()}</option>)}</select></Field>
+      <Field label="Approved taxi"><select required value={taxiId} onChange={e => setTaxiId(e.target.value)} className={inputCls}><option value="">Choose taxi</option>{data.taxis.map(t => <option key={t.id} value={t.id}>{t.plate} · {t.seats} seats</option>)}</select></Field>
+      <Field label="Departure date and time (your local time)"><input required type="datetime-local" value={departsAt} onChange={e => setDepartsAt(e.target.value)} className={inputCls} /></Field>
+      <Field label={`Capacity${selectedTaxi ? ` (max ${selectedTaxi.seats})` : ""}`}><input type="number" min={1} max={selectedTaxi?.seats ?? 18} value={capacity} onChange={e => setCapacity(e.target.value)} placeholder="Use all taxi seats" className={inputCls} /></Field>
+      <button disabled={busy || !data.ready} className="min-h-10 rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-50">Publish departure</button>
+      {error ? <ErrorNote message={error} /> : null}
+    </form>
+    <div className="space-y-2">{data.departures.map(d => <article key={d.id} className="rounded-2xl border border-ink/10 p-4 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><b>{d.direction === "a_to_b" ? d.stage_a_name + " → " + d.stage_b_name : d.stage_b_name + " → " + d.stage_a_name}</b><p>{d.plate} · {new Date(String(d.departs_at).replace(" ", "T") + (String(d.departs_at).endsWith("Z") ? "" : "Z")).toLocaleString("en-UG", { timeZone: "Africa/Kampala", dateStyle: "medium", timeStyle: "short" })} · {d.seats_reserved}/{d.capacity} seats · UGX {Number(d.fare_per_seat).toLocaleString()} · {d.state}</p></div>
+        {d.state === "published" ? <button type="button" disabled={busy} onClick={() => void cancel(String(d.id))} className={`${smallBtn} bg-gold/15 text-ink`}>{Number(d.seats_reserved)>0?"Cancel & refund":"Cancel slot"}</button> : null}</div>
+    </article>)}{data.departures.length === 0 ? <p className="text-sm text-ink-500">No departures have been published.</p> : null}</div>
+  </section>;
 }
 
 function SettingsTab() {
@@ -80,6 +123,10 @@ function SettingsTab() {
       waitMinutes: String(next.waitMinutes), stageRadiusM: String(next.stageRadiusM),
       payWithinMinutes: String(next.payWithinMinutes), maxCashBookings: String(next.maxCashBookings),
       freeCancelMinutes: String(next.freeCancelMinutes), cancelRetentionPercent: String(next.cancelRetentionPercent),
+      scheduleMaxAdvanceDays: String(next.scheduleMaxAdvanceDays), scheduleMinLeadMinutes: String(next.scheduleMinLeadMinutes),
+      scheduleBookingCutoffMinutes: String(next.scheduleBookingCutoffMinutes), scheduleCheckinMinutes: String(next.scheduleCheckinMinutes),
+      scheduleGraceMinutes: String(next.scheduleGraceMinutes), scheduleSpacingMinutes: String(next.scheduleSpacingMinutes),
+      scheduleFreeCancelMinutes: String(next.scheduleFreeCancelMinutes), scheduleCancelRetentionPercent: String(next.scheduleCancelRetentionPercent),
       noShowMinutes: String(next.noShowMinutes), noShowFeePercent: String(next.noShowFeePercent),
       childSeatFarePercent: String(next.childSeatFarePercent), openTicketValidityDays: String(next.openTicketValidityDays), openTicketRefundPercent: String(next.openTicketRefundPercent), luggageOptionsShown: String(next.luggageOptionsShown),
       ...Object.fromEntries(TAXIPRESS_LUGGAGE_TYPES.map((t) => [`luggage_${t}`, next.luggagePrices[t] == null ? "" : String(next.luggagePrices[t])])),
@@ -126,6 +173,9 @@ function SettingsTab() {
         waitMinutes: n("waitMinutes"), stageRadiusM: n("stageRadiusM"), payWithinMinutes: n("payWithinMinutes"), maxCashBookings: n("maxCashBookings"),
         freeCancelMinutes: n("freeCancelMinutes"), cancelRetentionPercent: n("cancelRetentionPercent"), feeTo: s.feeTo,
         noShowMinutes: n("noShowMinutes"), noShowFeePercent: n("noShowFeePercent"), rebookOnRemoval: s.rebookOnRemoval,
+        scheduledDeparturesEnabled: s.scheduledDeparturesEnabled, scheduleMaxAdvanceDays: n("scheduleMaxAdvanceDays"), scheduleMinLeadMinutes: n("scheduleMinLeadMinutes"),
+        scheduleBookingCutoffMinutes: n("scheduleBookingCutoffMinutes"), scheduleCheckinMinutes: n("scheduleCheckinMinutes"), scheduleGraceMinutes: n("scheduleGraceMinutes"),
+        scheduleSpacingMinutes: n("scheduleSpacingMinutes"), scheduleFreeCancelMinutes: n("scheduleFreeCancelMinutes"), scheduleCancelRetentionPercent: n("scheduleCancelRetentionPercent"),
         bookableTaxis: s.bookableTaxis, maxLapChildren: s.maxLapChildren, childSeatFarePercent: n("childSeatFarePercent"),
         luggageEnabled: s.luggageEnabled, assistanceEnabled: s.assistanceEnabled, languageEnabled: s.languageEnabled,
         luggageOptionsShown: Math.min(TAXIPRESS_LUGGAGE_TYPES.length, Math.max(1, n("luggageOptionsShown"))), languages: s.languages,
@@ -301,6 +351,20 @@ function SettingsTab() {
         <p className="text-xs text-ink-500">If there is no room, or this is off, they are refunded in full with no fee.</p>
       </Fold>
 
+      <Fold title="Future departures">
+        <label className="flex items-center gap-2 text-sm font-bold text-ink"><Switch checked={s.scheduledDeparturesEnabled} onChange={(e) => set("scheduledDeparturesEnabled", e.target.checked)} />Offer published future departures</label>
+        <p className="text-xs text-ink-500">Published slots use approved taxis and route fares. Reserved places stay separate from the stage queue until the assigned driver checks in.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Book up to (days ahead)">{field("scheduleMaxAdvanceDays", true)}</Field>
+          <Field label="Minimum notice (minutes)">{field("scheduleMinLeadMinutes", true)}</Field>
+          <Field label="Stop booking before departure (minutes)">{field("scheduleBookingCutoffMinutes", true)}</Field>
+          <Field label="Open driver check-in (minutes before)">{field("scheduleCheckinMinutes", true)}</Field>
+          <Field label="Late check-in grace (minutes)">{field("scheduleGraceMinutes", true)}</Field>
+          <Field label="Minimum taxi turnaround (minutes)">{field("scheduleSpacingMinutes", true)}</Field>
+          <Field label="Free cancellation until (minutes before)">{field("scheduleFreeCancelMinutes", true)}</Field>
+          <Field label="Retain after free window (%)">{field("scheduleCancelRetentionPercent", false)}</Field>
+        </div>
+      </Fold>
       <Fold title="Peebee&apos;s commission on a seat">
         <div className="grid grid-cols-2 gap-2">
           {choice("percent", s.commissionType, "A percentage", "Digital and cash can differ.", (v) => set("commissionType", v))}

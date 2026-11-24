@@ -26,6 +26,7 @@ try{
     else if(path.endsWith('/queue')){const back=path.includes('/back/');data={route:routes[back?1:0],line:[{...taxi,id:back?'back-queue':'out-queue',bookable:true,position:1,seatsLeft:12}],onRoad:[]};}
     else if(path==='/v1/wallet')data={balance:50000,ledger:[]};
     else if(path==='/v1/taxipress/bookings/mine')data={bookings:created?[booking,...(returned?[returned]:[])]:[]};
+    else if(path==='/v1/taxipress/departures/mine')data={tickets:[]};
     else if(path==='/v1/taxipress/return-quotes'){assert.equal(body.mode,'open');assert.equal(body.queueId,'out-queue');data={package:pkg};status=201;}
     else if(path==='/v1/taxipress/return-packages'&&method==='POST'){assert.equal(body.quoteId,pkg.id);created=true;Object.assign(pkg,{state:'ready',outboundBookingId:booking.id,orderId:booking.orderId,checkout:{wallet:9900,mobileMoney:9900}});data={package:pkg};status=201;}
     else if(path==='/v1/travel-credit/me')data={ready:true,corporateEnabled:corporate,vouchersEnabled:false,voucherMax:0,voucherDays:30,accounts:corporate?[{id:'company-return',name:'Approved employer',owner_id:'employer',active:1,member_active:1,available:20000,per_booking:20000,monthly_limit:100000,monthly_used:0}]:[],vouchers:[]};

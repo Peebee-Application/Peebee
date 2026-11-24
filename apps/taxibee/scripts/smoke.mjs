@@ -82,6 +82,8 @@ try {
     else if (path.endsWith('/queue')) data = { route: routeData, line: [{ id: 'shared-queue', bookable: true, position: 2, seatsLeft: 10, seatLayout: '14', plate: 'UBM 123A', driverName: 'Peebee Driver' }], onRoad: [] };
     else if (path === '/v1/wallet') data = { balance, credit: 0, ledger: [], verified: true };
     else if (path === '/v1/taxipress/bookings/mine') data = { bookings: bookingCreated ? [booking] : [] };
+    else if (path === '/v1/taxipress/departures/mine') data = { tickets: [] };
+    else if (path === '/v1/taxipress-public/departures') data = { departures: [], ready: true };
     else if (path === '/v1/taxipress/bookings' && method === 'POST') { bookingCreated = true; const b = request.postDataJSON(); booking.seats = b.adults + (b.childSeats || 0); booking.amount = booking.seats * 5000 + (b.luggage?.standard || 0) * 2000; data = { booking, order: { id: booking.orderId } }; }
     else if (path === '/v1/orders/shared-order/fund') { booking.paymentStatus = 'paid'; booking.ticketCode = '654321'; data = { order: { id: booking.orderId }, funded: true }; }
     else if (path === '/v1/taxipress/bookings/shared-booking') data = { booking };

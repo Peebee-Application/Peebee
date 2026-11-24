@@ -397,7 +397,7 @@ export async function createOrderFromInput(
   d: z.infer<typeof createOrderSchema>,
   /** Set only by the Peebee Car booking route: the category fare replaces the
    * boda ride rate and the order uses the car matching mode. */
-  car?: { fare: number; matchingMode: MatchingMode; matchingDeadlineAt?: string; /** Seat tickets and rides booked for later may sit beside an on-demand ride. */ allowConcurrent?: boolean },
+  car?: { fare: number; matchingMode: MatchingMode; matchingDeadlineAt?: string; /** Seat tickets and rides booked for later may sit beside an on-demand ride. */ allowConcurrent?: boolean; /** Keep the order out of rider matching until its service-specific reservation is attached. */ deferredMatching?: boolean },
 ) {
   const user = c.get("user");
 
@@ -594,6 +594,7 @@ export async function createOrderFromInput(
   // currently active — keeps a list+order pair consistent even if an admin
   // flips platform_environment in the gap between the two requests.
   const orderEnvironment = (listRow.environment as string | undefined) === "sandbox" ? "sandbox" : "live";
+  const initialStage = car?.deferredMatching ? "Scheduled" : "Create";
   const supportsBundleHold = await hasColumn("orders", "delivery_bundle_hold");
   const holdForPickupChoice = supportsBundleHold && d.type === "shopping" && d.pickupLat != null && d.pickupLng != null ? 1 : 0;
   await db.execute({
@@ -603,11 +604,12 @@ export async function createOrderFromInput(
             destination_area, destination_address, destination_lat, destination_lng, distance_km,
             matching_mode, matching_deadline_at, environment, is_ride${supportsBundleHold ? ",delivery_bundle_hold" : ""}
           )
-          VALUES (?, ?, ?, 'Create', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${supportsBundleHold ? ",?" : ""})`,
+          VALUES (${Array.from({ length: supportsBundleHold ? 22 : 21 }, () => "?").join(", ")})`,
     args: [
       orderId,
       d.listId,
       user.sub,
+      initialStage,
       d.type,
       d.paymentRail,
       estimatedTotal,
@@ -632,7 +634,7 @@ export async function createOrderFromInput(
     sql: "UPDATE lists SET status = 'active', updated_at = datetime('now') WHERE id = ?",
     args: [d.listId],
   });
-  await logEvent(orderId, "Create", "Order created", user.sub);
+  await logEvent(orderId, initialStage, car?.deferredMatching ? "Scheduled service order created" : "Order created", user.sub);
   await saveFareBreakdown(orderId, fareBreakdown);
   if (relayPlan) {
     await insertRelayLegs(orderId, relayPlan, relayLastMile, relayMeet);

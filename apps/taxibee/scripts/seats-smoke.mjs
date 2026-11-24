@@ -33,6 +33,7 @@ try {
     } else if (path.includes('/seat-holds/') && method === 'DELETE') { hold = null; data = { ok: true }; }
     else if (path === '/v1/wallet') data = { balance: 70000,ledger: [] };
     else if (path === '/v1/taxipress/bookings/mine') data = { bookings: created ? [{ ...created,paymentStatus: paid ? 'paid' : 'unpaid' }] : [] };
+    else if (path === '/v1/taxipress/departures/mine') data = { tickets: [] };
     else if (path === '/v1/taxipress/bookings') {
       assert.equal(request.postDataJSON().seatHoldId,'owned-seat-hold');
       created = { id: 'numbered-booking',orderId: 'numbered-order',status: 'booked',seats: 2,seatNumbers: [...hold.seats],seatChoiceFee: hold.fee,

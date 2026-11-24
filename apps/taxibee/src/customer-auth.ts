@@ -6,6 +6,7 @@ import { BOOKING_DRAFT_KEY, isBookingScreen, readDraft, saveDraft } from './book
 type Context = {
   ui: Record<string, any>; api: ApiClient;
   user: () => AuthUser | null; trips: () => Array<Record<string, any>>;
+  scheduledTrips?: () => Array<Record<string, any>>; selectScheduled?: (id:string) => void;
   establish: (result: { token: string; user: AuthUser }) => Promise<void>;
   discardToken: (token: string) => Promise<void>;
   canSaveDraft: () => boolean;
@@ -45,7 +46,8 @@ export function installCustomerAuth(c: Context) {
   function restoreDraft() {
     const draft = readDraft(sessionStorage, c.user()?.id || null);
     if (!draft) return null;
-    const trip = c.trips().find(t => t.id === draft.queueId);
+    const trip = c.trips().find(t => t.id === draft.queueId) || (draft.scheduleId ? c.scheduledTrips?.().find(t=>t.id===draft.scheduleId) : null);
+    if(draft.scheduleId && trip) c.selectScheduled?.(draft.scheduleId);
     Object.assign(state, draft.values);
     // Prices, capacity and availability are always refreshed from Peebee, never restored from storage.
     state.activeTrip = trip || c.trips().find(t => t.routeId === draft.routeId) || null;

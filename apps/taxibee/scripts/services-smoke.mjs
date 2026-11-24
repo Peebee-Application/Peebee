@@ -22,7 +22,7 @@ try{
   else if(path==='/v1/auth/login')data={user,token:'service-test-token'};
   else if(path==='/v1/auth/logout')data={ok:true};
   else if(path.includes('/taxipress')&&path.endsWith('/config'))data={enabled:false,routes:[],luggageTypes:[],languages:[]};
-  else if(path==='/v1/taxipress/bookings/mine')data={bookings:[]};
+  else if(path==='/v1/taxipress/bookings/mine')data={bookings:[]};else if(path==='/v1/taxipress/departures/mine')data={tickets:[]};
   else if(path==='/v1/wallet')data={balance:100000,ledger:[]};
   else if(path==='/v1/taxibee-services/catalog')data=catalog;
   else if(path==='/v1/taxibee-services/parcel-quote')data=quotes;

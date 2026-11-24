@@ -112,6 +112,12 @@ receivables, primary-wallet repayments and source-preserving refunds after migra
 0170. Both sales switches default off. See `docs/TAXIBEE-TRAVEL-CREDIT.md` for
 staff approvals, funding limits, extra-charge terms and rollout instructions.
 
+Future departures are staff-published TaxiPress slots that reserve separate
+capacity, collect payment through Peebee, and activate into the physical queue
+when the assigned driver checks in. Apply migration 0172 and configure the
+default-off sale switch and schedule rules in Admin → Taxipress. See
+`docs/TAXIBEE-FUTURE-DEPARTURES.md` for operating and refund behavior.
+
 Merge via PR. On clean `main` matching `origin/main`, run `pnpm deploy:taxibee`.
 The existing deployment preflight is required. The Worker is
 `peebee-taxibee`; Wrangler attaches `taxibee.peebee.online` as a custom domain.

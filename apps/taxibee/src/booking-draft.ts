@@ -4,7 +4,7 @@ export const BOOKING_DRAFT_KEY = 'taxibee-booking-draft-v1';
 const screens = new Set(['book', 'trip-details', 'passengers', 'returns', 'luggage', 'checkout']);
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 export type BookingDraft = {
-  version: 1; owner: string | null; screen: string; queueId: string; routeId: string;
+  version: 1; owner: string | null; screen: string; queueId: string; routeId: string; scheduleId?: string;
   values: Record<string, string | number | boolean | string[] | Record<string, number>>;
 };
 const text = (value: unknown, max = 160) => typeof value === 'string' ? value.slice(0, max) : '';
@@ -14,7 +14,7 @@ const count = (value: unknown, min: number, max: number) => Number.isInteger(val
 export function captureDraft(state: Record<string, any>, owner: string | null): BookingDraft | null {
   if (!screens.has(state.screen) || !state.activeTrip?.id) return null;
   return {
-    version: 1, owner, screen: state.screen, queueId: text(state.activeTrip.id), routeId: text(state.activeTrip.routeId),
+    version: 1, owner, screen: state.screen, queueId: text(state.activeTrip.id), routeId: text(state.activeTrip.routeId), scheduleId: text(state.activeTrip.scheduledDepartureId) || undefined,
     values: {
       searchFrom: text(state.searchFrom), searchTo: text(state.searchTo), bookingDate: text(state.bookingDate, 10),
       bookingStep: typeof state.bookingStep === 'number' ? count(state.bookingStep, 1, 6) : text(state.bookingStep, 4),
@@ -38,7 +38,7 @@ export function readDraft(storage: StorageLike, owner: string | null): BookingDr
     const saved = JSON.parse(storage.getItem(BOOKING_DRAFT_KEY) || 'null');
     if (!saved || saved.version !== 1 || (saved.owner != null && saved.owner !== owner) || !screens.has(saved.screen)) return null;
     // Sanitize stored data through the same allowlist; storage is never trusted as a quote.
-    return captureDraft({ ...saved.values, screen: saved.screen, activeTrip: { id: saved.queueId, routeId: saved.routeId } }, saved.owner ?? null);
+    return captureDraft({ ...saved.values, screen: saved.screen, activeTrip: { id: saved.queueId, routeId: saved.routeId, scheduledDepartureId: text(saved.scheduleId) } }, saved.owner ?? null);
   } catch { return null; }
 }
 export function isBookingScreen(screen: string) { return screens.has(screen); }

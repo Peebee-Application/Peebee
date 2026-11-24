@@ -21,6 +21,12 @@ let user: AuthUser | null = null;
 let config: TaxipressConfig | null = null;
 let bookings: TaxipressBooking[] = [];
 let trips: any[] = [];
+let scheduledDepartures: Array<{id:string;routeId:string;departsAt:string;seatsLeft:number;farePerSeat:number;plate:string;seatLayout:string;fromName:string;toName:string}> = [];
+let selectedSchedule: (typeof scheduledDepartures)[number] | null = null;
+let scheduledTickets: Record<string,any>[] = [];
+let selectedScheduledTicket: Record<string,any> | null = null;
+let scheduledPending: {ticketId:string;orderId:string} | null = null;
+let scheduleDate = '';
 let loading = false;
 let sessionVersion = 0;
 let refreshSequence = 0;
@@ -44,6 +50,7 @@ const original = Object.fromEntries(['renderAuth', 'renderHome', 'renderBook', '
 const $ = (s: string) => document.querySelector(s) as HTMLInputElement | null;
 const escape = (s: unknown) => ui.escapeHtml(String(s ?? ''));
 const money = (n: number) => ui.formatUGX(n);
+const kampalaDate = (d: Date) => new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Kampala'}).format(d);
 const message = (e: unknown) => e instanceof Error ? e.message : 'Please try again.';
 const api = createApiClient({
   baseUrl: location.origin + '/api',
@@ -81,7 +88,7 @@ function clearSession(discardDraft = true) {
   services?.reset(discardDraft);
   returnPackages?.reset();
   travelCredit?.reset();
-  user = null; bookings = []; wallet = null; selectedBooking = null; pendingOrder = null; pendingPayment = null;
+  user = null; bookings = []; scheduledTickets=[]; selectedScheduledTicket=null; scheduledPending=null; selectedSchedule=null; wallet = null; selectedBooking = null; pendingOrder = null; pendingPayment = null;
   localStorage.removeItem(TOKEN); sessionStorage.removeItem(TOKEN);
   state.tickets = []; state.walletBalance = 0; appData.transactions = [];
   state.taxibeeOfferCode = ''; state.taxibeeOpenTicket = false;
@@ -146,6 +153,10 @@ async function refresh() {
   try {
     const nextConfig = await (user ? api.getTaxipressConfig() : api.getPublicTaxipressConfig());
     if (!valid()) return;
+    const scheduleTo = new Date(Date.now() + (nextConfig.scheduleMaxAdvanceDays ?? 60) * 86400_000).toISOString();
+    const nextSchedules = nextConfig.scheduledDeparturesEnabled ? await api.getTaxipressPublicDepartures({from:new Date().toISOString(),to:scheduleTo}) : {departures:[],ready:false};
+    if (!valid()) return;
+    scheduledDepartures = nextSchedules.departures;
     const queues = await Promise.all(nextConfig.routes.map(async route => ({ route, queue: await (user ? api.getTaxipressQueue(route.id) : api.getPublicTaxipressQueue(route.id)) })));
     if (!valid()) return;
     config = nextConfig;
@@ -168,9 +179,10 @@ async function refresh() {
     appData.trips = trips;
     appData.luggage = luggageCatalog.filter((l: any) => config?.luggageEnabled && config.luggageTypes?.includes(l.id)).map((l: any) => ({ ...l, price: config?.luggagePrices?.[l.id as keyof NonNullable<TaxipressConfig['luggagePrices']>] ?? 0 }));
     if (user) {
-      const [mine, balance] = await Promise.all([api.getMyTaxipressBookings(), api.getWallet()]);
+      const [mine, balance, future] = await Promise.all([api.getMyTaxipressBookings(), api.getWallet(), api.getMyTaxipressScheduledTickets()]);
       if (!valid()) return;
       bookings = mine.bookings; wallet = balance; state.walletBalance = balance.balance;
+      scheduledTickets = future.tickets;
       await travelCredit?.load().catch(()=>undefined);
       if (!valid()) return;
       state.tickets = bookings.map(ticket);
@@ -181,6 +193,14 @@ async function refresh() {
 }
 
 function renderLiveTicket(b: TaxipressBooking | null = selectedBooking || bookings[0]) {
+  if(selectedScheduledTicket) {
+    const t=selectedScheduledTicket;
+    const paid=Number(t.paid)===1, pending=Number(t.pending)===1, stateText=String(t.state||'reserved');
+    const when=new Date(String(t.departsAt).replace(' ','T')+(String(t.departsAt).endsWith('Z')?'':'Z')).toLocaleString('en-UG',{timeZone:'Africa/Kampala',dateStyle:'full',timeStyle:'short'});
+    const operatorCancelled=t.departureState==='cancelled'&&stateText==='reserved';
+    return `${ui.screenHead('Scheduled departure ticket','Your booking is saved with Peebee.')}
+      <article class="card"><h2>${escape(t.fromName)} → ${escape(t.toName)}</h2><p>${escape(when)} · Kampala time</p><p>${escape(t.plate)} · ${Number(t.seats)} seat${Number(t.seats)===1?'':'s'}</p><p>Booking: ${operatorCancelled?'Departure cancelled · refund processing':escape(stateText)} · Payment: ${paid?'Paid':pending?'Provider confirmation pending':'Payment required'}</p><p>Total: ${money(Number(t.amount))}</p>${t.ticketCode?`<p>Boarding code: <strong>${escape(t.ticketCode)}</strong></p>`:''}${stateText==='reserved'&&!paid&&!operatorCancelled?`<button class="button button--primary" data-action="taxibee-future-pay" data-id="${escape(t.id)}">Pay ${money(Number(t.amount))}</button>`:''}${stateText==='reserved'&&t.queueId==null&&!operatorCancelled?`<button class="button button--ghost" data-action="taxibee-future-cancel" data-id="${escape(t.id)}">Cancel scheduled booking</button>`:''}<button class="button button--ghost" data-action="taxibee-future-refresh" data-id="${escape(t.id)}">Refresh status</button></article>`;
+  }
   if (!b) return empty('No tickets yet', 'Bookings made in either Taxibee or Peebee appear here.');
   const status = b.paymentStatus === 'unpaid' ? 'Payment required' : b.paymentMethod === 'cash' ? 'Cash due at stage' : b.paymentStatus;
   const q = b.ticketCode;
@@ -207,8 +227,28 @@ async function confirmBooking() {
   if (busy) return;
   if (!$('#booking-conditions')?.checked) return ui.toast('Accept the booking conditions to continue.', 'danger');
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date());
-  if (state.bookingDate !== today && !pendingOrder) return ui.toast('These are current stage departures. Choose today to book; scheduled future departures are not offered yet.', 'info');
-  if ((!state.activeTrip || !config?.enabled) && !pendingOrder) return ui.toast('Choose a currently available taxi.', 'danger');
+  if (state.bookingDate !== today && !pendingOrder && !selectedSchedule) return ui.toast('Choose a published future departure or choose today for a stage taxi.', 'info');
+  if ((!state.activeTrip || (!config?.enabled && !selectedSchedule)) && !pendingOrder) return ui.toast('Choose a currently available taxi.', 'danger');
+  if (selectedSchedule && !pendingOrder) {
+    if (state.ticketType === 'return' || state.taxibeeOpenTicket) return ui.toast('Return bundles and open tickets are not offered for scheduled departures yet.', 'info');
+    if (uncertainBooking) return ui.openModal('Check My Tickets before booking again', '<p>The previous booking response was interrupted. Refresh My Tickets to check whether Peebee saved it before starting a new booking.</p>', '<button class="button button--primary" data-action="taxibee-check-bookings">Check My Tickets</button>');
+    busy = true; uncertainBooking = true;
+    try {
+      const requestKey=`taxibee-scheduled-request-${selectedSchedule.id}`;
+      const requestId=sessionStorage.getItem(requestKey)||crypto.randomUUID(); sessionStorage.setItem(requestKey,requestId);
+      const assistance=({'None required':'none','Boarding help':'boarding','Priority seating':'priority','Mobility support':'mobility'} as any)[state.assistance]||'none';
+      const result=await api.bookTaxipressScheduledDeparture({departureId:selectedSchedule.id,seats:state.passengerCount+childSeats(),requestId,details:{
+        adults:state.passengerCount,children:state.childCount,childSeats:childSeats(),luggage:config?.luggageEnabled?state.luggageQuantities:{},
+        assistance:config?.assistanceEnabled?assistance:null,language:config?.languageEnabled?config.languages?.find(l=>l.name===state.language)?.code||null:null,
+        forSomeoneElse:state.isBookingForSomeoneElse===true,travellerName:state.isBookingForSomeoneElse?state.otherTravelerName:null,
+        travellerPhone:state.isBookingForSomeoneElse?state.otherTravelerPhone:null,emergencyPhone:state.isBookingForSomeoneElse?state.emergencyContact:null,
+      }});
+      scheduledPending={ticketId:result.ticketId,orderId:result.orderId}; sessionStorage.removeItem(requestKey); uncertainBooking=false;
+      await payScheduled();
+    } catch(e) { report(e); }
+    finally { busy=false; }
+    return;
+  }
   if (pendingOrder && state.activeTrip?.id !== pendingOrder.booking.taxi.queueId) return ui.toast('Finish or cancel the existing unpaid ticket in My Tickets before booking another taxi.', 'danger');
   if(state.ticketType==='return'&&!pendingOrder){try{await returnPackages?.review();}catch(e){report(e);}return;}
   if (uncertainBooking) return ui.openModal('Check My Tickets before booking again', '<p>The previous booking response was interrupted. Refresh My Tickets to check whether Peebee saved it before starting a new booking.</p>', '<button class="button button--primary" data-action="taxibee-check-bookings">Check My Tickets</button>');
@@ -223,6 +263,23 @@ async function confirmBooking() {
     await payPending();
   } catch (e) { report(e); }
   finally { busy = false; }
+}
+async function payScheduled() {
+  if(!scheduledPending) return;
+  const method=state.paymentMethod;
+  if(['corporate','voucher'].includes(method)) { await travelCredit?.review(scheduledPending.orderId,method); }
+  else {
+    if(!['wallet','mobile'].includes(method)) throw new Error('Scheduled departures are prepaid. Choose Peebee Wallet or mobile money.');
+    const result=await api.fundOrder(scheduledPending.orderId,{paymentMethod:method==='mobile'?'mobile_money':'wallet',useWallet:method==='wallet',msisdn:method==='mobile'?$('#taxibee-msisdn')?.value:undefined,offerCode:$('#taxibee-offer-code')?.value.trim()||undefined});
+    if(result.payment?.status==='failed') throw new Error('Payment failed. Check your payment details and try again.');
+    pendingPayment=result.payment?.id||null;
+    if(result.redirectUrl){location.assign(result.redirectUrl);return;}
+  }
+  const latest=(await api.getTaxipressScheduledTicket(scheduledPending.ticketId)).ticket;
+  scheduledTickets=[latest,...scheduledTickets.filter(t=>t.id!==latest.id)];
+  selectedScheduledTicket=latest; selectedSchedule=null; scheduledPending=null;
+  await refresh(); ui.navigate('ticket');
+  ui.toast(Number(latest.paid)===1?'Your scheduled booking is saved.':'Booking saved. Refresh after approving payment.','success');
 }
 async function payPending() {
   if (!pendingOrder) return;
@@ -275,7 +332,7 @@ function cleanHome() {
     const credit = template.content.querySelector('.wallet-credit'); if (credit) credit.textContent = 'Use your existing Peebee account';
   }
   for (const el of template.content.querySelectorAll('.notice')) el.remove();
-  return template.innerHTML + (bookings[0] ? `<section class="card"><h3>Your latest journey</h3><p>${escape(bookings[0].route.fromName)} → ${escape(bookings[0].route.toName)}</p><button class="button button--primary" data-action="taxibee-ticket" data-id="${escape(bookings[0].id)}">View ticket</button></section>` : '') + (error ? empty('Unable to refresh departures', error) : !config?.enabled ? empty('TaxiPress is not running right now', 'Peebee administrators control when this service is available.') : !trips.length ? empty('No bookable departures', 'Check again when a taxi joins a running route.') : '');
+  return template.innerHTML + (scheduledTickets[0] ? `<section class="card"><h3>Your scheduled journey</h3><p>${escape(scheduledTickets[0].fromName)} → ${escape(scheduledTickets[0].toName)}</p><button class="button button--primary" data-action="taxibee-future-ticket" data-id="${escape(scheduledTickets[0].id)}">View scheduled ticket</button></section>` : '') + (bookings[0] ? `<section class="card"><h3>Your latest journey</h3><p>${escape(bookings[0].route.fromName)} → ${escape(bookings[0].route.toName)}</p><button class="button button--primary" data-action="taxibee-ticket" data-id="${escape(bookings[0].id)}">View ticket</button></section>` : '') + (error ? empty('Unable to refresh departures', error) : !config?.enabled && !scheduledDepartures.length ? empty('TaxiPress is not running right now', 'Peebee administrators control when this service is available.') : !trips.length && !scheduledDepartures.length ? empty('No bookable departures', 'Check again when a taxi joins a running route.') : '');
 }
 
 if (!preview) {
@@ -306,7 +363,7 @@ if (!preview) {
   ui.confirmBooking = confirmBooking;
   ui.renderHome = cleanHome;
   ui.renderBook = () => {
-    if (!config?.enabled || !trips.length) return empty('No bookable taxis', error || 'There are no taxis accepting bookings right now.');
+    if (!config?.enabled && !scheduledDepartures.length) return empty('No bookable taxis', error || 'There are no taxis accepting bookings right now.');
     const template = document.createElement('template'); template.innerHTML = original.renderBook();
     const childFareHint = [...template.content.querySelectorAll('.stepper-card .muted.text-small')].find(el => el.textContent?.includes('Lap travel is free.'));
     if (childFareHint) childFareHint.textContent = state.ticketType === 'return'
@@ -314,6 +371,12 @@ if (!preview) {
       : `Reserved child seat: ${money(Math.round((state.activeTrip?.fare || 0) * (config?.childSeatFarePercent ?? 100) / 100))}. Lap travel follows the current child allowance.`;
     const traveller = template.content.querySelector('#other-traveler-phone')?.closest('.field');
     if (traveller && state.isBookingForSomeoneElse) traveller.insertAdjacentHTML('afterend', `<div class="field"><label for="taxibee-traveller-emergency">Traveller emergency contact</label><input id="taxibee-traveller-emergency" type="tel" value="${escape(state.emergencyContact)}"></div>`);
+    if (config?.scheduledDeparturesEnabled) {
+      if (!scheduleDate) { const next = new Date(); next.setDate(next.getDate()+1); scheduleDate = kampalaDate(next); }
+      const slots = scheduledDepartures.filter(d => kampalaDate(new Date(d.departsAt)) === scheduleDate);
+      const schedulePanel = `<article class="card"><h2>Future departures</h2><p>Published Peebee taxis with seats reserved for your selected date.</p><div class="field"><label for="taxibee-schedule-date">Departure date</label><input id="taxibee-schedule-date" type="date" min="${kampalaDate(new Date())}" max="${kampalaDate(new Date(Date.now()+(config.scheduleMaxAdvanceDays??60)*86400000))}" value="${escape(scheduleDate)}"></div>${slots.map(d=>`<div class="ticket-list-item"><div><strong>${escape(d.fromName)} → ${escape(d.toName)}</strong><p>${new Date(d.departsAt).toLocaleTimeString('en-UG',{timeZone:'Africa/Kampala',hour:'numeric',minute:'2-digit'})} · ${escape(d.plate)} · ${d.seatsLeft} seats · ${money(d.farePerSeat)}/seat</p></div><button type="button" class="button button--primary" data-action="taxibee-schedule-choose" data-id="${escape(d.id)}">Choose</button></div>`).join('')||`<p class="muted">No published departures for this date. Try another day.</p>`}</article>`;
+      template.content.prepend(document.createRange().createContextualFragment(schedulePanel));
+    }
     return template.innerHTML;
   };
   ui.renderCheckout = (() => {
@@ -330,7 +393,7 @@ if (!preview) {
     };
   })();
   ui.renderPaymentPanel = () => `<div class="payment-panel"><p>${state.paymentMethod === 'wallet' ? `Your Peebee balance: ${money(state.walletBalance)}. The final amount is confirmed by Peebee.` : state.paymentMethod === 'cash' ? 'Pay the driver at the stage. Your ticket will reflect the server payment status.' : 'Approve the mobile-money prompt sent by your payment provider.'}</p>${state.paymentMethod === 'mobile' ? `<label for="taxibee-msisdn">Mobile-money number</label><input id="taxibee-msisdn" autocomplete="tel" inputmode="tel" value="${escape(user?.phone)}">` : ''}<label for="taxibee-offer-code">Peebee offer code (optional)</label><input id="taxibee-offer-code" autocomplete="off" value="${escape(state.taxibeeOfferCode || '')}"><p>Peebee checks eligibility and the final amount when you pay.</p>${config?.openTicketsEnabled ? `<label><input type="checkbox" id="taxibee-open-ticket" ${state.taxibeeOpenTicket ? 'checked' : ''}>Open ticket: valid on any taxi on this route, subject to Peebee's validity rules.</label>` : ''}</div>`;
-  ui.renderStandardPaymentOptions = (method: string, name = 'payment-method') => `<div class="radio-cards">${ui.paymentChoiceTile('wallet', 'Peebee Wallet', `Available: ${money(state.walletBalance)}`, 'wallet-cards', method, name)}${ui.paymentChoiceTile('mobile', 'Mobile Money', 'Use your existing Peebee payment providers', 'smartphone', method, name)}${config?.cashEnabled ? ui.paymentChoiceTile('cash', 'Cash at Stage', 'Pay the driver before boarding', 'banknote', method, name) : ''}</div>`;
+  ui.renderStandardPaymentOptions = (method: string, name = 'payment-method') => `<div class="radio-cards">${ui.paymentChoiceTile('wallet', 'Peebee Wallet', `Available: ${money(state.walletBalance)}`, 'wallet-cards', method, name)}${ui.paymentChoiceTile('mobile', 'Mobile Money', 'Use your existing Peebee payment providers', 'smartphone', method, name)}${config?.cashEnabled&&!selectedSchedule ? ui.paymentChoiceTile('cash', 'Cash at Stage', 'Pay the driver before boarding', 'banknote', method, name) : ''}</div>`;
   ui.renderTicket = () => renderLiveTicket();
   ui.renderSuccess = () => renderLiveTicket();
   ui.renderDigitalTicketCard = (data: any, modal: boolean) => {
@@ -367,7 +430,7 @@ if (!preview) {
   ui.openTicketModal = (id: string) => { selectedBooking = bookings.find(b => b.id === id) || null; ui.navigate('ticket'); };
   // Source maps contain demonstration paths and synthetic live progress.
   for (const name of ['initTripMap', 'initBookingStep2Map', 'initLiveTravelMap', 'initTrackingMap', 'initTrackingCardMaps']) ui[name] = () => {};
-  ui.renderTripTabContent = () => bookings.map(b => `<article class="card"><h3>${escape(b.route.fromName)} → ${escape(b.route.toName)}</h3><p>${escape(b.taxi.plate)} · ${escape(b.status)} · ${money(b.amount)}</p><button class="button button--primary" data-action="taxibee-ticket" data-id="${escape(b.id)}">View ticket</button></article>`).join('') || empty('No journeys yet', 'Bookings made in either customer app appear here.');
+  ui.renderTripTabContent = () => [...scheduledTickets.map(t=>`<article class="card"><h3>${escape(t.fromName)} → ${escape(t.toName)} · Scheduled</h3><p>${escape(t.plate)} · ${escape(t.state)} · ${money(Number(t.amount))}</p><button class="button button--primary" data-action="taxibee-future-ticket" data-id="${escape(t.id)}">View ticket</button></article>`),...bookings.map(b => `<article class="card"><h3>${escape(b.route.fromName)} → ${escape(b.route.toName)}</h3><p>${escape(b.taxi.plate)} · ${escape(b.status)} · ${money(b.amount)}</p><button class="button button--primary" data-action="taxibee-ticket" data-id="${escape(b.id)}">View ticket</button></article>`)].join('') || empty('No journeys yet', 'Bookings made in either customer app appear here.');
   ui.signOut = async () => {
     if (!user) { account?.open('profile'); return; }
     try { await accountTools?.beforeSignOut(); await seating?.release(); await api.logout(); } finally { clearSession(); applyGuest(); await refresh().catch(report); account?.browse('home'); }
@@ -387,6 +450,8 @@ if (!preview) features = installCustomerFeatures({
 
 if (!preview) account = installCustomerAuth({
   ui, api, user: () => user, trips: () => trips,
+  scheduledTrips: () => scheduledDepartures.map(d=>({id:d.id,routeId:d.routeId,isScheduled:true,scheduledDepartureId:d.id,boarding:d.fromName,destination:d.toName,seats:d.seatsLeft,fare:d.farePerSeat,plate:d.plate})),
+  selectScheduled: id => {selectedSchedule=scheduledDepartures.find(d=>d.id===id)||null;},
   canSaveDraft: () => !pendingOrder && !uncertainBooking,
   discardToken: apiLogoutToken,
   establish: async result => {
@@ -447,6 +512,14 @@ document.addEventListener('click', async event => {
   if (preview) return;
   const block = () => { event.preventDefault(); event.stopImmediatePropagation(); };
   if(action.startsWith('svc-')||action.startsWith('tools-')) return;
+  if(action==='taxibee-schedule-choose') {
+    block();
+    selectedSchedule=scheduledDepartures.find(d=>d.id===button?.dataset.id)||null;
+    if(!selectedSchedule) return ui.toast('That published departure is no longer available. Refresh and try again.','info');
+    state.activeTrip={id:selectedSchedule.id,routeId:selectedSchedule.routeId,isScheduled:true,scheduledDepartureId:selectedSchedule.id,boarding:selectedSchedule.fromName,destination:selectedSchedule.toName,depart:new Date(selectedSchedule.departsAt).toLocaleTimeString('en-UG',{timeZone:'Africa/Kampala',hour:'numeric',minute:'2-digit'}),plate:selectedSchedule.plate,seats:selectedSchedule.seatsLeft,fare:selectedSchedule.farePerSeat,vehicle:`Commuter (${selectedSchedule.seatLayout})`};
+    state.searchFrom=selectedSchedule.fromName;state.searchTo=selectedSchedule.toName;state.bookingDate=kampalaDate(new Date(selectedSchedule.departsAt));state.ticketType='oneway';state.taxibeeOpenTicket=false;state.passengerCount=1;state.childCount=0;state.reservedChildSeatsCount=0;
+    ui.navigate('passengers');return;
+  }
   if (action === 'open-demo-panel') { block(); account?.rememberBooking(); location.assign('/?preview=1'); return; }
   if (['select-route-card', 'select-route-card-step', 'book-searched-route', 'flip-route-direction', 'swap-home-route', 'swap-route'].includes(action)) {
     block();
@@ -491,9 +564,14 @@ document.addEventListener('click', async event => {
         if (pendingPayment) { await api.refreshPayment(pendingPayment); pendingPayment = null; }
         await refresh();
         if (selectedBooking) selectedBooking = (await api.getTaxipressBooking(selectedBooking.id)).booking;
+        if (selectedScheduledTicket) selectedScheduledTicket=(await api.getTaxipressScheduledTicket(String(selectedScheduledTicket.id))).ticket;
         ui.renderCurrentScreen();
       } else if (action === 'taxibee-check-bookings') { await refresh(); uncertainBooking = false; ui.closeModal(); ui.navigate('tickets');
       } else if (action === 'taxibee-ticket') { selectedBooking = bookings.find(b => b.id === button?.dataset.id) || null; ui.navigate('ticket'); }
+      else if (action === 'taxibee-future-ticket') { selectedScheduledTicket=scheduledTickets.find(t=>String(t.id)===button?.dataset.id)||null; selectedBooking=null;ui.navigate('ticket'); }
+      else if (action === 'taxibee-future-refresh') { const t=(await api.getTaxipressScheduledTicket(button!.dataset.id!)).ticket;scheduledTickets=[t,...scheduledTickets.filter(x=>x.id!==t.id)];if(t.bookingId){selectedBooking=(await api.getTaxipressBooking(String(t.bookingId))).booking;selectedScheduledTicket=null;}else selectedScheduledTicket=t;ui.renderCurrentScreen(); }
+      else if (action === 'taxibee-future-pay') { const t=scheduledTickets.find(x=>String(x.id)===button?.dataset.id);if(t){scheduledPending={ticketId:String(t.id),orderId:String(t.orderId)};selectedScheduledTicket=t;await payScheduled();} }
+      else if (action === 'taxibee-future-cancel') { const t=scheduledTickets.find(x=>String(x.id)===button?.dataset.id);if(t&&confirm('Cancel this scheduled departure? Any refund will be returned to your Peebee wallet.')){await api.cancelTaxipressScheduledTicket(String(t.id));await refresh();selectedScheduledTicket=(await api.getTaxipressScheduledTicket(String(t.id))).ticket;ui.renderCurrentScreen();ui.toast('Scheduled booking cancelled.','success');} }
       else if (action === 'taxibee-cancel') {
         const b = bookings.find(b => b.id === button?.dataset.id);
         if (b && confirm(`Cancel this booking? Fee: ${money(b.cancel.fee)}. Refund: ${money(b.cancel.refund)}.`)) { await api.cancelTaxipressBooking(b.id); await refresh(); selectedBooking = (await api.getTaxipressBooking(b.id)).booking; ui.renderCurrentScreen(); }
@@ -555,4 +633,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const restored = !location.hash && !new URLSearchParams(location.search).get('screen') ? account?.restoreDraft() : null;
   account?.browse(restored?.screen || state.screen || 'home');
   booting = false;
+});
+
+document.addEventListener('change',event=>{
+  const target=event.target as HTMLInputElement;
+  if(target?.id==='taxibee-schedule-date') { scheduleDate=target.value;ui.renderCurrentScreen(); }
 });
