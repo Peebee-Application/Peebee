@@ -5,7 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0a0a0a">
   <meta name="description" content="Book taxi travel with Taxibee, powered by Peebee.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Taxibee">
   <title>Taxibee — Travel with Peebee</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="preconnect" href="https://tile.openstreetmap.org">
   <link rel="stylesheet" href="leaflet.css">
@@ -184,6 +189,16 @@
   </div>
 
   <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile navigation"></nav>
+
+  <aside id="pwa-install-prompt" class="taxibee-install-prompt is-hidden" role="status" aria-live="polite">
+    <img src="/icons/icon-192.png" width="40" height="40" alt="" class="taxibee-install-icon">
+    <div class="taxibee-install-copy">
+      <strong>Install Taxibee</strong>
+      <span id="pwa-install-message">Add Taxibee to your home screen for quick access.</span>
+    </div>
+    <button id="pwa-install-button" type="button" class="taxibee-install-action is-hidden">Install</button>
+    <button id="pwa-install-dismiss" type="button" class="taxibee-install-dismiss" aria-label="Dismiss install suggestion"><i data-lucide="x"></i></button>
+  </aside>
 
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
   <div id="modal-root"></div>

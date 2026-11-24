@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "Taxibee by Peebee",
+  "short_name": "Taxibee",
+  "description": "Browse departures and book taxi travel with Peebee.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#faf8ef",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

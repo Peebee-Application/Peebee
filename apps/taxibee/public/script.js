@@ -1452,14 +1452,32 @@ function renderNavigation() {
     } else {
       mobile.classList.remove('is-hidden');
     }
-    const items = [['home','Home','house'],['book','Book','ticket-plus'],['tracking','Tracking','navigation'],['trips','Travels','route'],['wallet','Wallet','wallet-cards']];
-    mobile.innerHTML = items.map(([screen,label,icon]) => {
-      const active = state.screen === screen;
-      return `
-      <button class="mobile-nav-item ${active ? 'is-active' : ''}" type="button" data-screen="${screen}" ${active ? 'aria-current="page"' : ''}>
-        <i data-lucide="${icon}"></i><span>${label}</span>
-      </button>`;
-    }).join('');
+    const flowScreen = ['trip-details','passengers','returns','luggage','checkout'].includes(state.screen);
+    const items = [['available-vans','Departures','clock-arrow-up'],['book','Book','ticket-plus'],['tickets','Tickets','ticket'],['trips','Travels','route'],['wallet','Wallet','wallet-cards']];
+    const activeScreen = screen => {
+      if (screen === 'book' && flowScreen) return true;
+      if (screen === 'tickets' && ['ticket','success'].includes(state.screen)) return true;
+      if (screen === 'trips' && ['live','tracking'].includes(state.screen)) return true;
+      return state.screen === screen;
+    };
+    mobile.innerHTML = `
+      <div class="taxibee-nav-shell">
+        <div class="taxibee-nav-anchor">
+          <button class="taxibee-nav-home ${state.screen === 'home' ? 'is-active' : ''}" type="button" data-screen="home" ${state.screen === 'home' ? 'aria-current="page"' : ''}>
+            <i data-lucide="${state.screen === 'home' ? 'house' : 'house'}"></i><span>Home</span>
+          </button>
+        </div>
+        <div class="taxibee-nav-menu-track">
+          <ul class="taxibee-nav-items" aria-label="Main destinations">
+            ${items.map(([screen,label,icon]) => {
+              const active = activeScreen(screen);
+              return `<li><button class="mobile-nav-item ${active ? 'is-active' : ''}" type="button" data-screen="${screen}" ${active ? 'aria-current="page"' : ''}>
+                <i data-lucide="${icon}"></i><span>${label}</span>
+              </button></li>`;
+            }).join('')}
+          </ul>
+        </div>
+      </div>`;
   }
   refreshIcons();
 }

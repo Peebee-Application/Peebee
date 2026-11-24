@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>Taxibee is offline</title>
+  <style>
+    :root{color-scheme:light;--cream:#faf8ef;--ink:#171717;--gold:#c9a227}
+    *{box-sizing:border-box}
+    body{min-height:100svh;margin:0;padding:24px;display:grid;place-items:center;background:var(--cream);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+    main{width:min(100%,360px);text-align:center}
+    img{width:64px;height:64px;object-fit:contain;margin-bottom:22px}
+    h1{margin:0 0 10px;font-size:1.5rem;line-height:1.2}
+    p{margin:0 0 24px;color:#5e5b51}
+    button{min-height:48px;padding:0 24px;border:0;border-radius:999px;background:var(--gold);color:var(--ink);font:700 1rem system-ui;cursor:pointer}
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/assets/peebee-logo.svg" alt="Peebee">
+    <h1>You’re offline</h1>
+    <p>Reconnect to load current departures, prices, seat availability and bookings. Taxibee doesn’t store account or booking data for offline use.</p>
+    <button type="button" onclick="location.reload()">Try again</button>
+  </main>
+</body>
+</html>

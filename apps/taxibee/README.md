@@ -163,10 +163,19 @@ through existing account recovery before replacing their sign-in contact.
 
 Notifications require explicit browser permission and registration, configured
 VAPID keys and the existing Peebee push sender. Account category preferences affect
-server delivery. The push-only service worker never caches pages/API responses,
-filters encrypted payloads by account binding, and clears notifications on account
-changes. Revoked registered sessions stop receiving push. Mobile browser/OS support
-and provider delivery remain operational dependencies.
+server delivery. The service worker caches only the static app shell for installation
+and offline fallback; it never caches API, account, booking, ticket, payment, or
+attachment responses. It filters encrypted push payloads by account binding and
+clears notifications on account changes. Revoked registered sessions stop receiving
+push. Mobile browser/OS support and provider delivery remain operational dependencies.
+
+## Install Taxibee
+
+Taxibee is installable as a Progressive Web App at `https://taxibee.peebee.online`.
+On Android or desktop Chrome/Edge, use the in-app **Install** prompt when offered,
+or choose **Install Taxibee** from the browser menu. On iPhone/iPad, open the site in
+Safari, tap **Share**, then **Add to Home Screen**. The app shell can open offline,
+but route availability, prices, accounts, and bookings require an internet connection.
 
 Booking chat supports real image and voice files, microphone recording with explicit
 sending, and authenticated attachment viewing. In-app calls reuse the shared real

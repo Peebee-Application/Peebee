@@ -9,6 +9,7 @@ import { installSeatSelection } from './seat-selection';
 import { installParcelCharter } from './parcel-charter';
 import {installReturnPackages} from './return-packages';
 import {installTravelCredit} from './travel-credit';
+import { installPwa } from './pwa';
 
 // The presentation is intentionally retained verbatim. This boundary is the only
 // place that translates Peebee records into the source interface's view model.
@@ -16,6 +17,7 @@ const ui = window as unknown as Record<string, any>;
 const { appData, state, driversData } = ui.TaxibeeSource;
 const luggageCatalog = appData.luggage.map((item: any) => ({ ...item }));
 const preview = new URLSearchParams(location.search).get('preview') === '1';
+installPwa();
 const TOKEN = 'taxibee_customer_token';
 let user: AuthUser | null = null;
 let config: TaxipressConfig | null = null;

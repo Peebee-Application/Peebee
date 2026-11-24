@@ -1,8 +1,121 @@
-// Push-only worker: never intercept or cache API responses, tickets, or account pages.
-const database=new Promise((resolve,reject)=>{const r=indexedDB.open('taxibee-push',1);r.onupgradeneeded=()=>r.result.createObjectStore('binding');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-async function binding(value,write=false){const db=await database;return new Promise((resolve,reject)=>{const t=db.transaction('binding',write?'readwrite':'readonly'),s=t.objectStore('binding'),r=write?s.put(value,'account'):s.get('account');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
-self.addEventListener('install',()=>self.skipWaiting());
-self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
-self.addEventListener('message',e=>{if(['account-binding','account-unbind'].includes(e.data?.type))e.waitUntil((async()=>{if(e.data.type==='account-unbind'){if(await binding()!==e.data.accountId)return;await binding(null,true);}else await binding(e.data.accountId||null,true);for(const n of await self.registration.getNotifications())n.close();})());});
-self.addEventListener('push',e=>e.waitUntil((async()=>{let d;try{d=e.data.json();}catch{return;}const account=await binding();if(!account||d.accountId!==account)return;await self.registration.showNotification(String(d.title||'Taxibee'),{body:String(d.body||''),tag:String(d.tag||'taxibee'),icon:'/assets/peebee-logo.svg',data:{accountId:account}});})()));
-self.addEventListener('notificationclick',e=>{e.notification.close();e.waitUntil((async()=>{if(await binding()!==e.notification.data?.accountId)return;const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});for(const c of clients){if(new URL(c.url).origin===self.location.origin){await c.focus();c.postMessage({type:'taxibee-push-open'});return;}}await self.clients.openWindow('/?screen=notifications');})());});
+// Taxibee app-shell and push worker. It deliberately never caches API, account,
+// booking, ticket, payment, or attachment responses.
+const SHELL_CACHE = "taxibee-shell-v1";
+const SHELL_ASSETS = [
+  "/",
+  "/index.html",
+  "/manifest.json",
+  "/offline.html",
+  "/styles.css?v=355",
+  "/taxibee.css",
+  "/customer-auth.css",
+  "/customer-auth-adapter.css",
+  "/leaflet.css",
+  "/script.js",
+  "/live.js",
+  "/assets/peebee-logo.svg",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+];
+
+const database = new Promise((resolve, reject) => {
+  const request = indexedDB.open("taxibee-push", 1);
+  request.onupgradeneeded = () => request.result.createObjectStore("binding");
+  request.onsuccess = () => resolve(request.result);
+  request.onerror = () => reject(request.error);
+});
+
+async function binding(value, write = false) {
+  const db = await database;
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction("binding", write ? "readwrite" : "readonly");
+    const store = transaction.objectStore("binding");
+    const request = write ? store.put(value, "account") : store.get("account");
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+self.addEventListener("install", (event) => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(SHELL_CACHE);
+    await cache.addAll(SHELL_ASSETS);
+    await self.skipWaiting();
+  })());
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((key) => key.startsWith("taxibee-shell-") && key !== SHELL_CACHE).map((key) => caches.delete(key)));
+    await self.clients.claim();
+  })());
+});
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  const url = new URL(request.url);
+  if (request.method !== "GET" || url.origin !== self.location.origin) return;
+  // Account, booking and payment data always goes to Peebee's live API.
+  if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return;
+
+  if (request.mode === "navigate") {
+    event.respondWith(fetch(request).catch(async () => {
+      const cache = await caches.open(SHELL_CACHE);
+      return (await cache.match("/offline.html")) || Response.error();
+    }));
+    return;
+  }
+
+  if (!SHELL_ASSETS.some((asset) => new URL(asset, self.location.origin).pathname === url.pathname)) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(SHELL_CACHE);
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    const response = await fetch(request);
+    if (response.ok) await cache.put(request, response.clone());
+    return response;
+  })());
+});
+
+self.addEventListener("message", (event) => {
+  if (!["account-binding", "account-unbind"].includes(event.data?.type)) return;
+  event.waitUntil((async () => {
+    if (event.data.type === "account-unbind") {
+      if (await binding() !== event.data.accountId) return;
+      await binding(null, true);
+    } else {
+      await binding(event.data.accountId || null, true);
+    }
+    for (const notification of await self.registration.getNotifications()) notification.close();
+  })());
+});
+
+self.addEventListener("push", (event) => event.waitUntil((async () => {
+  let data;
+  try { data = event.data.json(); } catch { return; }
+  const account = await binding();
+  if (!account || data.accountId !== account) return;
+  await self.registration.showNotification(String(data.title || "Taxibee"), {
+    body: String(data.body || ""),
+    tag: String(data.tag || "taxibee"),
+    icon: "/icons/icon-192.png",
+    data: { accountId: account },
+  });
+})()));
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    if (await binding() !== event.notification.data?.accountId) return;
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const client of windows) {
+      if (new URL(client.url).origin === self.location.origin) {
+        await client.focus();
+        client.postMessage({ type: "taxibee-push-open" });
+        return;
+      }
+    }
+    await self.clients.openWindow("/?screen=notifications");
+  })());
+});
