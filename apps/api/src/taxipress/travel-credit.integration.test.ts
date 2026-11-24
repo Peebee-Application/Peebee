@@ -61,6 +61,8 @@ test('corporate receivables and wallet-backed travel vouchers settle and refund 
       assert.equal((await call('a','admin/travel-credit')).status,403);
       assert.equal((await call('', 'travel-credit/me')).status,401);
       await enable();assert.equal((await price(b.orderId)).status,200);
+      const employee=(await json(await call('a','travel-credit/me'))).accounts[0];
+      assert.equal('outstanding' in employee,false);assert.equal('credit_limit' in employee,false);assert.equal(employee.available,20000);
       assert.equal((await call('b',`travel-credit/orders/${b.orderId}/quote`,source)).status,404);
       assert.equal((await call('a',`travel-credit/accounts/${accountId}`)).status,404);
       await call('a',`taxipress/bookings/${b.id}/cancel`,{});
@@ -122,6 +124,40 @@ test('corporate receivables and wallet-backed travel vouchers settle and refund 
       await call('d1','taxipress/driver/boarding',{});const r=await call('d1','taxipress/driver/board',{code:b.ticketCode});assert.equal(r.status,200,JSON.stringify(await r.clone().json()));
       const settlement=(await client.execute({sql:'SELECT fare,driver_amount,commission FROM taxipress_settlements WHERE booking_id=?',args:[b.id]})).rows[0];
       assert.equal(Number(settlement.fare),5000);assert.equal(Number(settlement.driver_amount)+Number(settlement.commission),5000);
+    });
+    await t.test('shared parcel/hire cancellation restores sources once without the old wallet refund duplicating them',async()=>{
+      for(const isRide of [0,1]){
+        const id=`travel-shared-${isRide}`,listId=`travel-shared-list-${isRide}`;
+        await client.execute({sql:"INSERT INTO lists(id,customer_id,title,status) VALUES(?,'a','Transport','active')",args:[listId]});
+        await client.execute({sql:"INSERT INTO orders(id,list_id,customer_id,rider_id,type,stage,payment_rail,estimated_total,delivery_fee,is_ride) VALUES(?,?,'a','d3','parcel','Match','escrow',6000,6000,?)",args:[id,listId,isRide]});
+        const before=await balance(),outstanding=Number((await account()).outstanding);
+        assert.equal((await pay(id,source,6000)).status,200);
+        assert.equal((await call('a',`orders/${id}/customer-cancel`,{acceptedFee:0})).status,200);
+        assert.equal(await balance(),before);assert.equal(Number((await account()).outstanding),outstanding);
+        assert.equal((await client.execute({sql:"SELECT COUNT(*) n FROM payments WHERE order_id=? AND type='refund'",args:[id]})).rows[0].n,1);
+      }
+    });
+    await t.test('a changed voucher split is rejected and expiry restores only the issuer once',async()=>{
+      const v=await voucher(3000),before=Number((await client.execute("SELECT wallet_balance FROM users WHERE id='b'")).rows[0].wallet_balance);
+      const id='travel-stale',listId='travel-stale-list';await client.execute({sql:"INSERT INTO lists(id,customer_id,title,status) VALUES(?,'a','Transport','active')",args:[listId]});
+      await client.execute({sql:"INSERT INTO orders(id,list_id,customer_id,rider_id,type,stage,estimated_total,delivery_fee) VALUES(?,?,'a','d3','parcel','Match',5000,5000)",args:[id,listId]});
+      assert.equal((await call('a',`travel-credit/orders/${id}/fund`,{voucherId:v.id,acceptedAmount:5000,acceptedSponsored:2000})).status,409);
+      assert.equal(await voucherBalance(v.id),3000);
+      await client.execute({sql:"UPDATE travel_vouchers SET expires_at=datetime('now','-1 second') WHERE id=?",args:[v.id]});
+      await call('a','travel-credit/me');await call('b','travel-credit/me');assert.equal(await voucherBalance(v.id),0);
+      assert.equal(Number((await client.execute("SELECT wallet_balance FROM users WHERE id='b'")).rows[0].wallet_balance),before+3000);
+    });
+    await t.test('sandbox vouchers never spend live money and live account statements stay outside sandbox',async()=>{
+      const live=Number((await client.execute("SELECT wallet_balance FROM users WHERE id='b'")).rows[0].wallet_balance);
+      await client.execute("UPDATE users SET wallet_balance_sandbox=10000 WHERE id='b'");await setSetting('platform_environment','sandbox');
+      assert.equal((await call('b',`travel-credit/accounts/${accountId}`)).status,404);
+      assert.equal((await json(await call('a','travel-credit/me'))).accounts.length,0);
+      const v=await voucher(3000);assert.equal(Number((await client.execute("SELECT wallet_balance_sandbox FROM users WHERE id='b'")).rows[0].wallet_balance_sandbox),7000);
+      assert.equal(Number((await client.execute("SELECT wallet_balance FROM users WHERE id='b'")).rows[0].wallet_balance),live);
+      await call('b',`travel-credit/vouchers/${v.id}/cancel`,{});assert.equal(Number((await client.execute("SELECT wallet_balance_sandbox FROM users WHERE id='b'")).rows[0].wallet_balance_sandbox),10000);
+      await setSetting('platform_environment','live');
+      await call('staff',`admin/travel-credit/accounts/${accountId}/members`,{customer:'a@example.test',active:false,perBooking:20000,monthlyLimit:100000},'PUT');
+      const id='travel-stale';assert.equal((await price(id)).status,404,'A revoked traveller cannot use an approved account');
     });
   }finally{setD1Binding(undefined);resetSchemaCache();client.close();if(oldSecret==null)delete process.env.JWT_SECRET;else process.env.JWT_SECRET=oldSecret;}
 });

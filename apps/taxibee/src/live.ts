@@ -394,12 +394,12 @@ if (!preview) account = installCustomerAuth({
 });
 if (!preview) seating = installSeatSelection({ ui,api,user: () => user,quantity: () => ui.passengerTotal(),
   requestLogin: screen => account?.open(screen),remember: () => account?.rememberBooking() });
-if (!preview) services = installParcelCharter({ui,api,user:()=>user,token:()=>sessionStorage.getItem(TOKEN)||localStorage.getItem(TOKEN),login:screen=>account?.open(screen)});
+if (!preview) services = installParcelCharter({ui,api,user:()=>user,token:()=>sessionStorage.getItem(TOKEN)||localStorage.getItem(TOKEN),login:screen=>account?.open(screen),sponsor:{choices:method=>travelCredit?.choices(method,'svc-payment')||'',fields:()=>travelCredit?.fields()||'',review:async(id,method)=>{await travelCredit?.review(id,method);}}});
 if(!preview)returnPackages=installReturnPackages({ui,api,user:()=>user,config:()=>config,trips:()=>trips,bookings:()=>bookings,selected:()=>selectedBooking,
   input:bookingInput,prepareSeats:async()=>seating?.prepare(),refresh,select:b=>{selectedBooking=b;},requestLogin:s=>account?.open(s),clearDraft:()=>{account?.clearDraft();seating?.consumed();},sponsor:{options:()=>travelCredit?.options()||'',fields:()=>travelCredit?.fields()||'',review:async(id,method)=>{await travelCredit?.review(id,method);}}});
 if(!preview)travelCredit=installTravelCredit({ui,api,user:()=>user,complete:async orderId=>{
   const who=user?.id;await refresh();if(!who||who!==user?.id)return;
-  const b=bookings.find(b=>b.orderId===orderId);if(!b)throw new Error('Payment was saved. Refresh My Tickets to load the ticket.');
+  const b=bookings.find(b=>b.orderId===orderId);if(!b){await services?.paid(orderId);return;}
   selectedBooking=b;pendingOrder=null;account?.clearDraft();seating?.consumed();returnPackages?.settled();ui.navigate('ticket');
 }});
 

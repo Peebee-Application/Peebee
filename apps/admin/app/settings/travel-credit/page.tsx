@@ -13,11 +13,11 @@ export default function TravelCreditPage(){
  const [name,setName]=useState(''),[owner,setOwner]=useState(''),[limit,setLimit]=useState('0');
  const [member,setMember]=useState(''),[memberActive,setMemberActive]=useState(false),[perBooking,setPerBooking]=useState('0'),[monthly,setMonthly]=useState('0');
  const load=async()=>setData(await api.getTravelCredit(true));
- useEffect(()=>{if(allowed)void load().catch(e=>setError(errorMessage(e)));},[allowed]);
+ useEffect(()=>{let current=true;if(allowed)void api.getTravelCredit(true).then(next=>{if(current)setData(next);}).catch(e=>{if(current)setError(errorMessage(e));});return()=>{current=false;};},[allowed]);
  async function act(fn:()=>Promise<unknown>){if(busy)return;setBusy(true);setError('');try{await fn();await load();}catch(e){setError(errorMessage(e));}finally{setBusy(false);}}
- return <SettingsPageShell title="Corporate travel credit & vouchers" loading={!data&&allowed}>
+ return <SettingsPageShell title="Corporate travel credit & vouchers" loading={!data&&allowed&&!error}>
  {!allowed?<p>Payment management permission is required.</p>:<>
- <ErrorNote message={error}/><p className="text-sm text-ink-500">Corporate credit is a receivable funded by Peebee until the approved owner repays from their wallet. Named travel vouchers hold actual issuer funds. These methods cover TaxiPress tickets and prepaid return packages; they are separate from promotional offers.</p>
+ <ErrorNote message={error}/><p className="text-sm text-ink-500">Corporate credit is a receivable funded by Peebee until the approved owner repays from their wallet. Named travel vouchers hold actual issuer funds. These methods cover TaxiPress tickets, prepaid return packages, parcels and assigned hire trips; they are separate from promotional offers.</p>
  {data&&!data.ready?<p>Apply reviewed migration 0170 before enabling travel credit.</p>:data&&<>
  <section className="space-y-3 rounded-2xl bg-surface-1 p-4">
  <label className="flex items-center gap-3"><Switch checked={data.corporateEnabled} onChange={e=>setData({...data,corporateEnabled:e.target.checked})}/>Offer approved corporate credit</label>
@@ -32,7 +32,7 @@ export default function TravelCreditPage(){
  <Field label="Approved credit limit (UGX)"><input className={inputCls} inputMode="numeric" value={limit} onChange={e=>setLimit(e.target.value)}/></Field>
  <button className={button} disabled={busy} onClick={()=>void act(async()=>{await api.createTravelCreditAccount({name,owner,creditLimit:Number(limit)});setName('');setOwner('');})}>Create inactive account</button>
  </section>
- <section className="space-y-3"><h2 className="font-bold">Accounts</h2>{data.accounts.map(a=><button key={a.id} className="block w-full rounded-2xl bg-surface-1 p-4 text-left" onClick={()=>void act(async()=>{setDetail(await api.getTravelCreditStatement(a.id,true));setLimit(String(a.credit_limit));})}>{a.name} · {a.active?'Active':'Inactive'}<br/>Outstanding {ugx(a.outstanding)} · Limit {ugx(a.credit_limit)}</button>)}</section>
+ <section className="space-y-3"><h2 className="font-bold">Accounts</h2>{data.accounts.map(a=><button key={a.id} className="block w-full rounded-2xl bg-surface-1 p-4 text-left" onClick={()=>void act(async()=>{setDetail(await api.getTravelCreditStatement(a.id,true));setLimit(String(a.credit_limit||0));})}>{a.name} · {a.active?'Active':'Inactive'}<br/>Outstanding {ugx(a.outstanding||0)} · Limit {ugx(a.credit_limit||0)}</button>)}</section>
  {detail&&<section className="space-y-3 rounded-2xl bg-surface-1 p-4"><h2 className="font-bold">{detail.account.name}</h2><p>Owner: {detail.account.owner_id}. Negative outstanding is company credit following a refund after repayment.</p>
  <Field label="Account credit limit (UGX)"><input className={inputCls} value={limit} inputMode="numeric" onChange={e=>setLimit(e.target.value)}/></Field>
  <button className={button} disabled={busy} onClick={()=>void act(async()=>{await api.setTravelCreditAccount(detail.account.id,{active:!!detail.account.active,creditLimit:Number(limit)});setDetail(await api.getTravelCreditStatement(detail.account.id,true));})}>Save limit</button>{' '}

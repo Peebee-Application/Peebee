@@ -27,6 +27,7 @@ try{
     else if(path==='/v1/taxipress/bookings/mine')data={bookings:created?[booking,...(returned?[returned]:[])]:[]};
     else if(path==='/v1/taxipress/return-quotes'){assert.equal(body.mode,'open');assert.equal(body.queueId,'out-queue');data={package:pkg};status=201;}
     else if(path==='/v1/taxipress/return-packages'&&method==='POST'){assert.equal(body.quoteId,pkg.id);created=true;Object.assign(pkg,{state:'ready',outboundBookingId:booking.id,orderId:booking.orderId,checkout:{wallet:9900,mobileMoney:9900}});data={package:pkg};status=201;}
+    else if(path==='/v1/travel-credit/me')data={ready:true,corporateEnabled:false,vouchersEnabled:false,voucherMax:0,voucherDays:30,accounts:[],vouchers:[]};
     else if(path==='/v1/taxipress/return-packages')data={packages:created?[pkg]:[]};
     else if(path===`/v1/taxipress/return-packages/${pkg.id}`)data={package:pkg};
     else if(path==='/v1/orders/out-order/fund'){assert.equal(body.acceptedAmount,9900);assert.equal(body.useWallet,true);booking.paymentStatus='paid';Object.assign(pkg,{outboundPaid:4500,returnPaid:5400});data={order:{id:booking.orderId},payment:{id:'one-payment',status:'successful'}};}

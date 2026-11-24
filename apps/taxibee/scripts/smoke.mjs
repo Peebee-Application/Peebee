@@ -85,6 +85,7 @@ try {
     else if (path === '/v1/taxipress/bookings' && method === 'POST') { bookingCreated = true; const b = request.postDataJSON(); booking.seats = b.adults + (b.childSeats || 0); booking.amount = booking.seats * 5000 + (b.luggage?.standard || 0) * 2000; data = { booking, order: { id: booking.orderId } }; }
     else if (path === '/v1/orders/shared-order/fund') { booking.paymentStatus = 'paid'; booking.ticketCode = '654321'; data = { order: { id: booking.orderId }, funded: true }; }
     else if (path === '/v1/taxipress/bookings/shared-booking') data = { booking };
+    else if(path==='/v1/travel-credit/me')data={ready:true,corporateEnabled:false,vouchersEnabled:false,voucherMax:0,voucherDays:30,accounts:[],vouchers:[]};
     else if(path==='/v1/taxipress/return-packages')data={packages:[]};
     else if (path === '/v1/taxipress/bookings/shared-booking/tracking') data = { enabled: true, pollAfterSeconds: 30, booking, location: reportedLocation };
     else if (path === '/v1/taxipress/bookings/shared-booking/send') data = { ok: true, code: booking.ticketCode, onPeebee: true, travellerName: request.postDataJSON().name, travellerPhone: request.postDataJSON().phone };

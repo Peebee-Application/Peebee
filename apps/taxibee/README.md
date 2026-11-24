@@ -98,8 +98,7 @@ before offering them. Return capacity is chosen after outbound boarding, against
 the actual queue; this does not promise a scheduled future departure.
 
 Some source mockup behaviours have no equivalent in the current TaxiPress
-API: corporate/voucher
-mock payments, synthetic traffic tracking, fixed-day hire packages and
+API: synthetic traffic tracking, fixed-day hire packages and
 preferred-driver guarantees. They remain in the labelled design preview. The live interface
 does not fabricate them; services outside this integration direct customers
 to Peebee. This release does not claim full backend parity with every mockup
@@ -107,6 +106,11 @@ screen. Changes to those services belong in Peebee's shared API and admin
 settings, rather than a separate Taxibee database.
 
 ## Deploy
+
+Corporate credit and prepaid travel vouchers use shared approved-account budgets,
+receivables, primary-wallet repayments and source-preserving refunds after migration
+0170. Both sales switches default off. See `docs/TAXIBEE-TRAVEL-CREDIT.md` for
+staff approvals, funding limits, extra-charge terms and rollout instructions.
 
 Merge via PR. On clean `main` matching `origin/main`, run `pnpm deploy:taxibee`.
 The existing deployment preflight is required. The Worker is
