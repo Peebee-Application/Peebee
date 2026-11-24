@@ -7,6 +7,8 @@
   const { settingsIndex, settingFor, defaultValues, effectiveRow, followField } = globalThis.FinancialLive;
   const { buildAnalysis, renderAnalysis, renderChart, monthlyEarnings, exportRows } = globalThis.FinancialAnalysis;
   const { company, catalog, technologyCosts, infrastructureRows, createDefaults, loadStarterRevenue } = globalThis.PeebeeDefaults;
+  const { readState: readTaxibeeState } = globalThis.TaxibeeModel;
+  const { views: taxibeeViews, viewSet: taxibeeViewSet, renderView: renderTaxibeeView } = globalThis.TaxibeeUI;
   const dataNote = "Starter estimates model a launch scenario across all channels. Volumes, average values and unverified fees are illustrative. The scenario includes features that may be off in Admin. Apply available Admin fees to matching lines, and enter Peebee’s costs and opening balances.";
   const stepLabels = {
     currency: "Currency", customCurrency: "Currency code", start: "Forecast start", months: "Forecast length",
@@ -93,14 +95,16 @@
     ["taxes", "Taxes", "Review income tax and VAT accruals, payments and closing balances."],
     ["consolidated-models", "Consolidated models", "Compare the enabled channels and see how their revenue streams roll up to Peebee’s total."],
     ["analysis", "Dashboard Charts", "Explore the forecast through charts for revenue, expenses, cash and break-even."],
+    ...taxibeeViews,
   ];
   const workbookById = new Map(workbookSheets.map(sheet => [sheet[0], sheet]));
-  const workbookUtilities = new Set(["admin-defaults", "workbook-intro", "workbook-actuals", "workbook-exports", "workbook-map", "workbook-changes"]);
-  const privateSheets = new Set(["assumptions", "workbook-settings", "admin-defaults", "workbook-actuals", "workbook-exports"]);
+  const workbookUtilities = new Set(["admin-defaults", "workbook-intro", "workbook-actuals", "workbook-exports", "workbook-map", "workbook-changes", ...taxibeeViewSet]);
+  const privateSheets = new Set(["assumptions", "workbook-settings", "admin-defaults", "workbook-actuals", "workbook-exports", "taxibee-assumptions"]);
   const reportLinks = reports.map(({ id, name }) => [id, name]);
   const navigation = [
     { id: "home", name: "Home", views: [["overview", "Dashboard"], ["analysis", "Dashboard Charts"]] },
     ...(!guestMode ? [{ id: "model", name: "Model", views: [["assumptions", "Assumptions"], ["workbook-settings", "Forecast settings"], ["admin-defaults", "Admin defaults"]] }] : []),
+    { id: "taxibee", name: "Taxibee", views: taxibeeViews.filter(([id]) => !guestMode || !privateSheets.has(id)).map(([id, label]) => [id, label]) },
     { id: "schedules", name: "Schedules", views: [["channel-revenue", "Revenue"], ...scheduleReports.map(({ id, name }) => [id, name]),
       ...reportLinks.filter(([id]) => id === "schedules")] },
     { id: "statements", name: "Statements", views: [...statementReports.map(({ id, name }) => [id, name]),
@@ -235,7 +239,10 @@
       if (!data?.answers) return { answers: createDefaults(), screen: "review" };
       const upgraded = upgradeDraft(data.answers);
       const savedCompanyName = typeof upgraded.companyName === "string" ? upgraded.companyName.trim().slice(0, 160) : "";
-      const answers = { company: savedCompanyName || (upgraded.company === "Peebee (illustrative)" ? upgraded.company : company) };
+      const answers = {
+        company: savedCompanyName || (upgraded.company === "Peebee (illustrative)" ? upgraded.company : company),
+        ...readTaxibeeState(upgraded),
+      };
       for (const prompt of availableQuestions(upgraded)) {
         const value = upgraded[prompt.id];
         if (prompt.type === "items" && Array.isArray(value)) {
@@ -1421,6 +1428,23 @@
     const moduleCard = prompt => {
       const channel = answers.channels.find(row => row.key === prompt.channelId);
       const count = lineItems(prompt).length;
+      if (prompt.channelId === "taxipress") {
+        const mode = answers.taxibeeMode === "fly-express" ? "fly-express" : "vip-fleet";
+        const isVip = mode === "vip-fleet";
+        return `<article class="review-module" data-review-item data-search="${searchText(prompt)} Taxibee TaxiPress VIP Fleet Fly Express UDB">
+          <h3>${escape(prompt.title)} <span class="muted">(${isVip ? "VIP Fleet" : "Fly Express"})</span></h3>
+          <p class="muted">${isVip ? "VIP Fleet UDB model (5 → 38 vans)" : `${count} Fly Express commission streams`} · ${included(channel) ? "Included" : "Excluded"}</p>
+          <div class="segmented taxibee-inline-toggle" role="group" aria-label="Taxibee mode">
+            <button type="button" data-review-tb-mode="vip-fleet" aria-pressed="${isVip}">VIP Fleet</button>
+            <button type="button" data-review-tb-mode="fly-express" aria-pressed="${!isVip}">Fly Express</button>
+          </div>
+          <div class="step-actions">
+            <button type="button" class="button ${isVip ? "gold" : "secondary"} small" data-open-taxibee="taxibee-assumptions">Open Taxibee model</button>
+            <button type="button" class="button ${isVip ? "secondary" : "gold"} small" data-edit="${escape(prompt.id)}" aria-label="${editLabel(prompt)}">Edit Fly Express</button>
+          </div>
+          ${!isVip ? preview(prompt) : ""}
+        </article>`;
+      }
       return `<article class="review-module" data-review-item data-search="${searchText(prompt)}">
         <h3>${escape(prompt.title)}</h3>
         <p class="muted">${count} ${count === 1 ? "revenue stream" : "revenue streams"} · ${included(channel) ? "Included" : "Excluded"}</p>
@@ -1490,6 +1514,15 @@
     }));
     updateReview();
     app.querySelectorAll("[data-edit]").forEach(button => button.addEventListener("click", () => goTo(button.dataset.edit, true)));
+    app.querySelectorAll("[data-open-taxibee]").forEach(button => button.addEventListener("click", () => openView(button.dataset.openTaxibee)));
+    app.querySelectorAll("[data-review-tb-mode]").forEach(button => button.addEventListener("click", () => {
+      const nextMode = button.dataset.reviewTbMode;
+      if (answers.taxibeeMode === nextMode) return;
+      answers = { ...answers, ...readTaxibeeState(answers), taxibeeMode: nextMode };
+      outcomes = null;
+      save();
+      renderReview();
+    }));
     document.querySelector("#starter-revenue")?.addEventListener("click", () => confirmAction(
       "Load starter revenue estimates?",
       "This replaces standard Peebee revenue drivers, volumes, and fees. Custom revenue lines, growth assumptions, and costs are kept.",
@@ -1515,7 +1548,11 @@
   }
 
   function modelAnswers() {
-    return { company: answers.company, ...Object.fromEntries(activeQuestions(answers).map(prompt => [prompt.id, effectiveRows(prompt, answers[prompt.id])])) };
+    return {
+      company: answers.company,
+      ...readTaxibeeState(answers),
+      ...Object.fromEntries(activeQuestions(answers).map(prompt => [prompt.id, effectiveRows(prompt, answers[prompt.id])])),
+    };
   }
 
   function costScopeLabel(row) {
@@ -1580,6 +1617,29 @@
         const on = included(channel);
         const count = parts.filter(part => part.entries.some(({ row }) => included(row))).length;
         const { key, name } = channel;
+        if (key === "taxipress") {
+          const mode = answers.taxibeeMode === "fly-express" ? "fly-express" : "vip-fleet";
+          const isVip = mode === "vip-fleet";
+          return `<div class="forecast-module">
+            <div class="forecast-module-line"><strong>${escape(name)}</strong>
+              ${forecastSwitch(`scope-module-${key}`, name, on, guestMode, `data-scope-channel="${escape(key)}"`)}</div>
+            <div class="taxibee-module-mode">
+              <div class="segmented" role="group" aria-label="Taxibee model mode">
+                <button type="button" data-scope-tb-mode="vip-fleet" aria-pressed="${isVip}" ${guestMode || !on ? "disabled" : ""}>VIP Fleet</button>
+                <button type="button" data-scope-tb-mode="fly-express" aria-pressed="${!isVip}" ${guestMode || !on ? "disabled" : ""}>Fly Express</button>
+              </div>
+              ${isVip
+                ? `<p class="muted taxibee-module-note">${on ? "VIP Fleet UDB model rolled into consolidated statements." : "Turn Taxibee on to include VIP Fleet in consolidated statements."} <button type="button" class="text-button" data-open-taxibee="taxibee-dashboard">Open Taxibee model →</button></p>`
+                : parts.length ? `<details data-scope-details="${escape(key)}" ${expandedModules.has(key) ? "open" : ""}>
+                  <summary>${count} of ${parts.length} ${on ? "included" : "selected"} (Fly Express)<span class="sr-only"> in ${escape(name)}</span></summary>
+                  <div class="forecast-module-parts">${parts.map(part => `<div class="forecast-module-line">
+                    <span>${escape(part.name)}</span>
+                    ${forecastSwitch(`scope-part-${key}-${part.key}`, `${name} · ${part.name}`, part.entries.some(({ row }) => included(row)), guestMode || !on,
+                      `data-scope-channel="${escape(key)}" data-scope-part="${escape(part.key)}"`)}
+                  </div>`).join("")}</div></details>` : ""}
+            </div>
+          </div>`;
+        }
         return `<div class="forecast-module">
           <div class="forecast-module-line"><strong>${escape(name)}</strong>
             ${forecastSwitch(`scope-module-${key}`, name, on, guestMode, `data-scope-channel="${escape(key)}"`)}</div>
@@ -1608,7 +1668,19 @@
       toggle.title = moduleSidebarOpen ? "Hide forecast modules" : "Show forecast modules";
       content.hidden = !moduleSidebarOpen;
     });
+    panel.querySelectorAll("[data-open-taxibee]").forEach(btn => btn.addEventListener("click", () => openView(btn.dataset.openTaxibee)));
     if (guestMode) return;
+    panel.querySelectorAll("[data-scope-tb-mode]").forEach(btn => btn.addEventListener("click", () => {
+      const nextMode = btn.dataset.scopeTbMode;
+      if (answers.taxibeeMode === nextMode) return;
+      answers = { ...answers, ...readTaxibeeState(answers), taxibeeMode: nextMode };
+      outcomes = null;
+      scopeMessage = nextMode === "vip-fleet"
+        ? "Switched Taxibee to VIP Fleet (UDB model rolled into consolidated statements)."
+        : "Switched Taxibee to TaxiPress (Fly Express commission lines).";
+      if (!save()) scopeMessage = "The forecast was updated for this session. Browser storage is unavailable.";
+      render();
+    }));
     panel.addEventListener("change", event => {
       const input = event.target.closest("input[data-scope-channel], input[data-scope-all]");
       if (!input) return;
@@ -1880,6 +1952,39 @@
 
   function renderWorkbookSheet() {
     const [id, title, description] = workbookById.get(selectedReport);
+    if (taxibeeViewSet.has(id)) {
+      renderTaxibeeView({
+        app,
+        viewId: id,
+        answers,
+        guestMode,
+        escape,
+        onUpdate(nextAnswers) {
+          answers = nextAnswers;
+          outcomes = null;
+          save();
+          renderWorkbookSheet();
+        },
+        onModeChange(nextMode) {
+          answers = { ...answers, ...readTaxibeeState(answers), taxibeeMode: nextMode };
+          outcomes = null;
+          save();
+          renderWorkbookSheet();
+        },
+        onReset(applyReset) {
+          confirmAction(
+            "Reset Taxibee model defaults?",
+            "This restores the UDB zero-collateral capital structure, unit economics, Year 1 monthly ramp, 5-year scaling schedule, and credit stress scenarios to their baseline values.",
+            "Reset Taxibee defaults",
+            applyReset
+          );
+        },
+        onExport(rows, suffix) {
+          download(rows, suffix);
+        },
+      });
+      return;
+    }
     if (id === "admin-defaults") {
       app.innerHTML = `<header class="workbook-sheet-heading"><h1 id="workbook-sheet-title" tabindex="-1">${escape(title)}</h1>
         <p class="muted">${escape(description)}</p></header>
@@ -2234,9 +2339,21 @@
       if (!Array.isArray(rows) || !rows.every(row => isRecord(row) && typeof row.key === "string" && /^[a-z0-9-]{1,64}$/.test(row.key)) ||
           new Set(rows.map(row => row.key)).size !== rows.length) throw new Error("The backup contains invalid or duplicate channel IDs.");
     }
+    const taxibeeArrayKeys = new Set(["taxibeeConfig", "taxibeeRamp", "taxibeeSchedule", "taxibeeStress"]);
     const prompts = new Map(availableQuestions(input).map(prompt => [prompt.id, prompt]));
     for (const [id, value] of Object.entries(input)) {
       if (id === "company") continue;
+      if (id === "taxibeeMode") {
+        if (!["vip-fleet", "fly-express"].includes(value)) throw new Error("The backup contains an invalid Taxibee mode.");
+        continue;
+      }
+      if (taxibeeArrayKeys.has(id)) {
+        if (!Array.isArray(value) || value.length > 250 || !value.every(row => isRecord(row) &&
+            Object.entries(row).every(([field, answer]) => field.length <= 64 && isAnswer(answer)))) {
+          throw new Error("The backup contains invalid Taxibee model inputs.");
+        }
+        continue;
+      }
       const prompt = prompts.get(id);
       if (!prompt) throw new Error("The backup contains an unrecognized assumption.");
       if (prompt.type === "items") {

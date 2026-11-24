@@ -67,10 +67,10 @@
       note: "The starter applies an illustrative fee to eligible partner transactions. Fuel sales belong to the outlet.",
     },
     {
-      key: "taxipress", name: "TaxiPress",
+      key: "taxipress", name: "Taxibee",
       streams: [orders("Digital seat commission", 220, 12000, 4), orders("Cash seat commission", 320, 12000, 3),
         units("Seat-choice fees", 45, 500)],
-      note: "The starter assumes cash and digital fares have separate commissions. For flat pricing, use booked seats and the fee per seat.",
+      note: "Switch between Taxibee (VIP Fleet owned vans with UDB financing) and TaxiPress (Fly Express partner commissions). In Fly Express mode, cash and digital fares can carry separate commissions synced from Admin.",
     },
     {
       key: "talent", name: "Peebee Jobs & Talent",
@@ -148,8 +148,10 @@
   }
 
   function createDefaults() {
+    const taxibee = globalThis.TaxibeeModel ? globalThis.TaxibeeModel.defaultState() : {};
     return structuredClone({
       company, currency: "UGX", start: currentMonth, months: "36",
+      ...taxibee,
       channels: catalog.map(({ key, name }) => ({ key, name })),
       ...Object.fromEntries(catalog.map(({ key, streams }) => [`channel-${key}`, streams])),
       ...Object.fromEntries(Object.keys(byId).filter(id => id !== "streams").map(id => [id, []])),

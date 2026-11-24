@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 require("./line-items.js");
 require("./assumptions.js");
 require("./acquisition-network.js");
+require("./taxibee-model.js");
 require("./model.js");
 require("./peebee-defaults.js");
 require("./channels.js");
@@ -336,16 +337,17 @@ test("Peebee defaults cover the platform, remain editable, and require a tax ass
   assert.deepEqual(prompts.filter(q => errorFor(q, draft[q.id], draft)).map(q => q.id), ["tax"]);
 
   draft.tax = "0";
-  const channelModel = consolidate(draft);
+  const flyExpressDraft = { ...draft, taxibeeMode: "fly-express" };
+  const channelModel = consolidate(flyExpressDraft);
   const [baseline] = build(channelModel.answers);
   const first = baseline.months[0];
   const channelTotals = channelModel.report.lines.filter(([label]) => draft.channels.some(channel => label === `${channel.name} total`));
   assert.equal(channelTotals.length, 13);
   assert.ok(channelTotals.every(([, getTotal]) => getTotal(first) > 0));
 
-  draft["channel-buy"][0].orders = "501";
-  draft["channel-rides"][2].orders = "9";
-  const edited = consolidate(draft);
+  flyExpressDraft["channel-buy"][0].orders = "501";
+  flyExpressDraft["channel-rides"][2].orders = "9";
+  const edited = consolidate(flyExpressDraft);
   const [forecast] = build(edited.answers);
   assert.equal(forecast.months[0].revenue - first.revenue, 15_500);
   assert.equal(createDefaults()["channel-buy"][0].orders, "500");
@@ -773,4 +775,89 @@ test("shared forecasts validate their source and previews use the actual network
   near(globalThis.FinancialModel.firstMonthSale({...a["channel-concierge"][0],moduleKey:"concierge"},consolidated).units,189);
   a["channel-concierge"][0].demandGroup = "missing";
   assert.match(errorFor(prompt,a["channel-concierge"],a),/acquisition forecast/);
+});
+
+test("Taxibee VIP Fleet model matches UDB 3Y, 5Y, Y1 ramp, debt, and CapEx-gated stress benchmarks", () => {
+  const { compute, defaultState } = globalThis.TaxibeeModel;
+  const model = compute(defaultState());
+
+  // Capital structure & collateral coverage (M0 — Dec 2026)
+  near(model.capital.totalSources, 970_000_000);
+  near(model.capital.initialFleetCapex, 788_450_000);
+  near(model.capital.appraisalFee, 2_750_000);
+  near(model.capital.m0CashBuffer, 118_800_000);
+  near(model.collateral.forcedSaleValue, 630_760_000);
+  near(model.collateral.agfGuaranteeValue, 412_500_000);
+  assert.ok(model.collateral.collateralCoverage > 1.14 && model.collateral.collateralCoverage < 1.15);
+
+  // Y1 monthly launch ramp & liquidity trough
+  assert.equal(model.ramp.operatingBreakevenMonth.monthIndex, 3);
+  assert.equal(model.ramp.cashflowBreakevenMonth.monthIndex, 4);
+  assert.equal(model.ramp.troughMonth, "Mar-27");
+  assert.equal((model.ramp.troughCash / 1e6).toFixed(1), "77.4");
+
+  // 3-Year & 5-Year integrated statements & balance sheet check = 0
+  assert.equal(model.model3y.totals.endingVans, 14);
+  assert.equal(model.model5y.totals.endingVans, 38);
+  assert.equal((model.model5y.rows[0].ebitdaMargin * 100).toFixed(1), "18.6");
+  assert.equal((model.model5y.rows[4].ebitdaMargin * 100).toFixed(1), "46.3");
+  assert.equal((model.model5y.totals.endCash / 1e6).toFixed(1), "4123.4");
+  assert.equal((model.model5y.totals.minCash / 1e6).toFixed(1), "292.3");
+  assert.equal(model.model5y.valuation.udbMoicY5.toFixed(1), "23.0");
+  assert.ok(model.model5y.totals.minDscr > 1.5);
+  for (const row of [...model.model3y.rows, ...model.model5y.rows]) near(row.bsCheck, 0);
+
+  // 6-Year UDB debt amortization
+  assert.equal(model.debtSchedule.length, 6);
+  near(model.debtSchedule[0].principal, 0);
+  near(model.debtSchedule[0].interest, 66_000_000);
+  near(model.debtSchedule[5].closing, 0);
+  assert.ok(model.dscrCovenant.every(r => r.compliant));
+
+  // Credit committee stress tests & UGX 100M CapEx-gating covenant matrix
+  const byKey = Object.fromEntries(model.stressResults.map(s => [s.key, s]));
+  assert.equal(byKey.base.y5Fleet, 38);
+  assert.equal((byKey.base.gatedY5Cash / 1e6).toFixed(1), "4123.4");
+  assert.equal(byKey["low-load"].y5Fleet, 5);
+  assert.equal(byKey["low-load"].y2GatedDscr.toFixed(2), "1.15");
+  assert.equal((byKey["low-load"].gatedMinCash / 1e6).toFixed(1), "113.6");
+  assert.equal((byKey["low-load"].gatedY5Cash / 1e6).toFixed(1), "452.5");
+  assert.equal((byKey["low-load"].unconstrainedMinCash / 1e6).toFixed(1), "-297.7");
+  assert.equal(byKey["fare-drop"].y5Fleet, 5);
+  assert.equal(byKey["fare-drop"].y2GatedDscr.toFixed(2), "1.20");
+  assert.equal((byKey["fare-drop"].gatedMinCash / 1e6).toFixed(1), "155.0");
+  assert.equal((byKey["fare-drop"].gatedY5Cash / 1e6).toFixed(1), "351.9");
+  assert.equal((byKey["fare-drop"].unconstrainedMinCash / 1e6).toFixed(1), "-462.5");
+  assert.equal(byKey["cost-infl"].y5Fleet, 6);
+  assert.equal(byKey["cost-infl"].y2GatedDscr.toFixed(2), "1.41");
+  assert.equal((byKey["cost-infl"].gatedMinCash / 1e6).toFixed(1), "151.5");
+  assert.equal((byKey["cost-infl"].gatedY5Cash / 1e6).toFixed(1), "533.8");
+  assert.equal((byKey["cost-infl"].unconstrainedMinCash / 1e6).toFixed(1), "-3.9");
+  assert.equal(byKey.severe.y5Fleet, 5);
+  assert.equal(byKey.severe.y2GatedDscr.toFixed(2), "-0.64");
+  assert.equal((byKey.severe.gatedY5Cash / 1e6).toFixed(1), "-1269.3");
+  assert.equal((byKey.severe.unconstrainedMinCash / 1e6).toFixed(1), "-4394.3");
+});
+
+test("Taxibee mode toggle switches consolidated Peebee statements between VIP Fleet and Fly Express cleanly", () => {
+  const { createDefaults } = globalThis.PeebeeDefaults;
+  const { consolidate } = globalThis.FinancialChannels;
+
+  for (const start of ["2026-11", "2027-01"]) {
+    const vipDraft = { ...createDefaults(), start, months: "60", tax: "30", taxibeeMode: "vip-fleet" };
+    const vipCons = consolidate(vipDraft);
+    const [vipForecast] = build(vipCons.answers);
+    for (const row of vipForecast.months) assert.ok(Math.abs(row.check) < globalThis.FinancialModel.halfCent, `VIP check ${row.check}`);
+
+    const flyDraft = { ...vipDraft, taxibeeMode: "fly-express" };
+    const flyCons = consolidate(flyDraft);
+    const [flyForecast] = build(flyCons.answers);
+    for (const row of flyForecast.months) assert.ok(Math.abs(row.check) < globalThis.FinancialModel.halfCent, `Fly Express check ${row.check}`);
+
+    const jan2027Vip = vipForecast.months.find(m => m.period === "2027-01");
+    const jan2027Fly = flyForecast.months.find(m => m.period === "2027-01");
+    assert.ok(jan2027Vip.revenue > jan2027Fly.revenue + 50_000_000);
+    assert.ok(jan2027Vip.debt >= 550_000_000);
+    assert.equal(jan2027Fly.debt, 0);
+  }
 });

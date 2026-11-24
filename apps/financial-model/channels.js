@@ -72,9 +72,16 @@
     const streams = [];
     const lines = [];
     const groups = [];
+    const taxibeeApi = globalThis.TaxibeeModel;
+    const taxibeeVipActive = Boolean(taxibeeApi && answers.taxibeeMode === "vip-fleet"
+      && channelRows(answers).some(channel => channel.key === "taxipress" && included(channel)));
+    const taxibeeOverlay = taxibeeVipActive ? taxibeeApi.consolidatedOverlay(answers) : null;
     for (const channel of channelRows(answers).filter(included)) {
       const sources = [];
-      for (const stream of (answers[channelKey(channel)] || []).filter(included)) {
+      const channelStreamList = (channel.key === "taxipress" && taxibeeOverlay)
+        ? taxibeeOverlay.streams
+        : (answers[channelKey(channel)] || []).filter(included);
+      for (const stream of channelStreamList) {
         const index = streams.length;
         streams.push({ ...stream, moduleKey: channel.key, name: `${channel.name} · ${stream.name}` });
         sources.push({ name: stream.name, index });
@@ -86,17 +93,20 @@
     lines.push(["Consolidated revenue", "revenue", "footer"]);
     const active = new Set(groups.map(group => group.key));
     const streamIndexes = new Map(groups.map(group => [group.key, group.streams.map(stream => stream.index)]));
-    const forecastItems = Object.fromEntries(Object.keys(byId).filter(id => id !== "streams").map(id => [
-      id, (answers[id] || []).filter(row => scopedCostGroups.has(id) ? costIsActive(row, active) : included(row)).map(row => {
+    const forecastItems = Object.fromEntries(Object.keys(byId).filter(id => id !== "streams").map(id => {
+      const baseRows = (answers[id] || []).filter(row => scopedCostGroups.has(id) ? costIsActive(row, active) : included(row)).map(row => {
         const keys = [...new Set(moduleScope(row))];
         if (id !== "directCosts" || !keys.length || (row.basis !== "rate" && row.inventoryDemand !== "sales")) return row;
         return { ...row, revenueStreamIndexes: keys.flatMap(key => streamIndexes.get(key) || []) };
-      }),
-    ]));
+      });
+      const overlayRows = taxibeeOverlay && Array.isArray(taxibeeOverlay[id]) ? taxibeeOverlay[id] : [];
+      return [id, [...baseRows, ...overlayRows]];
+    }));
     return {
       answers: { ...answers, ...forecastItems, streams },
       groups,
       report: { id: "channel-revenue", name: "Revenue by channel", lines },
+      taxibeeOverlay,
     };
   }
 

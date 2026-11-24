@@ -19,7 +19,7 @@
   const sum = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
   const total = rows => sum(rows, "amount");
   const numericLine = row => Object.fromEntries(Object.entries(row).map(([key, value]) =>
-    [key, ["name", "method", "basis", "priceCurrency", "cadence", "roleType", "department", "salaryBasis", "category", "assetClass", "replacement", "repayment", "inventoryCode", "inventoryDemand", "openingUnitCost", "movement", "budgetScaling", "orderForecast", "revenueStreamIndexes", "moduleScope", "moduleKey", "demandGroup", "capacityMode"].includes(key) ? value : Number(value || 0)]));
+    [key, ["name", "method", "basis", "priceCurrency", "cadence", "roleType", "department", "salaryBasis", "category", "assetClass", "replacement", "repayment", "inventoryCode", "inventoryDemand", "openingUnitCost", "movement", "budgetScaling", "orderForecast", "revenueStreamIndexes", "moduleScope", "moduleKey", "demandGroup", "capacityMode", "schedule", "headcountSeries", "wagesSeries", "benefitsSeries", "principalCadence", "drawAtMonthEnd"].includes(key) ? value : Number(value || 0)]));
   const assetLife = (answers, assetClass) => Number(answers["assetLife_" + (assetClass || "other")] ||
     assetCategories.find(([id]) => id === assetClass)?.[2] || assetCategories.at(-1)[2]);
   const definedValue = (override, fallback) => override == null || override === "" ? fallback : override;
@@ -85,6 +85,13 @@
   }
 
   function sale(line, prior, elapsed, adjustment) {
+    if (line.method === "schedule") {
+      const baseAmount = Array.isArray(line.schedule) ? Number(line.schedule[elapsed] || 0) : 0;
+      const revenue = adjustment ? baseAmount * Math.max(0, 1 + adjustment / 100) : baseAmount;
+      return { revenue, units: 0, joining: 0, leaving: 0, active: 0, price: 0,
+        volume: 0, feeRate: 0, orderValue: 0, marketingSpend: 0, paidSignups: 0,
+        organicVisits: 0, organicSignups: 0, customerStarts: 0, customerLosses: 0, customers: 0 };
+    }
     const modelMonth = elapsed + 1;
     const launch = line.launchMonth || 1;
     const launched = modelMonth >= launch;
@@ -139,7 +146,9 @@
   }
 
   function directCost(line, prior, revenue, elapsed) {
-    const cogs = line.basis === "fixed" ? line.amount * (1 + line.growth / 100) ** Math.floor(elapsed / 12) : revenue * line.rate / 100;
+    const cogs = line.basis === "schedule"
+      ? (Array.isArray(line.schedule) ? Number(line.schedule[elapsed] || 0) : 0)
+      : line.basis === "fixed" ? line.amount * (1 + line.growth / 100) ** Math.floor(elapsed / 12) : revenue * line.rate / 100;
     const opening = prior?.stock ?? numeric(line, "stock");
     const stock = stockAfter(opening, cogs, numeric(line, "inventoryDays"));
     const purchases = Math.max(0, cogs + stock - opening);
@@ -187,6 +196,10 @@
   }
 
   function operatingExpense(line, month) {
+    if (line.basis === "schedule") {
+      const amount = Array.isArray(line.schedule) ? Number(line.schedule[month - 1] || 0) : 0;
+      return { amount, quantity: 0, base: amount };
+    }
     const elapsed = month - line.month;
     const active = elapsed >= 0 && (!line.endMonth || month <= line.endMonth);
     if (!active) return { amount: 0, quantity: 0, base: 0 };
@@ -201,6 +214,12 @@
   const expensePreview = (row, month) => operatingExpense(numericLine(row), month);
 
   function staffExpense(line, month) {
+    if (line.roleType === "schedule") {
+      const headcount = Array.isArray(line.headcountSeries) ? Number(line.headcountSeries[month - 1] || 0) : 0;
+      const wages = Array.isArray(line.wagesSeries) ? Number(line.wagesSeries[month - 1] || 0) : 0;
+      const benefits = Array.isArray(line.benefitsSeries) ? Number(line.benefitsSeries[month - 1] || 0) : 0;
+      return { amount: wages + benefits, headcount, wages, benefits };
+    }
     const elapsed = month - line.month;
     const active = elapsed >= 0 && (!line.endMonth || month <= line.endMonth) && line.roleType !== "disabled";
     if (!active) return { amount: 0, headcount: 0, wages: 0, benefits: 0 };
@@ -218,10 +237,11 @@
 
   function asset(line, prior, month, existing) {
     const initialMonth = existing ? 1 : line.month;
-    const firstReplacement = initialMonth + line.life;
+    const depStart = existing ? 1 : (line.depreciationStart || initialMonth);
+    const firstReplacement = depStart + line.life;
     const replacing = line.replacement === "cycle" && month >= firstReplacement;
     const life = replacing && existing ? line.replacementLife : line.life;
-    const elapsed = replacing ? (month - firstReplacement) % life : month - initialMonth;
+    const elapsed = replacing ? (month - firstReplacement) % life : month - depStart;
     const purchase = !existing && month === initialMonth ? line.amount : 0;
     const replacement = replacing && elapsed === 0
       ? (existing ? line.replacementCost : line.amount) * (1 + line.assetInflation / 100) ** ((month - initialMonth) / 12)
@@ -251,11 +271,25 @@
     const elapsed = month - (existing ? 0 : line.month);
     const rate = line.rate / 1200;
     const fixedPayment = line.repayment === "payment";
-    const interest = (opening + (fixedPayment ? 0 : draw)) * rate;
-    const installment = fixedPayment && rate > 0
-      ? line.amount * rate / -Math.expm1(-line.term * Math.log1p(rate)) - interest
-      : line.amount / line.term;
-    const principal = elapsed > 0 ? (elapsed >= line.term ? opening : Math.min(opening, Math.max(0, installment))) : 0;
+    const grace = Math.max(0, Number(line.graceMonths || 0));
+    const drawAtEnd = line.drawAtMonthEnd === "yes";
+    const interest = (opening + (fixedPayment || drawAtEnd ? 0 : draw)) * rate;
+    const amortTerm = Math.max(1, line.term - grace);
+    let principal = 0;
+    if (elapsed > grace) {
+      if (elapsed >= line.term) {
+        principal = opening;
+      } else if (line.principalCadence === "annual") {
+        const postGrace = elapsed - grace;
+        const amortYears = Math.max(1, Math.round(amortTerm / 12));
+        principal = postGrace % 12 === 0 ? Math.min(opening, line.amount / amortYears) : 0;
+      } else {
+        const installment = fixedPayment && rate > 0
+          ? line.amount * rate / -Math.expm1(-amortTerm * Math.log1p(rate)) - interest
+          : line.amount / amortTerm;
+        principal = Math.min(opening, Math.max(0, installment));
+      }
+    }
     return { opening, draw, principal, debt: opening + draw - principal, interest };
   }
 

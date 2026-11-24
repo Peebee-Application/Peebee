@@ -289,6 +289,16 @@
         ...row,
       }));
     }
+    if (Array.isArray(answers.channels)) {
+      answers.channels = answers.channels.map(channel =>
+        channel?.key === "taxipress" && channel.name === "TaxiPress" ? { ...channel, name: "Taxibee" } : channel);
+    }
+    if (globalThis.TaxibeeModel) {
+      const hasTaxibee = Array.isArray(answers.channels) && answers.channels.some(channel => channel?.key === "taxipress");
+      if (hasTaxibee || old.taxibeeMode || old.taxibeeConfig) {
+        Object.assign(answers, globalThis.TaxibeeModel.readState(answers));
+      }
+    }
     return answers;
   }
 

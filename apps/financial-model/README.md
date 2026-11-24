@@ -59,6 +59,12 @@ Open **Workbook → Model Map** for the full 20-sheet directory. Every sheet has
 
 Use **Workbook → Actuals** to record monthly historical results. Historical results stay separate from the forecast and are available to signed-in editors. **Data Exports** provides forecast CSV, historical-results CSV and the saved assumptions backup. **FS-Month (AI Summary)** builds its narrative directly from forecast figures. **Change Log** lists app releases.
 
+## Taxibee (formerly TaxiPress)
+
+Open the **Taxibee** navigation tab for the dedicated UDB zero-collateral VIP Fleet financial model across seven linked views: **Executive Dashboard** (3-Year vs 5-Year comparison and charts), **Assumptions & Capital**, **Y1 Monthly Ramp**, **3-Year Model**, **5-Year Model**, **UDB Debt & DSCR**, and **Stress Tests & Gate** (Base and Scenarios A–D with the UGX 100M CapEx-gating covenant).
+
+Use the **Taxibee · VIP Fleet / TaxiPress · Fly Express** toggle on the Taxibee banner, the Dashboard **Forecast modules** card, or **Assumptions → Revenue modules** to switch Peebee’s consolidated statements between the owned VIP Fleet model (rolling fleet revenue, direct trip & gateway costs, driver payroll, van fixed OpEx, corporate overhead, fleet/tech CapEx, and UDB loan/equity into Peebee’s consolidated statements) and the Fly Express partner-commission streams synced from Admin.
+
 ## Reports and exports
 
 Revenue drivers include units, subscriptions, monthly revenue, and a percentage of transaction or payout value. The **Revenue by channel** report contains source rows, channel subtotals and consolidated revenue. Costs, working capital, investment, funding, valuation and financial statements are consolidated for Peebee.
