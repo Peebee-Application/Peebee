@@ -1,3 +1,5 @@
+import {supportStaffIds} from '../support-chat/alerts.js';
+import {visibleHere} from '../practice/people.js';
 import {notifyUser} from '../lib/webpush.js';
 import {Hono,type Context} from 'hono';
 import {z} from 'zod';
@@ -28,6 +30,7 @@ accountToolsRoutes.use('/admin/customer-cases*',requireAuth,requireRole('admin')
 const body=(c:Context)=>c.req.json().catch(()=>null);
 const missing=(c:Context)=>c.json({message:'Account tools upgrade is pending. Please try again later.'},503);
 async function ready(){return hasTable('customer_cases');}
+async function alertCaseStaff(id:string){if(!(await getCustomerTools()).caseStaffAlertsEnabled)return;const world=await getPlatformEnvironment();await Promise.all((await supportStaffIds()).filter(id=>visibleHere(world,id)).map(userId=>notifyUser(userId,{title:'Lost-property report updated',body:'A customer report needs support attention.',tag:'case-'+id,url:'/settings/customer-tools'}).catch(()=>{})));}
 accountToolsRoutes.get('/account-tools/config',async c=>{
  const s=await getCustomerTools(),provider=await getActiveCallProvider();
  return c.json({...s,voiceNoteMaxSeconds:await getVoiceNoteMaxSeconds(),ready:await ready(),pushReady:s.pushEnabled&&!!process.env.VAPID_PUBLIC_KEY&&!!process.env.VAPID_PRIVATE_KEY,publicKey:s.pushEnabled?process.env.VAPID_PUBLIC_KEY||null:null,callsReady:['cloudflare','webrtc_p2p'].includes(provider)&&await isCallProviderConfigured(provider),callProvider:provider});
@@ -95,7 +98,7 @@ accountToolsRoutes.post('/account-tools/cases',async c=>{
  const d=p.data,u=c.get('user'),environment=await getPlatformEnvironment();const existing=(await db.execute({sql:'SELECT id FROM customer_cases WHERE id=? AND customer_id=?',args:[d.id,u.sub]})).rows[0];if(existing)return c.json({id:existing.id});
  const o=(await db.execute({sql:'SELECT 1 FROM orders WHERE id=? AND customer_id=? AND environment=?',args:[d.orderId,u.sub,environment]})).rows[0];if(!o)return c.json({message:'Booking not found.'},404);
  if(!(await consume('lost-case:'+u.sub,s.maxCasesPerDay,86400)).allowed)return c.json({message:'Daily report limit reached. Use support for an existing report.'},429);
- await executeBatch([{sql:'INSERT INTO customer_cases(id,customer_id,order_id,environment,description,contact) VALUES(?,?,?,?,?,?)',args:[d.id,u.sub,d.orderId,environment,d.description,d.contact]},{sql:'INSERT INTO customer_case_events(id,case_id,actor_id,body,status) VALUES(?,?,?,?,?)',args:[newId('caseevt'),d.id,u.sub,'Report submitted','open']}]);return c.json({id:d.id},201);
+ await executeBatch([{sql:'INSERT INTO customer_cases(id,customer_id,order_id,environment,description,contact) VALUES(?,?,?,?,?,?)',args:[d.id,u.sub,d.orderId,environment,d.description,d.contact]},{sql:'INSERT INTO customer_case_events(id,case_id,actor_id,body,status) VALUES(?,?,?,?,?)',args:[newId('caseevt'),d.id,u.sub,'Report submitted','open']}]);await alertCaseStaff(d.id);return c.json({id:d.id},201);
 });
 accountToolsRoutes.get('/admin/customer-cases',async c=>{if(!await ready())return missing(c);return c.json({cases:(await db.execute({sql:'SELECT id,order_id,description,status,version,created_at FROM customer_cases WHERE environment=? ORDER BY updated_at DESC',args:[await getPlatformEnvironment()]})).rows});});
 for(const base of ['/account-tools/cases','/admin/customer-cases']){
@@ -105,7 +108,7 @@ for(const base of ['/account-tools/cases','/admin/customer-cases']){
  if(p.data.status&&p.data.version!==report.version)return c.json({message:'This report changed. Refresh before updating it.'},409);
  const status=p.data.status||report.status;
  let results:number[];try{results=await executeBatch([{sql:"UPDATE customer_cases SET status=?,version=version+1,updated_at=datetime('now') WHERE id=? AND version=?",args:[status,report.id,report.version]},requireChangedRow,{sql:'INSERT INTO customer_case_events(id,case_id,actor_id,body,status) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM customer_cases WHERE id=? AND version=?)',args:[newId('caseevt'),report.id,c.get('user').sub,p.data.body,p.data.status||null,report.id,Number(report.version)+1]}]);}catch{return c.json({message:'This report changed. Refresh first.'},409);}if(!results[0])return c.json({message:'This report changed. Refresh first.'},409);
- if(staff){await notifyUser(report.customer_id,{title:'Lost-property report updated',body:'Peebee support has updated your report.',tag:'case-'+report.id,url:'/?screen=notifications'}).catch(()=>{});await logActivity({actor:c.get('user'),action:'customer.case.update',summary:'Updated lost-property report',entityType:'customer_case',entityId:report.id,after:{status}});}return c.json({ok:true});});
+ if(staff){await notifyUser(report.customer_id,{title:'Lost-property report updated',body:'Peebee support has updated your report.',tag:'case-'+report.id,url:'/?screen=notifications'}).catch(()=>{});await logActivity({actor:c.get('user'),action:'customer.case.update',summary:'Updated lost-property report',entityType:'customer_case',entityId:report.id,after:{status}});}else await alertCaseStaff(report.id);return c.json({ok:true});});
  accountToolsRoutes.post(base+'/:id/files',async c=>{const report=await ownCase(c);if(!report)return c.json({message:'Report not found.'},404);if(!r2IsReady())return c.json({message:'File storage is unavailable.'},503);const s=await getCustomerTools();const f=(await c.req.formData().catch(()=>null))?.get('file');if(!(f instanceof File)||!['image/png','image/jpeg','image/webp'].includes(f.type)||f.size>s.maxAttachmentMb*1048576)return c.json({message:'Choose a supported image within the configured size limit.'},400);
  const bytes=new Uint8Array(await f.arrayBuffer());const valid=f.type==='image/png'?bytes[0]===137&&bytes[1]===80&&bytes[2]===78&&bytes[3]===71:f.type==='image/jpeg'?bytes[0]===255&&bytes[1]===216&&bytes[2]===255:String.fromCharCode(...bytes.slice(0,4))==='RIFF'&&String.fromCharCode(...bytes.slice(8,12))==='WEBP';if(!valid)return c.json({message:'The image contents do not match its file type.'},400);
  const id=newId('casefile'),key='customer-cases/'+report.id+'/'+id;
