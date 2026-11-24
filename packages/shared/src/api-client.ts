@@ -823,6 +823,18 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       type Entry = Pick<TaxipressLineEntry, 'id' | 'plate' | 'seatLayout' | 'status' | 'position' | 'seatsLeft' | 'driverName' | 'bookable' | 'departsAt'>;
       return request<{ line: Entry[]; onRoad: Entry[]; route: TaxipressQueueView['route'] }>(`/v1/taxipress-public/routes/${encodeURIComponent(routeId)}/queue`);
     },
+    async getTaxipressPublicDepartures(input: { routeId?: string; from?: string; to?: string } = {}) {
+      const q = new URLSearchParams(Object.entries(input).filter((x): x is [string,string] => typeof x[1] === "string"));
+      return request<{ departures: Array<{ id:string;routeId:string;departsAt:string;seatsLeft:number;farePerSeat:number;plate:string;seatLayout:string;fromName:string;toName:string }>;ready:boolean }>(`/v1/taxipress-public/departures${q.size ? `?${q}` : ""}`);
+    },
+    async bookTaxipressScheduledDeparture(input: { departureId:string;seats:number;requestId:string;details:{adults:number;children:number;childSeats:number;luggage?:Partial<Record<TaxipressLuggageType,number>>;assistance?:TaxipressAssistance|null;language?:string|null;forSomeoneElse?:boolean;travellerName?:string|null;travellerPhone?:string|null;emergencyPhone?:string|null} }) {
+      return request<{ ticketId:string;orderId:string;reused:boolean;departure?:{id:string;departsAt:string;plate:string;seatLayout:string;from:string;to:string;seats:number;amount:number} }>("/v1/taxipress/departures/book",{method:"POST",body:JSON.stringify(input)});
+    },
+    async getMyTaxipressScheduledTickets() { return request<{ tickets:Array<Record<string,unknown>> }>("/v1/taxipress/departures/mine"); },
+    async getTaxipressScheduledTicket(id:string) { return request<{ ticket:Record<string,unknown> }>(`/v1/taxipress/departures/tickets/${encodeURIComponent(id)}`); },
+    async cancelTaxipressScheduledTicket(id:string) { return request<{ticketId:string;refunded:number;fee:number;cancelled:boolean}>(`/v1/taxipress/departures/tickets/${encodeURIComponent(id)}/cancel`,{method:"POST",body:"{}"}); },
+    async getTaxipressDriverDepartures() { return request<{departures:Array<Record<string,unknown>>}>("/v1/taxipress/driver/departures"); },
+    async taxipressCheckInDeparture(id:string,input:{lat?:number;lng?:number}) { return request<{entry:TaxipressLineEntry}>(`/v1/taxipress/driver/departures/${encodeURIComponent(id)}/check-in`,{method:"POST",body:JSON.stringify(input)}); },
     async getPublicTaxipressTaxiProfile(queueId: string) {
       return request<{ profile: TaxipressTaxiProfile }>(`/v1/taxipress-public/taxis/${encodeURIComponent(queueId)}/profile`);
     },
@@ -849,6 +861,15 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     },
     async adminUpdateTaxipressSettings(input: Partial<TaxipressSettings>) {
       return request<{ settings: TaxipressSettings }>("/v1/admin/taxipress/settings", { method: "PUT", body: JSON.stringify(input) });
+    },
+    async adminGetTaxipressDepartures() {
+      return request<{ departures: Record<string, unknown>[]; taxis: Record<string, unknown>[]; routes: Record<string, unknown>[]; ready: boolean }>("/v1/admin/taxipress/departures");
+    },
+    async adminCreateTaxipressDeparture(input: { routeId: string; taxiId: string; departsAt: string; capacity?: number }) {
+      return request<{ id: string }>("/v1/admin/taxipress/departures", { method: "POST", body: JSON.stringify(input) });
+    },
+    async adminCancelTaxipressDeparture(id: string) {
+      return request<{ ok: boolean }>(`/v1/admin/taxipress/departures/${encodeURIComponent(id)}/cancel`, { method: "POST", body: "{}" });
     },
     async adminListTaxipressRoutes() {
       return request<{ routes: TaxipressAdminRoute[]; relayRoutes: TaxipressRelayRoute[]; ready: boolean }>("/v1/admin/taxipress/routes");

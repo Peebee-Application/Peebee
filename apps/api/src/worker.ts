@@ -12,6 +12,7 @@ import { sweepScheduledRides } from "./car/scheduled.js";
 import { sweepPlanCheckouts } from "./marketplace/plan-checkout.js";
 import { releaseStaleSeats } from "./car/carpool.js";
 import { releaseStaleBookings } from "./taxipress/bookings.js";
+import { sweepScheduledDepartures } from "./taxipress/scheduled.js";
 import { sweepRentalRequests } from "./car/selfdrive.js";
 import { sweepWork } from "./work/scheduled.js";
 import { sweepTalent } from "./talent/scheduled.js";
@@ -151,6 +152,7 @@ export default {
         .then((seats) => console.log("Taxipress seat release sweep:", seats))
         .catch((err) => console.error("Taxipress seat release sweep failed:", err)),
     );
+    ctx.waitUntil(sweepScheduledDepartures().then(r=>{if(r.cancelled||r.missed)console.log("Taxipress scheduled departure sweep:",JSON.stringify(r));}).catch(err=>console.error("Taxipress scheduled departure sweep failed:",err)));
     ctx.waitUntil(
       sweepWork()
         .then((r) => console.log("Peebee Work sweep:", JSON.stringify(r)))

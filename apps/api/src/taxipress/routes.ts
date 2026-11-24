@@ -20,6 +20,7 @@ import { confirmBoarding, settlementReport } from "./settlement.js";
 import { getTaxipressRoute, listActiveTaxipressRoutes, listTaxipressRoutes, taxipressReady } from "./service.js";
 import { SeatError, createSeatHold, releaseSeatHold, seatingReady, seatMap } from './seats.js';
 import {ReturnError,returnsReady,quoteReturn,createReturnPackage,returnPackageView,listReturnPackages,redeemReturn,cancelUnusedReturn,changeReturnDate} from './returns.js';
+import { adminDepartures, bookFutureDeparture, cancelDeparture, cancelFutureTicket, checkInForDeparture, customerFutureTickets, departuresForCustomers, driverDepartures, publishDeparture, scheduledDeparturesReady } from './scheduled.js';
 
 type Row = Record<string, unknown>;
 
@@ -31,6 +32,7 @@ taxipressRoutes.use("/taxipress/*", requireAuth);
 taxipressRoutes.use("/admin/taxipress/*", requireAuth, requireRole("admin"));
 
 const ip = (c: Context) => c.req.header("cf-connecting-ip") ?? null;
+const phone = z.string().trim().min(7).max(20).regex(/^[+0-9 ()-]+$/);
 
 function fail(c: Context, e: unknown) {
   if (e instanceof TaxipressError || e instanceof SeatError || e instanceof ReturnError) return c.json({ error: e.code, message: e.message }, e.status);
@@ -97,6 +99,7 @@ async function customerConfig(c: Context) {
     returnDiscountPercent: settings.returnDiscountPercent,
     returnPackagesEnabled:settings.returnPackagesEnabled && await returnsReady(),
     returnValidityDays:settings.returnValidityDays,returnRefundPercent:settings.returnRefundPercent,
+    scheduledDeparturesEnabled:settings.scheduledDeparturesEnabled && await scheduledDeparturesReady(),scheduleMaxAdvanceDays:settings.scheduleMaxAdvanceDays,
     maxSeatsPerBooking: settings.maxSeatsPerBooking,
     payWithinMinutes: settings.payWithinMinutes,
     parcelFitText: settings.parcelFitText,
@@ -105,6 +108,39 @@ async function customerConfig(c: Context) {
 }
 taxipressRoutes.get("/taxipress/config", customerConfig);
 publicTaxipressRoutes.get("/taxipress-public/config", customerConfig);
+
+const scheduleQuery = z.object({ routeId: z.string().min(1).max(100).optional(), from: z.string().datetime({ offset: true }).optional(), to: z.string().datetime({ offset: true }).optional() });
+publicTaxipressRoutes.get("/taxipress-public/departures", async c => {
+  const parsed = scheduleQuery.safeParse({ routeId: c.req.query("routeId"), from: c.req.query("from"), to: c.req.query("to") });
+  if (!parsed.success) return c.json({ error: "invalid_query" }, 400);
+  c.header("Cache-Control", "no-store");
+  return c.json({ departures: await departuresForCustomers(parsed.data.routeId ?? null, parsed.data.from ?? null, parsed.data.to ?? null), ready: await scheduledDeparturesReady() });
+});
+taxipressRoutes.get("/taxipress/departures", async c => {
+  const parsed = scheduleQuery.safeParse({ routeId: c.req.query("routeId"), from: c.req.query("from"), to: c.req.query("to") });
+  if (!parsed.success) return c.json({ error: "invalid_query" }, 400);
+  c.header("Cache-Control", "no-store");
+  return c.json({ departures: await departuresForCustomers(parsed.data.routeId ?? null, parsed.data.from ?? null, parsed.data.to ?? null), ready: await scheduledDeparturesReady() });
+});
+taxipressRoutes.get("/taxipress/departures/mine", async c => c.json({ tickets: await customerFutureTickets(c.get("user").sub) }));
+taxipressRoutes.get("/taxipress/driver/departures", async c => c.json({departures:await driverDepartures(c.get("user").sub)}));
+taxipressRoutes.get("/taxipress/departures/tickets/:id", async c => {
+  const tickets = await customerFutureTickets(c.get("user").sub);
+  const ticket = tickets.find((t: any) => String(t.id) === c.req.param("id"));
+  return ticket ? c.json({ ticket }) : c.json({ error:"not_found" },404);
+});
+taxipressRoutes.post("/taxipress/departures/tickets/:id/cancel", requireRole("customer"), async c => {
+  try { return c.json(await cancelFutureTicket(c.get("user").sub,c.req.param("id")!)); } catch(e) { return fail(c,e); }
+});
+taxipressRoutes.post("/taxipress/departures/book", requireRole("customer"), async c => {
+  const parsed = z.object({ departureId:z.string().min(1).max(100), seats:z.number().int().min(1).max(18), requestId:z.string().uuid(),
+    details:z.object({adults:z.number().int().min(1).max(18),children:z.number().int().min(0).max(17),childSeats:z.number().int().min(0).max(17).optional(),
+      luggage:z.partialRecord(z.enum(LUGGAGE_TYPES as [string,...string[]]),z.number().int().min(0).max(10)).optional(),assistance:z.enum(["none","boarding","priority","mobility"]).nullable().optional(),
+      language:z.string().trim().min(2).max(20).nullable().optional(),forSomeoneElse:z.boolean().optional(),travellerName:z.string().trim().min(2).max(80).nullable().optional(),travellerPhone:phone.nullable().optional(),emergencyPhone:phone.nullable().optional()}).optional()
+  }).safeParse(await c.req.json().catch(()=>null));
+  if (!parsed.success) return c.json({error:"invalid_body",message:"Choose a published departure and number of seats."},400);
+  try { return c.json(await bookFutureDeparture(c,parsed.data),201); } catch(e) { return fail(c,e); }
+});
 
 async function visibleSeatQueue(c: Context) {
   const settings = await getTaxipressSettings();
@@ -226,6 +262,13 @@ taxipressRoutes.post("/taxipress/driver/join", async (c) => {
   }
 });
 
+taxipressRoutes.post("/taxipress/driver/departures/:id/check-in", async c => {
+  const parsed = placeSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body", message: "Share your location while checking in at the stage." }, 400);
+  try { return c.json({ entry: await checkInForDeparture(c.get("user").sub,c.req.param("id")!,parsed.data.lat,parsed.data.lng) }); }
+  catch (e) { return fail(c,e); }
+});
+
 taxipressRoutes.post("/taxipress/driver/boarding", async (c) => {
   try { return c.json({ entry: await startBoarding(c.get("user").sub) }); } catch (e) { return fail(c, e); }
 });
@@ -273,7 +316,6 @@ taxipressRoutes.post("/taxipress/driver/location", async (c) => {
 // Passenger bookings
 // ---------------------------------------------------------------------------
 
-const phone = z.string().trim().min(7).max(20).regex(/^[+0-9 ()-]+$/);
 const bookSchema = z.object({
   seatHoldId: z.string().min(1).max(100).optional(),
   queueId: z.string().min(1),
@@ -382,6 +424,21 @@ taxipressRoutes.get("/admin/taxipress/settings", requirePermission("settings.man
   return c.json({ settings: await getTaxipressSettings(), ready: await taxipressReady() });
 });
 
+taxipressRoutes.get("/admin/taxipress/departures", requirePermission("settings.manage"), async c => c.json(await adminDepartures()));
+taxipressRoutes.post("/admin/taxipress/departures", requirePermission("settings.manage"), async c => {
+  const parsed = z.object({ routeId: z.string().min(1).max(100), taxiId: z.string().min(1).max(100), departsAt: z.string().min(1).max(40), capacity: z.number().int().min(1).max(18).optional() }).safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid_body", message: "Choose an approved taxi, route, time and capacity." }, 400);
+  try {
+    const id = await publishDeparture(parsed.data,c.get("user").sub);
+    await logActivity({ actor: c.get("user"), action: "taxipress.departure.publish", summary: "Published a future Taxipress departure", entityType: "taxipress_departure", entityId: id, after: parsed.data, ip: ip(c) });
+    return c.json({ id },201);
+  } catch (e) { return fail(c,e); }
+});
+taxipressRoutes.post("/admin/taxipress/departures/:id/cancel", requirePermission("settings.manage"), async c => {
+  try { await cancelDeparture(c.req.param("id")!); await logActivity({ actor: c.get("user"), action: "taxipress.departure.cancel", summary: "Cancelled an empty future Taxipress departure", entityType: "taxipress_departure", entityId: c.req.param("id")!, ip: ip(c) }); return c.json({ ok:true }); }
+  catch (e) { return fail(c,e); }
+});
+
 const settingsSchema = patchSchema(z.object({
   enabled: z.boolean(),
   departureRule: z.enum(["full_only", "driver_choice", "after_wait"]),
@@ -430,6 +487,15 @@ const settingsSchema = patchSchema(z.object({
   openTicketValidityDays: z.number().int().min(0).max(3650),
   openTicketRefundPercent: z.number().min(0).max(100),
   showStops: z.boolean(),
+  scheduledDeparturesEnabled: z.boolean(),
+  scheduleMaxAdvanceDays: z.number().int().min(1).max(365),
+  scheduleMinLeadMinutes: z.number().int().min(0).max(10080),
+  scheduleBookingCutoffMinutes: z.number().int().min(0).max(1440),
+  scheduleCheckinMinutes: z.number().int().min(1).max(1440),
+  scheduleGraceMinutes: z.number().int().min(0).max(1440),
+  scheduleSpacingMinutes: z.number().int().min(0).max(1440),
+  scheduleFreeCancelMinutes: z.number().int().min(0).max(43200),
+  scheduleCancelRetentionPercent: z.number().min(0).max(100),
 }));
 
 taxipressRoutes.put("/admin/taxipress/settings", requirePermission("settings.manage"), async (c) => {

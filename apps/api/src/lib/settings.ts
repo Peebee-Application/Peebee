@@ -824,6 +824,15 @@ const DEFAULTS = {
   direct_delivery_max_hours: "3",
   // Taxipress: scheduled shared-taxi seats on fixed routes. Off until staff turn it on.
   taxipress_enabled: "0",
+  taxipress_scheduled_enabled: "0",
+  taxipress_schedule_max_advance_days: "60",
+  taxipress_schedule_min_lead_minutes: "60",
+  taxipress_schedule_booking_cutoff_minutes: "60",
+  taxipress_schedule_checkin_minutes: "30",
+  taxipress_schedule_grace_minutes: "30",
+  taxipress_schedule_spacing_minutes: "60",
+  taxipress_schedule_free_cancel_minutes: "1440",
+  taxipress_schedule_cancel_retention_percent: "0",
   // full_only: a taxi leaves only when every seat is booked. driver_choice / after_wait relax that.
   taxipress_departure_rule: "full_only",
   // Whether seats still free on a taxi that is On Road may be sold in the app.

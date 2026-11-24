@@ -79,6 +79,15 @@ export type TaxipressSettings = {
   /** Share of the fare given back when an open ticket is cancelled before use. */
   openTicketRefundPercent: number;
   showStops: boolean;
+  scheduledDeparturesEnabled: boolean;
+  scheduleMaxAdvanceDays: number;
+  scheduleMinLeadMinutes: number;
+  scheduleBookingCutoffMinutes: number;
+  scheduleCheckinMinutes: number;
+  scheduleGraceMinutes: number;
+  scheduleSpacingMinutes: number;
+  scheduleFreeCancelMinutes: number;
+  scheduleCancelRetentionPercent: number;
 };
 
 export type LanguageOption = { code: string; name: string; enabled: boolean };
@@ -251,6 +260,15 @@ export async function getTaxipressSettings(): Promise<TaxipressSettings> {
     openTicketsEnabled: bool(openOn, false),
     openTicketValidityDays: whole(openDays, 0, 3650),
     openTicketRefundPercent: openRefund == null ? 100 : percent(openRefund),
+    scheduledDeparturesEnabled: bool(await getSetting("taxipress_scheduled_enabled"), false),
+    scheduleMaxAdvanceDays: whole(await getSetting("taxipress_schedule_max_advance_days"), 60, 365),
+    scheduleMinLeadMinutes: whole(await getSetting("taxipress_schedule_min_lead_minutes"), 60, 10080),
+    scheduleBookingCutoffMinutes: whole(await getSetting("taxipress_schedule_booking_cutoff_minutes"), 60, 1440),
+    scheduleCheckinMinutes: whole(await getSetting("taxipress_schedule_checkin_minutes"), 30, 1440),
+    scheduleGraceMinutes: whole(await getSetting("taxipress_schedule_grace_minutes"), 30, 1440),
+    scheduleSpacingMinutes: whole(await getSetting("taxipress_schedule_spacing_minutes"), 60, 1440),
+    scheduleFreeCancelMinutes: whole(await getSetting("taxipress_schedule_free_cancel_minutes"), 1440, 43200),
+    scheduleCancelRetentionPercent: percent(await getSetting("taxipress_schedule_cancel_retention_percent")),
   };
 }
 
@@ -304,4 +322,13 @@ export async function setTaxipressSettings(next: Partial<TaxipressSettings>): Pr
   if (next.openTicketRefundPercent != null) await setSetting("taxipress_open_ticket_refund_percent", String(next.openTicketRefundPercent));
   if (next.ticketSharingEnabled != null) await setSetting("taxipress_ticket_sharing_enabled", flag(next.ticketSharingEnabled));
   if (next.showStops != null) await setSetting("taxipress_show_stops", flag(next.showStops));
+  if (next.scheduledDeparturesEnabled != null) await setSetting("taxipress_scheduled_enabled", flag(next.scheduledDeparturesEnabled));
+  if (next.scheduleMaxAdvanceDays != null) await setSetting("taxipress_schedule_max_advance_days", String(next.scheduleMaxAdvanceDays));
+  if (next.scheduleMinLeadMinutes != null) await setSetting("taxipress_schedule_min_lead_minutes", String(next.scheduleMinLeadMinutes));
+  if (next.scheduleBookingCutoffMinutes != null) await setSetting("taxipress_schedule_booking_cutoff_minutes", String(next.scheduleBookingCutoffMinutes));
+  if (next.scheduleCheckinMinutes != null) await setSetting("taxipress_schedule_checkin_minutes", String(next.scheduleCheckinMinutes));
+  if (next.scheduleGraceMinutes != null) await setSetting("taxipress_schedule_grace_minutes", String(next.scheduleGraceMinutes));
+  if (next.scheduleSpacingMinutes != null) await setSetting("taxipress_schedule_spacing_minutes", String(next.scheduleSpacingMinutes));
+  if (next.scheduleFreeCancelMinutes != null) await setSetting("taxipress_schedule_free_cancel_minutes", String(next.scheduleFreeCancelMinutes));
+  if (next.scheduleCancelRetentionPercent != null) await setSetting("taxipress_schedule_cancel_retention_percent", String(next.scheduleCancelRetentionPercent));
 }

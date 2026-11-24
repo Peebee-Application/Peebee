@@ -73,6 +73,15 @@ export type TaxipressSettings = {
   openTicketRefundPercent: number;
   /** Show a route's stops (the Relay stages along it) to passengers. */
   showStops: boolean;
+  scheduledDeparturesEnabled: boolean;
+  scheduleMaxAdvanceDays: number;
+  scheduleMinLeadMinutes: number;
+  scheduleBookingCutoffMinutes: number;
+  scheduleCheckinMinutes: number;
+  scheduleGraceMinutes: number;
+  scheduleSpacingMinutes: number;
+  scheduleFreeCancelMinutes: number;
+  scheduleCancelRetentionPercent: number;
 };
 
 export type TaxipressLuggageType = "personal" | "standard" | "large" | "excess" | "fragile" | "commercial";
@@ -95,6 +104,8 @@ export const TAXIPRESS_DEFAULT_LANGUAGES: Array<{ code: string; name: string }> 
 
 /** What the customer app needs to decide whether to show Taxipress, and what to say. */
 export type TaxipressConfig = {
+  scheduledDeparturesEnabled?: boolean;
+  scheduleMaxAdvanceDays?: number;
   returnPackagesEnabled?:boolean;
   returnValidityDays?:number;
   returnRefundPercent?:number;

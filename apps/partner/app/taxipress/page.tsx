@@ -158,9 +158,11 @@ function Board({ view, onChange }: { view: TaxipressDriverView; onChange: () => 
   const [ticket, setTicket] = useState("");
   const [scanning, setScanning] = useState(false);
   const [boarded, setBoarded] = useState<TaxipressBoardingResult | null>(null);
+  const [futureDepartures, setFutureDepartures] = useState<Record<string, unknown>[]>([]);
   const entry = view.entry;
   const mounted = useRef(true);
   useEffect(() => () => { mounted.current = false; }, []);
+  useEffect(() => { if (!entry) void api.getTaxipressDriverDepartures().then(r => setFutureDepartures(r.departures)).catch(() => setFutureDepartures([])); }, [entry, view.taxi?.id]);
   const [now, setNow] = useState(0);
   useEffect(() => {
     const first = window.setTimeout(() => setNow(Date.now()), 0);
@@ -189,6 +191,7 @@ function Board({ view, onChange }: { view: TaxipressDriverView; onChange: () => 
       <section className="home-card space-y-4">
         {!view.enabled && <p className="text-lg text-ink-500">Taxipress isn&apos;t running right now.</p>}
         {view.owingBlocked && <p className={errorBox}>You owe Peebee too much to join the line. Top up your wallet first.</p>}
+        {futureDepartures.length > 0 && <div className="space-y-2"><h2 className="font-bold text-ink">Your scheduled departures</h2>{futureDepartures.map(d => <article key={String(d.id)} className="rounded-xl border border-[var(--border-faint)] p-3"><p className="font-bold">{d.direction === "a_to_b" ? `${d.stage_a_name} → ${d.stage_b_name}` : `${d.stage_b_name} → ${d.stage_a_name}`}</p><p className="text-sm text-ink-500">{new Date(String(d.departsAt).replace(" ","T")+(String(d.departsAt).endsWith("Z")?"":"Z")).toLocaleString("en-UG",{timeZone:"Africa/Kampala",dateStyle:"medium",timeStyle:"short"})} · {Number(d.seatsReserved)}/{Number(d.capacity)} seats reserved</p><button type="button" disabled={busy} onClick={() => run(async () => { const at = await currentPosition(); await api.taxipressCheckInDeparture(String(d.id),at ?? {}); })} className={`${primary} mt-2`}>{busy ? "Checking in…" : "Check in at stage"}</button></article>)}</div>}
         {view.routes.length === 0 ? (
           <p className="text-lg text-ink-500">No route is running for your taxi right now.</p>
         ) : (

@@ -23,7 +23,7 @@ try{
   else if(path.endsWith('/queue'))data={route,line:[{id:'credit-queue',bookable:true,position:1,seatsLeft:12,seatLayout:'14',plate:'UBM 123A',driverName:'Driver'}],onRoad:[]};
   else if(path==='/v1/wallet')data={balance:wallet,ledger:[]};
   else if(path==='/v1/taxipress/return-packages')data={packages:[]};
-  else if(path==='/v1/taxipress/bookings/mine')data={bookings};
+  else if(path==='/v1/taxipress/bookings/mine')data={bookings};else if(path==='/v1/taxipress/departures/mine')data={tickets:[]};
   else if(path==='/v1/taxipress/bookings'&&method==='POST'){const id='credit-booking-'+bookings.length;const b={id,orderId:'order-'+id,status:'booked',seats:1,amount:5000,farePerSeat:5000,paymentMethod:'app',paymentStatus:'unpaid',ticketCode:'TXP-CRED01',createdAt:new Date().toISOString(),route,taxi:{queueId:'credit-queue',plate:'UBM 123A',seatLayout:'14',driverName:'Driver',status:'in_line',seatsLeft:11},cancel:{allowed:true,free:true,fee:0,refund:5000}};bookings.push(b);data={booking:b,order:{id:b.orderId}};status=201;}
   else if(path.startsWith('/v1/travel-credit/orders/')){
    const id=path.split('/')[4],b=bookings.find(b=>b.orderId===id);assert.ok(b);
