@@ -25,7 +25,7 @@ async function catalog() {
   const luxury=await isModuleLive('ride.luxury');
   const extras=charterEnabled && await hasColumn('vehicle_categories','service_group');
   const categories=charterEnabled ? (await db.execute(`SELECT c.id,c.name,c.seats${extras ? ',c.service_group,c.rate_per_hour' : ", 'standard' AS service_group,0 AS rate_per_hour"}
-    FROM vehicle_categories c WHERE c.active=1 AND c.kind='passenger' AND EXISTS(SELECT 1 FROM vehicles v WHERE v.category_id=c.id AND v.status='approved' AND ${visibleInWorld(world,'v.owner_id')}) ORDER BY c.sort,c.name`)).rows.filter(c=>c.service_group!=='ambulance' && (c.service_group!=='luxury'||luxury)) : [];
+    FROM vehicle_categories c WHERE c.active=1 AND c.kind='passenger' AND EXISTS(SELECT 1 FROM vehicles v WHERE v.category_id=c.id AND v.status='approved' AND ${visibleInWorld(world,'v.owner_id')}${world==='live'?" AND v.id NOT LIKE 'demo-%' AND v.owner_id NOT LIKE 'demo-%'":''}) ORDER BY c.sort,c.name`)).rows.filter(c=>c.service_group!=='ambulance' && (c.service_group!=='luxury'||luxury)) : [];
   return {parcelEnabled,relayEnabled,routes,charterEnabled,onDemandEnabled:car.onDemandEnabled,categories,maxHireHours:MAX_HIRE_HOURS,
     scheduled:charterEnabled && await scheduledAvailable(car.scheduled) ? {minLeadMinutes:car.scheduled.minLeadMinutes,maxAdvanceHours:car.scheduled.maxAdvanceHours} : null,
     tracking:{enabled:tracking.enabled,pollAfterSeconds:tracking.routeRefreshSeconds,staleAfterSeconds:tracking.staleAfterSeconds}};
