@@ -64,7 +64,7 @@ accountToolsRoutes.post('/account-tools/contact/request',async c=>{
  const column=d.channel==='email'?'email':'phone';if((await db.execute({sql:`SELECT 1 FROM users WHERE ${column}=?`,args:[target]})).rows.length)return c.json({message:'This contact cannot be used.'},409);
  const configured=d.channel==='email'?await isResendConfigured():isAfricasTalkingConfigured();if(!configured&&process.env.ENVIRONMENT!=='development')return c.json({message:'Verification delivery is unavailable.'},503);
  const id=newId('contact'),code=generateCode();await db.execute({sql:'INSERT INTO account_contact_changes(id,user_id,channel,target,code_hash,expires_at) VALUES(?,?,?,?,?,?)',args:[id,u.sub,d.channel,target,await hashCode(code),new Date(Date.now()+s.otpMinutes*60000).toISOString()]});
- try{if(configured){if(d.channel==='email')await sendVerificationEmail(target,code);else await sendVerificationSms(target,code);}}catch{await db.execute({sql:"UPDATE account_contact_changes SET consumed_at=datetime('now') WHERE id=?",args:[id]});return c.json({message:'The verification code could not be delivered.'},502);}
+ try{if(configured){if(d.channel==='email')await sendVerificationEmail(target,code,undefined,'verify',s.otpMinutes);else await sendVerificationSms(target,code,s.otpMinutes);}}catch{await db.execute({sql:"UPDATE account_contact_changes SET consumed_at=datetime('now') WHERE id=?",args:[id]});return c.json({message:'The verification code could not be delivered.'},502);}
  return c.json({id,target:maskTarget(d.channel,target),...(process.env.ENVIRONMENT==='development'&&!configured?{devCode:code}:{})});
 });
 accountToolsRoutes.post('/account-tools/contact/confirm',async c=>{
