@@ -793,8 +793,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       signIn: () => account?.open(state.screen),
       signOut: () => { void ui.signOut(); },
       openLocal: (screen, action) => {
+        if (action === 'wallet-transactions') state.walletFilter = 'all';
         ui.navigate(screen);
         if (!action) return;
+        if (action === 'wallet-transactions') {
+          const history = document.querySelector<HTMLElement>('.transaction-list')?.closest('.card');
+          requestAnimationFrame(() => history?.scrollIntoView({ block: 'center' }));
+          return;
+        }
         const trigger = document.createElement('button');
         trigger.type = 'button';
         trigger.dataset.action = action;

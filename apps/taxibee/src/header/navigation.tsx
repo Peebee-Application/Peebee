@@ -10,7 +10,7 @@ function route(href: string) {
   if (url.origin !== customerOrigin) return { href: customerOrigin };
   const screen = localRoutes[url.pathname];
   const tab = url.searchParams.get("tab");
-  const action = tab === "topup" ? "wallet-topup" : tab === "transactions" ? "taxibee-wallet-statement" : undefined;
+  const action = tab === "topup" ? "wallet-topup" : tab === "transactions" ? "wallet-transactions" : undefined;
   return screen
     ? { href: screen === "home" ? "/" : `/?screen=${screen}`, screen, action }
     : { href: url.href };
