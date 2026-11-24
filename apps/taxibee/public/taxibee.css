@@ -29,3 +29,135 @@ body.taxibee-preview { padding-bottom: 32px; }
 .account-tools-dialog .modal__foot { flex-wrap: wrap; justify-content: flex-start; }
 .account-tools-dialog .modal__foot .button { flex: 1 1 130px; max-width: 100%; }
 .account-tools-dialog img, .account-tools-dialog audio { max-width: 100%; }
+
+/* Taxibee's mobile bar follows the Customer app's home anchor + gold menu. */
+.taxibee-install-prompt {
+  position: fixed;
+  z-index: 49;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: min(420px, calc(100vw - 40px));
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--page);
+  color: #0a0a0a;
+  box-shadow: 0 8px 28px rgb(10 10 10 / .16);
+}
+.taxibee-install-prompt.is-hidden { display: none; }
+.taxibee-install-icon { flex: 0 0 40px; border-radius: 10px; object-fit: cover; }
+.taxibee-install-copy { display: grid; flex: 1 1 auto; gap: 3px; min-width: 0; font-size: 12px; line-height: 1.35; }
+.taxibee-install-copy strong { font-size: 13px; }
+.taxibee-install-action, .taxibee-install-dismiss { border: 0; cursor: pointer; }
+.taxibee-install-action { padding: 9px 12px; border-radius: 12px; background: #c9a227; color: #0a0a0a; font-weight: 800; }
+.taxibee-install-action.is-hidden { display: none; }
+.taxibee-install-dismiss { display: grid; flex: 0 0 28px; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: transparent; color: #1a1a1a; }
+.taxibee-install-dismiss svg { width: 17px; height: 17px; }
+@media (max-width: 767px) {
+  :root { --mobile-nav-height: 90px; }
+  #mobile-nav.mobile-nav {
+    position: fixed !important;
+    inset: auto 0 0 !important;
+    z-index: 50 !important;
+    display: block !important;
+    height: calc(90px + var(--safe-bottom)) !important;
+    padding: 0 12px calc(8px + var(--safe-bottom)) !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  #mobile-nav.mobile-nav.is-hidden { display: none !important; }
+  .taxibee-nav-shell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: min(100%, 520px);
+    height: 76px;
+    margin: 0 auto;
+    padding: 7px;
+    border-radius: 25px;
+    background: #0a0a0a;
+    box-shadow: 0 8px 26px rgb(10 10 10 / .2);
+  }
+  .taxibee-nav-anchor { flex: 0 0 58px; height: 100%; }
+  .taxibee-nav-home {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 5px;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 19px;
+    background: transparent;
+    color: #faf8ef;
+    cursor: pointer;
+    font: 700 10px/1 system-ui, sans-serif;
+  }
+  .taxibee-nav-home.is-active { color: #c9a227; }
+  .taxibee-nav-home svg { width: 20px; height: 20px; }
+  .taxibee-nav-menu-track {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-radius: 19px;
+    background: #c9a227;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+  .taxibee-nav-menu-track::-webkit-scrollbar { display: none; }
+  .taxibee-nav-items {
+    display: flex;
+    width: 100%;
+    min-width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0 4px;
+    list-style: none;
+  }
+  .taxibee-nav-items li { flex: 1 0 20%; min-width: 0; height: 100%; }
+  #mobile-nav .mobile-nav-item {
+    display: grid !important;
+    align-content: center !important;
+    justify-items: center !important;
+    gap: 5px !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding: 0 2px !important;
+    border: 0 !important;
+    border-radius: 15px !important;
+    background: transparent !important;
+    color: #0a0a0a !important;
+    font-size: 9px !important;
+    line-height: 1.1 !important;
+    white-space: nowrap;
+  }
+  #mobile-nav .mobile-nav-item svg { width: 19px !important; height: 19px !important; }
+  #mobile-nav .mobile-nav-item.is-active { background: #faf8ef !important; color: #0a0a0a !important; }
+  #mobile-nav .mobile-nav-item .nav-count { background: #0a0a0a !important; color: #faf8ef !important; }
+
+  .taxibee-install-prompt {
+    right: 14px;
+    bottom: calc(98px + var(--safe-bottom));
+    left: 14px;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+}
+
+@media (min-width: 420px) and (max-width: 767px) {
+  .taxibee-nav-items li { flex-basis: 20%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .taxibee-nav-shell, .taxibee-install-prompt { scroll-behavior: auto; }
+}
