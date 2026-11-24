@@ -1,5 +1,5 @@
 (() => {
-  const { compute, defaultState, readState, exportCsvRows } = globalThis.TaxibeeModel;
+  const { compute, computeFlyExpress, defaultState, readState, exportCsvRows } = globalThis.TaxibeeModel;
 
   const ugxFmt = new Intl.NumberFormat("en-UG", { maximumFractionDigits: 0 });
   const dec1Fmt = new Intl.NumberFormat("en-UG", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -563,22 +563,296 @@
       </section>`;
   }
 
-  function renderView({ app, viewId, answers, guestMode, escape, onUpdate, onModeChange, onReset, onExport }) {
+  function renderFlyDashboard(escape, fly) {
+    const m3 = fly.model3y;
+    const m5 = fly.model5y;
+    const m1Bookings = fly.y1Months[0]?.bookings ?? 0;
+    const maxRev = Math.max(1, ...m5.rows.map(r => r.totalRevenue));
+    const maxStreamRev = Math.max(1, ...fly.streamTrackers.map((_, idx) => m5.rows.reduce((s, r) => s + (r.streamTotals[idx]?.revenue || 0), 0)));
+    const kpis = [
+      ["Capital Structure (Fly Express)", "UGX 0 Debt", "Asset-light partner fleet · Zero van CapEx or collateral"],
+      ["5-Year Cumulative Revenue", `UGX ${fmtM(m5.totals.totalRevenue)}`, `${fly.activeStreams.length} active partner streams · ${fmtUgx(m1Bookings)} mo. 1 bookings/units`],
+      ["5-Year Cumulative Net Profit", `UGX ${fmtM(m5.totals.pat)}`, `After ${fmtPct1(fly.taxRate)} tax · ${fmtPct1(m5.totals.netMargin)} net margin`],
+      ["5-Year Cash Contribution", `UGX ${fmtM(m5.totals.endCash)}`, "No principal or interest obligations · Zero DSCR risk"],
+    ];
+    const compareRows = [
+      { label: "Operating Model", cells: ["Partner Fleet (Fly Express)", "Partner Fleet (Fly Express)", "Asset-light commission marketplace"] },
+      { label: "Active Commission & Fee Streams", cells: [String(fly.activeStreams.length), String(fly.activeStreams.length), "Synced with Admin TaxiPress fee rules"] },
+      { label: "Cumulative Partner Bookings / Units", cells: [fmtUgx(m3.totals.bookings), fmtUgx(m5.totals.bookings), "Digital seats, cash seats & seat-choice add-ons"] },
+      { label: "Cumulative Gross Fare Volume (UGX)", cells: [fmtUgx(m3.totals.volume), fmtUgx(m5.totals.volume), "Partner fares processed through TaxiPress"] },
+      { label: "Cumulative Peebee Revenue (UGX)", cells: [fmtUgx(m3.totals.totalRevenue), fmtUgx(m5.totals.totalRevenue), "Commissions & seat-choice fees retained by Peebee"], style: "total" },
+      { label: "Cumulative EBITDA (UGX)", cells: [fmtUgx(m3.totals.ebitda), fmtUgx(m5.totals.ebitda), `${fmtPct1(m5.totals.ebitdaMargin)} margin before unallocated corporate overhead`], style: "total" },
+      { label: "Cumulative Net Profit After Tax (UGX)", cells: [fmtUgx(m3.totals.pat), fmtUgx(m5.totals.pat), `After ${fmtPct1(fly.taxRate)} corporate income tax`] },
+      { label: "Cumulative Cash Contribution (UGX)", cells: [fmtUgx(m3.totals.endCash), fmtUgx(m5.totals.endCash), "Zero vehicle CapEx or fleet maintenance drain"], style: "total" },
+      { label: "Fleet CapEx & UDB Debt", cells: ["UGX 0", "UGX 0", "Vehicles owned & maintained by partner operators"] },
+      { label: "Project NPV @ 12.0% (UGX)", cells: [fmtUgx(m3.valuation.npv12), fmtUgx(m5.valuation.npv12), "Discounted unlevered commission cash flows"], style: "footer" },
+    ];
+    const perfRows = m5.rows.map(r => ({
+      label: String(r.calendarYear),
+      cells: [
+        fmtUgx(r.bookings),
+        fmtMNum(r.volume),
+        fmtMNum(r.totalRevenue),
+        fmtMNum(r.ebitda),
+        fmtMNum(r.pat),
+        fmtMNum(r.endCash),
+        "UGX 0",
+      ],
+    }));
+    const streamTotals5y = fly.streamTrackers.map((s, idx) => ({
+      name: s.name,
+      rev: m5.rows.reduce((acc, r) => acc + (r.streamTotals[idx]?.revenue || 0), 0),
+    }));
+    return `<div class="metrics">
+        ${kpis.map(([label, value, sub]) => `<div class="panel metric">
+          <span>${escape(label)}</span>
+          <div class="metric-value"><strong>${escape(value)}</strong></div>
+          <small>${escape(sub)}</small>
+        </div>`).join("")}
+      </div>
+      <section class="panel">
+        <h2>1. Fly Express Partner Model: 3-Year vs 5-Year Comparison</h2>
+        ${renderTable(escape, "Key Performance Metric", [
+          `3-Year (${fly.start.year}–${fly.start.year + 2})`,
+          `5-Year (${fly.start.year}–${fly.start.year + 4})`,
+          "Fly Express Partner Basis",
+        ], compareRows)}
+      </section>
+      <section class="panel">
+        <h2>2. 5-Year Fly Express Performance Summary (UGX Millions)</h2>
+        ${renderTable(escape, "Year", ["Bookings / Units", "Gross Volume (M)", "Peebee Revenue (M)", "EBITDA (M)", "Net Profit (M)", "Cum. Cash (M)", "Fleet Debt"], perfRows)}
+      </section>
+      <div class="taxibee-chart-grid">
+        <section class="panel">
+          <h2>5-Year Commission Revenue &amp; EBITDA (UGX Millions)</h2>
+          <div class="taxibee-bar-list">
+            ${m5.rows.map(r => `<div class="taxibee-bar-group">
+              <div class="taxibee-bar-head"><span>${r.calendarYear}</span><strong>Rev ${fmtM(r.totalRevenue)} · EBITDA ${fmtM(r.ebitda)}</strong></div>
+              <div class="taxibee-bar-tracks">
+                <div class="track"><span class="bar" style="width:${(100 * r.totalRevenue / maxRev).toFixed(1)}%"></span></div>
+                <div class="track"><span class="bar taxibee-bar-ink" style="width:${Math.max(0, 100 * r.ebitda / maxRev).toFixed(1)}%"></span></div>
+              </div>
+            </div>`).join("")}
+          </div>
+          <p class="muted taxibee-legend"><span><i class="taxibee-swatch-gold"></i>Peebee Revenue</span><span><i class="taxibee-swatch-ink"></i>EBITDA</span></p>
+        </section>
+        <section class="panel">
+          <h2>5-Year Revenue Mix by Fly Express Stream</h2>
+          <div class="taxibee-bar-list">
+            ${streamTotals5y.map(st => `<div class="taxibee-bar-group">
+              <div class="taxibee-bar-head"><span>${escape(st.name)}</span><strong>UGX ${fmtM(st.rev)}</strong></div>
+              <div class="taxibee-bar-tracks">
+                <div class="track"><span class="bar" style="width:${(100 * st.rev / maxStreamRev).toFixed(1)}%"></span></div>
+              </div>
+            </div>`).join("") || '<p class="muted">No active Fly Express streams enabled.</p>'}
+          </div>
+        </section>
+      </div>`;
+  }
+
+  function renderFlyAssumptions(escape, fly, answers, guestMode) {
+    const ro = guestMode ? "disabled" : "";
+    const streams = Array.isArray(answers["channel-taxipress"]) ? answers["channel-taxipress"] : [];
+    const numInput = (idx, field, val, step = "any") =>
+      `<div class="field-box taxibee-input-box compact"><input type="number" step="${step}" data-fly-idx="${idx}" data-fly-field="${field}" value="${escape(val ?? "")}" ${ro}></div>`;
+    const rows = streams.map((row, idx) => {
+      const isOrders = row.method === "orders";
+      const isUnits = row.method === "units";
+      const active = row.enabled !== "no";
+      const m1Rev = fly.y1Months[0]?.byStream.find(s => s.name === row.name)?.revenue ?? 0;
+      return {
+        label: row.name || `Stream ${idx + 1}`,
+        cells: [
+          { html: `<label class="forecast-switch"><input type="checkbox" data-fly-idx="${idx}" data-fly-toggle="enabled" ${active ? "checked" : ""} ${ro}><span>${active ? "On" : "Off"}</span></label>` },
+          isOrders ? "Orders × Fare × %" : isUnits ? "Units × Fee" : escape(row.method || "direct"),
+          isOrders ? { html: numInput(idx, "orders", row.orders, "1"), cls: "taxibee-input-cell" }
+            : isUnits ? { html: numInput(idx, "units", row.units, "1"), cls: "taxibee-input-cell" } : "—",
+          isOrders ? { html: numInput(idx, "orderValue", row.orderValue, "500"), cls: "taxibee-input-cell" }
+            : isUnits ? { html: numInput(idx, "price", row.price, "100"), cls: "taxibee-input-cell" } : "—",
+          isOrders || row.method === "percentage" ? { html: numInput(idx, "rate", row.rate, "0.1"), cls: "taxibee-input-cell" } : "—",
+          { html: numInput(idx, "growth", row.growth, "0.5"), cls: "taxibee-input-cell" },
+          { html: numInput(idx, "days", row.days, "1"), cls: "taxibee-input-cell" },
+          fmtUgx(active ? m1Rev : 0),
+        ],
+      };
+    });
+    return `<section class="panel">
+        <div class="review-section-head">
+          <h2>TaxiPress · Fly Express Revenue Streams (Partner Commission Model)</h2>
+          ${!guestMode ? '<button type="button" class="button secondary small" id="taxibee-edit-fly-advanced">Open full Fly Express editor →</button>' : ""}
+        </div>
+        <p class="muted">Edit Fly Express monthly seat volumes, average fares, commission percentages, flat seat-choice fees, and monthly growth directly here. Changes immediately recalculate all Fly Express views and Peebee’s consolidated statements.</p>
+        ${renderTable(escape, "Stream", ["Status", "Driver", "Mo. 1 Orders / Units", "Avg Fare / Fee (UGX)", "Commission (%)", "Mo. Growth (%)", "AR Days", "Mo. 1 Revenue (UGX)"], rows)}
+      </section>
+      <section class="panel">
+        <h2>Capital Structure · Asset-Light Partner Basis</h2>
+        <dl class="taxibee-dl">
+          <div><dt>Vehicle Ownership</dt><dd>Partner-owned fleet (Fly Express operators)</dd></div>
+          <div><dt>Fleet CapEx &amp; UDB Loan Required</dt><dd>UGX 0</dd></div>
+          <div><dt>Corporate Income Tax Rate (from Peebee Model)</dt><dd>${fmtPct1(fly.taxRate)}</dd></div>
+          <div><dt>Admin Live Fee Sync</dt><dd>Supported via Model → Admin defaults &amp; Settings → Live Admin data</dd></div>
+        </dl>
+      </section>`;
+  }
+
+  function renderFlyRamp(escape, fly) {
+    const cols = [...fly.y1Months.map(m => m.label), "FY Total"];
+    const streamRows = fly.streamTrackers.map((st, idx) => ({
+      label: st.name,
+      cells: [
+        ...fly.y1Months.map(m => fmtUgx(m.byStream[idx]?.revenue ?? 0)),
+        fmtUgx(fly.y1Months.reduce((acc, m) => acc + (m.byStream[idx]?.revenue ?? 0), 0)),
+      ],
+      style: "detail",
+    }));
+    const rows = [
+      { label: "Total Bookings / Units", cells: [...fly.y1Months.map(m => fmtUgx(m.bookings)), fmtUgx(fly.y1Totals.bookings)] },
+      ...streamRows,
+      { label: "Total Peebee Revenue", cells: [...fly.y1Months.map(m => fmtUgx(m.totalRevenue)), fmtUgx(fly.y1Totals.totalRevenue)], style: "total" },
+      { label: "Scoped Direct Costs (COGS)", cells: [...fly.y1Months.map(m => fmtUgx(m.cogs)), fmtUgx(fly.y1Totals.cogs)] },
+      { label: "Gross Profit", cells: [...fly.y1Months.map(m => fmtUgx(m.grossProfit)), fmtUgx(fly.y1Totals.grossProfit)], style: "total" },
+      { label: "Scoped Operating Expenses", cells: [...fly.y1Months.map(m => fmtUgx(m.opex)), fmtUgx(fly.y1Totals.opex)] },
+      { label: "EBITDA", cells: [...fly.y1Months.map(m => fmtUgx(m.ebitda)), fmtUgx(fly.y1Totals.ebitda)], style: "total" },
+      { label: `Income Tax (${fmtPct1(fly.taxRate)})`, cells: [...fly.y1Months.map(m => fmtUgx(m.tax)), fmtUgx(fly.y1Totals.tax)] },
+      { label: "Net Profit After Tax", cells: [...fly.y1Months.map(m => fmtUgx(m.pat)), fmtUgx(fly.y1Totals.pat)], style: "total" },
+      { label: "Cumulative Cash Contribution", cells: [...fly.y1Months.map(m => fmtUgx(m.endCash)), fmtUgx(fly.y1Totals.endCash)], style: "footer" },
+    ];
+    const maxCash = Math.max(1, ...fly.y1Months.map(m => Math.abs(m.endCash)));
+    return `<div class="metrics">
+        <div class="panel metric"><span>Y1 Partner Bookings</span><div class="metric-value"><strong>${fmtUgx(fly.y1Totals.bookings)}</strong></div><small>Across ${fly.activeStreams.length} Fly Express streams</small></div>
+        <div class="panel metric"><span>Y1 Commission Revenue</span><div class="metric-value"><strong>UGX ${fmtM(fly.y1Totals.totalRevenue)}</strong></div><small>Retained Peebee fees &amp; commissions</small></div>
+        <div class="panel metric"><span>Y1 EBITDA</span><div class="metric-value"><strong>UGX ${fmtM(fly.y1Totals.ebitda)}</strong></div><small>No vehicle lease or driver payroll burden</small></div>
+        <div class="panel metric"><span>Y1 Ending Cash Contribution</span><div class="metric-value"><strong>UGX ${fmtM(fly.y1Totals.endCash)}</strong></div><small>After tax &amp; receivables timing</small></div>
+      </div>
+      <section class="panel">
+        <h2>Year 1 Monthly Fly Express Commission Ramp (UGX)</h2>
+        ${renderTable(escape, "Line Item (UGX)", cols, rows)}
+      </section>
+      <section class="panel">
+        <h2>Year 1 Cumulative Cash Contribution</h2>
+        <ul class="plot">
+          ${fly.y1Months.map(m => `<li><span>${escape(m.label)}</span><span class="track"><span class="bar" style="width:${Math.max(0, 100 * m.endCash / maxCash).toFixed(1)}%"></span></span><strong>UGX ${fmtUgx(m.endCash)}</strong></li>`).join("")}
+        </ul>
+      </section>`;
+  }
+
+  function renderFlyIntegratedModel(escape, fly, horizonModel) {
+    const rows = horizonModel.rows;
+    const t = horizonModel.totals;
+    const h = horizonModel.horizon;
+    const cols = [...rows.map(r => `Year ${r.yearIndex} (${r.calendarYear})`), `${h}-Year Total / End`];
+    const tableRows = [
+      { section: "A. Partner Commission Drivers" },
+      { label: "Partner Bookings / Units", cells: [...rows.map(r => fmtUgx(r.bookings)), fmtUgx(t.bookings)] },
+      { label: "Gross Fare Volume Processed (UGX)", cells: [...rows.map(r => fmtUgx(r.volume)), fmtUgx(t.volume)] },
+      { section: "B. Income Statement (Fly Express Channel)" },
+      ...fly.streamTrackers.map((st, idx) => ({
+        label: st.name,
+        cells: [...rows.map(r => fmtUgx(r.streamTotals[idx]?.revenue ?? 0)), fmtUgx(rows.reduce((s, r) => s + (r.streamTotals[idx]?.revenue ?? 0), 0))],
+        style: "detail",
+      })),
+      { label: "Total Peebee Revenue", cells: [...rows.map(r => fmtUgx(r.totalRevenue)), fmtUgx(t.totalRevenue)], style: "total" },
+      { label: "Scoped Direct Costs / COGS", cells: [...rows.map(r => fmtUgx(r.cogs)), fmtUgx(t.cogs)] },
+      { label: "Gross Profit", cells: [...rows.map(r => fmtUgx(r.grossProfit)), fmtUgx(t.grossProfit)], style: "total" },
+      { label: "Gross Margin (%)", cells: [...rows.map(r => fmtPct1(r.grossMargin)), fmtPct1(t.grossMargin)], style: "detail" },
+      { label: "Scoped Operating Expenses", cells: [...rows.map(r => fmtUgx(r.opex)), fmtUgx(t.opex)] },
+      { label: "EBITDA", cells: [...rows.map(r => fmtUgx(r.ebitda)), fmtUgx(t.ebitda)], style: "total" },
+      { label: "EBITDA Margin (%)", cells: [...rows.map(r => fmtPct1(r.ebitdaMargin)), fmtPct1(t.ebitdaMargin)], style: "detail" },
+      { label: `Income Tax (${fmtPct1(fly.taxRate)})`, cells: [...rows.map(r => fmtUgx(r.tax)), fmtUgx(t.tax)] },
+      { label: "Net Profit After Tax (PAT)", cells: [...rows.map(r => fmtUgx(r.pat)), fmtUgx(t.pat)], style: "total" },
+      { section: "C. Cash Flow & Balance Sheet Contribution" },
+      { label: "(-) Change in Net Working Capital", cells: [...rows.map(r => fmtUgx(-r.deltaNwc)), fmtUgx(-t.deltaNwc)] },
+      { label: "Net Cash from Operating Activities (CFO)", cells: [...rows.map(r => fmtUgx(r.cfo)), fmtUgx(t.cfo)], style: "total" },
+      { label: "Capital Expenditures (Fleet & Tech)", cells: [...rows.map(() => "0"), "0"] },
+      { label: "Debt Principal & Interest", cells: [...rows.map(() => "0"), "0"] },
+      { label: "Cumulative Cash Contribution", cells: [...rows.map(r => fmtUgx(r.endCash)), fmtUgx(t.endCash)], style: "total" },
+      { label: "Accounts Receivable", cells: [...rows.map(r => fmtUgx(r.ar)), fmtUgx(rows[h - 1].ar)] },
+      { label: "Retained Earnings Contribution", cells: [...rows.map(r => fmtUgx(r.retained)), fmtUgx(rows[h - 1].retained)] },
+      { label: "Balance Sheet Check (Must Equal 0)", cells: [...rows.map(r => fmtUgx(Math.abs(r.bsCheck) < 1 ? 0 : r.bsCheck)), fmtUgx(Math.abs(rows[h - 1].bsCheck) < 1 ? 0 : rows[h - 1].bsCheck)] },
+      { label: "Unlevered Free Cash Flow (FCFF)", cells: [...rows.map(r => fmtUgx(r.fcff)), fmtUgx(t.fcff)], style: "footer" },
+    ];
+    return `<section class="panel">
+        <h2>TaxiPress · Fly Express ${h}-Year Financial Model (${fly.start.year} – ${fly.start.year + h - 1})</h2>
+        <p class="muted">Asset-light partner commission model · Zero fleet CapEx · Zero UDB debt · Currency: UGX.</p>
+        ${renderTable(escape, "Financial Line Item (UGX)", cols, tableRows)}
+      </section>
+      <section class="panel">
+        <h2>${h}-Year Commission Valuation Summary</h2>
+        <dl class="taxibee-dl">
+          <div><dt>${h}-Year NPV @ 12.0%</dt><dd>UGX ${fmtUgx(horizonModel.valuation.npv12)}</dd></div>
+          <div><dt>${h}-Year NPV @ 18.0%</dt><dd>UGX ${fmtUgx(horizonModel.valuation.npv18)}</dd></div>
+        </dl>
+      </section>`;
+  }
+
+  function renderFlyDebt(escape, guestMode) {
+    return `<div class="metrics">
+        <div class="panel metric"><span>Fleet Debt Balance</span><div class="metric-value"><strong>UGX 0</strong></div><small>No UDB vehicle acquisition loan required</small></div>
+        <div class="panel metric"><span>Annual Debt Service</span><div class="metric-value"><strong>UGX 0</strong></div><small>Zero interest or principal burden</small></div>
+        <div class="panel metric"><span>Collateral Required</span><div class="metric-value"><strong>None</strong></div><small>Partner operators own &amp; insure vehicles</small></div>
+        <div class="panel metric"><span>DSCR Covenant</span><div class="metric-value"><strong>N/A</strong></div><small>Debt-free commission structure</small></div>
+      </div>
+      <section class="panel">
+        <h2>No Fleet Debt Under TaxiPress · Fly Express Mode</h2>
+        <p class="muted">In Fly Express partner-commission mode, Peebee earns digital seat commissions, cash seat commissions, and seat-choice fees on third-party vehicles without taking on vehicle CapEx or the UGX 550.0M UDB Women Prosper asset loan.</p>
+        ${!guestMode ? '<button type="button" class="button gold" data-taxibee-mode="vip-fleet">Switch to Taxibee · VIP Fleet to view UDB 6-Year Loan &amp; DSCR →</button>' : ""}
+      </section>`;
+  }
+
+  function renderFlyStress(escape, fly) {
+    const rows = fly.stressScenarios.map(s => ({
+      label: s.name,
+      cells: [
+        `${Math.round(s.volumeMult * 100)}%`,
+        s.rateDeltaPct === 0 ? "Plan" : `${s.rateDeltaPct > 0 ? "+" : ""}${s.rateDeltaPct.toFixed(1)} pp`,
+        `${Math.round(s.fareMult * 100)}%`,
+        fmtUgx(s.y1Revenue),
+        fmtUgx(s.y5Revenue),
+        fmtUgx(s.y5Ebitda),
+        fmtUgx(s.y5EndCash),
+        { html: `<span class="taxibee-badge ${s.y5Ebitda >= 0 ? "pass" : "warn"}">${escape(s.verdict)}</span>` },
+      ],
+    }));
+    return `<section class="panel">
+        <h2>TaxiPress · Fly Express Volume, Fare &amp; Commission Stress Matrix</h2>
+        <p class="muted">Tests commission revenue and 5-year cash resilience under partner booking volume drops, commission compression, and ticket fare reductions. Because Fly Express carries UGX 0 fleet debt, downside shocks reduce margin without triggering debt-service default.</p>
+        ${renderTable(escape, "Stress Scenario", ["Volume Mult.", "Commission Shift", "Fare Mult.", "Y1 Revenue (UGX)", "5Y Revenue (UGX)", "5Y EBITDA (UGX)", "5Y Cash (UGX)", "Resilience Verdict"], rows)}
+      </section>`;
+  }
+
+  function renderView({ app, viewId, answers, guestMode, escape, onUpdate, onModeChange, onReset, onExport, onEditFlyExpress }) {
     const [, title, description] = viewById.get(viewId) || views[0];
-    const model = compute(answers);
-    const p = model.inputs;
+    const isFly = answers.taxibeeMode === "fly-express";
+    const model = isFly ? null : compute(answers);
+    const fly = isFly ? computeFlyExpress(answers) : null;
+
     let body = "";
-    if (viewId === "taxibee-dashboard") body = renderDashboard(escape, model);
-    else if (viewId === "taxibee-assumptions") body = renderAssumptions(escape, model, answers, guestMode);
-    else if (viewId === "taxibee-ramp") body = renderRamp(escape, model);
-    else if (viewId === "taxibee-3y") body = renderIntegratedModel(escape, model, model.model3y);
-    else if (viewId === "taxibee-5y") body = renderIntegratedModel(escape, model, model.model5y);
-    else if (viewId === "taxibee-debt") body = renderDebt(escape, model);
-    else if (viewId === "taxibee-stress") body = renderStress(escape, model, answers, guestMode);
+    if (isFly) {
+      if (viewId === "taxibee-dashboard") body = renderFlyDashboard(escape, fly);
+      else if (viewId === "taxibee-assumptions") body = renderFlyAssumptions(escape, fly, answers, guestMode);
+      else if (viewId === "taxibee-ramp") body = renderFlyRamp(escape, fly);
+      else if (viewId === "taxibee-3y") body = renderFlyIntegratedModel(escape, fly, fly.model3y);
+      else if (viewId === "taxibee-5y") body = renderFlyIntegratedModel(escape, fly, fly.model5y);
+      else if (viewId === "taxibee-debt") body = renderFlyDebt(escape, guestMode);
+      else if (viewId === "taxibee-stress") body = renderFlyStress(escape, fly);
+    } else {
+      if (viewId === "taxibee-dashboard") body = renderDashboard(escape, model);
+      else if (viewId === "taxibee-assumptions") body = renderAssumptions(escape, model, answers, guestMode);
+      else if (viewId === "taxibee-ramp") body = renderRamp(escape, model);
+      else if (viewId === "taxibee-3y") body = renderIntegratedModel(escape, model, model.model3y);
+      else if (viewId === "taxibee-5y") body = renderIntegratedModel(escape, model, model.model5y);
+      else if (viewId === "taxibee-debt") body = renderDebt(escape, model);
+      else if (viewId === "taxibee-stress") body = renderStress(escape, model, answers, guestMode);
+    }
+
+    const headingTitle = isFly ? `TaxiPress (Fly Express) · ${title}` : `Taxibee (VIP Fleet) · ${title}`;
+    const headingSub = isFly
+      ? `TAXIPRESS · FLY EXPRESS PARTNER COMMISSION MODEL · ${fly.activeStreams.length} Active Streams · Asset-Light (UGX 0 Fleet Debt)`
+      : `TAXIBEE (PEEBEE GROUP LTD) · Launch ${model.inputs.raw.taxibeeConfig[0].launchStart} · Blended UDB Financing UGX ${fmtM(model.capital.totalSources)} (${fmtM(model.inputs.udbEquity)} Equity + ${fmtM(model.inputs.udbLoan)} Debt) · ${description}`;
 
     app.innerHTML = `<div class="taxibee-root"><header class="workbook-sheet-heading">
-        <h1 id="workbook-sheet-title" tabindex="-1">Taxibee · ${escape(title)}</h1>
-        <p class="muted">TAXIBEE (PEEBEE GROUP LTD) · Launch ${escape(p.raw.taxibeeConfig[0].launchStart)} · Blended UDB Financing UGX ${fmtM(model.capital.totalSources)} (${fmtM(p.udbEquity)} Equity + ${fmtM(p.udbLoan)} Debt) · ${escape(description)}</p>
+        <h1 id="workbook-sheet-title" tabindex="-1">${escape(headingTitle)}</h1>
+        <p class="muted">${escape(headingSub)}</p>
       </header>
       <div class="stack">
         ${modeBanner(escape, model, answers, guestMode)}
@@ -594,7 +868,11 @@
     });
 
     root.querySelector("#taxibee-export-csv")?.addEventListener("click", () => {
-      onExport(exportCsvRows(answers), "taxibee-financial-model");
+      onExport(exportCsvRows(answers), isFly ? "taxipress-fly-express-model" : "taxibee-vip-fleet-model");
+    });
+
+    root.querySelector("#taxibee-edit-fly-advanced")?.addEventListener("click", () => {
+      onEditFlyExpress?.();
     });
 
     root.querySelector("#taxibee-reset-defaults")?.addEventListener("click", () => {
@@ -608,6 +886,20 @@
       root.addEventListener("change", event => {
         const input = event.target;
         if (!(input instanceof HTMLInputElement)) return;
+        if (input.dataset.flyIdx !== undefined) {
+          const idx = Number(input.dataset.flyIdx);
+          const list = Array.isArray(answers["channel-taxipress"]) ? answers["channel-taxipress"].map(r => ({ ...r })) : [];
+          if (!list[idx]) return;
+          if (input.dataset.flyToggle === "enabled") {
+            if (input.checked) delete list[idx].enabled;
+            else list[idx].enabled = "no";
+          } else if (input.dataset.flyField) {
+            list[idx][input.dataset.flyField] = input.value.trim().slice(0, 160);
+            if (input.dataset.flyField === "rate" || input.dataset.flyField === "price") list[idx].adminFee = "override";
+          }
+          onUpdate({ ...answers, "channel-taxipress": list });
+          return;
+        }
         const state = readState(answers);
         let changed = false;
         if (input.dataset.tbConfig) {

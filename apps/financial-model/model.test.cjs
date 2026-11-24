@@ -860,4 +860,12 @@ test("Taxibee mode toggle switches consolidated Peebee statements between VIP Fl
     assert.ok(jan2027Vip.debt >= 550_000_000);
     assert.equal(jan2027Fly.debt, 0);
   }
+
+  // Dedicated Fly Express view calculation reconciles with zero balance sheet error
+  const fly = globalThis.TaxibeeModel.computeFlyExpress({ ...createDefaults(), tax: "30", taxibeeMode: "fly-express" });
+  assert.equal(fly.activeStreams.length, 3);
+  near(fly.y1Months[0].totalRevenue, 220 * 12000 * 0.04 + 320 * 12000 * 0.03 + 45 * 500);
+  assert.equal(fly.model5y.rows.length, 5);
+  for (const row of fly.model5y.rows) near(row.bsCheck, 0);
+  assert.equal(fly.stressScenarios.length, 5);
 });

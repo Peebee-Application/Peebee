@@ -1010,7 +1010,320 @@
     };
   }
 
+  function computeFlyExpress(answers = {}) {
+    const rawStreams = Array.isArray(answers["channel-taxipress"]) ? answers["channel-taxipress"] : [];
+    const activeStreams = rawStreams.filter(row => row && row.enabled !== "no");
+    const taxRate = Math.max(0, Math.min(1, num(answers.tax, 30) / 100));
+    const start = parseStartYM(answers.start || defaultConfig.launchStart);
+    const horizonMonths = 60;
+    const months = [];
+    let cumCash = 0;
+    let prevAR = 0;
+    let prevAP = 0;
+    let retained = 0;
+
+    // Scoped Fly Express direct costs & operating expenses assigned exclusively to taxipress
+    const hasTaxipressScope = row => typeof row?.moduleScope === "string"
+      && row.moduleScope.split(",").includes("taxipress") && row.enabled !== "no" && row.roleType !== "disabled";
+    const scopedDirect = (answers.directCosts || []).filter(hasTaxipressScope);
+    const scopedExpenses = (answers.expenses || []).filter(hasTaxipressScope);
+    const scopedStaff = (answers.staff || []).filter(hasTaxipressScope);
+
+    const streamTrackers = activeStreams.map(row => ({
+      name: row.name || "Commission stream",
+      method: row.method || "orders",
+      orders: nonNeg(row.orders, 0),
+      orderValue: nonNeg(row.orderValue, 0),
+      rate: nonNeg(row.rate, 0) / 100,
+      units: nonNeg(row.units, 0),
+      price: nonNeg(row.price, 0),
+      amount: nonNeg(row.amount, 0),
+      transactionValue: nonNeg(row.transactionValue, 0),
+      active: nonNeg(row.active, 0),
+      newSubscribers: nonNeg(row.newSubscribers, 0),
+      churn: nonNeg(row.churn, 0) / 100,
+      growth: num(row.growth, 0) / 100,
+      days: nonNeg(row.days, 0),
+      launchMonth: Math.max(1, Math.round(nonNeg(row.launchMonth, 1))),
+    }));
+
+    function simulateFly(opts = {}) {
+      const { volumeMult = 1, rateDeltaPct = 0, fareMult = 1 } = opts;
+      const monthly = [];
+      let cash = 0;
+      let arPrev = 0;
+      let apPrev = 0;
+      let ret = 0;
+      const subState = streamTrackers.map(s => s.active);
+
+      for (let i = 0; i < horizonMonths; i++) {
+        const m = i + 1;
+        const year = start.year + Math.floor((start.month - 1 + i) / 12);
+        const calMonth = ((start.month - 1 + i) % 12) + 1;
+        const label = formatMonthShort(year, calMonth);
+
+        const byStream = streamTrackers.map((s, idx) => {
+          if (m < s.launchMonth) return { name: s.name, method: s.method, bookings: 0, volume: 0, revenue: 0, ar: 0 };
+          const elapsed = m - s.launchMonth;
+          const scale = Math.pow(Math.max(0, 1 + s.growth), elapsed);
+          let bookings = 0;
+          let volume = 0;
+          let revenue = 0;
+          if (s.method === "orders") {
+            bookings = s.orders * scale * volumeMult;
+            volume = bookings * s.orderValue * fareMult;
+            const effRate = Math.max(0, s.rate + rateDeltaPct / 100);
+            revenue = volume * effRate;
+          } else if (s.method === "units") {
+            bookings = s.units * scale * volumeMult;
+            revenue = bookings * s.price * fareMult;
+          } else if (s.method === "percentage") {
+            volume = s.transactionValue * scale * volumeMult * fareMult;
+            const effRate = Math.max(0, s.rate + rateDeltaPct / 100);
+            revenue = volume * effRate;
+          } else if (s.method === "subscription") {
+            const joining = s.newSubscribers * scale * volumeMult;
+            subState[idx] = subState[idx] * (1 - s.churn) + joining;
+            bookings = subState[idx];
+            revenue = bookings * s.price * fareMult;
+          } else {
+            revenue = s.amount * scale * volumeMult * fareMult;
+          }
+          const ar = revenue * (s.days / 30);
+          return { name: s.name, method: s.method, bookings, volume, revenue, ar };
+        });
+
+        const totalRevenue = byStream.reduce((acc, r) => acc + r.revenue, 0);
+        const totalBookings = byStream.reduce((acc, r) => acc + r.bookings, 0);
+        const totalVolume = byStream.reduce((acc, r) => acc + r.volume, 0);
+
+        const cogs = scopedDirect.reduce((acc, row) => {
+          if (row.basis === "rate") return acc + totalRevenue * (nonNeg(row.rate, 0) / 100);
+          if (row.basis === "fixed") return acc + nonNeg(row.amount, 0) * Math.pow(1 + num(row.growth, 0) / 100, Math.floor(i / 12));
+          return acc;
+        }, 0);
+        const payroll = scopedStaff.reduce((acc, row) => {
+          const startM = Math.max(1, Math.round(nonNeg(row.month, 1)));
+          const endM = row.endMonth ? Math.round(nonNeg(row.endMonth, 84)) : 84;
+          if (m < startM || m > endM) return acc;
+          const pay = row.salaryBasis === "annual" ? nonNeg(row.annualSalary, 0) / 12 : nonNeg(row.amount, 0);
+          const hc = row.roleType === "single" ? 1 : nonNeg(row.headcount, 0);
+          const raised = pay * Math.pow(1 + num(row.growth, 0) / 100, Math.floor((m - startM) / 12));
+          return acc + hc * raised * (1 + nonNeg(row.burden, 0) / 100);
+        }, 0);
+        const expenses = scopedExpenses.reduce((acc, row) => {
+          const startM = Math.max(1, Math.round(nonNeg(row.month, 1)));
+          const endM = row.endMonth ? Math.round(nonNeg(row.endMonth, 84)) : 84;
+          if (m < startM || m > endM) return acc;
+          const periods = row.cadence === "monthly" ? (m - startM) : Math.floor((m - startM) / 12);
+          return acc + nonNeg(row.amount, 0) * Math.pow(1 + num(row.growth, 0) / 100, periods);
+        }, 0);
+
+        const grossProfit = totalRevenue - cogs;
+        const opex = payroll + expenses;
+        const ebitda = grossProfit - opex;
+        const tax = Math.max(0, ebitda * taxRate);
+        const pat = ebitda - tax;
+        const ar = byStream.reduce((acc, r) => acc + r.ar, 0);
+        const ap = 0;
+        const deltaNwc = (ar - arPrev) - (ap - apPrev);
+        const cfo = pat - deltaNwc;
+        cash += cfo;
+        ret += pat;
+        const totalAssets = cash + ar;
+        const totalLiabEq = ap + ret;
+        const bsCheck = totalAssets - totalLiabEq;
+
+        monthly.push({
+          monthIndex: m,
+          yearIndex: Math.floor(i / 12) + 1,
+          calendarYear: year,
+          label,
+          byStream,
+          bookings: totalBookings,
+          volume: totalVolume,
+          totalRevenue,
+          cogs,
+          grossProfit,
+          payroll,
+          expenses,
+          opex,
+          ebitda,
+          tax,
+          pat,
+          ar,
+          ap,
+          nwc: ar - ap,
+          deltaNwc,
+          cfo,
+          endCash: cash,
+          retained: ret,
+          totalAssets,
+          totalLiabEq,
+          bsCheck,
+        });
+        arPrev = ar;
+        apPrev = ap;
+      }
+
+      const annual = Array.from({ length: 5 }, (_, y) => {
+        const slice = monthly.slice(y * 12, (y + 1) * 12);
+        const last = slice[slice.length - 1];
+        const sumK = key => slice.reduce((acc, r) => acc + r[key], 0);
+        const rev = sumK("totalRevenue");
+        const gp = sumK("grossProfit");
+        const ebitda = sumK("ebitda");
+        const pat = sumK("pat");
+        const streamTotals = streamTrackers.map((s, idx) => ({
+          name: s.name,
+          revenue: slice.reduce((acc, r) => acc + (r.byStream[idx]?.revenue || 0), 0),
+          bookings: slice.reduce((acc, r) => acc + (r.byStream[idx]?.bookings || 0), 0),
+        }));
+        return {
+          yearIndex: y + 1,
+          calendarYear: start.year + y,
+          streamTotals,
+          bookings: sumK("bookings"),
+          volume: sumK("volume"),
+          totalRevenue: rev,
+          cogs: sumK("cogs"),
+          grossProfit: gp,
+          grossMargin: rev > 0 ? gp / rev : 0,
+          payroll: sumK("payroll"),
+          expenses: sumK("expenses"),
+          opex: sumK("opex"),
+          ebitda,
+          ebitdaMargin: rev > 0 ? ebitda / rev : 0,
+          tax: sumK("tax"),
+          pat,
+          netMargin: rev > 0 ? pat / rev : 0,
+          deltaNwc: sumK("deltaNwc"),
+          cfo: sumK("cfo"),
+          endCash: last.endCash,
+          ar: last.ar,
+          ap: last.ap,
+          retained: last.retained,
+          totalAssets: last.totalAssets,
+          totalLiabEq: last.totalLiabEq,
+          bsCheck: last.bsCheck,
+          fcff: ebitda - Math.max(0, ebitda) * taxRate - sumK("deltaNwc"),
+        };
+      });
+
+      const summarize = horizon => {
+        const rows = annual.slice(0, horizon);
+        const last = rows[rows.length - 1];
+        const sumK = key => rows.reduce((acc, r) => acc + r[key], 0);
+        const rev = sumK("totalRevenue");
+        const ebitda = sumK("ebitda");
+        const pat = sumK("pat");
+        const cfs = [0, ...rows.map((r, i) => r.fcff + (i === rows.length - 1 ? (r.ar - r.ap) : 0))];
+        return {
+          horizon,
+          rows,
+          totals: {
+            bookings: sumK("bookings"),
+            volume: sumK("volume"),
+            totalRevenue: rev,
+            cogs: sumK("cogs"),
+            grossProfit: sumK("grossProfit"),
+            grossMargin: rev > 0 ? sumK("grossProfit") / rev : 0,
+            opex: sumK("opex"),
+            ebitda,
+            ebitdaMargin: rev > 0 ? ebitda / rev : 0,
+            tax: sumK("tax"),
+            pat,
+            netMargin: rev > 0 ? pat / rev : 0,
+            deltaNwc: sumK("deltaNwc"),
+            cfo: sumK("cfo"),
+            endCash: last.endCash,
+            fcff: sumK("fcff"),
+          },
+          valuation: {
+            npv12: npv(0.12, cfs),
+            npv18: npv(0.18, cfs),
+          },
+        };
+      };
+
+      return { monthly, annual, model3y: summarize(3), model5y: summarize(5) };
+    }
+
+    const base = simulateFly();
+    const y1Months = base.monthly.slice(0, 12);
+    const sumY1 = key => y1Months.reduce((acc, r) => acc + r[key], 0);
+    const y1Totals = {
+      bookings: sumY1("bookings"),
+      volume: sumY1("volume"),
+      totalRevenue: sumY1("totalRevenue"),
+      cogs: sumY1("cogs"),
+      grossProfit: sumY1("grossProfit"),
+      opex: sumY1("opex"),
+      ebitda: sumY1("ebitda"),
+      tax: sumY1("tax"),
+      pat: sumY1("pat"),
+      cfo: sumY1("cfo"),
+      endCash: y1Months[y1Months.length - 1]?.endCash ?? 0,
+    };
+
+    const stressScenarios = [
+      { key: "base", name: "Base Case (Fly Express Plan)", volumeMult: 1, rateDeltaPct: 0, fareMult: 1 },
+      { key: "vol-down", name: "Scenario A: Booking Volume Drop (-25%)", volumeMult: 0.75, rateDeltaPct: 0, fareMult: 1 },
+      { key: "rate-cut", name: "Scenario B: Commission Rate Compression (-1.0 pp)", volumeMult: 1, rateDeltaPct: -1, fareMult: 1 },
+      { key: "fare-drop", name: "Scenario C: Average Ticket Fare Drop (-15%)", volumeMult: 1, rateDeltaPct: 0, fareMult: 0.85 },
+      { key: "severe", name: "Scenario D: Severe Shock (-35% Vol, -1.0 pp Rate)", volumeMult: 0.65, rateDeltaPct: -1, fareMult: 1 },
+    ].map(sc => {
+      const res = simulateFly(sc);
+      const y1 = res.annual[0];
+      const t5 = res.model5y.totals;
+      return {
+        ...sc,
+        y1Revenue: y1.totalRevenue,
+        y1Ebitda: y1.ebitda,
+        y5Revenue: t5.totalRevenue,
+        y5Ebitda: t5.ebitda,
+        y5EndCash: t5.endCash,
+        verdict: t5.ebitda >= 0 ? "CASH-POSITIVE · Zero Debt Risk" : "OPEX REVIEW · Trim Scoped Costs",
+      };
+    });
+
+    return {
+      start,
+      taxRate,
+      rawStreams,
+      activeStreams,
+      streamTrackers,
+      y1Months,
+      y1Totals,
+      model3y: base.model3y,
+      model5y: base.model5y,
+      stressScenarios,
+    };
+  }
+
   function exportCsvRows(answers = {}) {
+    if (answers.taxibeeMode === "fly-express") {
+      const fly = computeFlyExpress(answers);
+      return [
+        ["TAXIPRESS · FLY EXPRESS (PARTNER COMMISSION MODEL) — EXPORT"],
+        ["Start", `${fly.start.year}-${String(fly.start.month).padStart(2, "0")}`, "Currency", "UGX", "Active Streams", fly.activeStreams.length],
+        [],
+        ["1. 5-YEAR FLY EXPRESS SUMMARY (UGX)", ...fly.model5y.rows.map(r => `Year ${r.yearIndex} (${r.calendarYear})`), "5-Year Total / End"],
+        ["Partner Bookings / Units", ...fly.model5y.rows.map(r => Math.round(r.bookings)), Math.round(fly.model5y.totals.bookings)],
+        ["Gross Booking Value (UGX)", ...fly.model5y.rows.map(r => Math.round(r.volume)), Math.round(fly.model5y.totals.volume)],
+        ["Peebee Commission & Fee Revenue", ...fly.model5y.rows.map(r => Math.round(r.totalRevenue)), Math.round(fly.model5y.totals.totalRevenue)],
+        ["Scoped Direct Costs (COGS)", ...fly.model5y.rows.map(r => Math.round(r.cogs)), Math.round(fly.model5y.totals.cogs)],
+        ["Scoped Operating Expenses", ...fly.model5y.rows.map(r => Math.round(r.opex)), Math.round(fly.model5y.totals.opex)],
+        ["EBITDA", ...fly.model5y.rows.map(r => Math.round(r.ebitda)), Math.round(fly.model5y.totals.ebitda)],
+        ["Net Profit After Tax", ...fly.model5y.rows.map(r => Math.round(r.pat)), Math.round(fly.model5y.totals.pat)],
+        ["Cumulative Cash Contribution", ...fly.model5y.rows.map(r => Math.round(r.endCash)), Math.round(fly.model5y.totals.endCash)],
+        [],
+        ["2. YEAR 1 MONTHLY RAMP (UGX)", ...fly.y1Months.map(m => m.label), "FY Total"],
+        ["Total Revenue", ...fly.y1Months.map(m => Math.round(m.totalRevenue)), Math.round(fly.y1Totals.totalRevenue)],
+        ["EBITDA", ...fly.y1Months.map(m => Math.round(m.ebitda)), Math.round(fly.y1Totals.ebitda)],
+        ["Cumulative Cash", ...fly.y1Months.map(m => Math.round(m.endCash)), Math.round(fly.y1Totals.endCash)],
+      ];
+    }
     const model = compute(answers);
     const p = model.inputs;
     const m = value => Number((value / 1e6).toFixed(2));
@@ -1077,6 +1390,7 @@
     defaultState,
     readState,
     compute,
+    computeFlyExpress,
     consolidatedOverlay,
     exportCsvRows,
     npv,

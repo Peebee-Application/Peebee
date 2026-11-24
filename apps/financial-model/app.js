@@ -1982,6 +1982,9 @@
         onExport(rows, suffix) {
           download(rows, suffix);
         },
+        onEditFlyExpress() {
+          goTo("channel-taxipress", true, id);
+        },
       });
       return;
     }
