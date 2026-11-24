@@ -322,7 +322,7 @@ export async function refreshDonation(code: string) {
   const d = (await db.execute({ sql: "SELECT * FROM donations WHERE code = ?", args: [code.toUpperCase()] })).rows[0] as Row | undefined;
   if (!d) throw new ChannelsError("not_found", "Donation not found.", 404);
   if (d.status === "pending" && d.method === "momo" && d.provider_ref) {
-    const status = await checkPaymentStatus({ provider: String(d.provider), provider_ref: String(d.provider_ref), created_at: String(d.created_at) });
+    const status = await checkPaymentStatus({ provider: String(d.provider), provider_ref: String(d.provider_ref), created_at: String(d.created_at), expectedAmount: Number(d.amount_ugx) + Number(d.tip_ugx), expectedCurrency: "UGX" });
     if (status === "successful") await finalizeDonation(String(d.id));
     else if (status === "failed") await db.execute({ sql: "UPDATE donations SET status = 'failed', updated_at = datetime('now') WHERE id = ? AND status = 'pending'", args: [d.id as string] });
   }

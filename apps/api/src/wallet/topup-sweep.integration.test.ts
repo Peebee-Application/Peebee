@@ -39,9 +39,12 @@ test("a top-up that was paid is credited without the customer's screen asking", 
   const realFetch = globalThis.fetch;
   let flutterwave: "pending" | "successful" | "failed" | "weird" = "pending";
   let verifyCalls = 0;
-  globalThis.fetch = (async () => {
+  globalThis.fetch = (async (input) => {
     verifyCalls += 1;
-    return new Response(JSON.stringify({ status: "success", data: { status: flutterwave, id: 1 } }), { status: 200 });
+    const url = new URL(String(input));
+    const reference = url.searchParams.get("tx_ref") ?? "";
+    const amount = reference === "rtu1" ? 2000 : 1000;
+    return new Response(JSON.stringify({ status: "success", data: { status: flutterwave, id: 1, tx_ref: reference, amount, currency: "UGX" } }), { status: 200 });
   }) as typeof fetch;
   t.after(() => { globalThis.fetch = realFetch; delete process.env.FLUTTERWAVE_SECRET_KEY; delete process.env.FLUTTERWAVE_WEBHOOK_SECRET; });
 

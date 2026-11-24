@@ -9,6 +9,7 @@ import { splitSqlStatements } from "../../db/split-sql.js";
 import { setFlutterwaveDirect } from "../../lib/settings.js";
 import { cardSchema } from "../card.js";
 import { credentialLengthError } from "../credentials.js";
+import { checkPaymentStatus } from "../service.js";
 import { tripleDesEcbEncrypt } from "./des.js";
 import { encryptCardPayload, flutterwaveAdapter } from "./wire.js";
 
@@ -57,6 +58,24 @@ test("flutterwave routes each payment to the flow the admin switched on", async 
     globalThis.fetch = realFetch;
     if (env.secret === undefined) delete process.env.FLUTTERWAVE_SECRET_KEY; else process.env.FLUTTERWAVE_SECRET_KEY = env.secret;
     if (env.key === undefined) delete process.env.FLUTTERWAVE_ENCRYPTION_KEY; else process.env.FLUTTERWAVE_ENCRYPTION_KEY = env.key;
+  });
+
+  await t.test("a settlement needs matching provider reference, exact amount, and currency", async () => {
+    const expected = { provider: "flutterwave", provider_ref: "pay_1", created_at: "2026-01-01 00:00:00", expectedAmount: 5000, expectedCurrency: "UGX" };
+    chargeResponse = { status: "success", data: { id: 91, status: "successful", tx_ref: "pay_1", amount: 5000, currency: "UGX" } };
+    assert.equal(await checkPaymentStatus(expected), "successful");
+
+    chargeResponse = { status: "success", data: { id: 91, status: "successful", tx_ref: "some-other-payment", amount: 5000, currency: "UGX" } };
+    assert.equal(await checkPaymentStatus(expected), "unknown", "a different tx_ref cannot settle the payment");
+
+    chargeResponse = { status: "success", data: { id: 91, status: "successful", tx_ref: "pay_1", amount: 4999, currency: "UGX" } };
+    assert.equal(await checkPaymentStatus(expected), "unknown", "an underpayment remains unsettled for review");
+
+    chargeResponse = { status: "success", data: { id: 91, status: "successful", tx_ref: "pay_1", amount: 5000, currency: "KES" } };
+    assert.equal(await checkPaymentStatus(expected), "unknown", "a different currency cannot settle the payment");
+
+    chargeResponse = { status: "success", data: { id: 91, status: "successful", amount: 5000, currency: "UGX" } };
+    assert.equal(await checkPaymentStatus(expected), "unknown", "missing provider reference cannot settle the payment");
   });
 
   await t.test("mobile money is direct by default: prompt on the phone, no page to open", async () => {

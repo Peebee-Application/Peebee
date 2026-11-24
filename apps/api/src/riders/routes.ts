@@ -777,6 +777,8 @@ riderRoutes.get("/riders/me/wallet/withdrawals/:id/refresh", requireAuth, requir
       provider_ref: withdrawal.provider_ref as string | null,
       created_at: withdrawal.created_at as string,
       type: "disbursement",
+      expectedAmount: Number(withdrawal.amount),
+      expectedCurrency: "UGX",
     });
     if (status === "successful") {
       await db.execute({
@@ -1017,6 +1019,8 @@ riderRoutes.get("/riders/me/subscription/payments/:id/refresh", requireAuth, req
       provider: payment.provider as string,
       provider_ref: payment.provider_ref as string | null,
       created_at: payment.created_at as string,
+      expectedAmount: Number(payment.amount),
+      expectedCurrency: "UGX",
     });
     if (status === "successful") {
       await db.execute({
@@ -1147,6 +1151,8 @@ riderRoutes.get("/riders/me/pro-subscription/payments/:id/refresh", requireAuth,
       provider: payment.provider as string,
       provider_ref: payment.provider_ref as string | null,
       created_at: payment.created_at as string,
+      expectedAmount: Number(payment.amount),
+      expectedCurrency: "UGX",
     });
     if (status === "successful") {
       await db.execute({

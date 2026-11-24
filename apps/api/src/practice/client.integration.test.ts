@@ -17,8 +17,12 @@ function installStorage() {
 }
 
 test("an app starts practice, is signed in as the persona on the shared world, and gets its own session back on exit", async () => {
-  const { tokens } = await practiceHarness();
+  const { tokens, db } = await practiceHarness();
   await runInPractice(async () => { await seedPracticeWorld(); await topUpDemoOrders(4); });
+  // The seed gives the primary rider a current demo delivery. This test is
+  // specifically about the available-jobs feed, so finish that fixture job
+  // before checking that new sandbox orders appear there.
+  await db.execute("UPDATE orders SET stage = 'Settle' WHERE rider_id = 'prac_rider_1' AND environment = 'sandbox' AND stage NOT IN ('Settle', 'Cancelled')");
   const storage = installStorage();
   storage.set("rider_token", tokens.rider);
   storage.set("rider_user", JSON.stringify({ id: "real_rider" }));

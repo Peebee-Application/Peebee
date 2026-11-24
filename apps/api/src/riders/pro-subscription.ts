@@ -151,7 +151,7 @@ export async function renewProSubscriptions(): Promise<{ attempted: number; rene
       // Same near-instant poll-once rationale as ./subscription.ts's
       // renewSubscriptions() — a Cron sweep can't wait for a rider to open
       // the app and trigger a refresh themselves.
-      const status = await checkPaymentStatus({ provider: initiated.provider, provider_ref: initiated.providerRef, created_at: toSqliteTimestamp(new Date()) });
+      const status = await checkPaymentStatus({ provider: initiated.provider, provider_ref: initiated.providerRef, created_at: toSqliteTimestamp(new Date()), expectedAmount: settings.recurringAmount, expectedCurrency: "UGX" });
       if (status === "successful") {
         await db.execute({
           sql: "UPDATE rider_pro_subscription_payments SET status = 'successful', updated_at = datetime('now') WHERE id = ?",

@@ -91,6 +91,9 @@ test("practice and sandbox share one database; real people and demo people never
 
   await t.test("demo customers order, and only the demo riders see it", async () => {
     await runInPractice(() => topUpDemoOrders(4));
+    // Keep the seeded primary persona idle so this assertion covers its
+    // available-jobs feed rather than the active-job guard.
+    await db.execute("UPDATE orders SET stage = 'Settle' WHERE rider_id = 'prac_rider_1' AND environment = 'sandbox' AND stage NOT IN ('Settle', 'Cancelled')");
     const waiting = async (clause: string) => Number((await db.execute(`SELECT COUNT(*) n FROM orders WHERE customer_id LIKE 'prac\\_%' ESCAPE '\\' AND rider_id IS NULL AND ${clause}`)).rows[0]!.n);
     assert.ok((await waiting("restaurant_id IS NULL")) >= 4, "orders are waiting for riders");
     assert.ok((await waiting("restaurant_id IS NOT NULL")) >= 2, "food orders are waiting for restaurants");

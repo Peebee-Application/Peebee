@@ -73,7 +73,7 @@ export async function pollPayment(paymentId: string): Promise<"pending" | "succe
   const p = (await db.execute({ sql: "SELECT * FROM service_payments WHERE id = ?", args: [paymentId] })).rows[0] as Row | undefined;
   if (!p) return "failed";
   if (p.status !== "pending") return p.status as "successful" | "failed";
-  const state = await checkPaymentStatus({ provider: String(p.provider), provider_ref: p.provider_ref ? String(p.provider_ref) : null, created_at: String(p.created_at) });
+  const state = await checkPaymentStatus({ provider: String(p.provider), provider_ref: p.provider_ref ? String(p.provider_ref) : null, created_at: String(p.created_at), expectedAmount: Number(p.amount_ugx), expectedCurrency: "UGX" });
   if (state === "successful") {
     if (p.kind === "refund") await finalizeRefund(paymentId);
     else await settlePayment(paymentId);

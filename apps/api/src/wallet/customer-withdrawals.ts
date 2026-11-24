@@ -135,9 +135,9 @@ customerWithdrawalRoutes.get("/wallet/withdrawals/:id/refresh", requireAuth, req
 /** Looks at the provider and finishes a pending withdrawal: success is final, failure puts the money back once. */
 export async function settleWithdrawalStatus(row: Row): Promise<Row> {
   if (row.status !== "pending" || !row.provider_ref) return row;
-  const status = await checkPaymentStatus({ provider: String(row.provider), provider_ref: String(row.provider_ref), created_at: String(row.created_at), type: "disbursement" });
-  if (status === "pending") return row;
-  const next = status === "failed" ? "failed" : "successful";
+  const status = await checkPaymentStatus({ provider: String(row.provider), provider_ref: String(row.provider_ref), created_at: String(row.created_at), type: "disbursement", expectedAmount: Number(row.amount), expectedCurrency: "UGX" });
+  if (status !== "successful" && status !== "failed") return row;
+  const next = status;
   const flipped = await db.execute({ sql: "UPDATE customer_withdrawals SET status = ?, updated_at = datetime('now') WHERE id = ? AND status = 'pending'", args: [next, String(row.id)] });
   if (flipped.rowsAffected && next === "failed") {
     await creditWallet(String(row.user_id), Number(row.amount), { type: "adjustment", environment: row.environment === "sandbox" ? "sandbox" : "live", note: "Withdrawal failed — returned to your wallet" });
