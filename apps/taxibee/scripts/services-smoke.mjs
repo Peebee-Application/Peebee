@@ -18,6 +18,7 @@ try{
   if(method!=='GET'){if(request.headers()['content-type']?.includes('application/json'))body=request.postDataJSON();writes.push({path,body,method});}
   if(path==='/v1/auth/config')data={googleClientId:null};
   else if(path==='/v1/auth/me')data={user};
+  else if(path==='/v1/travel-credit/me')data={ready:true,corporateEnabled:false,vouchersEnabled:false,voucherMax:0,voucherDays:30,accounts:[],vouchers:[]};
   else if(path==='/v1/auth/login')data={user,token:'service-test-token'};
   else if(path==='/v1/auth/logout')data={ok:true};
   else if(path.includes('/taxipress')&&path.endsWith('/config'))data={enabled:false,routes:[],luggageTypes:[],languages:[]};

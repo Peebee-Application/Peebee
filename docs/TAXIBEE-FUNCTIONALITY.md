@@ -127,9 +127,11 @@ the server can enforce it, while leaving the practice flows available.
 2. **Charter parity beyond Peebee Car:** fixed-day packages and preferred-driver
    guarantees still need backend rules. Approved category booking, optional luxury
    chauffeur hours, configured scheduled pickup, assignment and checkout are connected.
-3. **Corporate and voucher parity:** shared offers are connected, but the
-   prototype's corporate account/credit and voucher settlement models are not.
-   They need real account authorization, limits, eligibility and accounting.
+3. **Corporate billing extensions:** staff-approved accounts, traveller budgets,
+   wallet repayment and funded named vouchers use the shared API. See the
+   [travel-credit rollout](TAXIBEE-TRAVEL-CREDIT.md) for migration 0170 and
+   activation. External bank invoice reconciliation, statutory invoices and
+   mobile-money voucher split funding are not claimed.
 4. **Remaining account capabilities:** production Google origin/provider verification,
    wallet PIN/auto-pay policies, provider delivery and operational verification of
    configured support/safety contacts. Profile photos, verified contact changes,

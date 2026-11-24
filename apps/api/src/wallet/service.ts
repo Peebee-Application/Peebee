@@ -10,7 +10,7 @@ import { db,executeBatch,type DbStatement } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import type { CreditModule } from "@peebee/shared";
 import { creditPaidForOrder, grantCredit, payWithCreditAndCash } from "../offers/credit.js";
-import { hasColumn } from "../lib/schema.js";
+import { hasColumn,hasTable } from "../lib/schema.js";
 import { getWalletSettings, type PlatformEnvironment } from "../lib/settings.js";
 import { scheduleMoneyAlert } from "./alerts.js";
 import { walletIsFrozen } from "./freeze.js";
@@ -353,6 +353,12 @@ export async function refundToWallet(
   amount: number,
   info: { orderId: string; environment: PlatformEnvironment; note?: string; actorId?: string },
 ): Promise<number> {
+  // Sponsored refunds are allocated atomically by the payment-refund trigger.
+  // The caller has already recorded its successful refund payment. Never pay
+  // corporate credit or a voucher to the traveller as withdrawable cash.
+  if (await hasTable('travel_charges') && (await db.execute({sql:'SELECT 1 FROM travel_charges WHERE order_id=?',args:[info.orderId]})).rows.length) {
+    return Number((await db.execute({sql:`SELECT ${balanceColumn(info.environment)} AS balance FROM users WHERE id=?`,args:[userId]})).rows[0]?.balance ?? 0);
+  }
   const creditBack = Math.min(amount, await creditPaidForOrder(info.orderId).catch(() => 0));
   const cashBack = amount - creditBack;
   if (creditBack > 0) await grantCredit({ userId, amount: creditBack, kind: "refund", env: info.environment, orderId: info.orderId, note: info.note ?? "Order refund (credit)" });

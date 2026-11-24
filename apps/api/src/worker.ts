@@ -19,6 +19,7 @@ import { sweepChannels } from "./channels/scheduled.js";
 import { sweepSupportChats } from "./support-chat/alerts.js";
 import { sweepLearningJobs } from "./education/creator-ai.js";
 import { expireStaleVouchers } from "./gas/vouchers.js";
+import {closeExpired as closeExpiredTravelVouchers} from './travel-credit/service.js';
 import { applyRounding } from "./costing/config.js";
 import { sweepStaleReservations } from "./offers/service.js";
 import { expireCredit } from "./offers/credit.js";
@@ -175,6 +176,7 @@ export default {
         .then((n) => console.log("Fuel voucher expiry sweep:", n))
         .catch((err) => console.error("Fuel voucher expiry sweep failed:", err)),
     );
+    ctx.waitUntil(closeExpiredTravelVouchers().catch(err=>console.error('Travel voucher expiry sweep failed:',err)));
     ctx.waitUntil(
       sweepRentalRequests()
         .then((n) => console.log("Self-drive request sweep:", n))
