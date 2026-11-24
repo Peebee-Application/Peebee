@@ -34,7 +34,7 @@ export function isAfricasTalkingConfigured(): boolean {
   }
 }
 
-export async function sendVerificationSms(to: string, code: string): Promise<void> {
+export async function sendVerificationSms(to: string, code: string, ttlMinutes = 10): Promise<void> {
   const res = await fetch(`${baseUrl()}/version1/messaging`, {
     method: "POST",
     headers: {
@@ -45,7 +45,7 @@ export async function sendVerificationSms(to: string, code: string): Promise<voi
     body: new URLSearchParams({
       username: username(),
       to,
-      message: `Your Peebee verification code is ${code}. It expires in 10 minutes.`,
+      message: `Your Peebee verification code is ${code}. It expires in ${ttlMinutes} minutes.`,
     }),
   });
   if (!res.ok) {

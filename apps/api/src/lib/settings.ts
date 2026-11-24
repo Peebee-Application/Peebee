@@ -7,6 +7,7 @@ import { db } from "../db/client.js";
 import { inPractice } from "../db/practice-context.js";
 
 const DEFAULTS = {
+  customer_tools: "{}",
   travel_corporate_enabled: '0',
   travel_vouchers_enabled: '0',
   travel_voucher_max_ugx: '0',

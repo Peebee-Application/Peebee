@@ -31,6 +31,7 @@ export type SettingsLink = {
 };
 
 export const SETTINGS_LINKS: SettingsLink[] = [
+  {href:"/settings/customer-tools",label:"Customer account and support tools",description:"Device sessions, contact verification, push preferences and lost-property case handling.",icon:KeyRound,show:role=>hasPermission(role,"settings.manage")||hasPermission(role,"chat.view_support")},
   {href:"/onboarding",label:"Sales onboarding",description:"Sales-agent access, activation messages and onboarding policy.",icon:Store,show:(role)=>role==="super_admin"},
   {
     href: "/settings/shopping-units",

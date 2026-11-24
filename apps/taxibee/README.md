@@ -138,3 +138,38 @@ shared creation/payment/assignment endpoints remain authoritative. Interrupted
 creation blocks automatic resubmission and directs the customer to history. No
 migration, service switch change, separate database or production test purchase
 is required. Practice mode continues using isolated sample flows.
+
+## Account, notifications and customer support tools
+
+Live mode adds actual profile-photo upload/removal, password-protected changes to
+a verified email/phone, per-token device/session history and remote session revocation.
+History starts when a token is first observed after the upgrade; it does not invent
+older sign-ins or failed-login records. Google-only accounts first set a password
+through existing account recovery before replacing their sign-in contact.
+
+Notifications require explicit browser permission and registration, configured
+VAPID keys and the existing Peebee push sender. Account category preferences affect
+server delivery. The push-only service worker never caches pages/API responses,
+filters encrypted payloads by account binding, and clears notifications on account
+changes. Revoked registered sessions stop receiving push. Mobile browser/OS support
+and provider delivery remain operational dependencies.
+
+Booking chat supports real image and voice files, microphone recording with explicit
+sending, and authenticated attachment viewing. In-app calls reuse the shared real
+WebRTC engine with booking/assigned-driver authorization; mock/unimplemented providers
+are refused. Calls have Answer/Decline/End controls and stop media on sign-out.
+The existing phone-call option remains available where a driver has shared a number.
+
+Lost-property reports are owned, environment-scoped records linked to actual orders.
+They keep customer/staff updates, private image attachments and staff status changes
+(open/investigating/found/returned/closed), with optimistic conflict handling and
+idempotent report creation. Admin → Customer account and support tools supplies
+the staff queue, policy switches/limits and verified support/safety contacts.
+No demonstration contact number is substituted when those settings are empty.
+
+Apply **0171_customer_account_tools.sql** manually to the existing D1 database.
+Before migration, existing authentication and push continue working; new storage
+features return an upgrade-pending response. Deploy the shared API, Admin and
+Taxibee through clean-main preflight after PR merge. Practice remains isolated.
+Wallet PIN/Auto-Pay controls are still unavailable: shared payments require explicit
+review, and this release introduces no automatic charging or device-only payment lock.

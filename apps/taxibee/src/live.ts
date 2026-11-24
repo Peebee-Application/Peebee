@@ -1,3 +1,4 @@
+import {installAccountTools} from './account-tools';
 import { createApiClient,type TaxipressBookingInput } from '../../../packages/shared/src/api-client';
 import type { AuthUser, CustomerWallet } from '../../../packages/shared/src/domain';
 import type { TaxipressBooking, TaxipressConfig } from '../../../packages/shared/src/taxipress';
@@ -36,6 +37,7 @@ let account: ReturnType<typeof installCustomerAuth> | undefined;
 let booting = true;
 let seating: ReturnType<typeof installSeatSelection> | undefined;
 let services: ReturnType<typeof installParcelCharter> | undefined;
+let accountTools:ReturnType<typeof installAccountTools>|undefined;
 let returnPackages:ReturnType<typeof installReturnPackages>|undefined;
 let travelCredit:ReturnType<typeof installTravelCredit>|undefined;
 const original = Object.fromEntries(['renderAuth', 'renderHome', 'renderBook', 'renderCurrentScreen', 'navigate', 'renderWallet', 'renderProfile', 'renderDigitalTicketCard', 'getTicketsData', 'confirmBooking', 'renderTracking'].map(k => [k, ui[k]]));
@@ -75,6 +77,7 @@ function clearSession(discardDraft = true) {
   ++sessionVersion; loading = false;
   features?.reset();
   seating?.reset();
+  accountTools?.reset();
   services?.reset(discardDraft);
   returnPackages?.reset();
   travelCredit?.reset();
@@ -87,6 +90,7 @@ function clearSession(discardDraft = true) {
 }
 function applyUser(next: AuthUser) {
   user = next;
+  void accountTools?.sync();
   features?.restorePreferences();
   state.userName = escape(next.name); state.userEmail = escape(next.email); state.userPhone = escape(next.phone);
   state.userAvatar = 'assets/peebee-logo.svg';
@@ -366,7 +370,7 @@ if (!preview) {
   ui.renderTripTabContent = () => bookings.map(b => `<article class="card"><h3>${escape(b.route.fromName)} → ${escape(b.route.toName)}</h3><p>${escape(b.taxi.plate)} · ${escape(b.status)} · ${money(b.amount)}</p><button class="button button--primary" data-action="taxibee-ticket" data-id="${escape(b.id)}">View ticket</button></article>`).join('') || empty('No journeys yet', 'Bookings made in either customer app appear here.');
   ui.signOut = async () => {
     if (!user) { account?.open('profile'); return; }
-    try { await seating?.release(); await api.logout(); } finally { clearSession(); applyGuest(); await refresh().catch(report); account?.browse('home'); }
+    try { await accountTools?.beforeSignOut(); await seating?.release(); await api.logout(); } finally { clearSession(); applyGuest(); await refresh().catch(report); account?.browse('home'); }
   };
 }
 
@@ -402,6 +406,8 @@ if(!preview)travelCredit=installTravelCredit({ui,api,user:()=>user,complete:asyn
   const b=bookings.find(b=>b.orderId===orderId);if(!b){await services?.paid(orderId);return;}
   selectedBooking=b;pendingOrder=null;account?.clearDraft();seating?.consumed();returnPackages?.settled();ui.navigate('ticket');
 }});
+
+if(!preview)accountTools=installAccountTools({ui,api,token:()=>sessionStorage.getItem(TOKEN)||localStorage.getItem(TOKEN),user:()=>user,order:()=>selectedBooking?.orderId||bookings[0]?.orderId||null,applyUser,login:s=>account?.open(s)});
 
 document.addEventListener('input', event => {
   if (!preview && (event.target as HTMLElement).id === 'taxibee-offer-code') state.taxibeeOfferCode = (event.target as HTMLInputElement).value;
@@ -440,7 +446,7 @@ document.addEventListener('click', async event => {
   }
   if (preview) return;
   const block = () => { event.preventDefault(); event.stopImmediatePropagation(); };
-  if(action.startsWith('svc-')) return;
+  if(action.startsWith('svc-')||action.startsWith('tools-')) return;
   if (action === 'open-demo-panel') { block(); account?.rememberBooking(); location.assign('/?preview=1'); return; }
   if (['select-route-card', 'select-route-card-step', 'book-searched-route', 'flip-route-direction', 'swap-home-route', 'swap-route'].includes(action)) {
     block();
@@ -473,7 +479,7 @@ document.addEventListener('click', async event => {
     state.passengerDetails[0] = { ...state.passengerDetails[0], name: state.isBookingForSomeoneElse ? state.otherTravelerName : user?.name, phone: state.isBookingForSomeoneElse ? state.otherTravelerPhone : user?.phone };
     ui.renderCurrentScreen(); return;
   }
-  const safeScreens = new Set(['home', 'book', 'available-vans', 'trip-details', 'passengers', 'returns', 'luggage', 'checkout', 'success', 'ticket', 'tickets', 'trips', 'wallet', 'profile', 'about', 'support', 'notifications', 'tracking', 'live', 'search-results','parcel','parcel-receipt','trackparcel','trackparcel-list','parcel-status','special-hire']);
+  const safeScreens = new Set(['home', 'book', 'available-vans', 'trip-details', 'passengers', 'returns', 'luggage', 'checkout', 'success', 'ticket', 'tickets', 'trips', 'wallet', 'profile', 'about', 'support', 'notifications', 'tracking', 'live', 'login-logs','search-results','parcel','parcel-receipt','trackparcel','trackparcel-list','parcel-status','special-hire']);
   if (screen && !safeScreens.has(screen.dataset.screen || '')) {
     block(); ui.toast('This service is available in the Peebee customer app.', 'info');
     ui.openModal('Continue in Peebee', '<p>Use your same Peebee account for this service.</p>', '<a class="button button--primary" href="https://app.peebee.online/ride">Open Peebee</a>'); return;

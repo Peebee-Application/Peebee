@@ -100,8 +100,8 @@ function codePanel(code: string): string {
  * instruction, a one-tap "Verify Email Address" button (when a link is
  * available) and the 6-digit code as a fallback for typing it in by hand.
  * Password-reset emails (no link) are code-only and worded for a reset. */
-export function buildEmailHtml(code: string, verifyLink?: string, purpose: "verify" | "reset" = "verify"): string {
-  const expiry = `<p style="margin:20px 0 0;font-size:12px;color:${C.muted};text-align:center;">This code expires in 10 minutes.</p>`;
+export function buildEmailHtml(code: string, verifyLink?: string, purpose: "verify" | "reset" = "verify", ttlMinutes = 10): string {
+  const expiry = `<p style="margin:20px 0 0;font-size:12px;color:${C.muted};text-align:center;">This code expires in ${ttlMinutes} minutes.</p>`;
   if (purpose === "reset") {
     return emailShell({
       preheader: `Your Peebee password reset code is ${code}`,
@@ -124,13 +124,13 @@ export function buildEmailHtml(code: string, verifyLink?: string, purpose: "veri
   });
 }
 
-function buildEmailText(code: string, verifyLink?: string, purpose: "verify" | "reset" = "verify"): string {
+function buildEmailText(code: string, verifyLink?: string, purpose: "verify" | "reset" = "verify", ttlMinutes = 10): string {
   if (purpose === "reset") {
-    return `Your Peebee password reset code is ${code}. It expires in 10 minutes. If you didn't ask to reset your password, ignore this email.`;
+    return `Your Peebee password reset code is ${code}. It expires in ${ttlMinutes} minutes. If you didn't ask to reset your password, ignore this email.`;
   }
   return verifyLink
-    ? `Verify your Peebee account: ${verifyLink}\n\nOr enter this code: ${code}\n\nExpires in 10 minutes. If you didn't request this, ignore this email.`
-    : `Your Peebee verification code is ${code}. It expires in 10 minutes. If you didn't request this, ignore this email.`;
+    ? `Verify your Peebee account: ${verifyLink}\n\nOr enter this code: ${code}\n\nExpires in ${ttlMinutes} minutes. If you didn't request this, ignore this email.`
+    : `Your Peebee verification code is ${code}. It expires in ${ttlMinutes} minutes. If you didn't request this, ignore this email.`;
 }
 
 /** `verifyLink`, when given, is a one-click confirmation URL (email
@@ -142,12 +142,13 @@ export async function sendVerificationEmail(
   code: string,
   verifyLink?: string,
   purpose: "verify" | "reset" = "verify",
+  ttlMinutes = 10,
 ): Promise<void> {
   await sendResendEmail({
     to: [to],
     subject: purpose === "reset" ? "Your Peebee password reset code" : "Verify your Peebee account",
-    html: buildEmailHtml(code, verifyLink, purpose),
-    text: buildEmailText(code, verifyLink, purpose),
+    html: buildEmailHtml(code, verifyLink, purpose, ttlMinutes),
+    text: buildEmailText(code, verifyLink, purpose, ttlMinutes),
   });
 }
 

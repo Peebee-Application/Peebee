@@ -1,3 +1,4 @@
+import {accountToolsRoutes} from './account-tools/routes.js';
 import { attentionRoutes } from "./orders/attention.js";
 import { Hono } from "hono";
 import { withMoneyAlertWait } from "./wallet/alerts.js";
@@ -325,6 +326,7 @@ app.route("/v1/trips", tripRoutes);
 app.route("/v1/taxipress-ticket", ticketCodeRoutes);
 app.route("/v1", publicTaxipressRoutes);
 app.route('/v1',taxibeeServiceRoutes);
+app.route('/v1',accountToolsRoutes);
 // Visitor chat authenticates with its own capability; staff routes have explicit guards.
 app.route("/v1", supportChatRoutes);
 app.route("/v1/gas", relayStationRoutes);

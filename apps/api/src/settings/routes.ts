@@ -1,3 +1,4 @@
+import {getCustomerTools,customerToolsSchema} from '../account-tools/settings.js';
 import { attentionSettingsSchema, getAttentionSettings } from "../orders/attention.js";
 import { setRawSetting } from "../lib/settings.js";
 import { patchSchema } from "../lib/patch-schema.js";
@@ -1663,4 +1664,10 @@ settingsRoutes.put("/admin/order-attention", requireAuth, requireRole("admin"), 
   await setRawSetting("order_attention", JSON.stringify(parsed.data));
   await logActivity({ actor: c.get("user"), action: "order.attention.settings", entityType: "settings", summary: "Updated order follow-up calls", before, after: parsed.data, ip: clientIp(c) });
   return c.json({ settings: parsed.data });
+});
+
+settingsRoutes.get('/admin/customer-tools',requireAuth,requireRole('admin'),requirePermission('settings.manage'),async c=>c.json({settings:await getCustomerTools()}));
+settingsRoutes.put('/admin/customer-tools',requireAuth,requireRole('admin'),requirePermission('settings.manage'),async c=>{
+ const p=customerToolsSchema.safeParse(await c.req.json().catch(()=>null));if(!p.success)return c.json({message:'Invalid customer-tool settings.',issues:p.error.issues},400);
+ const before=await getCustomerTools();await setSetting('customer_tools',JSON.stringify(p.data));await logActivity({actor:c.get('user'),action:'customer.tools.settings',summary:'Updated customer account and support tools',entityType:'settings',before,after:p.data,ip:clientIp(c)});return c.json({settings:p.data});
 });

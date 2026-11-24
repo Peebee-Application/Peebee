@@ -133,12 +133,12 @@ the server can enforce it, while leaving the practice flows available.
    activation. External bank invoice reconciliation, statutory invoices and
    mobile-money voucher split funding are not claimed.
 4. **Remaining account capabilities:** production Google origin/provider verification,
-   profile photos and verified contact changes, wallet PIN/auto-pay policies,
-   browser push/preference integration, session/security history, and verified
-   support/safety contacts. About links to Peebee's published legal/privacy pages.
+   wallet PIN/auto-pay policies, provider delivery and operational verification of
+   configured support/safety contacts. Profile photos, verified contact changes,
+   observed device-session management and browser push preferences are connected. About links to Peebee's published legal/privacy pages.
 5. **Remaining journey tools:** real scheduled dates/calendar export, saved
-   departure persistence, configurable search filters, chat media and in-app
-   call controls, formal lost-property/support-case workflows and attachments.
+   departure persistence and configurable search filters. Chat image/voice media,
+   real-provider in-app calls and owned lost-property case workflows are connected.
    A saved address is not a new TaxiPress stop or an arbitrary pickup promise.
 
 ## Validation and release
@@ -171,3 +171,21 @@ inventory visibility and history ownership) and `scripts/services-smoke.mjs`
 (guest preparation, login, relay collection, wallet/mobile money, actual photo/chat
 APIs, reload and interrupted-write recovery, scheduled hourly hire and sign-out).
 Browser fixtures do not establish live driver availability or provider settlement.
+
+### Account and communications rollout
+
+Apply `0171_customer_account_tools.sql` explicitly. It adds session observations,
+contact-change challenges, account push preferences, lost-property case/event/file
+tables and optional `push_subscriptions.session_jti`. Existing hot paths check schema
+availability and keep their previous behaviour until migration. Session observations
+are best-effort and never replace the existing revocation mechanism. Push unregister
+is now owner-scoped; registered revoked tokens are excluded from push delivery.
+
+Admin → Customer account and support tools controls switches, OTP limits, polling,
+attachment/report limits, session retention and support/safety contacts. Existing Calls
+settings choose the real audio provider; mock is never presented as live audio. VAPID
+and email/SMS provider credentials are reused, never generated or copied to the browser.
+Tests cover account ownership/revocation, new-contact OTP proof, private files,
+optimistic staff updates, schema fallback and push filtering. Browser tests use API
+fixtures and real Chromium microphone/WebRTC test media; they spend no live money
+and do not establish live provider delivery.
