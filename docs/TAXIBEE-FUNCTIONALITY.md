@@ -166,9 +166,10 @@ the server can enforce it, while leaving the practice flows available.
   after sign-out. CI runs this suite against a local Worker.
 - No live money is spent by these tests. Authenticated production/provider
   settlement still needs separate operational verification.
-- Review and merge through PR; deploy the shared API first, then Taxibee, from
-  clean current `main` through the existing preflight. Select only the intended
-  apps in the existing deployment workflow; do not redeploy unrelated apps.
+- Review and merge through PR; the normal merge workflow deploys changed shared
+  services. Apply migration 0173 explicitly on clean current `main`, then run
+  the deployment workflow with `apps=taxibee` and `target=live`. This keeps the
+  standalone Worker out of parallel API deployments and avoids unrelated apps.
 
 ### Parcel and charter integration
 

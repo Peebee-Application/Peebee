@@ -74,6 +74,7 @@ verification, `[x]` implemented in the current branch (release checks may remain
   build, saved-departure integration coverage and the full browser suite.
 - [ ] Commit and push from a clean task branch; open a PR and review its scope.
 - [ ] Apply reviewed migrations explicitly when applicable, deploy shared services
-  before Taxibee, and verify live behavior without creating unintended charges.
+  before Taxibee (explicit `apps=taxibee` workflow dispatch), and verify live
+  behavior without creating unintended charges.
 - [ ] Enable customer-facing options only after operating configuration and
   end-to-end verification are complete.

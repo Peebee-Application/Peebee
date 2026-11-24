@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       apps:
-        description: 'Space-separated apps to deploy (api admin customer merchant partner restaurant rider web sales preview-hub gas work learn tv pharmacy), or "all"'
+        description: 'Space-separated apps to deploy (api admin customer merchant partner restaurant rider web sales preview-hub gas work learn tv pharmacy taxibee), or "all"'
         default: all
       target:
         description: 'Deployment target (auto, live, or preview)'
@@ -63,10 +63,9 @@ jobs:
           [ -z "$ALIAS" ] && ALIAS="preview"
 
           # 3. Detect changed apps
-          # Taxibee is a standalone Worker, included so its live release can be
-          # deployed from clean main alongside API changes. Do not expose live
-          # Taxibee code as a branch preview: it points at production APIs.
-          ALL="api admin customer merchant partner restaurant rider web sales preview-hub gas work learn tv pharmacy taxibee"
+          # Taxibee is a standalone Worker. Release it with an explicit
+          # workflow_dispatch selection only after its shared API is deployed.
+          ALL="api admin customer merchant partner restaurant rider web sales preview-hub gas work learn tv pharmacy"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$MANUAL_APPS" ] && [ "$MANUAL_APPS" != "all" ]; then
             APPS="$MANUAL_APPS"
           else
