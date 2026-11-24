@@ -6394,7 +6394,7 @@ function initParcelBarcode() {
 
 function handleClick(event) {
   if (document.body.classList.contains('drawer-open')) {
-    if (!event.target.closest('#side-drawer') && !event.target.closest('.hamburger-menu-btn')) {
+    if (!event.target.closest('#side-drawer, [aria-controls="side-drawer"]')) {
       closeSideDrawer();
       event.preventDefault();
       event.stopPropagation();
@@ -6979,7 +6979,7 @@ function handleClick(event) {
     'terms': showTerms,
     'accessibility': () => toggleAccessibility(value),
     'open-demo-panel': openDemoPanel,
-    'sign-out': signOut,
+    'sign-out': () => { closeSideDrawer(); signOut(); },
     'close-modal': closeModal,
     'close-sheet': closeSheet,
     'demo-state': () => triggerDemoState(value),
@@ -7178,18 +7178,19 @@ function handleInput(event) {
 }
 
 function handleKeydown(event) {
-  const activeDialog = $('#modal-root [role="dialog"]') || $('#sheet-root [role="dialog"]');
+  const activeDialog = $('#modal-root [role="dialog"]') || $('#sheet-root [role="dialog"]') || $('#side-drawer:not(.is-hidden)');
   if (event.key === 'Tab' && activeDialog) {
-    const focusable = $$('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])', activeDialog).filter(element => !element.hidden);
+    const focusable = $$('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])', activeDialog).filter(element => element.getClientRects().length && !element.closest('[inert]'));
     if (!focusable.length) { event.preventDefault(); activeDialog.focus(); return; }
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
     if (event.shiftKey && (document.activeElement === first || !activeDialog.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    else if (!event.shiftKey && (document.activeElement === last || !activeDialog.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
   }
   if (event.key === 'Escape') {
     if ($('#modal-root [role="dialog"]')) closeModal();
     else if ($('#sheet-root [role="dialog"]')) closeSheet();
+    else if ($('#side-drawer:not(.is-hidden)')) closeSideDrawer();
   }
   if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('[role="button"][data-screen], [role="button"][data-action]')) {
     event.preventDefault(); event.target.click();
@@ -7442,14 +7443,18 @@ function toast(message, type = 'default') {
 
 let modalOpener = null;
 let sheetOpener = null;
+let sideDrawerOpener = null;
 
 function updateBackgroundInert() {
-  const active = Boolean($('#modal-root [role="dialog"]') || $('#sheet-root [role="dialog"]'));
+  const sideOpen = document.documentElement.classList.contains('taxibee-customer-chrome')
+    && document.body.classList.contains('drawer-open');
+  const active = Boolean($('#modal-root [role="dialog"]') || $('#sheet-root [role="dialog"]') || sideOpen);
   const shell = $('#app-shell');
   if (shell) {
     if (active) shell.setAttribute('inert', '');
     else shell.removeAttribute('inert');
   }
+  $('#mobile-nav')?.toggleAttribute('inert', sideOpen);
 }
 
 function openModal(title, body, footer = '', wide = false, customClass = '') {
@@ -7498,16 +7503,26 @@ function openSideDrawer() {
   if (isOpen) {
     closeSideDrawer();
   } else {
+    sideDrawerOpener = document.activeElement;
     drawer.classList.remove('is-hidden');
+    drawer.inert = false;
     document.body.classList.add('drawer-open');
+    $$('[aria-controls="side-drawer"]').forEach(button => button.setAttribute('aria-expanded', 'true'));
+    updateBackgroundInert();
     refreshIcons();
+    $('[data-action="close-drawer"]', drawer)?.focus({ preventScroll: true });
   }
 }
 function closeSideDrawer() {
   const drawer = $('#side-drawer');
-  if (!drawer) return;
+  if (!drawer || drawer.classList.contains('is-hidden')) return;
   drawer.classList.add('is-hidden');
+  drawer.inert = true;
   document.body.classList.remove('drawer-open');
+  $$('[aria-controls="side-drawer"]').forEach(button => button.setAttribute('aria-expanded', 'false'));
+  updateBackgroundInert();
+  if (sideDrawerOpener?.isConnected) sideDrawerOpener.focus({ preventScroll: true });
+  sideDrawerOpener = null;
 }
 
 function openMoreSheet() {
