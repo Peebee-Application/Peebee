@@ -8,7 +8,7 @@ export async function handleRequest(request, env) {
     upstream.pathname = url.pathname.slice(4);
     upstream.search = url.search;
     const headers = new Headers();
-    for (const name of ['authorization', 'content-type', 'accept', 'idempotency-key']) {
+    for (const name of ['authorization', 'content-type', 'accept', 'idempotency-key', 'user-agent']) {
       if (request.headers.has(name)) headers.set(name, request.headers.get(name));
     }
     // Support sessions use a separate capability, scoped to the support service.
@@ -38,7 +38,7 @@ export async function handleRequest(request, env) {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), payment=()');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(self), payment=()');
   response.headers.set('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; frame-src https://accounts.google.com/gsi/; img-src 'self' data: blob: https:; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' https://accounts.google.com/gsi/ https://tile.openstreetmap.org https://nominatim.openstreetmap.org https://router.project-osrm.org");
   return response;
 }

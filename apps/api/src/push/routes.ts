@@ -1,3 +1,4 @@
+import {hasColumn} from '../lib/schema.js';
 import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
@@ -24,11 +25,12 @@ pushRoutes.post("/push/subscribe", requireAuth, async (c) => {
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
   const { endpoint, keys } = parsed.data;
 
+  const sessions=await hasColumn('push_subscriptions','session_jti');
   await db.execute({
-    sql: `INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth)
-          VALUES (?, ?, ?, ?, ?)
-          ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth`,
-    args: [newId("push"), user.sub, endpoint, keys.p256dh, keys.auth],
+    sql: `INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth${sessions?',session_jti':''})
+          VALUES (?, ?, ?, ?, ?${sessions?',?':''})
+          ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth${sessions?',session_jti=excluded.session_jti':''}`,
+    args: [newId("push"), user.sub, endpoint, keys.p256dh, keys.auth,...(sessions?[user.jti]:[])],
   });
 
   return c.json({ ok: true });
@@ -44,6 +46,6 @@ const unsubscribeSchema = z.object({ endpoint: z.string().url() });
 pushRoutes.post("/push/unsubscribe", requireAuth, async (c) => {
   const parsed = unsubscribeSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
-  await db.execute({ sql: "DELETE FROM push_subscriptions WHERE endpoint = ?", args: [parsed.data.endpoint] });
+  await db.execute({ sql: "DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?", args: [parsed.data.endpoint,c.get("user").sub] });
   return c.json({ ok: true });
 });

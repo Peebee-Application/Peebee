@@ -1,3 +1,5 @@
+import {hasTable,hasColumn} from './schema.js';
+import {getCustomerTools,DEFAULT_PUSH} from '../account-tools/settings.js';
 import { ApplicationServerKeys, generatePushHTTPRequest } from "webpush-webcrypto";
 import { db } from "../db/client.js";
 
@@ -55,17 +57,25 @@ async function sendOne(sub: PushSubscriptionRow, payload: PushPayload, keys: App
  * has no subscriptions. Prunes subscriptions the browser itself dropped.
  */
 export async function notifyUser(userId: string, payload: PushPayload): Promise<void> {
+  const settings=await getCustomerTools();if(!settings.pushEnabled)return;
+  if(await hasTable('account_preferences')){
+    const row=(await db.execute({sql:'SELECT push_json FROM account_preferences WHERE user_id=?',args:[userId]})).rows[0];
+    let prefs=DEFAULT_PUSH;try{if(row)prefs={...prefs,...JSON.parse(String(row.push_json))};}catch{/* Safe existing defaults. */}
+    const category=payload.tag.startsWith('wallet')?'wallet':payload.tag.startsWith('call')?'calls':/chat|message/.test(payload.tag)?'messages':/offer|promo|marketing/.test(payload.tag)?'marketing':'journeys';
+    if(!prefs.enabled||!prefs[category])return;
+  }
   const keys = await getVapidKeys();
   if (!keys) return;
 
+  const sessionAware=await hasColumn('push_subscriptions','session_jti');
   const res = await db.execute({
-    sql: "SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?",
+    sql: `SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?${sessionAware?' AND NOT EXISTS(SELECT 1 FROM revoked_sessions r WHERE r.jti=push_subscriptions.session_jti)':''}`,
     args: [userId],
   });
   const subs = res.rows as unknown as PushSubscriptionRow[];
   if (subs.length === 0) return;
 
-  const results = await Promise.all(subs.map((sub) => sendOne(sub, payload, keys)));
+  const results = await Promise.all(subs.map((sub) => sendOne(sub, {...payload,accountId:userId} as PushPayload, keys)));
   const goneIds = subs.filter((_, i) => results[i] === "gone").map((s) => s.id);
   await Promise.all(
     goneIds.map((id) => db.execute({ sql: "DELETE FROM push_subscriptions WHERE id = ?", args: [id] })),

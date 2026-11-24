@@ -7,6 +7,7 @@ import { db } from "../db/client.js";
 import { inPractice } from "../db/practice-context.js";
 
 const DEFAULTS = {
+  customer_tools: "{}",
   /** Live switches for modules that have no older setting of their own: {"ride.boda": false}. Missing = on. See ./modules.ts. */
   modules_live: "{}",
   /** Practice-world switches for every module: {"ride.car": false}. Missing = on. */

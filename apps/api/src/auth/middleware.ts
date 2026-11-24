@@ -1,3 +1,4 @@
+import {observeSession} from '../account-tools/sessions.js';
 import type { Context, Next } from "hono";
 import { db } from "../db/client.js";
 import { isAdminRole, type AdminRole } from "../admin/permissions.js";
@@ -142,6 +143,7 @@ export async function requireAuth(c: Context, next: Next) {
     adminRole: isAdminRole(row.admin_role) ? row.admin_role : null,
     forcePasswordChange,
   });
+  await observeSession(c,payload);
   await next();
 }
 
