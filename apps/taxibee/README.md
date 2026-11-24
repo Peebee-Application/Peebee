@@ -14,8 +14,10 @@ passwords and browser-local user registration have been removed.
 `src/live.ts` is the TypeScript integration boundary. It uses Peebee's existing
 `createApiClient`, account identities, TaxiPress queues/bookings, wallet and
 payment APIs. The independent Worker forwards `/api/v1/*` to the existing
-`https://api.peebee.online/v1/*`; there is no second database and no database
-migration. Bearer credentials are forwarded only to that fixed API origin.
+`https://api.peebee.online/v1/*`; it has no separate database or Taxibee-owned
+schema. Additive schema changes are applied to Peebee's shared database through
+the reviewed API migration workflow. Bearer credentials are forwarded only to
+that fixed API origin.
 Customer responses are never cached. No Cloudflare deployment token belongs
 in app configuration or browser code.
 
@@ -118,9 +120,15 @@ when the assigned driver checks in. Apply migration 0172 and configure the
 default-off sale switch and schedule rules in Admin → Taxipress. See
 `docs/TAXIBEE-FUTURE-DEPARTURES.md` for operating and refund behavior.
 
-Merge via PR. On clean `main` matching `origin/main`, run `pnpm deploy:taxibee`.
-The existing deployment preflight is required. The Worker is
-`peebee-taxibee`; Wrangler attaches `taxibee.peebee.online` as a custom domain.
+Saved queue departures sync across a customer's Taxibee sessions through the
+shared account API after migration 0173. That migration was applied on
+2026-11-24; inactive queue items are removed from the saved list.
+
+Merge via PR. Deploy the shared API and apply reviewed migrations first, then
+run the existing `Deploy to Cloudflare` workflow on clean `main` with
+`apps=taxibee` and `target=live`. The existing deployment preflight is
+required. The Worker is `peebee-taxibee`; Wrangler attaches
+`taxibee.peebee.online` as a custom domain.
 Only the existing Peebee Cloudflare account and zone are used. Existing apps,
 Workers, DNS records, and the shared API are not redeployed by this command.
 
@@ -173,9 +181,10 @@ idempotent report creation. Admin → Customer account and support tools supplie
 the staff queue, policy switches/limits and verified support/safety contacts.
 No demonstration contact number is substituted when those settings are empty.
 
-Apply **0171_customer_account_tools.sql** manually to the existing D1 database.
-Before migration, existing authentication and push continue working; new storage
-features return an upgrade-pending response. Deploy the shared API, Admin and
-Taxibee through clean-main preflight after PR merge. Practice remains isolated.
+Migration **0171_customer_account_tools.sql** was applied to the existing D1
+database on 2026-11-24 through the reviewed migration workflow. Before migration,
+existing authentication and push continue working; new storage features return
+an upgrade-pending response. Deploy shared services before Taxibee through the
+clean-main preflight after PR merge. Practice remains isolated.
 Wallet PIN/Auto-Pay controls are still unavailable: shared payments require explicit
 review, and this release introduces no automatic charging or device-only payment lock.
