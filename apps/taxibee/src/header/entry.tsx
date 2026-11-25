@@ -8,6 +8,7 @@ import { HeaderDrawerProvider, useHeaderDrawer } from "../../../customer/lib/hea
 import { CallsProvider } from "../../../customer/lib/calls-context";
 import { LanguageProvider } from "../../../customer/lib/i18n";
 import { configureHost, host, subscribe, sync } from "./host";
+import { brandDescriptionId, TaxibeeBrand } from "./brand";
 import type { TaxibeeHeader } from "./contracts";
 import "./layout.css";
 
@@ -42,7 +43,7 @@ function Chrome({ target }: { target: HTMLElement }) {
       : null);
   }, [drawer.mode, drawer.section, target]);
   return createPortal(<>
-    <BrandHeader />
+    <BrandHeader brandDescriptionId={brandDescriptionId} renderBrand={details => <TaxibeeBrand {...details} />} />
     {headerRow && createPortal(
       <button type="button" className="customer-header-toggle taxibee-side-toggle"
         aria-label="Open Taxibee menu" aria-controls="side-drawer" aria-expanded={false}

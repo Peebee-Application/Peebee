@@ -24,6 +24,15 @@ try {
   await page.waitForTimeout(900);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Mobile shell must not overflow horizontally');
   const header = page.locator('.customer-header');
+  const brand = header.locator('.taxibee-header-brand');
+  const emblem = await brand.locator('img').boundingBox();
+  const brandCopy = await brand.locator('.taxibee-header-brand-copy').boundingBox();
+  assert.equal(emblem.width, 40);
+  assert.equal(emblem.height, 40);
+  assert.equal(brandCopy.height, emblem.height);
+  assert.equal(brandCopy.y, emblem.y);
+  assert.equal(await header.getByRole('link', { name: 'Go to home' }).getAttribute('aria-describedby'), 'taxibee-current-location');
+  assert.equal(await brand.locator('#taxibee-current-location').textContent(), 'Current location: Kampala');
   const pane = page.locator('#app-shell > .workspace');
   const headerBounds = await header.boundingBox();
   const paneBounds = await pane.boundingBox();
