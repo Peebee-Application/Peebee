@@ -19,13 +19,13 @@ type HeaderDrawerContextValue = {
 
 const HeaderDrawerContext = createContext<HeaderDrawerContextValue | null>(null);
 
-export function HeaderDrawerProvider({ children }: { children: ReactNode }) {
+export function HeaderDrawerProvider({ children, expandMenu = false }: { children: ReactNode; expandMenu?: boolean }) {
   const [mode, setMode] = useState<HeaderDrawerMode>("closed");
   const [section, setSection] = useState<HeaderDrawerSection>("profile");
 
   const openMenu = useCallback(() => {
-    setMode("menu");
-  }, []);
+    setMode(expandMenu ? "section" : "menu");
+  }, [expandMenu]);
 
   const selectTab = useCallback((next: HeaderDrawerSection) => {
     setSection(next);

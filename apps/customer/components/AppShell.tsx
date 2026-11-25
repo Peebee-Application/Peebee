@@ -10,7 +10,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
 import { AuthGate } from "./AuthGate";
 import { BottomNav } from "./BottomNav";
-import { BrandHeader } from "./BrandHeader";
+import { CustomerChrome } from "./CustomerChrome";
 import { HeaderDrawerProvider } from "../lib/header-drawer";
 import { ChatDrawerShell } from "../lib/chat-drawer";
 import { FoodBusinessTheme } from "./FoodBusinessTheme";
@@ -51,6 +51,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const showHeader = !isAuthPage && !isChatThread && !isFoodDetail && !isImmersiveFullscreen && !isSpotlight;
   const showNav = !isAuthPage && !isChatThread && !isFoodDetail && !navigationOverlayOpen && !isImmersiveFullscreen;
+  const page = foodBusinessId ? <FoodBusinessTheme key={foodBusinessId} id={foodBusinessId}>{gated}</FoodBusinessTheme> : gated;
+  const navigation = showNav && <BottomNav />;
 
   return (
     <GuestAccessProvider>
@@ -60,15 +62,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {user && <PracticeModeGuard role="customer" pathname={pathname} />}
       {user && !isAuthPage && <PracticeModePrompt role="customer" />}
       {user && !isAuthPage && <PracticeModeBanner role="customer" />}
-      {!isAuthPage && <OfflineBanner />}
-      <HeaderDrawerProvider>
-      {showHeader && <BrandHeader />}
-      <main
-        className={`mx-auto max-w-lg ${showHeader ? "min-h-[calc(100dvh-4rem)]" : "min-h-dvh"} ${showNav && !isSpotlight ? "customer-nav-content-clearance" : ""}`}
-      >
-        {foodBusinessId ? <FoodBusinessTheme key={foodBusinessId} id={foodBusinessId}>{gated}</FoodBusinessTheme> : gated}
-      </main>
-      {showNav && <BottomNav />}
+      <HeaderDrawerProvider expandMenu={showHeader}>
+      {showHeader ? (
+        <CustomerChrome navigation={navigation} hasNav={showNav}>{page}</CustomerChrome>
+      ) : <>
+        <OfflineBanner />
+        <main className={`mx-auto min-h-dvh max-w-lg ${showNav && !isSpotlight ? "customer-nav-content-clearance" : ""}`}>{page}</main>
+        {navigation}
+      </>}
       </HeaderDrawerProvider>
       </ChatDrawerShell>
     </AuthGate>

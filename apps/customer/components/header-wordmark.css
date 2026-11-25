@@ -1,0 +1,46 @@
+.peebee-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.peebee-header-brand > img {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+.peebee-header-brand-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.peebee-header-brand-name {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 24px;
+  white-space: nowrap;
+}
+.peebee-header-brand-name > sup {
+  margin-inline-start: 4px;
+  font-size: 10px;
+  line-height: 0;
+  color: rgb(var(--color-gold));
+}
+.peebee-header-brand-detail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 14px;
+}
+.peebee-header-brand-detail > svg {
+  flex: none;
+  color: rgb(var(--color-gold));
+}
+.peebee-header-brand-detail > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

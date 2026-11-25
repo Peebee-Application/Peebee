@@ -39,9 +39,10 @@ async function loadMenuCounts():Promise<MenuCounts>{
 type BrandHeaderProps = {
   renderBrand?: (details: ReturnType<typeof useLocationLabel> & {modeLabel: string | null}) => ReactNode;
   brandDescriptionId?: string;
+  leadingControl?: ReactNode;
 };
 
-export function BrandHeader({renderBrand, brandDescriptionId}: BrandHeaderProps = {}) {
+export function BrandHeader({renderBrand, brandDescriptionId, leadingControl}: BrandHeaderProps = {}) {
   const pathname=usePathname();
   const router=useRouter();
   const drawer=useHeaderDrawer();
@@ -148,8 +149,9 @@ export function BrandHeader({renderBrand, brandDescriptionId}: BrandHeaderProps 
     return()=>{cancelled=true;window.removeEventListener("keydown",onKey);};
   },[open,closeMenu]);
   return <>
-    <header className={`customer-header sticky top-0 z-40 ${home?`ph-header ${homeFont.className}`:""} ${drawer.mode==="menu"?"is-menu-open":""} ${drawer.mode==="section"?"is-section-open":""}`}>
+    <header className={`customer-header sticky top-0 z-40 ${home?"ph-header":""} ${home || renderBrand ? homeFont.className : ""} ${drawer.mode==="menu"?"is-menu-open":""} ${drawer.mode==="section"?"is-section-open":""}`}>
       <div className="mx-auto flex h-16 max-w-lg items-center justify-between gap-3 px-4">
+        {leadingControl}
         <Link href="/" aria-label={`Go to home${modeLabel ? ", demo mode" : ""}`} aria-describedby={brandDescriptionId} className={home?"ph-brand-link min-w-0":"flex shrink-0 items-start gap-1"}>
           {renderBrand ? renderBrand({...location, modeLabel}) : <>
             <span className="flex items-start gap-1"><BrandLogo variant="light"/>{modeLabel&&<sup aria-hidden="true" className="pt-1 text-[10px] font-bold leading-none text-gold">{modeLabel}</sup>}</span>

@@ -10,10 +10,10 @@ import "./food-cards.css";
 import "./food-subhome.css";
 import "./eat-home.css";
 import "./personalized-home.css";
+import "./customer-chrome.css";
 import { AppShell } from "../components/AppShell";
 import { CallOverlay } from "../components/CallOverlay";
 import { InstallPrompt } from "../components/InstallPrompt";
-import { OfflineBanner } from "../components/OfflineBanner";
 import { PushNotifications } from "../components/PushNotifications";
 import { ServiceWorkerRegister } from "../components/ServiceWorkerRegister";
 import { AuthProvider } from "../lib/auth-context";
@@ -87,7 +87,6 @@ export default function RootLayout({
           {THEME_INIT_SCRIPT}
         </Script>
         <ServiceWorkerRegister />
-        <OfflineBanner />
         <AuthProvider>
           <LanguageProvider>
             <CallsProvider>

@@ -1,4 +1,5 @@
 "use client";
+import { customerScrollViewport } from "../../lib/customer-scroll";
 
 import { HOME_TEMPLATES, availableHomeShortcuts, isModuleOn, isPracticeMode, randomHomeInterval, resolveHomeMenu, resolveHomeTemplates, type DeliverySettings, type HomeShortcut, type HomeTemplatesSettings } from "@peebee/shared";
 import { ArrowRight } from "lucide-react";
@@ -110,9 +111,10 @@ function HomeArtwork({ config, available, storageKey, blocked }: { config: HomeT
     document.addEventListener("pointerup", up, { passive: true });
     document.addEventListener("pointercancel", up, { passive: true });
     document.addEventListener("keydown", interact);
-    window.addEventListener("scroll", interact, { passive: true });
+    const viewport = customerScrollViewport();
+    viewport.addEventListener("scroll", interact, { passive: true });
     window.addEventListener("blur", up);
-    return () => { clearTimeout(timer); document.removeEventListener("visibilitychange", visible); document.removeEventListener("pointerdown", down); document.removeEventListener("pointerup", up); document.removeEventListener("pointercancel", up); document.removeEventListener("keydown", interact); window.removeEventListener("scroll", interact); window.removeEventListener("blur", up); };
+    return () => { clearTimeout(timer); document.removeEventListener("visibilitychange", visible); document.removeEventListener("pointerdown", down); document.removeEventListener("pointerup", up); document.removeEventListener("pointercancel", up); document.removeEventListener("keydown", interact); viewport.removeEventListener("scroll", interact); window.removeEventListener("blur", up); };
   }, [availableKey, config.minIntervalSeconds, config.maxIntervalSeconds, config.interactionPauseSeconds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const template = HOME_TEMPLATES.find((t) => t.id === selection?.template) ?? HOME_TEMPLATES[0];
