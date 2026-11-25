@@ -1,6 +1,6 @@
 "use client";
 
-import { taxipressTown, type RidePassenger, type SavedPassenger, type TaxipressLineEntry, type TaxipressQueueView } from "@peebee/shared";
+import { taxipressTown, taxipressVanClassLabel, type RidePassenger, type SavedPassenger, type TaxipressLineEntry, type TaxipressQueueView } from "@peebee/shared";
 import { BookUser, Check, ChevronRight, Clock, Minus, Phone, Plus, ShieldAlert, Ticket, User, type LucideIcon } from "lucide-react";
 import { WhoIsRiding } from "../../../../../components/WhoIsRiding";
 import { DriverAvatar } from "../../../../../components/taxipress/DriverAvatar";
@@ -156,7 +156,7 @@ function BookLine() {
             <DriverAvatar name={boarding.driverName} photoUrl={boarding.driverPhotoUrl} dark />
             <span className="min-w-0 flex-1">
               <span className="block truncate font-mono text-xl font-bold tracking-wider">{boarding.plate}</span>
-              <span className="block truncate text-sm text-white/65">{boarding.driverName ?? "Driver"} · Commuter ({boarding.seatsTotal})</span>
+              <span className="block truncate text-sm text-white/65">{boarding.driverName ?? "Driver"} · {taxipressVanClassLabel(boarding.seatLayout, boarding.seatsTotal)}</span>
             </span>
             <span className="shrink-0 rounded-full bg-gold px-3 py-1 text-xs font-bold text-[rgb(10_10_10)]">Boarding now</span>
           </div>
@@ -212,7 +212,7 @@ function TaxiCard({ van, rank, routeId, selected, onSelect, children }: { van: T
             <span className="truncate font-mono text-xl font-bold tracking-wider text-ink">{van.plate}</span>
             <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${rank === 1 ? "bg-gold text-ink-gold" : "bg-[rgb(var(--surface-muted))] text-ink-500"}`}>{rank === 1 ? "Next" : rank === 2 ? "Waiting" : "Later"}</span>
           </span>
-          <span className="block truncate text-sm text-ink-500">{van.driverName ?? "Driver"} · {van.seatLayout === "18" ? "Highroof" : "Commuter"} ({van.seatsTotal})</span>
+          <span className="block truncate text-sm text-ink-500">{van.driverName ?? "Driver"} · {taxipressVanClassLabel(van.seatLayout, van.seatsTotal)}</span>
         </span>
         <ChevronRight className="h-5 w-5 shrink-0 text-ink-500" aria-hidden />
       </button>

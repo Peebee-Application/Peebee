@@ -4,7 +4,7 @@ import type { AppUpdatesSettings, AppUpdatesUpdate } from "./app-updates.js";
 import { applyModuleAvailability, rememberModuleAvailability, type ModuleSettingsUpdate, type ModuleSettings } from "./modules.js";
 import { isPracticeStorageOn } from "./practice.js";
 import { endServerPractice, isServerPractice, type PracticeSessionResult, type ServerRole } from "./practice-server.js";
-import type { TaxipressAssistance, TaxipressLanguage, TaxipressLuggageType, TaxipressTaxiProfile, TaxipressAdminQueueEntry, TaxipressAdminRoute, TaxipressBoardingResult, TaxipressBooking, TaxipressConfig, TaxipressDriverView, TaxipressLineEntry, TaxipressOutcome, TaxipressQueueView, TaxipressRelayRoute, TaxipressReport, TaxipressSettings, TaxipressTaxi, PublicTaxipressTicket, TaxipressSendResult } from "./taxipress.js";
+import type { TaxipressAssistance, TaxipressLanguage, TaxipressLuggageType, TaxipressTaxiProfile, TaxipressAdminQueueEntry, TaxipressAdminRoute, TaxipressBoardingResult, TaxipressBooking, TaxipressConfig, TaxipressDriverView, TaxipressLineEntry, TaxipressOutcome, TaxipressQueueView, TaxipressRelayRoute, TaxipressReport, TaxipressSettings, TaxipressTaxi, TaxipressVanFeature, PublicTaxipressTicket, TaxipressSendResult } from "./taxipress.js";
 import type { BagTrip, RelayAdminOrder, RelayRouteStage, RelayMerchantOrder, RelayOpenLeg, RelayOperator, RelayOperatorParcels, RelayQuote, RelayRoute, RelaySettings, RelayStation, RelayStationParcels, RelayTrack } from "./relay.js";
 import type { AdminRole } from "./permissions.js";
 import { workMethods } from "./work-client.js";
@@ -820,7 +820,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       return request<TaxipressConfig>("/v1/taxipress-public/config");
     },
     async getPublicTaxipressQueue(routeId: string) {
-      type Entry = Pick<TaxipressLineEntry, 'id' | 'plate' | 'seatLayout' | 'status' | 'position' | 'seatsLeft' | 'driverName' | 'bookable' | 'departsAt'>;
+      type Entry = Pick<TaxipressLineEntry, 'id' | 'plate' | 'seatLayout' | 'status' | 'position' | 'seatsTotal' | 'seatsLeft' | 'driverName' | 'bookable' | 'departsAt'>;
       return request<{ line: Entry[]; onRoad: Entry[]; route: TaxipressQueueView['route'] }>(`/v1/taxipress-public/routes/${encodeURIComponent(routeId)}/queue`);
     },
     async getTaxipressPublicDepartures(input: { routeId?: string; from?: string; to?: string } = {}) {
@@ -883,6 +883,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     // Taxipress: the driver's taxi and the line.
     async getTaxipressTaxiMe() {
       return request<TaxipressDriverView>("/v1/taxipress/taxi/me");
+    },
+    async updateTaxipressTaxiProfile(input: { vehicleType: string; colour: string; driverBio: string; features: TaxipressVanFeature[] }) {
+      return request<{ taxi: TaxipressTaxi }>("/v1/taxipress/taxi/me/profile", { method: "PUT", body: JSON.stringify(input) });
     },
     async applyTaxipressTaxi(input: { relayRouteId: string; plate: string; seatLayout: "14" | "18" }) {
       return request<{ ok: boolean }>("/v1/taxipress/taxi/apply", { method: "POST", body: JSON.stringify(input) });

@@ -237,7 +237,7 @@ test("taxipress: cancellations, no-shows and refunds", async (t) => {
       await payWallet("p10", misses);
       assert.equal((await call("d1", "taxipress/driver/boarding", {})).status, 200);
       assert.equal((await call("d1", "taxipress/driver/board", { code: boards.booking.ticketCode })).status, 200);
-      assert.equal((await call("d1", "taxipress/driver/walk-up", { delta: 12 })).status, 200);
+      assert.equal((await call("d1", "taxipress/driver/walk-up", { delta: 11 })).status, 200);
       const before = await balance("p10");
       assert.equal((await call("d1", "taxipress/driver/on-road", {})).status, 200);
       const after = await view("p10", misses.booking.id);
@@ -276,7 +276,7 @@ test("taxipress: cancellations, no-shows and refunds", async (t) => {
       const [q1, q2] = await lineUp("d1", "d2");
       const noRoom = await book("p13", q1, 2, "app");
       await payWallet("p13", noRoom);
-      await client.execute({ sql: "UPDATE taxipress_queue SET walk_up_seats = 14 WHERE id = ?", args: [q2] });
+      await client.execute({ sql: "UPDATE taxipress_queue SET walk_up_seats = 13 WHERE id = ?", args: [q2] });
       const before = await balance("p13");
       assert.equal((await call("d1", "taxipress/driver/leave", {})).status, 200);
       const refunded = await view("p13", noRoom.booking.id);

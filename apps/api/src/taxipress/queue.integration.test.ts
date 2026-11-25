@@ -97,7 +97,7 @@ test("taxipress: the driver queue", async (t) => {
       }
       const view = await me("d1");
       assert.equal(view.taxi?.status, "approved");
-      assert.equal(view.taxi?.seats, 14);
+      assert.equal(view.taxi?.seats, 13);
       assert.equal(view.routes.length, 2);
       assert.equal(await code(await call("d3", "taxipress/driver/join", { routeId: kampalaToEntebbe, ...KAMPALA })), "taxi_not_approved");
     });
@@ -131,7 +131,7 @@ test("taxipress: the driver queue", async (t) => {
       assert.equal((await json<{ error: string }>(early)).error, "not_full");
       assert.equal((await me("d1")).canGoOnRoad, false);
       // Seats sold at the stage count.
-      assert.equal((await call("d1", "taxipress/driver/walk-up", { delta: 14 })).status, 200);
+      assert.equal((await call("d1", "taxipress/driver/walk-up", { delta: 13 })).status, 200);
       assert.equal(await code(await call("d1", "taxipress/driver/walk-up", { delta: 1 })), "no_seats_left");
       assert.equal((await call("d1", "taxipress/driver/walk-up", { delta: -2 })).status, 200);
       assert.equal(await code(await call("d1", "taxipress/driver/on-road", {})), "not_full");

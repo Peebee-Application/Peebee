@@ -1,13 +1,14 @@
 "use client";
 
 import { Select } from "@peebee/shared/select";
-import { ApiError, type TaxipressBoardingResult, type TaxipressDriverView, type TaxipressLineEntry } from "@peebee/shared";
-import { ArrowLeft, Bus, Minus, Plus, QrCode, Users } from "lucide-react";
+import { ApiError, TAXIPRESS_VAN_FEATURES, taxipressVanClass, taxipressVanClassLabel, type TaxipressBoardingResult, type TaxipressDriverView, type TaxipressLineEntry, type TaxipressVanFeature } from "@peebee/shared";
+import { ArrowLeft, Bus, Check, Minus, Plus, QrCode, Save, Users } from "lucide-react";
 import Link from "next/link";
 import { Accordion } from "../../components/Accordion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QrScanner } from "../../components/QrScanner";
 import { api, errorMessage } from "../../lib/api";
+import { useAuth } from "../../lib/auth-context";
 
 const REFRESH_MS = 10_000;
 const LOCATION_MS = 30_000;
@@ -30,6 +31,7 @@ function currentPosition(): Promise<{ lat: number; lng: number } | null> {
 const ordinal = (n: number) => (n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`);
 
 export default function TaxipressPage() {
+  const { user } = useAuth();
   const [view, setView] = useState<TaxipressDriverView | null>(null);
   const [error, setError] = useState("");
 
@@ -80,6 +82,10 @@ export default function TaxipressPage() {
 
       {error && <p className={errorBox}>{error}</p>}
 
+      {view?.ready && view.taxi && (
+        <DriverProfileEditor taxi={view.taxi} driverName={user?.name ?? "Driver"} ready={view.profileCustomizationReady === true} onDone={load} />
+      )}
+
       {!view ? null : !view.ready ? (
         <p className="home-card text-lg text-ink-500">Taxipress isn&apos;t set up yet.</p>
       ) : !view.taxi ? (
@@ -97,6 +103,102 @@ export default function TaxipressPage() {
         <Board view={view} onChange={load} />
       )}
     </div>
+  );
+}
+
+function DriverProfileEditor({ taxi, driverName, ready, onDone }: { taxi: NonNullable<TaxipressDriverView["taxi"]>; driverName: string; ready: boolean; onDone: () => Promise<void> }) {
+  const [vehicleType, setVehicleType] = useState(taxi.vehicleType ?? "");
+  const [colour, setColour] = useState(taxi.colour ?? "");
+  const [driverBio, setDriverBio] = useState(taxi.driverBio ?? "");
+  const [features, setFeatures] = useState<TaxipressVanFeature[]>(taxi.features ?? []);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const featureOptions = TAXIPRESS_VAN_FEATURES[taxipressVanClass(taxi.seatLayout)];
+
+  useEffect(() => {
+    const allowed = new Set(TAXIPRESS_VAN_FEATURES[taxipressVanClass(taxi.seatLayout)].map((feature) => feature.id));
+    setFeatures((current) => current.filter((feature) => allowed.has(feature)));
+  }, [taxi.seatLayout]);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!ready) return;
+    setBusy(true);
+    setError("");
+    setSaved(false);
+    try {
+      await api.updateTaxipressTaxiProfile({ vehicleType, colour, driverBio, features });
+      setSaved(true);
+      await onDone();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleFeature(feature: TaxipressVanFeature) {
+    setFeatures((current) => current.includes(feature) ? current.filter((item) => item !== feature) : [...current, feature]);
+    setSaved(false);
+  }
+
+  if (!ready) {
+    return (
+      <section className="home-card space-y-2">
+        <p className="text-sm font-bold uppercase tracking-wide text-ink-500">Driver profile</p>
+        <h2 className="text-xl font-black text-ink">{driverName}</h2>
+        <p className="text-base text-ink-500">Your {taxipressVanClassLabel(taxi.seatLayout)} profile and van features are being set up. Your current Taxipress registration remains available.</p>
+      </section>
+    );
+  }
+
+  return (
+    <form onSubmit={save} className="home-card space-y-4">
+      <header className="space-y-1">
+        <p className="text-sm font-bold uppercase tracking-wide text-ink-500">Driver profile</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xl font-black text-ink">{driverName}</h2>
+          <span className="rounded-full bg-gold/20 px-3 py-1 text-sm font-bold text-ink">{taxipressVanClassLabel(taxi.seatLayout)}</span>
+        </div>
+        <p className="text-base text-ink-500">Personalize what passengers see about you and your van. Select only features available on every trip.</p>
+      </header>
+
+      <label className="block space-y-1.5">
+        <span className="text-base font-bold text-ink-500">Van make or model</span>
+        <input value={vehicleType} onChange={(e) => { setVehicleType(e.target.value); setSaved(false); }} maxLength={80} placeholder={taxi.seatLayout === "14" ? "e.g. Toyota HiAce VIP" : "e.g. Toyota HiAce highroof"} className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-3 text-lg text-ink outline-none focus:ring-2 focus:ring-gold" />
+      </label>
+
+      <label className="block space-y-1.5">
+        <span className="text-base font-bold text-ink-500">Van colour</span>
+        <input value={colour} onChange={(e) => { setColour(e.target.value); setSaved(false); }} maxLength={40} placeholder="e.g. White and gold" className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-3 text-lg text-ink outline-none focus:ring-2 focus:ring-gold" />
+      </label>
+
+      <label className="block space-y-1.5">
+        <span className="text-base font-bold text-ink-500">About you</span>
+        <textarea value={driverBio} onChange={(e) => { setDriverBio(e.target.value); setSaved(false); }} maxLength={400} rows={3} placeholder="Add a short introduction for passengers." className="w-full resize-y rounded-xl border border-[var(--border-faint)] px-3 py-3 text-lg text-ink outline-none focus:ring-2 focus:ring-gold" />
+        <span className="block text-right text-sm text-ink-500">{driverBio.length}/400</span>
+      </label>
+
+      <fieldset className="space-y-2">
+        <legend className="text-base font-bold text-ink-500">Van features</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {featureOptions.map(({ id, label }) => {
+            const selected = features.includes(id);
+            return (
+              <button key={id} type="button" aria-pressed={selected} onClick={() => toggleFeature(id)} className={`flex min-h-12 items-center gap-2 rounded-xl border px-3 text-left text-sm font-semibold ${selected ? "border-gold bg-gold/20 text-ink" : "border-[var(--border-faint)] text-ink-500"}`}>
+                {selected && <Check className="h-4 w-4 shrink-0" aria-hidden />}
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      {error && <p role="alert" className={errorBox}>{error}</p>}
+      {saved && <p role="status" className="text-base font-semibold text-green">Your driver and van profile is saved.</p>}
+      <button type="submit" disabled={busy} className={primary}><span className="inline-flex items-center justify-center gap-2"><Save className="h-5 w-5" aria-hidden />{busy ? "Saving…" : "Save profile"}</span></button>
+    </form>
   );
 }
 
@@ -138,10 +240,14 @@ function Apply({ view, onDone }: { view: TaxipressDriverView; onDone: () => Prom
         <input value={plate} onChange={(e) => setPlate(e.target.value.toUpperCase())} placeholder="e.g. UAX 123K" autoCapitalize="characters" className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] font-mono font-bold text-ink outline-none focus:ring-2 focus:ring-gold" />
       </label>
       <div className="space-y-1.5">
-        <span className="text-base font-bold text-ink-500">Seats for passengers</span>
+        <span className="text-base font-bold text-ink-500">Van service</span>
         <div className="grid grid-cols-2 gap-2">
           {(["14", "18"] as const).map((n) => (
-            <button key={n} type="button" aria-pressed={layout === n} onClick={() => setLayout(n)} className={`min-h-14 rounded-xl font-bold ${layout === n ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>{n} seats</button>
+            <button key={n} type="button" aria-pressed={layout === n} onClick={() => setLayout(n)} className={`min-h-20 rounded-xl px-2 font-bold ${layout === n ? "bg-gold text-ink-gold" : "bg-gold/15 text-ink"}`}>
+              <span className="block">{n === "14" ? "VIP van" : "Standard van"}</span>
+              <span className="block text-sm font-semibold">{n === "14" ? "13 passengers" : "18 passengers"}</span>
+              {n === "14" && <span className="block text-xs font-normal">14 places including driver</span>}
+            </button>
           ))}
         </div>
       </div>

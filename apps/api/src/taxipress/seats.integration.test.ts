@@ -80,12 +80,12 @@ test('numbered seats: concurrent ownership, expiry and all booking paths',async 
     await t.test('public maps describe real labels and availability without identities or capabilities',async () => {
       assert.deepEqual((await map('')).seats.map((s: any) => s.id),SEAT_LABELS['14']);
       assert.deepEqual((await map('',q3)).seats.map((s: any) => s.id),SEAT_LABELS['18']);
-      assert.equal((await hold('', ['1A'])).status,401);
+      assert.equal((await hold('', ['1B'])).status,401);
       assert.equal((await hold('a',['5D'])).status,409,'18-seat labels cannot be used on a 14-seat taxi');
-      assert.equal((await hold('a',['1A','1A'])).status,400);
+      assert.equal((await hold('a',['1B','1B'])).status,400);
     });
     await t.test('only one racing customer acquires a seat and other accounts cannot consume or release it',async () => {
-      const responses = await Promise.all([hold('a',['1A']),hold('b',['1A'])]);
+      const responses = await Promise.all([hold('a',['1B']),hold('b',['1B'])]);
       assert.deepEqual(responses.map(r => r.status).sort(),[201,409]);
       const winner = responses[0].status === 201 ? 'a' : 'b',other = winner === 'a' ? 'b' : 'a';
       const h = (await map(winner)).hold;
@@ -96,13 +96,13 @@ test('numbered seats: concurrent ownership, expiry and all booking paths',async 
       await release(winner,h.id); assert.equal((await map(winner)).hold,null);
     });
     await t.test('replacing a selection is atomic and does not lose the old hold on conflict',async () => {
-      await hold('a',['1A']); const before = (await map('a')).hold;
-      await hold('b',['1B']); assert.equal((await hold('a',['1B'])).status,409);
+      await hold('a',['1B']); const before = (await map('a')).hold;
+      await hold('b',['2A']); assert.equal((await hold('a',['2A'])).status,409);
       assert.equal((await map('a')).hold.id,before.id);
       await release('a',before.id); await release('b',(await map('b')).hold.id);
     });
     await t.test('expiry frees seats and no client can renew an expired capability by booking',async () => {
-      const h = (await json(await hold('a',['1A']))).hold;
+      const h = (await json(await hold('a',['1B']))).hold;
       await client.execute({ sql: "UPDATE taxipress_seat_reservations SET expires_at = datetime('now','-1 second') WHERE id = ?",args: [h.id] });
       assert.equal((await book('a',1,h.id)).status,409);
       await cleanupSeatHolds(); assert.equal((await map('')).seats[0].status,'available');
@@ -115,28 +115,28 @@ test('numbered seats: concurrent ownership, expiry and all booking paths',async 
       await release('a',h.id);
     });
     await t.test('confirmation checks quantity and charges the server fee once, then cancellation releases numbers',async () => {
-      const h = (await json(await hold('a',['1A','1B']))).hold;
+      const h = (await json(await hold('a',['1B','2A']))).hold;
       assert.equal((await book('a',1,h.id)).status,409);
       const response = await book('a',2,h.id); assert.equal(response.status,201,JSON.stringify(await response.clone().json()));
       const b = (await json(response)).booking;
-      assert.deepEqual(b.seatNumbers,['1A','1B']); assert.equal(b.amount,11000); assert.equal(b.seatChoiceFee,1000);
+      assert.deepEqual(b.seatNumbers,['1B','2A']); assert.equal(b.amount,11000); assert.equal(b.seatChoiceFee,1000);
       assert.equal((await book('a',2,h.id)).status,409,'A hold cannot create two bookings');
       const manifest = (await json(await call('d1','taxipress/taxi/me'))).bookings;
-      assert.deepEqual(manifest.find((p: any) => p.id === b.id).seatNumbers,['1A','1B']);
+      assert.deepEqual(manifest.find((p: any) => p.id === b.id).seatNumbers,['1B','2A']);
       assert.equal((await call('a',`taxipress/bookings/${b.id}/cancel`,{})).status,200);
       assert.equal((await map('')).seats[0].status,'available');
     });
     await t.test('older clients receive real automatic seat assignments without choice fees',async () => {
       const response = await book('b',1); assert.equal(response.status,201);
       const b = (await json(response)).booking;
-      assert.deepEqual(b.seatNumbers,['1A']); assert.equal(b.amount,5000); assert.equal(b.seatChoiceFee,0);
+      assert.deepEqual(b.seatNumbers,['1B']); assert.equal(b.amount,5000); assert.equal(b.seatChoiceFee,0);
       assert.equal((await call('d1','taxipress/driver/walk-up',{ delta: 1 })).status,200);
       const occupied = (await map('')).seats.filter((s: any) => s.status === 'occupied'); assert.equal(occupied.length,2);
       assert.equal((await call('d1','taxipress/driver/walk-up',{ delta: 1 })).status,200);
-      assert.deepEqual((await json(await call('d1','taxipress/taxi/me'))).walkUpSeatNumbers,['1B','2A']);
-      assert.equal((await call('d1','taxipress/driver/walk-up',{ delta: -1,seat: '1A' })).status,409,'A driver cannot release a passenger booking as a stage sale');
-      assert.equal((await call('d1','taxipress/driver/walk-up',{ delta: -1,seat: '1B' })).status,200);
-      assert.deepEqual((await json(await call('d1','taxipress/taxi/me'))).walkUpSeatNumbers,['2A']);
+      assert.deepEqual((await json(await call('d1','taxipress/taxi/me'))).walkUpSeatNumbers,['2A','2B']);
+      assert.equal((await call('d1','taxipress/driver/walk-up',{ delta: -1,seat: '1B' })).status,409,'A driver cannot release a passenger booking as a stage sale');
+      assert.equal((await call('d1','taxipress/driver/walk-up',{ delta: -1,seat: '2A' })).status,200);
+      assert.deepEqual((await json(await call('d1','taxipress/taxi/me'))).walkUpSeatNumbers,['2B']);
       assert.equal((await call('d1','taxipress/driver/walk-up',{ delta: -1 })).status,200);
       await call('b',`taxipress/bookings/${b.id}/cancel`,{});
     });
@@ -149,7 +149,7 @@ test('numbered seats: concurrent ownership, expiry and all booking paths',async 
       await call('a',`taxipress/bookings/${b.id}/cancel`,{});
     });
     await t.test('crashed order preparation expires once and returns both capacity and numbered claims',async () => {
-      const h = (await json(await hold('a',['1A'],q2))).hold;
+      const h = (await json(await hold('a',['1B'],q2))).hold;
       const reserved = await reserveNumberedBooking(q2,'a',1,h.id); assert.ok(reserved);
       assert.equal((await client.execute({ sql: 'SELECT seats_booked FROM taxipress_queue WHERE id = ?',args: [q2] })).rows[0].seats_booked,1);
       await client.execute({ sql: "UPDATE taxipress_seat_reservations SET expires_at = datetime('now','-1 second') WHERE id = ?",args: [h.id] });
@@ -158,7 +158,7 @@ test('numbered seats: concurrent ownership, expiry and all booking paths',async 
       assert.equal((await map('',q2)).seats[0].status,'available');
     });
     await t.test('unpaid booking expiry releases its exact numbered seats',async () => {
-      const h = (await json(await hold('a',['1A'],q2))).hold;
+      const h = (await json(await hold('a',['1B'],q2))).hold;
       const b = (await json(await book('a',1,h.id,q2))).booking;
       await client.execute({ sql: "UPDATE taxipress_bookings SET created_at = datetime('now','-60 minutes') WHERE id = ?",args: [b.id] });
       const expired = (await json(await call('a',`taxipress/bookings/${b.id}`))).booking;
@@ -204,7 +204,7 @@ test('numbered seats: concurrent ownership, expiry and all booking paths',async 
       const boarded = await call('d2','taxipress/driver/board',{ code: b.ticketCode });
       assert.equal(boarded.status,200,JSON.stringify(await boarded.clone().json()));
       const used = (await json(await call('c',`taxipress/bookings/${b.id}`))).booking;
-      assert.equal(used.status,'boarded'); assert.equal(used.taxi.queueId,target); assert.deepEqual(used.seatNumbers,['1B']);
+      assert.equal(used.status,'boarded'); assert.equal(used.taxi.queueId,target); assert.deepEqual(used.seatNumbers,['2A']);
     });
     await t.test('changing the vehicle clears layout approval until staff check it again',async () => {
       assert.equal((await call('d1','taxipress/taxi/apply',{ relayRouteId: relay.id,plate: 'UBA NEW1',seatLayout: '18' })).status,201);

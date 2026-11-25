@@ -1,6 +1,6 @@
 import type { ApiClient } from '../../../packages/shared/src/api-client';
 import type { AuthUser, ChatMessage, SavedPassenger, WalletAlert } from '../../../packages/shared/src/domain';
-import type { TaxipressBooking, TaxipressConfig, TaxipressTaxiProfile, TaxipressTracking } from '../../../packages/shared/src/taxipress';
+import { TAXIPRESS_VAN_FEATURES, taxipressVanClassLabel, type TaxipressBooking, type TaxipressConfig, type TaxipressTaxiProfile, type TaxipressTracking } from '../../../packages/shared/src/taxipress';
 import QRCode from 'qrcode';
 
 type Context = {
@@ -175,7 +175,8 @@ export function installCustomerFeatures(c: Context) {
   ui.renderDriverProfile = () => {
     if (loaded !== 'driver-profile' || !profile) return loading();
     const p = profile;
-    return `${ui.screenHead('Driver profile', `${esc(p.plate)} · ${esc(p.status)}`)}<article class="card"><h2>${esc(p.driverName || 'Driver')}</h2><div class="detail-list">${ui.ticketField('Vehicle', esc(p.vehicleType || p.plate))}${ui.ticketField('Capacity', esc(p.seatLayout))}${ui.ticketField('Available spaces', p.seatsLeft)}${p.memberSince ? ui.ticketField('Member since', esc(p.memberSince)) : ''}${p.tripsCount != null ? ui.ticketField('Completed trips', p.tripsCount) : ''}${p.rating != null ? ui.ticketField('Passenger rating', `${p.rating} (${p.ratingCount || 0})`) : ''}</div>${p.reviews.map(r => `<p>${esc(r.rating)} / 5 · ${esc(r.comment || '')}</p>`).join('')}</article>`;
+    const features = (p.features || []).map((feature: string) => Object.values(TAXIPRESS_VAN_FEATURES).flat().find(item => item.id === feature)?.label || feature).map(esc);
+    return `${ui.screenHead('Driver profile', `${esc(p.plate)} · ${esc(p.status)}`)}<article class="card"><h2>${esc(p.driverName || 'Driver')}</h2><p>${esc(taxipressVanClassLabel(p.seatLayout, p.passengerCapacity))}</p><div class="detail-list">${ui.ticketField('Vehicle', esc(p.vehicleType || p.plate))}${p.colour ? ui.ticketField('Colour', esc(p.colour)) : ''}${ui.ticketField('Capacity', `${p.passengerCapacity ?? (p.seatLayout === '14' ? 13 : 18)} passengers`)}${ui.ticketField('Available spaces', p.seatsLeft)}${p.memberSince ? ui.ticketField('Member since', esc(p.memberSince)) : ''}${p.tripsCount != null ? ui.ticketField('Completed trips', p.tripsCount) : ''}${p.rating != null ? ui.ticketField('Passenger rating', `${p.rating} (${p.ratingCount || 0})`) : ''}</div>${p.driverBio ? `<h3>About the driver</h3><p>${esc(p.driverBio)}</p>` : ''}${features.length ? `<h3>Van features</h3><p>${features.join(' · ')}</p>` : ''}${p.reviews.map(r => `<p>${esc(r.rating)} / 5 · ${esc(r.comment || '')}</p>`).join('')}</article>`;
   };
   ui.showDriverProfileModal = () => ui.navigate('driver-profile');
   ui.showTicketDetailsModal = (id: string) => {

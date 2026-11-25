@@ -65,7 +65,7 @@ export async function adminDepartures() {
       FROM taxipress_departures d JOIN taxipress_taxis t ON t.id=d.taxi_id
       JOIN taxipress_routes r ON r.id=d.taxipress_route_id JOIN relay_routes rr ON rr.id=r.relay_route_id
       ORDER BY d.departs_at DESC LIMIT 200`),
-    db.execute("SELECT t.id,t.plate,t.seats,t.seat_layout,t.relay_route_id FROM taxipress_taxis t WHERE t.status='approved' AND t.passengers_enabled=1 ORDER BY t.plate"),
+    db.execute("SELECT t.id,t.plate,CASE WHEN t.seat_layout='14' THEN 13 ELSE 18 END AS seats,t.seat_layout,t.relay_route_id FROM taxipress_taxis t WHERE t.status='approved' AND t.passengers_enabled=1 ORDER BY t.plate"),
     db.execute("SELECT r.id,r.relay_route_id,r.direction,r.fare_per_seat,rr.stage_a_name,rr.stage_b_name FROM taxipress_routes r JOIN relay_routes rr ON rr.id=r.relay_route_id WHERE r.active=1 AND rr.active=1 ORDER BY rr.name,r.direction"),
   ]);
   return { departures: departures.rows, taxis: taxis.rows, routes: routes.rows, ready: true };
@@ -91,7 +91,7 @@ export async function publishDeparture(input: { routeId: string; taxiId: string;
   if (lead < settings.scheduleMinLeadMinutes || lead > settings.scheduleMaxAdvanceDays * 1440) throw new TaxipressError(400, "departure_window", "Choose a time within the configured advance booking window.");
   const env = await getPlatformEnvironment();
   const row = (await db.execute({
-    sql: `SELECT t.id AS taxiId,t.seats,t.status,t.passengers_enabled,t.relay_route_id,r.id AS routeId,r.fare_per_seat
+    sql: `SELECT t.id AS taxiId,CASE WHEN t.seat_layout='14' THEN 13 ELSE 18 END AS seats,t.status,t.passengers_enabled,t.relay_route_id,r.id AS routeId,r.fare_per_seat
       FROM taxipress_taxis t JOIN taxipress_routes r ON r.relay_route_id=t.relay_route_id
       JOIN relay_routes rr ON rr.id=r.relay_route_id WHERE t.id=? AND r.id=? AND t.status='approved'
       AND t.passengers_enabled=1 AND r.active=1 AND rr.active=1`, args: [input.taxiId,input.routeId],
