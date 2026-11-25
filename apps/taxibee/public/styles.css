@@ -989,7 +989,7 @@ input[type="checkbox"]:disabled {
 
 @media (max-width: 768px) {
   .booking-card-step2 {
-    margin: -40px -20px 0 -20px !important;
+    margin: -40px auto 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
