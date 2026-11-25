@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { createPortal } from "react-dom";
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ChevronRight, Menu, Shield } from "lucide-react";
+import { ChevronRight, FlaskConical, Menu, Shield } from "lucide-react";
 import { BrandHeader } from "../../../customer/components/BrandHeader";
 import { ChatDrawerShell, useChatDrawer } from "../../../customer/lib/chat-drawer";
 import { HeaderDrawerProvider, useHeaderDrawer } from "../../../customer/lib/header-drawer";
@@ -26,7 +26,7 @@ function Chrome({ target }: { target: HTMLElement }) {
   const drawer = useHeaderDrawer();
   const chat = useChatDrawer();
   const user = useSyncExternalStore(subscribe, () => host.getUser());
-  const [profile, setProfile] = useState<Element | null>(null);
+  const [panel, setPanel] = useState<Element | null>(null);
   const [headerRow, setHeaderRow] = useState<Element | null>(null);
   useLayoutEffect(() => {
     setHeaderRow(target.querySelector(".customer-header > div"));
@@ -37,7 +37,7 @@ function Chrome({ target }: { target: HTMLElement }) {
     return () => document.removeEventListener("taxibee-auth-open", onAuth);
   }, [drawer.close, chat.open, chat.close]);
   useLayoutEffect(() => {
-    setProfile(drawer.mode === "section" && drawer.section === "profile"
+    setPanel(drawer.mode === "section" && ["profile", "settings"].includes(drawer.section)
       ? target.querySelector("#header-menu .d-stack")
       : null);
   }, [drawer.mode, drawer.section, target]);
@@ -49,14 +49,25 @@ function Chrome({ target }: { target: HTMLElement }) {
         data-action="toggle-side-drawer" onClick={() => drawer.close()}>
         <Menu size={24} aria-hidden />
       </button>, headerRow)}
-    {profile && createPortal(user ? <div className="d-card">
+    {panel && drawer.section === "profile" && createPortal(user ? <div className="d-card">
       <button type="button" className="d-row" onClick={() => { drawer.close(); host.openLocal("profile"); }}>
         <span className="d-ico"><Shield size={18} aria-hidden /></span>
         <span className="d-row-title flex-1">Taxibee account tools</span>
         <ChevronRight className="d-chev" size={20} aria-hidden />
       </button>
     </div> : <button type="button" className="customer-drawer-open"
-      onClick={() => { drawer.close(); host.signIn(); }}>Sign in to Peebee</button>, profile)}
+      onClick={() => { drawer.close(); host.signIn(); }}>Sign in to Peebee</button>, panel)}
+    {panel && drawer.section === "settings" && createPortal(
+      <div className="d-card taxibee-demo-card">
+        <a href="/?preview=1" className="d-row">
+          <span className="d-ico"><FlaskConical size={18} aria-hidden /></span>
+          <span className="min-w-0 flex-1">
+            <span className="d-row-title block">Open UI preview</span>
+            <span className="d-row-sub block">Explore Taxibee with sample data</span>
+          </span>
+          <ChevronRight className="d-chev" size={20} aria-hidden />
+        </a>
+      </div>, panel)}
   </>, target);
 }
 

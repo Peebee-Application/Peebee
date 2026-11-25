@@ -10,7 +10,8 @@ import { installParcelCharter } from './parcel-charter';
 import {installReturnPackages} from './return-packages';
 import {installTravelCredit} from './travel-credit';
 import { installPwa } from './pwa';
-import type { TaxibeeHeader } from './header/contracts';
+import type { TaxibeeHeader, TaxibeeHeaderHost } from './header/contracts';
+import { createHeaderDemo } from './header/demo';
 
 // The presentation is intentionally retained verbatim. This boundary is the only
 // place that translates Peebee records into the source interface's view model.
@@ -19,7 +20,7 @@ const { appData, state, driversData } = ui.TaxibeeSource;
 const luggageCatalog = appData.luggage.map((item: any) => ({ ...item }));
 const preview = new URLSearchParams(location.search).get('preview') === '1';
 const customerHeader = (window as Window & { TaxibeeHeader?: TaxibeeHeader }).TaxibeeHeader;
-installPwa();
+if (!preview) installPwa();
 const TOKEN = 'taxibee_customer_token';
 let user: AuthUser | null = null;
 let config: TaxipressConfig | null = null;
@@ -44,7 +45,6 @@ let searchFilters:{vehicle:'all'|'14'|'18';minSpaces:number;period:'any'|'mornin
 let pendingOrder: { booking: TaxipressBooking; order: { id: string } } | null = null;
 let pendingPayment: string | null = null;
 let wallet: CustomerWallet | null = null;
-let previewEntered = false;
 let features: ReturnType<typeof installCustomerFeatures> | undefined;
 let account: ReturnType<typeof installCustomerAuth> | undefined;
 let booting = true;
@@ -398,11 +398,11 @@ async function payPending() {
 }
 
 ui.Taxibee = {
-  session: () => user ? { username: user.id, name: user.name, avatar: 'assets/peebee-logo.svg' } : previewEntered ? { username: 'preview', name: 'Design preview' } : null,
-  authenticated: () => !!user || (preview && previewEntered),
-  canBrowse: () => !preview || previewEntered,
-  login: () => preview ? ui.toast('Practice does not sign in to Peebee.', 'info') : account?.open('profile'),
-  register: () => preview ? ui.toast('Return to live Taxibee to create a Peebee account.', 'info') : account?.open('profile'),
+  session: () => user ? { username: user.id, name: user.name, avatar: 'assets/peebee-logo.svg' } : preview ? { username: 'preview', name: 'Demo Traveller' } : null,
+  authenticated: () => !!user || preview,
+  canBrowse: () => true,
+  login: () => { if (!preview) account?.open('profile'); },
+  register: () => { if (!preview) account?.open('profile'); },
 };
 
 function cleanHome() {
@@ -582,30 +582,12 @@ document.addEventListener('change', event => {
   }
 });
 
-ui.renderAuth = () => {
-  if (!preview) { account?.open(state.intendedScreen || 'profile'); return; }
-  original.renderAuth();
-  const root = $('#auth-content');
-  if (!root) return;
-  // Keep the source form geometry while using Peebee's real identifiers.
-  root.innerHTML = root.innerHTML.replace(/Enter authorized username and passcode\. No access without credentials\./g, 'Sign in with your existing Peebee customer account.').replace(/Username or Telephone/g, 'Phone or email').replace(/Your authorized platform username\./g, 'The same phone or email you use in Peebee.').replace(/Every sign-in attempt is permanently logged with timestamp for security\./g, 'Your account is managed securely by Peebee.').replace(/e\.g\. admin or christo/g, 'Your Peebee phone or email').replace(/Choose a username/g, 'Phone number').replace(/Your preferred username/g, 'Your phone number').replace(/Register with Passcode/g, 'Create a Peebee account');
-  if (state.authView === 'register') {
-    for (const id of ['reg-name','reg-username','reg-passcode','reg-email']) { const input = $('#' + id); if (input) input.value = ''; }
-    root.querySelector('label[for="reg-username"]')!.textContent = 'Phone number';
-  }
-  root.insertAdjacentHTML('beforeend', '<p class="center"><a href="?preview=1" class="text-button">Practice using Taxibee</a></p>');
-  if (!preview) root.insertAdjacentHTML('beforeend', '<p class="center"><button type="button" class="text-button" data-action="taxibee-password-reset-form">Forgot password?</button></p>');
-  if (preview) root.insertAdjacentHTML('beforeend', '<p class="center"><button class="button button--primary" data-action="taxibee-preview">Enter practice mode</button></p>');
-  ui.refreshIcons();
-};
+ui.renderAuth = () => { if (!preview) account?.open(state.intendedScreen || 'profile'); };
 
 document.addEventListener('click', async event => {
   const button = (event.target as Element).closest<HTMLElement>('[data-action]');
   const screen = (event.target as Element).closest<HTMLElement>('[data-screen]');
   const action = button?.dataset.action || '';
-  if (action === 'taxibee-preview' && preview) {
-    event.stopImmediatePropagation(); previewEntered = true; ui.enterApp('Practice mode — no real transactions.'); return;
-  }
   if (preview) return;
   const block = () => { event.preventDefault(); event.stopImmediatePropagation(); };
   if(action.startsWith('svc-')||action.startsWith('tools-')) return;
@@ -749,11 +731,54 @@ document.addEventListener('click', async event => {
   if (action && (blocked.includes(action) || !allowed.includes(action))) { block(); ui.toast('This option is available in the Peebee customer app or the design preview.', 'info'); }
 }, true);
 
+function openHeaderLocal(screen: string, action?: string) {
+  if (action === 'wallet-transactions') state.walletFilter = 'all';
+  ui.navigate(screen);
+  if (!action) return;
+  if (action === 'wallet-transactions') {
+    const history = document.querySelector<HTMLElement>('.transaction-list')?.closest('.card');
+    requestAnimationFrame(() => history?.scrollIntoView({ block: 'center' }));
+    return;
+  }
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.dataset.action = action;
+  document.body.append(trigger);
+  trigger.click();
+  trigger.remove();
+}
+
+function mountHeader(options: Omit<TaxibeeHeaderHost, 'openLocal'>) {
+  const root = document.getElementById('taxibee-customer-header');
+  if (!root || !customerHeader) return;
+  customerHeader.mount(root, { ...options, openLocal: openHeaderLocal });
+  const screens = new MutationObserver(() => customerHeader.sync());
+  screens.observe(document.body, { attributes: true, attributeFilter: ['data-active-screen'] });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   if (preview) {
     document.body.classList.add('taxibee-preview');
-    document.body.insertAdjacentHTML('beforeend', '<div class="taxibee-mode">Practice mode · sample data · no real bookings or payments<a href="?preview=1">Restart practice</a><a href="/">Return to live Taxibee</a></div>');
-    ui.init(); return;
+    document.body.insertAdjacentHTML('beforeend', '<div class="taxibee-mode">UI preview · sample data · no real bookings or payments<a href="?preview=1">Restart preview</a><a href="/">Return to live Taxibee</a></div>');
+    const banner = document.querySelector<HTMLElement>('.taxibee-mode');
+    if (banner) {
+      const updateBanner = () => document.body.style.setProperty('--taxibee-preview-banner-height', `${banner.offsetHeight}px`);
+      updateBanner();
+      new ResizeObserver(updateBanner).observe(banner);
+    }
+    const demo = createHeaderDemo(state.walletBalance);
+    const restart = () => { location.replace('/?preview=1'); };
+    ui.signOut = restart;
+    ui.showAuth = () => ui.toast('Sign-in is available in live Taxibee.', 'info');
+    state.userName = demo.user().name;
+    ui.init(true);
+    mountHeader({
+      api: demo.api, getUser: demo.user, getToken: () => null,
+      updateUser: next => { state.userName = next.name; customerHeader?.sync(); },
+      setSession: () => {}, signOut: restart, signIn: () => {},
+      subscribePush: async () => false,
+    });
+    return;
   }
   const publicCode = new URLSearchParams(location.search).get('ticket');
   if (publicCode) {
@@ -778,9 +803,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const restored = !location.hash && !new URLSearchParams(location.search).get('screen') ? account?.restoreDraft() : null;
   account?.browse(restored?.screen || state.screen || 'home');
   booting = false;
-  const headerRoot = document.getElementById('taxibee-customer-header');
-  if (headerRoot && customerHeader) {
-    customerHeader.mount(headerRoot, {
+  mountHeader({
       api,
       getUser: () => user,
       getToken: () => sessionStorage.getItem(TOKEN) || localStorage.getItem(TOKEN),
@@ -792,30 +815,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       signIn: () => account?.open(state.screen),
       signOut: () => { void ui.signOut(); },
-      openLocal: (screen, action) => {
-        if (action === 'wallet-transactions') state.walletFilter = 'all';
-        ui.navigate(screen);
-        if (!action) return;
-        if (action === 'wallet-transactions') {
-          const history = document.querySelector<HTMLElement>('.transaction-list')?.closest('.card');
-          requestAnimationFrame(() => history?.scrollIntoView({ block: 'center' }));
-          return;
-        }
-        const trigger = document.createElement('button');
-        trigger.type = 'button';
-        trigger.dataset.action = action;
-        document.body.append(trigger);
-        trigger.click();
-        trigger.remove();
-      },
       subscribePush: async () => {
         if (!accountTools || !user) return false;
         try { await accountTools.subscribePush(); return true; } catch { return false; }
       },
-    });
-    const screenObserver = new MutationObserver(() => customerHeader.sync());
-    screenObserver.observe(document.body, { attributes: true, attributeFilter: ['data-active-screen'] });
-  }
+  });
 });
 
 document.addEventListener('change',event=>{

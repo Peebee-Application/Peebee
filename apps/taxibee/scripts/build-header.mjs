@@ -50,8 +50,16 @@ export async function buildHeader() {
             resolveDir: bridge,
           };
         });
-        bundle.onResolve({ filter: /^\./ }, ({ path, resolveDir }) => {
+        bundle.onResolve({ filter: /^\./ }, ({ path, resolveDir, importer }) => {
           const absolute = resolve(resolveDir, path);
+          if (importer === resolve(customer, "components/BrandHeader.tsx") &&
+              absolute === resolve(customer, "lib/header-drawer")) {
+            return { path: resolve(bridge, "expanded-menu.ts") };
+          }
+          if (importer === resolve(customer, "components/BrandHeader.tsx") &&
+              absolute === resolve(customer, "lib/use-location-label")) {
+            return { path: resolve(bridge, "location.ts") };
+          }
           for (const [source, file] of bridges) {
             if (absolute === resolve(customer, source)) return { path: resolve(bridge, file) };
           }

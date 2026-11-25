@@ -951,11 +951,11 @@ function initHorizontalMouseWheelScroll() {
   }, { passive: false });
 }
 
-function init() {
+function init(demo = false) {
   setTodayDefaults();
-  renderOnboarding();
+  if (!demo) renderOnboarding();
   renderNavigation();
-  initOnboardingSwipe();
+  if (!demo) initOnboardingSwipe();
   initHorizontalMouseWheelScroll();
   
   document.addEventListener('click', handleClick);
@@ -966,6 +966,13 @@ function init() {
   window.addEventListener('scroll', handleTripReviewScroll, { passive: true });
   refreshIcons();
   preloadTransparentImages();
+
+  if (demo) {
+    for (const id of ['splash-screen', 'onboarding', 'auth-layer']) document.getElementById(id).classList.add('is-hidden');
+    $('#app-shell').classList.remove('is-hidden');
+    navigate('home', {}, false);
+    return;
+  }
 
   const urlParams = new URLSearchParams(window.location.search);
   const targetScreen = urlParams.get('screen') || window.location.hash.slice(1);

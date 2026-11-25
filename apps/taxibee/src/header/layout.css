@@ -19,17 +19,52 @@
 }
 :where(#taxibee-header-slot, .chat-drawer) a { color: inherit; text-decoration: none; }
 #taxibee-header-slot .customer-header a { color: inherit; text-decoration: none; }
+:root.taxibee-customer-chrome {
+  --taxibee-side-width: min(280px, 80vw);
+  --taxibee-stage-base: color-mix(in srgb, var(--brand-blue) 65%, var(--brand-blue-dark));
+  --taxibee-pane-gutter: 6px;
+}
+:root.taxibee-customer-chrome,
+:root.taxibee-customer-chrome.customer-drawer-stage {
+  background-color: var(--taxibee-stage-base) !important;
+}
+:root.taxibee-customer-chrome::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse min(240px, 58vw) min(225px, 32vh) at 43% 6%,
+    rgb(var(--color-gold) / .24), transparent 75%);
+}
+:root.taxibee-customer-chrome body,
+:root.taxibee-customer-chrome.customer-drawer-stage body,
+:root.taxibee-customer-chrome .app-stage,
+:root.taxibee-customer-chrome #app-shell,
+:root.taxibee-customer-chrome #taxibee-header-slot .customer-header,
+:root.taxibee-customer-chrome #side-drawer .side-drawer__content,
+:root.taxibee-customer-chrome #app-shell > .sidebar {
+  background: transparent !important;
+}
+:root.taxibee-customer-chrome.customer-drawer-stage body::before { content: none; }
 .taxibee-customer-chrome #taxibee-header-slot .customer-header {
   grid-column: 1 / -1;
   padding-top: var(--safe-top);
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
 }
+:root.taxibee-customer-chrome .app-stage[data-shown="true"],
+:root.taxibee-customer-chrome .customer-drawer {
+  box-shadow: none;
+}
+:root.taxibee-customer-chrome .app-stage[data-lock="true"] { border-radius: 0; }
 .taxibee-customer-chrome #app-shell {
-  --taxibee-header-height: calc(65px + var(--safe-top));
+  --taxibee-header-height: calc(64px + var(--safe-top));
   grid-template-rows: auto 1fr;
   grid-template-areas: none;
 }
 .taxibee-customer-chrome body[data-active-screen="home"] #app-shell {
-  --taxibee-header-height: calc(81px + var(--safe-top));
+  --taxibee-header-height: calc(80px + var(--safe-top));
 }
 .taxibee-customer-chrome #app-shell > .sidebar { top: var(--taxibee-header-height); }
 .taxibee-customer-chrome #taxibee-header-slot .customer-header > div {
@@ -48,19 +83,24 @@
   place-items: center;
   border-radius: 50%;
 }
-.taxibee-customer-chrome { --taxibee-side-width: min(280px, 80vw); }
 .taxibee-customer-chrome #side-drawer {
   inset: 0 auto 0 0 !important;
   width: var(--taxibee-side-width) !important;
   display: flex !important;
 }
 .taxibee-customer-chrome #side-drawer .side-drawer__content {
-  border-left: 0 !important;
-  border-right: 1px solid rgb(255 255 255 / .06);
+  border: 0 !important;
 }
 .taxibee-customer-chrome body.drawer-open #app-shell {
   transform: translateX(var(--taxibee-side-width)) !important;
-  box-shadow: -15px 0 35px rgb(10 10 10 / .22) !important;
+  box-shadow: none !important;
+}
+:root.taxibee-customer-chrome #mobile-nav.mobile-nav {
+  transition: transform 350ms cubic-bezier(.16, 1, .3, 1) !important;
+}
+:root.taxibee-customer-chrome body.drawer-open #mobile-nav.mobile-nav {
+  transform: translateX(var(--taxibee-side-width)) !important;
+  opacity: 1 !important;
 }
 #taxibee-side-dismiss { display: none; }
 .taxibee-customer-chrome body.drawer-open #taxibee-side-dismiss {
@@ -69,7 +109,18 @@
   inset: 0 0 0 var(--taxibee-side-width);
   z-index: 49;
 }
-.taxibee-customer-chrome .workspace { overflow: visible; }
+.taxibee-customer-chrome #app-shell > .workspace {
+  min-height: calc(100dvh - var(--taxibee-header-height) - var(--taxibee-pane-gutter));
+  margin-inline: var(--taxibee-pane-gutter);
+  margin-bottom: var(--taxibee-pane-gutter);
+  overflow: clip;
+  border-radius: 24px;
+  background: var(--page);
+}
+.taxibee-customer-chrome #main-content > .home-redesign {
+  min-width: 0;
+  background: transparent;
+}
 .taxibee-customer-chrome .workspace > .topbar { display: none !important; }
 .taxibee-customer-chrome .workspace > .topbar:has(#back-button:not(.is-hidden)) {
   position: static !important;
@@ -83,15 +134,19 @@
 }
 .taxibee-customer-chrome .topbar__actions > :not(#topbar-share-button) { display: none !important; }
 .taxibee-customer-chrome .topbar__left > div { display: none; }
-.taxibee-customer-chrome.customer-menu-open .workspace > .topbar,
-.taxibee-customer-chrome.customer-drawer-expanded .workspace > .topbar { visibility: hidden; }
-.taxibee-customer-chrome.customer-menu-open #mobile-nav { transform: translateY(calc(66.667dvh - var(--header-h))) !important; }
-.taxibee-customer-chrome.customer-drawer-stage #mobile-nav { transition: transform 320ms var(--stage-ease) !important; }
 .taxibee-customer-chrome.customer-drawer-stage .sidebar { pointer-events: none; }
-.taxibee-customer-chrome.customer-drawer-stage :is(#app-shell, .workspace) { background: transparent !important; }
-.taxibee-customer-chrome.customer-drawer-expanded .sidebar { visibility: hidden; }
+.taxibee-customer-chrome.customer-drawer-expanded :is(.sidebar, .workspace) { visibility: hidden; }
 .taxibee-customer-chrome.customer-drawer-stage:has(.ph-header-location) body { --header-h: 80px; }
 .taxibee-customer-chrome.customer-drawer-stage .customer-drawer { top: calc(var(--header-h) + 8px + var(--safe-top)); }
+.taxibee-customer-chrome .chat-drawer {
+  --color-ink: 245 245 245;
+  --color-ink-500: 170 170 170;
+  --color-ink-900: 245 245 245;
+  --surface-card: 30 30 30;
+  --surface-muted: 39 39 39;
+  --border-faint: rgb(247 243 238 / .1);
+  background: transparent;
+}
 .taxibee-customer-chrome #main-content { animation: none; }
 .taxibee-customer-chrome .customer-drawer :is(button, input), .taxibee-customer-chrome .chat-drawer button { font-family: inherit; }
 .taxibee-customer-chrome .customer-drawer :is(p, h1, h2, ul) { margin: 0; }
@@ -99,6 +154,14 @@
 .taxibee-customer-chrome .customer-drawer a { text-decoration: none; }
 .taxibee-customer-chrome .customer-drawer .d-field { background: var(--d-field); }
 .taxibee-customer-chrome:not(.taxibee-header-signed-in) .customer-drawer .d-logout { display: none; }
+.taxibee-customer-chrome .customer-drawer .d-practice,
+.taxibee-customer-chrome body.taxibee-preview .customer-drawer .d-logout { display: none; }
+.taxibee-demo-card { order: 1; }
+.customer-drawer .d-stack:has(> .taxibee-demo-card) > .d-form { order: 2; }
+.taxibee-customer-chrome body.taxibee-preview #mobile-nav { bottom: var(--taxibee-preview-banner-height, 36px) !important; }
+.taxibee-customer-chrome body.taxibee-preview .customer-drawer.is-section {
+  bottom: calc(108px + var(--taxibee-preview-banner-height, 36px) + var(--safe-bottom));
+}
 .taxibee-header-dialog {
   border: 0;
   border-radius: 24px;
@@ -117,6 +180,6 @@
   background: rgb(var(--color-cream));
 }
 @media (prefers-reduced-motion: reduce) {
-  .taxibee-customer-chrome.customer-drawer-stage #mobile-nav { transition: none !important; }
+  :root.taxibee-customer-chrome #mobile-nav.mobile-nav { transition: none !important; }
   .taxibee-customer-chrome #app-shell, .taxibee-customer-chrome #side-drawer { transition: none !important; }
 }
