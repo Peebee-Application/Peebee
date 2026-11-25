@@ -31,12 +31,14 @@ body.taxibee-preview { padding-bottom: 32px; }
 .splash-screen .logo-frame--large { animation: none !important; }
 
 /* Live home can render again as data arrives. Keep existing content visible. */
-body:not(.taxibee-preview) .home-redesign.fade-in-up {
+body:not(.taxibee-preview) .home-redesign.fade-in-up,
+html.taxibee-preview-route .home-redesign.fade-in-up {
   animation: none;
   opacity: 1;
   transform: none;
 }
-body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeting-card, .journey-card, .section) {
+body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeting-card, .journey-card, .section),
+html.taxibee-preview-route .home-redesign :is(.topbar, .search-row, .home-greeting-card, .journey-card, .section) {
   animation: none !important;
 }
 
