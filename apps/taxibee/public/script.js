@@ -2761,7 +2761,7 @@ function renderTripDetails() {
       </article>
 
       <!-- Embedded Interactive Route Map (Moved inside sheet) -->
-      <div style="margin-bottom: 20px;">
+      <div style="margin-bottom: -10px;">
         <div style="position: relative; height: 260px; border-radius: 20px; overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow-sm);">
           <div id="trip-review-map" class="trip-review-map" style="position: absolute; inset: 0;" aria-label="Route map from ${trip.boarding} to ${trip.destination}"></div>
           <div id="trip-map-fallback" class="trip-map-fallback" hidden><img src="${getTripVehicleImage(trip.vehicle)}" alt=""><strong>Map preview unavailable</strong><span>Your selected route is still ready.</span></div>
@@ -4710,14 +4710,14 @@ function initParcelMap() {
   
   window.addTaxibeeMapTiles(parcelMap);
 
-  // Black route line
-  L.polyline(points, { color: '#000000', opacity: 1.0, weight: 3.5 }).addTo(parcelMap);
-  L.polyline(points, { color: '#c9a227', dashArray: '8 9', lineCap: 'round', opacity: 1, weight: 3 }).addTo(parcelMap);
+  addCustomerRoadRoute(parcelMap, points);
 
   // Start circle marker
   L.circleMarker(points[0], { color: 'rgba(251, 192, 45, 0.4)', fillColor: 'rgba(251, 192, 45, 0.4)', fillOpacity: 1, radius: 18, weight: 0 }).addTo(parcelMap);
   L.circleMarker(points[0], { color: '#ffffff', fillColor: '#ffffff', fillOpacity: 1, radius: 8, weight: 0 }).addTo(parcelMap);
   L.circleMarker(points[0], { color: '#000000', fillColor: '#000000', fillOpacity: 1, radius: 4, weight: 0 }).addTo(parcelMap);
+  const vehicleIndex = Math.min(points.length - 2, Math.max(1, Math.floor(points.length * 0.45)));
+  L.marker(points[vehicleIndex], { icon: createVanMapIcon() }).addTo(parcelMap);
 
   // End pin marker
   const pinIcon = L.divIcon({
@@ -5544,20 +5544,13 @@ function initTrackingCardMaps() {
 
       window.addTaxibeeMapTiles(miniMap);
 
-      L.polyline(outbound, { color: '#0a0a0a', opacity: 0.6, weight: 6 }).addTo(miniMap);
-      L.polyline(outbound, { color: '#c9a227', dashArray: '6 6', lineCap: 'round', opacity: 1, weight: 3.5 }).addTo(miniMap);
+      addCustomerRoadRoute(miniMap, outbound);
 
       L.circleMarker(outbound[0], { color: '#fff', fillColor: '#10b981', fillOpacity: 1, radius: 6, weight: 2.5 }).addTo(miniMap);
       L.circleMarker(outbound[outbound.length - 1], { color: '#fff', fillColor: '#ef4444', fillOpacity: 1, radius: 6, weight: 2.5 }).addTo(miniMap);
 
       const vehiclePos = item.type === 'travel' ? outbound[5] : (idx % 2 === 0 ? outbound[3] : outbound[7]);
-      L.circleMarker(vehiclePos, {
-        color: '#ffffff',
-        fillColor: item.type === 'travel' ? '#c9a227' : '#f2a104',
-        fillOpacity: 1,
-        radius: 8,
-        weight: 3
-      }).addTo(miniMap);
+      L.marker(vehiclePos, { icon: createVanMapIcon() }).addTo(miniMap);
 
       const bounds = L.latLngBounds(outbound);
       miniMap.fitBounds(bounds, { padding: [20, 20] });
@@ -5814,6 +5807,58 @@ function getCurrentRoutePoints(routeKey, isReverse = false) {
     rawPoints = outbound.slice(0, 5).concat([[0.2500, 32.5250], [0.2200, 32.4500], [0.1500, 32.2000], [0.0200, 32.0000], [-0.1500, 31.9000], [-0.3400, 31.7400], [-0.3800, 31.4000], [-0.4000, 31.1550], [-0.5000, 30.9000], [-0.6050, 30.6550]]);
   }
   return isReverse ? rawPoints.slice().reverse() : rawPoints;
+}
+
+const customerRoadRouteCache = new Map();
+
+function fetchCustomerRoadRoute(points) {
+  if (!Array.isArray(points) || points.length < 2) return Promise.resolve(null);
+  const key = points.map(([lat, lng]) => `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`).join('|');
+  const cached = customerRoadRouteCache.get(key);
+  if (cached) return cached;
+
+  const coordinates = points.map(([lat, lng]) => `${Number(lng)},${Number(lat)}`).join(';');
+  const url = `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`;
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 15000);
+  const request = fetch(url, { signal: controller.signal })
+    .then(response => response.ok ? response.json() : null)
+    .then(data => {
+      const coordinates = data?.routes?.[0]?.geometry?.coordinates;
+      if (!Array.isArray(coordinates) || coordinates.length < 2 || coordinates.some(point =>
+        !Array.isArray(point) || point.length < 2 || !Number.isFinite(point[0]) || !Number.isFinite(point[1]))) return null;
+      return coordinates.map(([lng, lat]) => [lat, lng]);
+    })
+    .catch(() => null)
+    .finally(() => window.clearTimeout(timeout));
+  customerRoadRouteCache.set(key, request);
+  return request;
+}
+
+function addCustomerRoadRoute(map, points) {
+  const outline = L.polyline(points, {
+    color: '#FDFBF7', opacity: 0.95, weight: 9, lineCap: 'round', lineJoin: 'round', interactive: false
+  }).addTo(map);
+  const route = L.polyline(points, {
+    color: '#C9A227', dashArray: '2 10', lineCap: 'round', lineJoin: 'round', opacity: 1, weight: 5, interactive: false
+  }).addTo(map);
+
+  void fetchCustomerRoadRoute(points).then(roadPoints => {
+    if (!roadPoints || !map.hasLayer(outline) || !map.hasLayer(route)) return;
+    outline.setLatLngs(roadPoints);
+    route.setLatLngs(roadPoints);
+    route.setStyle({ dashArray: null });
+  });
+  return route;
+}
+
+function createVanMapIcon() {
+  return L.icon({
+    iconUrl: '/assets/svan-map.webp',
+    iconSize: [20, 32],
+    iconAnchor: [10, 16],
+    className: 'taxibee-route-van'
+  });
 }
 
 function updateHeaderTheme() {
@@ -6079,8 +6124,7 @@ function initTripMap() {
   tripReviewMap = L.map(target, { attributionControl: true, boxZoom: true, doubleClickZoom: true, dragging: true, keyboard: true, scrollWheelZoom: false, touchZoom: true, zoomControl: true });
   window.addTaxibeeMapTiles(tripReviewMap, fallback);
   
-  L.polyline(points, { color: '#0a0a0a', opacity: .55, weight: 8 }).addTo(tripReviewMap);
-  L.polyline(points, { color: '#c9a227', dashArray: '8 9', lineCap: 'round', opacity: 1, weight: 4 }).addTo(tripReviewMap);
+  addCustomerRoadRoute(tripReviewMap, points);
   
   L.circleMarker(points[0], { color: '#fff', fillColor: '#10b981', fillOpacity: 1, radius: 9, weight: 4 }).addTo(tripReviewMap);
   L.circleMarker(points[points.length - 1], { color: '#fff', fillColor: '#ef4444', fillOpacity: 1, radius: 9, weight: 4 }).addTo(tripReviewMap);
@@ -6088,7 +6132,7 @@ function initTripMap() {
   if (state.activeTrip) {
     const markerIdx = state.activeTrip.markerIndex !== undefined ? state.activeTrip.markerIndex : 0;
     const vehiclePoint = points[Math.min(points.length - 1, markerIdx)];
-    L.circleMarker(vehiclePoint, { color: '#fff', fillColor: '#f2a104', fillOpacity: 1, radius: 10, weight: 4 }).addTo(tripReviewMap);
+    L.marker(vehiclePoint, { icon: createVanMapIcon() }).addTo(tripReviewMap);
   }
   
   const bounds = L.latLngBounds(points);
@@ -6131,8 +6175,7 @@ function initBookingStep2Map() {
   
   window.addTaxibeeMapTiles(bookingStep2Map, fallback);
   
-  L.polyline(points, { color: '#0a0a0a', opacity: .55, weight: 8 }).addTo(bookingStep2Map);
-  L.polyline(points, { color: '#c9a227', dashArray: '8 9', lineCap: 'round', opacity: 1, weight: 4 }).addTo(bookingStep2Map);
+  addCustomerRoadRoute(bookingStep2Map, points);
   
   L.circleMarker(points[0], { color: '#fff', fillColor: '#10b981', fillOpacity: 1, radius: 9, weight: 4 }).addTo(bookingStep2Map);
   L.circleMarker(points[points.length - 1], { color: '#fff', fillColor: '#ef4444', fillOpacity: 1, radius: 9, weight: 4 }).addTo(bookingStep2Map);
@@ -6182,8 +6225,7 @@ function initLiveTravelMap() {
   
   window.addTaxibeeMapTiles(liveTravelMap, fallback);
   
-  L.polyline(points, { color: '#0a0a0a', opacity: .55, weight: 8 }).addTo(liveTravelMap);
-  L.polyline(points, { color: '#c9a227', dashArray: '8 9', lineCap: 'round', opacity: 1, weight: 4 }).addTo(liveTravelMap);
+  addCustomerRoadRoute(liveTravelMap, points);
   
   L.circleMarker(points[0], { color: '#fff', fillColor: '#10b981', fillOpacity: 1, radius: 9, weight: 4 }).addTo(liveTravelMap);
   L.circleMarker(points[points.length - 1], { color: '#fff', fillColor: '#ef4444', fillOpacity: 1, radius: 9, weight: 4 }).addTo(liveTravelMap);
@@ -6192,10 +6234,8 @@ function initLiveTravelMap() {
   const vehiclePoint = points[Math.min(points.length - 1, startProgressIdx)];
   
   const plate = state.activeTrip ? state.activeTrip.plate : 'UBM 245K';
-  const countdown = state.activeTrip ? state.activeTrip.countdown : 'Live tracking';
-  
-  liveVehicleMarker = L.circleMarker(vehiclePoint, { color: '#fff', fillColor: '#f2a104', fillOpacity: 1, radius: 10, weight: 4 })
-    .bindTooltip(`Live: ${plate} (${countdown})`, { permanent: true, direction: 'top', offset: [0, -14], className: 'trip-map-vehicle-label' })
+  liveVehicleMarker = L.marker(vehiclePoint, { icon: createVanMapIcon() })
+    .bindTooltip(plate, { permanent: true, direction: 'top', offset: [0, -20], className: 'trip-map-vehicle-label' })
     .addTo(liveTravelMap);
     
   const bounds = L.latLngBounds(points);
@@ -6269,26 +6309,25 @@ function initTrackingMap() {
 
   window.addTaxibeeMapTiles(unifiedTrackingMap, fallback);
 
-  L.polyline(outbound, { color: '#0a0a0a', opacity: 0.5, weight: 8 }).addTo(unifiedTrackingMap);
-  L.polyline(outbound, { color: '#c9a227', dashArray: '8 9', lineCap: 'round', opacity: 1, weight: 4 }).addTo(unifiedTrackingMap);
+  addCustomerRoadRoute(unifiedTrackingMap, outbound);
 
   L.circleMarker(outbound[0], { color: '#fff', fillColor: '#10b981', fillOpacity: 1, radius: 9, weight: 4 }).bindTooltip('Entebbe Main Stage', { permanent: false }).addTo(unifiedTrackingMap);
   L.circleMarker(outbound[outbound.length - 1], { color: '#fff', fillColor: '#ef4444', fillOpacity: 1, radius: 9, weight: 4 }).bindTooltip('Kampala Station', { permanent: false }).addTo(unifiedTrackingMap);
 
   if (currentTab === 'parcels') {
-    L.circleMarker(outbound[3], { color: '#fff', fillColor: '#f2a104', fillOpacity: 1, radius: 10, weight: 4 })
-      .bindTooltip('Parcel: #964201832-DL (On the way)', { permanent: true, direction: 'top', offset: [0, -14], className: 'trip-map-vehicle-label' })
+    L.marker(outbound[3], { icon: createVanMapIcon() })
+      .bindTooltip('#964201832-DL', { permanent: true, direction: 'top', offset: [0, -20], className: 'trip-map-vehicle-label' })
       .addTo(unifiedTrackingMap);
   } else if (currentTab === 'travels') {
-    L.circleMarker(outbound[5], { color: '#fff', fillColor: '#c9a227', fillOpacity: 1, radius: 10, weight: 4 })
-      .bindTooltip('Travel: UBM 245K (En Route)', { permanent: true, direction: 'top', offset: [0, -14], className: 'trip-map-vehicle-label' })
+    L.marker(outbound[5], { icon: createVanMapIcon() })
+      .bindTooltip('UBM 245K', { permanent: true, direction: 'top', offset: [0, -20], className: 'trip-map-vehicle-label' })
       .addTo(unifiedTrackingMap);
   } else {
-    L.circleMarker(outbound[2], { color: '#fff', fillColor: '#10b981', fillOpacity: 1, radius: 9, weight: 4 })
-      .bindTooltip('Isaac Muwonge (On Road)', { permanent: true, direction: 'top', offset: [0, -14], className: 'trip-map-vehicle-label' })
+    L.marker(outbound[2], { icon: createVanMapIcon() })
+      .bindTooltip('Isaac Muwonge', { permanent: true, direction: 'top', offset: [0, -20], className: 'trip-map-vehicle-label' })
       .addTo(unifiedTrackingMap);
-    L.circleMarker(outbound[6], { color: '#fff', fillColor: '#10b981', fillOpacity: 1, radius: 9, weight: 4 })
-      .bindTooltip('David Okello (In Transit)', { permanent: true, direction: 'top', offset: [0, -14], className: 'trip-map-vehicle-label' })
+    L.marker(outbound[6], { icon: createVanMapIcon() })
+      .bindTooltip('David Okello', { permanent: true, direction: 'top', offset: [0, -20], className: 'trip-map-vehicle-label' })
       .addTo(unifiedTrackingMap);
   }
 
@@ -7984,7 +8023,7 @@ function initTrackingMiniMaps() {
       const points = getCurrentRoutePoints(targetSpec.route, targetSpec.isReverse);
       
       // Draw light polyline for path
-      L.polyline(points, { color: '#0a0a0a', opacity: 0.35, weight: 4 }).addTo(map);
+      addCustomerRoadRoute(map, points);
       
       // Get point location
       const idx = Math.min(points.length - 1, Math.max(0, Math.floor(points.length * targetSpec.progress)));
@@ -7998,13 +8037,17 @@ function initTrackingMiniMaps() {
         markerColor = '#c9a227'; // red
       }
 
-      L.circleMarker(activePoint, {
-        color: '#fff',
-        fillColor: markerColor,
-        fillOpacity: 1,
-        radius: 6,
-        weight: 2
-      }).addTo(map);
+      if (targetSpec.type === 'live') {
+        L.marker(activePoint, { icon: createVanMapIcon() }).addTo(map);
+      } else {
+        L.circleMarker(activePoint, {
+          color: '#fff',
+          fillColor: markerColor,
+          fillOpacity: 1,
+          radius: 6,
+          weight: 2
+        }).addTo(map);
+      }
 
       map.setView(activePoint, 13);
       window.trackingMiniMaps.push(map);
