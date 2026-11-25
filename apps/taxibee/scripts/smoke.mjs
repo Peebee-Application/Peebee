@@ -10,7 +10,17 @@ try {
   const page = await context.newPage();
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   let previewWrites = 0, previewRequests = 0;
-  await page.route('**/api/**', route => { previewRequests++; if (route.request().method() !== 'GET') previewWrites++; return route.abort(); });
+  let mapSettingsReads = 0;
+  await page.route('**/api/**', route => {
+    if (route.request().url().endsWith('/api/v1/maps/public') && route.request().method() === 'GET') {
+      mapSettingsReads++;
+      return route.fulfill({ json: { provider: 'jawg', key: 'fixture-map-key', lightStyle: 'light' } });
+    }
+    previewRequests++;
+    if (route.request().method() !== 'GET') previewWrites++;
+    return route.abort();
+  });
+  await page.route('https://tile.jawg.io/**', route => route.abort());
   await page.goto(base + '/?preview=1');
   await page.waitForSelector('.home-redesign');
   assert.equal(await page.locator('#splash-screen, #onboarding, #auth-layer').evaluateAll(
@@ -24,6 +34,9 @@ try {
   await page.waitForTimeout(900);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Mobile shell must not overflow horizontally');
   const header = page.locator('.customer-header');
+  const footer = page.locator('#mobile-nav');
+  const goBack = footer.getByRole('button', { name: 'Back', exact: true });
+  assert.ok(await footer.getByRole('button', { name: 'Home', exact: true }).isVisible());
   const brand = header.locator('.taxibee-header-brand');
   const emblem = await brand.locator('img').boundingBox();
   const brandCopy = await brand.locator('.taxibee-header-brand-copy').boundingBox();
@@ -82,6 +95,10 @@ try {
     'The Back-button bar must not paint its legacy gradient over the backdrop');
   assert.deepEqual(await sharedBackdrop(), homeBackdrop);
   assert.deepEqual(await header.boundingBox(), headerBounds);
+  assert.ok(await goBack.isVisible());
+  assert.equal(await page.locator('#app-shell .topbar [data-action="go-back"]').count(), 0);
+  await goBack.click();
+  await page.locator('body[data-active-screen="home"]').waitFor();
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await header.locator('[aria-controls="chat-drawer"]').click();
   await page.waitForSelector('#chat-drawer[data-shown="true"]');
@@ -105,6 +122,19 @@ try {
     assert.ok(await page.locator('#main-content').innerText());
     assert.deepEqual(await headerPaint(), transparentHeader, `${screen} must show the shared backdrop through the header`);
   }
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'light';
+    window.navigate('trackparcel');
+  });
+  const parcelMap = page.locator('#parcel-live-map');
+  await parcelMap.locator('img[src*="tile.jawg.io/jawg-light"]').first().waitFor({ state: 'attached' });
+  assert.equal(mapSettingsReads, 1);
+  assert.ok(await goBack.isVisible());
+  await page.waitForFunction(() => !document.querySelector('#main-content').getAnimations()
+    .some(animation => animation.id === 'taxibee-page-slide'));
+  assert.equal((await parcelMap.boundingBox()).y, (await pane.boundingBox()).y);
+  await goBack.click();
+  await page.locator('body[data-active-screen="about"]').waitFor();
   await page.evaluate(() => {
     const s = window.TaxibeeSource.state;
     s.activeTrip.vehicle = 'Commuter (14)'; s.activeTrip.seats = 14;

@@ -179,6 +179,7 @@
   z-index: 49;
 }
 .taxibee-customer-chrome #app-shell > .workspace {
+  position: relative;
   min-height: 0;
   margin-inline: var(--taxibee-pane-gutter);
   margin-bottom: var(--taxibee-pane-gutter);
@@ -188,32 +189,69 @@
   background: var(--page);
 }
 .taxibee-customer-chrome body[data-active-screen="trackparcel"] #app-shell > .workspace {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
   height: auto !important;
 }
 .taxibee-customer-chrome body[data-active-screen="trackparcel"] #main-content {
-  grid-row: 2;
-  height: auto !important;
+  height: 100% !important;
+  padding: 0 !important;
+}
+.taxibee-customer-chrome #main-content {
+  padding-top: 20px !important;
+  padding-bottom: calc(var(--mobile-nav-height) + var(--safe-bottom) + 20px);
+}
+.taxibee-customer-chrome body[data-active-screen="home"] #main-content { padding-top: 0 !important; }
+@media (max-width: 900px) {
+  .taxibee-customer-chrome #main-content :is(.floating-cta-container, .review-sticky-cta) {
+    bottom: calc(var(--mobile-nav-height) + var(--safe-bottom) + var(--taxibee-preview-banner-height, 0px) + 8px) !important;
+  }
+  .taxibee-customer-chrome #main-content:has(.floating-cta-container, .review-sticky-cta) {
+    padding-bottom: calc(2 * var(--mobile-nav-height) + var(--safe-bottom) + 20px);
+  }
+}
+.taxibee-customer-chrome #main-content :is(.smart-review, .booking-map-wrapper, .live-map) {
+  margin-top: 0 !important;
 }
 .taxibee-customer-chrome #main-content > .home-redesign {
   min-width: 0;
+  padding-top: 20px !important;
   background: transparent;
+}
+.taxibee-customer-chrome #main-content .tracking-unified-container {
+  height: calc(100dvh - var(--taxibee-header-height) - var(--mobile-nav-height) - var(--safe-bottom) - var(--taxibee-preview-banner-height, 0px) - 32px);
+  min-height: 340px;
+  margin-bottom: 0;
+}
+.taxibee-customer-chrome #main-content .parcel-live-card {
+  bottom: calc(var(--mobile-nav-height) + var(--safe-bottom) + 18px);
+  max-height: calc(100% - var(--mobile-nav-height) - var(--safe-bottom) - 36px);
+  overflow-y: auto;
+}
+.taxibee-customer-chrome #parcel-live-map .leaflet-bottom {
+  bottom: calc(var(--mobile-nav-height) + var(--safe-bottom) + 4px);
+}
+.taxibee-customer-chrome .home-redesign .search-row {
+  align-items: stretch;
+}
+.taxibee-customer-chrome .home-redesign .search-row .filter-button {
+  min-height: 48px;
+  height: auto;
+  box-shadow: none;
 }
 .taxibee-customer-chrome .workspace > .topbar { display: none !important; }
 .taxibee-customer-chrome .workspace > .topbar::after { content: none !important; }
-.taxibee-customer-chrome .workspace > .topbar:has(#back-button:not(.is-hidden)) {
-  position: static !important;
+.taxibee-customer-chrome body.taxibee-preview .workspace > .topbar:has(#topbar-share-button:not(.is-hidden)) {
+  position: absolute !important;
+  inset: 8px 8px auto auto;
   display: flex !important;
   height: auto !important;
   min-height: 44px;
-  padding: 4px 16px !important;
+  padding: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
   border: 0 !important;
 }
 .taxibee-customer-chrome .topbar__actions > :not(#topbar-share-button) { display: none !important; }
-.taxibee-customer-chrome .topbar__left > div { display: none; }
+.taxibee-customer-chrome .topbar__left { display: none !important; }
 .taxibee-customer-chrome.customer-drawer-stage .sidebar { pointer-events: none; }
 .taxibee-customer-chrome.customer-drawer-expanded :is(.sidebar, .workspace) { visibility: hidden; }
 .taxibee-customer-chrome.customer-drawer-stage .customer-drawer { top: calc(var(--taxibee-header-height) + 8px); }

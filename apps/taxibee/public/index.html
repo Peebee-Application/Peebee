@@ -17,7 +17,6 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="preconnect" href="https://unpkg.com">
-  <link rel="preconnect" href="https://tile.openstreetmap.org">
   <link rel="stylesheet" href="leaflet.css">
   <link class="styles" rel="stylesheet" href="styles.css?v=356">
   <script defer src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
@@ -29,11 +28,11 @@
   <link rel="preload" as="image" href="assets/taxibee-onboarding1-branded.png">
   <link rel="preload" as="image" href="assets/taxibee-onboarding2-branded.png">
   <link rel="preload" as="image" href="assets/taxibee-onboarding3-branded.png">
-  <script defer src="script.js?v=9"></script>
+  <script defer src="script.js?v=10"></script>
   <script defer src="customer-header.js?v=4"></script>
-  <script defer src="live.js?v=7"></script>
-  <link rel="stylesheet" href="customer-header.css?v=7">
-<link rel="stylesheet" href="taxibee.css?v=6">
+  <script defer src="live.js?v=8"></script>
+  <link rel="stylesheet" href="customer-header.css?v=8">
+<link rel="stylesheet" href="taxibee.css?v=7">
 <link rel="stylesheet" href="customer-auth.css">
 <link rel="stylesheet" href="customer-auth-adapter.css">
 <link rel="icon" href="assets/peebee-logo.svg">
@@ -158,9 +157,6 @@
     <div class="workspace">
       <header class="topbar">
         <div class="topbar__left">
-          <button id="back-button" class="icon-button is-hidden" type="button" data-action="go-back" aria-label="Go back">
-            <i data-lucide="arrow-left"></i>
-          </button>
           <button class="mobile-brand" type="button" data-screen="home" aria-label="Go to home">
             <span class="logo-frame logo-frame--mobile"><img src="assets/peebee-logo.svg" alt=""></span>
           </button>

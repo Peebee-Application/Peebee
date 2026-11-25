@@ -56,7 +56,7 @@ function Chrome({ target }: { target: HTMLElement }) {
         <span className="d-row-title flex-1">Taxibee account tools</span>
         <ChevronRight className="d-chev" size={20} aria-hidden />
       </button>
-    </div> : <button type="button" className="customer-drawer-open"
+    </div> : <button type="button" className="customer-drawer-open button button--primary"
       onClick={() => { drawer.close(); host.signIn(); }}>Sign in to Peebee</button>, panel)}
     {panel && drawer.section === "settings" && createPortal(
       <div className="d-card taxibee-demo-card">
