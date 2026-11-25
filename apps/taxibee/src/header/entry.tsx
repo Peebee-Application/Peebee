@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ChevronRight, FlaskConical, Menu, Shield } from "lucide-react";
 import { BrandHeader } from "../../../customer/components/BrandHeader";
@@ -95,11 +95,14 @@ const header: TaxibeeHeader = {
       document.documentElement.dataset.theme = saved === "light" || saved === "dark" ? saved : hour >= 6 && hour < 19 ? "light" : "dark";
     } catch { /* Customer theme follows the OS if browser storage is unavailable. */ }
     document.documentElement.classList.add("taxibee-customer-chrome");
-    createRoot(root).render(
-      <LanguageProvider>
-        <SessionChrome target={target} />
-      </LanguageProvider>,
-    );
+    const reactRoot = createRoot(root);
+    flushSync(() => {
+      reactRoot.render(
+        <LanguageProvider>
+          <SessionChrome target={target} />
+        </LanguageProvider>,
+      );
+    });
   },
   sync,
 };
