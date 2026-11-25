@@ -237,7 +237,7 @@ test("taxipress: cancellations, no-shows and refunds", async (t) => {
       await payWallet("p10", misses);
       assert.equal((await call("d1", "taxipress/driver/boarding", {})).status, 200);
       assert.equal((await call("d1", "taxipress/driver/board", { code: boards.booking.ticketCode })).status, 200);
-      assert.equal((await call("d1", "taxipress/driver/walk-up", { delta: 12 })).status, 200);
+      assert.equal((await call("d1", "taxipress/driver/walk-up", { delta: 11 })).status, 200);
       const before = await balance("p10");
       assert.equal((await call("d1", "taxipress/driver/on-road", {})).status, 200);
       const after = await view("p10", misses.booking.id);

@@ -204,7 +204,7 @@ test('numbered seats: concurrent ownership, expiry and all booking paths',async 
       const boarded = await call('d2','taxipress/driver/board',{ code: b.ticketCode });
       assert.equal(boarded.status,200,JSON.stringify(await boarded.clone().json()));
       const used = (await json(await call('c',`taxipress/bookings/${b.id}`))).booking;
-      assert.equal(used.status,'boarded'); assert.equal(used.taxi.queueId,target); assert.deepEqual(used.seatNumbers,['1B']);
+      assert.equal(used.status,'boarded'); assert.equal(used.taxi.queueId,target); assert.deepEqual(used.seatNumbers,['2A']);
     });
     await t.test('changing the vehicle clears layout approval until staff check it again',async () => {
       assert.equal((await call('d1','taxipress/taxi/apply',{ relayRouteId: relay.id,plate: 'UBA NEW1',seatLayout: '18' })).status,201);

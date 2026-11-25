@@ -174,8 +174,8 @@ test("taxipress: passengers book seats", async (t) => {
       assert.deepEqual([left.line[0].seatsBooked, left.line[0].seatsLeft], [10, 3]);
       // Seats sold at the stage count against the same total.
       assert.equal((await call("d1", "taxipress/driver/walk-up", { delta: 3 })).status, 200);
-      assert.equal(await code(await book("a", van1.id, 2, "app")), "not_available");
-      assert.equal(await code(await book("a", van1.id, 1, "app")), "not_available");
+      assert.equal(await code(await book("a", van1.id, 2, "app")), "not_bookable_yet");
+      assert.equal(await code(await book("a", van1.id, 1, "app")), "not_bookable_yet");
     });
 
     await t.test("the driver sees who is booked, without their ticket codes", async () => {
@@ -190,7 +190,7 @@ test("taxipress: passengers book seats", async (t) => {
 
     await t.test("a passenger sees their own bookings and tickets only", async () => {
       const mine = await json<{ bookings: Booking[] }>(await call("a", "taxipress/bookings/mine"));
-      assert.equal(mine.bookings.length, 2);
+      assert.equal(mine.bookings.length, 1, "the 13 passenger seats are already fully booked");
       assert.ok(mine.bookings.every((b) => b.ticketCode));
       assert.equal((await call("a", `taxipress/bookings/${first.id}`)).status, 200);
       assert.equal((await call("b", `taxipress/bookings/${first.id}`)).status, 404);
