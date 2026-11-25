@@ -22,6 +22,8 @@
 :root.taxibee-customer-chrome {
   --taxibee-side-width: min(280px, 80vw);
   --taxibee-stage-base: color-mix(in srgb, var(--brand-blue) 65%, var(--brand-blue-dark));
+  --taxibee-stage-glow: radial-gradient(ellipse min(240px, 58vw) min(225px, 32vh) at 43% 6%,
+    rgb(var(--color-gold) / .24), transparent 75%);
   --taxibee-pane-gutter: 6px;
   --taxibee-header-row: 64px;
   --taxibee-header-height: calc(var(--taxibee-header-row) + var(--safe-top));
@@ -35,22 +37,22 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse min(240px, 58vw) min(225px, 32vh) at 43% 6%,
-    rgb(var(--color-gold) / .24), transparent 75%);
+  background: var(--taxibee-stage-glow);
 }
 :root.taxibee-customer-chrome body,
 :root.taxibee-customer-chrome.customer-drawer-stage body,
 :root.taxibee-customer-chrome .app-stage,
 :root.taxibee-customer-chrome #app-shell,
-:root.taxibee-customer-chrome #taxibee-header-slot .customer-header,
 :root.taxibee-customer-chrome #side-drawer .side-drawer__content,
 :root.taxibee-customer-chrome #app-shell > .sidebar {
   background: transparent !important;
 }
 :root.taxibee-customer-chrome.customer-drawer-stage body::before { content: none; }
-.taxibee-customer-chrome #taxibee-header-slot .customer-header {
+:root.taxibee-customer-chrome #taxibee-header-slot .customer-header {
   grid-column: 1 / -1;
   padding-top: var(--safe-top);
+  background: var(--taxibee-stage-glow) left top / 100vw 100dvh no-repeat var(--taxibee-stage-base) !important;
+  color: white;
   border: 0;
   box-shadow: none;
   backdrop-filter: none;
@@ -176,7 +178,10 @@
   --border-faint: rgb(247 243 238 / .1);
   background: transparent;
 }
-.taxibee-customer-chrome #main-content { animation: none; }
+.taxibee-customer-chrome #main-content {
+  position: relative;
+  animation: none;
+}
 .taxibee-customer-chrome .customer-drawer :is(button, input), .taxibee-customer-chrome .chat-drawer button { font-family: inherit; }
 .taxibee-customer-chrome .customer-drawer :is(p, h1, h2, ul) { margin: 0; }
 .taxibee-customer-chrome .customer-drawer ul { padding: 0; list-style: none; }
