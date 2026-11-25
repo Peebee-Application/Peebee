@@ -2,7 +2,7 @@
 import {ChevronDown,ChevronUp,MapPinned,MessagesSquare} from "lucide-react";
 import Link from "next/link";
 import {usePathname,useRouter} from "next/navigation";
-import {useCallback,useEffect,useRef,useState} from "react";
+import {useCallback,useEffect,useRef,useState,type ReactNode} from "react";
 import {isPracticeMode,type PlatformEnvironment} from "@peebee/shared";
 import {api} from "../lib/api";
 import {useCart} from "../lib/cart";
@@ -36,14 +36,20 @@ async function loadMenuCounts():Promise<MenuCounts>{
   };
 }
 
-export function BrandHeader() {
+type BrandHeaderProps = {
+  renderBrand?: (details: ReturnType<typeof useLocationLabel> & {modeLabel: string | null}) => ReactNode;
+  brandDescriptionId?: string;
+};
+
+export function BrandHeader({renderBrand, brandDescriptionId}: BrandHeaderProps = {}) {
   const pathname=usePathname();
   const router=useRouter();
   const drawer=useHeaderDrawer();
   const lastNonChromePath=useRef("/");
   const open=drawer.mode!=="closed";
   const home=pathname==="/";
-  const {label:locationLabel,status:locationStatus}=useLocationLabel(home);
+  const location=useLocationLabel(home || Boolean(renderBrand));
+  const {label:locationLabel,status:locationStatus}=location;
   const {totalQuantity:cartCount}=useCart();
   const chat=useChatDrawer();
   const chatEnabled=useHomeMenu().header.chatEnabled;
@@ -144,7 +150,12 @@ export function BrandHeader() {
   return <>
     <header className={`customer-header sticky top-0 z-40 ${home?`ph-header ${homeFont.className}`:""} ${drawer.mode==="menu"?"is-menu-open":""} ${drawer.mode==="section"?"is-section-open":""}`}>
       <div className="mx-auto flex h-16 max-w-lg items-center justify-between gap-3 px-4">
-        <Link href="/" aria-label={`Go to home${modeLabel ? ", demo mode" : ""}`} className={home?"ph-brand-link min-w-0":"flex shrink-0 items-start gap-1"}><span className="flex items-start gap-1"><BrandLogo variant="light"/>{modeLabel&&<sup aria-hidden="true" className="pt-1 text-[10px] font-bold leading-none text-gold">{modeLabel}</sup>}</span>{home&&<span className="ph-header-location" aria-label="Current detected location"><MapPinned size={14} aria-hidden/><span>{locationStatus==="locating"?"Locating…":locationLabel??"Location unavailable"}</span></span>}</Link>
+        <Link href="/" aria-label={`Go to home${modeLabel ? ", demo mode" : ""}`} aria-describedby={brandDescriptionId} className={home?"ph-brand-link min-w-0":"flex shrink-0 items-start gap-1"}>
+          {renderBrand ? renderBrand({...location, modeLabel}) : <>
+            <span className="flex items-start gap-1"><BrandLogo variant="light"/>{modeLabel&&<sup aria-hidden="true" className="pt-1 text-[10px] font-bold leading-none text-gold">{modeLabel}</sup>}</span>
+            {home&&<span className="ph-header-location" aria-label="Current detected location"><MapPinned size={14} aria-hidden/><span>{locationStatus==="locating"?"Locating…":locationLabel??"Location unavailable"}</span></span>}
+          </>}
+        </Link>
         <div className="flex shrink-0 items-center gap-1">
           <button ref={toggleRef} type="button" aria-label={open?"Close menu":"Open menu"} aria-expanded={open} aria-controls="header-menu" onClick={()=>{ if(open){ closeMenu(); toggleRef.current?.focus(); } else { drawer.openMenu(); } }} className="customer-header-toggle relative flex h-11 w-11 items-center justify-center rounded-full">
             {open?<ChevronUp size={24} aria-hidden/>:<ChevronDown size={24} aria-hidden/>}
