@@ -36,7 +36,7 @@ export function installCustomerFeatures(c: Context) {
   const requireBooking = () => { const b = booking(); if (!b) throw new Error('Choose a booking in My Travels first.'); return b; };
   const errorText = (e: unknown) => e instanceof Error ? e.message : 'Please try again.';
   const nowUser = () => c.user()?.id || 'guest';
-  const signInPrompt = (title: string) => `${notice(title, 'Browse freely. Sign in with your Peebee account to see your personal information.')}<button type="button" class="button button--primary" data-auth-action="open" data-screen-after="${esc(state.screen)}">Sign in or create account</button>`;
+  const signInPrompt = (title: string) => `<section class="card taxibee-guest-card"><h2>${esc(title)}</h2><p>Sign in with your Peebee account to see your personal information.</p><button type="button" class="button button--primary" data-auth-action="open" data-screen-after="${esc(state.screen)}">Sign in or create account</button></section>`;
   let pending = false, epoch = 0, loadError = '', loaded = '';
   let profile: TaxipressTaxiProfile | null = null;
   let tracking: TaxipressTracking | null = null;
@@ -163,7 +163,7 @@ export function installCustomerFeatures(c: Context) {
     if (['tracking', 'live'].includes(state.screen) && tracking?.location && document.getElementById('taxibee-location-map') && ui.L) {
       const p = tracking.location;
       map = ui.L.map('taxibee-location-map').setView([p.lat, p.lng], 15);
-      ui.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
+      ui.addTaxibeeMapTiles(map);
       ui.L.marker([p.lat, p.lng]).addTo(map).bindPopup(esc(tracking.booking.taxi.plate));
     }
   };

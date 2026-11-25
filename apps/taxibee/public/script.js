@@ -1466,13 +1466,6 @@ function renderNavigation() {
   }
   
   if (mobile) {
-    const isBookingFlow = ['book', 'trip-details', 'passengers', 'returns', 'luggage', 'checkout', 'trackparcel', 'parcel-status', 'special-hire', 'driver-call', 'driver-chat'].includes(state.screen);
-    const isBookStep1 = state.screen === 'book' && (state.bookingStep || 1) === 1;
-    if (isBookingFlow && !isBookStep1) {
-      mobile.classList.add('is-hidden');
-    } else {
-      mobile.classList.remove('is-hidden');
-    }
     const flowScreen = ['trip-details','passengers','returns','luggage','checkout'].includes(state.screen);
     const activeScreen = screen => {
       if (screen === 'book' && flowScreen) return true;
@@ -1487,8 +1480,11 @@ function renderNavigation() {
       mobile.innerHTML = `
       <div class="taxibee-nav-shell" style="--nav-count: ${items.length}">
         <div class="taxibee-nav-anchor">
-          <button class="taxibee-nav-home" type="button" data-screen="home">
+          <button class="taxibee-nav-primary" type="button" data-screen="home">
             <i data-lucide="house" aria-hidden="true"></i><span>Home</span>
+          </button>
+          <button class="taxibee-nav-primary" type="button" data-action="go-back" aria-label="Back">
+            <i data-lucide="chevron-left" aria-hidden="true"></i>
           </button>
         </div>
         <div class="taxibee-nav-menu-track">
@@ -1502,6 +1498,8 @@ function renderNavigation() {
       menu = mobile.querySelector('.taxibee-nav-items');
       if ('ResizeObserver' in window) new ResizeObserver(() => alignMobileMenu(menu)).observe(menu);
     }
+    mobile.querySelector('.taxibee-nav-primary[data-screen="home"]').hidden = state.screen !== 'home';
+    mobile.querySelector('.taxibee-nav-primary[data-action="go-back"]').hidden = state.screen === 'home';
     const previous = menu.querySelector('[aria-current="page"]');
     for (const button of mobile.querySelectorAll('button[data-screen]')) {
       const active = activeScreen(button.dataset.screen);
@@ -1531,7 +1529,6 @@ function navigate(screen, payload = {}, pushHistory = true) {
   const title = screenTitles[screen] || 'Taxibee';
   $('#screen-title').textContent = title;
   const isHome = screen === 'home';
-  $('#back-button').classList.toggle('is-hidden', isHome);
   const mobileBrand = document.querySelector('.mobile-brand');
   if (mobileBrand) mobileBrand.classList.toggle('is-hidden', !isHome);
   $('#topbar-share-button')?.classList.toggle('is-hidden', screen !== 'parcel-status');
@@ -1557,13 +1554,30 @@ function navigate(screen, payload = {}, pushHistory = true) {
 }
 
 function goBack() {
-  if ((state.screen === 'tracking' && state.trackingView === 'single') || state.screen === 'trackparcel' || state.screen === 'parcel-status') {
+  if (state.screen === 'book' && state.bookingStep !== 1 && state.bookingStep) {
+    previousBookingStep();
+    pageScroller().scrollTo({ top: 0, behavior: 'instant' });
+    return;
+  }
+  if (state.screen === 'tracking' && state.trackingView === 'single') {
     navigate('tracking', { trackingView: 'hub', selectedTrackingId: null }, false);
     return;
   }
   const previous = state.history.pop() || 'home';
-  state.screen = previous;
   navigate(previous, {}, false);
+}
+
+function previousBookingStep() {
+  if (state.bookingStep === 6) {
+    state.bookingStep = 4;
+  } else if (state.bookingStep === 4) {
+    state.bookingStep = state.capacityMode === 'seats' ? '3b' : 3;
+  } else if (state.bookingStep === '3b') {
+    state.bookingStep = 3;
+  } else {
+    state.bookingStep = Math.max(1, state.bookingStep - 1);
+  }
+  renderCurrentScreen();
 }
 
 function renderCurrentScreen(preserveFocus = true) {
@@ -2344,7 +2358,6 @@ function renderBook() {
             </div>
 
             <div class="button-row" style="margin-top: 8px;">
-              <button class="button button--ghost" type="button" data-action="booking-prev-step" aria-label="Go back" style="padding: 0; min-width: 28px; flex: 0 0 28px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; box-shadow: none; margin-right: 4px;"><i data-lucide="chevron-left" style="width: 24px; height: 24px; color: var(--brand-blue);"></i></button>
               <button class="button button--primary" style="flex: 1;" type="button" data-action="booking-next-step">Search Vehicles</button>
             </div>
           </div>
@@ -2485,7 +2498,6 @@ function renderBook() {
       </div>
 
       <div class="floating-cta-container button-row" style="margin-top: 24px;">
-        <button class="button button--ghost" type="button" data-action="booking-prev-step" aria-label="Go back" style="padding: 0; min-width: 28px; flex: 0 0 28px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; box-shadow: none; margin-right: 4px;"><i data-lucide="chevron-left" style="width: 24px; height: 24px; color: var(--brand-blue);"></i></button>
         ${state.activeTrip ? `
           <button class="button button--secondary" type="button" data-action="book-preferred-seat" style="flex: 1; font-weight: 750;">Select Seat</button>
           <button class="button button--primary" type="button" data-action="booking-skip-seat" style="flex: 1; display: flex; flex-direction: column; align-items: center; line-height: 1; justify-content: center; height: 48px; gap: 0; padding: 4px 12px;">
@@ -2528,7 +2540,6 @@ function renderBook() {
       </div>
 
       <div class="floating-cta-container button-row" style="margin-top: 24px;">
-        <button class="button button--ghost" type="button" data-action="booking-prev-step" aria-label="Go back" style="padding: 0; min-width: 28px; flex: 0 0 28px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; box-shadow: none; margin-right: 4px;"><i data-lucide="chevron-left" style="width: 24px; height: 24px; color: var(--brand-blue);"></i></button>
         <button class="button button--primary" style="flex: 1;" type="button" data-action="booking-next-step" ${state.selectedSeats.length !== required ? 'disabled style="opacity: 0.65; cursor: not-allowed;"' : ''}>Confirm Seat</button>
       </div>
     `;
@@ -2574,7 +2585,6 @@ function renderBook() {
       </div>
 
       <div class="floating-cta-container button-row" style="margin-top: 24px;">
-        <button class="button button--ghost" type="button" data-action="booking-prev-step" aria-label="Go back" style="padding: 0; min-width: 28px; flex: 0 0 28px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; box-shadow: none; margin-right: 4px;"><i data-lucide="chevron-left" style="width: 24px; height: 24px; color: var(--brand-blue);"></i></button>
         ${totalItems === 0 ? `
           <button class="button button--primary" type="button" data-action="booking-next-step" style="flex: 1;">Skip</button>
         ` : `
@@ -4698,10 +4708,7 @@ function initParcelMap() {
     zoomControl: false 
   });
   
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-    maxZoom: 19, 
-    crossOrigin: false 
-  }).addTo(parcelMap);
+  window.addTaxibeeMapTiles(parcelMap);
 
   // Black route line
   L.polyline(points, { color: '#000000', opacity: 1.0, weight: 3.5 }).addTo(parcelMap);
@@ -5180,7 +5187,6 @@ function renderDriverChat() {
     <div class="driver-chat-screen">
       <div class="driver-chat-card">
         <div class="chat-driver-header">
-          <button class="icon-button" type="button" data-action="back-from-chat" aria-label="Close Chat" style="color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12); border-radius: 50%; width: 36px; height: 36px; display: grid; place-items: center; border: none; cursor: pointer; flex-shrink: 0;"><i data-lucide="arrow-left"></i></button>
           <div class="chat-driver-header__info">
             <div>
               <strong style="cursor: pointer;" onclick="showDriverProfileModal('${driverNameKey.replace(/'/g, "\\'")}')">${driver.name}</strong>
@@ -5255,10 +5261,6 @@ function renderDriverCall() {
   return `
     <div class="driver-call-screen">
       <div class="driver-call-card">
-        <button class="icon-button" type="button" data-action="end-call-demo" aria-label="Close Call" style="position: absolute; top: 20px; left: 20px; z-index: 10; color: white; background: rgba(255,255,255,0.15); border: none; border-radius: 50%; width: 40px; height: 40px; display: grid; place-items: center; cursor: pointer;">
-          <i data-lucide="arrow-left"></i>
-        </button>
-
         <div class="call-background">
           <div class="call-bg-circle call-bg-circle--1"></div>
           <div class="call-bg-circle call-bg-circle--2"></div>
@@ -5540,7 +5542,7 @@ function initTrackingCardMaps() {
         keyboard: false
       });
 
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, crossOrigin: false }).addTo(miniMap);
+      window.addTaxibeeMapTiles(miniMap);
 
       L.polyline(outbound, { color: '#0a0a0a', opacity: 0.6, weight: 6 }).addTo(miniMap);
       L.polyline(outbound, { color: '#c9a227', dashArray: '6 6', lineCap: 'round', opacity: 1, weight: 3.5 }).addTo(miniMap);
@@ -5678,12 +5680,7 @@ function renderTracking() {
             <strong style="font-size: 0.95rem; color: var(--brand-blue-dark);">Connecting Live Navigation Map...</strong>
           </div>
 
-          <!-- Floating Top Bar with Back Button -->
-          <div class="tracking-top-nav-bar" style="justify-content: space-between; padding: 12px 16px;">
-            <button type="button" class="button button--secondary" data-action="back-to-tracking-hub" style="height: 40px; padding: 0 16px; border-radius: 20px; font-weight: 800; gap: 6px; box-shadow: 0 4px 14px rgba(26,26,26,0.15); background: white; border: 1px solid var(--border-subtle); color: var(--brand-blue-dark);">
-              <i data-lucide="arrow-left"></i> Back to Hub
-            </button>
-
+          <div class="tracking-top-nav-bar" style="justify-content: flex-end; padding: 12px 16px;">
             <div class="tracking-top-status-pill" style="box-shadow: 0 4px 14px rgba(26,26,26,0.15);">
               <span class="pulse-dot"></span>
               <span>${selectedItem.status}</span>
@@ -6041,6 +6038,14 @@ function destroyTripMap() {
     liveTravelMap.remove();
     liveTravelMap = null;
   }
+  if (unifiedTrackingMap) {
+    unifiedTrackingMap.remove();
+    unifiedTrackingMap = null;
+  }
+  for (const map of trackingCardMapInstances) map.remove();
+  trackingCardMapInstances = [];
+  for (const map of window.trackingMiniMaps || []) map.remove();
+  window.trackingMiniMaps = [];
 }
 
 function initTripMap() {
@@ -6072,12 +6077,7 @@ function initTripMap() {
   const isReverse = state.activeTrip ? state.activeTrip.boarding.toLowerCase().includes('kampala') || state.activeTrip.boarding.toLowerCase().includes('bweyogere') || state.activeTrip.boarding.toLowerCase().includes('busega') || state.activeTrip.boarding.toLowerCase().includes('nambole') || state.activeTrip.boarding.toLowerCase().includes('masaka') || state.activeTrip.boarding.toLowerCase().includes('lyantonde') || state.activeTrip.boarding.toLowerCase().includes('mbarara') : false;
   const points = getCurrentRoutePoints(routeKey, isReverse);
   tripReviewMap = L.map(target, { attributionControl: true, boxZoom: true, doubleClickZoom: true, dragging: true, keyboard: true, scrollWheelZoom: false, touchZoom: true, zoomControl: true });
-  let tileErrors = 0;
-  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, crossOrigin: false, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' });
-  tiles.on('tileload', () => { if (fallback) fallback.hidden = true; });
-  tiles.on('tileerror', () => { tileErrors += 1; if (tileErrors > 2 && fallback) fallback.hidden = false; });
-  tiles.addTo(tripReviewMap);
-  setTimeout(() => { if (fallback) fallback.hidden = true; }, 150);
+  window.addTaxibeeMapTiles(tripReviewMap, fallback);
   
   L.polyline(points, { color: '#0a0a0a', opacity: .55, weight: 8 }).addTo(tripReviewMap);
   L.polyline(points, { color: '#c9a227', dashArray: '8 9', lineCap: 'round', opacity: 1, weight: 4 }).addTo(tripReviewMap);
@@ -6129,12 +6129,7 @@ function initBookingStep2Map() {
   
   bookingStep2Map = L.map(target, { attributionControl: false, boxZoom: true, doubleClickZoom: true, dragging: true, keyboard: true, scrollWheelZoom: false, touchZoom: true, zoomControl: true });
   
-  let tileErrors = 0;
-  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, crossOrigin: false });
-  tiles.on('tileload', () => { if (fallback) fallback.hidden = true; });
-  tiles.on('tileerror', () => { tileErrors += 1; if (tileErrors > 2 && fallback) fallback.hidden = false; });
-  tiles.addTo(bookingStep2Map);
-  setTimeout(() => { if (fallback) fallback.hidden = true; }, 150);
+  window.addTaxibeeMapTiles(bookingStep2Map, fallback);
   
   L.polyline(points, { color: '#0a0a0a', opacity: .55, weight: 8 }).addTo(bookingStep2Map);
   L.polyline(points, { color: '#c9a227', dashArray: '8 9', lineCap: 'round', opacity: 1, weight: 4 }).addTo(bookingStep2Map);
@@ -6196,12 +6191,7 @@ function initLiveTravelMap() {
   
   liveTravelMap = L.map(target, { attributionControl: false, boxZoom: true, doubleClickZoom: true, dragging: true, keyboard: true, scrollWheelZoom: false, touchZoom: true, zoomControl: true });
   
-  let tileErrors = 0;
-  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, crossOrigin: false });
-  tiles.on('tileload', () => { if (fallback) fallback.hidden = true; });
-  tiles.on('tileerror', () => { tileErrors += 1; if (tileErrors > 2 && fallback) fallback.hidden = false; });
-  tiles.addTo(liveTravelMap);
-  setTimeout(() => { if (fallback) fallback.hidden = true; }, 150);
+  window.addTaxibeeMapTiles(liveTravelMap, fallback);
   
   L.polyline(points, { color: '#0a0a0a', opacity: .55, weight: 8 }).addTo(liveTravelMap);
   L.polyline(points, { color: '#c9a227', dashArray: '8 9', lineCap: 'round', opacity: 1, weight: 4 }).addTo(liveTravelMap);
@@ -6288,12 +6278,7 @@ function initTrackingMap() {
 
   unifiedTrackingMap = L.map(target, { attributionControl: false, boxZoom: true, doubleClickZoom: true, dragging: true, keyboard: true, zoomControl: true });
 
-  let tileErrors = 0;
-  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, crossOrigin: false });
-  tiles.on('tileload', () => { if (fallback) fallback.hidden = true; });
-  tiles.on('tileerror', () => { tileErrors += 1; if (tileErrors > 2 && fallback) fallback.hidden = false; });
-  tiles.addTo(unifiedTrackingMap);
-  setTimeout(() => { if (fallback) fallback.hidden = true; }, 150);
+  window.addTaxibeeMapTiles(unifiedTrackingMap, fallback);
 
   L.polyline(outbound, { color: '#0a0a0a', opacity: 0.5, weight: 8 }).addTo(unifiedTrackingMap);
   L.polyline(outbound, { color: '#c9a227', dashArray: '8 9', lineCap: 'round', opacity: 1, weight: 4 }).addTo(unifiedTrackingMap);
@@ -6716,18 +6701,6 @@ function handleClick(event) {
       }
       renderCurrentScreen();
     },
-    'booking-prev-step': () => {
-      if (state.bookingStep === 6) {
-        state.bookingStep = 4;
-      } else if (state.bookingStep === 4) {
-        state.bookingStep = state.capacityMode === 'seats' ? '3b' : 3;
-      } else if (state.bookingStep === '3b') {
-        state.bookingStep = 3;
-      } else {
-        state.bookingStep = Math.max(1, state.bookingStep - 1);
-      }
-      renderCurrentScreen();
-    },
     'select-booking-vehicle': () => {
       const trip = appData.trips.find(t => t.id === actionTrigger.dataset.tripId) || appData.trips[0];
       state.activeTrip = trip;
@@ -6905,11 +6878,6 @@ function handleClick(event) {
       state.selectedTrackingId = value || (actionTrigger.dataset && actionTrigger.dataset.id);
       renderCurrentScreen();
     },
-    'back-to-tracking-hub': () => {
-      state.trackingView = 'hub';
-      state.selectedTrackingId = null;
-      renderCurrentScreen();
-    },
     'chat-driver': () => {
       navigate('driver-chat');
     },
@@ -6943,9 +6911,6 @@ function handleClick(event) {
     },
     'end-call-demo': () => {
       toast('Call ended.', 'info');
-      goBack();
-    },
-    'back-from-chat': () => {
       goBack();
     },
     'modal-chat-driver': () => {
@@ -8025,10 +7990,7 @@ function initTrackingMiniMaps() {
         touchZoom: false
       });
 
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        crossOrigin: false
-      }).addTo(map);
+      window.addTaxibeeMapTiles(map);
 
       const points = getCurrentRoutePoints(targetSpec.route, targetSpec.isReverse);
       

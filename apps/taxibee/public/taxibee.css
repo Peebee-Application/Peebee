@@ -21,6 +21,8 @@ body.taxibee-preview { padding-bottom: 32px; }
 .taxibee-error { padding: 14px; border-radius: 12px; background: #fff0f1; color: #bf3038; }
 .taxibee-empty { padding: 24px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
 .taxibee-empty h2 { margin-top: 0; }
+.taxibee-guest-card { display: grid; justify-items: start; gap: 12px; }
+.taxibee-guest-card :is(h2, p) { margin: 0; }
 .seat-brand-front { position:absolute; z-index:1; left:43%; top:5%; width:15%; height:6.2%; background:#f5f5f5 url('assets/peebee-logo.svg') center/contain no-repeat; }
 .seat-brand-back { position:absolute; z-index:1; left:16%; top:92.7%; width:68%; height:2.6%; border-radius:25%; background:#1a1a1a; color:#c9a227; display:grid; place-items:center; font-size:clamp(9px,2.5vw,15px); font-weight:850; letter-spacing:.15em; }
 .seat-brand-stripe { position:absolute; z-index:1; left:28.8%; top:4.5%; width:2.2%; height:8.5%; background:#1a1a1a; }
@@ -70,7 +72,7 @@ body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeti
 .taxibee-install-action.is-hidden { display: none; }
 .taxibee-install-dismiss { display: grid; flex: 0 0 28px; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: transparent; color: #1a1a1a; }
 .taxibee-install-dismiss svg { width: 17px; height: 17px; }
-@media (max-width: 900px) {
+@media screen {
   :root { --mobile-nav-height: 90px; }
   #mobile-nav.mobile-nav {
     position: fixed !important;
@@ -91,6 +93,7 @@ body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeti
     background: transparent !important;
     box-shadow: none !important;
     backdrop-filter: none !important;
+    pointer-events: none;
   }
   #mobile-nav.mobile-nav.is-hidden { display: none !important; }
   .taxibee-nav-shell {
@@ -103,9 +106,10 @@ body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeti
     border-radius: 26px;
     background: var(--brand-blue-dark);
     box-shadow: 0 8px 26px rgb(10 10 10 / .2);
+    pointer-events: auto;
   }
   .taxibee-nav-anchor { flex: 0 0 62px; padding-right: 5px; }
-  .taxibee-nav-home {
+  .taxibee-nav-primary {
     display: grid;
     align-content: center;
     justify-items: center;
@@ -121,8 +125,9 @@ body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeti
     font: 800 10px/1.2 system-ui, sans-serif;
     letter-spacing: .04em;
   }
-  .taxibee-nav-home:hover { background: rgb(255 255 255 / .1); }
-  .taxibee-nav-home svg { width: 26px; height: 26px; }
+  .taxibee-nav-primary[hidden] { display: none; }
+  .taxibee-nav-primary:hover { background: rgb(255 255 255 / .1); }
+  .taxibee-nav-primary svg { width: 26px; height: 26px; }
   .taxibee-nav-menu-track {
     flex: 1;
     min-width: 0;
@@ -197,18 +202,29 @@ body:not(.taxibee-preview) .home-redesign :is(.topbar, .search-row, .home-greeti
     transform: scale(1.13);
   }
   #mobile-nav .mobile-nav-item:focus-visible,
-  #mobile-nav .taxibee-nav-home:focus-visible {
+  #mobile-nav .taxibee-nav-primary:focus-visible {
     outline: 2px solid currentColor;
     outline-offset: -4px;
   }
   #mobile-nav .mobile-nav-item .nav-count { background: #0a0a0a !important; color: #faf8ef !important; }
 
+}
+
+@media (max-width: 900px) {
   .taxibee-install-prompt {
     right: 14px;
     bottom: calc(var(--mobile-nav-height) + 8px + var(--safe-bottom));
     left: 14px;
     max-width: 520px;
     margin: 0 auto;
+  }
+}
+
+@media (min-width: 901px) {
+  #mobile-nav.mobile-nav {
+    inset-inline-start: var(--sidebar-width) !important;
+    width: calc(100% - var(--sidebar-width)) !important;
+    max-inline-size: calc(100% - var(--sidebar-width)) !important;
   }
 }
 

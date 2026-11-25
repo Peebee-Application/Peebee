@@ -12,10 +12,12 @@ import {installTravelCredit} from './travel-credit';
 import { installPwa } from './pwa';
 import type { TaxibeeHeader, TaxibeeHeaderHost } from './header/contracts';
 import { createHeaderDemo } from './header/demo';
+import { addConfiguredMapTiles } from './map-tiles';
 
 // The presentation is intentionally retained verbatim. This boundary is the only
 // place that translates Peebee records into the source interface's view model.
 const ui = window as unknown as Record<string, any>;
+ui.addTaxibeeMapTiles = (map: any, fallback?: HTMLElement | null) => addConfiguredMapTiles(ui.L, map, fallback);
 const { appData, state, driversData } = ui.TaxibeeSource;
 const luggageCatalog = appData.luggage.map((item: any) => ({ ...item }));
 const preview = new URLSearchParams(location.search).get('preview') === '1';
