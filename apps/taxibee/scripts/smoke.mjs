@@ -23,6 +23,18 @@ try {
   await page.emulateMedia({ media: 'screen' });
   await page.waitForTimeout(900);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Mobile shell must not overflow horizontally');
+  const header = page.locator('.customer-header');
+  const pane = page.locator('#app-shell > .workspace');
+  const headerBounds = await header.boundingBox();
+  const paneBounds = await pane.boundingBox();
+  await pane.evaluate(el => el.scrollTo({ top: 300, behavior: 'instant' }));
+  assert.ok(await pane.evaluate(el => el.scrollTop > 0), 'The middle pane must scroll independently');
+  assert.equal(await page.evaluate(() => window.scrollY), 0);
+  assert.equal(headerBounds.y, 0);
+  assert.equal(paneBounds.y, headerBounds.height);
+  assert.deepEqual(await header.boundingBox(), headerBounds, 'Scrolling must keep the header pinned');
+  assert.deepEqual(await pane.boundingBox(), paneBounds, 'Scrolled content must stay below the header');
+  await pane.evaluate(el => el.scrollTo({ top: 0, behavior: 'instant' }));
   const badImages = await page.evaluate(async () => {
     const images = [...document.querySelectorAll('#app-shell img')];
     await Promise.all(images.map(i => i.decode().catch(() => undefined)));

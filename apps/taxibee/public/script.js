@@ -6,6 +6,7 @@
 'use strict';
 
 const $ = (selector, root = document) => root.querySelector(selector);
+const pageScroller = () => $('.taxibee-customer-chrome #app-shell > .workspace') || window;
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 function timeToMinutes(timeStr) {
@@ -964,6 +965,7 @@ function init(demo = false) {
   document.addEventListener('submit', event => event.preventDefault());
   document.addEventListener('keydown', handleKeydown);
   window.addEventListener('scroll', handleTripReviewScroll, { passive: true });
+  $('#app-shell > .workspace').addEventListener('scroll', handleTripReviewScroll, { passive: true });
   refreshIcons();
   preloadTransparentImages();
 
@@ -1534,7 +1536,7 @@ function navigate(screen, payload = {}, pushHistory = true) {
   $('#topbar-share-button')?.classList.toggle('is-hidden', screen !== 'parcel-status');
   renderNavigation();
   renderCurrentScreen(false);
-  window.scrollTo({ top: 0, behavior: document.body.classList.contains('reduce-motion') ? 'auto' : 'smooth' });
+  pageScroller().scrollTo({ top: 0, behavior: document.body.classList.contains('reduce-motion') ? 'instant' : 'smooth' });
   setTimeout(() => {
     const target = screen === 'success' ? $('#success-title') : $('#main-content h1') || $('#main-content');
     if (target && !target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
@@ -5813,7 +5815,8 @@ function getCurrentRoutePoints(routeKey, isReverse = false) {
 function updateHeaderTheme() {
   const topbar = $('.topbar');
   if (!topbar) return;
-  const isScrolled = window.scrollY > 50;
+  const scroller = pageScroller();
+  const isScrolled = (scroller.scrollTop ?? window.scrollY) > 50;
   const darkHeroScreens = ['trip-details', 'live'];
   if (darkHeroScreens.includes(state.screen) && !isScrolled) {
     topbar.classList.add('topbar--dark-bg');
@@ -6143,15 +6146,16 @@ function initBookingStep2Map() {
   setTimeout(fitMap, 320);
 
   // Parallax scroll handler
+  const scroller = pageScroller();
   const handleScroll = () => {
     if (!target.isConnected) {
-      window.removeEventListener('scroll', handleScroll);
+      scroller.removeEventListener('scroll', handleScroll);
       return;
     }
-    const scrollY = window.scrollY;
+    const scrollY = scroller.scrollTop ?? window.scrollY;
     target.style.transform = `translate3d(0, ${Math.min(100, scrollY * 0.35)}px, 0)`;
   };
-  window.addEventListener('scroll', handleScroll, { passive: true });
+  scroller.addEventListener('scroll', handleScroll, { passive: true });
 }
 
 function initLiveTravelMap() {
@@ -7376,7 +7380,7 @@ function selectSupportCategory(category) {
   const select = $('#support-category');
   if (select) select.value = category;
   toast(`${category} selected. Complete the support form.`, 'success');
-  window.scrollTo({ top: 250, behavior: 'smooth' });
+  pageScroller().scrollTo({ top: 250, behavior: 'smooth' });
 }
 
 function toggleAccessibility(className) {
