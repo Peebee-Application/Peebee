@@ -35,14 +35,17 @@
 :root.taxibee-customer-chrome::before {
   content: "";
   position: fixed;
-  inset: 0;
+  inset: 0 auto auto 0;
+  width: 100vw;
+  height: 100dvh;
   pointer-events: none;
-  background: var(--taxibee-stage-glow);
+  background: var(--taxibee-stage-glow) var(--taxibee-stage-base);
 }
 :root.taxibee-customer-chrome body,
 :root.taxibee-customer-chrome.customer-drawer-stage body,
 :root.taxibee-customer-chrome .app-stage,
 :root.taxibee-customer-chrome #app-shell,
+:root.taxibee-customer-chrome #taxibee-header-slot .customer-header,
 :root.taxibee-customer-chrome #side-drawer .side-drawer__content,
 :root.taxibee-customer-chrome #app-shell > .sidebar {
   background: transparent !important;
@@ -51,7 +54,6 @@
 :root.taxibee-customer-chrome #taxibee-header-slot .customer-header {
   grid-column: 1 / -1;
   padding-top: var(--safe-top);
-  background: var(--taxibee-stage-glow) left top / 100vw 100dvh no-repeat var(--taxibee-stage-base) !important;
   color: white;
   border: 0;
   box-shadow: none;
@@ -154,6 +156,7 @@
   background: transparent;
 }
 .taxibee-customer-chrome .workspace > .topbar { display: none !important; }
+.taxibee-customer-chrome .workspace > .topbar::after { content: none !important; }
 .taxibee-customer-chrome .workspace > .topbar:has(#back-button:not(.is-hidden)) {
   position: static !important;
   display: flex !important;

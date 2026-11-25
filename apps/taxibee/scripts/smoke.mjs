@@ -31,9 +31,18 @@ try {
     const { backgroundColor, backgroundImage, boxShadow } = getComputedStyle(el);
     return { backgroundColor, backgroundImage, boxShadow };
   });
-  const homePaint = await headerPaint();
-  assert.notEqual(homePaint.backgroundColor, 'rgba(0, 0, 0, 0)', 'The header must paint its dark background itself');
-  assert.equal(homePaint.boxShadow, 'none');
+  const sharedBackdrop = () => page.evaluate(() => {
+    const { backgroundColor, backgroundImage, position, top, left, width, height } = getComputedStyle(document.documentElement, '::before');
+    return { backgroundColor, backgroundImage, position, top, left, width, height };
+  });
+  const transparentHeader = { backgroundColor: 'rgba(0, 0, 0, 0)', backgroundImage: 'none', boxShadow: 'none' };
+  const homeBackdrop = await sharedBackdrop();
+  assert.notEqual(homeBackdrop.backgroundColor, 'rgba(0, 0, 0, 0)', 'The viewport backdrop must supply the dark base');
+  assert.match(homeBackdrop.backgroundImage, /radial-gradient/);
+  assert.equal(homeBackdrop.position, 'fixed');
+  assert.equal(homeBackdrop.top, '0px');
+  assert.equal(homeBackdrop.left, '0px');
+  assert.deepEqual(await headerPaint(), transparentHeader);
   await pane.evaluate(el => el.scrollTo({ top: 300, behavior: 'instant' }));
   assert.ok(await pane.evaluate(el => el.scrollTop > 0), 'The middle pane must scroll independently');
   assert.equal(await page.evaluate(() => window.scrollY), 0);
@@ -59,9 +68,23 @@ try {
   });
   assert.ok(slides.page.includes('taxibee-page-slide'), 'Tickets should slide in beneath the header');
   assert.ok(!slides.header.includes('taxibee-page-slide'));
-  assert.deepEqual(await headerPaint(), homePaint, 'Tickets must keep the Home header backdrop');
+  assert.deepEqual(await headerPaint(), transparentHeader, 'Tickets must show the shared backdrop through the header');
+  assert.equal(await pane.locator('.topbar').evaluate(bar => getComputedStyle(bar, '::after').content), 'none',
+    'The Back-button bar must not paint its legacy gradient over the backdrop');
+  assert.deepEqual(await sharedBackdrop(), homeBackdrop);
   assert.deepEqual(await header.boundingBox(), headerBounds);
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await header.locator('[aria-controls="chat-drawer"]').click();
+  await page.waitForSelector('#chat-drawer[data-shown="true"]');
+  assert.deepEqual(await headerPaint(), transparentHeader, 'The moving header must not introduce a seam beside chat');
+  assert.deepEqual(await sharedBackdrop(), homeBackdrop);
+  await page.locator('.chat-drawer__slice').click({ position: { x: 12, y: 25 } });
+  await page.waitForSelector('.app-stage[data-lock="false"]');
+  await header.locator('[aria-controls="side-drawer"]').click();
+  await page.waitForFunction(() => document.body.classList.contains('drawer-open'));
+  assert.deepEqual(await sharedBackdrop(), homeBackdrop, 'The sidebar must reveal the same viewport-sized backdrop');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.body.classList.contains('drawer-open'));
   const reducedMotionSlide = await page.evaluate(() => {
     window.navigate('wallet');
     return document.querySelector('#main-content').getAnimations().some(animation => animation.id === 'taxibee-page-slide');
@@ -71,7 +94,7 @@ try {
   for (const screen of ['book','tickets','trips','wallet','profile','parcel','special-hire','offers','support','about']) {
     await page.evaluate(s => window.navigate(s), screen);
     assert.ok(await page.locator('#main-content').innerText());
-    assert.deepEqual(await headerPaint(), homePaint, `${screen} must keep the header backdrop`);
+    assert.deepEqual(await headerPaint(), transparentHeader, `${screen} must show the shared backdrop through the header`);
   }
   await page.evaluate(() => {
     const s = window.TaxibeeSource.state;
