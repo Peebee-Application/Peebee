@@ -4,6 +4,14 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
 const base = process.env.TAXIBEE_TEST_URL || 'http://localhost:3015';
 const browser = await chromium.launch({ ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}), headless: true, args: ['--no-sandbox'] });
 const evidence = process.env.TAXIBEE_EVIDENCE || '/tmp/taxibee-evidence';
+async function assertPaneBleed(page, selector) {
+  await page.locator(selector).waitFor();
+  await page.waitForFunction(() => !document.querySelector('#main-content').getAnimations()
+    .some(animation => animation.id === 'taxibee-page-slide'));
+  const media = await page.locator(selector).boundingBox();
+  const pane = await page.locator('#app-shell > .workspace').boundingBox();
+  for (const edge of ['x', 'y', 'width']) assert.equal(media[edge], pane[edge], `${selector} must fill the pane at ${edge}`);
+}
 await mkdir(evidence, { recursive: true });
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -130,11 +138,16 @@ try {
   await parcelMap.locator('img[src*="tile.jawg.io/jawg-light"]').first().waitFor({ state: 'attached' });
   assert.equal(mapSettingsReads, 1);
   assert.ok(await goBack.isVisible());
-  await page.waitForFunction(() => !document.querySelector('#main-content').getAnimations()
-    .some(animation => animation.id === 'taxibee-page-slide'));
-  assert.equal((await parcelMap.boundingBox()).y, (await pane.boundingBox()).y);
+  await assertPaneBleed(page, '#parcel-live-map');
   await goBack.click();
   await page.locator('body[data-active-screen="about"]').waitFor();
+  await page.evaluate(() => window.navigate('trip-details'));
+  await assertPaneBleed(page, '.smart-review__map-card');
+  await page.evaluate(() => window.navigate('tracking', { trackingView: 'single', trackingTab: 'travels' }));
+  await assertPaneBleed(page, '#unified-tracking-map');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await assertPaneBleed(page, '#unified-tracking-map');
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => {
     const s = window.TaxibeeSource.state;
     s.activeTrip.vehicle = 'Commuter (14)'; s.activeTrip.seats = 14;
@@ -322,6 +335,7 @@ try {
   reportedLocation = { lat: 0.2, lng: 32.5, updatedAt: new Date().toISOString() };
   await p.click('[data-action="taxibee-feature-refresh"]');
   await p.waitForSelector('#taxibee-location-map .leaflet-marker-icon');
+  await assertPaneBleed(p, '#taxibee-location-map');
   assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await p.click('[data-action="taxibee-open-chat"]');
   await p.waitForFunction(() => document.querySelector('#main-content').innerText.includes('Meet at the stage entrance'));

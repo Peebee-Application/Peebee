@@ -464,6 +464,8 @@ if (!preview) {
   ui.renderBook = () => {
     if (!config?.enabled && !scheduledDepartures.length) return empty('No bookable taxis', error || 'There are no taxis accepting bookings right now.');
     const template = document.createElement('template'); template.innerHTML = original.renderBook();
+    // The preview map shows a sample route. Live booking has no reported route map at this step.
+    template.content.querySelector('.booking-map-wrapper')?.remove();
     const childFareHint = [...template.content.querySelectorAll('.stepper-card .muted.text-small')].find(el => el.textContent?.includes('Lap travel is free.'));
     if (childFareHint) childFareHint.textContent = state.ticketType === 'return'
       ? 'Reserved child seats are priced for each direction. The final package quote applies the configured child fare and return discount.'

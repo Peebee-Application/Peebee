@@ -2185,8 +2185,8 @@ function renderBook() {
     const allowedTo = allowedFrom;
 
     return `
-      <div class="booking-map-wrapper">
-        <div id="booking-step2-map" style="position: absolute; top: -60px; left: 0; width: 100%; height: calc(100% + 120px); z-index: 1;"></div>
+      <div class="booking-map-wrapper taxibee-pane-hero">
+        <div id="booking-step2-map" style="position: absolute; inset: 0; z-index: 1;"></div>
         <div id="booking-step2-map-fallback" class="trip-map-fallback" style="background: #faf8ef; z-index: 2;" hidden>
           <img src="assets/taxibee-minivan-branded.png" alt="" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; margin-bottom: 8px;">
           <strong style="font-size: 0.95rem; color: var(--brand-blue-dark);">Preparing Route Map...</strong>
@@ -2706,7 +2706,7 @@ function renderTripDetails() {
 
   return `<section class="smart-review" aria-label="Review your trip">
     <!-- Top Hero Vehicle & Driver Photo Visual Area -->
-    <div class="smart-review__map-card" style="background-image: url('${driverHeroImg}'); background-size: cover; background-position: center; position: relative;">
+    <div class="smart-review__map-card taxibee-pane-hero" style="background-image: url('${driverHeroImg}'); background-size: cover; background-position: center; position: relative;">
     </div>
 
     <div class="smart-review__sheet">
@@ -2763,7 +2763,7 @@ function renderTripDetails() {
       <!-- Embedded Interactive Route Map (Moved inside sheet) -->
       <div style="margin-bottom: 20px;">
         <div style="position: relative; height: 260px; border-radius: 20px; overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow-sm);">
-          <div id="trip-review-map" class="trip-review-map" style="position: absolute; inset: 0;" aria-label="OpenStreetMap preview from ${trip.boarding} to ${trip.destination}"></div>
+          <div id="trip-review-map" class="trip-review-map" style="position: absolute; inset: 0;" aria-label="Route map from ${trip.boarding} to ${trip.destination}"></div>
           <div id="trip-map-fallback" class="trip-map-fallback" hidden><img src="${getTripVehicleImage(trip.vehicle)}" alt=""><strong>Map preview unavailable</strong><span>Your selected route is still ready.</span></div>
         </div>
       </div>
@@ -4838,7 +4838,7 @@ function renderParcelTracking() {
   setTimeout(initParcelMap, 50);
 
   return `
-    <div class="parcel-live-container">
+    <div class="parcel-live-container taxibee-pane-hero">
       <div id="parcel-live-map" class="parcel-live-map"></div>
       
       <div class="parcel-live-card" role="button" tabindex="0" data-screen="parcel-status">
@@ -5672,7 +5672,7 @@ function renderTracking() {
     const isTravel = selectedItem.type === 'travel';
 
     return `
-      <div class="tracking-unified-container">
+      <div class="tracking-unified-container taxibee-pane-hero">
         <div class="tracking-fullscreen-map-wrapper">
           <div id="unified-tracking-map" class="tracking-map-canvas"></div>
           <div id="unified-tracking-map-fallback" class="trip-map-fallback" style="background: #faf8ef; z-index: 2;" hidden>
@@ -6147,17 +6147,6 @@ function initBookingStep2Map() {
   requestAnimationFrame(() => requestAnimationFrame(fitMap));
   setTimeout(fitMap, 320);
 
-  // Parallax scroll handler
-  const scroller = pageScroller();
-  const handleScroll = () => {
-    if (!target.isConnected) {
-      scroller.removeEventListener('scroll', handleScroll);
-      return;
-    }
-    const scrollY = scroller.scrollTop ?? window.scrollY;
-    target.style.transform = `translate3d(0, ${Math.min(100, scrollY * 0.35)}px, 0)`;
-  };
-  scroller.addEventListener('scroll', handleScroll, { passive: true });
 }
 
 function initLiveTravelMap() {

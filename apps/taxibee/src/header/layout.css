@@ -162,18 +162,47 @@
     padding-bottom: calc(2 * var(--mobile-nav-height) + var(--safe-bottom) + 20px);
   }
 }
-.taxibee-customer-chrome #main-content :is(.smart-review, .booking-map-wrapper, .live-map) {
+.taxibee-customer-chrome #main-content :is(.smart-review, .live-map) {
   margin-top: 0 !important;
 }
+.taxibee-customer-chrome .workspace:has(.taxibee-pane-hero) { scrollbar-width: none; }
+.taxibee-customer-chrome #main-content:has(.taxibee-pane-hero) {
+  --taxibee-detail-gutter: clamp(16px, 4vw, 60px);
+  width: 100% !important;
+  max-width: none !important;
+  padding-top: 0 !important;
+  padding-inline: 0 !important;
+}
+.taxibee-customer-chrome #main-content:has(.taxibee-pane-hero) > :not(.taxibee-pane-hero, .smart-review) {
+  width: min(calc(100% - 2 * var(--taxibee-detail-gutter)), var(--content-width));
+  margin-inline: auto;
+}
+.taxibee-customer-chrome #main-content :is(.smart-review, .taxibee-pane-hero) {
+  width: 100%;
+  max-width: none;
+}
+.taxibee-customer-chrome #main-content .taxibee-pane-hero {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.taxibee-customer-chrome #main-content .smart-review__map-card { inset-inline: auto; }
+.taxibee-customer-chrome #main-content .taxibee-reported-map { height: clamp(260px, 45dvh, 480px); }
 .taxibee-customer-chrome #main-content > .home-redesign {
   min-width: 0;
   padding-top: 20px !important;
   background: transparent;
 }
 .taxibee-customer-chrome #main-content .tracking-unified-container {
-  height: calc(100dvh - var(--taxibee-header-height) - var(--mobile-nav-height) - var(--safe-bottom) - var(--taxibee-preview-banner-height, 0px) - 32px);
+  height: calc(100dvh - var(--taxibee-header-height) - var(--mobile-nav-height) - var(--safe-bottom) - var(--taxibee-preview-banner-height, 0px) - 12px);
   min-height: 340px;
   margin-bottom: 0;
+}
+.taxibee-customer-chrome #main-content .tracking-bottom-nav-card__grid-item { min-width: 0; }
+.taxibee-customer-chrome #main-content .tracking-bottom-nav-card__grid-val {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .taxibee-customer-chrome #main-content .parcel-live-card {
   bottom: calc(var(--mobile-nav-height) + var(--safe-bottom) + 18px);
