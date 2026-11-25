@@ -533,6 +533,7 @@ const settingsSchema = patchSchema(z.object({
   openTicketRefundPercent: z.number().min(0).max(100),
   showStops: z.boolean(),
   scheduledDeparturesEnabled: z.boolean(),
+  vipFareMarkupPercent: z.number().min(1).max(100),
   scheduleMaxAdvanceDays: z.number().int().min(1).max(365),
   scheduleMinLeadMinutes: z.number().int().min(0).max(10080),
   scheduleBookingCutoffMinutes: z.number().int().min(0).max(1440),
@@ -631,6 +632,7 @@ const taxiPatch = patchSchema(z.object({
   status: z.enum(["pending", "approved", "suspended"]),
   passengersEnabled: z.boolean(),
   parcelsEnabled: z.boolean(),
+  serviceClass: z.enum(["standard", "vip"]),
 }));
 
 taxipressRoutes.post("/admin/taxipress/taxis/:id", requirePermission("riders.verify"), async (c) => {

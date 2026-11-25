@@ -825,7 +825,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     },
     async getTaxipressPublicDepartures(input: { routeId?: string; from?: string; to?: string } = {}) {
       const q = new URLSearchParams(Object.entries(input).filter((x): x is [string,string] => typeof x[1] === "string"));
-      return request<{ departures: Array<{ id:string;routeId:string;departsAt:string;seatsLeft:number;farePerSeat:number;plate:string;seatLayout:string;fromName:string;toName:string }>;ready:boolean }>(`/v1/taxipress-public/departures${q.size ? `?${q}` : ""}`);
+      return request<{ departures: Array<{ id:string;routeId:string;departsAt:string;seatsLeft:number;farePerSeat:number;plate:string;seatLayout:string;serviceClass:"standard"|"vip";fromName:string;toName:string }>;ready:boolean }>(`/v1/taxipress-public/departures${q.size ? `?${q}` : ""}`);
     },
     async bookTaxipressScheduledDeparture(input: { departureId:string;seats:number;requestId:string;details:{adults:number;children:number;childSeats:number;luggage?:Partial<Record<TaxipressLuggageType,number>>;assistance?:TaxipressAssistance|null;language?:string|null;forSomeoneElse?:boolean;travellerName?:string|null;travellerPhone?:string|null;emergencyPhone?:string|null} }) {
       return request<{ ticketId:string;orderId:string;reused:boolean;departure?:{id:string;departsAt:string;plate:string;seatLayout:string;from:string;to:string;seats:number;amount:number} }>("/v1/taxipress/departures/book",{method:"POST",body:JSON.stringify(input)});
@@ -956,7 +956,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async adminListTaxipressTaxis() {
       return request<{ taxis: TaxipressTaxi[] }>("/v1/admin/taxipress/taxis");
     },
-    async adminUpdateTaxipressTaxi(id: string, input: Partial<{ status: "pending" | "approved" | "suspended"; passengersEnabled: boolean; parcelsEnabled: boolean; numberedSeatsEnabled: boolean }>) {
+    async adminUpdateTaxipressTaxi(id: string, input: Partial<{ status: "pending" | "approved" | "suspended"; passengersEnabled: boolean; parcelsEnabled: boolean; numberedSeatsEnabled: boolean; serviceClass: "standard" | "vip" }>) {
       return request<{ taxi: TaxipressTaxi }>(`/v1/admin/taxipress/taxis/${encodeURIComponent(id)}`, { method: "POST", body: JSON.stringify(input) });
     },
     async adminTaxipressReport(days = 30) {

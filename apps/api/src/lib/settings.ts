@@ -833,6 +833,8 @@ const DEFAULTS = {
   taxipress_schedule_spacing_minutes: "60",
   taxipress_schedule_free_cancel_minutes: "1440",
   taxipress_schedule_cancel_retention_percent: "0",
+  // Added to the published route fare for VIP Highroof departures.
+  taxipress_vip_fare_markup_percent: "50",
   // full_only: a taxi leaves only when every seat is booked. driver_choice / after_wait relax that.
   taxipress_departure_rule: "full_only",
   // Whether seats still free on a taxi that is On Road may be sold in the app.

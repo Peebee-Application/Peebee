@@ -42,7 +42,7 @@ export type TaxipressBooking = {
   /** An app payment still due must be made by this time or the seats are given back. */
   payBy: string | null;
   route: { id: string; fromName: string; toName: string; directionLabel: string };
-  taxi: { queueId: string; plate: string; seatLayout: "14" | "18"; driverName: string | null; driverPhone: string | null; status: string; position: number | null; seatsLeft: number };
+  taxi: { queueId: string; plate: string; seatLayout: "14" | "18"; serviceClass?: "standard" | "vip"; driverName: string | null; driverPhone: string | null; status: string; position: number | null; seatsLeft: number };
   /** What cancelling now would do: whether it is allowed, what comes back and what is kept. */
   cancel: { allowed: boolean; reason: string | null; free: boolean; fee: number; refund: number };
   /** How a booking that did not board ended, once it has. */

@@ -38,6 +38,7 @@ export type TaxipressTaxi = {
   routeName: string | null;
   plate: string;
   seatLayout: "14" | "18";
+  serviceClass?: "standard" | "vip";
   seats: number;
   passengersEnabled: boolean;
   parcelsEnabled: boolean;
@@ -55,6 +56,7 @@ function toTaxi(row: Row): TaxipressTaxi {
     routeName: (row.route_name as string | null | undefined) ?? null,
     plate: String(row.plate),
     seatLayout: row.seat_layout === "18" ? "18" : "14",
+    serviceClass: row.service_class === "vip" ? "vip" : "standard",
     seats: Number(row.seats),
     passengersEnabled: Number(row.passengers_enabled) === 1,
     parcelsEnabled: Number(row.parcels_enabled) === 1,
@@ -93,9 +95,10 @@ export async function applyTaxi(userId: string, input: { relayRouteId: string; p
   if (existing) {
     const changed = existing.relayRouteId !== input.relayRouteId || existing.plate !== plate || existing.seatLayout !== input.seatLayout;
     const resetLayout = changed && await hasColumn('taxipress_taxis','numbered_seats_enabled');
+    const vipColumn = await hasColumn('taxipress_taxis','service_class');
     await db.execute({
-      sql: `UPDATE taxipress_taxis SET relay_route_id = ?, plate = ?, seat_layout = ?, seats = ?, ${changed ? "status = 'pending', approved_by = NULL, approved_at = NULL," : ""} ${resetLayout ? 'numbered_seats_enabled = 0,' : ''} updated_at = datetime('now') WHERE user_id = ?`,
-      args: [input.relayRouteId, plate, input.seatLayout, seats, userId],
+      sql: `UPDATE taxipress_taxis SET relay_route_id = ?, plate = ?, seat_layout = ?, seats = ${vipColumn ? "CASE WHEN service_class='vip' AND ?=0 THEN 13 ELSE ? END" : "?"}, ${vipColumn && changed ? "service_class = 'standard'," : ""} ${changed ? "status = 'pending', approved_by = NULL, approved_at = NULL," : ""} ${resetLayout ? 'numbered_seats_enabled = 0,' : ''} updated_at = datetime('now') WHERE user_id = ?`,
+      args: [input.relayRouteId, plate, input.seatLayout, ...(vipColumn ? [changed ? 1 : 0, seats] : [seats]), userId],
     });
     return;
   }
@@ -109,13 +112,27 @@ export async function applyTaxi(userId: string, input: { relayRouteId: string; p
 export async function updateTaxi(
   id: string,
   actorId: string,
-  patch: Partial<{ status: "pending" | "approved" | "suspended"; passengersEnabled: boolean; parcelsEnabled: boolean; numberedSeatsEnabled: boolean }>,
+  patch: Partial<{ status: "pending" | "approved" | "suspended"; passengersEnabled: boolean; parcelsEnabled: boolean; numberedSeatsEnabled: boolean; serviceClass: "standard" | "vip" }>,
 ): Promise<TaxipressTaxi> {
   await requireReady();
   const before = (await db.execute({ sql: `${TAXI_SQL} WHERE x.id = ?`, args: [id] })).rows[0] as Row | undefined;
   if (!before) throw new TaxipressError(404, "not_found", "That taxi doesn't exist.");
   const sets: string[] = [];
   const args: (string | number | null)[] = [];
+  if (patch.serviceClass != null) {
+    if (!(await hasColumn("taxipress_taxis", "service_class"))) throw new TaxipressError(503, "migration_pending", "Apply VIP Highroof migration 0174 first.");
+    if (patch.serviceClass === "vip" && before.seat_layout !== "18") throw new TaxipressError(400, "vip_requires_highroof", "VIP service is only available for a Highroof van.");
+    if (patch.serviceClass !== (before.service_class === "vip" ? "vip" : "standard")) {
+      const [queue, scheduled] = await Promise.all([
+        db.execute({ sql: "SELECT 1 FROM taxipress_queue WHERE taxi_id=? AND status IN ('in_line','boarding','on_road') LIMIT 1", args: [id] }),
+        (await hasColumn("taxipress_departures", "service_class")) ? db.execute({ sql: "SELECT 1 FROM taxipress_departures WHERE taxi_id=? AND state IN ('published','active') LIMIT 1", args: [id] }) : Promise.resolve({ rows: [] as Row[] }),
+      ]);
+      if (queue.rows.length || scheduled.rows.length) throw new TaxipressError(409, "taxi_in_service", "Change VIP service only when this taxi has no active or booked departure.");
+    }
+    if (patch.serviceClass === "vip" && await hasColumn("taxipress_taxis", "numbered_seats_enabled")) sets.push("numbered_seats_enabled = 0");
+    sets.push("service_class = ?", "seats = ?");
+    args.push(patch.serviceClass, patch.serviceClass === "vip" ? 13 : Number(before.seat_layout));
+  }
   if (patch.status) {
     sets.push("status = ?");
     args.push(patch.status);
@@ -124,6 +141,8 @@ export async function updateTaxi(
   if (patch.passengersEnabled != null) { sets.push("passengers_enabled = ?"); args.push(patch.passengersEnabled ? 1 : 0); }
   if (patch.parcelsEnabled != null) { sets.push("parcels_enabled = ?"); args.push(patch.parcelsEnabled ? 1 : 0); }
   if (patch.numberedSeatsEnabled != null) {
+    if (patch.numberedSeatsEnabled && patch.serviceClass === "vip") throw new TaxipressError(409, "vip_seat_map_unavailable", "Numbered seats are not offered on the current 13-seat VIP Highroof layout.");
+    if (patch.numberedSeatsEnabled && before.service_class === "vip") throw new TaxipressError(409, "vip_seat_map_unavailable", "Numbered seats are not offered on the current 13-seat VIP Highroof layout.");
     if (!(await hasColumn('taxipress_taxis','numbered_seats_enabled'))) throw new TaxipressError(503,'migration_pending','Apply numbered-seat migration 0168 first.');
     sets.push('numbered_seats_enabled = ?'); args.push(patch.numberedSeatsEnabled ? 1 : 0);
   }
@@ -257,12 +276,13 @@ async function amountOwed(userId: string): Promise<number> {
 }
 
 /** Join the line at the start stage of a route. */
-export async function joinLine(driverId: string, taxipressRouteId: string, at: { lat?: number; lng?: number }): Promise<LineEntry> {
+export async function joinLine(driverId: string, taxipressRouteId: string, at: { lat?: number; lng?: number }, scheduledVipCheckIn = false): Promise<LineEntry> {
   await requireReady();
   const settings = await getTaxipressSettings();
   if (!settings.enabled) throw new TaxipressError(409, "taxipress_off", "Taxipress isn't running right now.");
   const taxi = await taxiOf(driverId);
   if (!taxi || taxi.status !== "approved") throw new TaxipressError(403, "taxi_not_approved", "Your taxi hasn't been approved yet.");
+  if (taxi.serviceClass === "vip" && !scheduledVipCheckIn) throw new TaxipressError(409, "vip_requires_schedule", "Taxibee VIP Highroof bookings are published as scheduled departures.");
   if (!taxi.passengersEnabled) throw new TaxipressError(403, "passengers_off", "Your taxi isn't set up to take passengers.");
   const stage = await routeStage(taxipressRouteId);
   if (!stage || !stage.active) throw new TaxipressError(404, "route_not_found", "That route isn't running.");

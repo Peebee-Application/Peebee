@@ -69,7 +69,7 @@ function DeparturesTab() {
   async function create(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(null);
     try {
-      await api.adminCreateTaxipressDeparture({ routeId, taxiId, departsAt: new Date(departsAt).toISOString(), ...(capacity ? { capacity: Number(capacity) } : {}) });
+      await api.adminCreateTaxipressDeparture({ routeId, taxiId, departsAt: new Date(departsAt).toISOString(), ...(capacity && selectedTaxi?.service_class !== "vip" ? { capacity: Number(capacity) } : {}) });
       setDepartsAt(""); setCapacity(""); setVersion(v => v + 1);
     } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   }
@@ -86,14 +86,14 @@ function DeparturesTab() {
     <p className="text-xs text-ink-500">Create a published trip on an approved taxi. Fare and route are copied from the active Taxipress route when published.</p>
     <form onSubmit={create} className="grid gap-3 rounded-2xl border border-ink/10 p-4 md:grid-cols-2">
       <Field label="Route"><select required value={routeId} onChange={e => setRouteId(e.target.value)} className={inputCls}><option value="">Choose route</option>{data.routes.map(r => <option key={r.id} value={r.id}>{r.direction === "a_to_b" ? r.stage_a_name + " → " + r.stage_b_name : r.stage_b_name + " → " + r.stage_a_name} · UGX {Number(r.fare_per_seat).toLocaleString()}</option>)}</select></Field>
-      <Field label="Approved taxi"><select required value={taxiId} onChange={e => setTaxiId(e.target.value)} className={inputCls}><option value="">Choose taxi</option>{data.taxis.map(t => <option key={t.id} value={t.id}>{t.plate} · {t.seats} seats</option>)}</select></Field>
+      <Field label="Approved taxi"><select required value={taxiId} onChange={e => { setTaxiId(e.target.value); setCapacity(""); }} className={inputCls}><option value="">Choose taxi</option>{data.taxis.map(t => <option key={t.id} value={t.id}>{t.plate} · {t.service_class === "vip" ? "Taxibee VIP Highroof · 13 seats" : `${t.seat_layout === "18" ? "Highroof" : "Commuter"} · ${t.seats} seats`}</option>)}</select></Field>
       <Field label="Departure date and time (your local time)"><input required type="datetime-local" value={departsAt} onChange={e => setDepartsAt(e.target.value)} className={inputCls} /></Field>
-      <Field label={`Capacity${selectedTaxi ? ` (max ${selectedTaxi.seats})` : ""}`}><input type="number" min={1} max={selectedTaxi?.seats ?? 18} value={capacity} onChange={e => setCapacity(e.target.value)} placeholder="Use all taxi seats" className={inputCls} /></Field>
+      <Field label={`Capacity${selectedTaxi ? ` (max ${selectedTaxi.seats})` : ""}`}><input type="number" min={1} max={selectedTaxi?.seats ?? 18} value={selectedTaxi?.service_class === "vip" ? "13" : capacity} disabled={selectedTaxi?.service_class === "vip"} onChange={e => setCapacity(e.target.value)} placeholder="Use all taxi seats" className={inputCls} /></Field>
       <button disabled={busy || !data.ready} className="min-h-10 rounded-full bg-gold px-4 text-sm font-bold text-ink-gold disabled:opacity-50">Publish departure</button>
       {error ? <ErrorNote message={error} /> : null}
     </form>
     <div className="space-y-2">{data.departures.map(d => <article key={d.id} className="rounded-2xl border border-ink/10 p-4 text-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><b>{d.direction === "a_to_b" ? d.stage_a_name + " → " + d.stage_b_name : d.stage_b_name + " → " + d.stage_a_name}</b><p>{d.plate} · {new Date(String(d.departs_at).replace(" ", "T") + (String(d.departs_at).endsWith("Z") ? "" : "Z")).toLocaleString("en-UG", { timeZone: "Africa/Kampala", dateStyle: "medium", timeStyle: "short" })} · {d.seats_reserved}/{d.capacity} seats · UGX {Number(d.fare_per_seat).toLocaleString()} · {d.state}</p></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><b>{d.direction === "a_to_b" ? d.stage_a_name + " → " + d.stage_b_name : d.stage_b_name + " → " + d.stage_a_name}{d.service_class === "vip" ? " · Taxibee VIP" : ""}</b><p>{d.plate}{d.service_class === "vip" ? " · Highroof" : ""} · {new Date(String(d.departs_at).replace(" ", "T") + (String(d.departs_at).endsWith("Z") ? "" : "Z")).toLocaleString("en-UG", { timeZone: "Africa/Kampala", dateStyle: "medium", timeStyle: "short" })} · {d.seats_reserved}/{d.capacity} seats · UGX {Number(d.fare_per_seat).toLocaleString()} · {d.state}</p></div>
         {d.state === "published" ? <button type="button" disabled={busy} onClick={() => void cancel(String(d.id))} className={`${smallBtn} bg-gold/15 text-ink`}>{Number(d.seats_reserved)>0?"Cancel & refund":"Cancel slot"}</button> : null}</div>
     </article>)}{data.departures.length === 0 ? <p className="text-sm text-ink-500">No departures have been published.</p> : null}</div>
   </section>;
@@ -127,6 +127,7 @@ function SettingsTab() {
       scheduleBookingCutoffMinutes: String(next.scheduleBookingCutoffMinutes), scheduleCheckinMinutes: String(next.scheduleCheckinMinutes),
       scheduleGraceMinutes: String(next.scheduleGraceMinutes), scheduleSpacingMinutes: String(next.scheduleSpacingMinutes),
       scheduleFreeCancelMinutes: String(next.scheduleFreeCancelMinutes), scheduleCancelRetentionPercent: String(next.scheduleCancelRetentionPercent),
+      vipFareMarkupPercent: String(next.vipFareMarkupPercent),
       noShowMinutes: String(next.noShowMinutes), noShowFeePercent: String(next.noShowFeePercent),
       childSeatFarePercent: String(next.childSeatFarePercent), openTicketValidityDays: String(next.openTicketValidityDays), openTicketRefundPercent: String(next.openTicketRefundPercent), luggageOptionsShown: String(next.luggageOptionsShown),
       ...Object.fromEntries(TAXIPRESS_LUGGAGE_TYPES.map((t) => [`luggage_${t}`, next.luggagePrices[t] == null ? "" : String(next.luggagePrices[t])])),
@@ -174,6 +175,7 @@ function SettingsTab() {
         freeCancelMinutes: n("freeCancelMinutes"), cancelRetentionPercent: n("cancelRetentionPercent"), feeTo: s.feeTo,
         noShowMinutes: n("noShowMinutes"), noShowFeePercent: n("noShowFeePercent"), rebookOnRemoval: s.rebookOnRemoval,
         scheduledDeparturesEnabled: s.scheduledDeparturesEnabled, scheduleMaxAdvanceDays: n("scheduleMaxAdvanceDays"), scheduleMinLeadMinutes: n("scheduleMinLeadMinutes"),
+        vipFareMarkupPercent: n("vipFareMarkupPercent"),
         scheduleBookingCutoffMinutes: n("scheduleBookingCutoffMinutes"), scheduleCheckinMinutes: n("scheduleCheckinMinutes"), scheduleGraceMinutes: n("scheduleGraceMinutes"),
         scheduleSpacingMinutes: n("scheduleSpacingMinutes"), scheduleFreeCancelMinutes: n("scheduleFreeCancelMinutes"), scheduleCancelRetentionPercent: n("scheduleCancelRetentionPercent"),
         bookableTaxis: s.bookableTaxis, maxLapChildren: s.maxLapChildren, childSeatFarePercent: n("childSeatFarePercent"),
@@ -354,6 +356,8 @@ function SettingsTab() {
       <Fold title="Future departures">
         <label className="flex items-center gap-2 text-sm font-bold text-ink"><Switch checked={s.scheduledDeparturesEnabled} onChange={(e) => set("scheduledDeparturesEnabled", e.target.checked)} />Offer published future departures</label>
         <p className="text-xs text-ink-500">Published slots use approved taxis and route fares. Reserved places stay separate from the stage queue until the assigned driver checks in.</p>
+        <Field label="VIP Highroof fare uplift (%)">{field("vipFareMarkupPercent", false)}</Field>
+        <p className="text-xs text-ink-500">Applied to the route fare for VIP Highroof departures.</p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Book up to (days ahead)">{field("scheduleMaxAdvanceDays", true)}</Field>
           <Field label="Minimum notice (minutes)">{field("scheduleMinLeadMinutes", true)}</Field>
@@ -547,6 +551,7 @@ function TaxisTab() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-ink-500">Each taxi has one approval and two switches. <b>Passengers</b>: it may join the line and take seats. <b>Parcels</b>: it may carry relay parcels (this switch is used when the relay link is added).</p>
+      <p className="text-xs text-ink-500">Designate VIP only after verifying the Highroof has 13 passenger seats, spacious first-class seating, charging ports, cup holders, complimentary drinking water, working Wi-Fi and an onboard screen. VIP vans sell through scheduled departures and join the ordinary TaxiPress trip flow at check-in.</p>
       <ErrorNote message={error} />
       {taxis.length === 0 && <p className="text-sm text-ink-500">No taxis have applied yet.</p>}
       {taxis.map((t) => (
@@ -554,8 +559,9 @@ function TaxisTab() {
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="text-sm font-bold text-ink">{t.plate} · {t.seats} seats</p>
-              <label className="mt-2 flex items-center gap-2 text-sm"><Switch checked={!!t.numberedSeatsEnabled} disabled={busy === t.id} onChange={e => void update(t,{ numberedSeatsEnabled: e.target.checked })} />Numbered layout checked: {t.seatLayout}-seat diagram</label>
-              <p className="text-xs text-ink-500">Enable only after checking the taxi against the passenger diagram. Takes effect on its next departure.</p>
+              <p className="text-xs text-ink-500">{t.seatLayout === "18" ? "Highroof" : "Commuter"}{t.serviceClass === "vip" ? " · Taxibee VIP · 13 passenger seats" : " · Standard service"}</p>
+              <label className="mt-2 flex items-center gap-2 text-sm"><Switch checked={!!t.numberedSeatsEnabled} disabled={busy === t.id || t.serviceClass === "vip"} onChange={e => void update(t,{ numberedSeatsEnabled: e.target.checked })} />{t.serviceClass === "vip" ? "Numbered seats unavailable for the 13-seat layout" : `Numbered layout checked: ${t.seatLayout}-seat diagram`}</label>
+              <p className="text-xs text-ink-500">{t.serviceClass === "vip" ? "VIP bookings reserve capacity through the shared scheduled-departure flow." : "Enable only after checking the taxi against the passenger diagram. Takes effect on its next departure."}</p>
               <p className="text-xs text-ink-500">{t.driverName ?? "Driver"}{t.driverPhone ? ` · ${t.driverPhone}` : ""} · {t.routeName ?? "Route"}</p>
             </div>
             <Badge tone={t.status === "approved" ? "good" : t.status === "pending" ? "warn" : "bad"}>{t.status}</Badge>
@@ -568,6 +574,7 @@ function TaxisTab() {
             <Switch checked={t.parcelsEnabled} disabled={busy === t.id} onChange={(e) => update(t, { parcelsEnabled: e.target.checked })} />
             Parcels
           </label>
+          {t.seatLayout === "18" ? <label className="flex items-center gap-2 text-sm font-bold text-ink"><Switch checked={t.serviceClass === "vip"} disabled={busy === t.id || t.status !== "approved"} onChange={e => update(t, { serviceClass: e.target.checked ? "vip" : "standard" })} />Taxibee VIP Highroof · 13 seats</label> : null}
           <div className="flex gap-2">
             {t.status !== "approved" && <button type="button" disabled={busy === t.id} onClick={() => update(t, { status: "approved" })} className={`${smallBtn} bg-gold text-ink-gold disabled:opacity-50`}>Approve</button>}
             {t.status !== "suspended" && <button type="button" disabled={busy === t.id} onClick={() => update(t, { status: "suspended" })} className={`${smallBtn} bg-gold/15 text-ink disabled:opacity-50`}>Suspend</button>}
