@@ -65,10 +65,9 @@ export function addConfiguredMapTiles(leaflet: any, map: any, fallback?: HTMLEle
     const tiles = selectTiles(settings);
     if (url === tiles.url) return;
     if (layer) map.removeLayer(layer);
-    if (!map.attributionControl) {
-      const fullPane = map.getContainer().matches("#unified-tracking-map, #parcel-live-map");
-      leaflet.control.attribution(fullPane ? { position: "topright", prefix: false } : {}).addTo(map);
-    }
+    const attribution = map.attributionControl ?? leaflet.control.attribution({ position: "topright", prefix: false }).addTo(map);
+    attribution.setPosition("topright");
+    attribution.setPrefix(false);
     layer = leaflet.tileLayer(tiles.url, { maxZoom: 19, attribution: tiles.attribution });
     if (fallback) {
       let loaded = false;

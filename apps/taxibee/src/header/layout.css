@@ -197,7 +197,7 @@
 .taxibee-customer-chrome #main-content .tracking-unified-container {
   height: calc(100dvh - var(--taxibee-header-height) - var(--taxibee-preview-banner-height, 0px) - var(--taxibee-pane-gutter));
   min-height: 0;
-  margin-bottom: 0;
+  margin-bottom: -10px;
 }
 .taxibee-customer-chrome #main-content:has(> .tracking-unified-container) { padding-bottom: 0; }
 .taxibee-customer-chrome #main-content .tracking-bottom-nav-card {
@@ -216,7 +216,11 @@
   max-height: calc(100% - var(--mobile-nav-height) - var(--safe-bottom) - 36px);
   overflow-y: auto;
 }
-.taxibee-customer-chrome :is(#unified-tracking-map, #parcel-live-map) .leaflet-top.leaflet-right .leaflet-control-attribution {
+.taxibee-customer-chrome #main-content :is(.parcel-live-container, .booking-map-wrapper, .taxibee-reported-map, .smart-review__map-card, .tracking-card-map-preview) {
+  margin-bottom: -10px !important;
+}
+.taxibee-customer-chrome #main-content :is(#unified-tracking-map, #parcel-live-map, .taxibee-reported-map) .leaflet-top.leaflet-right .leaflet-control-attribution,
+.taxibee-customer-chrome #main-content .leaflet-top.leaflet-right .leaflet-control-attribution {
   margin: 8px 10px 0 0;
   border-radius: 5px;
   padding-inline: 5px;
