@@ -195,10 +195,17 @@
   background: transparent;
 }
 .taxibee-customer-chrome #main-content .tracking-unified-container {
-  height: calc(100dvh - var(--taxibee-header-height) - var(--mobile-nav-height) - var(--safe-bottom) - var(--taxibee-preview-banner-height, 0px) - 12px);
-  min-height: 340px;
+  height: calc(100dvh - var(--taxibee-header-height) - var(--taxibee-preview-banner-height, 0px) - var(--taxibee-pane-gutter));
+  min-height: 0;
   margin-bottom: 0;
 }
+.taxibee-customer-chrome #main-content:has(> .tracking-unified-container) { padding-bottom: 0; }
+.taxibee-customer-chrome #main-content .tracking-bottom-nav-card {
+  bottom: calc(var(--mobile-nav-height) + var(--safe-bottom) + 12px);
+  max-height: calc(100% - var(--mobile-nav-height) - var(--safe-bottom) - 82px);
+  overflow-y: auto;
+}
+.taxibee-customer-chrome #main-content .tracking-top-nav-bar { top: 24px; }
 .taxibee-customer-chrome #main-content .tracking-bottom-nav-card__grid-item { min-width: 0; }
 .taxibee-customer-chrome #main-content .tracking-bottom-nav-card__grid-val {
   white-space: normal;
@@ -209,8 +216,10 @@
   max-height: calc(100% - var(--mobile-nav-height) - var(--safe-bottom) - 36px);
   overflow-y: auto;
 }
-.taxibee-customer-chrome #parcel-live-map .leaflet-bottom {
-  bottom: calc(var(--mobile-nav-height) + var(--safe-bottom) + 4px);
+.taxibee-customer-chrome :is(#unified-tracking-map, #parcel-live-map) .leaflet-top.leaflet-right .leaflet-control-attribution {
+  margin: 8px 10px 0 0;
+  border-radius: 5px;
+  padding-inline: 5px;
 }
 .taxibee-customer-chrome .home-redesign .search-row {
   align-items: stretch;

@@ -145,6 +145,17 @@ try {
   await assertPaneBleed(page, '.smart-review__map-card');
   await page.evaluate(() => window.navigate('tracking', { trackingView: 'single', trackingTab: 'travels' }));
   await assertPaneBleed(page, '#unified-tracking-map');
+  const trackingMap = page.locator('#unified-tracking-map');
+  const credits = trackingMap.locator('.leaflet-top.leaflet-right .leaflet-control-attribution');
+  await credits.getByRole('link', { name: /JawgMaps/ }).waitFor();
+  assert.equal(await credits.getByRole('link', { name: /OpenStreetMap/ }).getAttribute('href'), 'https://www.openstreetmap.org/copyright');
+  const trackingBounds = await trackingMap.boundingBox();
+  const trackingPane = await pane.boundingBox();
+  const trackingFooter = await footer.boundingBox();
+  const trackingDetails = await page.locator('.tracking-bottom-nav-card').boundingBox();
+  assert.equal(trackingBounds.y + trackingBounds.height, trackingPane.y + trackingPane.height);
+  assert.ok(trackingBounds.y + trackingBounds.height > trackingFooter.y, 'Tracking map should extend behind the footer');
+  assert.ok(trackingDetails.y + trackingDetails.height <= trackingFooter.y, 'Tracking details should stay above the footer');
   await page.setViewportSize({ width: 1440, height: 1000 });
   await assertPaneBleed(page, '#unified-tracking-map');
   await page.setViewportSize({ width: 390, height: 844 });
