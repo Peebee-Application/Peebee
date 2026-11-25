@@ -37,9 +37,9 @@ try {
   const footer = page.locator('#mobile-nav');
   const goBack = footer.getByRole('button', { name: 'Back', exact: true });
   assert.ok(await footer.getByRole('button', { name: 'Home', exact: true }).isVisible());
-  const brand = header.locator('.taxibee-header-brand');
+  const brand = header.locator('.peebee-header-brand');
   const emblem = await brand.locator('img').boundingBox();
-  const brandCopy = await brand.locator('.taxibee-header-brand-copy').boundingBox();
+  const brandCopy = await brand.locator('.peebee-header-brand-copy').boundingBox();
   assert.equal(emblem.width, 40);
   assert.equal(emblem.height, 40);
   assert.equal(brandCopy.height, emblem.height);

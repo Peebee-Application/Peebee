@@ -3,6 +3,7 @@
 import { Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { customerScrollTop, customerScrollViewport } from "../../lib/customer-scroll";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   armProductCard,
@@ -26,16 +27,17 @@ export function useScrollLink(name: "--buy-s" | "--c", range: number, target: "r
     const el = target === "root" ? document.documentElement : target.current;
     if (!el) return;
     let frame = 0;
-    const apply = () => el.style.setProperty(name, scrollLink(window.scrollY, range).toFixed(3));
+    const viewport = customerScrollViewport();
+    const apply = () => el.style.setProperty(name, scrollLink(customerScrollTop(viewport), range).toFixed(3));
     const onScroll = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(apply);
     };
     apply();
-    window.addEventListener("scroll", onScroll, { passive: true });
+    viewport.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", onScroll);
+      viewport.removeEventListener("scroll", onScroll);
       el.style.removeProperty(name);
     };
   }, [name, range, target]);

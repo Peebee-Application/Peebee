@@ -1,4 +1,5 @@
 "use client";
+import { customerScrollTop } from "../../lib/customer-scroll";
 
 import { DEFAULT_PRODUCT_VARIATIONS, DEFAULT_SHOPPING_UNIT_SETTINGS, resolveProductVariations, type OrderRow, type ProductOption, type ProductVariationSettings, type ShoppingUnitSettings } from "@peebee/shared";
 import {
@@ -75,7 +76,7 @@ function useSpotlightPull(blocked: boolean) {
     let dragging = false;
     let pulled = 0;
 
-    const atTop = () => window.scrollY <= 0 && !blocked && !document.documentElement.classList.contains("customer-menu-open");
+    const atTop = () => customerScrollTop() <= 0 && !blocked && !document.documentElement.classList.contains("customer-drawer-expanded");
     const say = (text: string) => {
       const node = statusRef.current;
       if (node && node.textContent !== text) node.textContent = text;
