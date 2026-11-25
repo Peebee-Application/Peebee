@@ -3240,6 +3240,16 @@ function renderDigitalTicketCard(ticketData = {}, isModal = false) {
         ` : ''}
       </header>
 
+      <!-- Boarding code is the first item beneath the ticket header. -->
+      <div class="ticket-code-area ticket-code-area--top">
+        <div id="ticket-qr-${ticket.id}" class="qr-code-frame" style="background: #ffffff; padding: 12px; border-radius: 16px; border: 1.5px solid var(--border); box-shadow: 0 4px 14px rgba(26,26,26,0.06); width: 160px; height: 160px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px;">
+          ${generateQrSvg(ticket.id || '482915', 136)}
+        </div>
+        <span style="font-size: 0.72rem; text-transform: uppercase; font-weight: 800; color: var(--slate); letter-spacing: 0.08em; display: block;">VERIFICATION CODE</span>
+        <div class="verification-code" style="font-size: 1.85rem; font-weight: 900; letter-spacing: 0.18em; color: var(--brand-blue-dark); margin: 6px 0 4px;">482 915</div>
+        <p style="margin: 0; color: var(--slate); font-size: 0.76rem; font-weight: 600; max-width: 320px;">The code verifies this simulated ticket only.</p>
+      </div>
+
       <div class="ticket-body">
         <!-- Status Banner Box -->
         <div class="ticket-status-banner" style="display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 16px; margin-bottom: 22px; background: ${ticket.status === 'active' ? '#eefbf4' : '#faf8ef'}; border: 1px solid ${ticket.status === 'active' ? '#bbf7d0' : '#f1eee4'};">
@@ -3287,15 +3297,6 @@ function renderDigitalTicketCard(ticketData = {}, isModal = false) {
           ${ticketField('Fare paid', escapeHtml(ticket.price || 'UGX 5,000'))}
         </div>
 
-        <!-- Verification QR Code Area -->
-        <div class="ticket-code-area" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 22px 18px; background: #faf8ef; border-radius: 20px; border: 1px solid var(--border); text-align: center; margin-top: 22px;">
-          <div id="ticket-qr-${ticket.id}" class="qr-code-frame" style="background: #ffffff; padding: 12px; border-radius: 16px; border: 1.5px solid var(--border); box-shadow: 0 4px 14px rgba(26,26,26,0.06); width: 160px; height: 160px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px;">
-            ${generateQrSvg(ticket.id || '482915', 136)}
-          </div>
-          <span style="font-size: 0.72rem; text-transform: uppercase; font-weight: 800; color: var(--slate); letter-spacing: 0.08em; display: block;">VERIFICATION CODE</span>
-          <div class="verification-code" style="font-size: 1.85rem; font-weight: 900; letter-spacing: 0.18em; color: var(--brand-blue-dark); margin: 6px 0 4px;">482 915</div>
-          <p style="margin: 0; color: var(--slate); font-size: 0.76rem; font-weight: 600; max-width: 320px;">The code verifies this simulated ticket only.</p>
-        </div>
       </div>
 
       <div class="ticket-perforation"></div>
@@ -6376,13 +6377,13 @@ function renderTicket() {
   return `${screenHead('Digital passenger ticket', 'Present this QR code or the six-digit verification code when boarding.', '<button class="button button--ghost" type="button" data-action="ticket-states"><i data-lucide="layers-3"></i>Preview States</button>')}
     <article class="digital-ticket">
       <header class="ticket-header"><div class="ticket-brand"><div class="logo-frame logo-frame--ticket"><img src="assets/peebee-logo.svg" alt="Taxibee logo"></div><div><h2>Taxibee</h2><p>Passenger Digital Ticket</p></div></div></header>
+      <div class="ticket-code-area ticket-code-area--top"><div id="ticket-qr" class="ticket-qr-real" aria-label="Scannable demonstration QR code"></div><div><p class="section-kicker">Verification code</p><div class="verification-code">482 915</div><p class="muted text-small">The code verifies this simulated ticket only.</p></div></div>
       <div class="ticket-status-banner ticket-status-banner--${lifecycle}"><i data-lucide="${statusIcons[lifecycle]}"></i><span><strong>${statusLabels[lifecycle]}</strong><small>${statusCopy}</small></span></div>
       <div class="ticket-body">
         <div class="ticket-route"><div class="ticket-route__place"><span>FROM</span><strong>${trip.boarding.replace(' Main Stage','')}</strong><span>${trip.boarding.includes('Main Stage') ? 'Main Stage' : 'Pickup stage'}</span></div><div class="ticket-route__arrow"><i data-lucide="arrow-right"></i></div><div class="ticket-route__place"><span>TO</span><strong>${state.dropOffLocation.replace(' Main Stage','')}</strong><span>${state.dropOffLocation.includes('Main Stage') ? 'Main Stage' : 'Drop-off stage'}</span></div></div>
         <div class="ticket-grid">
           ${ticketField('Passenger',escapeHtml(state.passengerDetails[0]?.name || appData.passenger.name))}${ticketField('Booking reference','FX-260718-1842')}${ticketField('Ticket number','FET-884210')}${ticketField('Travel date',formatDemoDate(state.bookingDate))}${ticketField('Departure',trip.depart)}${ticketField('Boarding time','15 minutes before departure')}${ticketField('Vehicle',trip.plate)}${ticketField('Ticket type',displayReturnType())}${ticketField('Passengers',String(passengerTotal()))}${ticketField('Capacity reference',state.capacityMode === 'seats' ? state.selectedSeats.join(', ') : 'Best available · Position 04')}${ticketField('Payment status',bookingPaymentStatus())}${ticketField('Fare paid',`${formatUGX(checkoutTotal())}${state.luggageQuantities.commercial ? ' + stage assessment' : ''}`)}${ticketField('Luggage',luggageItems || '1 × Small personal item')}${ticketField('Assistance',state.assistance)}${ticketField('Language',state.language)}${ticketField('Return validity',state.ticketType === 'return' ? (state.returnMode === 'date-specific' ? formatDemoDate(state.returnDate) : 'Until 21 Jul 2026 · 10 PM') : 'Not applicable')}
         </div>
-        <div class="ticket-code-area"><div id="ticket-qr" class="ticket-qr-real" aria-label="Scannable demonstration QR code"></div><div><p class="section-kicker">Verification code</p><div class="verification-code">482 915</div><p class="muted text-small">The code verifies this simulated ticket only.</p></div></div>
       </div>
       <div class="ticket-perforation"></div>
       <footer class="ticket-actions">${lifecycle === 'payment-pending' ? `<button class="button button--primary button--small" type="button" data-action="change-seats-unpaid"><i data-lucide="armchair"></i>Change Seats</button>` : ''}<button class="button button--primary button--small" type="button" data-action="download-demo"><i data-lucide="download"></i>Download Ticket</button><button class="button button--ghost button--small" type="button" data-action="share-demo"><i data-lucide="share-2"></i>Share</button><button class="button button--ghost button--small" type="button" data-screen="tracking"><i data-lucide="route"></i>View Route</button><button class="button button--ghost button--small" type="button" data-screen="support"><i data-lucide="headphones"></i>Support</button><button class="button button--soft-red button--small" type="button" data-action="cancel-booking"><i data-lucide="x"></i>Cancel Booking</button></footer>
