@@ -5681,22 +5681,21 @@ function renderTracking() {
           </div>
 
           <!-- Floating Bottom Navigation Sheet -->
-          <details class="tracking-bottom-nav-card" aria-label="${isTravel ? 'Travel ticket details' : 'Delivery details'}">
-            <summary class="tracking-bottom-nav-card__summary">
+          <div class="tracking-bottom-nav-card" role="group" aria-label="${isTravel ? 'Travel ticket details' : 'Delivery details'}">
+            <button class="tracking-bottom-nav-card__toggle" type="button" data-action="toggle-tracking-details" aria-expanded="false" aria-controls="tracking-card-route-details" aria-label="${isTravel ? 'Toggle travel details' : 'Toggle delivery details'}">
               <span class="tracking-bottom-nav-card__header">
                 <span class="tracking-bottom-nav-card__identity">
                   <span class="tracking-bottom-nav-card__label">${isTravel ? 'TRAVEL TICKET ID' : 'DELIVERY ID'}</span>
                   <strong class="tracking-bottom-nav-card__id">${selectedItem.id}</strong>
                 </span>
-                <span class="status-chip ${selectedItem.statusClass}">${selectedItem.status}</span>
+                <span class="tracking-bottom-nav-card__header-actions">
+                  <span class="status-chip ${selectedItem.statusClass}">${selectedItem.status}</span>
+                  <span class="tracking-bottom-nav-card__expand-icon"><i data-lucide="chevron-down" aria-hidden="true"></i></span>
+                </span>
               </span>
-              <span class="tracking-bottom-nav-card__summary-route">
-                <span class="tracking-bottom-nav-card__summary-route-text">${escapeHtml(shortRoute)}</span>
-                <span class="tracking-bottom-nav-card__expand-label">Details <i data-lucide="chevron-down" aria-hidden="true"></i></span>
-              </span>
-            </summary>
+            </button>
 
-            <div class="tracking-bottom-nav-card__expanded">
+            <div class="tracking-bottom-nav-card__expanded" id="tracking-card-route-details" hidden>
               <div class="tracking-bottom-nav-card__grid">
                 ${isTravel ? `
                   <div class="tracking-bottom-nav-card__grid-item tracking-bottom-nav-card__grid-item--route">
@@ -5726,24 +5725,22 @@ function renderTracking() {
                   </div>
                 `}
               </div>
+            </div>
 
-              <hr class="tracking-bottom-nav-card__divider">
-
-              <div class="tracking-bottom-nav-card__driver">
-                <div class="tracking-bottom-nav-card__driver-left" role="button" tabindex="0" onclick="showDriverProfileModal('${selectedItem.driverKey}');" style="cursor: pointer;">
-                  <img src="${selectedItem.avatar}" alt="${selectedItem.driver}" class="tracking-bottom-nav-card__avatar">
-                  <div class="tracking-bottom-nav-card__driver-info">
-                    <strong>${selectedItem.driver}</strong>
-                    <span>Taxibee Driver</span>
-                  </div>
-                </div>
-                <div class="tracking-bottom-nav-card__actions">
-                  <button class="tracking-circle-btn" type="button" data-action="modal-chat-driver" data-value="${selectedItem.driverKey}" aria-label="Chat with driver"><i data-lucide="message-square"></i></button>
-                  <button class="tracking-circle-btn" type="button" data-action="modal-call-driver" data-value="${selectedItem.driverKey}" aria-label="Call driver"><i data-lucide="phone"></i></button>
+            <div class="tracking-bottom-nav-card__driver">
+              <div class="tracking-bottom-nav-card__driver-left" role="button" tabindex="0" onclick="showDriverProfileModal('${selectedItem.driverKey}');" style="cursor: pointer;">
+                <img src="${selectedItem.avatar}" alt="${selectedItem.driver}" class="tracking-bottom-nav-card__avatar">
+                <div class="tracking-bottom-nav-card__driver-info">
+                  <strong>${selectedItem.driver}</strong>
+                  <span>Taxibee Driver</span>
                 </div>
               </div>
+              <div class="tracking-bottom-nav-card__actions">
+                <button class="tracking-circle-btn" type="button" data-action="modal-chat-driver" data-value="${selectedItem.driverKey}" aria-label="Chat with driver"><i data-lucide="message-square"></i></button>
+                <button class="tracking-circle-btn" type="button" data-action="modal-call-driver" data-value="${selectedItem.driverKey}" aria-label="Call driver"><i data-lucide="phone"></i></button>
+              </div>
             </div>
-          </details>
+          </div>
         </div>
       </div>
     `;
@@ -7013,6 +7010,15 @@ function handleClick(event) {
       state.trackingView = 'single';
       state.selectedTrackingId = value || (actionTrigger.dataset && actionTrigger.dataset.id);
       renderCurrentScreen();
+    },
+    'toggle-tracking-details': () => {
+      const card = actionTrigger.closest('.tracking-bottom-nav-card');
+      const panel = card?.querySelector('.tracking-bottom-nav-card__expanded');
+      if (!card || !panel) return;
+      const expanded = actionTrigger.getAttribute('aria-expanded') !== 'true';
+      actionTrigger.setAttribute('aria-expanded', String(expanded));
+      panel.hidden = !expanded;
+      card.classList.toggle('is-expanded', expanded);
     },
     'chat-driver': () => {
       navigate('driver-chat');
