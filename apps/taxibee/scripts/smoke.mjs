@@ -27,6 +27,13 @@ try {
   const pane = page.locator('#app-shell > .workspace');
   const headerBounds = await header.boundingBox();
   const paneBounds = await pane.boundingBox();
+  const headerPaint = () => header.evaluate(el => {
+    const { backgroundColor, backgroundImage, boxShadow } = getComputedStyle(el);
+    return { backgroundColor, backgroundImage, boxShadow };
+  });
+  const homePaint = await headerPaint();
+  assert.notEqual(homePaint.backgroundColor, 'rgba(0, 0, 0, 0)', 'The header must paint its dark background itself');
+  assert.equal(homePaint.boxShadow, 'none');
   await pane.evaluate(el => el.scrollTo({ top: 300, behavior: 'instant' }));
   assert.ok(await pane.evaluate(el => el.scrollTop > 0), 'The middle pane must scroll independently');
   assert.equal(await page.evaluate(() => window.scrollY), 0);
@@ -42,9 +49,29 @@ try {
   });
   assert.deepEqual(badImages, [], 'Replica assets must load');
   await page.screenshot({ path: evidence + '/preview-mobile.png', fullPage: true, animations: 'disabled' });
+  const slides = await page.evaluate(() => {
+    document.querySelector('#mobile-nav [data-screen="tickets"]').click();
+    const names = el => el.getAnimations().map(animation => animation.id);
+    return {
+      header: names(document.querySelector('.customer-header')),
+      page: names(document.querySelector('#main-content')),
+    };
+  });
+  assert.ok(slides.page.includes('taxibee-page-slide'), 'Tickets should slide in beneath the header');
+  assert.ok(!slides.header.includes('taxibee-page-slide'));
+  assert.deepEqual(await headerPaint(), homePaint, 'Tickets must keep the Home header backdrop');
+  assert.deepEqual(await header.boundingBox(), headerBounds);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const reducedMotionSlide = await page.evaluate(() => {
+    window.navigate('wallet');
+    return document.querySelector('#main-content').getAnimations().some(animation => animation.id === 'taxibee-page-slide');
+  });
+  assert.equal(reducedMotionSlide, false);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
   for (const screen of ['book','tickets','trips','wallet','profile','parcel','special-hire','offers','support','about']) {
     await page.evaluate(s => window.navigate(s), screen);
     assert.ok(await page.locator('#main-content').innerText());
+    assert.deepEqual(await headerPaint(), homePaint, `${screen} must keep the header backdrop`);
   }
   await page.evaluate(() => {
     const s = window.TaxibeeSource.state;

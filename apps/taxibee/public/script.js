@@ -1520,6 +1520,7 @@ function navigate(screen, payload = {}, pushHistory = true) {
     showAuth('signin');
     return;
   }
+  const screenChanged = document.body.dataset.activeScreen !== screen;
   if (pushHistory && state.screen && state.screen !== screen) state.history.push(state.screen);
   if (screen !== 'book' && !['trip-details', 'passengers', 'returns', 'luggage', 'checkout'].includes(screen)) {
     state.selectedRoute = null;
@@ -1536,7 +1537,18 @@ function navigate(screen, payload = {}, pushHistory = true) {
   $('#topbar-share-button')?.classList.toggle('is-hidden', screen !== 'parcel-status');
   renderNavigation();
   renderCurrentScreen(false);
-  pageScroller().scrollTo({ top: 0, behavior: document.body.classList.contains('reduce-motion') ? 'instant' : 'smooth' });
+  pageScroller().scrollTo({ top: 0, behavior: 'instant' });
+  if (screenChanged) {
+    const content = $('#main-content');
+    content.getAnimations().find(animation => animation.id === 'taxibee-page-slide')?.cancel();
+    if (!document.body.classList.contains('reduce-motion') && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      content.animate({ top: ['12px', '0px'] }, {
+        id: 'taxibee-page-slide',
+        duration: 180,
+        easing: 'ease-out',
+      });
+    }
+  }
   setTimeout(() => {
     const target = screen === 'success' ? $('#success-title') : $('#main-content h1') || $('#main-content');
     if (target && !target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
@@ -1546,12 +1558,7 @@ function navigate(screen, payload = {}, pushHistory = true) {
 
 function goBack() {
   if ((state.screen === 'tracking' && state.trackingView === 'single') || state.screen === 'trackparcel' || state.screen === 'parcel-status') {
-    state.screen = 'tracking';
-    state.trackingView = 'hub';
-    state.selectedTrackingId = null;
-    $('#screen-title').textContent = 'Tracking';
-    renderNavigation();
-    renderCurrentScreen();
+    navigate('tracking', { trackingView: 'hub', selectedTrackingId: null }, false);
     return;
   }
   const previous = state.history.pop() || 'home';
