@@ -39,7 +39,10 @@ function selectTiles(settings: MapSettings) {
       const style = preference === "dark" || (preference === "auto" && dark) ? "jawg-dark"
         : preference === "light" || (preference === "auto" && settings.lightStyle === "light") ? "jawg-light"
         : "jawg-sunny";
-      return { url: `https://tile.jawg.io/${style}/{z}/{x}/{y}{r}.png?access-token=${key}`, attribution: `${osmAttribution} &copy; Jawg` };
+      return {
+        url: `https://tile.jawg.io/${style}/{z}/{x}/{y}{r}.png?access-token=${key}`,
+        attribution: '<a href="https://www.jawg.io/">&copy; JawgMaps</a> · <a href="https://www.openstreetmap.org/copyright">&copy; OpenStreetMap</a>',
+      };
     }
     case "tomtom":
       return { url: `https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=${key}`, attribution: "&copy; TomTom" };
@@ -62,7 +65,10 @@ export function addConfiguredMapTiles(leaflet: any, map: any, fallback?: HTMLEle
     const tiles = selectTiles(settings);
     if (url === tiles.url) return;
     if (layer) map.removeLayer(layer);
-    if (!map.attributionControl) leaflet.control.attribution().addTo(map);
+    if (!map.attributionControl) {
+      const fullPane = map.getContainer().matches("#unified-tracking-map, #parcel-live-map");
+      leaflet.control.attribution(fullPane ? { position: "topright", prefix: false } : {}).addTo(map);
+    }
     layer = leaflet.tileLayer(tiles.url, { maxZoom: 19, attribution: tiles.attribution });
     if (fallback) {
       let loaded = false;
