@@ -56,7 +56,12 @@ function selectTiles(settings: MapSettings) {
   }
 }
 
-export function addConfiguredMapTiles(leaflet: any, map: any, fallback?: HTMLElement | null) {
+export function addConfiguredMapTiles(
+  leaflet: any,
+  map: any,
+  fallback?: HTMLElement | null,
+  attributionPosition: "topleft" | "topright" | "bottomleft" | "bottomright" = "topright",
+) {
   let active = true;
   let layer: any;
   let url = "";
@@ -65,8 +70,8 @@ export function addConfiguredMapTiles(leaflet: any, map: any, fallback?: HTMLEle
     const tiles = selectTiles(settings);
     if (url === tiles.url) return;
     if (layer) map.removeLayer(layer);
-    const attribution = map.attributionControl ?? leaflet.control.attribution({ position: "topright", prefix: false }).addTo(map);
-    attribution.setPosition("topright");
+    const attribution = map.attributionControl ?? leaflet.control.attribution({ position: attributionPosition, prefix: false }).addTo(map);
+    attribution.setPosition(attributionPosition);
     attribution.setPrefix(false);
     layer = leaflet.tileLayer(tiles.url, { maxZoom: 19, attribution: tiles.attribution });
     if (fallback) {

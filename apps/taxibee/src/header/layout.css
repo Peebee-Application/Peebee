@@ -201,9 +201,15 @@
 }
 .taxibee-customer-chrome #main-content:has(> .tracking-unified-container) { padding-bottom: 0; }
 .taxibee-customer-chrome #main-content .tracking-bottom-nav-card {
-  bottom: calc(var(--mobile-nav-height) + var(--safe-bottom) + 12px);
+  bottom: calc(var(--mobile-nav-height) + var(--safe-bottom) + 30px);
   max-height: calc(100% - var(--mobile-nav-height) - var(--safe-bottom) - 82px);
   overflow-y: auto;
+}
+.taxibee-customer-chrome #main-content #unified-tracking-map .leaflet-bottom.leaflet-right { bottom: calc(var(--mobile-nav-height) + var(--safe-bottom) + 6px); }
+.taxibee-customer-chrome #main-content #unified-tracking-map .leaflet-bottom.leaflet-right .leaflet-control-attribution {
+  margin: 0 10px 0 0;
+  border-radius: 5px;
+  padding-inline: 5px;
 }
 .taxibee-customer-chrome #main-content .tracking-top-nav-bar { top: 24px; }
 .taxibee-customer-chrome #main-content .tracking-bottom-nav-card__grid-item { min-width: 0; }
