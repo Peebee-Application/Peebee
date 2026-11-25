@@ -3205,7 +3205,8 @@ body.drawer-open .home-redesign .mobile-nav {
   box-shadow: 0 2px 6px rgba(10,10,10,0.22) !important;
 }
 .trip-map-vehicle-label::before { display: none !important; }
-.taxibee-route-van { filter: drop-shadow(0 2px 3px rgba(10,10,10,0.32)); }
+.taxibee-route-van { filter: drop-shadow(0 2px 3px rgba(10,10,10,0.32)); background: transparent; border: 0; }
+.taxibee-route-van__image { display: block; width: 20px; height: 32px; transform-origin: center center; transition: transform 260ms linear; }
 
 /* =========================================================
    Redesigned Parcel Tracking Screen 1 & Screen 2 Styles
@@ -3657,7 +3658,7 @@ body[data-active-screen="trackparcel"] .main-content {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 24px;
-  padding: 20px 22px;
+  padding: 0;
   box-shadow: 0 20px 50px -10px rgba(26,26,26, 0.22), 0 0 0 1px rgba(26,26,26, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.85);
   animation: modalPopIn 0.3s ease;
@@ -3666,21 +3667,62 @@ body[data-active-screen="trackparcel"] .main-content {
 .tracking-bottom-nav-card__header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  gap: 12px;
 }
+
+.tracking-bottom-nav-card__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+.tracking-bottom-nav-card__summary::-webkit-details-marker { display: none; }
+.tracking-bottom-nav-card__summary:focus-visible { outline: 3px solid var(--brand-blue); outline-offset: -3px; border-radius: 20px; }
+.tracking-bottom-nav-card__identity { min-width: 0; }
+.tracking-bottom-nav-card__summary-route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  color: var(--brand-blue-dark);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+.tracking-bottom-nav-card__summary-route-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tracking-bottom-nav-card__expand-label { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; color: var(--slate); font-size: 0.72rem; font-weight: 700; }
+.tracking-bottom-nav-card__expand-label svg { width: 14px; height: 14px; transition: transform 160ms ease; }
+.tracking-bottom-nav-card[open] .tracking-bottom-nav-card__expand-label svg { transform: rotate(180deg); }
+.tracking-bottom-nav-card[open] .tracking-bottom-nav-card__summary { border-bottom: 1px solid var(--border-subtle); }
+.tracking-bottom-nav-card__expanded { padding: 0 14px 12px; }
+.tracking-bottom-nav-card__grid-item--route { grid-column: 1 / -1; }
+.tracking-bottom-nav-card__grid-item--route .tracking-bottom-nav-card__grid-val { white-space: normal; }
+.tracking-bottom-nav-card .status-chip { flex-shrink: 0; padding: 5px 10px; font-size: 0.72rem; }
+.tracking-bottom-nav-card__label { margin-bottom: 0; font-size: 0.65rem; }
+.tracking-bottom-nav-card__id { font-size: 1.02rem; }
+.tracking-bottom-nav-card__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; padding: 10px 12px; border-radius: 14px; }
+.tracking-bottom-nav-card__divider { margin: 10px 0; }
+.tracking-bottom-nav-card__avatar { width: 38px; height: 38px; }
+.tracking-bottom-nav-card__driver-info strong { font-size: 0.86rem; }
+.tracking-bottom-nav-card__driver-info span { font-size: 0.7rem; }
+.tracking-bottom-nav-card__actions { gap: 8px; }
+.tracking-bottom-nav-card__actions .tracking-circle-btn { width: 38px; height: 38px; }
 
 .tracking-bottom-nav-card__label {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: var(--slate);
   font-weight: 750;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin-bottom: 3px;
+  margin-bottom: 0;
 }
 
 .tracking-bottom-nav-card__id {
-  font-size: 1.25rem;
+  font-size: 1.02rem;
   font-weight: 850;
   color: var(--brand-blue-dark);
   letter-spacing: -0.01em;
@@ -3721,13 +3763,13 @@ body[data-active-screen="trackparcel"] .main-content {
 
 .tracking-bottom-nav-card__grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
   background: var(--surface-alt);
   border: 1px solid var(--border-subtle);
-  padding: 12px 14px;
-  border-radius: 16px;
+  padding: 10px 12px;
+  border-radius: 14px;
 }
 
 .tracking-bottom-nav-card__grid-item {
@@ -3756,7 +3798,7 @@ body[data-active-screen="trackparcel"] .main-content {
 .tracking-bottom-nav-card__divider {
   border: none;
   border-top: 1px solid var(--border-subtle);
-  margin: 16px 0;
+  margin: 10px 0;
 }
 
 .tracking-bottom-nav-card__driver {
@@ -3772,8 +3814,8 @@ body[data-active-screen="trackparcel"] .main-content {
 }
 
 .tracking-bottom-nav-card__avatar {
-  width: 46px;
-  height: 46px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid white;
@@ -3783,20 +3825,20 @@ body[data-active-screen="trackparcel"] .main-content {
 
 .tracking-bottom-nav-card__driver-info strong {
   display: block;
-  font-size: 0.98rem;
+  font-size: 0.86rem;
   font-weight: 850;
   color: var(--brand-blue-dark);
 }
 
 .tracking-bottom-nav-card__driver-info span {
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   color: var(--slate);
   font-weight: 600;
 }
 
 .tracking-bottom-nav-card__actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .tracking-circle-btn {
@@ -3843,11 +3885,11 @@ body[data-active-screen="trackparcel"] .main-content {
     bottom: 12px;
     left: 12px;
     right: 12px;
-    padding: 16px;
+    padding: 0;
     border-radius: 20px;
   }
   .tracking-bottom-nav-card__grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

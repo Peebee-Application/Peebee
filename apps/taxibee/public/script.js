@@ -3726,8 +3726,7 @@ function startLiveProgress() {
     const label = $('#live-progress-value'); if (label) label.textContent = `${state.routeProgress}%`;
     
     if (liveTravelMap && liveVehicleMarker) {
-      const idx = Math.min(points.length - 1, Math.floor((state.routeProgress / 100) * points.length));
-      liveVehicleMarker.setLatLng(points[idx]);
+      setVanMapPosition(liveVehicleMarker, liveVehicleRoutePoints.length ? liveVehicleRoutePoints : points, state.routeProgress);
     }
     
     const currentTownIdx = Math.min(towns.length - 1, Math.floor((state.routeProgress / 100) * towns.length));
@@ -4718,7 +4717,7 @@ function initParcelMap() {
   L.circleMarker(points[0], { color: '#ffffff', fillColor: '#ffffff', fillOpacity: 1, radius: 8, weight: 0 }).addTo(parcelMap);
   L.circleMarker(points[0], { color: '#000000', fillColor: '#000000', fillOpacity: 1, radius: 4, weight: 0 }).addTo(parcelMap);
   const vehicleIndex = Math.min(points.length - 2, Math.max(1, Math.floor(points.length * 0.45)));
-  L.marker(points[vehicleIndex], { icon: createVanMapIcon() }).addTo(parcelMap);
+  L.marker(points[vehicleIndex], { icon: createVanMapIcon(routeBearingAt(points, vehicleIndex)) }).addTo(parcelMap);
 
   // End pin marker
   const pinIcon = L.divIcon({
@@ -5550,8 +5549,9 @@ function initTrackingCardMaps() {
       L.circleMarker(outbound[0], { color: '#fff', fillColor: '#10b981', fillOpacity: 1, radius: 6, weight: 2.5 }).addTo(miniMap);
       L.circleMarker(outbound[outbound.length - 1], { color: '#fff', fillColor: '#ef4444', fillOpacity: 1, radius: 6, weight: 2.5 }).addTo(miniMap);
 
-      const vehiclePos = item.type === 'travel' ? outbound[5] : (idx % 2 === 0 ? outbound[3] : outbound[7]);
-      L.marker(vehiclePos, { icon: createVanMapIcon() }).addTo(miniMap);
+      const vehicleIndex = item.type === 'travel' ? 5 : (idx % 2 === 0 ? 3 : 7);
+      const vehiclePos = outbound[vehicleIndex];
+      L.marker(vehiclePos, { icon: createVanMapIcon(routeBearingAt(outbound, vehicleIndex)) }).addTo(miniMap);
 
       const bounds = L.latLngBounds(outbound);
       miniMap.fitBounds(bounds, { padding: [20, 20] });
@@ -5664,6 +5664,12 @@ function renderTracking() {
   if (state.trackingView === 'single') {
     const selectedItem = filteredItems.find(i => i.id === state.selectedTrackingId) || filteredItems[0] || travelItems[0];
     const isTravel = selectedItem.type === 'travel';
+    const routeParts = String(selectedItem.route || selectedItem.title || '').split('→');
+    const shortRoute = routeParts.length === 2
+      ? routeParts.map(place => place.replace(/\b(?:Bus Park|Railway Stage|Main Stage|Taxi Park|Stage)\b/gi, '').trim()).join(' → ')
+      : String(selectedItem.route || selectedItem.title || 'Route details');
+    const compactVehicle = String(selectedItem.vehicle || '').replace(/\s*\((Highroof|Commuter)\s*\((\d+)\)\)/i, ' · $1').replace(/\s*\((Hiace|Coaster)\)/i, ' · $1');
+    const compactTime = String(selectedItem.time || '').replace(/^(\d{1,2})\s+([A-Za-z]+)\s+\d{4}\s*·\s*/, (_, day, month) => `${day} ${month.slice(0, 3)} · `);
 
     return `
       <div class="tracking-unified-container taxibee-pane-hero">
@@ -5674,69 +5680,70 @@ function renderTracking() {
             <strong style="font-size: 0.95rem; color: var(--brand-blue-dark);">Connecting Live Navigation Map...</strong>
           </div>
 
-          <div class="tracking-top-nav-bar" style="justify-content: flex-end; padding: 12px 16px;">
-            <div class="tracking-top-status-pill" style="box-shadow: 0 4px 14px rgba(26,26,26,0.15);">
-              <span class="pulse-dot"></span>
-              <span>${selectedItem.status}</span>
-            </div>
-          </div>
-
           <!-- Floating Bottom Navigation Sheet -->
-          <div class="tracking-bottom-nav-card">
-            <div class="tracking-bottom-nav-card__header">
-              <div>
-                <span class="tracking-bottom-nav-card__label">${isTravel ? 'TRAVEL TICKET ID' : 'DELIVERY ID'}</span>
-                <strong class="tracking-bottom-nav-card__id">${selectedItem.id}</strong>
-              </div>
-              <span class="status-chip ${selectedItem.statusClass}">${selectedItem.status}</span>
-            </div>
+          <details class="tracking-bottom-nav-card" aria-label="${isTravel ? 'Travel ticket details' : 'Delivery details'}">
+            <summary class="tracking-bottom-nav-card__summary">
+              <span class="tracking-bottom-nav-card__header">
+                <span class="tracking-bottom-nav-card__identity">
+                  <span class="tracking-bottom-nav-card__label">${isTravel ? 'TRAVEL TICKET ID' : 'DELIVERY ID'}</span>
+                  <strong class="tracking-bottom-nav-card__id">${selectedItem.id}</strong>
+                </span>
+                <span class="status-chip ${selectedItem.statusClass}">${selectedItem.status}</span>
+              </span>
+              <span class="tracking-bottom-nav-card__summary-route">
+                <span class="tracking-bottom-nav-card__summary-route-text">${escapeHtml(shortRoute)}</span>
+                <span class="tracking-bottom-nav-card__expand-label">Details <i data-lucide="chevron-down" aria-hidden="true"></i></span>
+              </span>
+            </summary>
 
-            <div class="tracking-bottom-nav-card__grid">
-              ${isTravel ? `
-                <div class="tracking-bottom-nav-card__grid-item">
-                  <span class="tracking-bottom-nav-card__grid-label">Route</span>
-                  <strong class="tracking-bottom-nav-card__grid-val">${selectedItem.route}</strong>
-                </div>
-                <div class="tracking-bottom-nav-card__grid-item">
-                  <span class="tracking-bottom-nav-card__grid-label">Vehicle</span>
-                  <strong class="tracking-bottom-nav-card__grid-val">${selectedItem.vehicle}</strong>
-                </div>
-                <div class="tracking-bottom-nav-card__grid-item">
-                  <span class="tracking-bottom-nav-card__grid-label">Departure</span>
-                  <strong class="tracking-bottom-nav-card__grid-val">${selectedItem.time}</strong>
-                </div>
-              ` : `
-                <div class="tracking-bottom-nav-card__grid-item">
-                  <span class="tracking-bottom-nav-card__grid-label">Tariff</span>
-                  <strong class="tracking-bottom-nav-card__grid-val">${selectedItem.tariff}</strong>
-                </div>
-                <div class="tracking-bottom-nav-card__grid-item">
-                  <span class="tracking-bottom-nav-card__grid-label">Weight</span>
-                  <strong class="tracking-bottom-nav-card__grid-val">${selectedItem.weight}</strong>
-                </div>
-                <div class="tracking-bottom-nav-card__grid-item">
-                  <span class="tracking-bottom-nav-card__grid-label">To</span>
-                  <strong class="tracking-bottom-nav-card__grid-val">${selectedItem.recipient}</strong>
-                </div>
-              `}
-            </div>
+            <div class="tracking-bottom-nav-card__expanded">
+              <div class="tracking-bottom-nav-card__grid">
+                ${isTravel ? `
+                  <div class="tracking-bottom-nav-card__grid-item tracking-bottom-nav-card__grid-item--route">
+                    <span class="tracking-bottom-nav-card__grid-label">Route</span>
+                    <strong class="tracking-bottom-nav-card__grid-val">${escapeHtml(shortRoute)}</strong>
+                  </div>
+                  <div class="tracking-bottom-nav-card__grid-item">
+                    <span class="tracking-bottom-nav-card__grid-label">Vehicle</span>
+                    <strong class="tracking-bottom-nav-card__grid-val">${escapeHtml(compactVehicle)}</strong>
+                  </div>
+                  <div class="tracking-bottom-nav-card__grid-item">
+                    <span class="tracking-bottom-nav-card__grid-label">Departure</span>
+                    <strong class="tracking-bottom-nav-card__grid-val">${escapeHtml(compactTime)}</strong>
+                  </div>
+                ` : `
+                  <div class="tracking-bottom-nav-card__grid-item">
+                    <span class="tracking-bottom-nav-card__grid-label">Tariff</span>
+                    <strong class="tracking-bottom-nav-card__grid-val">${selectedItem.tariff}</strong>
+                  </div>
+                  <div class="tracking-bottom-nav-card__grid-item">
+                    <span class="tracking-bottom-nav-card__grid-label">Weight</span>
+                    <strong class="tracking-bottom-nav-card__grid-val">${selectedItem.weight}</strong>
+                  </div>
+                  <div class="tracking-bottom-nav-card__grid-item">
+                    <span class="tracking-bottom-nav-card__grid-label">To</span>
+                    <strong class="tracking-bottom-nav-card__grid-val">${selectedItem.recipient}</strong>
+                  </div>
+                `}
+              </div>
 
-            <hr class="tracking-bottom-nav-card__divider">
+              <hr class="tracking-bottom-nav-card__divider">
 
-            <div class="tracking-bottom-nav-card__driver">
-              <div class="tracking-bottom-nav-card__driver-left" role="button" tabindex="0" onclick="showDriverProfileModal('${selectedItem.driverKey}');" style="cursor: pointer;">
-                <img src="${selectedItem.avatar}" alt="${selectedItem.driver}" class="tracking-bottom-nav-card__avatar">
-                <div class="tracking-bottom-nav-card__driver-info">
-                  <strong>${selectedItem.driver}</strong>
-                  <span>Taxibee Driver</span>
+              <div class="tracking-bottom-nav-card__driver">
+                <div class="tracking-bottom-nav-card__driver-left" role="button" tabindex="0" onclick="showDriverProfileModal('${selectedItem.driverKey}');" style="cursor: pointer;">
+                  <img src="${selectedItem.avatar}" alt="${selectedItem.driver}" class="tracking-bottom-nav-card__avatar">
+                  <div class="tracking-bottom-nav-card__driver-info">
+                    <strong>${selectedItem.driver}</strong>
+                    <span>Taxibee Driver</span>
+                  </div>
+                </div>
+                <div class="tracking-bottom-nav-card__actions">
+                  <button class="tracking-circle-btn" type="button" data-action="modal-chat-driver" data-value="${selectedItem.driverKey}" aria-label="Chat with driver"><i data-lucide="message-square"></i></button>
+                  <button class="tracking-circle-btn" type="button" data-action="modal-call-driver" data-value="${selectedItem.driverKey}" aria-label="Call driver"><i data-lucide="phone"></i></button>
                 </div>
               </div>
-              <div class="tracking-bottom-nav-card__actions">
-                <button class="tracking-circle-btn" type="button" data-action="modal-chat-driver" data-value="${selectedItem.driverKey}" aria-label="Chat with driver"><i data-lucide="message-square"></i></button>
-                <button class="tracking-circle-btn" type="button" data-action="modal-call-driver" data-value="${selectedItem.driverKey}" aria-label="Call driver"><i data-lucide="phone"></i></button>
-              </div>
             </div>
-          </div>
+          </details>
         </div>
       </div>
     `;
@@ -5789,6 +5796,7 @@ let tripReviewScrollFrame = null;
 let bookingStep2Map = null;
 let liveTravelMap = null;
 let liveVehicleMarker = null;
+let liveVehicleRoutePoints = [];
 
 function getCurrentRoutePoints(routeKey, isReverse = false) {
   const outbound = [[0.0618, 32.4742], [0.0934, 32.4705], [0.1340, 32.5220], [0.1870, 32.5350], [0.2185, 32.5398], [0.2480, 32.5550], [0.2680, 32.5650], [0.2880, 32.5680], [0.2990, 32.5720], [0.3122, 32.5883]];
@@ -5836,7 +5844,7 @@ function fetchCustomerRoadRoute(points) {
   return request;
 }
 
-function addCustomerRoadRoute(map, points) {
+function addCustomerRoadRoute(map, points, onRoadPoints) {
   const outline = L.polyline(points, {
     color: '#FDFBF7', opacity: 0.95, weight: 9, lineCap: 'round', lineJoin: 'round', interactive: false
   }).addTo(map);
@@ -5845,17 +5853,102 @@ function addCustomerRoadRoute(map, points) {
   }).addTo(map);
 
   void fetchCustomerRoadRoute(points).then(roadPoints => {
-    if (!roadPoints || !map.hasLayer(outline) || !map.hasLayer(route)) return;
+    if (!map.hasLayer(outline) || !map.hasLayer(route)) return;
+    if (!roadPoints) {
+      onRoadPoints?.(points);
+      return;
+    }
     outline.setLatLngs(roadPoints);
     route.setLatLngs(roadPoints);
     route.setStyle({ dashArray: null });
+    onRoadPoints?.(roadPoints);
   });
   return route;
 }
 
-function createVanMapIcon() {
-  return L.icon({
-    iconUrl: '/assets/svan-map.webp',
+function routeBearing(from, to) {
+  const toRadians = value => value * Math.PI / 180;
+  const toDegrees = value => value * 180 / Math.PI;
+  const [lat1, lng1] = from.map(toRadians);
+  const [lat2, lng2] = to.map(toRadians);
+  const deltaLng = lng2 - lng1;
+  const y = Math.sin(deltaLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLng);
+  return (toDegrees(Math.atan2(y, x)) + 360) % 360;
+}
+
+function routeBearingAt(points, index) {
+  if (!Array.isArray(points) || points.length < 2) return 0;
+  const segment = Math.max(0, Math.min(points.length - 2, Math.floor(index)));
+  return routeBearing(points[segment], points[segment + 1]);
+}
+
+function nearestRouteIndex(points, location) {
+  if (!Array.isArray(points) || points.length < 2) return 0;
+  const [lat, lng] = location;
+  let closest = 0;
+  let distance = Number.POSITIVE_INFINITY;
+  points.forEach(([pointLat, pointLng], index) => {
+    const current = (pointLat - lat) ** 2 + ((pointLng - lng) * Math.cos(lat * Math.PI / 180)) ** 2;
+    if (current < distance) { distance = current; closest = index; }
+  });
+  return Math.min(closest, points.length - 2);
+}
+
+function setVanMapHeading(marker, heading) {
+  const degrees = (Number(heading) % 360 + 360) % 360;
+  const image = marker.getElement?.()?.querySelector('.taxibee-route-van__image');
+  if (image) {
+    const current = Number(image.dataset.heading || 0);
+    const turn = ((degrees - current + 540) % 360) - 180;
+    const next = current + turn;
+    image.dataset.heading = String(next);
+    image.style.transform = `rotate(${next}deg)`;
+  }
+  else if (marker.setIcon) marker.setIcon(createVanMapIcon(degrees));
+}
+
+function routePositionAtProgress(points, progress) {
+  if (!Array.isArray(points) || points.length < 2) return null;
+  const lengths = [];
+  let total = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    const [lat1, lng1] = points[i];
+    const [lat2, lng2] = points[i + 1];
+    const deltaLat = lat2 - lat1;
+    const deltaLng = (lng2 - lng1) * Math.cos(((lat1 + lat2) / 2) * Math.PI / 180);
+    const length = Math.hypot(deltaLat, deltaLng);
+    lengths.push(length);
+    total += length;
+  }
+  if (!total) return { point: points[0], heading: 0 };
+  let remaining = total * Math.max(0, Math.min(1, Number(progress) / 100));
+  for (let i = 0; i < lengths.length; i++) {
+    const length = lengths[i];
+    if (remaining <= length || i === lengths.length - 1) {
+      const amount = length ? Math.max(0, Math.min(1, remaining / length)) : 0;
+      const from = points[i], to = points[i + 1];
+      return {
+        point: [from[0] + (to[0] - from[0]) * amount, from[1] + (to[1] - from[1]) * amount],
+        heading: routeBearing(from, to)
+      };
+    }
+    remaining -= length;
+  }
+  return { point: points[points.length - 1], heading: routeBearingAt(points, points.length - 2) };
+}
+
+function setVanMapPosition(marker, points, progress) {
+  const position = routePositionAtProgress(points, progress);
+  if (!position) return;
+  marker.setLatLng(position.point);
+  setVanMapHeading(marker, position.heading);
+}
+
+function createVanMapIcon(heading = 0) {
+  const degrees = (Number(heading) % 360 + 360) % 360;
+  return L.divIcon({
+    html: `<img class="taxibee-route-van__image" src="/assets/svan-map.webp" alt="" aria-hidden="true" data-heading="${degrees}" style="transform: rotate(${degrees}deg)">`,
     iconSize: [20, 32],
     iconAnchor: [10, 16],
     className: 'taxibee-route-van'
@@ -6133,7 +6226,7 @@ function initTripMap() {
   if (state.activeTrip) {
     const markerIdx = state.activeTrip.markerIndex !== undefined ? state.activeTrip.markerIndex : 0;
     const vehiclePoint = points[Math.min(points.length - 1, markerIdx)];
-    L.marker(vehiclePoint, { icon: createVanMapIcon() }).addTo(tripReviewMap);
+    L.marker(vehiclePoint, { icon: createVanMapIcon(routeBearingAt(points, markerIdx)) }).addTo(tripReviewMap);
   }
   
   const bounds = L.latLngBounds(points);
@@ -6220,22 +6313,30 @@ function initLiveTravelMap() {
   if (liveTravelMap) {
     liveTravelMap.remove();
     liveTravelMap = null;
+    liveVehicleMarker = null;
+    liveVehicleRoutePoints = [];
   }
   
   liveTravelMap = L.map(target, { attributionControl: false, boxZoom: true, doubleClickZoom: true, dragging: true, keyboard: true, scrollWheelZoom: false, touchZoom: true, zoomControl: true });
+  const liveMapInstance = liveTravelMap;
   
   window.addTaxibeeMapTiles(liveTravelMap, fallback);
   
-  addCustomerRoadRoute(liveTravelMap, points);
+  liveVehicleRoutePoints = points;
+  addCustomerRoadRoute(liveTravelMap, points, roadPoints => {
+    if (!target.isConnected || liveTravelMap !== liveMapInstance) return;
+    liveVehicleRoutePoints = roadPoints;
+    if (liveVehicleMarker) setVanMapPosition(liveVehicleMarker, roadPoints, state.routeProgress);
+  });
   
   L.circleMarker(points[0], { color: '#fff', fillColor: '#10b981', fillOpacity: 1, radius: 9, weight: 4 }).addTo(liveTravelMap);
   L.circleMarker(points[points.length - 1], { color: '#fff', fillColor: '#ef4444', fillOpacity: 1, radius: 9, weight: 4 }).addTo(liveTravelMap);
   
-  const startProgressIdx = Math.floor((state.routeProgress / 100) * points.length);
-  const vehiclePoint = points[Math.min(points.length - 1, startProgressIdx)];
+  const startPosition = routePositionAtProgress(points, state.routeProgress);
+  const vehiclePoint = startPosition?.point || points[Math.min(points.length - 1, Math.floor((state.routeProgress / 100) * points.length))];
   
   const plate = state.activeTrip ? state.activeTrip.plate : 'UBM 245K';
-  liveVehicleMarker = L.marker(vehiclePoint, { icon: createVanMapIcon() })
+  liveVehicleMarker = L.marker(vehiclePoint, { icon: createVanMapIcon(startPosition?.heading || routeBearingAt(points, Math.floor((state.routeProgress / 100) * points.length))) })
     .bindTooltip(plate, { permanent: true, direction: 'top', offset: [0, -20], className: 'trip-map-vehicle-label' })
     .addTo(liveTravelMap);
     
@@ -6307,29 +6408,35 @@ function initTrackingMap() {
   const outbound = [[0.0618, 32.4742], [0.0934, 32.4705], [0.1340, 32.5220], [0.1870, 32.5350], [0.2185, 32.5398], [0.2480, 32.5550], [0.2680, 32.5650], [0.2880, 32.5680], [0.2990, 32.5720], [0.3122, 32.5883]];
 
   unifiedTrackingMap = L.map(target, { attributionControl: false, boxZoom: true, doubleClickZoom: true, dragging: true, keyboard: true, zoomControl: true });
+  const trackingMapInstance = unifiedTrackingMap;
 
-  window.addTaxibeeMapTiles(unifiedTrackingMap, fallback);
+  window.addTaxibeeMapTiles(unifiedTrackingMap, fallback, 'bottomright');
 
-  addCustomerRoadRoute(unifiedTrackingMap, outbound);
+  const trackingVehicleMarkers = [];
+  addCustomerRoadRoute(unifiedTrackingMap, outbound, roadPoints => {
+    if (!target.isConnected || unifiedTrackingMap !== trackingMapInstance) return;
+    trackingVehicleMarkers.forEach(({ marker, point }) => {
+      setVanMapHeading(marker, routeBearingAt(roadPoints, nearestRouteIndex(roadPoints, point)));
+    });
+  });
 
   L.circleMarker(outbound[0], { color: '#fff', fillColor: '#10b981', fillOpacity: 1, radius: 9, weight: 4 }).bindTooltip('Entebbe Main Stage', { permanent: false }).addTo(unifiedTrackingMap);
   L.circleMarker(outbound[outbound.length - 1], { color: '#fff', fillColor: '#ef4444', fillOpacity: 1, radius: 9, weight: 4 }).bindTooltip('Kampala Station', { permanent: false }).addTo(unifiedTrackingMap);
 
+  const addTrackingVehicleMarker = (index, label) => {
+    const point = outbound[index];
+    const marker = L.marker(point, { icon: createVanMapIcon(routeBearingAt(outbound, index)) })
+      .bindTooltip(label, { permanent: true, direction: 'top', offset: [0, -20], className: 'trip-map-vehicle-label' })
+      .addTo(unifiedTrackingMap);
+    trackingVehicleMarkers.push({ marker, point });
+  };
   if (currentTab === 'parcels') {
-    L.marker(outbound[3], { icon: createVanMapIcon() })
-      .bindTooltip('#964201832-DL', { permanent: true, direction: 'top', offset: [0, -20], className: 'trip-map-vehicle-label' })
-      .addTo(unifiedTrackingMap);
+    addTrackingVehicleMarker(3, '#964201832-DL');
   } else if (currentTab === 'travels') {
-    L.marker(outbound[5], { icon: createVanMapIcon() })
-      .bindTooltip('UBM 245K', { permanent: true, direction: 'top', offset: [0, -20], className: 'trip-map-vehicle-label' })
-      .addTo(unifiedTrackingMap);
+    addTrackingVehicleMarker(5, 'UBM 245K');
   } else {
-    L.marker(outbound[2], { icon: createVanMapIcon() })
-      .bindTooltip('Isaac Muwonge', { permanent: true, direction: 'top', offset: [0, -20], className: 'trip-map-vehicle-label' })
-      .addTo(unifiedTrackingMap);
-    L.marker(outbound[6], { icon: createVanMapIcon() })
-      .bindTooltip('David Okello', { permanent: true, direction: 'top', offset: [0, -20], className: 'trip-map-vehicle-label' })
-      .addTo(unifiedTrackingMap);
+    addTrackingVehicleMarker(2, 'Isaac Muwonge');
+    addTrackingVehicleMarker(6, 'David Okello');
   }
 
   const bounds = L.latLngBounds(outbound);
@@ -8027,7 +8134,7 @@ function initTrackingMiniMaps() {
       addCustomerRoadRoute(map, points);
       
       // Get point location
-      const idx = Math.min(points.length - 1, Math.max(0, Math.floor(points.length * targetSpec.progress)));
+      const idx = Math.min(points.length - 2, Math.max(0, Math.floor(points.length * targetSpec.progress)));
       const activePoint = points[idx];
       
       // Choose marker fill color
@@ -8039,7 +8146,7 @@ function initTrackingMiniMaps() {
       }
 
       if (targetSpec.type === 'live') {
-        L.marker(activePoint, { icon: createVanMapIcon() }).addTo(map);
+        L.marker(activePoint, { icon: createVanMapIcon(routeBearingAt(points, idx)) }).addTo(map);
       } else {
         L.circleMarker(activePoint, {
           color: '#fff',

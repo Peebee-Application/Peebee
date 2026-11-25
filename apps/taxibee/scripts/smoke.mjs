@@ -146,7 +146,7 @@ try {
   await page.evaluate(() => window.navigate('tracking', { trackingView: 'single', trackingTab: 'travels' }));
   await assertPaneBleed(page, '#unified-tracking-map');
   const trackingMap = page.locator('#unified-tracking-map');
-  const credits = trackingMap.locator('.leaflet-top.leaflet-right .leaflet-control-attribution');
+  const credits = trackingMap.locator('.leaflet-bottom.leaflet-right .leaflet-control-attribution');
   await credits.getByRole('link', { name: /JawgMaps/ }).waitFor();
   assert.equal(await credits.getByRole('link', { name: /OpenStreetMap/ }).getAttribute('href'), 'https://www.openstreetmap.org/copyright');
   const trackingBounds = await trackingMap.boundingBox();

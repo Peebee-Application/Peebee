@@ -17,7 +17,7 @@ import { addConfiguredMapTiles } from './map-tiles';
 // The presentation is intentionally retained verbatim. This boundary is the only
 // place that translates Peebee records into the source interface's view model.
 const ui = window as unknown as Record<string, any>;
-ui.addTaxibeeMapTiles = (map: any, fallback?: HTMLElement | null) => addConfiguredMapTiles(ui.L, map, fallback);
+ui.addTaxibeeMapTiles = (map: any, fallback?: HTMLElement | null, attributionPosition?: "topleft" | "topright" | "bottomleft" | "bottomright") => addConfiguredMapTiles(ui.L, map, fallback, attributionPosition);
 const { appData, state, driversData } = ui.TaxibeeSource;
 const luggageCatalog = appData.luggage.map((item: any) => ({ ...item }));
 const preview = new URLSearchParams(location.search).get('preview') === '1';
