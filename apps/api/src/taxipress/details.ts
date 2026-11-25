@@ -1,5 +1,6 @@
 import { db } from "../db/client.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
+import { taxipressVanFeatures, type TaxipressVanFeature } from "@peebee/shared";
 import type { LineEntry } from "./queue.js";
 import { LUGGAGE_TYPES, offeredLuggageTypes, type LuggageType, type TaxipressSettings } from "./settings.js";
 
@@ -208,6 +209,7 @@ export async function decorateLine(taxipressRouteId: string, line: LineEntry[], 
 
 export type TaxiProfile = {
   queueId: string; plate: string; seatLayout: "14" | "18"; vehicleType: string | null; colour: string | null; photoUrl: string | null;
+  passengerCapacity: number; driverBio: string | null; features: TaxipressVanFeature[];
   driverName: string | null; driverPhotoUrl: string | null; memberSince: string | null; tripsCount: number | null;
   rating: number | null; ratingCount: number | null; reviews: Array<{ rating: number; comment: string | null; createdAt: string }>;
   status: LineEntry["status"]; position: number | null; seatsLeft: number; bookable: boolean; departsAt: string | null;
@@ -217,8 +219,9 @@ export type TaxiProfile = {
 /** A taxi's profile from real records only. Anything with no data is null and the app hides it. */
 export async function taxiProfile(entry: LineEntry & { bookable: boolean; departsAt: string | null }, route: { id: string; fromName: string; toName: string; relayRouteId: string; direction: "a_to_b" | "b_to_a" }, showStops: boolean): Promise<TaxiProfile> {
   const profileCols = await hasColumn("taxipress_taxis", "photo_url");
+  const customizationCols = await hasColumn("taxipress_taxis", "driver_bio") && await hasColumn("taxipress_taxis", "vehicle_features_json");
   const taxi = (await db.execute({
-    sql: `SELECT x.approved_at, x.created_at${profileCols ? ", x.photo_url, x.vehicle_type, x.colour" : ""} FROM taxipress_taxis x WHERE x.id = ?`,
+    sql: `SELECT x.approved_at, x.created_at${profileCols ? ", x.photo_url, x.vehicle_type, x.colour" : ""}${customizationCols ? ", x.driver_bio, x.vehicle_features_json" : ""} FROM taxipress_taxis x WHERE x.id = ?`,
     args: [entry.taxiId],
   })).rows[0] as Row | undefined;
   const trips = (await db.execute({ sql: "SELECT COUNT(*) AS n FROM taxipress_queue WHERE taxi_id = ? AND status = 'arrived'", args: [entry.taxiId] })).rows[0] as Row | undefined;
@@ -244,6 +247,9 @@ export async function taxiProfile(entry: LineEntry & { bookable: boolean; depart
     vehicleType: str(taxi?.vehicle_type),
     colour: str(taxi?.colour),
     photoUrl: str(taxi?.photo_url),
+    passengerCapacity: entry.seatsTotal,
+    driverBio: str(taxi?.driver_bio),
+    features: taxipressVanFeatures(parseJson(taxi?.vehicle_features_json), entry.seatLayout),
     driverName: entry.driverName,
     driverPhotoUrl: entry.driverPhotoUrl ?? null,
     memberSince: str(taxi?.approved_at) ?? str(taxi?.created_at),
@@ -256,4 +262,9 @@ export async function taxiProfile(entry: LineEntry & { bookable: boolean; depart
     departsAt: entry.departsAt,
     route: { id: route.id, fromName: route.fromName, toName: route.toName, stops: showStops ? await stopsFor(route.relayRouteId, route.direction) : [] },
   };
+}
+
+function parseJson(value: unknown): unknown {
+  if (typeof value !== "string") return [];
+  try { return JSON.parse(value); } catch { return []; }
 }

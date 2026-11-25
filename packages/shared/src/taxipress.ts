@@ -167,6 +167,48 @@ export type TaxipressAdminRoute = {
   relayActive: boolean;
 };
 
+export type TaxipressVanFeature =
+  | "air_conditioning"
+  | "wifi"
+  | "usb_charging"
+  | "reclining_seats"
+  | "privacy_windows"
+  | "extra_luggage"
+  | "roof_rack"
+  | "complimentary_water";
+
+/** Driver-declared vehicle amenities, grouped by the Taxipress van service. */
+export const TAXIPRESS_VAN_FEATURES: Record<"vip13" | "standard18", Array<{ id: TaxipressVanFeature; label: string }>> = {
+  vip13: [
+    { id: "air_conditioning", label: "Air conditioning" },
+    { id: "wifi", label: "Wi-Fi" },
+    { id: "usb_charging", label: "USB charging" },
+    { id: "reclining_seats", label: "Reclining seats" },
+    { id: "privacy_windows", label: "Privacy windows" },
+    { id: "extra_luggage", label: "Extra luggage space" },
+    { id: "complimentary_water", label: "Complimentary water" },
+  ],
+  standard18: [
+    { id: "air_conditioning", label: "Air conditioning" },
+    { id: "wifi", label: "Wi-Fi" },
+    { id: "usb_charging", label: "USB charging" },
+    { id: "extra_luggage", label: "Extra luggage space" },
+    { id: "roof_rack", label: "Roof luggage rack" },
+    { id: "complimentary_water", label: "Complimentary water" },
+  ],
+};
+
+const TAXIPRESS_VAN_FEATURE_IDS = new Set(Object.values(TAXIPRESS_VAN_FEATURES).flat().map((feature) => feature.id));
+export function taxipressVanFeatures(value: unknown, layout?: "14" | "18"): TaxipressVanFeature[] {
+  if (!Array.isArray(value)) return [];
+  const allowedForLayout = layout ? new Set(TAXIPRESS_VAN_FEATURES[layout === "14" ? "vip13" : "standard18"].map((feature) => feature.id)) : TAXIPRESS_VAN_FEATURE_IDS;
+  return [...new Set(value.filter((feature): feature is TaxipressVanFeature => typeof feature === "string" && allowedForLayout.has(feature as TaxipressVanFeature)))];
+}
+
+export const taxipressPassengerCapacity = (layout: "14" | "18") => layout === "14" ? 13 : 18;
+export const taxipressVanClass = (layout: "14" | "18") => layout === "14" ? "vip13" as const : "standard18" as const;
+export const taxipressVanClassLabel = (layout: "14" | "18", passengers = taxipressPassengerCapacity(layout)) => layout === "14" ? `VIP van · ${passengers} passengers` : `Standard van · ${passengers} passengers`;
+
 /** A route set up in Relay delivery that Taxipress can run on. */
 export type TaxipressRelayRoute = { id: string; name: string; stageAName: string; stageBName: string; active: boolean };
 
@@ -187,6 +229,11 @@ export type TaxipressTaxi = {
   status: "pending" | "approved" | "suspended";
   driverName?: string | null;
   driverPhone?: string | null;
+  vehicleType?: string | null;
+  colour?: string | null;
+  photoUrl?: string | null;
+  driverBio?: string | null;
+  features?: TaxipressVanFeature[];
 };
 
 export type TaxipressLineEntry = {
@@ -224,6 +271,9 @@ export type TaxipressTaxiProfile = {
   vehicleType: string | null;
   colour: string | null;
   photoUrl: string | null;
+  passengerCapacity: number;
+  driverBio: string | null;
+  features: TaxipressVanFeature[];
   driverName: string | null;
   driverPhotoUrl: string | null;
   memberSince: string | null;
@@ -259,6 +309,8 @@ export type TaxipressDriverView = {
   walkUpSeatNumbers?: string[];
   /** False until the Taxipress taxi and line tables exist. */
   ready: boolean;
+  /** False until the driver profile customization migration is applied. */
+  profileCustomizationReady?: boolean;
   enabled: boolean;
   taxi: TaxipressTaxi | null;
   /** Routes a driver can apply to run a taxi on. */

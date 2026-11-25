@@ -8,7 +8,8 @@ export class SeatError extends Error {
   constructor(public status: 400 | 404 | 409 | 503, public code: string, message: string) { super(message); }
 }
 export const SEAT_LABELS = {
-  '14': ['1A','1B','2A','2B','2C','3A','3B','3C','4A','4B','4C','5A','5B','5C'],
+  // The 14-place VIP van has 13 passenger seats; the driver's position is not selectable.
+  '14': ['1B','2A','2B','2C','3A','3B','3C','4A','4B','4C','5A','5B','5C'],
   '18': ['1A','1B','2A','2B','2C','2D','3A','3B','3C','3D','4A','4B','4C','4D','5A','5B','5C','5D'],
 };
 export async function seatingReady() {

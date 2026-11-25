@@ -76,7 +76,7 @@ test("taxipress: passengers book seats", async (t) => {
     const route = await json<{ id: string }>(await call("staff", "admin/taxipress/routes", { relayRouteId: relay.id, direction: "a_to_b", farePerSeat: 5000, active: true }));
     assert.equal((await setting({ enabled: true })).status, 200);
 
-    // Two approved taxis in the line: a 14-seater first, an 18-seater behind it.
+    // Two approved taxis in the line: a 13-passenger VIP van first, an 18-passenger van behind it.
     for (const [who, plate, layout] of [["d1", "uaz 111a", "14"], ["d2", "ubb 222b", "18"]]) {
       assert.equal((await call(who, "taxipress/taxi/apply", { relayRouteId: relay.id, plate, seatLayout: layout })).status, 201);
     }
@@ -125,7 +125,7 @@ test("taxipress: passengers book seats", async (t) => {
       assert.equal(first.route.fromName, "Kampala Stage");
       assert.equal(first.taxi.plate, "UAZ 111A");
       assert.equal(first.taxi.position, 1);
-      assert.equal(first.taxi.seatsLeft, 12);
+      assert.equal(first.taxi.seatsLeft, 11);
       assert.equal(body.order.rider_id, "d1");
       assert.equal(body.order.stage, "Match");
       const order = await client.execute({ sql: "SELECT total_amount, estimated_total, is_ride, customer_id FROM orders WHERE id = ?", args: [first.orderId] }).catch(() => null);
@@ -171,18 +171,18 @@ test("taxipress: passengers book seats", async (t) => {
       assert.equal((await book("b", van1.id, 4, "app")).status, 201);
       assert.equal((await book("c", van1.id, 4, "app")).status, 201);
       const left = await json<{ line: Array<{ id: string; seatsLeft: number; seatsBooked: number }> }>(await call("a", `taxipress/routes/${route.id}/queue`));
-      assert.deepEqual([left.line[0].seatsBooked, left.line[0].seatsLeft], [10, 4]);
+      assert.deepEqual([left.line[0].seatsBooked, left.line[0].seatsLeft], [10, 3]);
       // Seats sold at the stage count against the same total.
       assert.equal((await call("d1", "taxipress/driver/walk-up", { delta: 3 })).status, 200);
       assert.equal(await code(await book("a", van1.id, 2, "app")), "not_available");
-      assert.equal((await book("a", van1.id, 1, "app")).status, 201);
+      assert.equal(await code(await book("a", van1.id, 1, "app")), "not_available");
     });
 
     await t.test("the driver sees who is booked, without their ticket codes", async () => {
       const view = await json<{ entry: { seatsTaken: number; fullyBooked: boolean }; bookings: Array<Record<string, unknown>>; canGoOnRoad: boolean }>(await call("d1", "taxipress/taxi/me"));
-      assert.equal(view.entry.seatsTaken, 14);
+      assert.equal(view.entry.seatsTaken, 13);
       assert.equal(view.entry.fullyBooked, true);
-      assert.equal(view.bookings.length, 4);
+      assert.equal(view.bookings.length, 3);
       assert.ok(view.bookings.every((b) => !("ticketCode" in b) || b.ticketCode == null));
       assert.equal(view.bookings[0].passengerName, "a");
       assert.equal(view.bookings[0].paymentStatus, "unpaid");

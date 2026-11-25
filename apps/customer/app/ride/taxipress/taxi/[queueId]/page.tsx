@@ -1,6 +1,6 @@
 "use client";
 
-import { taxipressTown, type TaxipressTaxiProfile } from "@peebee/shared";
+import { TAXIPRESS_VAN_FEATURES, taxipressTown, taxipressVanClassLabel, type TaxipressTaxiProfile } from "@peebee/shared";
 import { Star, Ticket, User } from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -48,7 +48,7 @@ function TaxiProfile() {
     profile.tripsCount != null ? { value: profile.tripsCount.toLocaleString("en-UG"), label: profile.tripsCount === 1 ? "trip" : "trips" } : null,
     since ? { value: since.toLocaleDateString("en-UG", { month: "short", year: "numeric" }), label: "member since" } : null,
   ].filter(Boolean) as Array<{ value: string; label: string }>;
-  const vehicle = [profile.vehicleType ?? (profile.seatLayout === "18" ? "Highroof" : "Commuter"), `${profile.seatLayout} seats`].join(" · ");
+  const vehicle = [profile.vehicleType ?? (profile.seatLayout === "18" ? "Standard van" : "VIP van"), `${profile.passengerCapacity} passengers`].join(" · ");
   const place = profile.status === "boarding" ? "Boarding now" : profile.position ? `${ordinal(profile.position)} in line` : null;
 
   return (
@@ -63,6 +63,7 @@ function TaxiProfile() {
         )}
         <h1 className="text-2xl font-black text-ink">{profile.driverName ?? profile.plate}</h1>
         <p className="text-sm text-ink-500">TaxiPress driver · {taxipressTown(profile.route.fromName)} → {taxipressTown(profile.route.toName)}</p>
+        <p className="rounded-full bg-gold/15 px-3 py-1 text-xs font-bold text-ink">{taxipressVanClassLabel(profile.seatLayout, profile.passengerCapacity)}</p>
         {profile.rating != null && profile.ratingCount != null && (
           <p className="flex items-center gap-1 text-sm font-bold text-ink"><Star className="h-4 w-4 fill-gold text-gold" aria-hidden /> {profile.rating.toFixed(1)} <span className="font-normal text-ink-500">({profile.ratingCount} review{profile.ratingCount === 1 ? "" : "s"})</span></p>
         )}
@@ -85,6 +86,22 @@ function TaxiProfile() {
         {profile.colour && <Row label="Colour" value={profile.colour} />}
         {place && <Row label="Queue" value={`${place}${profile.departsAt ? ` · ~${clock(profile.departsAt)}` : ""}`} />}
       </section>
+
+      {profile.driverBio && (
+        <section className="home-card border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 text-sm">
+          <h2 className="mb-1 font-bold text-ink">About the driver</h2>
+          <p className="text-ink-500">{profile.driverBio}</p>
+        </section>
+      )}
+
+      {profile.features.length > 0 && (
+        <section className="home-card border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 text-sm">
+          <h2 className="mb-2 font-bold text-ink">Van features</h2>
+          <div className="flex flex-wrap gap-2">
+            {profile.features.map((feature) => <span key={feature} className="rounded-full bg-[rgb(var(--surface-muted))] px-3 py-1 font-semibold text-ink">{Object.values(TAXIPRESS_VAN_FEATURES).flat().find((item) => item.id === feature)?.label ?? feature}</span>)}
+          </div>
+        </section>
+      )}
 
       {profile.route.stops.length > 0 && (
         <section className="home-card border border-[var(--border-faint)] bg-[rgb(var(--surface-card))] p-4 text-sm">

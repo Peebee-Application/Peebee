@@ -7,6 +7,7 @@ import { hasColumn,hasTable } from "../lib/schema.js";
 import { getPlatformEnvironment } from "../lib/settings.js";
 import { getTaxipressSettings } from "./settings.js";
 import { taxipressReady } from "./service.js";
+import { TAXIPRESS_VAN_FEATURES, taxipressPassengerCapacity, taxipressVanFeatures, type TaxipressVanFeature } from "@peebee/shared";
 
 type Row = Record<string, unknown>;
 
@@ -45,23 +46,41 @@ export type TaxipressTaxi = {
   status: "pending" | "approved" | "suspended";
   driverName?: string | null;
   driverPhone?: string | null;
+  vehicleType: string | null;
+  colour: string | null;
+  photoUrl: string | null;
+  driverBio: string | null;
+  features: TaxipressVanFeature[];
 };
 
 function toTaxi(row: Row): TaxipressTaxi {
+  const seatLayout = row.seat_layout === "18" ? "18" : "14";
   return {
     id: String(row.id),
     userId: String(row.user_id),
     relayRouteId: String(row.relay_route_id),
     routeName: (row.route_name as string | null | undefined) ?? null,
     plate: String(row.plate),
-    seatLayout: row.seat_layout === "18" ? "18" : "14",
-    seats: Number(row.seats),
+    seatLayout,
+    // The 14-place VIP layout includes the driver's place; only 13 seats are bookable.
+    // Keep this derived during the migration window so live code never overbooks old taxi rows.
+    seats: taxipressPassengerCapacity(seatLayout),
     passengersEnabled: Number(row.passengers_enabled) === 1,
     parcelsEnabled: Number(row.parcels_enabled) === 1,
     numberedSeatsEnabled: Number(row.numbered_seats_enabled) === 1,
     status: row.status === "approved" || row.status === "suspended" ? row.status : "pending",
+    vehicleType: (row.vehicle_type as string | null | undefined) ?? null,
+    colour: (row.colour as string | null | undefined) ?? null,
+    photoUrl: (row.photo_url as string | null | undefined) ?? null,
+    driverBio: (row.driver_bio as string | null | undefined) ?? null,
+    features: taxipressVanFeatures(parseJson(row.vehicle_features_json), seatLayout),
     ...(row.driver_name !== undefined ? { driverName: row.driver_name as string | null, driverPhone: (row.driver_phone as string | null) ?? null } : {}),
   };
+}
+
+function parseJson(value: unknown): unknown {
+  if (typeof value !== "string") return [];
+  try { return JSON.parse(value); } catch { return []; }
 }
 
 const TAXI_SQL = `SELECT x.*, rr.name AS route_name FROM taxipress_taxis x LEFT JOIN relay_routes rr ON rr.id = x.relay_route_id`;
@@ -89,7 +108,7 @@ export async function applyTaxi(userId: string, input: { relayRouteId: string; p
   if (existing?.status === "suspended") throw new TaxipressError(403, "suspended", "Your taxi is suspended. Contact support.");
   if (existing && (await activeEntry(userId))) throw new TaxipressError(409, "in_line", "Leave the line before changing your taxi.");
   const plate = input.plate.trim().toUpperCase();
-  const seats = Number(input.seatLayout);
+  const seats = taxipressPassengerCapacity(input.seatLayout);
   if (existing) {
     const changed = existing.relayRouteId !== input.relayRouteId || existing.plate !== plate || existing.seatLayout !== input.seatLayout;
     const resetLayout = changed && await hasColumn('taxipress_taxis','numbered_seats_enabled');
@@ -103,6 +122,36 @@ export async function applyTaxi(userId: string, input: { relayRouteId: string; p
     sql: "INSERT INTO taxipress_taxis (id, user_id, relay_route_id, plate, seat_layout, seats) VALUES (?, ?, ?, ?, ?, ?)",
     args: [newId("txi"), userId, input.relayRouteId, plate, input.seatLayout, seats],
   });
+}
+
+export type TaxiProfilePatch = {
+  vehicleType: string;
+  colour: string;
+  driverBio: string;
+  features: TaxipressVanFeature[];
+};
+
+export async function taxiProfileCustomizationReady(): Promise<boolean> {
+  return (await hasColumn("taxipress_taxis", "vehicle_type"))
+    && (await hasColumn("taxipress_taxis", "colour"))
+    && (await hasColumn("taxipress_taxis", "driver_bio"))
+    && (await hasColumn("taxipress_taxis", "vehicle_features_json"));
+}
+
+/** A driver may update descriptive details and declared amenities, never approval or service switches. */
+export async function updateTaxiProfile(userId: string, input: TaxiProfilePatch): Promise<TaxipressTaxi> {
+  await requireReady();
+  const taxi = await taxiOf(userId);
+  if (!taxi) throw new TaxipressError(404, "taxi_not_found", "Apply with your van before setting up its profile.");
+  if (!(await taxiProfileCustomizationReady())) throw new TaxipressError(503, "migration_pending", "Driver profiles are not available until Peebee applies the Taxipress profile migration.");
+  const features = [...new Set(input.features)];
+  const allowed = new Set(TAXIPRESS_VAN_FEATURES[taxi.seatLayout === "14" ? "vip13" : "standard18"].map((feature) => feature.id));
+  if (features.some((feature) => !allowed.has(feature))) throw new TaxipressError(400, "invalid_features", "Choose features from the list.");
+  await db.execute({
+    sql: `UPDATE taxipress_taxis SET vehicle_type = ?, colour = ?, driver_bio = ?, vehicle_features_json = ?, updated_at = datetime('now') WHERE user_id = ?`,
+    args: [input.vehicleType.trim() || null, input.colour.trim() || null, input.driverBio.trim(), JSON.stringify(features), userId],
+  });
+  return (await taxiOf(userId))!;
 }
 
 /** Staff: approve, suspend, or change what an approved taxi may do. */
@@ -488,6 +537,7 @@ export async function driverView(driverId: string) {
     : [];
   return {
     ready,
+    profileCustomizationReady: await taxiProfileCustomizationReady(),
     enabled: settings.enabled,
     taxi,
     applyRoutes,

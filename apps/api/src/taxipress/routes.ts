@@ -7,7 +7,7 @@ import { requireAuth, requireRole } from "../auth/middleware.js";
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { bookingFor, bookSeats, manifestFor, myBookings, releaseStaleBookings } from "./bookings.js";
-import { activeQueue, applyTaxi, arrive, driverView, goOnRoad, joinLine, leaveLine, lineOf, listTaxis, onRoadOf, removeFromLine, startBoarding, TaxipressError, updateLocation, updateTaxi, walkUp } from "./queue.js";
+import { activeQueue, applyTaxi, arrive, driverView, goOnRoad, joinLine, leaveLine, lineOf, listTaxis, onRoadOf, removeFromLine, startBoarding, TaxipressError, updateLocation, updateTaxi, updateTaxiProfile, walkUp } from "./queue.js";
 import { decorateLine, detailsColumnsReady, detailsReady, stopsFor, taxiProfile } from "./details.js";
 import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
 import { getTaxipressSettings, LANGUAGE_CODE, LUGGAGE_TYPES, MAX_LANGUAGES, offeredLanguages, offeredLuggageTypes, setTaxipressSettings } from "./settings.js";
@@ -244,7 +244,7 @@ publicTaxipressRoutes.get("/taxipress-public/routes/:id/queue", async (c) => {
   const [raw, onRoad] = await Promise.all([lineOf(id), onRoadOf(id)]);
   const line = await decorateLine(id, raw, settings);
   const publicEntry = (e: Awaited<ReturnType<typeof lineOf>>[number] & { bookable?: boolean; departsAt?: string | null }) => ({
-    id: e.id, plate: e.plate, seatLayout: e.seatLayout, status: e.status,
+    id: e.id, plate: e.plate, seatLayout: e.seatLayout, seatsTotal: e.seatsTotal, status: e.status,
     position: e.position, seatsLeft: e.seatsLeft, driverName: e.driverName,
     bookable: e.bookable === true, departsAt: e.departsAt ?? null,
   });
@@ -276,6 +276,24 @@ publicTaxipressRoutes.get("/taxipress-public/taxis/:queueId/profile", async c =>
 taxipressRoutes.get("/taxipress/taxi/me", async (c) => {
   const view = await driverView(c.get("user").sub);
   return c.json({ ...view, bookings: view.entry ? await manifestFor(view.entry.id) : [] });
+});
+
+const taxiProfileSchema = z.object({
+  vehicleType: z.string().trim().max(80),
+  colour: z.string().trim().max(40),
+  driverBio: z.string().trim().max(400),
+  features: z.array(z.enum(["air_conditioning", "wifi", "usb_charging", "reclining_seats", "privacy_windows", "extra_luggage", "roof_rack", "complimentary_water"])).max(8),
+}).strict();
+
+taxipressRoutes.put("/taxipress/taxi/me/profile", async (c) => {
+  const parsed = taxiProfileSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid_body", message: "Check the vehicle details and selected features." }, 400);
+  try {
+    const taxi = await updateTaxiProfile(c.get("user").sub, parsed.data);
+    return c.json({ taxi });
+  } catch (e) {
+    return fail(c, e);
+  }
 });
 
 const applySchema = z.object({
@@ -345,7 +363,7 @@ taxipressRoutes.post("/taxipress/driver/no-show", async (c) => {
 });
 
 taxipressRoutes.post("/taxipress/driver/walk-up", async (c) => {
-  const parsed = z.object({ delta: z.number().int().min(-14).max(14).refine((n) => n !== 0),seat: z.string().regex(/^[1-5][A-D]$/).optional() }).safeParse(await c.req.json().catch(() => ({})));
+  const parsed = z.object({ delta: z.number().int().min(-18).max(18).refine((n) => n !== 0),seat: z.string().regex(/^[1-5][A-D]$/).optional() }).safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body" }, 400);
   try { return c.json({ entry: await walkUp(c.get("user").sub, parsed.data.delta,parsed.data.seat) }); } catch (e) { return fail(c, e); }
 });

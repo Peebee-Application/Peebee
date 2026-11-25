@@ -1,7 +1,7 @@
 import {installAccountTools} from './account-tools';
 import { createApiClient,type TaxipressBookingInput } from '../../../packages/shared/src/api-client';
 import type { AuthUser, CustomerWallet } from '../../../packages/shared/src/domain';
-import type { TaxipressBooking, TaxipressConfig } from '../../../packages/shared/src/taxipress';
+import { taxipressVanClassLabel, type TaxipressBooking, type TaxipressConfig } from '../../../packages/shared/src/taxipress';
 import QRCode from 'qrcode';
 import { installCustomerFeatures } from './customer-features';
 import { installCustomerAuth } from './customer-auth';
@@ -144,7 +144,7 @@ function filteredTrips(source:any[]) {
   });
 }
 function openLiveSearchFilters() {
-  ui.openModal('Search filters',`<p class="muted">These filters narrow Peebee’s current live departures. Availability and fares remain controlled by Peebee.</p><div class="form-grid"><div class="field"><label for="taxibee-filter-vehicle">Vehicle type</label><select id="taxibee-filter-vehicle"><option value="all" ${searchFilters.vehicle==='all'?'selected':''}>All vehicles</option><option value="14" ${searchFilters.vehicle==='14'?'selected':''}>Commuter · 14 seats</option><option value="18" ${searchFilters.vehicle==='18'?'selected':''}>Highroof · 18 seats</option></select></div><div class="field"><label for="taxibee-filter-spaces">Minimum available spaces</label><select id="taxibee-filter-spaces">${[1,2,3,4,5,6,8,10].map(n=>`<option value="${n}" ${searchFilters.minSpaces===n?'selected':''}>${n}+ spaces</option>`).join('')}</select></div><div class="field"><label for="taxibee-filter-period">Estimated departure time</label><select id="taxibee-filter-period"><option value="any" ${searchFilters.period==='any'?'selected':''}>Any time</option><option value="morning" ${searchFilters.period==='morning'?'selected':''}>Morning · 05:00–11:59</option><option value="afternoon" ${searchFilters.period==='afternoon'?'selected':''}>Afternoon · 12:00–16:59</option><option value="evening" ${searchFilters.period==='evening'?'selected':''}>Evening · 17:00–23:59</option></select></div></div>`,`<button class="button button--ghost" type="button" data-action="close-modal">Cancel</button><button class="button button--primary" type="button" data-action="taxibee-search-filters-save">Apply filters</button>`);
+  ui.openModal('Search filters',`<p class="muted">These filters narrow Peebee’s current live departures. Availability and fares remain controlled by Peebee.</p><div class="form-grid"><div class="field"><label for="taxibee-filter-vehicle">Vehicle type</label><select id="taxibee-filter-vehicle"><option value="all" ${searchFilters.vehicle==='all'?'selected':''}>All vehicles</option><option value="14" ${searchFilters.vehicle==='14'?'selected':''}>VIP van · 13 passengers</option><option value="18" ${searchFilters.vehicle==='18'?'selected':''}>Standard van · 18 passengers</option></select></div><div class="field"><label for="taxibee-filter-spaces">Minimum available spaces</label><select id="taxibee-filter-spaces">${[1,2,3,4,5,6,8,10].map(n=>`<option value="${n}" ${searchFilters.minSpaces===n?'selected':''}>${n}+ spaces</option>`).join('')}</select></div><div class="field"><label for="taxibee-filter-period">Estimated departure time</label><select id="taxibee-filter-period"><option value="any" ${searchFilters.period==='any'?'selected':''}>Any time</option><option value="morning" ${searchFilters.period==='morning'?'selected':''}>Morning · 05:00–11:59</option><option value="afternoon" ${searchFilters.period==='afternoon'?'selected':''}>Afternoon · 12:00–16:59</option><option value="evening" ${searchFilters.period==='evening'?'selected':''}>Evening · 17:00–23:59</option></select></div></div>`,`<button class="button button--ghost" type="button" data-action="close-modal">Cancel</button><button class="button button--primary" type="button" data-action="taxibee-search-filters-save">Apply filters</button>`);
 }
 function applyUser(next: AuthUser, preservePassenger = false) {
   user = next;
@@ -242,7 +242,7 @@ async function refresh() {
     appData.routes = [...new Set(config.routes.flatMap(r => [r.fromName, r.toName, ...(r.stops || [])]))];
     trips = queues.flatMap(({ route, queue }) => queue.line.filter(v => v.bookable === true).map(v => ({
       id: v.id, routeId: route.id, departsAt:v.departsAt||null, depart: v.departsAt ? new Date(v.departsAt).toLocaleTimeString('en-UG', { timeZone: 'Africa/Kampala', hour: 'numeric', minute: '2-digit' }) : 'Stage departure',
-      arrive: 'On arrival', seats: v.seatsLeft, status: v.seatsLeft ? 'Available' : 'Full', vehicle: `${v.seatLayout === '18' ? 'Highroof' : 'Commuter'} (${v.seatLayout})`,
+      arrive: 'On arrival', seats: v.seatsLeft, status: v.seatsLeft ? 'Available' : 'Full', vehicle: taxipressVanClassLabel(v.seatLayout, v.seatsTotal),
       plate: escape(v.plate), duration: 'Stage service', fare: route.farePerSeat, boarding: escape(route.fromName), destination: escape(route.toName),
       currentStage: escape(route.fromName), comingFrom: escape(route.fromName), headingTo: escape(route.toName), markerIndex: 0,
       vansAtStage: queue.line.length, vansApproaching: 0, driverName: escape(v.driverName || 'Driver'), driverPhone: '', driverRating: '—',
@@ -629,7 +629,7 @@ document.addEventListener('click', async event => {
     block();
     selectedSchedule=scheduledDepartures.find(d=>d.id===button?.dataset.id)||null;
     if(!selectedSchedule) return ui.toast('That published departure is no longer available. Refresh and try again.','info');
-    state.activeTrip={id:selectedSchedule.id,routeId:selectedSchedule.routeId,isScheduled:true,scheduledDepartureId:selectedSchedule.id,boarding:selectedSchedule.fromName,destination:selectedSchedule.toName,depart:new Date(selectedSchedule.departsAt).toLocaleTimeString('en-UG',{timeZone:'Africa/Kampala',hour:'numeric',minute:'2-digit'}),plate:selectedSchedule.plate,seats:selectedSchedule.seatsLeft,fare:selectedSchedule.farePerSeat,vehicle:`Commuter (${selectedSchedule.seatLayout})`};
+    state.activeTrip={id:selectedSchedule.id,routeId:selectedSchedule.routeId,isScheduled:true,scheduledDepartureId:selectedSchedule.id,boarding:selectedSchedule.fromName,destination:selectedSchedule.toName,depart:new Date(selectedSchedule.departsAt).toLocaleTimeString('en-UG',{timeZone:'Africa/Kampala',hour:'numeric',minute:'2-digit'}),plate:selectedSchedule.plate,seats:selectedSchedule.seatsLeft,fare:selectedSchedule.farePerSeat,vehicle:taxipressVanClassLabel(selectedSchedule.seatLayout === '18' ? '18' : '14')};
     state.searchFrom=selectedSchedule.fromName;state.searchTo=selectedSchedule.toName;state.bookingDate=kampalaDate(new Date(selectedSchedule.departsAt));state.ticketType='oneway';state.taxibeeOpenTicket=false;state.passengerCount=1;state.childCount=0;state.reservedChildSeatsCount=0;
     ui.navigate('passengers');return;
   }
@@ -708,7 +708,7 @@ document.addEventListener('click', async event => {
         if (b && confirm(`Cancel this booking? Fee: ${money(b.cancel.fee)}. Refund: ${money(b.cancel.refund)}.`)) { await api.cancelTaxipressBooking(b.id); await refresh(); selectedBooking = (await api.getTaxipressBooking(b.id)).booking; ui.renderCurrentScreen(); }
       } else if (action === 'taxibee-pay') { const b = bookings.find(b => b.id === button?.dataset.id); if (b) {
         pendingOrder = { booking: b, order: { id: b.orderId } };
-        state.activeTrip = { id: b.taxi.queueId, plate: escape(b.taxi.plate), boarding: escape(b.route.fromName), destination: escape(b.route.toName), depart: 'Stage departure', seats: b.seats, fare: b.farePerSeat, vehicle: `Commuter (${b.taxi.seatLayout})` };
+        state.activeTrip = { id: b.taxi.queueId, plate: escape(b.taxi.plate), boarding: escape(b.route.fromName), destination: escape(b.route.toName), depart: 'Stage departure', seats: b.seats, fare: b.farePerSeat, vehicle: taxipressVanClassLabel(b.taxi.seatLayout) };
         state.searchFrom = escape(b.route.fromName); state.searchTo = escape(b.route.toName);
         state.passengerCount = b.seats; state.childCount = 0; state.ticketType = 'oneway'; state.capacityMode = 'capacity';
         ui.navigate('checkout');
