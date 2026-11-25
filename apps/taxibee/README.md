@@ -24,8 +24,9 @@ in app configuration or browser code.
 The live header, four-tab account drawer, and chat drawer are built from the
 Customer app's React source and styles. The Taxibee adapter supplies its existing
 Peebee customer session, local wallet/support routes, and push registration.
-Customer-only destinations use the Customer app. The standalone Taxibee practice
-mode keeps its isolated sample screens.
+Customer-only destinations use the Customer app. Settings → Open UI preview
+opens the standalone HTML demo directly on Home. It uses the same header and
+drawers with sample data and an in-memory API for the drawer controls.
 
 Accounts and records are shared. Browser sessions are separate per origin:
 customers sign in with their existing Peebee credentials in either app.
@@ -73,10 +74,10 @@ command. Production uses Cloudflare's network and the fixed Peebee API origin.
 
 ## Review the replica
 
-`/?preview=1` exposes the complete UI for customer practice with sample data. Select
-**Enter practice mode**. A persistent banner distinguishes this mode; it
-does not authenticate, book, pay, or write through the API. This is the
-surface for reviewing the full Fly Express replica before later redesigns.
+Open **Settings → Open UI preview** or visit `/?preview=1`. The HTML demo
+starts on Home and includes the current header and drawers. The banner
+identifies its sample data, and the demo runs without production account,
+booking, or payment API calls.
 
 The functional rollout, connected capabilities and remaining backend work are
 tracked in [`docs/TAXIBEE-FUNCTIONALITY.md`](../../docs/TAXIBEE-FUNCTIONALITY.md).

@@ -12,8 +12,9 @@ try {
   let previewWrites = 0, previewRequests = 0;
   await page.route('**/api/**', route => { previewRequests++; if (route.request().method() !== 'GET') previewWrites++; return route.abort(); });
   await page.goto(base + '/?preview=1');
-  await page.click('[data-action="taxibee-preview"]');
   await page.waitForSelector('.home-redesign');
+  assert.equal(await page.locator('#splash-screen, #onboarding, #auth-layer').evaluateAll(
+    layers => layers.every(layer => getComputedStyle(layer).display === 'none')), true);
   await page.evaluate(() => { window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange')); });
   assert.equal(await page.locator('#security-overlay, .secure-blur').count(), 0, 'App switching and screenshots must not hide content');
   assert.notEqual(await page.locator('body').evaluate(el => getComputedStyle(el).userSelect), 'none');

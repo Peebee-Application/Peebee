@@ -38,7 +38,8 @@ export function useAuth() {
 }
 
 export function pushSupported() {
-  return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  return !document.body.classList.contains("taxibee-preview")
+    && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 }
 
 export function subscribeToPush() {
