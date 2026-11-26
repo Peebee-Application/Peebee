@@ -89,7 +89,8 @@ test("work demo: Entebbe sandbox accounts can run a laundry job from booking to 
   assert.equal((await call(`/provider/jobs/${jobId}/start`, { token: owner, body: {} })).status, 200);
   assert.equal((await call(`/provider/jobs/${jobId}/complete`, { token: owner, body: {} })).status, 200);
   assert.equal((await call(`/jobs/${jobId}/confirm`, { token: customer, body: {} })).status, 200);
-  assert.equal(await sandboxWallet("wdemo_laundry"), 17000, "20,000 less 15% commission");
+  const laundryEarnings = await client.execute("SELECT w.balance FROM provider_wallets w JOIN work_providers p ON p.id=w.provider_id WHERE w.provider_type='work' AND w.environment='sandbox' AND p.user_id='wdemo_laundry'");
+  assert.equal(laundryEarnings.rows[0]?.balance, 17000, "20,000 less 15% commission");
 
   // Removing keeps accounts that have history, locked.
   const removed = await call("/admin/demo", { method: "DELETE", token: adminToken });

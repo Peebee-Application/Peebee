@@ -1,7 +1,6 @@
 import { db, executeBatch, type DbStatement } from "../db/client.js";
-import { tablesExist } from "../lib/schema.js";
+import { hasTable, tablesExist } from "../lib/schema.js";
 import { newId } from "../lib/ids.js";
-import { hasTable } from "../lib/schema.js";
 import type { PlatformEnvironment } from "../lib/settings.js";
 import { notifyUser } from "../lib/webpush.js";
 import { creditProviderWorkWallet } from "../wallet/provider-work-wallet.js";
@@ -78,9 +77,13 @@ const PENDING = "EXISTS (SELECT 1 FROM talent_money WHERE id = ? AND status = 'p
 
 /** Pays a pending refund/payout into the user's wallet, exactly once. */
 export async function applyMoney(moneyId: string): Promise<boolean> {
-  const row = (await db.execute({ sql: "SELECT * FROM talent_money WHERE id = ?", args: [moneyId] })).rows[0] as Row | undefined;
+  const row = (await db.execute({
+    sql: `SELECT m.*, c.worker_id FROM talent_money m
+          LEFT JOIN talent_contracts c ON c.id = m.contract_id WHERE m.id = ?`,
+    args: [moneyId],
+  })).rows[0] as Row | undefined;
   if (!row || row.status !== "pending" || row.kind === "hold") return false;
-  if (row.kind === "payout" && await hasTable("talent_profiles")) {
+  if (row.kind === "payout" && row.user_id === row.worker_id && await hasTable("talent_profiles")) {
     await creditProviderWorkWallet({
       providerType: "talent",
       providerId: String(row.user_id),

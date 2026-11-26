@@ -1,6 +1,7 @@
 import { DEMO_FOOD_RESTAURANTS, demoFoodMenu } from "@peebee/shared/demo-food";
 import { PRACTICE_ENTEBBE, PRACTICE_ENTEBBE_PRODUCTS, PRACTICE_ENTEBBE_STORES, PRACTICE_FOOD_RESTAURANTS, PRACTICE_RIDERS } from "@peebee/shared/practice-entebbe";
 import { db, executeBatch, type DbStatement } from "../db/client.js";
+import { hasTable } from "../lib/schema.js";
 import { runSeed } from "./batch.js";
 import { merchantBusinessStatements } from "../merchants/service.js";
 import { PRACTICE_CUSTOMERS } from "./personas.js";
@@ -58,7 +59,13 @@ export async function seedPracticeWorld(): Promise<PracticeCounts> {
     statements.push({ sql: "INSERT OR IGNORE INTO merchant_balances (merchant_id, environment) VALUES (?, 'sandbox')", args: [merchantId] });
   };
 
-  for (const c of PRACTICE_CUSTOMERS) statements.push(user(c.id, c.name, c.phone, "customer", c.walletUgx));
+  const personalWalletsReady = await hasTable("personal_wallets");
+  for (const c of PRACTICE_CUSTOMERS) {
+    statements.push(user(c.id, c.name, c.phone, "customer", c.walletUgx));
+    if (personalWalletsReady) {
+      statements.push({ sql: "INSERT OR IGNORE INTO personal_wallets (user_id) VALUES (?)", args: [c.id] });
+    }
+  }
 
   PRACTICE_RIDERS.forEach((r, i) => {
     const id = `prac_rider_${i + 1}`;

@@ -44,6 +44,7 @@ test("sandbox relay demo: demo riders, matatu and petrol station carry a parcel 
     for (const [id, role] of [["customer", "customer"], ["staff", "admin"]]) {
       await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role, wallet_balance_sandbox) VALUES (?, ?, ?, 'hash', ?, 1000000)", args: [id, id, id, role] });
     }
+    await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('customer')");
     await client.execute("UPDATE users SET admin_role = 'super_admin' WHERE id = 'staff'");
     for (const [key, value] of Object.entries({
       platform_environment: "sandbox", merchant_sandbox_enabled: "1", delivery_rate_per_km: "2000", minimum_delivery_fee: "2000",

@@ -225,6 +225,7 @@ test("marketplace checkout: a bag from several stores is one delivery, priced ex
   process.env.JWT_SECRET = "marketplace-bag-tests-only";
   try {
     await client.execute("INSERT INTO users (id, phone, name, password_hash, role, wallet_balance) VALUES ('shopper', 'shopper', 'Shopper', 'hash', 'customer', 1000000), ('boda', 'boda', 'Boda', 'hash', 'rider', 0)");
+    await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('shopper')");
     await client.execute("INSERT INTO riders (user_id, verified, is_online, stage_lat, stage_lng) VALUES ('boda', 1, 1, 0.3353, 32.5857)");
     await client.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('delivery_rate_per_km', '1000'), ('minimum_delivery_fee', '2000')");
     const shopper = await signToken({ sub: "shopper", role: "customer" });
@@ -320,6 +321,7 @@ test("merchant elite tier: upgrades to elite, manages Store 2.0 theme, smart col
   process.env.JWT_SECRET = "marketplace-elite-tests-only";
   try {
     await client.execute("INSERT INTO users (id, phone, name, password_hash, role, status) VALUES ('merch_elite_1', '+256700999888', 'Kampala Boutique Owner', 'hash', 'customer', 'active')");
+    await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('merch_elite_1')");
     await client.execute("INSERT INTO merchants (id, legal_name, display_name, business_kind, status, environment) VALUES ('m_elite_1', 'Kampala Boutique Ltd', 'Kampala Boutique', 'business', 'active', 'sandbox')");
     await client.execute("INSERT INTO merchant_members (merchant_id, user_id, role, status) VALUES ('m_elite_1', 'merch_elite_1', 'owner', 'active')");
     const catRow = await client.execute("SELECT id FROM merchant_categories LIMIT 1");

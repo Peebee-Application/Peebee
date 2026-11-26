@@ -45,6 +45,7 @@ async function setup(skip: string[] = []) {
   const mk = async (id: string) => {
     n += 1;
     await client.execute({ sql: "INSERT INTO users (id, phone, name, role, password_hash, email_verified_at, wallet_balance) VALUES (?, ?, ?, 'customer', 'x', datetime('now'), 0)", args: [id, `+25676000${String(n).padStart(4, "0")}`, `Person ${id}`] });
+    await client.execute({ sql: "INSERT INTO personal_wallets (user_id) VALUES (?)", args: [id] });
     return signToken({ sub: id, role: "customer" });
   };
   const request = async (path: string, o: { method?: string; token?: string; body?: unknown } = {}) => {
@@ -62,6 +63,7 @@ async function shop(ctx: Awaited<ReturnType<typeof setup>>, wallet = 100_000) {
   const edu = (p: string, o: { method?: string; body?: unknown } = {}) => ctx.request(`/v1/education${p}`, { ...o, token: teacher });
   const me = (p: string, o: { method?: string; body?: unknown } = {}) => ctx.request(`/v1/education${p}`, { ...o, token: learner });
   const them = (p: string, o: { method?: string; body?: unknown } = {}) => ctx.request(`/v1/education${p}`, { ...o, token: other });
+  const educatorEarnings = async () => Number((await ctx.client.execute("SELECT COALESCE(SUM(balance), 0) AS b FROM provider_wallets WHERE provider_type='education' AND environment='live'")).rows[0].b);
   const balance = async (id: string) => Number((await ctx.client.execute({ sql: "SELECT wallet_balance AS b FROM users WHERE id = ?", args: [id] })).rows[0]!.b);
   const sc = (await edu("/studio/schools", { body: { name: "Shop school", kind: "school", streams: ["foundations"] } })).json.school;
   const cls = (await edu(`/studio/schools/${sc.id}/classes`, { body: { stream: "foundations", name: "S2", framework: "uganda_primary" } })).json.class;
@@ -72,7 +74,7 @@ async function shop(ctx: Awaited<ReturnType<typeof setup>>, wallet = 100_000) {
     await edu(`/studio/courses/${course.id}`, { method: "PATCH", body: { status: "published" } });
     return { course, lesson };
   };
-  return { teacher, learner, edu, me, them, balance, sc, make, ctx };
+  return { educatorEarnings, teacher, learner, edu, me, them, balance, sc, make, ctx };
 }
 
 test("coupons: price drops, money splits on the discounted price, and limits hold", async () => {
@@ -97,7 +99,7 @@ test("coupons: price drops, money splits on the discounted price, and limits hol
   assert.equal(ok.status, 200, JSON.stringify(ok.json));
   assert.equal(ok.json.paidUgx, 5000);
   assert.equal(await k.balance("l_1"), 95_000);
-  assert.equal(await k.balance("t_1"), 4500, "the educator gets the discounted price less Peebee's share");
+  assert.equal(await k.educatorEarnings(), 4500, "the educator gets the discounted price less Peebee's share");
 
   // The one use is spent.
   const B = await k.make("Second course", 10_000);
@@ -149,7 +151,7 @@ test("bundles: one payment enrols in every course, and only once", async () => {
   assert.equal(buy.status, 200, JSON.stringify(buy.json));
   assert.equal(buy.json.enrolledIn, 3);
   assert.equal(await k.balance("l_1"), 85_000);
-  assert.equal(await k.balance("t_1"), 13_500);
+  assert.equal(await k.educatorEarnings(), 13_500);
   for (const c of [A, B, C]) assert.equal((await k.me(`/learn/courses/${c.course.id}`)).status, 200);
   assert.equal((await k.me(`/learn/bundles/${made.json.id}/buy`, { body: {} })).json.error, "already_bought");
   assert.equal(await k.balance("l_1"), 85_000, "no second charge");
@@ -182,7 +184,7 @@ test("school passes: every course opens while the pass lasts, then closes", asyn
   const sub = await k.me(`/learn/plans/${plan.json.id}/subscribe`, { body: {} });
   assert.equal(sub.status, 200, JSON.stringify(sub.json));
   assert.equal(await k.balance("l_1"), 80_000);
-  assert.equal(await k.balance("t_1"), 18_000);
+  assert.equal(await k.educatorEarnings(), 18_000);
   for (const c of [A, B]) assert.equal((await k.me(`/learn/courses/${c.course.id}`)).status, 200);
   assert.equal((await k.me(`/learn/lessons/${A.lesson.id}/complete`, { body: {} })).status, 200);
   assert.equal((await k.me(`/learn/courses/${B.course.id}/enroll`, { body: {} })).json.viaPass, true);

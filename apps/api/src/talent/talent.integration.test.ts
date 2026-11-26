@@ -65,6 +65,7 @@ async function setup(opts: { freeAccess?: boolean } = {}) {
     return signToken({ sub: id, role: o.role ?? "customer" });
   };
   const wallet = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance AS b FROM users WHERE id = ?", args: [id] })).rows[0].b);
+  const workEarnings = async (id: string) => Number((await client.execute({ sql: "SELECT balance FROM provider_wallets WHERE provider_type='talent' AND environment='live' AND provider_id=?", args: [id] })).rows[0]?.balance ?? 0);
   const call = async (path: string, o: { method?: string; token?: string; body?: unknown } = {}) => {
     const res = await app.request(`/v1/talent${path}`, {
       method: o.method ?? (o.body !== undefined ? "POST" : "GET"),
@@ -95,8 +96,8 @@ async function setup(opts: { freeAccess?: boolean } = {}) {
   });
   const dbRow = async (sql: string, args: unknown[] = []) => (await client.execute({ sql, args: args as InArgs })).rows[0] as Json;
   const totalMoney = async () =>
-    Number((await client.execute("SELECT COALESCE(SUM(wallet_balance), 0) AS n FROM users")).rows[0].n) + Number((await client.execute("SELECT COALESCE(SUM(held_ugx), 0) AS n FROM talent_contracts")).rows[0].n);
-  return { client, call, mkUser, mkWorker, wallet, admin, gigBody, dbRow, totalMoney };
+    Number((await client.execute("SELECT (SELECT COALESCE(SUM(wallet_balance), 0) FROM users) + (SELECT COALESCE(SUM(balance), 0) FROM provider_wallets WHERE provider_type='talent' AND environment='live') AS n")).rows[0].n) + Number((await client.execute("SELECT COALESCE(SUM(held_ugx), 0) AS n FROM talent_contracts")).rows[0].n);
+  return { client, call, mkUser, mkWorker, wallet, workEarnings, admin, gigBody, dbRow, totalMoney };
 }
 
 // ---------------------------------------------------------------------------
@@ -239,7 +240,7 @@ async function startCommissions(call: (path: string, o?: any) => Promise<{ statu
 }
 
 test("talent: escrow gig — hold, submit, release, fees, rating; no money is created or lost", async () => {
-  const { call, mkWorker, mkUser, wallet, admin, gigBody, dbRow, totalMoney } = await setup();
+  const { call, mkWorker, mkUser, wallet, workEarnings, admin, gigBody, dbRow, totalMoney } = await setup();
   await startCommissions(call, admin);
   const worker = await mkWorker("w1", { wallet: 0 });
   const emp = await mkUser("emp1", { wallet: 200000 });
@@ -280,7 +281,7 @@ test("talent: escrow gig — hold, submit, release, fees, rating; no money is cr
   const released = await call(`/contracts/${contractId}/release`, { token: emp, body: {} });
   assert.equal(released.status, 200, JSON.stringify(released.json));
   assert.equal(released.json.settled, true);
-  assert.equal(await wallet("w1"), 72000, "worker gets 80,000 less their 10% fee");
+  assert.equal(await workEarnings("w1"), 72000, "worker gets 80,000 less their 10% fee");
   const ct = await dbRow("SELECT * FROM talent_contracts WHERE id = ?", [contractId]);
   assert.equal(ct.status, "settled");
   assert.equal(ct.held_ugx, 0);
@@ -292,7 +293,7 @@ test("talent: escrow gig — hold, submit, release, fees, rating; no money is cr
 
   // Releasing again changes nothing.
   assert.equal((await call(`/contracts/${contractId}/release`, { token: emp, body: {} })).status, 409);
-  assert.equal(await wallet("w1"), 72000);
+  assert.equal(await workEarnings("w1"), 72000);
 
   // Ratings.
   assert.equal((await call(`/contracts/${contractId}/review`, { token: emp, body: { rating: 5, comment: "Spotless" } })).status, 200);
@@ -395,7 +396,7 @@ test("talent: dispute — employer disputes, staff splits, money adds up", async
 });
 
 test("talent: dispute resolved as full refund or full release", async () => {
-  const { call, mkWorker, mkUser, wallet, admin, gigBody } = await setup();
+  const { call, mkWorker, mkUser, wallet, workEarnings, admin, gigBody } = await setup();
   const make = async (suffix: string) => {
     const worker = await mkWorker(`w${suffix}`);
     const emp = await mkUser(`e${suffix}`, { wallet: 100000 });
@@ -413,7 +414,7 @@ test("talent: dispute resolved as full refund or full release", async () => {
   assert.equal(await wallet("w1"), 0);
   const b = await make("2");
   assert.equal((await call(`/admin/contracts/${b}/resolve`, { token: admin, body: { outcome: "release" } })).status, 200);
-  assert.equal(await wallet("w2"), 80000);
+  assert.equal(await workEarnings("w2"), 80000);
   assert.equal(await wallet("e2"), 20000);
 });
 
@@ -422,7 +423,7 @@ test("talent: dispute resolved as full refund or full release", async () => {
 // ---------------------------------------------------------------------------
 
 test("talent: project with milestones — pay step by step, fees split exactly", async () => {
-  const { call, mkWorker, mkUser, wallet, admin, dbRow, totalMoney } = await setup();
+  const { call, mkWorker, mkUser, wallet, workEarnings, admin, dbRow, totalMoney } = await setup();
   await startCommissions(call, admin);
   await call("/admin/fee-rules", { method: "PUT", token: admin, body: { kind: "worker_commission", jobType: "project", model: "percent", percent: 8, active: true } });
   const worker = await mkWorker("w1", { categories: [TECH] });
@@ -454,7 +455,7 @@ test("talent: project with milestones — pay step by step, fees split exactly",
   assert.equal((await call(`/contracts/${contractId}/release`, { token: emp, body: {} })).status, 400, "several steps: say which");
   assert.equal((await call(`/contracts/${contractId}/milestones/${m1.id}/submit`, { token: worker, body: {} })).status, 200);
   assert.equal((await call(`/contracts/${contractId}/milestones/${m1.id}/release`, { token: emp, body: {} })).json.settled, false);
-  const afterFirst = await wallet("w1");
+  const afterFirst = await workEarnings("w1");
   assert.equal(afterFirst, m1.payoutUgx);
   assert.equal((await call(`/contracts/${contractId}/milestones/${m1.id}/release`, { token: emp, body: {} })).status, 400, "already released");
   await call(`/contracts/${contractId}/milestones/${m2.id}/release`, { token: emp, body: {} });
@@ -464,7 +465,7 @@ test("talent: project with milestones — pay step by step, fees split exactly",
   assert.equal(ct.status, "settled");
   assert.equal(ct.held_ugx, 0, "nothing left held");
   assert.equal(await totalMoney() + ct.commission_ugx, before);
-  assert.equal(await wallet("w1"), 500001 - ct.worker_fee_ugx);
+  assert.equal(await workEarnings("w1"), 500001 - ct.worker_fee_ugx);
 });
 
 test("talent: direct pay — Peebee's fee is collected, or owed and enforced", async () => {
@@ -808,7 +809,7 @@ test("talent: feed filters, invites, boosts and chat", async () => {
 });
 
 test("talent: sweep auto-releases submitted work and expires stale jobs", async () => {
-  const { call, mkUser, mkWorker, wallet, gigBody, client, dbRow } = await setup();
+  const { call, mkUser, mkWorker, wallet, workEarnings, gigBody, client, dbRow } = await setup();
   const worker = await mkWorker("w1");
   const emp = await mkUser("emp1", { wallet: 200000 });
   const jobId = (await call("/jobs", { token: emp, body: gigBody() })).json.job.id;
@@ -820,7 +821,7 @@ test("talent: sweep auto-releases submitted work and expires stale jobs", async 
   assert.equal((await sweepTalent()).autoReleased, 0, "not due yet");
   await client.execute("UPDATE talent_milestones SET confirm_by = datetime('now', '-1 minute')");
   assert.equal((await sweepTalent()).autoReleased, 1);
-  assert.equal(await wallet("w1"), 80000);
+  assert.equal(await workEarnings("w1"), 80000);
   assert.equal((await sweepTalent()).autoReleased, 0, "only once");
   assert.equal((await dbRow("SELECT status FROM talent_contracts WHERE id = ?", [contractId])).status, "settled");
 
@@ -897,7 +898,7 @@ test("talent: cancelling is free inside the grace window and while the fee is 0"
 
 test("talent: employer cancels late (escrow) — fee comes out of the refund, shared with the worker", async () => {
   const ctx = await setup();
-  const { call, wallet, totalMoney, dbRow } = ctx;
+  const { call, wallet, workEarnings, totalMoney, dbRow } = ctx;
   await setTalentSettings({ lateCancelFeeMode: "percent", lateCancelFeePercent: 20, cancelFreeMinutes: 0, lateCancelPartySharePercent: 70 });
   const { emp, contractId, worker } = await runningGig(ctx);
   const before = await totalMoney();
@@ -915,7 +916,7 @@ test("talent: employer cancels late (escrow) — fee comes out of the refund, sh
   assert.equal(res.status, 200, JSON.stringify(res.json));
   assert.equal(res.json.lateFeeUgx, 16000);
   assert.equal(await wallet("emp1"), 116000 + 84000 - 16000);
-  assert.equal(await wallet("w1"), 11200, "the worker is compensated");
+  assert.equal(await workEarnings("w1"), 11200, "the worker is compensated");
   const ct = await dbRow("SELECT * FROM talent_contracts WHERE id = ?", [contractId]);
   assert.equal(ct.status, "cancelled");
   assert.equal(ct.cancel_fee_ugx, 16000);
@@ -958,7 +959,7 @@ test("talent: a worker who can't cover the late fee owes it", async () => {
 
 test("talent: late fee on a directly-paid job, and none when charging is off", async () => {
   const ctx = await setup();
-  const { call, wallet, dbRow } = ctx;
+  const { call, wallet, workEarnings, dbRow } = ctx;
   await setTalentSettings({ lateCancelFeeMode: "percent", lateCancelFeePercent: 20, cancelFreeMinutes: 0 });
   const { emp, contractId } = await runningGig(ctx, { paymentMode: "direct", employerWallet: 50000 });
   await dbRow("UPDATE talent_contracts SET created_at = datetime('now', '-2 hours') WHERE id = ?", [contractId]);
@@ -966,7 +967,7 @@ test("talent: late fee on a directly-paid job, and none when charging is off", a
   const res = await call(`/contracts/${contractId}/cancel`, { token: emp, body: { reason: "Changed plans", acceptFee: true } });
   assert.equal(res.status, 200, JSON.stringify(res.json));
   assert.equal(await wallet("emp1"), 50000 - 16000);
-  assert.equal(await wallet("w1"), 11200);
+  assert.equal(await workEarnings("w1"), 11200);
 
   await setTalentSettings({ freeAccess: true });
   const q = await call(`/contracts/${contractId}/cancel-quote`, { token: emp });
@@ -1119,7 +1120,7 @@ test("talent: recurring is switchable, limited, Pro-gatable and either side can 
 
 test("talent: late-cancel fee defaults to a flat UGX 5,000 and admin can change it", async () => {
   const ctx = await setup();
-  const { call, wallet, dbRow, admin } = ctx;
+  const { call, wallet, workEarnings, dbRow, admin } = ctx;
   await setTalentSettings({ cancelFreeMinutes: 0 });
   const { emp, contractId } = await runningGig(ctx);
   await dbRow("UPDATE talent_contracts SET created_at = datetime('now', '-2 hours') WHERE id = ?", [contractId]);
@@ -1130,7 +1131,7 @@ test("talent: late-cancel fee defaults to a flat UGX 5,000 and admin can change 
   const before = await wallet("emp1");
   assert.equal((await call(`/contracts/${contractId}/cancel`, { token: emp, body: { reason: "Changed plans", acceptFee: true } })).status, 200);
   assert.equal(await wallet("emp1"), before + 84000 - 5000);
-  assert.equal(await wallet("w1"), 3500);
+  assert.equal(await workEarnings("w1"), 3500);
 
   // Admin changes the amount, then the type.
   assert.equal((await call("/admin/settings", { method: "PUT", token: admin, body: { lateCancelFeeUgx: 8000 } })).json.settings.lateCancelFeeUgx, 8000);

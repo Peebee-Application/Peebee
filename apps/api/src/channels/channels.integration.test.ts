@@ -389,7 +389,8 @@ test("withdrawing: the only place verification is asked, and it is enforced", as
   // Withdrawals are off until the business is licensed.
   const off = await w.call("/creator/withdrawals", { token: w.creator, body: { amountUgx: 10_000, payoutAccountId: "x" } });
   assert.equal(off.json.error, "withdrawals_unavailable");
-  // Earnings can still be spent inside Peebee, with no ID.
+  // Earnings can be moved into an active personal wallet, with no ID.
+  await w.fund("creator", 0);
   const moved = await w.call("/creator/move-to-wallet", { token: w.creator, body: { amountUgx: 2_000 } });
   assert.equal(moved.json.walletBalanceUgx, 2_000);
   assert.equal((await w.call("/creator/move-to-wallet", { token: w.creator, body: { amountUgx: 9_999_999 } })).json.error, "insufficient_balance");

@@ -35,6 +35,7 @@ test("scheduled TaxiPress booking reserves separate capacity, funds and converts
       await client.execute({ sql: "INSERT INTO users(id,name,phone,password_hash,role,admin_role,wallet_balance) VALUES(?,?,?,'hash',?,?,?)", args: [id,id,`+2567000000${index}`,role,id === "staff" ? "super_admin" : null,id === "customer" ? 100_000 : 0] });
       tokens[id] = await signToken({ sub:id, role } as never);
     }
+    await client.execute("INSERT INTO personal_wallets (user_id) SELECT id FROM users WHERE role='customer'");
     const app = new Hono().route("/v1",publicTaxipressRoutes).route("/v1",orderRoutes).route("/v1",relayRoutes).route("/v1",taxipressRoutes);
     const call = (who: string, path: string, body?: object, method = body ? "POST" : "GET") => app.request(`/v1/${path}`, { method, headers: { Authorization:`Bearer ${tokens[who]}`, "Content-Type":"application/json" }, ...(body ? { body:JSON.stringify(body) } : {}) });
     const json = async (r: Response) => await r.json() as Record<string, any>;

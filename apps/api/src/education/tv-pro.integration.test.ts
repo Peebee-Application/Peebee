@@ -73,6 +73,7 @@ async function setup(skip: string[] = []) {
       sql: "INSERT INTO users (id, phone, name, role, password_hash, email_verified_at, admin_role, wallet_balance) VALUES (?, ?, ?, ?, 'x', datetime('now'), ?, ?)",
       args: [id, `+25674000${String(n).padStart(4, "0")}`, `${id.split("_")[0]} Person${n}`, role, role === "admin" ? "super_admin" : null, wallet],
     });
+    if (role === "customer") await client.execute({ sql: "INSERT INTO personal_wallets (user_id) VALUES (?)", args: [id] });
     return signToken({ sub: id, role });
   };
   const wallet = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance AS b FROM users WHERE id = ?", args: [id] })).rows[0]!.b);

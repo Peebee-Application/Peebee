@@ -50,6 +50,7 @@ test("relay to a petrol station: collect in person, door delivery, or send a rid
     for (const [id, role] of [["customer", "customer"], ["first", "rider"], ["last", "rider"], ["op", "customer"], ["staff", "admin"], ["stranger", "customer"]]) {
       await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role, wallet_balance) VALUES (?, ?, ?, 'hash', ?, 0)", args: [id, id, id, role] });
     }
+    await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('customer')");
     await client.execute("UPDATE users SET admin_role = 'super_admin' WHERE id = 'staff'");
     await client.execute({ sql: "INSERT INTO riders (user_id, verified, is_online, stage_lat, stage_lng) VALUES ('first', 1, 1, ?, ?), ('last', 1, 1, ?, ?)", args: [PICKUP.lat, PICKUP.lng, STATION.lat, STATION.lng] });
     for (const [key, value] of Object.entries({ delivery_rate_per_km: "2000", minimum_delivery_fee: "2000", relay_enabled: "1", relay_last_mile_choice: "order" })) {
@@ -72,6 +73,7 @@ test("relay to a petrol station: collect in person, door delivery, or send a rid
     });
     const json = async <T>(res: Response | Promise<Response>) => (await (await res).json()) as T;
     const wallet = async (table: string, id: string) => Number((await client.execute({ sql: `SELECT wallet_balance FROM ${table} WHERE ${table === "riders" ? "user_id" : "id"} = ?`, args: [id] })).rows[0].wallet_balance);
+    const operatorEarnings = async () => Number((await client.execute("SELECT COALESCE(SUM(balance),0) AS b FROM provider_wallets WHERE provider_type='relay' AND provider_id='op' AND environment='live'")).rows[0].b);
 
     const route = await call("staff", "admin/relay/routes", {
       name: "Kampala - Entebbe", stageAName: "Kampala taxi park", stageALat: KAMPALA.lat, stageALng: KAMPALA.lng,
@@ -149,14 +151,14 @@ test("relay to a petrol station: collect in person, door delivery, or send a rid
       assert.equal((await call("att", "gas/relay/release", { code: "000000" })).status, 404);
       assert.equal((await call("att", "gas/relay/release", { code: view.relay.collectCode })).status, 200);
       assert.equal((await client.execute({ sql: "SELECT stage FROM orders WHERE id = ?", args: [id] })).rows[0].stage, "Settle");
-      assert.equal((await wallet("riders", "first")) + (await wallet("users", "op")), total, "the rider and matatu share exactly what was paid");
+      assert.equal((await wallet("riders", "first")) + (await operatorEarnings()), total, "the rider and matatu share exactly what was paid");
       // Everyone involved can follow it; nobody else can.
       assert.equal((await call("op", `relay/orders/${id}/track`)).status, 200);
       assert.equal((await call("stranger", `relay/orders/${id}/track`)).status, 403);
     });
 
     await t.test("door delivery: the station has the rider called, the rider takes it with the station's code", async () => {
-      const before = (await wallet("riders", "first")) + (await wallet("users", "op"));
+      const before = (await wallet("riders", "first")) + (await operatorEarnings());
       const { id, total } = await toStation("door");
       const open = await json<{ legs: { id: string; order_id: string }[] }>(call("last", "relay/legs/open"));
       const leg = open.legs.find((l) => l.order_id === id)!;
@@ -169,7 +171,7 @@ test("relay to a petrol station: collect in person, door delivery, or send a rid
       assert.equal((await call("last", `orders/${id}/arrived`, {})).status, 200);
       assert.equal((await call("customer", `orders/${id}/handover`, { pin: "4321" })).status, 200);
       assert.equal((await call("last", `orders/${id}/settle`, {})).status, 200);
-      const after = (await wallet("riders", "first")) + (await wallet("users", "op")) + (await wallet("riders", "last"));
+      const after = (await wallet("riders", "first")) + (await operatorEarnings()) + (await wallet("riders", "last"));
       assert.equal(after - before, total);
     });
 
@@ -230,7 +232,7 @@ test("relay to a petrol station: collect in person, door delivery, or send a rid
     });
 
     await t.test("the matatu hands the parcel to the customer at their stage, with their code", async () => {
-      const before = (await wallet("riders", "first")) + (await wallet("users", "op"));
+      const before = (await wallet("riders", "first")) + (await operatorEarnings());
       const { id, total } = await toMatatu(stageId);
       const carrying = (await json<{ carrying: { id: string; order_id: string; meet_stage_name: string | null; to_name: string }[] }>(call("op", "relay/operator/parcels"))).carrying.find((p) => p.order_id === id)!;
       assert.equal(carrying.meet_stage_name, "Abayita Ababiri");
@@ -248,7 +250,7 @@ test("relay to a petrol station: collect in person, door delivery, or send a rid
       assert.equal((await call("op", "relay/operator/handover", { code: "000000" })).status, 404);
       assert.equal((await call("op", "relay/operator/handover", { code: view.relay.collectCode })).status, 200);
       assert.equal((await client.execute({ sql: "SELECT stage FROM orders WHERE id = ?", args: [id] })).rows[0].stage, "Settle");
-      assert.equal((await wallet("riders", "first")) + (await wallet("users", "op")) - before, total);
+      assert.equal((await wallet("riders", "first")) + (await operatorEarnings()) - before, total);
     });
 
     await t.test("a customer who misses the matatu gets the parcel at the petrol station instead", async () => {

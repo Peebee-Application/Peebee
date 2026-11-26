@@ -57,6 +57,7 @@ test("relay delivery: boda -> matatu -> boda with coded handoffs and split payou
     for (const [id, role] of [["customer", "customer"], ["first", "rider"], ["last", "rider"], ["op", "customer"], ["staff", "admin"]]) {
       await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role) VALUES (?, ?, ?, 'hash', ?)", args: [id, id, id, role] });
     }
+    await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('customer')");
     await client.execute("UPDATE users SET admin_role = 'super_admin' WHERE id = 'staff'");
     await client.execute({ sql: "INSERT INTO riders (user_id, verified, is_online, stage_lat, stage_lng) VALUES ('first', 1, 1, ?, ?), ('last', 1, 1, ?, ?)", args: [PICKUP.lat, PICKUP.lng, ENTEBBE.lat, ENTEBBE.lng] });
     await client.execute("INSERT INTO lists (id, customer_id, title) VALUES ('list', 'customer', 'Parcel'), ('short', 'customer', 'Short'), ('cash', 'customer', 'Cash')");
@@ -79,6 +80,7 @@ test("relay delivery: boda -> matatu -> boda with coded handoffs and split payou
       destinationArea: "Entebbe", destinationLat: to.lat, destinationLng: to.lng,
     });
     const wallet = async (table: string, id: string) => Number((await client.execute({ sql: `SELECT wallet_balance FROM ${table} WHERE ${table === "riders" ? "user_id" : "id"} = ?`, args: [id] })).rows[0].wallet_balance);
+    const operatorEarnings = async () => Number((await client.execute("SELECT COALESCE(SUM(balance),0) AS b FROM provider_wallets WHERE provider_type='relay' AND provider_id='op' AND environment='live'")).rows[0].b);
 
     let routeId = "";
     await t.test("staff add a route and approve an operator", async () => {
@@ -212,13 +214,13 @@ test("relay delivery: boda -> matatu -> boda with coded handoffs and split payou
       assert.equal((await call("op", `relay/operator/legs/${parcels.carrying[0].id}/arrived`, {})).status, 200);
       assert.equal((await call("last", `relay/legs/${legId}/collect`, { code: "999999" })).status, 400);
       assert.equal((await call("last", `relay/legs/${legId}/collect`, { code: parcels.carrying[0].handoff_code })).status, 200);
-      assert.ok((await wallet("users", "op")) > 0, "the matatu leg is paid at its handoff");
+      assert.ok((await operatorEarnings()) > 0, "the matatu leg is paid at its handoff");
 
       assert.equal((await call("last", `orders/${orderId}/arrived`, {})).status, 200);
       assert.equal((await call("customer", `orders/${orderId}/handover`, { pin: "4321" })).status, 200);
       assert.equal((await call("last", `orders/${orderId}/settle`, {})).status, 200);
 
-      const paid = (await wallet("riders", "first")) + (await wallet("users", "op")) + (await wallet("riders", "last"));
+      const paid = (await wallet("riders", "first")) + (await operatorEarnings()) + (await wallet("riders", "last"));
       assert.equal(paid, total, "the three legs share exactly what one rider would have been paid");
       const legs = (await client.execute({ sql: "SELECT leg, status, paid_amount FROM order_relay_legs WHERE order_id = ? ORDER BY leg", args: [orderId] })).rows;
       assert.deepEqual(legs.map((l) => l.status), ["done", "done", "done"]);
@@ -258,7 +260,7 @@ test("relay delivery: boda -> matatu -> boda with coded handoffs and split payou
       assert.equal((await checkout(order.id)).payBeforeRider, false, "nothing left to pay");
       assert.equal((await call("customer", `orders/${order.id}/customer-delete`, {})).status, 409, "a paid order is cancelled, never just deleted");
 
-      const before = { first: await wallet("riders", "first"), op: await wallet("users", "op"), last: await wallet("riders", "last") };
+      const before = { first: await wallet("riders", "first"), op: await operatorEarnings(), last: await wallet("riders", "last") };
       await claimable(order.id);
       const claim = await call("first", `orders/${order.id}/claim`, {});
       assert.equal(claim.status, 200, await claim.clone().text());
@@ -278,7 +280,7 @@ test("relay delivery: boda -> matatu -> boda with coded handoffs and split payou
       assert.equal((await call("customer", `orders/${order.id}/handover`, { pin: "2468" })).status, 200);
       assert.equal((await call("last", `orders/${order.id}/settle`, {})).status, 200);
       assert.equal((await orderRow(order.id))[0], "Settle");
-      const payouts = (await wallet("riders", "first")) - before.first + (await wallet("users", "op")) - before.op + (await wallet("riders", "last")) - before.last;
+      const payouts = (await wallet("riders", "first")) - before.first + (await operatorEarnings()) - before.op + (await wallet("riders", "last")) - before.last;
       assert.equal(payouts, quote.wallet, "the leg payouts sum to what the customer paid");
     });
 

@@ -63,6 +63,7 @@ test("taxipress: cancellations, no-shows and refunds", async (t) => {
     for (const [id, role] of people) {
       await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role) VALUES (?, ?, ?, 'hash', ?)", args: [id, id, id, role] });
     }
+    await client.execute("INSERT INTO personal_wallets (user_id) SELECT id FROM users WHERE role='customer'");
     await client.execute("UPDATE users SET admin_role = 'super_admin' WHERE id = 'staff'");
 
     const app = new Hono().route("/v1", orderRoutes).route("/v1", relayRoutes).route("/v1", taxipressRoutes);
@@ -76,6 +77,7 @@ test("taxipress: cancellations, no-shows and refunds", async (t) => {
     const code = async (res: Response) => (await json<{ error?: string }>(res)).error;
     const setting = (body: object) => call("staff", "admin/taxipress/settings", body, "PUT");
     const balance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance FROM users WHERE id = ?", args: [id] })).rows[0].wallet_balance);
+    const driverBalance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance FROM riders WHERE user_id=?", args: [id] })).rows[0]?.wallet_balance ?? 0);
 
     const relay = await json<{ id: string }>(await call("staff", "admin/relay/routes", {
       name: "Kampala - Entebbe", stageAName: "Kampala Stage", stageALat: KAMPALA.lat, stageALng: KAMPALA.lng,
@@ -149,11 +151,11 @@ test("taxipress: cancellations, no-shows and refunds", async (t) => {
       await ageBooking(b.booking.id, 30);
       const quote = await view("p2", b.booking.id);
       assert.deepEqual([quote.cancel.free, quote.cancel.fee, quote.cancel.refund], [false, 2000, 8000]);
-      const [driverBefore, passengerBefore] = [await balance("d1"), await balance("p2")];
+      const [driverBefore, passengerBefore] = [await driverBalance("d1"), await balance("p2")];
       const done = await json<Outcome>(await call("p2", `taxipress/bookings/${b.booking.id}/cancel`, {}));
       assert.deepEqual([done.outcome.refunded, done.outcome.fee], [8000, 2000]);
       assert.equal(await balance("p2"), passengerBefore + 8000);
-      assert.equal(await balance("d1"), driverBefore + 2000);
+      assert.equal(await driverBalance("d1"), driverBefore + 2000);
       const row = await client.execute({ sql: "SELECT kind, collected, refunded, fee, fee_to FROM taxipress_refunds WHERE booking_id = ?", args: [b.booking.id] });
       assert.deepEqual([row.rows[0].kind, row.rows[0].collected, row.rows[0].refunded, row.rows[0].fee, row.rows[0].fee_to], ["cancelled", 10000, 8000, 2000, "driver"]);
 
@@ -162,10 +164,10 @@ test("taxipress: cancellations, no-shows and refunds", async (t) => {
       const again = await book("p2", q1, 1, "app");
       await payWallet("p2", again);
       await ageBooking(again.booking.id, 30);
-      const driverNow = await balance("d1");
+      const driverNow = await driverBalance("d1");
       const second = await json<Outcome>(await call("p2", `taxipress/bookings/${again.booking.id}/cancel`, {}));
       assert.deepEqual([second.outcome.refunded, second.outcome.fee], [4000, 1000]);
-      assert.equal(await balance("d1"), driverNow);
+      assert.equal(await driverBalance("d1"), driverNow);
       assert.equal((await setting({ feeTo: "driver" })).status, 200);
     });
 
@@ -205,11 +207,11 @@ test("taxipress: cancellations, no-shows and refunds", async (t) => {
       await client.execute("UPDATE taxipress_queue SET boarding_at = datetime('now', '-20 minutes') WHERE driver_id = 'd1' AND status = 'boarding'");
       assert.equal((await call("p6", "taxipress/driver/no-show", { bookingId: paid.booking.id })).status, 404, "a passenger cannot mark themselves a no-show");
 
-      const [driverBefore, passengerBefore] = [await balance("d1"), await balance("p6")];
+      const [driverBefore, passengerBefore] = [await driverBalance("d1"), await balance("p6")];
       const done = await json<Outcome>(await call("d1", "taxipress/driver/no-show", { bookingId: paid.booking.id }));
       assert.deepEqual([done.outcome.kind, done.outcome.refunded, done.outcome.fee], ["no_show", 2500, 2500]);
       assert.equal(await balance("p6"), passengerBefore + 2500);
-      assert.equal(await balance("d1"), driverBefore + 2500);
+      assert.equal(await driverBalance("d1"), driverBefore + 2500);
       assert.equal(await seatsBooked(q1), 1, "only the cash seat is left");
       const after = await view("p6", paid.booking.id);
       assert.deepEqual([after.status, after.outcome?.kind], ["no_show", "no_show"]);
@@ -266,10 +268,10 @@ test("taxipress: cancellations, no-shows and refunds", async (t) => {
 
       // The new driver can board them with the same ticket, and is the one paid.
       assert.equal((await call("d2", "taxipress/driver/boarding", {})).status, 200);
-      const d2Before = await balance("d2");
+      const d2Before = await driverBalance("d2");
       const board = await call("d2", "taxipress/driver/board", { code: paid.booking.ticketCode });
       assert.equal(board.status, 200, JSON.stringify(await board.clone().json()));
-      assert.equal(await balance("d2"), d2Before + 9000);
+      assert.equal(await driverBalance("d2"), d2Before + 9000);
     });
 
     await t.test("with no room anywhere, or moving switched off, passengers are refunded in full", async () => {

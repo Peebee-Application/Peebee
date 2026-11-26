@@ -177,12 +177,12 @@ test("taxipress: the driver queue", async (t) => {
 
     await t.test("a driver who owes too much is blocked when staff switch that on", async () => {
       assert.equal((await call("staff", `admin/taxipress/taxis/${(await me("d3")).taxi!.id}`, { status: "approved" })).status, 200);
-      await client.execute("UPDATE users SET wallet_balance = -5000 WHERE id = 'd3'");
+      await client.execute("INSERT INTO riders (user_id, wallet_balance) VALUES ('d3', -5000) ON CONFLICT(user_id) DO UPDATE SET wallet_balance=excluded.wallet_balance");
       assert.equal((await call("d3", "taxipress/driver/join", { routeId: kampalaToEntebbe, ...KAMPALA })).status, 201, "allowed while the rule is off");
       assert.equal((await call("d3", "taxipress/driver/leave", {})).status, 200);
       assert.equal((await setting({ blockWhenOwing: true, maxOwedUgx: 1000 })).status, 200);
       assert.equal(await code(await call("d3", "taxipress/driver/join", { routeId: kampalaToEntebbe, ...KAMPALA })), "owing_too_much");
-      await client.execute("UPDATE users SET wallet_balance = -500 WHERE id = 'd3'");
+      await client.execute("UPDATE riders SET wallet_balance = -500 WHERE user_id = 'd3'");
       assert.equal((await call("d3", "taxipress/driver/join", { routeId: kampalaToEntebbe, ...KAMPALA })).status, 201);
       assert.equal((await call("d3", "taxipress/driver/leave", {})).status, 200);
     });
