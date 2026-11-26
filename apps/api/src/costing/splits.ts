@@ -12,7 +12,7 @@ import type { PlatformEnvironment } from "../lib/settings.js";
 import { getIncentiveConfig } from "../offers/config.js";
 import { creditActiveWallet, riderFacts } from "../offers/incentives.js";
 import { serviceOfOrder } from "../offers/service.js";
-import { debitWalletAllowNegative } from "../wallet/service.js";
+import { debitProviderWorkWallet } from "../wallet/provider-work-wallet.js";
 import { getMoneyFlowConfig } from "./config.js";
 
 type Row = Record<string, unknown>;
@@ -51,7 +51,11 @@ export async function takeExtraCommission(order: Row, amount: number, car: boole
   if (amount <= 0 || !order.rider_id) return;
   const env: PlatformEnvironment = order.environment === "sandbox" ? "sandbox" : "live";
   if (car) {
-    await debitWalletAllowNegative(String(order.rider_id), amount, { type: "adjustment", environment: env, orderId: String(order.id), note: "Peebee commission" });
+    await debitProviderWorkWallet({
+      providerType: "car", providerId: String(order.rider_id), amount, environment: env, kind: "transfer_out",
+      referenceType: "car_order_commission", referenceId: String(order.id), idempotencyKey: `car-order-commission:${String(order.id)}`,
+      allowNegative: true, legacyUserId: String(order.rider_id), note: "Peebee commission",
+    });
   } else {
     const col = env === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
     await db.execute({ sql: `UPDATE riders SET ${col} = ${col} - ?, updated_at = datetime('now') WHERE user_id = ?`, args: [amount, String(order.rider_id)] });

@@ -29,7 +29,10 @@ async function setup(offering: Record<string, unknown> = { title: "Consult", pri
       service_id: made.id, customer_name: "Carol", customer_phone: CUSTOMER, scheduled_date: futureDate(5), scheduled_time: "10:00", payment_rail: "momo_mtn", ...body,
     });
   const bookingRow = async (id: string) => (await client.execute({ sql: "SELECT * FROM service_bookings WHERE id = ?", args: [id] })).rows[0] as any;
-  const wallet = async () => Number((await client.execute("SELECT wallet_balance_sandbox AS w FROM users WHERE id = 'u_svc_owner'")).rows[0].w);
+  const wallet = async () => Number((await client.execute({
+    sql: "SELECT balance FROM provider_wallets WHERE provider_type='service' AND provider_id=? AND environment='sandbox'",
+    args: [business.id],
+  })).rows[0]?.balance ?? 0);
   const payments = async (id: string) => (await client.execute({ sql: "SELECT * FROM service_payments WHERE booking_id = ? ORDER BY created_at, id", args: [id] })).rows as any[];
   return { client, admin, call, business, offering: made, book, bookingRow, wallet, payments };
 }

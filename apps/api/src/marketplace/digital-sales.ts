@@ -10,6 +10,8 @@ import { enrollStudent } from "./lms-enroll.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
 import { chargeAndPayOut } from "../education/payments.js";
 import { getLearnSettings } from "../education/settings.js";
+import { isActiveMerchantMember } from "../merchants/self-transaction.js";
+import { providerWalletDebitStatements } from "../wallet/provider-work-wallet.js";
 
 type Row = Record<string, unknown>;
 
@@ -144,6 +146,9 @@ export async function purchaseDigitalProduct(input: {
   const found = await db.execute({ sql: "SELECT * FROM store_digital_products WHERE id = ? AND store_id = ? AND status = 'published'", args: [input.productId, String(input.store.id)] });
   const product = found.rows[0] as Row | undefined;
   if (!product) return fail(404, "product_not_found", "That product isn't for sale.");
+  if (await isActiveMerchantMember(input.buyer.id, String(input.store.merchant_id))) {
+    return fail(409, "self_transaction", "You can't buy from a store your account operates.");
+  }
   const marketplace = await getMarketplaceSettings();
   if (!marketplace.eliteDigitalProductsEnabled) return fail(403, "digital_disabled", "Digital sales are paused by the platform.");
   if (!(await storePlan(input.store, marketplace)).isElite) return fail(403, "plan_required", "The store needs an active Merchant Elite plan to accept new digital purchases.");
@@ -230,17 +235,21 @@ export async function purchaseDigitalProduct(input: {
   const commission = Math.floor((price * commissionPercent) / 100);
   const payout = price - commission;
   let ledgerId: string | null = null;
+  let learnSchoolId: string | null = null;
+  let learnPayoutToWorkWallet = false;
   if (price > 0 && learnPath) {
-    const school = (await db.execute({ sql: "SELECT s.owner_id FROM edu_courses c JOIN edu_schools s ON s.id = c.school_id WHERE c.id = ?", args: [String(product.linked_course_id)] })).rows[0] as Row | undefined;
+    const school = (await db.execute({ sql: "SELECT s.id, s.owner_id FROM edu_courses c JOIN edu_schools s ON s.id = c.school_id WHERE c.id = ?", args: [String(product.linked_course_id)] })).rows[0] as Row | undefined;
     if (!school) {
       await abandon();
       return fail(409, "course_missing", "This course isn't ready yet.");
     }
-    const paid = await chargeAndPayOut({ payerId: input.buyer.id, ownerId: String(school.owner_id), amount: price, commissionPercent, environment, note: `Peebee Learn: ${String(product.title)}` }).catch(() => null);
+    learnSchoolId = String(school.id);
+    const paid = await chargeAndPayOut({ payerId: input.buyer.id, ownerId: String(school.owner_id), schoolId: learnSchoolId, amount: price, commissionPercent, environment, note: `Peebee Learn: ${String(product.title)}` }).catch(() => null);
     if (!paid || !paid.ok) {
       await abandon();
       return fail(402, "insufficient_wallet", `Add UGX ${price.toLocaleString("en-UG")} to your Peebee wallet to buy this.`);
     }
+    learnPayoutToWorkWallet = await hasTable("provider_wallets");
   } else if (price > 0) {
     const balance = await debitWallet(input.buyer.id, price, { type: "order_payment", environment, note: `Digital purchase: ${String(product.title)}` });
     if (balance === null) {
@@ -277,9 +286,10 @@ export async function purchaseDigitalProduct(input: {
   }
 
   // 3. Open the purchase.
+  const workSourceColumn = learnPayoutToWorkWallet && await hasColumn("store_digital_fulfillments", "payout_wallet_source");
   await db.execute({
     sql: `UPDATE store_digital_fulfillments
-          SET status = 'active', price_paid_ugx = ?, commission_ugx = ?, license_key_issued = ?, needs_manual_fulfilment = ?
+          SET status = 'active', price_paid_ugx = ?, commission_ugx = ?, license_key_issued = ?, needs_manual_fulfilment = ?${workSourceColumn ? ", payout_wallet_source='provider_work'" : ""}
           WHERE id = ?`,
     args: [price, commission, licenseKey ?? "", needsManual ? 1 : 0, fulfillmentId],
   });
@@ -350,19 +360,35 @@ export async function refundFulfillment(input: { fulfillmentId: string; storeId:
   const environment: "live" | "sandbox" = originalEnvironment === "sandbox" ? "sandbox" : "live";
   if (price > 0 && !row.buyer_user_id) return {ok: false, error: "refund_review_required", message: "This purchase has no verified buyer wallet. Ask support to reconcile it."};
   const merchantId = String((await db.execute({sql: "SELECT merchant_id FROM stores WHERE id = ?", args: [input.storeId]})).rows[0]?.merchant_id);
-  const school = !sale && price > 0 ? (await db.execute({sql: "SELECT s.owner_id FROM store_digital_products p JOIN edu_courses c ON c.id = p.linked_course_id JOIN edu_schools s ON s.id = c.school_id WHERE p.id = ?", args: [String(row.digital_product_id)]})).rows[0] : null;
+  const school = !sale && price > 0 ? (await db.execute({sql: "SELECT s.id AS provider_id, s.owner_id FROM store_digital_products p JOIN edu_courses c ON c.id = p.linked_course_id JOIN edu_schools s ON s.id = c.school_id WHERE p.id = ?", args: [String(row.digital_product_id)]})).rows[0] : null;
   if (!sale && price > 0 && !school) return {ok: false, error: "refund_review_required", message: "The original payout owner could not be verified. Ask support to reconcile it."};
   const column = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
+  const schoolWorkWallet = String(row.payout_wallet_source ?? "") === "provider_work";
   const {digital_refund_revokes_access: revoke} = await getOptions(["digital_refund_revokes_access"]);
   const writes: DbStatement[] = [
     {sql: "UPDATE store_digital_fulfillments SET refunded_at = datetime('now') WHERE id = ? AND store_id = ? AND refunded_at IS NULL", args: [input.fulfillmentId, input.storeId]},
     requireChangedRow,
   ];
   if (payout > 0) {
-    writes.push(sale
-      ? {sql: "UPDATE merchant_balances SET available = available - ?, updated_at = datetime('now') WHERE merchant_id = ? AND environment = ? AND available >= ?", args: [payout, merchantId, environment, payout]}
-      : {sql: `UPDATE users SET ${column} = ${column} - ?, updated_at = datetime('now') WHERE id = ? AND ${column} >= ?`, args: [payout, String(school!.owner_id), payout]}, requireChangedRow);
-    if (!sale) writes.push({sql: `INSERT INTO wallet_ledger (id, user_id, type, amount, balance_after, note, actor_id, environment) SELECT ?, id, 'adjustment', ?, ${column}, 'Refund of a course sale', ?, ? FROM users WHERE id = ?`, args: [newId("wl"), -payout, input.actorId, environment, String(school!.owner_id)]});
+    if (sale) writes.push(
+      {sql: "UPDATE merchant_balances SET available = available - ?, updated_at = datetime('now') WHERE merchant_id = ? AND environment = ? AND available >= ?", args: [payout, merchantId, environment, payout]},
+      requireChangedRow,
+    );
+    else if (schoolWorkWallet) {
+      const providerDebit = await providerWalletDebitStatements({
+        providerType: "education", providerId: String(school!.provider_id), amount: payout, environment,
+        idempotencyKey: `digital-refund:${input.fulfillmentId}:work-debit`, referenceType: "digital_fulfillment",
+        referenceId: input.fulfillmentId, actorId: input.actorId, note: "Refund of a course sale",
+      });
+      if (!providerDebit) return {ok: false, error: "refund_review_required", message: "The provider work-wallet migration is required to refund this purchase."};
+      writes.push(...providerDebit);
+    } else {
+      writes.push(
+        {sql: `UPDATE users SET ${column} = ${column} - ?, updated_at = datetime('now') WHERE id = ? AND ${column} >= ?`, args: [payout, String(school!.owner_id), payout]},
+        requireChangedRow,
+        {sql: `INSERT INTO wallet_ledger (id, user_id, type, amount, balance_after, note, actor_id, environment) SELECT ?, id, 'adjustment', ?, ${column}, 'Refund of a course sale', ?, ? FROM users WHERE id = ?`, args: [newId("wl"), -payout, input.actorId, environment, String(school!.owner_id)]},
+      );
+    }
   }
   if (price > 0) writes.push(
     {sql: `UPDATE users SET ${column} = ${column} + ?, updated_at = datetime('now') WHERE id = ?`, args: [price, String(row.buyer_user_id)]}, requireChangedRow,
@@ -379,7 +405,11 @@ export async function refundFulfillment(input: { fulfillmentId: string; storeId:
       referenceType: "digital_fulfillment", referenceId: input.fulfillmentId, description: "Digital sale refunded", actorId: input.actorId,
       postings: [
         {ownerType: "customer", ownerId: String(row.buyer_user_id), purpose: "wallet_payable", environment, amount: price},
-        ...(payout > 0 ? [{ownerType: (sale ? "merchant" : "customer") as "merchant" | "customer", ownerId: sale ? merchantId : String(school!.owner_id), purpose: sale ? "payable_available" : "wallet_payable", environment, amount: -payout}] : []),
+        ...(payout > 0 ? [sale
+          ? {ownerType: "merchant" as const, ownerId: merchantId, purpose: "payable_available", environment, amount: -payout}
+          : schoolWorkWallet
+            ? {ownerType: "provider" as const, ownerId: String(school!.provider_id), purpose: "education_work_wallet", environment, amount: -payout}
+            : {ownerType: "customer" as const, ownerId: String(school!.owner_id), purpose: "wallet_payable", environment, amount: -payout}] : []),
         ...(commission > 0 ? [{ownerType: "platform" as const, ownerId: "peebee", purpose: "digital_sales_commission", environment, amount: -commission}] : []),
       ], additionalStatements: writes,
     });

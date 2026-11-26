@@ -18,6 +18,7 @@ import { frozenBody, walletIsFrozen } from "./freeze.js";
 import { runIdempotentTransfer } from "./idempotency.js";
 import { loadLedger } from "./ledger-view.js";
 import { transferBetweenOwnWallets } from "./service.js";
+import { requireActivePersonalWallet } from "./personal-wallet.js";
 
 export const walletsRoutes = new Hono();
 // Scoped to /wallets/* rather than "*" on purpose — this router is mounted
@@ -26,7 +27,7 @@ export const walletsRoutes = new Hono();
 // rejecting any non-customer (e.g. an admin) hitting an unrelated /v1/*
 // endpoint with "requires=customer". See apps/api/src/admin/routes.ts for
 // the same scoping discipline applied to /admin/*.
-walletsRoutes.use("/wallets/*", requireAuth, requireRole("customer"));
+walletsRoutes.use("/wallets/*", requireAuth, requireRole("customer"), requireActivePersonalWallet);
 
 type Row = Record<string, unknown>;
 

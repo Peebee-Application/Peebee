@@ -46,6 +46,9 @@ export async function addUser(client: Client, id: string, role = "customer", ext
     sql: "INSERT INTO users (id, phone, name, password_hash, role, status) VALUES (?, ?, ?, 'hash', ?, 'active')",
     args: [id, extra.phone ?? `+2567${Math.floor(Math.random() * 1e8).toString().padStart(8, "0")}`, id, role],
   });
+  if (role === "customer") {
+    await client.execute({ sql: "INSERT INTO personal_wallets (user_id) VALUES (?)", args: [id] });
+  }
   return signToken({ sub: id, role } as never);
 }
 

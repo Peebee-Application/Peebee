@@ -56,6 +56,7 @@ test("taxipress: passengers book seats", async (t) => {
     for (const [id, role] of people) {
       await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role) VALUES (?, ?, ?, 'hash', ?)", args: [id, id, id, role] });
     }
+    await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('a'), ('b'), ('c')");
     await client.execute("UPDATE users SET admin_role = 'super_admin' WHERE id = 'staff'");
 
     const app = new Hono().route("/v1", publicTaxipressRoutes).route("/v1", orderRoutes).route("/v1", relayRoutes).route("/v1", taxipressRoutes);

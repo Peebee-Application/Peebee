@@ -44,7 +44,7 @@ async function setup(opts: { migrate?: boolean } = {}) {
   const client = createClient({ url: "file::memory:" });
   const migrations = join(process.cwd(), "src/db/migrations");
   for (const file of readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort()) {
-    if (opts.migrate === false && (file.startsWith("0135_") || file.startsWith("0136_"))) continue;
+    if (opts.migrate === false && /^(0135|0136|0176)_/.test(file)) continue;
     for (const sql of splitSqlStatements(readFileSync(join(migrations, file), "utf8"))) await client.execute(sql);
   }
   bindDatabase(client);

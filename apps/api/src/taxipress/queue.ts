@@ -87,6 +87,12 @@ export async function applyTaxi(userId: string, input: { relayRouteId: string; p
   await requireReady();
   const route = (await db.execute({ sql: "SELECT id FROM relay_routes WHERE id = ? AND active = 1", args: [input.relayRouteId] })).rows[0];
   if (!route) throw new TaxipressError(404, "route_not_found", "That route isn't available.");
+  // A Taxipress taxi driver earns through the rider work wallet. Register
+  // that work balance alongside the explicitly requested taxi profile.
+  await db.execute({
+    sql: "INSERT OR IGNORE INTO riders (user_id, verified, is_online) VALUES (?, 0, 0)",
+    args: [userId],
+  });
   const existing = await taxiOf(userId);
   if (existing?.status === "suspended") throw new TaxipressError(403, "suspended", "Your taxi is suspended. Contact support.");
   if (existing && (await activeEntry(userId))) throw new TaxipressError(409, "in_line", "Leave the line before changing your taxi.");
@@ -276,7 +282,7 @@ async function routeStage(taxipressRouteId: string): Promise<RouteStage | null> 
 /** What the driver owes Peebee: a negative wallet balance (cash commission is taken from the wallet and may take it below zero). */
 async function amountOwed(userId: string): Promise<number> {
   const column = (await getPlatformEnvironment()) === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
-  const row = (await db.execute({ sql: `SELECT ${column} AS balance FROM users WHERE id = ?`, args: [userId] })).rows[0] as Row | undefined;
+  const row = (await db.execute({ sql: `SELECT ${column} AS balance FROM riders WHERE user_id = ?`, args: [userId] })).rows[0] as Row | undefined;
   return Math.max(0, -Number(row?.balance ?? 0));
 }
 

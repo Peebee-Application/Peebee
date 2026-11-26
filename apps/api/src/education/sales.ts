@@ -173,7 +173,7 @@ salesLearnRoutes.post("/bundles/:id/buy", async (c) => {
 
   let commission = 0;
   if (price > 0) {
-    const paid = await chargeAndPayOut({ payerId: user.sub, ownerId: String(bundle.owner_id), amount: price, commissionPercent: settings.commissionPercent, environment, note: `Peebee Learn bundle: ${String(bundle.title)}` }).catch(() => null);
+    const paid = await chargeAndPayOut({ payerId: user.sub, ownerId: String(bundle.owner_id), schoolId: String(bundle.school_id), amount: price, commissionPercent: settings.commissionPercent, environment, note: `Peebee Learn bundle: ${String(bundle.title)}` }).catch(() => null);
     if (!paid || !paid.ok) {
       await db.execute({ sql: "DELETE FROM edu_bundle_purchases WHERE bundle_id = ? AND user_id = ?", args: [bundle.id as string, user.sub] });
       return c.json({ error: "insufficient_wallet", message: `Add UGX ${price.toLocaleString("en-UG")} to your Peebee wallet to buy this.` }, 402);
@@ -203,7 +203,7 @@ salesLearnRoutes.post("/plans/:id/subscribe", async (c) => {
 
   let commission = 0;
   if (price > 0) {
-    const paid = await chargeAndPayOut({ payerId: user.sub, ownerId: String(plan.owner_id), amount: price, commissionPercent: settings.commissionPercent, environment, note: `Peebee Learn pass: ${String(plan.title)}` }).catch(() => null);
+    const paid = await chargeAndPayOut({ payerId: user.sub, ownerId: String(plan.owner_id), schoolId: String(plan.school_id), amount: price, commissionPercent: settings.commissionPercent, environment, note: `Peebee Learn pass: ${String(plan.title)}` }).catch(() => null);
     if (!paid || !paid.ok) return c.json({ error: "insufficient_wallet", message: `Add UGX ${price.toLocaleString("en-UG")} to your Peebee wallet to buy this.` }, 402);
     commission = paid.commission;
   }

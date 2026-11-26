@@ -38,6 +38,7 @@ test("A first-come ride can be paid before a rider is found, only when the admin
   bindDatabase(client);
   try {
     await client.execute("INSERT INTO users (id, phone, name, password_hash, role, wallet_balance) VALUES ('customer', 'c', 'Customer', 'h', 'customer', 50000), ('rider', 'r', 'Rider', 'h', 'rider', 0)");
+    await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('customer')");
     await client.execute("INSERT INTO riders (user_id, verified) VALUES ('rider', 1)");
     await client.execute("INSERT INTO lists (id, customer_id, title) VALUES ('list', 'customer', 'Ride')");
     const ride = (id: string, mode: string, rider: string | null = null, isRide = 1) => client.execute({

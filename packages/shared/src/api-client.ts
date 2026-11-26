@@ -5,7 +5,7 @@ import { applyModuleAvailability, rememberModuleAvailability, type ModuleSetting
 import { isPracticeStorageOn } from "./practice.js";
 import { endServerPractice, isServerPractice, type PracticeSessionResult, type ServerRole } from "./practice-server.js";
 import type { TaxipressAssistance, TaxipressLanguage, TaxipressLuggageType, TaxipressTaxiProfile, TaxipressAdminQueueEntry, TaxipressAdminRoute, TaxipressBoardingResult, TaxipressBooking, TaxipressConfig, TaxipressDriverView, TaxipressLineEntry, TaxipressOutcome, TaxipressQueueView, TaxipressRelayRoute, TaxipressReport, TaxipressSettings, TaxipressTaxi, PublicTaxipressTicket, TaxipressSendResult } from "./taxipress.js";
-import type { BagTrip, RelayAdminOrder, RelayRouteStage, RelayMerchantOrder, RelayOpenLeg, RelayOperator, RelayOperatorParcels, RelayQuote, RelayRoute, RelaySettings, RelayStation, RelayStationParcels, RelayTrack } from "./relay.js";
+import type { BagTrip, RelayAdminOrder, RelayRouteStage, RelayMerchantOrder, RelayOpenLeg, RelayOperator, RelayOperatorParcels, RelayOperatorWallet, RelayQuote, RelayRoute, RelaySettings, RelayStation, RelayStationParcels, RelayTrack } from "./relay.js";
 import type { AdminRole } from "./permissions.js";
 import { workMethods } from "./work-client.js";
 import { workAdminMethods } from "./work-admin-client.js";
@@ -434,6 +434,26 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     );
   }
 
+  async function activateRequestedProfile<T extends { token: string; user: AuthUser; riderStatus?: "pending_verification"; profileRequired?: "customer" | "rider" }>(
+    result: T,
+    role: "customer" | "rider" | "admin",
+  ) {
+    if (!result.profileRequired) return result;
+    const profile = result.profileRequired;
+    const copy = profile === "rider"
+      ? "Add a rider profile to this Peebee account? This uses the same login, adds no admin access, and rider verification is still required."
+      : "Add a customer profile to this Peebee account? This uses the same login and adds no admin access.";
+    const accepted = typeof window !== "undefined" && window.confirm(copy);
+    if (!accepted) {
+      throw new ApiError(409, "profile_required", `A ${profile} profile is needed to continue in this app.`);
+    }
+    return request<{ token: string; user: AuthUser; riderStatus?: "pending_verification" }>("/v1/auth/profiles/activate", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${result.token}` },
+      body: JSON.stringify({ role, consent: true }),
+    });
+  }
+
   return {
     getUnreadFollowUpMessage: () => request<{ message: FollowUpMessagePreview | null }>("/v1/attention/messages/unread"),
     getFollowUpMessages: (orderId: string, recipientId: string) => request<{ messages: FollowUpMessage[] }>(`/v1/orders/${encodeURIComponent(orderId)}/follow-up/messages/${encodeURIComponent(recipientId)}`),
@@ -465,11 +485,13 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
         { method: "POST", body: JSON.stringify(input) },
       );
     },
-    async login(input: { identifier: string; password: string }) {
-      return request<{ token: string; user: AuthUser }>("/v1/auth/login", {
+    async login(input: { identifier: string; password: string; role?: "customer" | "rider" | "admin" }) {
+      const role = input.role ?? "customer";
+      const result = await request<{ token: string; user: AuthUser; profileRequired?: "customer" | "rider" }>("/v1/auth/login", {
         method: "POST",
-        body: JSON.stringify(input),
+        body: JSON.stringify({ ...input, role }),
       });
+      return activateRequestedProfile(result, role);
     },
     /**
      * Ends the current session server-side. Dropping the token from local
@@ -481,10 +503,18 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       return request<{ ok: true }>("/v1/auth/logout", { method: "POST" });
     },
     /** Sign in/up with Google — `idToken` is the credential Google Identity Services hands the client. */
-    async googleAuth(idToken: string, role?: "customer" | "rider") {
-      return request<{ token: string; user: AuthUser; riderStatus?: "pending_verification" }>("/v1/auth/google", {
+    async googleAuth(idToken: string, role: "customer" | "rider" = "customer") {
+      const result = await request<{ token: string; user: AuthUser; riderStatus?: "pending_verification"; profileRequired?: "customer" | "rider" }>("/v1/auth/google", {
         method: "POST",
         body: JSON.stringify({ idToken, role }),
+      });
+      return activateRequestedProfile(result, role);
+    },
+    async activateProfile(role: "customer" | "rider", token?: string) {
+      return request<{ token: string; user: AuthUser; riderStatus?: "pending_verification" }>("/v1/auth/profiles/activate", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: JSON.stringify({ role, consent: true }),
       });
     },
     async getAuthConfig() {
@@ -780,6 +810,9 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     },
     async getRelayOperatorMe() {
       return request<{ operator: RelayOperator | null; routes: Array<Pick<RelayRoute, "id" | "name" | "stage_a_name" | "stage_b_name" | "route_code">>; enabled: boolean }>("/v1/relay/operator/me");
+    },
+    async getRelayOperatorWallet() {
+      return request<RelayOperatorWallet>("/v1/relay/operator/wallet");
     },
     async applyRelayOperator(input: { routeId: string; vehiclePlate: string; phone?: string }) {
       return request<{ ok: boolean }>("/v1/relay/operator/apply", { method: "POST", body: JSON.stringify(input) });
@@ -1452,6 +1485,16 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     async myWallet() {
       return request<Wallet>("/v1/riders/me/wallet");
     },
+    async transferProviderWallet(input: { providerType: "rider" | "merchant" | "car" | "work" | "relay" | "education" | "service" | "talent" | "taxipress"; providerId?: string; amount: number }, idempotencyKey: string) {
+      return request<{ transferId: string; amount: number; providerBalance?: number; personalBalance?: number; replayed?: boolean }>("/v1/wallet/provider-transfers", {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify(input),
+      });
+    },
+    async getProviderWallets() {
+      return request<{ wallets: { providerType: "rider" | "merchant" | "car" | "work" | "relay" | "education" | "service" | "talent" | "taxipress"; providerId: string; label: string; balance: number }[]; environment: "live" | "sandbox" }>("/v1/wallet/provider-wallets");
+    },
     /** Funds the rider's own wallet via mobile money — the only way to top
      * back up when "deposit" mode requires a minimum balance to keep
      * taking jobs. */
@@ -1533,7 +1576,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       });
     },
     async merchantBalance(merchantId: string) {
-      return request<{ balance: MerchantBalance; currency: "UGX"; environment: PlatformEnvironment }>(
+      return request<{ balance: MerchantBalance; currency: "UGX"; environment: PlatformEnvironment; personalWalletActive?: boolean; personalWalletActivationAvailable?: boolean; providerWalletTransfersEnabled?: boolean; canMoveToPersonal?: boolean }>(
         `/v1/merchants/${merchantId}/balance`,
       );
     },
@@ -2121,6 +2164,12 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
     // Customer wallet — closed-loop store credit (top up, spend, no cash-out).
     async getWallet() {
       return request<CustomerWallet>("/v1/wallet");
+    },
+    async activatePersonalWallet() {
+      return request<{ walletType: "personal"; active: true }>("/v1/personal-wallet/activate", { method: "POST" });
+    },
+    async getPersonalWalletStatus() {
+      return request<{ walletType: "personal"; active: boolean; activationAvailable: boolean }>("/v1/personal-wallet/status");
     },
     async topUpWallet(input: { amount: number; msisdn?: string; method?: "mobile_money" | "card"; card?: CardInput }) {
       return request<{ topupId: string; status: "pending"; network: string | null; redirectUrl?: string; nextAction?: PaymentNextAction }>(

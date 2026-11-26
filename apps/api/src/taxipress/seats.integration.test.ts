@@ -34,6 +34,7 @@ test('numbered seats: concurrent ownership, expiry and all booking paths',async 
       await client.execute({ sql: "INSERT INTO users(id,name,phone,password_hash,role,admin_role) VALUES(?,?,?,'hash',?,?)",args: [id,id,id,role,id === 'staff' ? 'super_admin' : null] });
       tokens[id] = await signToken({ sub: id,role } as never);
     }
+    await client.execute("INSERT INTO personal_wallets (user_id) SELECT id FROM users WHERE role='customer'");
     const app = new Hono().route('/v1',publicTaxipressRoutes).route('/v1',orderRoutes).route('/v1',relayRoutes).route('/v1',taxipressRoutes);
     const call = (who: string,path: string,body?: object,method = body ? 'POST' : 'GET') => app.request('/v1/'+path,{ method,headers: { ...(tokens[who] ? { Authorization: `Bearer ${tokens[who]}` } : {}),'Content-Type': 'application/json' },...(body ? { body: JSON.stringify(body) } : {}) });
     const json = async (r: Response) => await r.json() as any;

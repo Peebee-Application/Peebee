@@ -1,12 +1,13 @@
 import type { DbStatement } from "../db/client.js";
-import { hasTable } from "../lib/schema.js";
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { getOptions } from "../lib/option-settings.js";
 import { serviceCollectionIsDirectPushOnly } from "../lib/rails.js";
 import { getPlatformEnvironment, type PlatformEnvironment } from "../lib/settings.js";
+import { hasColumn, hasTable } from "../lib/schema.js";
 import { postLedgerTransaction } from "../ledger/service.js";
 import { checkPaymentStatus, initiateCollection, initiateDisbursement } from "../payments/service.js";
+import { creditProviderWorkWallet, debitProviderWorkWallet, ensureProviderWorkWallet, providerWalletCreditStatements } from "../wallet/provider-work-wallet.js";
 import { paymentStatusFor, splitCollected } from "./engine.js";
 import { getServicesPlatformSettings } from "./settings.js";
 
@@ -27,6 +28,43 @@ function walletCreditStatements(userId: string, amount: number, environment: Pla
 
 async function business(businessId: string): Promise<Row> {
   return (await db.execute({ sql: "SELECT id, owner_id, name FROM service_businesses WHERE id = ?", args: [businessId] })).rows[0] as Row;
+}
+
+async function providerPayout(input: { biz: Row; amount: number; environment: PlatformEnvironment; paymentId: string; note: string }) {
+  if (await hasTable("provider_wallets")) {
+    const providerId = String(input.biz.id);
+    await ensureProviderWorkWallet("service", providerId, input.environment);
+    const statements = await providerWalletCreditStatements({
+      providerType: "service", providerId, amount: input.amount, environment: input.environment,
+      idempotencyKey: `service-work:${input.paymentId}`, referenceType: "service_payment",
+      referenceId: input.paymentId, note: input.note,
+    });
+    if (statements) {
+      return {
+        posting: { ownerType: "provider" as const, ownerId: providerId, purpose: "service_work_wallet", environment: input.environment, amount: input.amount },
+        statements: [
+          ...statements,
+          ...(await hasColumn("service_payments", "wallet_source") ? [{ sql: "UPDATE service_payments SET wallet_source='provider_work' WHERE id=?", args: [input.paymentId] }] : []),
+        ],
+      };
+    }
+  }
+  const ownerId = String(input.biz.owner_id);
+  return {
+    posting: { ownerType: "customer" as const, ownerId, purpose: "wallet_payable", environment: input.environment, amount: input.amount },
+    statements: [
+      ...walletCreditStatements(ownerId, input.amount, input.environment, input.note),
+      ...(await hasColumn("service_payments", "wallet_source") ? [{ sql: "UPDATE service_payments SET wallet_source='legacy_personal' WHERE id=?", args: [input.paymentId] }] : []),
+    ],
+  };
+}
+
+async function restoreServiceProviderWallet(input: { businessId: string; ownerId: string; amount: number; environment: PlatformEnvironment; refundId: string; note: string }) {
+  await creditProviderWorkWallet({
+    providerType: "service", providerId: input.businessId, amount: input.amount, environment: input.environment,
+    kind: "adjustment", referenceType: "service_refund", referenceId: input.refundId,
+    idempotencyKey: `service-refund-return:${input.refundId}`, note: input.note, legacyUserId: input.ownerId,
+  });
 }
 
 export type StartedPayment = { ok: true; paymentId: string; status: "pending" | "successful" | "failed"; redirectUrl: string | null } | { ok: false; error: string; message: string; status: 400 | 502 };
@@ -112,16 +150,20 @@ export async function settlePayment(paymentId: string): Promise<void> {
   const biz = await business(String(p.business_id));
   const { commission, payout } = splitCollected(amount, (await getServicesPlatformSettings()).commissionPercent);
   if (direct) {
+    const providerCredit = payout > 0 ? await providerPayout({
+      biz, amount: payout, environment, paymentId,
+      note: `Service booking ${String(booking.booking_code ?? bookingId)}`,
+    }) : null;
     await postLedgerTransaction({
       kind: "service_paid_direct", idempotencyKey: `service-direct:${paymentId}`, environment,
       referenceType: "service_booking", referenceId: bookingId, description: "Service paid by mobile money, released to the provider",
       postings: [
         { ownerType: "platform", ownerId: "peebee", purpose: "momo_collections", environment, amount: -amount },
-        ...(payout > 0 ? [{ ownerType: "customer" as const, ownerId: String(biz.owner_id), purpose: "wallet_payable", environment, amount: payout }] : []),
+        ...(providerCredit ? [providerCredit.posting] : []),
         ...(commission > 0 ? [{ ownerType: "platform" as const, ownerId: "peebee", purpose: "service_commission", environment, amount: commission }] : []),
       ],
       additionalStatements: [
-        ...(payout > 0 ? walletCreditStatements(String(biz.owner_id), payout, environment, `Service booking ${String(booking.booking_code ?? bookingId)}`) : []),
+        ...(providerCredit?.statements ?? []),
         { sql: "UPDATE service_payments SET released = 1 WHERE id = ?", args: [paymentId] },
       ],
     });
@@ -156,15 +198,18 @@ export async function releaseEscrow(bookingId: string): Promise<number> {
     const biz = await business(String(p.business_id));
     const { commission, payout } = splitCollected(amount, (await getServicesPlatformSettings()).commissionPercent);
     try {
+      const providerCredit = payout > 0 ? await providerPayout({
+        biz, amount: payout, environment, paymentId: String(p.id), note: `Service booking ${bookingId}`,
+      }) : null;
       await postLedgerTransaction({
         kind: "service_released", idempotencyKey: `service-release:${String(p.id)}`, environment,
         referenceType: "service_booking", referenceId: bookingId, description: "Service completed, escrow released",
         postings: [
           { ownerType: "order", ownerId: bookingId, purpose: "service_escrow", environment, amount: -amount },
-          ...(payout > 0 ? [{ ownerType: "customer" as const, ownerId: String(biz.owner_id), purpose: "wallet_payable", environment, amount: payout }] : []),
+          ...(providerCredit ? [providerCredit.posting] : []),
           ...(commission > 0 ? [{ ownerType: "platform" as const, ownerId: "peebee", purpose: "service_commission", environment, amount: commission }] : []),
         ],
-        additionalStatements: payout > 0 ? walletCreditStatements(String(biz.owner_id), payout, environment, `Service booking ${bookingId}`) : [],
+        additionalStatements: providerCredit?.statements ?? [],
       });
       released += payout;
     } catch (err) {
@@ -197,22 +242,38 @@ export async function refundOnlinePayments(bookingId: string, actorNote: string)
     let initiated;
     let takenBack = 0;
     let takenFrom = "";
+    let takenFromWorkWallet = false;
     try {
       if (Number(p.released) === 1) {
         // The provider already has this money; take their share back before sending anything to the customer.
         const biz = await business(String(p.business_id));
         const { payout } = splitCollected(amount, (await getServicesPlatformSettings()).commissionPercent);
-        const col = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
-        const debit = await db.execute({ sql: `UPDATE users SET ${col} = ${col} - ?, updated_at = datetime('now') WHERE id = ? AND ${col} >= ?`, args: [payout, String(biz.owner_id), payout] });
-        if (payout > 0 && !debit.rowsAffected) return { ok: false, status: 409, error: "provider_balance_low", message: "The provider's wallet doesn't cover this refund yet." };
+        takenFromWorkWallet = String(p.wallet_source ?? "") === "provider_work";
+        if (payout > 0 && takenFromWorkWallet) {
+          const debit = await debitProviderWorkWallet({
+            providerType: "service", providerId: String(biz.id), amount: payout, environment,
+            kind: "adjustment", referenceType: "service_refund", referenceId: refundId,
+            idempotencyKey: `service-refund-out:${refundId}`, note: "Service refund from provider work wallet",
+            legacyUserId: String(biz.owner_id),
+          });
+          if (debit === null) return { ok: false, status: 409, error: "provider_balance_low", message: "The provider's work wallet doesn't cover this refund yet." };
+        } else if (payout > 0) {
+          const col = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
+          const debit = await db.execute({ sql: `UPDATE users SET ${col} = ${col} - ?, updated_at = datetime('now') WHERE id = ? AND ${col} >= ?`, args: [payout, String(biz.owner_id), payout] });
+          if (!debit.rowsAffected) return { ok: false, status: 409, error: "provider_balance_low", message: "The provider's wallet doesn't cover this refund yet." };
+        }
         takenBack = payout;
         takenFrom = String(biz.owner_id);
       }
       initiated = await initiateDisbursement({ referenceId: refundId, msisdn: String(p.msisdn), amount, narrative: "Peebee service refund", forceMock: environment === "sandbox", directPushOnly: await serviceCollectionIsDirectPushOnly() });
     } catch {
       if (takenBack > 0) {
-        const col = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
-        await db.execute({ sql: `UPDATE users SET ${col} = ${col} + ?, updated_at = datetime('now') WHERE id = ?`, args: [takenBack, takenFrom] });
+        if (takenFromWorkWallet) {
+          await restoreServiceProviderWallet({ businessId: String(p.business_id), ownerId: takenFrom, amount: takenBack, environment, refundId, note: "Service refund initiation failed; work funds restored" });
+        } else {
+          const col = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
+          await db.execute({ sql: `UPDATE users SET ${col} = ${col} + ?, updated_at = datetime('now') WHERE id = ?`, args: [takenBack, takenFrom] });
+        }
       }
       return { ok: false, status: 502, error: "refund_unavailable", message: "The refund could not be sent right now. Nothing was changed; try again shortly." };
     }
@@ -238,8 +299,12 @@ async function undoRefundDebit(refund: Row): Promise<void> {
   const biz = await business(String(refund.business_id));
   const { payout } = splitCollected(Number(refund.amount_ugx), (await getServicesPlatformSettings()).commissionPercent);
   if (payout <= 0) return;
-  const col = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
-  await db.execute({ sql: `UPDATE users SET ${col} = ${col} + ?, updated_at = datetime('now') WHERE id = ?`, args: [payout, String(biz.owner_id)] });
+  if (String(orig.wallet_source ?? "") === "provider_work") {
+    await restoreServiceProviderWallet({ businessId: String(biz.id), ownerId: String(biz.owner_id), amount: payout, environment, refundId: String(refund.id), note: "Service refund failed; provider work funds restored" });
+  } else {
+    const col = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
+    await db.execute({ sql: `UPDATE users SET ${col} = ${col} + ?, updated_at = datetime('now') WHERE id = ?`, args: [payout, String(biz.owner_id)] });
+  }
   await db.execute({ sql: "UPDATE service_bookings SET refund_state = 'review' WHERE id = ?", args: [String(refund.booking_id)] });
 }
 
@@ -255,11 +320,14 @@ export async function finalizeRefund(refundId: string): Promise<void> {
   const biz = await business(String(r.business_id));
   const { commission, payout } = splitCollected(amount, (await getServicesPlatformSettings()).commissionPercent);
   if (Number(orig.released) === 1) {
+    const providerWorkSource = String(orig.wallet_source ?? "") === "provider_work";
     await postLedgerTransaction({
       kind: "service_refund_released", idempotencyKey: `service-refund:${refundId}`, environment,
       referenceType: "service_booking", referenceId: bookingId, description: "Service refunded after release",
       postings: [
-        ...(payout > 0 ? [{ ownerType: "customer" as const, ownerId: String(biz.owner_id), purpose: "wallet_payable", environment, amount: -payout }] : []),
+        ...(payout > 0 ? [providerWorkSource
+          ? { ownerType: "provider" as const, ownerId: String(biz.id), purpose: "service_work_wallet", environment, amount: -payout }
+          : { ownerType: "customer" as const, ownerId: String(biz.owner_id), purpose: "wallet_payable", environment, amount: -payout }] : []),
         ...(commission > 0 ? [{ ownerType: "platform" as const, ownerId: "peebee", purpose: "service_commission", environment, amount: -commission }] : []),
         { ownerType: "platform", ownerId: "peebee", purpose: "momo_collections", environment, amount },
       ],

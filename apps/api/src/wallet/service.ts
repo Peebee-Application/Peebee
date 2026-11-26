@@ -14,6 +14,8 @@ import { hasColumn,hasTable } from "../lib/schema.js";
 import { getWalletSettings, type PlatformEnvironment } from "../lib/settings.js";
 import { scheduleMoneyAlert } from "./alerts.js";
 import { walletIsFrozen } from "./freeze.js";
+import { findActiveUserWithRoleByIdentifier } from "../auth/roles.js";
+import { personalWalletIsActive } from "./personal-wallet.js";
 
 type Row = Record<string, unknown>;
 
@@ -140,8 +142,11 @@ export async function debitWallet(
     actorId?: string;
     walletId?: string;
     idempotencyKey?: string;
+    /** Only legacy provider-work accounting may touch the pre-migration shared balance. */
+    allowInactivePersonalWallet?: boolean;
   },
 ): Promise<number | null> {
+  if (!info.allowInactivePersonalWallet && !(await personalWalletIsActive(userId))) return null;
   const balance = await applyDebit(userId, amount, info.environment, info.walletId);
   if (balance === null) return null;
   await recordLedgerEntry({ userId, amount: -amount, balanceAfter: balance, ...info });
@@ -157,8 +162,9 @@ export async function debitWallet(
 export async function debitWalletAllowNegative(
   userId: string,
   amount: number,
-  info: { type: LedgerType; environment: PlatformEnvironment; orderId?: string; note?: string; actorId?: string },
-): Promise<number> {
+  info: { type: LedgerType; environment: PlatformEnvironment; orderId?: string; note?: string; actorId?: string; allowInactivePersonalWallet?: boolean },
+): Promise<number | null> {
+  if (!info.allowInactivePersonalWallet && !(await personalWalletIsActive(userId))) return null;
   const column = balanceColumn(info.environment);
   await db.execute({ sql: `UPDATE users SET ${column} = ${column} - ?, updated_at = datetime('now') WHERE id = ?`, args: [amount, userId] });
   const res = await db.execute({ sql: `SELECT ${column} as balance FROM users WHERE id = ?`, args: [userId] });
@@ -415,15 +421,9 @@ export async function refundOrderToWallet(input: {
  * only (not LIKE): this is a money-moving lookup, not a search box, so
  * it shouldn't return anyone other than exactly who was typed. */
 export async function resolveCustomerByIdentifier(identifier: string): Promise<{ id: string; name: string } | null> {
-  const value = identifier.trim();
-  if (!value) return null;
-  const res = await db.execute({
-    sql: "SELECT id, name FROM users WHERE role = 'customer' AND status = 'active' AND (phone = ? OR lower(email) = lower(?)) LIMIT 1",
-    args: [value, value],
-  });
-  const row = res.rows[0] as Row | undefined;
-  if (!row) return null;
-  return { id: row.id as string, name: row.name as string };
+  const row = await findActiveUserWithRoleByIdentifier(identifier, "customer");
+  if (!row || !(await personalWalletIsActive(row.id))) return null;
+  return { id: row.id, name: row.name };
 }
 
 /**

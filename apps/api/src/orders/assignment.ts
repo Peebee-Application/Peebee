@@ -16,9 +16,10 @@ export async function assignAvailableRider(
       // Shop; deciding it in the same statement means a payment can't slip in between.
       sql: `UPDATE orders SET rider_id = ?, stage = CASE WHEN ${PAID_ESCROW} THEN 'Shop' ELSE ? END, matched_out_of_range = ?, updated_at = datetime('now')${clearLocation}
             WHERE id = ? AND environment = ? AND rider_id IS NULL AND stage IN ('Create', 'Match')
+            AND (customer_id IS NULL OR customer_id <> ?)
             AND NOT EXISTS (SELECT 1 FROM orders busy WHERE busy.rider_id = ?
               AND busy.environment = ? AND busy.stage NOT IN ('Settle', 'Cancelled'))`,
-      args: [riderId, nextStage, outOfRange ? 1 : 0, orderId, environment, riderId, environment],
+      args: [riderId, nextStage, outOfRange ? 1 : 0, orderId, environment, riderId, riderId, environment],
     },
     {
       sql: `UPDATE order_applications SET status = CASE

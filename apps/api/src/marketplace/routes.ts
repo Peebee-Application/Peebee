@@ -37,6 +37,7 @@ import { storeLiveCameraRoutes } from "./store-live-camera.js";
 import { cleanSections, parseSections } from "./sections.js";
 import { soldOutLicenseProducts } from "./digital-sales.js";
 import { proofIsValid } from "../lib/phone-proof.js";
+import { isActiveMerchantMember } from "../merchants/self-transaction.js";
 
 export const marketplaceRoutes = new Hono();
 // Team roles are checked before any merchant route (including the digital and learning ones mounted below) runs.
@@ -4065,6 +4066,14 @@ marketplaceRoutes.post("/marketplace/checkout", requireAuth, async (c) => {
   if (refused) return c.json(refused, 403);
   const bag = await planMarketplaceDelivery(pricing.items, d, environment);
   const stops = bag.stops;
+  const ownsStore = await Promise.all(stops.map(async (stop) => {
+    const store = await db.execute({ sql: "SELECT merchant_id FROM stores WHERE id = ?", args: [stop.storeId] });
+    const merchantId = store.rows[0]?.merchant_id;
+    return merchantId != null && await isActiveMerchantMember(user.sub, String(merchantId));
+  }));
+  if (ownsStore.some(Boolean)) {
+    return c.json({ error: "self_transaction", message: "You can't place a customer order with a store your account operates." }, 409);
+  }
   const promoEval = await evaluateBagPromosAndLoyalty(stops, d.promoCode);
   for (const stop of stops) {
     const itemDisc = promoEval.discountByStore.get(stop.storeId) ?? 0;

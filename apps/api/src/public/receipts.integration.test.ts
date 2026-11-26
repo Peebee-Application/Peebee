@@ -48,6 +48,7 @@ test("receipts: the QR on a receipt verifies it, for fuel and for a Taxipress se
   try {
     const people = [["staff", "admin"], ["d1", "customer"], ["a", "customer"]];
     for (const [id, role] of people) await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role) VALUES (?, ?, ?, 'hash', ?)", args: [id, id, id, role] });
+    await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('a')");
     await client.execute("UPDATE users SET admin_role = 'super_admin' WHERE id = 'staff'");
     // Mounted first, as in app.ts, so no sub-app's sign-in middleware sits in front of it.
     const app = new Hono().route("/v1", publicReceiptRoutes).route("/v1", orderRoutes).route("/v1", relayRoutes).route("/v1", taxipressRoutes);

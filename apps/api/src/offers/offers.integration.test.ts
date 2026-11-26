@@ -51,6 +51,7 @@ async function freshDb() {
   for (const [id, role] of [["cust", "customer"], ["friend", "customer"], ["rider", "rider"], ["admin", "admin"]] as const) {
     await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role, wallet_balance) VALUES (?, ?, ?, 'h', ?, 100000)", args: [id, id, id, role] });
   }
+  await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('cust')");
   await client.execute("UPDATE users SET admin_role = 'super_admin' WHERE id = 'admin'");
   await client.execute("INSERT INTO riders (user_id, verified, is_online) VALUES ('rider', 1, 1)");
   return client;

@@ -45,6 +45,7 @@ test("sandbox car demo: demo drivers appear near a pickup, take the ride, answer
   };
   try {
     await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role, wallet_balance_sandbox) VALUES ('cust', 'cust', 'Cust', 'hash', 'customer', 1000000)", args: [] });
+    await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('cust')");
     await setSettings({
       platform_environment: "live", car_enabled: "1", car_ondemand_enabled: "1", car_matching_mode: "first_to_claim",
     });

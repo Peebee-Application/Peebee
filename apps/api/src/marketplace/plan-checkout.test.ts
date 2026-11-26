@@ -38,6 +38,7 @@ async function setup() {
   bindDatabase(client);
   const hash = bcrypt.hashSync("owner-pass-1", 4);
   await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role, status, wallet_balance, password_set_at) VALUES ('pc_1', '+256700333444', 'Owner', ?, 'customer', 'active', 500000, datetime('now'))", args: [hash] });
+  await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('pc_1')");
   await client.execute("INSERT INTO merchants (id, legal_name, display_name, business_kind, status, environment) VALUES ('pc_m1', 'Shop Ltd', 'Shop', 'business', 'active', 'sandbox')");
   await client.execute("INSERT INTO merchant_members (merchant_id, user_id, role, status) VALUES ('pc_m1', 'pc_1', 'owner', 'active')");
   const token = await signToken({ sub: "pc_1", role: "customer" });

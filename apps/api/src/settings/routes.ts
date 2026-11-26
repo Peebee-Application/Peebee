@@ -228,6 +228,7 @@ async function fullSettings() {
     walletMaxAccounts: walletAccounts.maxAccounts,
     walletSuggestedNames: walletAccounts.suggestedNames.join(", "),
     walletTransferPerHour: walletAccounts.transferPerHour,
+    providerWalletTransfersEnabled: walletAccounts.providerTransfersEnabled,
     walletLookupPerHour: walletAccounts.lookupPerHour,
     walletShareInvitePerHour: walletAccounts.sharePerHour,
     walletFreezeEnabled: walletAccounts.freezeEnabled,
@@ -631,6 +632,7 @@ const updateSchema = z.object({
   walletMaxAccounts: z.number().int().min(1).max(20).optional(),
   walletSuggestedNames: z.string().max(400).optional(),
   walletTransferPerHour: z.number().int().min(1).max(500).optional(),
+  providerWalletTransfersEnabled: z.boolean().optional(),
   walletLookupPerHour: z.number().int().min(1).max(500).optional(),
   walletShareInvitePerHour: z.number().int().min(1).max(500).optional(),
   walletFreezeEnabled: z.boolean().optional(),
@@ -730,6 +732,7 @@ const PAYMENTS_FIELDS = [
   "walletMaxAccounts",
   "walletSuggestedNames",
   "walletTransferPerHour",
+  "providerWalletTransfersEnabled",
   "walletLookupPerHour",
   "walletShareInvitePerHour",
   "walletFreezeEnabled",
@@ -930,6 +933,7 @@ settingsRoutes.put(
     if (parsed.data.walletMaxAccounts != null) await setSetting("wallet_max_accounts", String(parsed.data.walletMaxAccounts));
     if (parsed.data.walletSuggestedNames != null) await setSetting("wallet_suggested_names", parsed.data.walletSuggestedNames);
     if (parsed.data.walletTransferPerHour != null) await setSetting("wallet_transfer_per_hour", String(parsed.data.walletTransferPerHour));
+    if (parsed.data.providerWalletTransfersEnabled != null) await setSetting("provider_wallet_transfers_enabled", parsed.data.providerWalletTransfersEnabled ? "1" : "0");
     if (parsed.data.walletLookupPerHour != null) await setSetting("wallet_lookup_per_hour", String(parsed.data.walletLookupPerHour));
     if (parsed.data.walletShareInvitePerHour != null) await setSetting("wallet_share_invite_per_hour", String(parsed.data.walletShareInvitePerHour));
     if (parsed.data.walletFreezeEnabled != null) await setSetting("wallet_freeze_enabled", parsed.data.walletFreezeEnabled ? "1" : "0");

@@ -60,6 +60,7 @@ test("taxipress: boarding confirmation and settlement", async (t) => {
     for (const [id, role] of people) {
       await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role) VALUES (?, ?, ?, 'hash', ?)", args: [id, id, id, role] });
     }
+    await client.execute("INSERT INTO personal_wallets (user_id) SELECT id FROM users WHERE role='customer'");
     await client.execute("UPDATE users SET admin_role = 'super_admin' WHERE id = 'staff'");
 
     const app = new Hono().route("/v1", orderRoutes).route("/v1", relayRoutes).route("/v1", taxipressRoutes);
@@ -73,6 +74,7 @@ test("taxipress: boarding confirmation and settlement", async (t) => {
     const code = async (res: Response) => (await json<{ error?: string }>(res)).error;
     const setting = (body: object) => call("staff", "admin/taxipress/settings", body, "PUT");
     const balance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance FROM users WHERE id = ?", args: [id] })).rows[0].wallet_balance);
+    const driverBalance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance FROM riders WHERE user_id=?", args: [id] })).rows[0]?.wallet_balance ?? 0);
 
     const relay = await json<{ id: string }>(await call("staff", "admin/relay/routes", {
       name: "Kampala - Entebbe", stageAName: "Kampala Stage", stageALat: KAMPALA.lat, stageALng: KAMPALA.lng,
@@ -132,7 +134,7 @@ test("taxipress: boarding confirmation and settlement", async (t) => {
     });
 
     await t.test("an app payment is settled: the fare minus Peebee's commission goes to the driver", async () => {
-      assert.equal(await balance("d1"), 0);
+      assert.equal(await driverBalance("d1"), 0);
       const res = await board("d1", paid.booking.ticketCode);
       assert.equal(res.status, 200, JSON.stringify(await res.clone().json()));
       const done = await json<Board>(res);
@@ -140,27 +142,26 @@ test("taxipress: boarding confirmation and settlement", async (t) => {
       assert.equal(done.commission, 1000);
       assert.equal(done.driverAmount, 9000);
       assert.equal(done.takenFromDriver, 0);
-      assert.equal(await balance("d1"), 9000);
+      assert.equal(await driverBalance("d1"), 9000);
       const order = await client.execute({ sql: "SELECT stage, final_total FROM orders WHERE id = ?", args: [paid.order.id] });
       assert.equal(order.rows[0].stage, "Settle");
       const row = await client.execute({ sql: "SELECT commission, driver_amount, payment_method FROM taxipress_settlements WHERE booking_id = ?", args: [paid.booking.id] });
       assert.deepEqual([row.rows[0].commission, row.rows[0].driver_amount, row.rows[0].payment_method], [1000, 9000, "app"]);
-      const ledger = await client.execute("SELECT amount FROM wallet_ledger WHERE user_id = 'd1' AND note LIKE 'Taxipress seat%'");
-      assert.deepEqual(ledger.rows.map((r) => Number(r.amount)), [9000]);
+      assert.equal(await balance("d1"), 0, "the driver's personal wallet is unchanged");
     });
 
     await t.test("a passenger can only board once", async () => {
       assert.equal(await code(await board("d1", paid.booking.ticketCode)), "already_boarded");
-      assert.equal(await balance("d1"), 9000, "no second payment");
+      assert.equal(await driverBalance("d1"), 9000, "no second payment");
       assert.equal(Number((await client.execute("SELECT COUNT(*) AS n FROM taxipress_settlements")).rows[0].n), 1);
     });
 
     await t.test("an unpaid ticket is refused until the passenger pays", async () => {
       assert.equal(await code(await board("d1", unpaid.booking.ticketCode)), "not_paid");
-      assert.equal(await balance("d1"), 9000);
+      assert.equal(await driverBalance("d1"), 9000);
       await payWallet("b", unpaid);
       assert.equal((await board("d1", unpaid.booking.ticketCode)).status, 200);
-      assert.equal(await balance("d1"), 9000 + 4500, "5,000 less 10% commission");
+      assert.equal(await driverBalance("d1"), 9000 + 4500, "5,000 less 10% commission");
     });
 
     await t.test("cash: the driver keeps the cash and Peebee's commission comes out of their wallet", async () => {
@@ -169,7 +170,7 @@ test("taxipress: boarding confirmation and settlement", async (t) => {
       assert.equal(done.commission, 500);
       assert.equal(done.takenFromDriver, 500);
       assert.equal(done.driverAmount, 4500);
-      assert.equal(await balance("d1"), 13500 - 500);
+      assert.equal(await driverBalance("d1"), 13500 - 500);
       const row = await client.execute({ sql: "SELECT taken_from_driver, driver_amount FROM taxipress_settlements WHERE booking_id = ?", args: [cash.booking.id] });
       assert.deepEqual([row.rows[0].taken_from_driver, row.rows[0].driver_amount], [500, 4500]);
     });
@@ -179,16 +180,16 @@ test("taxipress: boarding confirmation and settlement", async (t) => {
     });
 
     await t.test("a driver with no wallet funds goes negative, and the next payment nets against it", async () => {
-      await client.execute("UPDATE users SET wallet_balance = 100 WHERE id = 'd1'");
+      await client.execute("UPDATE riders SET wallet_balance = 100 WHERE user_id = 'd1'");
       const another = await book("a", van1.id, 1, "cash");
       assert.equal((await call("a", `orders/${another.order.id}/fund`, { paymentMethod: "cash" })).status, 200);
       const done = await json<Board>(await board("d1", another.booking.ticketCode));
       assert.equal(done.driverBalance, -400);
-      assert.equal(await balance("d1"), -400);
+      assert.equal(await driverBalance("d1"), -400);
       const paidLater = await book("a", van1.id, 1, "app");
       await payWallet("a", paidLater);
       assert.equal((await board("d1", paidLater.booking.ticketCode)).status, 200);
-      assert.equal(await balance("d1"), -400 + 4500, "the payment nets against what the driver owed");
+      assert.equal(await driverBalance("d1"), -400 + 4500, "the payment nets against what the driver owed");
     });
 
     await t.test("a flat commission is per seat, and never more than the fare", async () => {
@@ -212,7 +213,7 @@ test("taxipress: boarding confirmation and settlement", async (t) => {
     });
 
     await t.test("staff see the commission and who owes it", async () => {
-      await client.execute("UPDATE users SET wallet_balance = -1200 WHERE id = 'd1'");
+      await client.execute("UPDATE riders SET wallet_balance = -1200 WHERE user_id = 'd1'");
       const report = await json<{ ready: boolean; totals: { bookings: number; seats: number; fare: number; commission: number; cashFare: number; appFare: number; takenFromDrivers: number }; recent: Array<{ plate: string }>; owing: Array<{ balance: number; plate: string }> }>(await call("staff", "admin/taxipress/report?days=7"));
       assert.equal(report.ready, true);
       assert.equal(report.totals.bookings, 7);

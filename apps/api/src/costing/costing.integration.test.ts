@@ -55,6 +55,7 @@ async function freshDb() {
   }
   await client.execute("UPDATE users SET admin_role = 'super_admin', created_at = datetime('now', '-300 days') WHERE id IN ('admin', 'rider')");
   await client.execute("INSERT INTO riders (user_id, verified, is_online) VALUES ('rider', 1, 1)");
+  await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('cust')");
   return client;
 }
 

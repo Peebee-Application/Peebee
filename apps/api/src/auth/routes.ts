@@ -22,6 +22,9 @@ import { toAuthUser } from "./serialize.js";
 import { signToken, TOKEN_TTL_SECONDS } from "./jwt.js";
 import { requireAuth } from "./middleware.js";
 import { activateGoogleAgent } from "../onboarding/access.js";
+import { addPeebeeRole, hasPeebeeRole, type PeebeeRole } from "./roles.js";
+import { hasTable } from "../lib/schema.js";
+import { normalizePhone } from "../lib/validation.js";
 
 export const authRoutes = new Hono();
 // OAuth client IDs are public configuration; signing keys and provider secrets are never exposed.
@@ -43,8 +46,13 @@ async function ipLimited(c: Parameters<typeof clientIp>[0], bucket: keyof typeof
 
 const registerSchema = z
   .object({
-    phone: z.string().min(6).max(20).optional(),
-    email: z.string().email().max(160).optional(),
+    phone: z.string().min(6).max(30).optional().transform((value, ctx) => {
+      if (value == null) return undefined;
+      const normalized = normalizePhone(value);
+      if (!normalized) ctx.addIssue({ code: "custom", message: "Enter a valid phone number." });
+      return normalized ?? value;
+    }),
+    email: z.string().email().max(160).optional().transform((value) => value?.trim().toLowerCase()),
     name: z.string().min(1).max(80),
     password: z.string().min(6).max(100),
     role: z.enum(["customer", "rider"]).default("customer"),
@@ -57,6 +65,7 @@ const registerSchema = z
 const loginSchema = z.object({
   identifier: z.string().min(3).max(160),
   password: z.string().min(1),
+  role: z.enum(["customer", "rider", "admin"]).default("customer"),
 });
 
 type UserRow = {
@@ -102,7 +111,7 @@ authRoutes.post("/register", async (c) => {
   // session until the code is confirmed — a signup flow change, not just an
   // API one.
   const clash = await db.execute({
-    sql: "SELECT id FROM users WHERE (? IS NOT NULL AND phone = ?) OR (? IS NOT NULL AND email = ?)",
+    sql: "SELECT id FROM users WHERE (? IS NOT NULL AND phone = ?) OR (? IS NOT NULL AND lower(email) = lower(?))",
     args: [phone ?? null, phone ?? null, email ?? null, email ?? null],
   });
   if (clash.rows.length > 0) {
@@ -119,6 +128,7 @@ authRoutes.post("/register", async (c) => {
           VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
     args: [id, phone ?? null, email ?? null, name, passwordHash, role],
   });
+  await addPeebeeRole(id, role);
   await ensureAccountCode(id);
 
   if (role === "rider") {
@@ -151,7 +161,7 @@ authRoutes.post("/login", async (c) => {
   if (!parsed.success) {
     return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
   }
-  const { identifier, password } = parsed.data;
+  const { identifier, password, role: requestedRole } = parsed.data;
 
   void sweepExpired();
 
@@ -170,8 +180,8 @@ authRoutes.post("/login", async (c) => {
   }
 
   const result = await db.execute({
-    sql: "SELECT * FROM users WHERE phone = ? OR email = ?",
-    args: [identifier, identifier],
+    sql: "SELECT * FROM users WHERE phone = ? OR phone = ? OR lower(email) = lower(?)",
+    args: [normalizePhone(identifier) ?? identifier, identifier, identifier],
   });
   const row = result.rows[0] as unknown as (UserRow & Record<string, unknown>) | undefined;
   if (!row) {
@@ -187,6 +197,21 @@ authRoutes.post("/login", async (c) => {
   }
   if (row.status === "suspended") {
     return c.json({ error: "account_suspended", message: "This account has been suspended" }, 403);
+  }
+
+  // A shared Peebee identity gets a role-scoped session only when that app
+  // profile exists. When the profile is missing, return a session for an
+  // already-held role and let the client ask before creating the new one.
+  const hasRequestedRole = await hasPeebeeRole(row.id, requestedRole);
+  if (!hasRequestedRole && requestedRole === "admin") {
+    return c.json({ error: "admin_access_required", message: "Admin access must be granted by Peebee staff." }, 403);
+  }
+  if (requestedRole === "admin" && !isAdminRole(row.admin_role)) {
+    return c.json({ error: "admin_access_required", message: "Admin access must be granted by Peebee staff." }, 403);
+  }
+  if (!hasRequestedRole && !(await hasTable("user_roles"))) {
+    const appName = row.role === "rider" ? "rider" : row.role === "admin" ? "admin" : "customer";
+    return c.json({ error: "role_mismatch", message: `This account is registered as a ${row.role}. Please sign in from the ${appName} app instead.` }, 409);
   }
 
   await clearFailures(accountKey);
@@ -206,10 +231,12 @@ authRoutes.post("/login", async (c) => {
     });
   }
 
-  const token = await signToken({ sub: row.id, role: row.role, phone: row.phone });
+  const activeRole = hasRequestedRole ? requestedRole : row.role;
+  const token = await signToken({ sub: row.id, role: activeRole, phone: row.phone });
   return c.json({
     token,
-    user: toAuthUser(row),
+    user: toAuthUser(row, activeRole),
+    ...(!hasRequestedRole ? { profileRequired: requestedRole as Exclude<PeebeeRole, "admin"> } : {}),
   });
 });
 
@@ -280,23 +307,38 @@ authRoutes.post("/google", async (c) => {
   }
   if (!email) return c.json({ error: "google_email_missing" }, 400);
 
-  const existing = await db.execute({ sql: "SELECT * FROM users WHERE email = ?", args: [email] });
+  const existing = await db.execute({ sql: "SELECT * FROM users WHERE lower(email) = lower(?)", args: [email] });
   let row = existing.rows[0] as unknown as (UserRow & Record<string, unknown>) | undefined;
   let isNewUser = false;
+
+  if (row && !row.email_verified_at) {
+    // Google already proved ownership of this email. Persist that verification
+    // before we may return the profile-activation prompt below.
+    await db.execute({ sql: "UPDATE users SET email_verified_at = datetime('now'), updated_at = datetime('now') WHERE id = ?", args: [row.id] });
+    const refreshed = await db.execute({ sql: "SELECT * FROM users WHERE id = ?", args: [row.id] });
+    row = refreshed.rows[0] as unknown as typeof row;
+  }
 
   // This account already exists under a different role — signing them in
   // here as-is would hand back a token that every route in this app rejects
   // (e.g. a customer landing in the rider app gets 403s everywhere). Tell
   // them where their account actually lives instead of leaving them stuck.
   if (row && row.role !== role && app !== 'sales') {
-    const appName = row.role === "rider" ? "rider" : row.role === "admin" ? "admin" : "customer";
-    return c.json(
-      {
-        error: "role_mismatch",
-        message: `This Google account is already registered as a ${row.role}. Please sign in from the ${appName} app instead.`,
-      },
-      409,
-    );
+    if (await hasPeebeeRole(row.id, role)) {
+      // The legacy `users.role` value can differ from the active app profile.
+    } else if (await hasTable("user_roles")) {
+      const token = await signToken({ sub: row.id, role: row.role, phone: row.phone });
+      return c.json({ token, user: toAuthUser(row, row.role), profileRequired: role });
+    } else {
+      const appName = row.role === "rider" ? "rider" : row.role === "admin" ? "admin" : "customer";
+      return c.json(
+        {
+          error: "role_mismatch",
+          message: `This account is registered as a ${row.role}. Please sign in from the ${appName} app instead.`,
+        },
+        409,
+      );
+    }
   }
 
   if (!row) {
@@ -310,6 +352,7 @@ authRoutes.post("/google", async (c) => {
             VALUES (?, ?, ?, ?, ?, datetime('now'))`,
       args: [id, email, name?.trim() || email.split("@")[0], passwordHash, role],
     });
+    await addPeebeeRole(id, role);
     await ensureAccountCode(id);
     if (role === "rider") {
       await db.execute({ sql: "INSERT INTO riders (user_id, verified, is_online) VALUES (?, 0, 0)", args: [id] });
@@ -319,22 +362,55 @@ authRoutes.post("/google", async (c) => {
     row = userRow.rows[0] as unknown as typeof row;
   } else if (row.status === "suspended") {
     return c.json({ error: "account_suspended", message: "This account has been suspended" }, 403);
-  } else if (!row.email_verified_at) {
-    // Google already proved they own this email — piggyback the confirmation.
-    await db.execute({
-      sql: "UPDATE users SET email_verified_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
-      args: [row.id],
-    });
-    const userRow = await db.execute({ sql: "SELECT * FROM users WHERE id = ?", args: [row.id] });
-    row = userRow.rows[0] as unknown as typeof row;
   }
 
   if (app === 'sales') await activateGoogleAgent(row!.id);
-  const token = await signToken({ sub: row!.id, role: row!.role, phone: row!.phone });
+  const activeRole = row!.role === role || await hasPeebeeRole(row!.id, role) ? role : row!.role;
+  const token = await signToken({ sub: row!.id, role: activeRole, phone: row!.phone });
   return c.json({
     token,
-    user: toAuthUser(row!),
-    ...(isNewUser && row!.role === "rider" ? { riderStatus: "pending_verification" as const } : {}),
+    user: toAuthUser(row!, activeRole),
+    ...(row!.role !== role && activeRole !== role ? { profileRequired: role } : {}),
+    ...(isNewUser && role === "rider" ? { riderStatus: "pending_verification" as const } : {}),
+  });
+});
+
+const activateProfileSchema = z.object({
+  role: z.enum(["customer", "rider"]),
+  consent: z.literal(true),
+});
+
+/** Add an app profile to the currently signed-in Peebee identity after an explicit user choice. */
+authRoutes.post("/profiles/activate", requireAuth, async (c) => {
+  const parsed = activateProfileSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+  if (!(await hasTable("user_roles"))) {
+    return c.json({ error: "profile_system_not_ready", message: "Peebee profiles are being prepared. Please try again shortly." }, 503);
+  }
+
+  const user = c.get("user");
+  const role = parsed.data.role;
+  const alreadyHadProfile = await hasPeebeeRole(user.sub, role);
+  const verified = await db.execute({
+    sql: "SELECT email_verified_at, phone_verified_at FROM users WHERE id = ?",
+    args: [user.sub],
+  });
+  if (!alreadyHadProfile && !verified.rows[0]?.email_verified_at && !verified.rows[0]?.phone_verified_at) {
+    return c.json({ error: "identity_verification_required", message: "Verify your email or phone in Peebee Account before adding another app profile." }, 403);
+  }
+  await addPeebeeRole(user.sub, role);
+  if (role === "rider") {
+    await db.execute({ sql: "INSERT OR IGNORE INTO riders (user_id, verified, is_online) VALUES (?, 0, 0)", args: [user.sub] });
+    await ensureRiderCode(user.sub);
+  }
+
+  const row = await db.execute({ sql: "SELECT * FROM users WHERE id = ?", args: [user.sub] });
+  if (!row.rows[0]) return c.json({ error: "not_found" }, 404);
+  const token = await signToken({ sub: user.sub, role, phone: user.phone });
+  return c.json({
+    token,
+    user: toAuthUser(row.rows[0], role),
+    ...(role === "rider" && !alreadyHadProfile ? { riderStatus: "pending_verification" as const } : {}),
   });
 });
 
@@ -346,7 +422,7 @@ authRoutes.get("/me", requireAuth, async (c) => {
   });
   const row = result.rows[0];
   if (!row) return c.json({ error: "not_found" }, 404);
-  return c.json({ user: toAuthUser(row) });
+  return c.json({ user: toAuthUser(row, user.role) });
 });
 
 // ---------------------------------------------------------------------------
@@ -418,8 +494,8 @@ authRoutes.post("/password/reset/request", async (c) => {
   }
 
   const result = await db.execute({
-    sql: "SELECT id, phone, email FROM users WHERE phone = ? OR email = ?",
-    args: [identifier, identifier],
+    sql: "SELECT id, phone, email FROM users WHERE phone = ? OR phone = ? OR lower(email) = lower(?)",
+    args: [normalizePhone(identifier) ?? identifier, identifier, identifier],
   });
   const row = result.rows[0] as unknown as { id: string; phone: string | null; email: string | null } | undefined;
   // Same response whether or not the account exists — don't let this endpoint
@@ -460,8 +536,8 @@ authRoutes.post("/password/reset/confirm", async (c) => {
   const { identifier, code, newPassword } = parsed.data;
 
   const result = await db.execute({
-    sql: "SELECT id, phone, role, status FROM users WHERE phone = ? OR email = ?",
-    args: [identifier, identifier],
+    sql: "SELECT id, phone, role, status FROM users WHERE phone = ? OR phone = ? OR lower(email) = lower(?)",
+    args: [normalizePhone(identifier) ?? identifier, identifier, identifier],
   });
   const row = result.rows[0] as unknown as
     | { id: string; phone: string | null; role: string; status: string }

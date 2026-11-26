@@ -371,7 +371,7 @@ offersAdminRoutes.post("/admin/offers/credit/reverse-topup", async (c) => {
   const env = topup.environment === "sandbox" ? "sandbox" : "live";
   const userId = String(topup.user_id);
   const cash = Number(topup.cash_credited ?? topup.amount);
-  await debitWalletAllowNegative(userId, cash, { type: "adjustment", environment: env, note: parsed.data.reason, actorId: c.get("user").sub });
+  await debitWalletAllowNegative(userId, cash, { type: "adjustment", environment: env, note: parsed.data.reason, actorId: c.get("user").sub, allowInactivePersonalWallet: true });
   let clawed = 0;
   const cfg = await getCreditConfig();
   if (cfg.withdrawal.clawbackOnReversal && (await creditAvailable())) {

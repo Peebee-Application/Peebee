@@ -9,6 +9,7 @@ import { requirePermission } from "../admin/permissions.js";
 import { db } from "../db/client.js";
 import { getRiderChargeNumber } from "./momo-number.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
+import { personalWalletIsActive } from "../wallet/personal-wallet.js";
 import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
 import { ensureRiderCode } from "../lib/profile-codes.js";
@@ -16,7 +17,7 @@ import { trackOnline } from "../offers/incentives.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { clientIp } from "../lib/ratelimit.js";
-import { getDeliverySettings, getLugandaAudioSettings, getMonetizationSettings, getPlatformEnvironment, getProSettings, getRiderReserveSettings, getRideExtrasSettings } from "../lib/settings.js";
+import { getDeliverySettings, getLugandaAudioSettings, getMonetizationSettings, getPlatformEnvironment, getProSettings, getRiderReserveSettings, getRideExtrasSettings, getWalletAccountSettings } from "../lib/settings.js";
 import { beyondRiderRange, currentVisibilityRadiusKm, orderMatchPoint, riderRangeKm } from "../orders/matching.js";
 import { redactOrders, toOpenJob } from "../orders/visibility.js";
 import { computeBidding, loadBiddingContext } from "../orders/bidding.js";
@@ -517,7 +518,7 @@ riderRoutes.get("/riders/me/wallet", requireAuth, requireRole("rider"), async (c
   const user = c.get("user");
   const environment = await getPlatformEnvironment();
   const balanceColumn = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
-  const [riderRes, monetizationSettings, reserve, withdrawalsRes] = await Promise.all([
+  const [riderRes, monetizationSettings, reserve, withdrawalsRes, walletSettings, personalWalletActive, transferSchemaReady, personalWalletActivationAvailable] = await Promise.all([
     db.execute({ sql: `SELECT ${balanceColumn} as wallet_balance FROM riders WHERE user_id = ?`, args: [user.sub] }),
     getMonetizationSettings(),
     getRiderReserveSettings(),
@@ -525,6 +526,10 @@ riderRoutes.get("/riders/me/wallet", requireAuth, requireRole("rider"), async (c
       sql: "SELECT * FROM wallet_withdrawals WHERE rider_id = ? AND environment = ? ORDER BY created_at DESC LIMIT 20",
       args: [user.sub, environment],
     }),
+    getWalletAccountSettings(),
+    personalWalletIsActive(user.sub),
+    hasTable("provider_wallet_transfers"),
+    hasTable("personal_wallets"),
   ]);
   const balance = (riderRes.rows[0]?.wallet_balance as number | undefined) ?? 0;
   // Only meaningful in "deposit" mode — see isCashDepositOk. In "wallet"
@@ -532,8 +537,13 @@ riderRoutes.get("/riders/me/wallet", requireAuth, requireRole("rider"), async (c
   // withdrawal, so there's nothing to top up on demand.
   const depositRequired = monetizationSettings.cashFeeSource === "deposit" && reserve.enabled;
   return c.json({
+    walletType: "rider_work",
     balance,
     withdrawals: withdrawalsRes.rows,
+    personalWalletActive,
+    personalWalletActivationAvailable,
+    providerWalletTransfersEnabled: walletSettings.providerTransfersEnabled && transferSchemaReady,
+    transferableBalance: Math.max(0, balance - (reserve.enabled ? reserve.amount : 0)),
     depositRequired,
     requiredDeposit: depositRequired ? reserve.amount : 0,
     depositShortfall: depositRequired ? Math.max(0, reserve.amount - balance) : 0,

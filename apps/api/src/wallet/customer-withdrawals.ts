@@ -20,6 +20,7 @@ import { getCreditConfig } from "../offers/config.js";
 import { checkPaymentStatus, initiateDisbursement, paymentProviderErrorResponse, paymentProviderHttpStatus, UnsupportedNetworkError } from "../payments/service.js";
 import { frozenBody, walletIsFrozen } from "./freeze.js";
 import { creditWallet, debitWallet } from "./service.js";
+import { requireActivePersonalWallet } from "./personal-wallet.js";
 
 type Row = Record<string, unknown>;
 
@@ -46,7 +47,7 @@ export async function withdrawalAllowance(userId: string, env: PlatformEnvironme
   return { cash, locked, withdrawnToday, allowed: withdrawableCash(cfg, { cashBalance: Math.max(0, cash), lockedCash: locked, withdrawnToday }), enabled: cfg.enabled && w.enabled, lockDays: w.lockDays };
 }
 
-customerWithdrawalRoutes.get("/wallet/withdrawals", requireAuth, requireRole("customer"), async (c) => {
+customerWithdrawalRoutes.get("/wallet/withdrawals", requireAuth, requireRole("customer"), requireActivePersonalWallet, async (c) => {
   const user = c.get("user");
   const env = await getPlatformEnvironment();
   if (!(await hasTable("customer_withdrawals"))) return c.json({ enabled: false, withdrawals: [], allowed: 0 });
@@ -60,7 +61,7 @@ customerWithdrawalRoutes.get("/wallet/withdrawals", requireAuth, requireRole("cu
 
 const withdrawSchema = z.object({ amount: z.number().int().positive().max(100_000_000), msisdn: z.string().trim().min(6).max(20) });
 
-customerWithdrawalRoutes.post("/wallet/withdraw", requireAuth, requireRole("customer"), async (c) => {
+customerWithdrawalRoutes.post("/wallet/withdraw", requireAuth, requireRole("customer"), requireActivePersonalWallet, async (c) => {
   const user = c.get("user");
   if (!(await hasTable("customer_withdrawals"))) return c.json({ error: "migration_pending", message: "Withdrawals aren't available yet." }, 503);
   const parsed = withdrawSchema.safeParse(await c.req.json().catch(() => ({})));
@@ -125,7 +126,7 @@ async function disburse(c: { json: (b: unknown, s?: 200 | 202 | 400 | 409 | 422 
   }
 }
 
-customerWithdrawalRoutes.get("/wallet/withdrawals/:id/refresh", requireAuth, requireRole("customer"), async (c) => {
+customerWithdrawalRoutes.get("/wallet/withdrawals/:id/refresh", requireAuth, requireRole("customer"), requireActivePersonalWallet, async (c) => {
   const user = c.get("user");
   const row = (await db.execute({ sql: "SELECT * FROM customer_withdrawals WHERE id = ? AND user_id = ?", args: [c.req.param("id") as string, user.sub] })).rows[0] as Row | undefined;
   if (!row) return c.json({ error: "not_found" }, 404);

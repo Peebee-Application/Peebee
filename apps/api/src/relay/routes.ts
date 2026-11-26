@@ -11,9 +11,11 @@ import { db } from "../db/client.js";
 import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
 import { riderRangeKm } from "../orders/matching.js";
-import { hasColumn } from "../lib/schema.js";
-import { getPlatformEnvironment } from "../lib/settings.js";
+import { hasColumn, hasTable } from "../lib/schema.js";
+import { getPlatformEnvironment, getWalletAccountSettings } from "../lib/settings.js";
 import { notifyUser } from "../lib/webpush.js";
+import { ensureProviderWorkWallet, providerWorkWalletBalance } from "../wallet/provider-work-wallet.js";
+import { personalWalletIsActive } from "../wallet/personal-wallet.js";
 import {
   approvedOperator,
   canWatchRelay,
@@ -240,6 +242,27 @@ relayRoutes.get("/relay/operator/me", async (c) => {
   });
 });
 
+relayRoutes.get("/relay/operator/wallet", async (c) => {
+  const user = c.get("user");
+  const operator = await approvedOperator(user.sub);
+  if (!operator) return c.json({ error: "not_operator", message: "Your operator account isn't approved yet." }, 403);
+  const environment = await getPlatformEnvironment();
+  await ensureProviderWorkWallet("relay", user.sub, environment);
+  const [balance, personalWalletActive, walletSettings] = await Promise.all([
+    providerWorkWalletBalance("relay", user.sub, environment),
+    personalWalletIsActive(user.sub),
+    getWalletAccountSettings(),
+  ]);
+  return c.json({
+    walletType: "relay_work",
+    balance: balance ?? 0,
+    environment,
+    personalWalletActive,
+    personalWalletActivationAvailable: await hasTable("personal_wallets"),
+    providerWalletTransfersEnabled: walletSettings.providerTransfersEnabled && await hasTable("provider_wallet_transfers"),
+  });
+});
+
 const applySchema = z.object({
   routeId: z.string().min(1),
   vehiclePlate: z.string().trim().min(3).max(20),
@@ -262,6 +285,7 @@ relayRoutes.post("/relay/operator/apply", async (c) => {
             phone = excluded.phone, status = 'pending', updated_at = datetime('now')`,
     args: [user.sub, d.routeId, d.vehiclePlate.toUpperCase(), d.phone ?? null],
   });
+  await ensureProviderWorkWallet("relay", user.sub, await getPlatformEnvironment());
   return c.json({ ok: true }, 201);
 });
 
@@ -531,6 +555,7 @@ relayRoutes.post("/admin/relay/operators/:userId/status", requirePermission("rid
   const before = (await db.execute({ sql: "SELECT * FROM relay_operators WHERE user_id = ?", args: [userId] })).rows[0] as Row | undefined;
   if (!before) return c.json({ error: "not_found" }, 404);
   await db.execute({ sql: "UPDATE relay_operators SET status = ?, updated_at = datetime('now') WHERE user_id = ?", args: [parsed.data.status, userId] });
+  if (parsed.data.status === "approved") await ensureProviderWorkWallet("relay", userId, await getPlatformEnvironment());
   await logActivity({ actor: c.get("user"), action: "relay.operator.status", summary: `Set matatu operator ${before.vehicle_plate} to ${parsed.data.status}`, entityType: "relay_operator", entityId: userId, before, after: parsed.data, ip: ip(c) });
   if (parsed.data.status === "approved") {
     await notifyUser(userId, { title: "You're approved for relay parcels", body: "Open Relay parcels in the Peebee Car app to receive them.", url: "/relay", tag: "relay-approved" }).catch(() => {});

@@ -60,11 +60,12 @@ test("relay payouts on a merchant-funded store order move through the ledger and
     assert.equal(await settleRelayPayouts(order, 9000, "last"), true);
 
     const riders = Object.fromEntries((await client.execute("SELECT user_id, wallet_balance FROM riders")).rows.map((r) => [r.user_id, Number(r.wallet_balance)]));
-    const opWallet = Number((await client.execute("SELECT wallet_balance FROM users WHERE id = 'op'")).rows[0].wallet_balance);
+    const opWallet = Number((await client.execute("SELECT balance FROM provider_wallets WHERE provider_type='relay' AND provider_id='op' AND environment='live'")).rows[0]?.balance ?? 0);
     assert.deepEqual([riders.first, opWallet, riders.last], [2000, 5000, 2000]);
     assert.equal(await ledgerBalance({ ownerType: "order", ownerId: "ord", purpose: "settlement_escrow", environment: "live" }), 0);
     assert.equal(await ledgerBalance({ ownerType: "rider", ownerId: "first", purpose: "earnings_available", environment: "live" }), 2000);
-    assert.equal(await ledgerBalance({ ownerType: "customer", ownerId: "op", purpose: "wallet_payable", environment: "live" }), 5000);
+    assert.equal(await ledgerBalance({ ownerType: "provider", ownerId: "op", purpose: "relay_work_wallet", environment: "live" }), 5000);
+    assert.equal(await ledgerBalance({ ownerType: "customer", ownerId: "op", purpose: "wallet_payable", environment: "live" }), 0);
   } finally {
     client.close();
   }

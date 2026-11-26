@@ -13,7 +13,7 @@ function ugx(value: number) {
 }
 
 export default function MerchantWalletPage() {
-  const { restaurant, restaurantReady } = useAuth();
+  const { user, restaurant, restaurantReady } = useAuth();
   const merchantId = restaurant?.merchant_id ?? null;
   const [balance, setBalance] = useState<MerchantBalance | null>(null);
   const [accounts, setAccounts] = useState<MerchantSettlementAccount[]>([]);
@@ -25,6 +25,14 @@ export default function MerchantWalletPage() {
   const [settlement, setSettlement] = useState<MerchantSettlement | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [personalWalletActive, setPersonalWalletActive] = useState(false);
+  const [personalWalletActivationAvailable, setPersonalWalletActivationAvailable] = useState(false);
+  const [providerTransfersEnabled, setProviderTransfersEnabled] = useState(false);
+  const [canMoveToPersonal, setCanMoveToPersonal] = useState(false);
+  const [personalTransferAmount, setPersonalTransferAmount] = useState("");
+  const [personalTransferBusy, setPersonalTransferBusy] = useState(false);
+  const [personalWalletActivating, setPersonalWalletActivating] = useState(false);
+  const [personalTransferNotice, setPersonalTransferNotice] = useState("");
 
   const load = useCallback(async () => {
     if (!merchantId) return;
@@ -33,6 +41,10 @@ export default function MerchantWalletPage() {
       api.merchantSettlementAccounts(merchantId),
     ]);
     setBalance(balanceResult.balance);
+    setPersonalWalletActive(!!balanceResult.personalWalletActive);
+    setPersonalWalletActivationAvailable(!!balanceResult.personalWalletActivationAvailable);
+    setProviderTransfersEnabled(!!balanceResult.providerWalletTransfersEnabled);
+    setCanMoveToPersonal(!!balanceResult.canMoveToPersonal);
     setAccounts(accountResult.settlementAccounts);
   }, [merchantId]);
 
@@ -118,6 +130,38 @@ export default function MerchantWalletPage() {
     }
   }
 
+  async function activatePersonalWallet() {
+    setPersonalWalletActivating(true);
+    setError("");
+    try {
+      await api.activatePersonalWallet();
+      setPersonalWalletActive(true);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setPersonalWalletActivating(false);
+    }
+  }
+
+  async function moveToPersonalWallet() {
+    if (!merchantId) return;
+    const numeric = Number(personalTransferAmount);
+    if (!Number.isSafeInteger(numeric) || numeric <= 0 || numeric > Number(balance?.available ?? 0)) return;
+    setPersonalTransferBusy(true);
+    setError("");
+    setPersonalTransferNotice("");
+    try {
+      await api.transferProviderWallet({ providerType: "merchant", providerId: merchantId, amount: numeric }, crypto.randomUUID());
+      setPersonalTransferAmount("");
+      setPersonalTransferNotice("Funds moved to your personal Peebee wallet.");
+      await load();
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setPersonalTransferBusy(false);
+    }
+  }
+
   if (!restaurantReady) return <p className="px-4 py-10 text-center text-sm text-ink-500">Loading…</p>;
   if (!restaurant || !merchantId) {
     return <div className="px-4 py-8 text-sm text-ink-500">This restaurant has not yet been connected to Peebee Merchant.</div>;
@@ -135,6 +179,12 @@ export default function MerchantWalletPage() {
         <p className="text-base text-white/70">Available</p>
         <p className="mt-2 text-base text-white/70">Held {ugx(balance?.held ?? 0)} · Settling {ugx(balance?.settling ?? 0)}</p>
       </section>
+      {canMoveToPersonal && ((!personalWalletActive && personalWalletActivationAvailable) || (personalWalletActive && providerTransfersEnabled)) && <section className="home-card space-y-3">
+        <div><h2 className="text-lg font-bold">Move to personal wallet</h2><p className="mt-1 text-sm text-ink-500">Restaurant earnings stay in the merchant wallet. Only available funds can move; held and settling amounts remain here.</p></div>
+        {!personalWalletActive
+          ? <button type="button" disabled={personalWalletActivating} onClick={() => void activatePersonalWallet()} className="min-h-14 w-full rounded-full bg-gold text-lg font-bold text-ink-gold disabled:opacity-50">{personalWalletActivating ? "Activating…" : "Activate personal wallet"}</button>
+          : <div className="space-y-2"><input aria-label="Amount to move in UGX" inputMode="numeric" value={personalTransferAmount} onChange={(e) => { setPersonalTransferAmount(e.target.value.replace(/\D/g, "")); setPersonalTransferNotice(""); }} placeholder={`Available: ${ugx(balance?.available ?? 0)}`} className={field} />{personalTransferNotice && <p role="status" className="text-sm font-semibold text-green">{personalTransferNotice}</p>}<button type="button" disabled={personalTransferBusy || !personalTransferAmount || Number(personalTransferAmount) > Number(balance?.available ?? 0)} onClick={() => void moveToPersonalWallet()} className={`${big} disabled:opacity-50`}>{personalTransferBusy ? "Moving funds…" : "Move to personal wallet"}</button></div>}
+      </section>}
       {settlement && <section className="home-card flex items-center gap-3">{settlement.status === "successful" ? <CheckCircle2 className="h-7 w-7 text-green" /> : <Loader2 className="h-7 w-7 animate-spin text-gold" />}<div><p className="text-lg font-bold capitalize">Withdrawal {settlement.status}</p><p className="text-base text-ink-500">Do not retry a pending transfer.</p></div></section>}
 
       {accounts.length === 0 ? (

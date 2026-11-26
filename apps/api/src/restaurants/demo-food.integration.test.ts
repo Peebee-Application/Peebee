@@ -36,6 +36,7 @@ test("demo food supports sandbox payment and rider fulfillment without affecting
   } } as unknown as D1Database);
   try {
     await client.execute("INSERT INTO users (id, phone, name, password_hash, role) VALUES ('cust', 'cust', 'Customer', 'h', 'customer')");
+    await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('cust')");
     await client.execute("INSERT INTO restaurants (id, owner_id, name, status, environment) VALUES ('real-sandbox', 'cust', 'Sandbox test venue', 'active', 'sandbox')");
     await client.execute("UPDATE users SET wallet_balance = 765432, wallet_balance_sandbox = 1000000 WHERE id = 'cust'");
     await client.execute("INSERT INTO users (id,phone,name,password_hash,role) VALUES ('rider','rider','Rider','h','rider')");

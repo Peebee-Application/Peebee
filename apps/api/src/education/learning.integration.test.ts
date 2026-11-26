@@ -32,7 +32,13 @@ function bindDatabase(client: Client) {
       return { results: result.rows, success: true, meta: { changes: result.rowsAffected, last_row_id: Number(result.lastInsertRowid ?? 0) } };
     },
   });
-  setD1Binding({ prepare, async batch() { return []; } } as unknown as D1Database);
+  setD1Binding({
+    prepare,
+    async batch(statements: ReturnType<typeof prepare>[]) {
+      const results = await client.batch(statements.map(({ sql, args }) => ({ sql, args: args as InArgs })), "write");
+      return results.map((result) => ({ results: result.rows, success: true, meta: { changes: result.rowsAffected, last_row_id: Number(result.lastInsertRowid ?? 0) } }));
+    },
+  } as unknown as D1Database);
 }
 
 /** An in-memory stand-in for the R2 bucket, with range reads. */
@@ -84,9 +90,14 @@ async function setup() {
       sql: "INSERT INTO users (id, phone, name, role, password_hash, wallet_balance, email_verified_at) VALUES (?, ?, ?, 'customer', 'x', ?, datetime('now'))",
       args: [id, `+25672000${String(n).padStart(4, "0")}`, `User ${id}`, wallet],
     });
+    await client.execute({ sql: "INSERT INTO personal_wallets (user_id) VALUES (?)", args: [id] });
     return signToken({ sub: id, role: "customer" });
   };
   const balance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance AS b FROM users WHERE id = ?", args: [id] })).rows[0].b);
+  const earnings = async (id: string) => Number((await client.execute({
+    sql: "SELECT COALESCE(SUM(w.balance), 0) AS b FROM provider_wallets w JOIN edu_schools s ON s.id=w.provider_id WHERE w.provider_type='education' AND w.environment='live' AND s.owner_id=?",
+    args: [id],
+  })).rows[0].b);
   const phone = async (id: string) => String((await client.execute({ sql: "SELECT phone FROM users WHERE id = ?", args: [id] })).rows[0].phone);
   const raw = async (path: string, opts: { method?: string; token?: string; body?: BodyInit | Uint8Array; headers?: Record<string, string> } = {}) => {
     const res = await app.request(`/v1${path}`, {
@@ -132,7 +143,7 @@ async function setup() {
     await call(`/studio/courses/${course.id}`, { method: "PATCH", token: ownerToken, body: { status: "published" } });
     return { school, cls, course, mod, plain, quizzed };
   };
-  return { client, r2, call, raw, mkUser, balance, phone, makeCourse };
+  return { client, r2, call, raw, mkUser, balance, earnings, phone, makeCourse };
 }
 
 test("pure helpers: commission split never overpays, media is identified by its bytes", () => {
@@ -213,7 +224,7 @@ test("video: only an enrolled learner gets a link, links stream with ranges and 
 });
 
 test("enrolment: free, paid (wallet debit, educator payout minus commission), refused without funds, never charged twice", async () => {
-  const { call, mkUser, balance, makeCourse, client } = await setup();
+  const { call, mkUser, balance, earnings, makeCourse, client } = await setup();
   const owner = await mkUser("own_3");
   const rich = await mkUser("rich_3", 100_000);
   const poor = await mkUser("poor_3", 5_000);
@@ -229,7 +240,7 @@ test("enrolment: free, paid (wallet debit, educator payout minus commission), re
 
   assert.equal((await call(`/learn/courses/${course.id}/enroll`, { token: rich, body: {} })).status, 200);
   assert.equal(await balance("rich_3"), 60_000);
-  assert.equal(await balance("own_3"), 36_000, "educator receives price minus 10% commission");
+  assert.equal(await earnings("own_3"), 36_000, "educator receives price minus 10% commission");
 
   assert.equal((await call(`/learn/courses/${course.id}/enroll`, { token: rich, body: {} })).status, 409);
   assert.equal(await balance("rich_3"), 60_000, "a second tap is not charged");
@@ -346,7 +357,7 @@ test("exams: the endpoint stores the result, never invents a score, and refuses 
 });
 
 test("fees: a school invoices a learner, who pays from the wallet in parts; the school gets paid minus commission", async () => {
-  const { call, mkUser, balance, phone, makeCourse } = await setup();
+  const { call, mkUser, balance, earnings, phone, makeCourse } = await setup();
   const owner = await mkUser("own_7", 0);
   const student = await mkUser("stu_7", 300_000);
   const stranger = await mkUser("str_7", 300_000);
@@ -371,13 +382,13 @@ test("fees: a school invoices a learner, who pays from the wallet in parts; the 
   assert.equal(part.json.invoice.status, "partial");
   assert.equal(part.json.invoice.balanceUgx, 150_000);
   assert.equal(await balance("stu_7"), 250_000);
-  assert.equal(await balance("own_7"), 45_000);
+  assert.equal(await earnings("own_7"), 45_000);
 
   // The same last 150,000 sent twice at once is paid once.
   const race = await Promise.all([pay(student, 150_000), pay(student, 150_000)]);
   assert.deepEqual(race.map((r) => r.status).sort(), [200, 400]);
   assert.equal(await balance("stu_7"), 100_000);
-  assert.equal(await balance("own_7"), 180_000);
+  assert.equal(await earnings("own_7"), 180_000);
   assert.equal((await call("/learn/invoices", { token: student })).json.invoices[0].status, "paid");
   assert.equal((await pay(student, 1000)).json.error, "already_paid");
 
@@ -385,7 +396,7 @@ test("fees: a school invoices a learner, who pays from the wallet in parts; the 
 });
 
 test("fees: not enough in the wallet leaves the invoice exactly as it was", async () => {
-  const { call, mkUser, balance, phone, makeCourse } = await setup();
+  const { call, mkUser, balance, earnings, phone, makeCourse } = await setup();
   const owner = await mkUser("own_8");
   const student = await mkUser("stu_8", 10_000);
   const { school } = await makeCourse(owner);
@@ -396,7 +407,7 @@ test("fees: not enough in the wallet leaves the invoice exactly as it was", asyn
   assert.equal(after.paidUgx, 0);
   assert.equal(after.status, "unpaid");
   assert.equal(await balance("stu_8"), 10_000);
-  assert.equal(await balance("own_8"), 0);
+  assert.equal(await earnings("own_8"), 0);
 
   // An unpaid invoice can be cancelled, and a cancelled one disappears for the learner.
   assert.equal((await call(`/studio/invoices/${inv.id}/cancel`, { token: owner, body: {} })).status, 200);

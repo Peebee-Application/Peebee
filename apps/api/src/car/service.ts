@@ -4,7 +4,7 @@ import { db } from "../db/client.js";
 import { haversineKm } from "../lib/geo.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
 import { getCarSettings, getPlatformEnvironment, type CarShares } from "../lib/settings.js";
-import { creditWallet, debitWallet } from "../wallet/service.js";
+import { creditProviderWorkWallet, debitProviderWorkWallet, providerWorkWalletBalance } from "../wallet/provider-work-wallet.js";
 import { newId } from "../lib/ids.js";
 import { acceptsTier, standardCategoryOnly, type CarServiceTier } from "./tiers.js";
 
@@ -223,8 +223,16 @@ export async function settleCarBooking(order: Row, pool: number, actorId: string
   if (parts.rentCollected > 0 && assignment) {
     await db.execute({ sql: "UPDATE vehicle_assignments SET rent_paid_total = rent_paid_total + ? WHERE id = ?", args: [parts.rentCollected, String(assignment.assignment_id)] });
   }
-  if (driverAmount > 0) await creditWallet(driverId, driverAmount, { type: "adjustment", environment, orderId, actorId, note: "Peebee Car ride — driver share" });
-  if (ownerId && ownerAmount > 0) await creditWallet(ownerId, ownerAmount, { type: "adjustment", environment, orderId, actorId, note: "Peebee Car ride — owner share" });
+  if (driverAmount > 0) await creditProviderWorkWallet({
+    providerType: "car", providerId: driverId, amount: driverAmount, environment,
+    referenceType: "car_order", referenceId: orderId, idempotencyKey: `car-settlement:${orderId}:driver`,
+    actorId, note: "Peebee Car ride — driver share", legacyUserId: driverId,
+  });
+  if (ownerId && ownerAmount > 0) await creditProviderWorkWallet({
+    providerType: "car", providerId: ownerId, amount: ownerAmount, environment,
+    referenceType: "car_order", referenceId: orderId, idempotencyKey: `car-settlement:${orderId}:owner`,
+    actorId, note: "Peebee Car ride — owner share", legacyUserId: ownerId,
+  });
   await db.execute({
     sql: "INSERT INTO order_events (id, order_id, stage, note, actor_id) VALUES (?, ?, 'Settle', ?, ?)",
     args: [
@@ -269,10 +277,19 @@ export async function endAssignment(vehicleId: string, driverId: string, actorId
     if (owed > 0) {
       const environment = (await getPlatformEnvironment()) === "sandbox" ? "sandbox" : "live";
       const column = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
-      const balance = Number(((await db.execute({ sql: `SELECT ${column} AS b FROM users WHERE id = ?`, args: [driverId] })).rows[0] as Row)?.b ?? 0);
+      const workBalance = await providerWorkWalletBalance("car", driverId, environment);
+      const balance = workBalance ?? Number(((await db.execute({ sql: `SELECT ${column} AS b FROM users WHERE id = ?`, args: [driverId] })).rows[0] as Row)?.b ?? 0);
       const pay = Math.min(owed, Math.max(0, balance));
-      if (pay > 0 && (await debitWallet(driverId, pay, { type: "adjustment", environment, actorId, note: "Car rent owed at the end of the agreement" })) !== null) {
-        await creditWallet(String(a.owner_id), pay, { type: "adjustment", environment, actorId, note: "Car rent received" });
+      if (pay > 0 && (await debitProviderWorkWallet({
+        providerType: "car", providerId: driverId, amount: pay, environment, kind: "transfer_out",
+        referenceType: "car_assignment_rent", referenceId: String(a.id), idempotencyKey: `car-assignment-rent:${a.id}:driver`,
+        legacyUserId: driverId, actorId, note: "Car rent owed at the end of the agreement",
+      })) !== null) {
+        await creditProviderWorkWallet({
+          providerType: "car", providerId: String(a.owner_id), amount: pay, environment,
+          referenceType: "car_assignment_rent", referenceId: String(a.id), idempotencyKey: `car-assignment-rent:${a.id}:owner`,
+          legacyUserId: String(a.owner_id), actorId, note: "Car rent received",
+        });
         await db.execute({ sql: "UPDATE vehicle_assignments SET rent_paid_total = rent_paid_total + ? WHERE id = ?", args: [pay, String(a.id)] });
       }
       if (owed - pay > 0) await db.execute({ sql: "UPDATE vehicle_assignments SET rent_unpaid_at_end = ? WHERE id = ?", args: [owed - pay, String(a.id)] });

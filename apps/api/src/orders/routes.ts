@@ -1354,13 +1354,13 @@ async function findAutoMatchCandidate(
   await primeDemoAccounts();
   const eligible = await db.execute({
     sql: `SELECT u.id, u.name, r.stage_lat, r.stage_lng, r.area${ownRangeColumn} FROM riders r JOIN users u ON u.id = r.user_id
-          WHERE r.verified = 1 AND r.is_online = 1 AND ${ridersForThisWorld("r.user_id")}
+          WHERE r.verified = 1 AND r.is_online = 1 AND u.id <> ? AND ${ridersForThisWorld("r.user_id")}
           ${subscriptionGate}
           AND u.id NOT IN (
             SELECT rider_id FROM orders WHERE rider_id IS NOT NULL AND stage NOT IN ('Settle', 'Cancelled') AND environment = ?
           )
           AND u.id NOT IN (SELECT rider_id FROM order_rider_exclusions WHERE order_id = ?)`,
-    args: [order.environment as string, id],
+    args: [String(order.customer_id), order.environment as string, id],
   });
 
   let nearestKnown: { row: Row; distanceKm: number } | null = null;
@@ -1451,11 +1451,11 @@ orderRoutes.post("/orders/:id/match", async (c) => {
     const applicants = await db.execute({
       sql: `SELECT oa.rider_id, u.name, oa.distance_km FROM order_applications oa
             JOIN users u ON u.id = oa.rider_id
-            WHERE oa.order_id = ? AND oa.status = 'pending'
+            WHERE oa.order_id = ? AND oa.status = 'pending' AND oa.rider_id <> ?
             AND NOT EXISTS (SELECT 1 FROM orders busy WHERE busy.rider_id = oa.rider_id
               AND busy.environment = ? AND busy.stage NOT IN ('Settle', 'Cancelled'))
             ORDER BY oa.distance_km ASC LIMIT 1`,
-      args: [id, String(order.environment)],
+      args: [id, String(order.customer_id), String(order.environment)],
     });
     const best = applicants.rows[0] as Row | undefined;
     if (best) {
@@ -1506,6 +1506,7 @@ orderRoutes.post("/orders/:id/claim", requireRole("rider"), async (c) => {
   const user = c.get("user");
   const order = await getOrder(id);
   if (!order) return c.json({ error: "not_found" }, 404);
+  if (order.customer_id === user.sub) return c.json({ error: "self_transaction", message: "You can't deliver your own order from another Peebee app profile." }, 409);
   if (await isSecondaryBundleOrder(id, order)) return c.json({ error: "bundled_stop", message: "Claim the combined delivery from its first pickup." }, 409);
   if (await isBundleWindowOpen(order)) return c.json({ error: "bundle_window_open", message: "This order is waiting for the customer's pickup choice." }, 409);
   // A retry after a lost response resumes the job this rider already claimed.
@@ -1620,6 +1621,7 @@ orderRoutes.post("/orders/:id/apply", requireRole("rider"), async (c) => {
   if (!parsedApply.success) return c.json({ error: "invalid_body", issues: parsedApply.error.issues }, 400);
   const order = await getOrder(id);
   if (!order) return c.json({ error: "not_found" }, 404);
+  if (order.customer_id === user.sub) return c.json({ error: "self_transaction", message: "You can't apply to deliver your own order from another Peebee app profile." }, 409);
   if (await isSecondaryBundleOrder(id, order)) return c.json({ error: "bundled_stop", message: "Apply to the combined delivery from its first pickup." }, 409);
   if (await isBundleWindowOpen(order)) return c.json({ error: "bundle_window_open", message: "This order is waiting for the customer's pickup choice." }, 409);
   if (order.rider_id) {

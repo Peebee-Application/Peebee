@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(
     async (identifier: string, password: string) => {
-      const res = await api.login({ identifier, password });
+      const res = await api.login({ identifier, password, role: "admin" });
       if (res.user.role !== "admin") {
         throw new Error("This portal is for admin accounts only.");
       }

@@ -8,6 +8,7 @@ import { hasColumn, hasTable } from "../lib/schema.js";
 import { getCarSettings, getPlatformEnvironment } from "../lib/settings.js";
 import { notifyUser } from "../lib/webpush.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
+import { creditProviderWorkWallet } from "../wallet/provider-work-wallet.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
 import { postLedgerTransaction } from "../ledger/service.js";
@@ -151,7 +152,11 @@ export async function completeRental(rentalId: string, from: string[], damage: n
       console.warn("Ledger deposit settlement failed:", err);
     }
   }
-  if (parts.owner > 0) await creditWallet(String(rental.owner_id), parts.owner, { type: "adjustment", environment, actorId, note: "Self-drive rental — owner payout" });
+  if (parts.owner > 0) await creditProviderWorkWallet({
+    providerType: "car", providerId: String(rental.owner_id), amount: parts.owner, environment,
+    referenceType: "rental", referenceId: rentalId, idempotencyKey: `car-rental-owner-payout:${rentalId}`,
+    legacyUserId: String(rental.owner_id), actorId, note: "Self-drive rental — owner payout",
+  });
   if (parts.refund > 0) await creditWallet(String(rental.renter_id), parts.refund, { type: "adjustment", environment, actorId, note: "Self-drive deposit returned" });
   return true;
 }

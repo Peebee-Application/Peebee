@@ -888,6 +888,8 @@ export type DeliverySettings = {
   walletMaxAccounts: number;
   walletSuggestedNames: string;
   walletTransferPerHour: number;
+  /** Allows eligible provider owners to move earned work-wallet funds to their explicitly activated personal wallet. */
+  providerWalletTransfersEnabled: boolean;
   walletLookupPerHour: number;
   walletShareInvitePerHour: number;
   walletFreezeEnabled: boolean;
@@ -1447,9 +1449,13 @@ export type Restaurant = {
 };
 
 export type MerchantBalance = {
+  walletType?: "merchant_work";
   held: number;
   available: number;
   settling: number;
+  personalWalletActive?: boolean;
+  personalWalletActivationAvailable?: boolean;
+  providerWalletTransfersEnabled?: boolean;
   updated_at?: string;
 };
 
@@ -2204,7 +2210,12 @@ export type WalletWithdrawal = {
 };
 
 export type Wallet = {
+  walletType?: "rider_work";
   balance: number;
+  personalWalletActive?: boolean;
+  personalWalletActivationAvailable?: boolean;
+  providerWalletTransfersEnabled?: boolean;
+  transferableBalance?: number;
   withdrawals: WalletWithdrawal[];
   /** Only meaningful when the admin's cashFeeSource is "deposit" — see
    * apps/api/src/lib/monetization.ts isCashDepositOk. When true and
@@ -2259,6 +2270,8 @@ export type WalletTopup = {
 /** Closed-loop store credit — top up and spend, no cash-out. Balance is
  * capped by verification tier (see PaymentProviderInfo/wallet settings). */
 export type CustomerWallet = {
+  walletType?: "personal";
+  personalWalletActive?: boolean;
   balance: number;
   cap: number;
   verified: boolean;
@@ -2890,7 +2903,11 @@ export type CarBookingInput = {
 };
 
 export type CarWallet = {
+  walletType?: "car_work";
   balance: number;
+  personalWalletActive?: boolean;
+  personalWalletActivationAvailable?: boolean;
+  providerWalletTransfersEnabled?: boolean;
   /** The part of the balance earned from car rides that can be cashed out now. */
   withdrawable: number;
   withdrawalsEnabled: boolean;

@@ -4,14 +4,15 @@ import { z } from "zod";
 import { logActivity } from "../admin/activity.js";
 import { isAdminRole, requirePermission } from "../admin/permissions.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
+import { personalWalletIsActive } from "../wallet/personal-wallet.js";
 import { db, executeBatch } from "../db/client.js";
 import { ledgerBalance, postLedgerTransaction } from "../ledger/service.js";
 import { newId } from "../lib/ids.js";
 import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { decryptSecret, encryptSecret, isCredentialsEncryptionConfigured } from "../lib/crypto.js";
-import { getPlatformEnvironment, invalidateSettingsCache } from "../lib/settings.js";
-import { hasColumn } from "../lib/schema.js";
+import { getPlatformEnvironment, getWalletAccountSettings, invalidateSettingsCache } from "../lib/settings.js";
+import { hasColumn, hasTable } from "../lib/schema.js";
 import { getOption } from "../lib/option-settings.js";
 import {
   initiateDisbursement,
@@ -382,7 +383,17 @@ merchantRoutes.get("/merchants/:id/balance", requireAuth, async (c) => {
     sql: "SELECT held, available, settling, updated_at FROM merchant_balances WHERE merchant_id = ? AND environment = ?",
     args: [merchantId, environment],
   });
-  return c.json({ balance: balances.rows[0] ?? { held: 0, available: 0, settling: 0 }, currency: "UGX", environment });
+  const [walletSettings, personalWalletActive, transferSchemaReady, personalWalletActivationAvailable] = await Promise.all([
+    getWalletAccountSettings(), personalWalletIsActive(user.sub), hasTable("provider_wallet_transfers"), hasTable("personal_wallets"),
+  ]);
+  return c.json({
+    walletType: "merchant_work",
+    balance: balances.rows[0] ?? { held: 0, available: 0, settling: 0 },
+    currency: "UGX", environment, personalWalletActive,
+    personalWalletActivationAvailable,
+    canMoveToPersonal: member.role === "owner",
+    providerWalletTransfersEnabled: walletSettings.providerTransfersEnabled && transferSchemaReady,
+  });
 });
 
 merchantRoutes.get("/merchants/:id/transactions", requireAuth, async (c) => {

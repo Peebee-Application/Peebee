@@ -262,14 +262,14 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
     assert.equal(booking.owner_amount, 3000);
     assert.equal(booking.driver_amount, 1500);
     assert.equal(booking.platform_amount, 500);
-    const balances = Object.fromEntries((await client.execute("SELECT id, wallet_balance FROM users WHERE id IN ('owner', 'drv')")).rows.map((r) => [r.id, r.wallet_balance]));
+    const balances = Object.fromEntries((await client.execute("SELECT provider_id AS id, balance AS wallet_balance FROM provider_wallets WHERE provider_type='car' AND environment='live' AND provider_id IN ('owner', 'drv')")).rows.map((r) => [r.id, r.wallet_balance]));
     assert.equal(balances.owner, 3000);
     assert.equal(balances.drv, 1500);
 
     // A second settle can never pay twice.
     await client.execute({ sql: "UPDATE orders SET stage = 'Handover' WHERE id = ?", args: [orderId] });
     await call("POST", `/orders/${orderId}/settle`, "drv");
-    const again = Object.fromEntries((await client.execute("SELECT id, wallet_balance FROM users WHERE id IN ('owner', 'drv')")).rows.map((r) => [r.id, r.wallet_balance]));
+    const again = Object.fromEntries((await client.execute("SELECT provider_id AS id, balance AS wallet_balance FROM provider_wallets WHERE provider_type='car' AND environment='live' AND provider_id IN ('owner', 'drv')")).rows.map((r) => [r.id, r.wallet_balance]));
     assert.equal(again.owner, 3000);
   });
 
@@ -281,10 +281,11 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
     await client.execute("INSERT INTO orders (id, list_id, customer_id, type, environment) VALUES ('osbx', 'lsbx', 'cust', 'parcel', 'sandbox')");
     await client.execute(`INSERT INTO car_bookings (id, order_id, customer_id, category_id, status, owner_id, driver_id, owner_amount, driver_amount, environment)
                           VALUES ('cbsbx', 'osbx', 'cust', '${categoryId}', 'completed', 'owner', 'drv', 3000, 1500, 'sandbox')`);
-    await client.execute("UPDATE users SET wallet_balance_sandbox = 13000 WHERE id = 'owner'");
+    await client.execute("UPDATE provider_wallets SET balance = 3000 WHERE provider_type='car' AND environment='sandbox' AND provider_id='owner'");
+    await client.execute("UPDATE users SET wallet_balance_sandbox = 10000 WHERE id='owner'");
 
     const wallet = await json(await call("GET", "/car/wallet", "owner"));
-    assert.equal(wallet.balance, 13000);
+    assert.equal(wallet.balance, 3000);
     assert.equal(wallet.withdrawable, 3000, "only the 3,000 earned from rides");
     assert.equal(wallet.withdrawalsEnabled, true);
 
@@ -296,7 +297,8 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
     const ok = await call("POST", "/car/wallet/withdraw", "owner", { amount: 2000 });
     assert.equal(ok.status, 201);
     const after = await json(await call("GET", "/car/wallet", "owner"));
-    assert.equal(after.balance, 11000);
+    assert.equal(after.balance, 1000);
+    assert.equal((await client.execute("SELECT wallet_balance_sandbox FROM users WHERE id='owner'")).rows[0].wallet_balance_sandbox, 10000);
     assert.equal(after.withdrawable, 1000, "the pending withdrawal counts against what's left");
     assert.equal((await call("POST", "/car/wallet/withdraw", "owner", { amount: 2000 })).status, 409);
 
@@ -437,7 +439,8 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
     const rentalClock = Date.now();
     const at = (d: number) => new Date(rentalClock + d * day).toISOString();
     const balance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance AS b FROM users WHERE id = ?", args: [id] })).rows[0].b);
-    await client.execute("UPDATE users SET wallet_balance = 0 WHERE id IN ('owner', 'cust', 'p2')");
+    const carBalance = async (id: string) => Number((await client.execute({ sql: "SELECT balance FROM provider_wallets WHERE provider_type='car' AND environment='live' AND provider_id=?", args: [id] })).rows[0]?.balance ?? 0);
+    await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('cust'), ('p2')");
     await client.execute({
       sql: "INSERT INTO selfdrive_renter_kyc (user_id, nin, residential_address, national_id_key, residence_method, status) VALUES ('cust', 'CF901234567890', 'Kampala', 'test-national-id', 'bill', 'approved')",
       args: [],
@@ -478,10 +481,10 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
     assert.equal((await call("POST", `/car/rentals/${rentalId}/handover`, "owner")).status, 200);
     assert.equal((await call("POST", `/car/rentals/${rentalId}/cancel`, "cust")).status, 409, "can't cancel once handed over");
 
-    const ownerBefore = await balance("owner");
+    const ownerBefore = await carBalance("owner");
     const returned = await call("POST", `/car/rentals/${rentalId}/return`, "owner", {});
     assert.equal((await json(returned)).status, "completed");
-    assert.equal(await balance("owner") - ownerBefore, 180000, "rent minus Peebee's 10%");
+    assert.equal(await carBalance("owner") - ownerBefore, 180000, "rent minus Peebee's 10%");
     assert.equal(await balance("cust"), 100000, "deposit back");
     assert.equal((await call("POST", `/car/rentals/${rentalId}/return`, "owner", {})).status, 409, "paid out once");
     const ownerWallet = await json(await call("GET", "/car/wallet", "owner"));
@@ -507,10 +510,10 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
     const custHeld = await balance("cust");
     assert.equal((await call("POST", `/admin/car/rentals/${fourth.id}/resolve`, "cust", { damageAmount: 10000 })).status, 403);
     assert.equal((await call("POST", `/admin/car/rentals/${fourth.id}/resolve`, "admin", { damageAmount: 40000 })).status, 400, "above what was claimed");
-    const ownerMid = await balance("owner");
+    const ownerMid = await carBalance("owner");
     assert.equal((await call("POST", `/admin/car/rentals/${fourth.id}/resolve`, "admin", { damageAmount: 10000 })).status, 200);
     assert.equal(await balance("cust") - custHeld, 40000, "deposit 50,000 minus 10,000 damage");
-    assert.equal(await balance("owner") - ownerMid, 90000 + 10000, "rent after Peebee's cut plus the damage awarded");
+    assert.equal(await carBalance("owner") - ownerMid, 90000 + 10000, "rent after Peebee's cut plus the damage awarded");
     assert.equal((await call("POST", `/admin/car/rentals/${fourth.id}/resolve`, "admin", { damageAmount: 10000 })).status, 404, "settled once");
   });
 
@@ -627,7 +630,7 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
       await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role) VALUES (?, ?, ?, 'h', 'customer')", args: [id, id, id] });
       tokens[id] = await signToken({ sub: id, role: "customer" });
     }
-    const balance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance AS b FROM users WHERE id = ?", args: [id] })).rows[0].b);
+    const balance = async (id: string) => Number((await client.execute({ sql: "SELECT balance AS b FROM provider_wallets WHERE provider_type='car' AND environment='live' AND provider_id=?", args: [id] })).rows[0].b);
 
     await settings({ ...DEALS, enabled: false });
     assert.equal((await call("GET", "/car/deals/owner", "oc")).status, 403, "closed until the admin switches it on");
@@ -696,7 +699,7 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
       await settleCarBooking({ id: `od${n}`, rider_id: driver, environment: "live" }, pool, "admin");
       await client.execute({ sql: "UPDATE orders SET stage = 'Settle' WHERE id = ?", args: [`od${n}`] });
     };
-    await client.execute("UPDATE users SET wallet_balance = 0 WHERE id IN ('oc', 'd1', 'd2')");
+    await client.execute("UPDATE provider_wallets SET balance=0 WHERE provider_type='car' AND environment='live' AND provider_id IN ('oc', 'd1', 'd2')");
     await settle("d1", carA, 5000);
     assert.equal(await balance("oc"), 3150);
     assert.equal(await balance("d1"), 1350);
@@ -720,9 +723,9 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
     await client.execute({ sql: "UPDATE vehicle_assignments SET assigned_at = datetime('now', '-2 days') WHERE vehicle_id = ? AND status = 'active'", args: [carB] });
     const conn = (await json(await call("GET", "/car/deals/my", "d2"))).connections[0] as { assignmentId: string; rentOwed: number };
     assert.equal(conn.rentOwed, 2000, "three started days (3,000) less the 1,000 already paid");
-    await client.execute("UPDATE users SET wallet_balance = 0 WHERE id = 'd2'");
+    await client.execute("UPDATE provider_wallets SET balance=0 WHERE provider_type='car' AND environment='live' AND provider_id='d2'");
     assert.equal((await call("POST", "/car/deals/rent/pay", "d2", { assignmentId: conn.assignmentId })).status, 402, "needs the money in the wallet");
-    await client.execute("UPDATE users SET wallet_balance = 5000 WHERE id = 'd2'");
+    await client.execute("UPDATE provider_wallets SET balance=5000 WHERE provider_type='car' AND environment='live' AND provider_id='d2'");
     const ownerBefore = await balance("oc");
     assert.equal((await call("POST", "/car/deals/rent/pay", "d2", { assignmentId: conn.assignmentId })).status, 200);
     assert.equal(await balance("oc") - ownerBefore, 2000);
@@ -730,7 +733,7 @@ test("peebee car: category -> approvals -> assignment -> booking -> bid -> settl
 
     // Ending: the driver leaves; rent owed that can't be covered is recorded for the owner.
     await client.execute({ sql: "UPDATE vehicle_assignments SET assigned_at = datetime('now', '-5 days') WHERE vehicle_id = ? AND status = 'active'", args: [carB] });
-    await client.execute("UPDATE users SET wallet_balance = 500 WHERE id = 'd2'");
+    await client.execute("UPDATE provider_wallets SET balance=500 WHERE provider_type='car' AND environment='live' AND provider_id='d2'");
     assert.equal((await call("POST", `/car/deals/vehicles/${carB}/end`, "d1")).status, 404, "only the owner ends it for the driver");
     assert.equal((await call("POST", `/car/deals/vehicles/${carB}/end`, "oc")).status, 200);
     const ended = (await client.execute({ sql: "SELECT status, rent_unpaid_at_end FROM vehicle_assignments WHERE vehicle_id = ? ORDER BY assigned_at DESC LIMIT 1", args: [carB] })).rows[0];
@@ -765,6 +768,8 @@ test("self-drive inspections, ledger deposit escrow hold/settlement, and cargo b
   for (const [id, role] of [["cust", "customer"], ["owner", "customer"], ["admin", "admin"]] as const) {
     await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role, wallet_balance) VALUES (?, ?, ?, 'h', ?, 1000000)", args: [id, id, id, role] });
   }
+
+  await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('cust')");
 
   // Pre-approve renter KYC
   await client.execute({

@@ -19,6 +19,9 @@ export default function WalletPage() {
   const [phone, setPhone] = useState("");
   const [amount, setAmount] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferBusy, setTransferBusy] = useState(false);
+  const [personalWalletActivating, setPersonalWalletActivating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -81,6 +84,38 @@ export default function WalletPage() {
     });
   };
 
+  async function activatePersonalWallet() {
+    setPersonalWalletActivating(true);
+    setError("");
+    try {
+      await api.activatePersonalWallet();
+      await load();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setPersonalWalletActivating(false);
+    }
+  }
+
+  async function moveToPersonalWallet(e: React.FormEvent) {
+    e.preventDefault();
+    const value = Number(transferAmount);
+    if (!wallet || !Number.isSafeInteger(value) || value <= 0 || value > wallet.balance) return;
+    setTransferBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.transferProviderWallet({ providerType: "car", amount: value }, crypto.randomUUID());
+      setTransferAmount("");
+      setNotice("Funds moved to your personal Peebee wallet.");
+      await load();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setTransferBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-4 px-4 py-5">
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-base text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
@@ -92,6 +127,13 @@ export default function WalletPage() {
           Cash out: <strong>{ugx(wallet?.withdrawable ?? 0)}</strong>
         </p>
       </section>
+
+      {wallet?.personalWalletActivationAvailable && (!wallet.personalWalletActive || wallet.providerWalletTransfersEnabled) && <section className="home-card space-y-3">
+        <div><h2 className="text-xl font-bold">Move to personal wallet</h2><p className="mt-1 text-base text-ink-500">Your Car work earnings stay separate from your personal wallet. Activate that wallet only when you want to move funds into it.</p></div>
+        {!wallet.personalWalletActive
+          ? <button type="button" disabled={personalWalletActivating} onClick={() => void activatePersonalWallet()} className="min-h-14 w-full rounded-full bg-gold text-lg font-bold text-ink-gold disabled:opacity-50">{personalWalletActivating ? "Activating…" : "Activate personal wallet"}</button>
+          : <form onSubmit={moveToPersonalWallet} className="space-y-2"><input required inputMode="numeric" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value.replace(/\D/g, ""))} placeholder={`Available: ${ugx(wallet.balance)}`} aria-label="Amount to move to personal wallet" className={field} /><button disabled={transferBusy || !transferAmount || Number(transferAmount) > wallet.balance} className="min-h-14 w-full rounded-full bg-gold text-lg font-bold text-ink-gold disabled:opacity-50">{transferBusy ? "Moving funds…" : "Move to personal wallet"}</button></form>}
+      </section>}
 
       <TabBar label="Earnings" active={tab} onChange={setTab} tabs={[{ id: "cash", label: "Cash out", icon: Wallet }, { id: "history", label: "History", icon: Clock, count: wallet?.history.length }]} />
 

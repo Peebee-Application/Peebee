@@ -4,6 +4,7 @@ import { newId } from "../lib/ids.js";
 import { haversineKm } from "../lib/geo.js";
 import type { PlatformEnvironment } from "../lib/settings.js";
 import { notifyUser } from "../lib/webpush.js";
+import { creditProviderWorkWallet } from "../wallet/provider-work-wallet.js";
 import type { WorkSettings } from "./settings.js";
 
 export type Row = Record<string, any>;
@@ -117,6 +118,26 @@ export async function applyMoney(moneyId: string): Promise<boolean> {
   const row = (await db.execute({ sql: "SELECT * FROM work_money WHERE id = ?", args: [moneyId] })).rows[0] as Row | undefined;
   if (!row || row.status !== "pending" || row.kind === "hold") return false;
   const col = balanceColumn(row.environment === "sandbox" ? "sandbox" : "live");
+  if (row.kind === "payout" && await tablesExist(["provider_wallets"])) {
+    const job = (await db.execute({ sql: "SELECT provider_id FROM work_jobs WHERE id = ?", args: [row.job_id] })).rows[0] as Row | undefined;
+    if (!job?.provider_id) return false;
+    await creditProviderWorkWallet({
+      providerType: "work",
+      providerId: String(job.provider_id),
+      amount: Number(row.amount_ugx),
+      environment: row.environment === "sandbox" ? "sandbox" : "live",
+      referenceType: "work_money",
+      referenceId: moneyId,
+      idempotencyKey: `work-payout:${moneyId}`,
+      actorId: String(row.user_id),
+      note: row.note || "Peebee Work earnings",
+    });
+    const completed = await db.execute({
+      sql: "UPDATE work_money SET status='done', done_at=datetime('now') WHERE id=? AND status='pending'",
+      args: [moneyId],
+    });
+    return completed.rowsAffected === 1;
+  }
   const ledgerType = row.kind === "refund" ? "refund" : "adjustment";
   const changes = await executeBatch([
     { sql: `UPDATE users SET ${col} = ${col} + ?, updated_at = datetime('now') WHERE id = ? AND ${PENDING}`, args: [row.amount_ugx, row.user_id, moneyId] },

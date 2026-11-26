@@ -217,11 +217,16 @@ test("a course is paid the Learn way or the store way, by admin option, and refu
   };
   const wallet = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance FROM users WHERE id = ?", args: [id] })).rows[0].wallet_balance);
 
-  // Learn path (default): wallet to the school owner, minus Learn's commission. No double-entry ledger line.
+  const schoolEarnings = async () => Number((await client.execute(
+    "SELECT COALESCE(SUM(balance), 0) AS balance FROM provider_wallets WHERE provider_type='education' AND environment='live'"
+  )).rows[0].balance);
+
+  // Learn path (default): wallet to the school's work wallet, minus Learn's commission.
   const a = await buy("u_c1", `dig_crs_${made.course.id}`);
   assert.equal(a.res.status, 201);
   assert.equal(await wallet("u_c1"), 60000);
-  assert.equal(await wallet("u_lms_seller"), 36000, "40,000 less Learn's 10%");
+  assert.equal(await schoolEarnings(), 36000, "40,000 less Learn's 10%");
+  assert.equal(await wallet("u_lms_seller"), 0);
   assert.equal((await client.execute("SELECT COUNT(*) AS n FROM ledger_transactions WHERE kind = 'digital_sale'")).rows[0].n, 0);
   const seat = (await client.execute({ sql: "SELECT user_id, status FROM edu_enrollments WHERE course_id = ?", args: [made.course.id] })).rows[0];
   assert.equal(seat.user_id, "u_c1");
@@ -230,7 +235,7 @@ test("a course is paid the Learn way or the store way, by admin option, and refu
   const fid = (await json(a.res)).fulfillmentId;
   assert.equal((await seller.call(`/merchants/me/digital-fulfillments/${fid}/refund`, "POST", {})).status, 200);
   assert.equal(await wallet("u_c1"), 100000, "refunded in full");
-  assert.equal(await wallet("u_lms_seller"), 0, "the school's share comes back");
+  assert.equal(await schoolEarnings(), 0, "the school's share comes back");
   assert.equal((await client.execute({ sql: "SELECT status FROM edu_enrollments WHERE course_id = ? AND user_id = 'u_c1'", args: [made.course.id] })).rows[0].status, "revoked", "and the seat ends");
 
   // Store path: the merchant's balance and the ledger, at the digital-sales share.

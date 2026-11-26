@@ -69,6 +69,7 @@ async function setup() {
     return signToken({ sub: id, role: opts.role ?? "customer" });
   };
   const wallet = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance AS b FROM users WHERE id = ?", args: [id] })).rows[0].b);
+  const earnings = async (id: string) => Number((await client.execute({ sql: "SELECT COALESCE(SUM(w.balance),0) AS b FROM provider_wallets w JOIN work_providers p ON p.id=w.provider_id WHERE w.provider_type='work' AND w.environment='live' AND p.user_id=?", args: [id] })).rows[0].b);
   const call = async (path: string, opts: { method?: string; token?: string; body?: unknown } = {}) => {
     const res = await app.request(`/v1/work${path}`, {
       method: opts.method ?? (opts.body !== undefined ? "POST" : "GET"),
@@ -93,7 +94,7 @@ async function setup() {
   const book = (token: string, extra: Json = {}) =>
     call("/jobs", { token, body: { serviceId: HOUSE, quantity: 2, address: "Plot 5 Kololo", area: "Kololo", ...KAMPALA, details: "Two bedroom flat", ...extra } });
   const dbJob = async (id: string) => (await client.execute({ sql: "SELECT * FROM work_jobs WHERE id = ?", args: [id] })).rows[0] as Json;
-  return { client, call, mkUser, mkProvider, wallet, admin, book, dbJob };
+  return { client, call, mkUser, mkProvider, wallet, earnings, admin, book, dbJob };
 }
 
 test("work: split of held money always adds up", () => {
@@ -105,7 +106,7 @@ test("work: split of held money always adds up", () => {
 });
 
 test("work: fixed price + broadcast — pay, accept, do, confirm, rate", async () => {
-  const { call, mkUser, mkProvider, wallet, book, dbJob } = await setup();
+  const { call, mkUser, mkProvider, wallet, earnings, book, dbJob } = await setup();
   const customer = await mkUser("cust_1", { wallet: 200000 });
   const pro = await mkProvider("pro_1");
 
@@ -140,7 +141,7 @@ test("work: fixed price + broadcast — pay, accept, do, confirm, rate", async (
   // Confirming pays the provider once, even if the button is hammered.
   const confirms = await Promise.all([1, 2, 3, 4].map(() => call(`/jobs/${jobId}/confirm`, { token: customer, body: {} })));
   assert.equal(confirms.filter((r) => r.status === 200).length, 1);
-  assert.equal(await wallet("pro_1"), 59500, "70,000 less 15% commission");
+  assert.equal(await earnings("pro_1"), 59500, "70,000 less 15% commission");
   assert.equal(await wallet("cust_1"), 130000);
   const done = await dbJob(jobId);
   assert.equal(done.status, "settled");
@@ -151,12 +152,12 @@ test("work: fixed price + broadcast — pay, accept, do, confirm, rate", async (
   const me = await call("/provider/me", { token: pro.token });
   assert.equal(me.json.provider.rating, 5);
   assert.equal(me.json.provider.jobsCompleted, 1);
-  const earnings = await call("/provider/earnings", { token: pro.token });
-  assert.equal(earnings.json.paidUgx, 59500);
+  const earningsSummary = await call("/provider/earnings", { token: pro.token });
+  assert.equal(earningsSummary.json.paidUgx, 59500);
 });
 
 test("work: quote after inspection — quote, accept, pay the difference, decline, lapse", async () => {
-  const { call, mkUser, mkProvider, wallet, book, dbJob, client } = await setup();
+  const { call, mkUser, mkProvider, wallet, earnings, book, dbJob, client } = await setup();
   const customer = await mkUser("cust_q", { wallet: 100000 });
   const pro = await mkProvider("pro_q");
 
@@ -183,9 +184,9 @@ test("work: quote after inspection — quote, accept, pay the difference, declin
   const second = await book(customer, { serviceId: WINDOW });
   await call(`/provider/jobs/${second.json.job.id}/accept`, { token: pro.token, body: {} });
   await call(`/provider/jobs/${second.json.job.id}/quote`, { token: pro.token, body: { priceUgx: 200000 } });
-  const before = await wallet("pro_q");
+  const before = await earnings("pro_q");
   assert.equal((await call(`/jobs/${second.json.job.id}/quote/decline`, { token: customer, body: {} })).status, 200);
-  assert.equal((await wallet("pro_q")) - before, 8500, "10,000 call-out less 15%");
+  assert.equal((await earnings("pro_q")) - before, 8500, "10,000 call-out less 15%");
 
   // A third: insufficient wallet to accept leaves it quoted and charges nothing.
   const third = await book(customer, { serviceId: WINDOW });
@@ -200,9 +201,9 @@ test("work: quote after inspection — quote, accept, pay the difference, declin
   // An old quote can't be accepted; the sweep lets it lapse and pays the call-out fee.
   await client.execute({ sql: "UPDATE work_jobs SET quote_expires_at = datetime('now', '-1 hour') WHERE id = ?", args: [third.json.job.id] });
   assert.equal((await call(`/jobs/${third.json.job.id}/quote/accept`, { token: customer, body: {} })).json.error, "quote_expired");
-  const proBefore = await wallet("pro_q");
+  const proBefore = await earnings("pro_q");
   assert.equal((await sweepWork()).lapsedQuotes, 1);
-  assert.equal((await wallet("pro_q")) - proBefore, 8500);
+  assert.equal((await earnings("pro_q")) - proBefore, 8500);
 });
 
 test("work: customer chooses among offers (fixed and quote)", async () => {
@@ -314,7 +315,7 @@ test("work: booking checks — wallet, location, schedule, quantity, double subm
 });
 
 test("work: cancelling — refunds, late fee, provider cancel, and the point of no return", async () => {
-  const { call, mkUser, mkProvider, wallet, book, dbJob, client } = await setup();
+  const { call, mkUser, mkProvider, wallet, earnings, book, dbJob, client } = await setup();
   const customer = await mkUser("cust_x", { wallet: 500000 });
   const pro = await mkProvider("pro_x");
 
@@ -329,7 +330,7 @@ test("work: cancelling — refunds, late fee, provider cancel, and the point of 
   await call(`/provider/jobs/${early.id}/accept`, { token: pro.token, body: {} });
   await call(`/jobs/${early.id}/cancel`, { token: customer, body: {} });
   assert.equal(await wallet("cust_x"), 500000);
-  assert.equal(await wallet("pro_x"), 0);
+  assert.equal(await earnings("pro_x"), 0);
 
   // After the free window: the provider gets 20% of what was held, less commission.
   const late = (await book(customer)).json.job;
@@ -337,7 +338,7 @@ test("work: cancelling — refunds, late fee, provider cancel, and the point of 
   await client.execute({ sql: "UPDATE work_jobs SET assigned_at = datetime('now', '-2 hours') WHERE id = ?", args: [late.id] });
   await call(`/jobs/${late.id}/cancel`, { token: customer, body: {} });
   assert.equal(await wallet("cust_x"), 500000 - 14000, "customer loses the 20% fee: 70,000 × 20%");
-  assert.equal(await wallet("pro_x"), 11900, "14,000 less 15%");
+  assert.equal(await earnings("pro_x"), 11900, "14,000 less 15%");
 
   // With re-matching switched off, a provider cancelling refunds in full.
   await setWorkSettings({ rematchOnProviderCancel: false });
@@ -357,7 +358,7 @@ test("work: cancelling — refunds, late fee, provider cancel, and the point of 
 });
 
 test("work: reporting a problem — admin splits the money; nobody else can", async () => {
-  const { call, mkUser, mkProvider, wallet, admin, book, client } = await setup();
+  const { call, mkUser, mkProvider, wallet, earnings, admin, book, client } = await setup();
   const customer = await mkUser("cust_d", { wallet: 200000 });
   const pro = await mkProvider("pro_d");
   const job = (await book(customer)).json.job;
@@ -373,7 +374,7 @@ test("work: reporting a problem — admin splits the money; nobody else can", as
   assert.equal((await call(`/admin/jobs/${job.id}/resolve`, { token: admin, body: { outcome: "split", note: "half" } })).status, 400, "a split needs a percentage");
   assert.equal((await call(`/admin/jobs/${job.id}/resolve`, { token: admin, body: { outcome: "split", refundPercent: 50, note: "Half done" } })).status, 200);
   assert.equal(await wallet("cust_d"), 130000 + 35000, "half comes back");
-  assert.equal(await wallet("pro_d"), 29750, "the other half, less 15%");
+  assert.equal(await earnings("pro_d"), 29750, "the other half, less 15%");
   assert.equal((await call(`/admin/jobs/${job.id}/resolve`, { token: admin, body: { outcome: "refund", note: "again" } })).status, 409, "resolved once");
   assert.equal(await wallet("cust_d"), 165000);
   assert.equal(Number((await client.execute("SELECT COUNT(*) AS n FROM admin_activity_log WHERE action = 'work.job.resolve'")).rows[0].n), 1);
@@ -388,7 +389,7 @@ test("work: reporting a problem — admin splits the money; nobody else can", as
 });
 
 test("work: providers — approval, companies and staff", async () => {
-  const { call, mkUser, mkProvider, wallet, admin, book, dbJob, client } = await setup();
+  const { call, mkUser, mkProvider, wallet, earnings, admin, book, dbJob, client } = await setup();
   const customer = await mkUser("cust_t", { wallet: 300000 });
 
   // Unapproved providers can register but can't work.
@@ -423,8 +424,8 @@ test("work: providers — approval, companies and staff", async () => {
   assert.equal((await call(`/provider/jobs/${j.id}/complete`, { token: staffToken, body: {} })).status, 200);
   assert.equal((await call(`/provider/jobs/${j.id}/cancel`, { token: staffToken, body: {} })).status, 403);
   await call(`/jobs/${j.id}/confirm`, { token: customer, body: {} });
-  assert.equal(await wallet("pro_co"), 59500, "the company owner is paid");
-  assert.equal(await wallet("staff_1"), 0);
+  assert.equal(await earnings("pro_co"), 59500, "the company owner is paid");
+  assert.equal(await earnings("staff_1"), 0);
   assert.equal((await dbJob(j.id)).worker_id, "staff_1");
 
   assert.equal((await call("/provider/staff/staff_1", { method: "DELETE", token: company.token })).status, 200);
@@ -432,7 +433,7 @@ test("work: providers — approval, companies and staff", async () => {
 });
 
 test("work: sweeps expire jobs, pay out unanswered jobs and finish interrupted payments — once", async () => {
-  const { call, mkUser, mkProvider, wallet, book, client, dbJob } = await setup();
+  const { call, mkUser, mkProvider, wallet, earnings, book, client, dbJob } = await setup();
   const customer = await mkUser("cust_w", { wallet: 400000 });
   const pro = await mkProvider("pro_w");
 
@@ -448,18 +449,18 @@ test("work: sweeps expire jobs, pay out unanswered jobs and finish interrupted p
   assert.equal(first.expired, 1);
   assert.equal(first.autoConfirmed, 1);
   assert.equal((await dbJob(stale.id)).status, "expired");
-  assert.equal(await wallet("pro_w"), 59500);
+  assert.equal(await earnings("pro_w"), 59500);
   assert.equal(await wallet("cust_w"), 400000 - 70000, "the expired job was refunded, the finished one paid");
 
   const second = await sweepWork();
   assert.deepEqual([second.expired, second.autoConfirmed, second.moneyApplied], [0, 0, 0], "running it again changes nothing");
-  assert.equal(await wallet("pro_w"), 59500);
+  assert.equal(await earnings("pro_w"), 59500);
 
   // A payment that was recorded but not delivered (a crash) is delivered once, even if two sweeps race.
-  await client.execute({ sql: "INSERT INTO work_money (id, job_id, user_id, kind, amount_ugx, status, note, environment) VALUES ('payout:stuck', ?, 'pro_w', 'payout', 1000, 'pending', 'stuck', 'live')", args: [stale.id] });
+  await client.execute({ sql: "INSERT INTO work_money (id, job_id, user_id, kind, amount_ugx, status, note, environment) VALUES ('payout:stuck', ?, 'pro_w', 'payout', 1000, 'pending', 'stuck', 'live')", args: [finished.id] });
   const [x, y] = await Promise.all([sweepWork(), sweepWork()]);
   assert.equal(x.moneyApplied + y.moneyApplied, 1);
-  assert.equal(await wallet("pro_w"), 60500);
+  assert.equal(await earnings("pro_w"), 60500);
 
   // A booking that never got paid is cleared away.
   await client.execute({ sql: "INSERT INTO work_jobs (id, customer_id, service_id, service_type, service_name, pricing_mode, matching_mode, quantity, address, created_at) VALUES ('wjob_abandoned', 'cust_w', ?, 'clean', 'x', 'fixed', 'broadcast', 1, 'y', datetime('now', '-1 hour'))", args: [HOUSE] });

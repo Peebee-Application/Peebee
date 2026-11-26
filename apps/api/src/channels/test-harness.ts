@@ -64,7 +64,7 @@ export async function setup(opts: { migrate?: boolean; sandbox?: boolean } = {})
   const client = createClient({ url: "file::memory:" });
   const migrations = join(process.cwd(), "src/db/migrations");
   for (const file of readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort()) {
-    if (opts.migrate === false && (file.startsWith("0135_") || file.startsWith("0136_") || file.startsWith("0142_") || file.startsWith("0144_"))) continue;
+    if (opts.migrate === false && /^(0135|0136|0142|0144|0176)_/.test(file)) continue;
     for (const sql of splitSqlStatements(readFileSync(join(migrations, file), "utf8"))) await client.execute(sql);
   }
   bindDatabase(client);
@@ -84,6 +84,7 @@ export async function setup(opts: { migrate?: boolean; sandbox?: boolean } = {})
     return signToken({ sub: id, role });
   };
   const fund = async (id: string, amount: number) => {
+    await client.execute({ sql: "INSERT OR IGNORE INTO personal_wallets (user_id) VALUES (?)", args: [id] });
     await client.execute({ sql: "UPDATE users SET wallet_balance_sandbox = wallet_balance_sandbox + ?, wallet_balance = wallet_balance + ? WHERE id = ?", args: [amount, amount, id] });
   };
   const wallet = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance_sandbox AS b FROM users WHERE id = ?", args: [id] })).rows[0]!.b);

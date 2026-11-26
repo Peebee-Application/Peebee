@@ -2,7 +2,10 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
-import { getPlatformEnvironment } from "../lib/settings.js";
+import { getPlatformEnvironment, getWalletAccountSettings } from "../lib/settings.js";
+import { ensureProviderWorkWallet, providerWorkWalletBalance } from "../wallet/provider-work-wallet.js";
+import { personalWalletIsActive } from "../wallet/personal-wallet.js";
+import { hasTable } from "../lib/schema.js";
 import { notifyUser } from "../lib/webpush.js";
 import { assignProvider, getJob, jobView, providerCancel } from "./jobs.js";
 import { hasFreshLocation } from "./onsite.js";
@@ -89,6 +92,7 @@ providerRoutes.post("/provider/register", async (c) => {
     return c.json({ error: "already_registered", message: "You're already registered." }, 409);
   }
   await db.execute({ sql: "INSERT INTO work_provider_members (provider_id, user_id, role) VALUES (?, ?, 'owner')", args: [id, user.sub] });
+  await ensureProviderWorkWallet("work", id, await getPlatformEnvironment());
   for (const serviceId of serviceIds) {
     await db.execute({ sql: "INSERT OR IGNORE INTO work_provider_services (provider_id, service_id) VALUES (?, ?)", args: [id, serviceId] });
   }
@@ -399,6 +403,25 @@ providerRoutes.get("/provider/earnings", async (c) => {
   if (ctx.role !== "owner") return c.json({ error: "forbidden", message: "Only the account owner can see earnings." }, 403);
   const paid = (await db.execute({ sql: `SELECT COALESCE(SUM(m.amount_ugx), 0) AS total, COUNT(*) AS n FROM work_money m JOIN work_jobs j ON j.id = m.job_id WHERE m.kind = 'payout' AND m.status = 'done' AND j.provider_id = ?`, args: [ctx.provider.id] })).rows[0] as Row;
   const coming = (await db.execute({ sql: `SELECT COALESCE(SUM(held_ugx - ROUND(held_ugx * commission_percent / 100.0)), 0) AS total, COUNT(*) AS n FROM work_jobs WHERE provider_id = ? AND status IN ('booked', 'in_progress', 'completed', 'disputed')`, args: [ctx.provider.id] })).rows[0] as Row;
-  return c.json({ paidUgx: Number(paid.total), paidJobs: Number(paid.n), upcomingUgx: Number(coming.total), upcomingJobs: Number(coming.n), jobsCompleted: Number(ctx.provider.jobs_completed) });
+  const environment = await getPlatformEnvironment();
+  await ensureProviderWorkWallet("work", String(ctx.provider.id), environment);
+  const [workWalletBalance, personalWalletActive, walletSettings, transferSchemaReady, personalWalletActivationAvailable] = await Promise.all([
+    providerWorkWalletBalance("work", String(ctx.provider.id), environment),
+    personalWalletIsActive(c.get("user").sub),
+    getWalletAccountSettings(),
+    hasTable("provider_wallet_transfers"),
+    hasTable("personal_wallets"),
+  ]);
+  return c.json({
+    providerId: String(ctx.provider.id),
+    paidUgx: Number(paid.total), paidJobs: Number(paid.n),
+    upcomingUgx: Number(coming.total), upcomingJobs: Number(coming.n),
+    jobsCompleted: Number(ctx.provider.jobs_completed),
+    workWalletReady: workWalletBalance !== null,
+    workWalletBalance: workWalletBalance ?? 0,
+    personalWalletActive,
+    personalWalletActivationAvailable,
+    providerWalletTransfersEnabled: walletSettings.providerTransfersEnabled && transferSchemaReady,
+  });
 });
 

@@ -41,6 +41,7 @@ test("checkout methods preserve payment ownership and held funds", async (t) => 
     for (const [id, role] of [["customer", "customer"], ["other", "customer"], ["rider", "rider"]]) {
       await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role, wallet_balance) VALUES (?, ?, ?, 'hash', ?, 20000)", args: [id, id, id, role] });
     }
+    await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('customer'), ('other')");
     await client.execute("INSERT INTO riders (user_id, verified) VALUES ('rider', 1)");
     await client.execute("INSERT INTO lists (id, customer_id, title) VALUES ('list', 'customer', 'Test')");
     await client.execute("INSERT INTO wallets (id, owner_id, name, balance) VALUES ('family', 'customer', 'Family', 10000), ('shared', 'other', 'Office', 10000), ('private', 'other', 'Private', 10000)");

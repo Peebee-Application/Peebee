@@ -55,6 +55,7 @@ test("a combined delivery is paid once and every pickup is funded together", asy
     for (const [id, role] of [["customer", "customer"], ["other", "customer"], ["rider", "rider"]]) {
       await client.execute({ sql: "INSERT INTO users (id, phone, name, password_hash, role, wallet_balance, wallet_balance_sandbox) VALUES (?, ?, ?, 'hash', ?, 100000, 100000)", args: [id, id, id, role] });
     }
+    await client.execute("INSERT INTO personal_wallets (user_id) VALUES ('customer')");
     await client.execute("INSERT INTO riders (user_id, verified) VALUES ('rider', 1)");
     await client.execute("INSERT INTO restaurants (id, owner_id, name, status, is_open, environment) VALUES ('rest-a', 'other', 'Kitchen A', 'active', 1, 'live'), ('rest-b', 'other', 'Kitchen B', 'active', 1, 'live')");
     const app = new Hono().route("/v1", orderRoutes).route("/v1", riderRoutes);

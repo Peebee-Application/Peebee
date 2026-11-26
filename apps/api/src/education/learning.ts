@@ -654,6 +654,7 @@ learnRoutes.post("/courses/:id/enroll", async (c) => {
     const paid = await chargeAndPayOut({
       payerId: user.sub,
       ownerId: String(school.owner_id),
+      schoolId: String(school.id),
       amount: price,
       commissionPercent: settings.commissionPercent,
       environment,
@@ -1056,6 +1057,7 @@ learnRoutes.post("/invoices/:id/pay", async (c) => {
     paid = await chargeAndPayOut({
       payerId: user.sub,
       ownerId: String(invoice.owner_id),
+      schoolId: String(invoice.school_id),
       amount,
       commissionPercent: settings.commissionPercent,
       environment,

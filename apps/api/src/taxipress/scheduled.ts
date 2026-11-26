@@ -4,6 +4,7 @@ import { getPlatformEnvironment } from "../lib/settings.js";
 import { newId } from "../lib/ids.js";
 import { createOrderFromInput } from "../orders/routes.js";
 import { refundOrderToWallet, refundToWallet } from "../wallet/service.js";
+import { creditRiderWorkWallet } from "../wallet/rider-work-wallet.js";
 import { notifyUser } from "../lib/webpush.js";
 import { getTaxipressSettings, offeredLanguages } from "./settings.js";
 import { joinLine, TaxipressError } from "./queue.js";
@@ -231,8 +232,7 @@ export async function cancelFutureTicket(passengerId: string, ticketId: string) 
   if (fee > 0 && row.fee_to === "driver") {
     const driver = (await db.execute({sql:"SELECT user_id FROM taxipress_taxis WHERE id=?",args:[String(row.taxi_id)]})).rows[0] as Row | undefined;
     if (driver?.user_id) {
-      const { creditWallet } = await import("../wallet/service.js");
-      await creditWallet(String(driver.user_id),fee,{type:"adjustment",environment:String(row.environment)==="sandbox"?"sandbox":"live",orderId:String(row.order_id),note:"Scheduled departure cancellation fee",actorId:String(driver.user_id)});
+      await creditRiderWorkWallet(String(driver.user_id), fee, String(row.environment) === "sandbox" ? "sandbox" : "live");
     }
   }
   return {ticketId,refunded:refund,fee,cancelled:true};

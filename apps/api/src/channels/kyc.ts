@@ -5,6 +5,7 @@ import { getPlatformEnvironment, type PlatformEnvironment } from "../lib/setting
 import { checkPaymentStatus, initiateDisbursement, paymentProviderErrorResponse, UnsupportedNetworkError } from "../payments/service.js";
 import { postLedgerTransaction } from "../ledger/service.js";
 import { creditWallet } from "../wallet/service.js";
+import { personalWalletIsActive } from "../wallet/personal-wallet.js";
 import { ChannelsError, requireChannels, type Row } from "./common.js";
 import { KYC_PREFIX } from "./media.js";
 import { creatorBalance, debitCreator, postCreatorDebit, restoreCreator } from "./money.js";
@@ -240,6 +241,7 @@ export async function refreshWithdrawal(userId: string, id: string) {
 export async function moveToWallet(userId: string, amountUgx: number) {
   const cfg = await requireChannels();
   if (!cfg.monetization.earningsToWalletEnabled) throw new ChannelsError("unavailable", "Moving earnings to your wallet is not available.", 503);
+  if (!(await personalWalletIsActive(userId))) throw new ChannelsError("personal_wallet_not_active", "Activate your personal Peebee wallet before moving creator earnings into it.", 409);
   await settleAdShare(userId).catch((e) => console.error("ad share settle failed:", e));
   const amount = Math.round(amountUgx);
   if (!Number.isSafeInteger(amount) || amount < 1) throw new ChannelsError("invalid_amount", "Enter an amount.", 400);

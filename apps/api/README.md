@@ -44,6 +44,36 @@ See `GET /v1` for the full live list. Highlights:
   `GET /v1/admin/customers`, `GET /v1/admin/customers/:id`,
   `GET /v1/admin/orders`, `POST /v1/admin/users/:id/status`
 
+## Peebee identity and wallets
+
+One verified `users` identity can explicitly add the Customer or Rider app
+profile; provider memberships (Merchant, Car, Work, Relay, Learn, service
+business, and Peebee Hire) remain attached
+to that same identity. A profile is not created in another app merely because
+the person signed in there. Self-transactions across the same identity are
+rejected.
+
+Rider, merchant, Car, Work, Relay, Learn, service-business, and Peebee Hire
+earnings stay in their provider work wallet. Channel earnings remain in the
+existing creator ledger. The personal wallet is separate and optional. Providers
+can activate it by choice and move eligible work funds into it; rider reserves,
+merchant holds/settlements, wallet caps,
+freeze controls, owner access, and the Admin transfer switch are enforced.
+Activating the personal wallet does not create a Customer app profile.
+Channels creator earnings also remain in their creator balance until the owner
+activates a personal wallet and chooses to move funds.
+
+The identity and wallet changes require the hand-applied D1 migrations
+`src/db/migrations/0175_peebee_account_roles.sql` followed by
+`src/db/migrations/0176_provider_wallets.sql`. Existing customer-only personal
+wallets are kept active. Provider work-wallet records are created for registered
+profiles and automatically for new profiles after migration. Legacy provider
+earnings already sitting in `users.wallet_balance` are not automatically
+reclassified because the old balance does not identify its source; it remains
+in place and can be accessed if the owner activates the
+personal wallet. Apply migrations manually before enabling provider transfers
+in Admin → Customer Wallet.
+
 ## MoMo (escrow funding + rider payout)
 
 Real MTN MoMo Open API integration (`src/momo/client.ts`), defaults to the
