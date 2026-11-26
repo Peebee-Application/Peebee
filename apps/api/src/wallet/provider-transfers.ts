@@ -252,7 +252,7 @@ providerTransferRoutes.post("/wallet/provider-transfers", requireAuth, async (c)
     return c.json({ error: "provider_wallet_transfers_disabled", message: "Transfers from provider work wallets are not available right now." }, 409);
   }
   if (!(await hasTable("provider_wallet_transfers"))) {
-    return c.json({ error: "provider_wallet_migration_required", message: "Apply migration 0175_provider_wallets.sql before moving provider funds to a personal wallet." }, 503);
+    return c.json({ error: "provider_wallet_migration_required", message: "Apply migration 0176_provider_wallets.sql before moving provider funds to a personal wallet." }, 503);
   }
   if (!(await personalWalletIsActive(user.sub))) {
     return c.json({ error: "personal_wallet_not_active", message: "Activate your personal Peebee wallet before transferring provider funds." }, 409);

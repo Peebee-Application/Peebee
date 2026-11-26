@@ -26,14 +26,13 @@ import { findActiveUserWithRoleById } from "../auth/roles.js";
 import { activatePersonalWallet, personalWalletIsActive, requireActivePersonalWallet } from "./personal-wallet.js";
 
 export const walletRoutes = new Hono();
-walletRoutes.use("/wallet/*", requireAuth, requireRole("customer"), requireActivePersonalWallet);
 
 // Personal wallet activation belongs to the shared Peebee identity. It is
 // deliberately independent from creating a Customer app profile.
 walletRoutes.post("/personal-wallet/activate", requireAuth, async (c) => {
   const user = c.get("user");
   if (!(await activatePersonalWallet(user.sub))) {
-    return c.json({ error: "personal_wallet_migration_required", message: "Apply migration 0175_provider_wallets.sql before activating a new personal wallet." }, 503);
+    return c.json({ error: "personal_wallet_migration_required", message: "Apply migration 0176_provider_wallets.sql before activating a new personal wallet." }, 503);
   }
   return c.json({ walletType: "personal", active: true });
 });
@@ -79,7 +78,7 @@ const topupSchema = z.object({
   card: cardSchema.optional(),
 });
 
-walletRoutes.post("/wallet/topup", requireAuth, requireRole("customer"), async (c) => {
+walletRoutes.post("/wallet/topup", requireAuth, requireRole("customer"), requireActivePersonalWallet, async (c) => {
   const user = c.get("user");
   const parsed = topupSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
@@ -146,7 +145,7 @@ walletRoutes.post("/wallet/topup", requireAuth, requireRole("customer"), async (
   }
 });
 
-walletRoutes.get("/wallet/topups/:id/refresh", requireAuth, requireRole("customer"), async (c) => {
+walletRoutes.get("/wallet/topups/:id/refresh", requireAuth, requireRole("customer"), requireActivePersonalWallet, async (c) => {
   const id = c.req.param("id") as string;
   const user = c.get("user");
   const res = await db.execute({ sql: "SELECT * FROM wallet_topups WHERE id = ? AND user_id = ?", args: [id, user.sub] });
@@ -173,7 +172,7 @@ const transferSchema = z.object({
   idempotencyKey: z.string().min(8).max(80).optional(),
 }).refine((d) => !!(d.recipient || d.recipientId), { message: "recipient" });
 
-walletRoutes.post("/wallet/transfer", requireAuth, requireRole("customer"), async (c) => {
+walletRoutes.post("/wallet/transfer", requireAuth, requireRole("customer"), requireActivePersonalWallet, async (c) => {
   const user = c.get("user");
   const parsed = transferSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
@@ -260,7 +259,7 @@ const shareInviteSchema = z.object({
   walletId: z.string().optional(),
 });
 
-walletRoutes.post("/wallet/shares", requireAuth, requireRole("customer"), async (c) => {
+walletRoutes.post("/wallet/shares", requireAuth, requireRole("customer"), requireActivePersonalWallet, async (c) => {
   const user = c.get("user");
   const parsed = shareInviteSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
@@ -304,7 +303,7 @@ walletRoutes.post("/wallet/shares", requireAuth, requireRole("customer"), async 
  * to them ("received") — pending ones to accept/decline, active ones to
  * spend from or walk away from. A pending owner's balance isn't included
  * (they haven't accepted yet); it only appears once status is "active". */
-walletRoutes.get("/wallet/shares", requireAuth, requireRole("customer"), async (c) => {
+walletRoutes.get("/wallet/shares", requireAuth, requireRole("customer"), requireActivePersonalWallet, async (c) => {
   const user = c.get("user");
   const environment = await getPlatformEnvironment();
   const balanceColumn = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
@@ -342,7 +341,7 @@ walletRoutes.get("/wallet/shares", requireAuth, requireRole("customer"), async (
   return c.json({ granted: (grantedRes.rows as Row[]).map((r) => hidePhone(r, "grantee_phone")), received });
 });
 
-walletRoutes.post("/wallet/shares/:id/accept", requireAuth, requireRole("customer"), async (c) => {
+walletRoutes.post("/wallet/shares/:id/accept", requireAuth, requireRole("customer"), requireActivePersonalWallet, async (c) => {
   const user = c.get("user");
   const id = c.req.param("id") as string;
   const res = await db.execute({
@@ -353,7 +352,7 @@ walletRoutes.post("/wallet/shares/:id/accept", requireAuth, requireRole("custome
   return c.json({ status: "active" });
 });
 
-walletRoutes.post("/wallet/shares/:id/decline", requireAuth, requireRole("customer"), async (c) => {
+walletRoutes.post("/wallet/shares/:id/decline", requireAuth, requireRole("customer"), requireActivePersonalWallet, async (c) => {
   const user = c.get("user");
   const id = c.req.param("id") as string;
   const res = await db.execute({
@@ -366,7 +365,7 @@ walletRoutes.post("/wallet/shares/:id/decline", requireAuth, requireRole("custom
 
 /** Either side can end an active (or still-pending) share — the owner
  * revoking access, or the grantee giving it up themselves. */
-walletRoutes.post("/wallet/shares/:id/revoke", requireAuth, requireRole("customer"), async (c) => {
+walletRoutes.post("/wallet/shares/:id/revoke", requireAuth, requireRole("customer"), requireActivePersonalWallet, async (c) => {
   const user = c.get("user");
   const id = c.req.param("id") as string;
   const res = await db.execute({

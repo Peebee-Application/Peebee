@@ -43,6 +43,7 @@ async function migrated() {
   await client.execute(`INSERT INTO users (id, phone, email, name, password_hash, role, wallet_balance) VALUES
     ('ada', '0772000412', 'ada@peebee.test', 'Nakato Sarah', 'x', 'customer', 10000),
     ('ben', '0772111000', 'ben@peebee.test', 'Ben Okello', 'x', 'customer', 80000)`);
+  await client.execute("INSERT INTO personal_wallets (user_id, activated_by) VALUES ('ada', 'ada'), ('ben', 'ben')");
   return client;
 }
 

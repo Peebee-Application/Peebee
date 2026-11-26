@@ -64,8 +64,8 @@ Channels creator earnings also remain in their creator balance until the owner
 activates a personal wallet and chooses to move funds.
 
 The identity and wallet changes require the hand-applied D1 migrations
-`src/db/migrations/0174_peebee_account_roles.sql` followed by
-`src/db/migrations/0175_provider_wallets.sql`. Existing customer-only personal
+`src/db/migrations/0175_peebee_account_roles.sql` followed by
+`src/db/migrations/0176_provider_wallets.sql`. Existing customer-only personal
 wallets are kept active. Provider work-wallet records are created for registered
 profiles and automatically for new profiles after migration. Legacy provider
 earnings already sitting in `users.wallet_balance` are not automatically

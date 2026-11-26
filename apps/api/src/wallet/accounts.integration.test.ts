@@ -62,6 +62,11 @@ test("wallet accounts: freeze, send source, contacts, requests and idempotency",
     return Number((await client.execute({ sql: "SELECT balance AS b FROM wallets WHERE id = ?", args: [wallet] })).rows[0].b);
   };
 
+  assert.equal((await call("ben", "/wallet")).body.personalWalletActive, false);
+  assert.equal((await call("ben", "/wallet/transfer", "POST", {})).status, 409);
+  assert.equal((await call("ben", "/personal-wallet/activate", "POST")).status, 200);
+  assert.equal((await call("ada", "/personal-wallet/activate", "POST")).status, 200);
+
   const byName = await call("ben", "/wallet/transfer", "POST", { recipient: "Nakato Sarah", amount: 1000, idempotencyKey: "name-is-not-an-id" });
   assert.equal(byName.status, 404, "a display name is not a phone or email");
 

@@ -127,7 +127,7 @@ export async function ensureSandboxCarDrivers(lat: number, lng: number): Promise
 /** An order route called as a demo driver, so its checks and side effects are the real ones. */
 async function asDriver(userId: string, path: string): Promise<boolean> {
   const { default: app } = await import("../app.js");
-  const token = await signToken({ sub: userId, role: "rider" });
+  const token = await signToken({ sub: userId, role: "customer" });
   const res = await app.request(`/v1${path}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
