@@ -21,8 +21,30 @@ import { assertSpendSource } from "./accounts-routes.js";
 import { maskPhone } from "./mask.js";
 import { getWalletCap, resolveCustomerByIdentifier, transferWallet } from "./service.js";
 import { settleCustomerTopup } from "./topup-settle.js";
+import { findActiveUserWithRoleById } from "../auth/roles.js";
+import { activatePersonalWallet, personalWalletIsActive, requireActivePersonalWallet } from "./personal-wallet.js";
 
 export const walletRoutes = new Hono();
+walletRoutes.use("/wallet/*", requireAuth, requireRole("customer"), requireActivePersonalWallet);
+
+// Personal wallet activation belongs to the shared Peebee identity. It is
+// deliberately independent from creating a Customer app profile.
+walletRoutes.post("/personal-wallet/activate", requireAuth, async (c) => {
+  const user = c.get("user");
+  if (!(await activatePersonalWallet(user.sub))) {
+    return c.json({ error: "personal_wallet_migration_required", message: "Apply migration 0175_provider_wallets.sql before activating a new personal wallet." }, 503);
+  }
+  return c.json({ walletType: "personal", active: true });
+});
+
+walletRoutes.get("/personal-wallet/status", requireAuth, async (c) => {
+  const user = c.get("user");
+  return c.json({
+    walletType: "personal",
+    active: await personalWalletIsActive(user.sub),
+    activationAvailable: await hasTable("personal_wallets"),
+  });
+});
 
 type Row = Record<string, unknown>;
 
@@ -45,7 +67,7 @@ walletRoutes.get("/wallet", requireAuth, requireRole("customer"), async (c) => {
   // Bonus money (deposit bonuses, cashback, fee top-ups) is shown beside the cash balance; it can only be spent, never withdrawn.
   const credit = await getCreditBalance(user.sub, environment).catch(() => 0);
   const frozen = await walletIsFrozen(user.sub);
-  return c.json({ balance, credit, total: balance + credit, cap, verified, frozen, ledger: ledgerRes });
+  return c.json({ walletType: "personal", personalWalletActive: await personalWalletIsActive(user.sub), balance, credit, total: balance + credit, cap, verified, frozen, ledger: ledgerRes });
 });
 
 const topupSchema = z.object({
@@ -165,12 +187,8 @@ walletRoutes.post("/wallet/transfer", requireAuth, requireRole("customer"), asyn
 
   const target = recipientId
     ? await (async () => {
-        const res = await db.execute({
-          sql: "SELECT id, name FROM users WHERE id = ? AND role = 'customer' AND status = 'active'",
-          args: [recipientId],
-        });
-        const row = res.rows[0] as Row | undefined;
-        return row ? { id: String(row.id), name: String(row.name) } : null;
+        const row = await findActiveUserWithRoleById(recipientId, "customer");
+        return row ? { id: row.id, name: row.name } : null;
       })()
     : await resolveCustomerByIdentifier(recipient ?? "");
   if (!target) {

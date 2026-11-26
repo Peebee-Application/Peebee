@@ -27,6 +27,9 @@ import {
 } from "./creator-service.js";
 import { learningEnrollmentStatements } from "./creator-enrollment.js";
 import { publicationFor } from "./creator-study.js";
+import { personalWalletIsActive } from "../wallet/personal-wallet.js";
+import { hasColumn } from "../lib/schema.js";
+import { providerWalletCreditStatements, providerWalletDebitStatements } from "../wallet/provider-work-wallet.js";
 
 type PurchaseInput = {
   buyerId: string;
@@ -37,6 +40,9 @@ type PurchaseInput = {
   cohortId?: string;
 };
 export async function purchaseLearningCourse(input: PurchaseInput) {
+  if (!(await personalWalletIsActive(input.buyerId))) {
+    throw new CreatorError(409, "Activate your personal Peebee wallet before paying for this course from wallet balance.");
+  }
   const environment = await getPlatformEnvironment();
   const old = await one(
     "SELECT * FROM edu_creator_purchases WHERE buyer_id=? AND course_id=? AND environment=? AND status='settled'",
@@ -208,25 +214,30 @@ export async function purchaseLearningCourse(input: PurchaseInput) {
       ],
     },
   ];
+  let payoutSource: "legacy_personal" | "provider_work" = "legacy_personal";
   if (payout > 0) {
     if (beneficiaryType === "customer")
-      writes.push(
-        {
-          sql: `UPDATE users SET ${column}=${column}+?,updated_at=datetime('now') WHERE id=?`,
-          args: [payout, beneficiaryId],
-        },
-        requireChangedRow,
-        {
-          sql: `INSERT INTO wallet_ledger(id,user_id,type,amount,balance_after,note,environment) SELECT ?,id,'adjustment',?,${column},?,? FROM users WHERE id=?`,
-          args: [
-            newId("wl"),
-            payout,
-            `Learn sale ${purchaseId}`,
-            environment,
-            beneficiaryId,
-          ],
-        },
-      );
+      {
+        const schoolId = String(course.school_id);
+        const providerStatements = await providerWalletCreditStatements({
+          providerType: "education", providerId: schoolId, amount: payout, environment,
+          idempotencyKey: `learn-sale:${purchaseId}`, referenceType: "learn_purchase",
+          referenceId: purchaseId, actorId: input.buyerId, note: `Learn sale ${purchaseId}`,
+        });
+        if (providerStatements) {
+          payoutSource = "provider_work";
+          writes.push(...providerStatements);
+          if (await hasColumn("edu_creator_purchases", "wallet_source")) {
+            writes.push({ sql: "UPDATE edu_creator_purchases SET wallet_source='provider_work' WHERE id=?", args: [purchaseId] });
+          }
+        } else {
+          writes.push(
+            { sql: `UPDATE users SET ${column}=${column}+?,updated_at=datetime('now') WHERE id=?`, args: [payout, beneficiaryId] },
+            requireChangedRow,
+            { sql: `INSERT INTO wallet_ledger(id,user_id,type,amount,balance_after,note,environment) SELECT ?,id,'adjustment',?,${column},?,? FROM users WHERE id=?`, args: [newId("wl"), payout, `Learn sale ${purchaseId}`, environment, beneficiaryId] },
+          );
+        }
+      }
     else
       writes.push(
         {
@@ -299,12 +310,9 @@ export async function purchaseLearningCourse(input: PurchaseInput) {
     ...(payout > 0
       ? [
           {
-            ownerType: beneficiaryType,
-            ownerId: beneficiaryId,
-            purpose:
-              beneficiaryType === "merchant"
-                ? "payable_available"
-                : "wallet_payable",
+            ownerType: beneficiaryType === "merchant" ? "merchant" as const : payoutSource === "provider_work" ? "provider" as const : "customer" as const,
+            ownerId: beneficiaryType === "merchant" ? beneficiaryId : payoutSource === "provider_work" ? String(course.school_id) : beneficiaryId,
+            purpose: beneficiaryType === "merchant" ? "payable_available" : payoutSource === "provider_work" ? "education_work_wallet" : "wallet_payable",
             environment,
             amount: payout,
           },
@@ -370,7 +378,7 @@ export async function refundLearningPurchase(
   purchaseId: string,
   actorId: string,
 ): Promise<{ ok: true }> {
-  const r = await one("SELECT * FROM edu_creator_purchases WHERE id=?", [
+  const r = await one("SELECT p.*,c.school_id FROM edu_creator_purchases p JOIN edu_courses c ON c.id=p.course_id WHERE p.id=?", [
     purchaseId,
   ]);
   if (!r) throw new CreatorError(404, "That purchase wasn't found.");
@@ -388,31 +396,34 @@ export async function refundLearningPurchase(
     },
     requireChangedRow,
   ];
+  const workWalletSource = String(r.wallet_source ?? "") === "provider_work";
   if (payout > 0) {
-    writes.push(
-      r.beneficiary_type === "merchant"
-        ? {
-            sql: "UPDATE merchant_balances SET available=available-? WHERE merchant_id=? AND environment=? AND available>=?",
-            args: [payout, r.beneficiary_id, environment, payout],
-          }
-        : {
-            sql: `UPDATE users SET ${column}=${column}-? WHERE id=? AND ${column}>=?`,
-            args: [payout, r.beneficiary_id, payout],
-          },
-      requireChangedRow,
-    );
-    if (r.beneficiary_type !== "merchant")
-      writes.push({
-        sql: `INSERT INTO wallet_ledger(id,user_id,type,amount,balance_after,note,actor_id,environment) SELECT ?,id,'adjustment',?,${column},?,?,? FROM users WHERE id=?`,
-        args: [
-          newId("wl"),
-          -payout,
-          `Refund ${purchaseId}`,
-          actorId,
-          environment,
-          r.beneficiary_id,
-        ],
+    if (r.beneficiary_type === "merchant") {
+      writes.push(
+        {
+          sql: "UPDATE merchant_balances SET available=available-? WHERE merchant_id=? AND environment=? AND available>=?",
+          args: [payout, r.beneficiary_id, environment, payout],
+        },
+        requireChangedRow,
+      );
+    } else if (workWalletSource) {
+      const providerStatements = await providerWalletDebitStatements({
+        providerType: "education", providerId: String(r.school_id), amount: payout, environment,
+        idempotencyKey: `learn-refund:${purchaseId}:work-debit`, referenceType: "learn_purchase",
+        referenceId: purchaseId, actorId, note: `Refund ${purchaseId}`,
       });
+      if (!providerStatements) throw new CreatorError(503, "The provider work-wallet migration is required to refund this purchase.");
+      writes.push(...providerStatements);
+    } else {
+      writes.push({
+        sql: `UPDATE users SET ${column}=${column}-? WHERE id=? AND ${column}>=?`,
+        args: [payout, r.beneficiary_id, payout],
+      });
+      writes.push(requireChangedRow, {
+        sql: `INSERT INTO wallet_ledger(id,user_id,type,amount,balance_after,note,actor_id,environment) SELECT ?,id,'adjustment',?,${column},?,?,? FROM users WHERE id=?`,
+        args: [newId("wl"), -payout, `Refund ${purchaseId}`, actorId, environment, r.beneficiary_id],
+      });
+    }
   }
   writes.push(
     {
@@ -497,12 +508,9 @@ export async function refundLearningPurchase(
         ...(payout > 0
           ? [
               {
-                ownerType: r.beneficiary_type as "customer" | "merchant",
-                ownerId: String(r.beneficiary_id),
-                purpose:
-                  r.beneficiary_type === "merchant"
-                    ? "payable_available"
-                    : "wallet_payable",
+                ownerType: r.beneficiary_type === "merchant" ? "merchant" as const : workWalletSource ? "provider" as const : "customer" as const,
+                ownerId: r.beneficiary_type === "merchant" ? String(r.beneficiary_id) : workWalletSource ? String(r.school_id) : String(r.beneficiary_id),
+                purpose: r.beneficiary_type === "merchant" ? "payable_available" : workWalletSource ? "education_work_wallet" : "wallet_payable",
                 environment,
                 amount: -payout,
               },

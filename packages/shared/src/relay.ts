@@ -126,6 +126,15 @@ export type RelayOperator = {
   updated_at: string;
 };
 
+export type RelayOperatorWallet = {
+  walletType: "relay_work";
+  balance: number;
+  environment: "live" | "sandbox";
+  personalWalletActive: boolean;
+  personalWalletActivationAvailable: boolean;
+  providerWalletTransfersEnabled: boolean;
+};
+
 export type RelayOperatorParcels = {
   carrying: Array<{
     id: string; order_id: string; from_name: string; to_name: string; status: RelayLegStatus; handoff_code: string; started_at: string;

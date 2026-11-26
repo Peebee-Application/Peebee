@@ -1,8 +1,10 @@
 import { db, executeBatch, type DbStatement } from "../db/client.js";
 import { tablesExist } from "../lib/schema.js";
 import { newId } from "../lib/ids.js";
+import { hasTable } from "../lib/schema.js";
 import type { PlatformEnvironment } from "../lib/settings.js";
 import { notifyUser } from "../lib/webpush.js";
+import { creditProviderWorkWallet } from "../wallet/provider-work-wallet.js";
 
 export type Row = Record<string, any>;
 
@@ -78,6 +80,22 @@ const PENDING = "EXISTS (SELECT 1 FROM talent_money WHERE id = ? AND status = 'p
 export async function applyMoney(moneyId: string): Promise<boolean> {
   const row = (await db.execute({ sql: "SELECT * FROM talent_money WHERE id = ?", args: [moneyId] })).rows[0] as Row | undefined;
   if (!row || row.status !== "pending" || row.kind === "hold") return false;
+  if (row.kind === "payout" && await hasTable("talent_profiles")) {
+    await creditProviderWorkWallet({
+      providerType: "talent",
+      providerId: String(row.user_id),
+      amount: Number(row.amount_ugx),
+      environment: row.environment === "sandbox" ? "sandbox" : "live",
+      kind: "earning",
+      referenceType: "talent_money",
+      referenceId: moneyId,
+      idempotencyKey: `talent-money:${moneyId}`,
+      note: row.note || "Peebee Hire payout",
+      legacyUserId: String(row.user_id),
+    });
+    const applied = await db.execute({ sql: "UPDATE talent_money SET status='done', done_at=datetime('now') WHERE id=? AND status='pending'", args: [moneyId] });
+    return !!applied.rowsAffected;
+  }
   const col = balanceColumn(row.environment === "sandbox" ? "sandbox" : "live");
   const ledgerType = row.kind === "refund" ? "refund" : "adjustment";
   const changes = await executeBatch([

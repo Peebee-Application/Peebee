@@ -17,7 +17,7 @@ type UserRow = {
 };
 
 /** Shapes a raw `users` row into the public `AuthUser` DTO. */
-export function toAuthUser(row: Record<string, unknown>) {
+export function toAuthUser(row: Record<string, unknown>, activeRole?: "customer" | "rider" | "admin") {
   const r = row as unknown as UserRow;
   return {
     id: r.id,
@@ -25,7 +25,7 @@ export function toAuthUser(row: Record<string, unknown>) {
     phone: r.phone,
     email: r.email ?? null,
     name: r.name,
-    role: r.role,
+    role: activeRole ?? r.role,
     phoneVerifiedAt: r.phone_verified_at ?? null,
     emailVerifiedAt: r.email_verified_at ?? null,
     defaultMatchingMode: r.default_matching_mode ?? null,

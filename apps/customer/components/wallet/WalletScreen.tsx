@@ -80,6 +80,93 @@ function MerchantFace({ name, logo }: { name: string; logo: string | null }) {
   return <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gold/20 text-xs font-extrabold text-ink">{initials(name)}</span>;
 }
 
+type ProviderWalletOption = {
+  providerType: "rider" | "merchant" | "car" | "work" | "relay" | "education" | "service" | "talent" | "taxipress";
+  providerId: string;
+  label: string;
+  balance: number;
+};
+
+function ProviderWorkWalletPanel({
+  wallets,
+  personalWalletActive,
+  onTransferred,
+}: {
+  wallets: ProviderWalletOption[];
+  personalWalletActive: boolean;
+  onTransferred: () => void;
+}) {
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ key: string; text: string; error: boolean } | null>(null);
+  if (!wallets.length) return null;
+
+  async function transfer(wallet: ProviderWalletOption) {
+    const key = `${wallet.providerType}:${wallet.providerId}`;
+    const amount = Math.round(Number(amounts[key]));
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
+      setMessage({ key, text: "Enter a whole UGX amount greater than zero.", error: true });
+      return;
+    }
+    setBusyKey(key);
+    setMessage(null);
+    try {
+      await api.transferProviderWallet({ providerType: wallet.providerType, providerId: wallet.providerId, amount }, newKey());
+      setAmounts((current) => ({ ...current, [key]: "" }));
+      setMessage({ key, text: "Funds moved to your personal wallet.", error: false });
+      onTransferred();
+    } catch (error) {
+      setMessage({ key, text: errorMessage(error), error: true });
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  return (
+    <section className="wallet-root w-provider-wallets mx-4 mt-5 w-[calc(100%-2rem)]">
+      <h2 className="w-section-title !mx-0">Provider work wallets</h2>
+      <p className="mb-3 text-xs leading-5 opacity-70">Work earnings stay separate. Move funds here only when you choose to use your personal wallet.</p>
+      <div className="space-y-3">
+        {wallets.map((wallet) => {
+          const key = `${wallet.providerType}:${wallet.providerId}`;
+          return (
+            <article key={key} className="w-card w-lift space-y-3 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold">{wallet.label}</p>
+                  <p className="mt-1 text-xs opacity-70">Work balance</p>
+                </div>
+                <p className="shrink-0 text-sm font-extrabold">UGX {whole(wallet.balance)}</p>
+              </div>
+              {personalWalletActive ? (
+                <>
+                  <input
+                    aria-label={`Amount to transfer from ${wallet.label}`}
+                    className="w-field w-provider-wallet-amount w-full rounded-xl px-3 py-2.5 text-sm"
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    placeholder="Amount in UGX"
+                    value={amounts[key] ?? ""}
+                    onChange={(event) => setAmounts((current) => ({ ...current, [key]: event.target.value }))}
+                  />
+                  <button type="button" disabled={busyKey === key || wallet.balance <= 0} onClick={() => void transfer(wallet)} className="w-pill w-pill-send min-h-11 w-full disabled:opacity-50">
+                    {busyKey === key ? "Moving funds…" : "Move to personal wallet"}
+                  </button>
+                </>
+              ) : (
+                <p className="text-xs leading-5 opacity-70">Activate your personal wallet above before moving work funds.</p>
+              )}
+              {message?.key === key && <p role={message.error ? "alert" : "status"} className={`text-xs leading-5 ${message.error ? "text-red-300" : "text-emerald-300"}`}>{message.text}</p>}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function SheetFrame({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="w-scrim flex items-end" onClick={onClose}>
@@ -103,6 +190,7 @@ export function WalletScreen() {
   const tab = useSyncExternalStore(subscribeWalletTab, getWalletTab, () => "central" as Tab);
   const [wallet, setWallet] = useState<CustomerWallet | null>(null);
   const [wallets, setWallets] = useState<CustomerWalletSummary[]>([]);
+  const [providerWallets, setProviderWallets] = useState<ProviderWalletOption[]>([]);
   const [features, setFeatures] = useState<CustomerWalletsResponseFeatures | null>(null);
   const [maxWallets, setMaxWallets] = useState(5);
   const [suggested, setSuggested] = useState<string[]>(["Home", "Office", "Travel"]);
@@ -114,6 +202,8 @@ export function WalletScreen() {
   const [spending, setSpending] = useState<WalletSpending | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activationBusy, setActivationBusy] = useState(false);
+  const [activationError, setActivationError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [result, setResult] = useState<Result>(null);
   const [hidden, setHidden] = useState<Record<string, boolean>>(() => (typeof window === "undefined" ? {} : readHidden()));
@@ -164,15 +254,30 @@ export function WalletScreen() {
   const load = useCallback(async () => {
     setLoadError(null);
     try {
-      const [w, list, sh, ct, rq, sp] = await Promise.all([
+      const [w, providerSources] = await Promise.all([
         api.getWallet(),
+        api.getProviderWallets().catch(() => null),
+      ]);
+      setWallet(w);
+      setProviderWallets(providerSources?.wallets ?? []);
+      if (w.personalWalletActive === false) {
+        setWallets([]);
+        setFeatures(null);
+        setTotal(0);
+        setShares(null);
+        setContacts([]);
+        setRequests([]);
+        setIncoming(0);
+        setSpending(null);
+        return;
+      }
+      const [list, sh, ct, rq, sp] = await Promise.all([
         api.getWallets(),
         api.getWalletShares().catch(() => ({ granted: [], received: [] })),
         api.getWalletContacts().catch(() => ({ contacts: [], available: false })),
         api.getWalletRequests().catch(() => ({ requests: [], incomingOpen: 0, available: false })),
         api.getWalletSpending("month").catch(() => null),
       ]);
-      setWallet(w);
       setWallets(list.wallets);
       setFeatures(list.features ?? null);
       setMaxWallets(list.maxWallets);
@@ -189,6 +294,20 @@ export function WalletScreen() {
       setLoading(false);
     }
   }, [t]);
+
+  async function activatePersonalWallet() {
+    setActivationBusy(true);
+    setActivationError(null);
+    try {
+      await api.activatePersonalWallet();
+      setLoading(true);
+      await load();
+    } catch (err) {
+      setActivationError(explain(err, t));
+    } finally {
+      setActivationBusy(false);
+    }
+  }
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- load applies the server response
@@ -365,6 +484,22 @@ export function WalletScreen() {
     );
   }
 
+  if (wallet.personalWalletActive === false) {
+    return (
+      <div className="wallet-root w-canvas space-y-4 px-5 py-12">
+        <section className="w-card w-lift mx-auto max-w-xl space-y-4 p-5 text-center">
+          <h1 className="text-2xl font-extrabold">{t("wallet_personal_activate_title")}</h1>
+          <p className="text-sm leading-6 text-ink-500">{t("wallet_personal_activate_note")}</p>
+          {activationError && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{activationError}</p>}
+          <button type="button" disabled={activationBusy} onClick={() => void activatePersonalWallet()} className="w-pill w-pill-send min-h-12 w-full disabled:opacity-50">
+            {activationBusy ? t("wallet_personal_activating") : t("wallet_personal_activate_button")}
+          </button>
+        </section>
+        <ProviderWorkWalletPanel wallets={providerWallets} personalWalletActive={false} onTransferred={() => undefined} />
+      </div>
+    );
+  }
+
   const selected = wallets.find((w) => w.id === settingsFor) ?? main;
   const cardAvailable = !!payOptions?.card.available;
   const cardDirect = cardAvailable && !!payOptions?.card.direct;
@@ -377,7 +512,13 @@ export function WalletScreen() {
             <p className="w-kicker">{t("wallet_total_balance")}</p>
             <p className="mt-1 flex items-baseline gap-2"><span className="w-cur">UGX</span><span className="w-amt">{whole(total)}</span></p>
             <p className="mt-2 text-[12.5px] font-medium opacity-70">{accountLabel(main?.name ?? "Main", true, t).replace(/ account$/, "")} · {others === 1 ? t("wallet_other_account") : t("wallet_other_accounts", { count: others })}</p>
+            <p className="mt-2 text-[11.5px] font-medium opacity-70">{t("wallet_personal_scope_note")}</p>
           </section>
+          <ProviderWorkWalletPanel
+            wallets={providerWallets}
+            personalWalletActive={wallet.personalWalletActive !== false}
+            onTransferred={() => { setLoading(true); void load(); }}
+          />
           <div className="w-tilegrid">
             <button type="button" className="w-tile" onClick={() => { setPerson(null); setReview(false); setExpr(emptyExpr()); openTab("send"); }}>
               <span className="w-tile-icon"><Send size={20} /></span>

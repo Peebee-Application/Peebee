@@ -24,6 +24,11 @@ export default function WalletPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [reserve, setReserve] = useState<{ enabled: boolean; amount: number }>({ enabled: false, amount: 0 });
   const [amountInput, setAmountInput] = useState("");
+  const [personalTransferAmount, setPersonalTransferAmount] = useState("");
+  const [personalTransferBusy, setPersonalTransferBusy] = useState(false);
+  const [personalWalletActivating, setPersonalWalletActivating] = useState(false);
+  const [personalTransferError, setPersonalTransferError] = useState<string | null>(null);
+  const [personalTransferComplete, setPersonalTransferComplete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [withdrawalNumbers, setWithdrawalNumbers] = useState<SavedMobileNumber[]>([]);
@@ -128,6 +133,39 @@ export default function WalletPage() {
     }
   }
 
+  async function moveToPersonalWallet(e: React.FormEvent) {
+    e.preventDefault();
+    if (!wallet || !wallet.personalWalletActive) return;
+    const amount = Number(personalTransferAmount);
+    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > (wallet.transferableBalance ?? 0)) return;
+    setPersonalTransferBusy(true);
+    setPersonalTransferError(null);
+    setPersonalTransferComplete(false);
+    try {
+      await api.transferProviderWallet({ providerType: "rider", amount }, crypto.randomUUID());
+      setPersonalTransferAmount("");
+      setPersonalTransferComplete(true);
+      await load();
+    } catch (err) {
+      setPersonalTransferError(errorMessage(err));
+    } finally {
+      setPersonalTransferBusy(false);
+    }
+  }
+
+  async function activatePersonalWallet() {
+    setPersonalWalletActivating(true);
+    setPersonalTransferError(null);
+    try {
+      await api.activatePersonalWallet();
+      await load();
+    } catch (err) {
+      setPersonalTransferError(errorMessage(err));
+    } finally {
+      setPersonalWalletActivating(false);
+    }
+  }
+
   const settledTotal = orders.reduce((sum, o) => sum + (o.final_total ?? o.estimated_total ?? 0), 0);
   const hasPendingWithdrawal = !!wallet?.withdrawals.some((w) => w.status === "pending");
   const parsedAmount = Number(amountInput);
@@ -152,6 +190,7 @@ export default function WalletPage() {
         <p className={`text-4xl font-extrabold tabular-nums ${wallet && wallet.balance < 0 ? "text-red-600" : "text-ink"}`}>
           {wallet ? formatUgx(wallet.balance) : "—"}
         </p>
+        <p className="text-sm text-ink-500">{t("wallet_balance_note")}</p>
         {wallet && wallet.balance < 0 && <p className="text-sm text-ink-500">{t("wallet_balance_negative_note")}</p>}
         {reserve.enabled && (
           <p className="text-sm text-ink-500">
@@ -159,6 +198,39 @@ export default function WalletPage() {
           </p>
         )}
       </section>
+
+      {wallet?.personalWalletActivationAvailable && (!wallet.personalWalletActive || wallet.providerWalletTransfersEnabled) && (
+        <section className="home-card space-y-3" aria-labelledby="move-personal-title">
+          <div>
+            <h2 id="move-personal-title" className="text-lg font-bold text-ink">{t("wallet_move_to_personal_title")}</h2>
+            <p className="mt-1 text-sm text-ink-500">{t("wallet_move_to_personal_note")}</p>
+          </div>
+          {!wallet.personalWalletActive ? (
+            <div className="space-y-2"><p className="rounded-xl bg-[rgb(var(--surface-muted))] px-3 py-2 text-sm text-ink-500">{t("wallet_personal_wallet_needed")}</p>{personalTransferError && <p role="alert" className="text-sm text-red-700">{personalTransferError}</p>}<button type="button" disabled={personalWalletActivating} onClick={() => void activatePersonalWallet()} className="min-h-12 w-full rounded-full bg-gold px-4 font-bold text-ink-gold disabled:opacity-50">{personalWalletActivating ? t("wallet_personal_activating") : t("wallet_personal_activate_button")}</button></div>
+          ) : (
+            <form onSubmit={moveToPersonalWallet} className="space-y-2">
+              <input
+                aria-label={t("wallet_move_to_personal_amount")}
+                inputMode="numeric"
+                value={personalTransferAmount}
+                onChange={(e) => { setPersonalTransferAmount(e.target.value.replace(/[^\d]/g, "")); setPersonalTransferComplete(false); }}
+                placeholder={String(wallet.transferableBalance ?? 0)}
+                disabled={personalTransferBusy || (wallet.transferableBalance ?? 0) <= 0}
+                className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-3 text-lg outline-none focus:border-gold disabled:opacity-50"
+              />
+              {personalTransferError && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{personalTransferError}</p>}
+              {personalTransferComplete && <p role="status" className="text-sm font-semibold text-green">{t("wallet_personal_transfer_complete")}</p>}
+              <button
+                type="submit"
+                disabled={personalTransferBusy || !personalTransferAmount || Number(personalTransferAmount) > (wallet.transferableBalance ?? 0)}
+                className="min-h-14 w-full rounded-full bg-gold px-4 text-base font-bold text-ink-gold disabled:opacity-50"
+              >
+                {personalTransferBusy ? t("wallet_sending") : t("wallet_move_to_personal_button")}
+              </button>
+            </form>
+          )}
+        </section>
+      )}
 
       {wallet && wallet.depositRequired && wallet.depositShortfall > 0 && (
         <section className="home-card space-y-3 !border-l-4 !border-l-red-500">

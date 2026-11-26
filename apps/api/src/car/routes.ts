@@ -11,7 +11,8 @@ import { haversineKm } from "../lib/geo.js";
 import { newId } from "../lib/ids.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
 import { resolveCarMatchingMode } from "./matching-choice.js";
-import { getCarSettings, getMatchingSettings, getPlatformEnvironment, isServiceEnabled } from "../lib/settings.js";
+import { getCarSettings, getMatchingSettings, getPlatformEnvironment, getWalletAccountSettings, isServiceEnabled } from "../lib/settings.js";
+import { personalWalletIsActive } from "../wallet/personal-wallet.js";
 import { servicePaused } from "../lib/service-gate.js";
 import { isModuleLive } from "../lib/modules.js";
 import { isInLine } from "../taxipress/queue.js";
@@ -20,6 +21,7 @@ import { currentVisibilityRadiusKm, orderMatchPoint } from "../orders/matching.j
 import { createOrderFromInput } from "../orders/routes.js";
 import { checkPaymentStatus, initiateDisbursement, UnsupportedNetworkError } from "../payments/service.js";
 import { creditWallet, debitWallet } from "../wallet/service.js";
+import { ensureProviderWorkWallet, providerWorkWalletBalance, creditProviderWorkWallet, debitProviderWorkWallet } from "../wallet/provider-work-wallet.js";
 import { passengerSchema } from "../passengers/routes.js";
 import { ensureSandboxCarDrivers } from "./sandbox-demo.js";
 import { categoryFare, endAssignment, MAX_HIRE_HOURS, nearbyCategoryDrivers, quoteFare } from "./service.js";
@@ -153,6 +155,7 @@ carRoutes.post("/car/partner/apply", async (c) => {
   if (!parsed.success) return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
   const column = parsed.data.as === "owner" ? "owner_status" : "driver_status";
   await db.execute({ sql: "INSERT OR IGNORE INTO car_partners (user_id) VALUES (?)", args: [user.sub] });
+  await ensureProviderWorkWallet("car", user.sub, await getPlatformEnvironment());
   const res = await db.execute({
     sql: `UPDATE car_partners SET ${column} = 'pending',
             id_document_key = COALESCE(?, id_document_key), licence_key = COALESCE(?, licence_key), licence_expiry = COALESCE(?, licence_expiry),
@@ -671,6 +674,8 @@ carRoutes.post("/car/bookings", async (c) => {
  * themselves is closed-loop store credit and stays that way.
  */
 async function withdrawable(userId: string, environment: string): Promise<{ balance: number; earned: number; withdrawn: number; available: number }> {
+  const separatedBalance = await providerWorkWalletBalance("car", userId, environment === "sandbox" ? "sandbox" : "live");
+  if (separatedBalance !== null) return { balance: separatedBalance, earned: separatedBalance, withdrawn: 0, available: separatedBalance };
   const column = environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
   const balance = Number(((await db.execute({ sql: `SELECT ${column} AS b FROM users WHERE id = ?`, args: [userId] })).rows[0] as Row)?.b ?? 0);
   const earned = Number(
@@ -696,17 +701,22 @@ async function withdrawable(userId: string, environment: string): Promise<{ bala
 
 carRoutes.get("/car/wallet", async (c) => {
   const user = c.get("user");
-  const settings = await getCarSettings();
-  const environment = await getPlatformEnvironment();
-  const ready = await hasTable("car_withdrawals");
+  const [settings, environment, ready, walletSettings, personalWalletActive, transferSchemaReady, personalWalletActivationAvailable] = await Promise.all([
+    getCarSettings(), getPlatformEnvironment(), hasTable("car_withdrawals"), getWalletAccountSettings(),
+    personalWalletIsActive(user.sub), hasTable("provider_wallet_transfers"), hasTable("personal_wallets"),
+  ]);
   const figures = await withdrawable(user.sub, environment);
   const history = ready
     ? (await db.execute({ sql: "SELECT id, amount, status, msisdn, created_at FROM car_withdrawals WHERE user_id = ? AND environment = ? ORDER BY created_at DESC LIMIT 20", args: [user.sub, environment] })).rows
     : [];
   return c.json({
+    walletType: "car_work",
     balance: figures.balance,
     withdrawable: ready ? figures.available : 0,
     withdrawalsEnabled: settings.withdrawalsEnabled && ready,
+    personalWalletActive,
+    personalWalletActivationAvailable,
+    providerWalletTransfersEnabled: walletSettings.providerTransfersEnabled && transferSchemaReady,
     minAmount: settings.withdrawalMinAmount,
     history,
   });
@@ -747,22 +757,33 @@ carRoutes.post("/car/wallet/withdraw", async (c) => {
 
   // Debit first (atomic: refuses if the balance dropped meanwhile), then pay out, and give the money back if the payout can't start.
   const withdrawalId = newId("cwd");
-  const debited = await debitWallet(user.sub, amount, { type: "adjustment", environment, actorId: user.sub, note: "Withdrawal to mobile money" });
+  const providerWalletReady = await hasTable("provider_wallets");
+  const debited = await debitProviderWorkWallet({
+    providerType: "car", providerId: user.sub, amount, environment, kind: "withdrawal",
+    referenceType: "car_withdrawal", referenceId: withdrawalId, idempotencyKey: `car-withdrawal:${withdrawalId}`,
+    legacyUserId: user.sub, actorId: user.sub, note: "Withdrawal to mobile money",
+  });
   if (debited === null) return c.json({ error: "balance_changed", message: "Your balance just changed — reopen and try again." }, 409);
 
   let initiated;
   try {
     initiated = await initiateDisbursement({ referenceId: withdrawalId, msisdn, amount, forceMock: environment === "sandbox" });
   } catch (err) {
-    await creditWallet(user.sub, amount, { type: "adjustment", environment, actorId: user.sub, note: "Withdrawal could not start — returned" });
+    if (providerWalletReady) {
+      await creditProviderWorkWallet({ providerType: "car", providerId: user.sub, amount, environment, kind: "withdrawal_return", referenceType: "car_withdrawal", referenceId: withdrawalId, idempotencyKey: `car-withdrawal-return:${withdrawalId}`, actorId: user.sub, note: "Withdrawal could not start — returned" });
+    } else {
+      await creditWallet(user.sub, amount, { type: "adjustment", environment, actorId: user.sub, note: "Withdrawal could not start — returned" });
+    }
     if (err instanceof UnsupportedNetworkError) return c.json({ error: "unsupported_network", message: err.message }, 400);
     console.error("Car withdrawal request failed:", err);
     return c.json({ error: "withdrawal_request_failed", message: "Couldn't reach mobile money. Please try again." }, 502);
   }
+  const hasWalletSource = await hasColumn("car_withdrawals", "wallet_source");
   await db.execute({
-    sql: `INSERT INTO car_withdrawals (id, user_id, amount, provider, provider_ref, msisdn, network, status, environment)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
-    args: [withdrawalId, user.sub, amount, initiated.provider, initiated.providerRef, msisdn, initiated.network, environment],
+    sql: `INSERT INTO car_withdrawals (id, user_id, amount, provider, provider_ref, msisdn, network, status, environment${hasWalletSource ? ", wallet_source" : ""})
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?${hasWalletSource ? ", ?" : ""})`,
+    args: [withdrawalId, user.sub, amount, initiated.provider, initiated.providerRef, msisdn, initiated.network, environment,
+      ...(hasWalletSource ? [providerWalletReady ? "provider_work" : "legacy_personal"] : [])],
   });
   return c.json({ withdrawalId, amount, status: "pending" }, 201);
 });
@@ -780,7 +801,12 @@ carRoutes.get("/car/wallet/withdrawals/:id/refresh", async (c) => {
       // Only the request that flips pending -> final may refund, so a double poll can't pay twice.
       const flipped = await db.execute({ sql: "UPDATE car_withdrawals SET status = ?, updated_at = datetime('now') WHERE id = ? AND status = 'pending'", args: [status, id] });
       if (status === "failed" && flipped.rowsAffected > 0) {
-        await creditWallet(user.sub, Number(row.amount), { type: "adjustment", environment: row.environment === "sandbox" ? "sandbox" : "live", actorId: user.sub, note: "Withdrawal failed — returned" });
+        const withdrawalEnvironment = row.environment === "sandbox" ? "sandbox" : "live";
+        if (row.wallet_source === "provider_work") {
+          await creditProviderWorkWallet({ providerType: "car", providerId: user.sub, amount: Number(row.amount), environment: withdrawalEnvironment, kind: "withdrawal_return", referenceType: "car_withdrawal", referenceId: id, idempotencyKey: `car-withdrawal-return:${id}`, actorId: user.sub, note: "Withdrawal failed — returned" });
+        } else {
+          await creditWallet(user.sub, Number(row.amount), { type: "adjustment", environment: withdrawalEnvironment, actorId: user.sub, note: "Withdrawal failed — returned" });
+        }
       }
     }
     return c.json({ withdrawal: (await db.execute({ sql: "SELECT * FROM car_withdrawals WHERE id = ?", args: [id] })).rows[0] });

@@ -11,6 +11,7 @@ import { getR2Bucket, uploadResponseHeaders } from "../storage/r2.js";
 import { getVslaSettings } from "../lib/settings.js";
 import { isProSubscriptionCurrent } from "../riders/pro-subscription.js";
 import { notifyUser } from "../lib/webpush.js";
+import { findActiveUserWithRoleByIdentifier } from "../auth/roles.js";
 
 /**
  * Rider Stage Savings Circles — a VSLA-style group savings/loans feature,
@@ -526,11 +527,7 @@ stageRoutes.post("/stages/:id/invite", async (c) => {
   const parsed = inviteSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "validation_error", details: parsed.error.flatten() }, 400);
 
-  const riderRes = await db.execute({
-    sql: "SELECT id, name FROM users WHERE phone = ? AND role = 'rider' AND status = 'active' LIMIT 1",
-    args: [parsed.data.phone],
-  });
-  const rider = riderRes.rows[0] as unknown as { id: string; name: string } | undefined;
+  const rider = await findActiveUserWithRoleByIdentifier(parsed.data.phone, "rider");
   if (!rider) return c.json({ error: "not_found", message: "No active rider found with that phone number." }, 404);
 
   const existing = await db.execute({ sql: "SELECT status FROM stage_members WHERE stage_id = ? AND rider_id = ?", args: [stageId, rider.id] });

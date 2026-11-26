@@ -67,6 +67,7 @@ import { verifyRoutes } from "./verify/routes.js";
 import { voiceRoutes } from "./voice/routes.js";
 import { walletAccountRoutes } from "./wallet/accounts-routes.js";
 import { walletRoutes } from "./wallet/routes.js";
+import { providerTransferRoutes } from "./wallet/provider-transfers.js";
 import { walletsRoutes } from "./wallet/wallets.js";
 
 import { gasRoutes } from "./gas/routes.js";
@@ -389,6 +390,7 @@ app.route("/v1", homeRoutes);
 app.route("/v1", practiceRoutes);
 app.route("/v1", speechRoutes);
 app.route("/v1", walletRoutes);
+app.route("/v1", providerTransferRoutes);
 app.route("/v1", walletAccountRoutes);
 app.route("/v1", carRoutes);
 app.route("/v1", carpoolRoutes);

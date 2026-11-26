@@ -430,7 +430,7 @@ export function workMethods(request: Request) {
       return post<{ ok: true; stored: boolean }>(`/v1/work/provider/jobs/${encodeURIComponent(jobId)}/location`, { lat, lng, ...(accuracy != null && Number.isFinite(accuracy) ? { accuracy } : {}) });
     },
     workEarnings() {
-      return request<{ paidUgx: number; paidJobs: number; upcomingUgx: number; upcomingJobs: number; jobsCompleted: number }>("/v1/work/provider/earnings");
+      return request<{ providerId: string; paidUgx: number; paidJobs: number; upcomingUgx: number; upcomingJobs: number; jobsCompleted: number; workWalletReady: boolean; workWalletBalance: number; personalWalletActive: boolean; personalWalletActivationAvailable: boolean; providerWalletTransfersEnabled: boolean }>("/v1/work/provider/earnings");
     },
   };
 }

@@ -29,6 +29,7 @@ const ALERTS = [
 ] as const;
 
 const SWITCHES = [
+  ["providerWalletTransfersEnabled", "Provider owners may move available work-wallet funds to their activated personal wallet. Rider reserves and merchant settlement freezes still apply."],
   ["walletFreezeEnabled", "Customers can freeze an account. A freeze still blocks money going out after this is turned off, until they unfreeze."],
   ["walletSendFromShared", "A shared account can be the source of a send. Off: shared accounts are for orders only."],
   ["walletContactNicknames", "Saved contacts can have a nickname."],
@@ -93,6 +94,7 @@ export default function CustomerWalletSettingsPage() {
         walletRequestPerHour: Number(text.walletRequestPerHour),
         walletIdempotencyHours: Number(text.walletIdempotencyHours),
         walletFreezeEnabled: !!flags.walletFreezeEnabled,
+        providerWalletTransfersEnabled: !!flags.providerWalletTransfersEnabled,
         walletSendFromShared: !!flags.walletSendFromShared,
         walletContactNicknames: !!flags.walletContactNicknames,
         walletIncludeFrozenInTotal: !!flags.walletIncludeFrozenInTotal,

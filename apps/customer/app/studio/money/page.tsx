@@ -15,11 +15,17 @@ export default function MoneyPage() {
   const [earn, setEarn] = useState<EarningsSummary | null>(null);
   const [rewards, setRewards] = useState<RewardsSummary | null>(null);
   const [move, setMove] = useState(0);
+  const [personalWalletActive, setPersonalWalletActive] = useState(false);
+  const [personalWalletActivationAvailable, setPersonalWalletActivationAvailable] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const load = useCallback(() => {
     api.creatorEarnings().then(setEarn).catch((e) => setMsg({ ok: false, text: errorMessage(e) }));
     api.creatorRewards().then(setRewards).catch(() => setRewards(null));
+    api.getPersonalWalletStatus().then((status) => {
+      setPersonalWalletActive(status.active);
+      setPersonalWalletActivationAvailable(status.activationAvailable);
+    }).catch(() => undefined);
   }, []);
   useEffect(() => { if (channel) load(); }, [channel, load]);
 
@@ -54,12 +60,17 @@ export default function MoneyPage() {
       </Card>
 
       {config?.monetization?.earningsToWalletEnabled && (earn?.availableUgx ?? 0) > 0 && (
-        <Card title="Spend it on Peebee" hint="Move earnings to your wallet to pay for rides, food and shopping. No ID check needed.">
-          <TextField id="mv-amt" label="Amount (UGX)" type="number" inputMode="numeric" value={move || ""} onChange={(v) => setMove(Number(v))} max={earn?.availableUgx} />
-          <div className="flex gap-2">
-            <Button variant="plain" onClick={() => setMove(earn?.availableUgx ?? 0)} className="!min-h-10 !text-xs">All of it</Button>
-            <Button disabled={busy !== null || move < 1 || move > (earn?.availableUgx ?? 0)} onClick={() => run("move", async () => { const r = await api.moveEarningsToWallet(move); setMove(0); return `Moved ${ugx(r.movedUgx)} to your wallet.`; })} className="flex-1">{busy === "move" ? "Moving…" : "Move to wallet"}</Button>
-          </div>
+        <Card title="Spend it on Peebee" hint="Creator earnings stay in your creator balance. Move them to your personal wallet only when you choose.">
+          {personalWalletActive ? <>
+            <TextField id="mv-amt" label="Amount (UGX)" type="number" inputMode="numeric" value={move || ""} onChange={(v) => setMove(Number(v))} max={earn?.availableUgx} />
+            <div className="flex gap-2">
+              <Button variant="plain" onClick={() => setMove(earn?.availableUgx ?? 0)} className="!min-h-10 !text-xs">All of it</Button>
+              <Button disabled={busy !== null || move < 1 || move > (earn?.availableUgx ?? 0)} onClick={() => run("move", async () => { const r = await api.moveEarningsToWallet(move); setMove(0); return `Moved ${ugx(r.movedUgx)} to your personal wallet.`; })} className="flex-1">{busy === "move" ? "Moving…" : "Move to personal wallet"}</Button>
+            </div>
+          </> : <>
+            <Notice tone="info">Your creator balance is separate. Activate a personal wallet before moving earnings into it.</Notice>
+            <Button disabled={busy !== null || !personalWalletActivationAvailable} onClick={() => run("activate", async () => { await api.activatePersonalWallet(); setPersonalWalletActive(true); return "Your personal Peebee wallet is active."; })} className="w-full">{busy === "activate" ? "Activating…" : "Activate personal wallet"}</Button>
+          </>}
         </Card>
       )}
 

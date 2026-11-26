@@ -11,16 +11,19 @@ import { frozenBody, walletIsFrozen } from "./freeze.js";
 import { runIdempotentTransfer } from "./idempotency.js";
 import { maskPhone } from "./mask.js";
 import { getWalletCap, resolveCustomerByIdentifier, transferWallet } from "./service.js";
+import { findActiveUserWithRoleById } from "../auth/roles.js";
+import { requireActivePersonalWallet } from "./personal-wallet.js";
+import { personalWalletIsActive } from "./personal-wallet.js";
 
 export const walletAccountRoutes = new Hono();
-walletAccountRoutes.use("/wallet/lookup", requireAuth, requireRole("customer"));
-walletAccountRoutes.use("/wallet/contacts", requireAuth, requireRole("customer"));
-walletAccountRoutes.use("/wallet/contacts/*", requireAuth, requireRole("customer"));
-walletAccountRoutes.use("/wallet/requests", requireAuth, requireRole("customer"));
-walletAccountRoutes.use("/wallet/requests/*", requireAuth, requireRole("customer"));
-walletAccountRoutes.use("/wallet/spending", requireAuth, requireRole("customer"));
-walletAccountRoutes.use("/wallet/alerts", requireAuth, requireRole("customer"));
-walletAccountRoutes.use("/wallet/alerts/*", requireAuth, requireRole("customer"));
+walletAccountRoutes.use("/wallet/lookup", requireAuth, requireRole("customer"), requireActivePersonalWallet);
+walletAccountRoutes.use("/wallet/contacts", requireAuth, requireRole("customer"), requireActivePersonalWallet);
+walletAccountRoutes.use("/wallet/contacts/*", requireAuth, requireRole("customer"), requireActivePersonalWallet);
+walletAccountRoutes.use("/wallet/requests", requireAuth, requireRole("customer"), requireActivePersonalWallet);
+walletAccountRoutes.use("/wallet/requests/*", requireAuth, requireRole("customer"), requireActivePersonalWallet);
+walletAccountRoutes.use("/wallet/spending", requireAuth, requireRole("customer"), requireActivePersonalWallet);
+walletAccountRoutes.use("/wallet/alerts", requireAuth, requireRole("customer"), requireActivePersonalWallet);
+walletAccountRoutes.use("/wallet/alerts/*", requireAuth, requireRole("customer"), requireActivePersonalWallet);
 
 type Row = Record<string, unknown>;
 
@@ -28,13 +31,9 @@ const unavailable = { error: "migration_pending", message: "This isn't available
 
 async function resolvePerson(input: { recipient?: string; recipientId?: string }): Promise<{ id: string; name: string; phone: string | null } | null> {
   if (input.recipientId) {
-    const res = await db.execute({
-      sql: "SELECT id, name, phone FROM users WHERE id = ? AND role = 'customer' AND status = 'active'",
-      args: [input.recipientId],
-    });
-    const row = res.rows[0] as Row | undefined;
-    if (!row) return null;
-    return { id: String(row.id), name: String(row.name), phone: row.phone ? String(row.phone) : null };
+    const row = await findActiveUserWithRoleById(input.recipientId, "customer");
+    if (!row || !(await personalWalletIsActive(row.id))) return null;
+    return { id: row.id, name: row.name, phone: row.phone ? String(row.phone) : null };
   }
   const ident = input.recipient?.trim();
   if (!ident) return null;

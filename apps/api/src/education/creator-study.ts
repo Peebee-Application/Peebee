@@ -24,6 +24,7 @@ import { learningEnrollmentStatements } from "./creator-enrollment.js";
 import { openCohorts } from "./community.js";
 import { learnerDraft } from "./creator-model.js";
 import { callLearningModel } from "./creator-ai.js";
+import { hasPeebeeRole } from "../auth/roles.js";
 
 export async function publicationFor(
   userId: string,
@@ -165,11 +166,12 @@ creatorStudyRoutes.post("/publications/:id/share", async (c) => {
   if (!parsed.ok) return parsed.res;
   if (
     !(await one(
-      "SELECT id FROM users WHERE id=? AND status='active' AND role='customer'",
+      "SELECT id FROM users WHERE id=? AND status='active'",
       [parsed.data.recipientId],
     ))
   )
     throw new CreatorError(404, "That learner wasn't found.");
+  if (!(await hasPeebeeRole(parsed.data.recipientId, "customer"))) throw new CreatorError(404, "That learner wasn't found.");
   await db.execute({
     sql: "INSERT INTO edu_learning_shares(id,sender_id,recipient_id,course_id,publication_id,note) VALUES(?,?,?,?,?,?)",
     args: [

@@ -3,7 +3,7 @@ import { primeDemoAccounts, ridersForThisWorld } from "../practice/people.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { isGuestOrder } from "../guest/service.js";
 import { roundFare } from "@peebee/shared";
-import { db, executeBatch } from "../db/client.js";
+import { db, executeBatch, requireChangedRow } from "../db/client.js";
 import { haversineKm } from "../lib/geo.js";
 import { getRoadSettings, roadLegsKm } from "../lib/road-distance.js";
 import { newId } from "../lib/ids.js";
@@ -12,7 +12,7 @@ import { randomInt } from "../lib/random.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
 import { getDeliverySettings, getPlatformEnvironment } from "../lib/settings.js";
 import { notifyUser } from "../lib/webpush.js";
-import { creditWallet } from "../wallet/service.js";
+import { creditProviderWorkWallet, ensureProviderWorkWallet } from "../wallet/provider-work-wallet.js";
 import { ledgerBalance, postLedgerTransaction } from "../ledger/service.js";
 import { getRelaySettings } from "./settings.js";
 import { beyondRiderRange, riderRangeKm } from "../orders/matching.js";
@@ -533,6 +533,27 @@ async function payLeg(order: Row, leg: Row, amount: number, actorId: string): Pr
   const providerId = String(leg.provider_id);
   if (order.funds_model === MERCHANT_MODEL) {
     const isBoda = leg.kind === "boda";
+    const relayWalletReady = !isBoda && await hasTable("provider_wallets");
+    if (relayWalletReady) await ensureProviderWorkWallet("relay", providerId, environment);
+    const relayWalletStatements = isBoda
+      ? [{ sql: `UPDATE riders SET ${environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance"} = ${environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance"} + ?, updated_at = datetime('now') WHERE user_id = ?`, args: [amount, providerId] }]
+      : relayWalletReady
+        ? [
+            { sql: "UPDATE provider_wallets SET balance=balance+?, updated_at=datetime('now') WHERE provider_type='relay' AND provider_id=? AND environment=?", args: [amount, providerId, environment] },
+            requireChangedRow,
+            {
+              sql: `INSERT INTO provider_wallet_ledger
+                    (id, provider_type, provider_id, environment, kind, amount, balance_after, reference_type, reference_id, idempotency_key, actor_id, note)
+                    SELECT ?, 'relay', ?, ?, 'earning', ?, balance, 'relay_leg', ?, ?, ?, 'Relay parcel carried by matatu'
+                    FROM provider_wallets WHERE provider_type='relay' AND provider_id=? AND environment=?`,
+              args: [newId("pwl"), providerId, environment, amount, String(leg.id), `relay-leg:${String(leg.id)}`, userActor(actorId), providerId, environment],
+            },
+          ]
+        : [
+            { sql: `UPDATE users SET ${environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance"} = ${environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance"} + ?, updated_at = datetime('now') WHERE id = ?`, args: [amount, providerId] },
+            requireChangedRow,
+            { sql: `INSERT INTO wallet_ledger (id, user_id, type, amount, balance_after, order_id, note, actor_id, environment) SELECT ?, id, 'adjustment', ?, ${environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance"}, ?, 'Relay parcel carried by matatu', ?, ? FROM users WHERE id = ?`, args: [newId("wl"), amount, String(order.id), userActor(actorId), environment, providerId] },
+          ];
     await postLedgerTransaction({
       kind: "relay_leg_paid",
       idempotencyKey: `relay-leg:${String(leg.id)}`,
@@ -544,13 +565,11 @@ async function payLeg(order: Row, leg: Row, amount: number, actorId: string): Pr
         { ownerType: "order", ownerId: String(order.id), purpose: "settlement_escrow", environment, amount: -amount },
         isBoda
           ? { ownerType: "rider", ownerId: providerId, purpose: "earnings_available", environment, amount }
-          : { ownerType: "customer", ownerId: providerId, purpose: "wallet_payable", environment, amount },
+          : relayWalletReady
+            ? { ownerType: "provider", ownerId: providerId, purpose: "relay_work_wallet", environment, amount }
+            : { ownerType: "customer", ownerId: providerId, purpose: "wallet_payable", environment, amount },
       ],
-      additionalStatements: [
-        isBoda
-          ? { sql: `UPDATE riders SET ${environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance"} = ${environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance"} + ?, updated_at = datetime('now') WHERE user_id = ?`, args: [amount, providerId] }
-          : { sql: `UPDATE users SET ${environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance"} = ${environment === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance"} + ?, updated_at = datetime('now') WHERE id = ?`, args: [amount, providerId] },
-      ],
+      additionalStatements: relayWalletStatements,
     });
     return amount;
   }
@@ -561,12 +580,18 @@ async function payLeg(order: Row, leg: Row, amount: number, actorId: string): Pr
       args: [amount, providerId],
     });
   } else {
-    await creditWallet(providerId, amount, {
-      type: "adjustment",
+    await creditProviderWorkWallet({
+      providerType: "relay",
+      providerId,
+      amount,
       environment,
-      orderId: String(order.id),
-      note: "Relay parcel carried by matatu",
+      kind: "earning",
+      referenceType: "relay_leg",
+      referenceId: String(leg.id),
+      idempotencyKey: `relay-leg:${String(leg.id)}`,
       actorId: userActor(actorId),
+      note: "Relay parcel carried by matatu",
+      legacyUserId: providerId,
     });
   }
   return amount;

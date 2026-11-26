@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { InArgs } from "@libsql/client";
 import { db } from "../db/client.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
+import { peebeeRolePredicate } from "../auth/roles.js";
 import { getPlatformEnvironment, type PlatformEnvironment } from "../lib/settings.js";
 import { paymentsIntegrationStatus } from "../payments/service.js";
 import { getR2Bucket } from "../storage/r2.js";
@@ -124,9 +125,13 @@ function resolveViewEnvironment(c: { req: { query(name: string): string | undefi
 
 adminRoutes.get("/admin/stats", requirePermission("stats.view"), async (c) => {
   const environment = resolveViewEnvironment(c, await getPlatformEnvironment());
+  const customerRole = await peebeeRolePredicate("u", "customer");
+  const riderRole = await peebeeRolePredicate("u", "rider");
   const [users, riders, restaurants, ordersByStage, paymentsByStatus, settled] = await Promise.all([
     db.execute(
-      `SELECT role, COUNT(*) as n FROM users WHERE role IN ('customer', 'rider') AND ${demoPeopleFilter(environment, "id")} GROUP BY role`,
+      `SELECT 'customer' AS role, COUNT(*) AS n FROM users u WHERE ${customerRole} AND ${demoPeopleFilter(environment, "u.id")}
+       UNION ALL
+       SELECT 'rider' AS role, COUNT(*) AS n FROM users u WHERE ${riderRole} AND ${demoPeopleFilter(environment, "u.id")}`,
     ),
     db.execute(
       `SELECT
@@ -279,6 +284,7 @@ adminRoutes.get("/admin/integrations", requirePermission("integrations.view"), a
 adminRoutes.get("/admin/customers", requirePermission("customers.view"), async (c) => {
   const q = c.req.query("q")?.trim();
   const environment = resolveViewEnvironment(c, await getPlatformEnvironment());
+  const customerRole = await peebeeRolePredicate("u", "customer");
   // City has no dedicated column on a customer account — approximated from
   // their most recent order's pickup point, the closest thing to "where
   // this customer actually is" that already exists in the schema.
@@ -289,7 +295,7 @@ adminRoutes.get("/admin/customers", requirePermission("customers.view"), async (
           sql: `SELECT u.id, u.name, u.phone, u.email, u.status, u.created_at, u.profile_photo_key, u.phone_verified_at, u.email_verified_at,
                   (SELECT COUNT(*) FROM orders WHERE customer_id = u.id AND environment = ?) as order_count,
                   ${citySubquery}
-                FROM users u WHERE u.role = 'customer' AND ${demoPeopleFilter(environment, "u.id")} AND (u.name LIKE ? OR u.phone LIKE ?)
+                FROM users u WHERE ${customerRole} AND ${demoPeopleFilter(environment, "u.id")} AND (u.name LIKE ? OR u.phone LIKE ?)
                 ORDER BY u.created_at DESC LIMIT 100`,
           args: [environment, environment, `%${q}%`, `%${q}%`],
         }
@@ -297,7 +303,7 @@ adminRoutes.get("/admin/customers", requirePermission("customers.view"), async (
           sql: `SELECT u.id, u.name, u.phone, u.email, u.status, u.created_at, u.profile_photo_key, u.phone_verified_at, u.email_verified_at,
              (SELECT COUNT(*) FROM orders WHERE customer_id = u.id AND environment = ?) as order_count,
              ${citySubquery}
-           FROM users u WHERE u.role = 'customer' AND ${demoPeopleFilter(environment, "u.id")} ORDER BY u.created_at DESC LIMIT 100`,
+           FROM users u WHERE ${customerRole} AND ${demoPeopleFilter(environment, "u.id")} ORDER BY u.created_at DESC LIMIT 100`,
           args: [environment, environment],
         },
   );
@@ -307,8 +313,9 @@ adminRoutes.get("/admin/customers", requirePermission("customers.view"), async (
 adminRoutes.get("/admin/customers/:id", requirePermission("customers.view"), async (c) => {
   const id = c.req.param("id") as string;
   const environment = resolveViewEnvironment(c, await getPlatformEnvironment());
+  const customerRole = await peebeeRolePredicate("u", "customer");
   const userRes = await db.execute({
-    sql: `SELECT id, name, phone, email, status, created_at, profile_photo_key, phone_verified_at, email_verified_at, default_matching_mode FROM users WHERE id = ? AND role = 'customer'`,
+    sql: `SELECT u.id, u.name, u.phone, u.email, u.status, u.created_at, u.profile_photo_key, u.phone_verified_at, u.email_verified_at, u.default_matching_mode FROM users u WHERE u.id = ? AND ${customerRole}`,
     args: [id],
   });
   const customer = userRes.rows[0];

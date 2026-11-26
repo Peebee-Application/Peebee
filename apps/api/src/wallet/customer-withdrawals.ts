@@ -20,10 +20,12 @@ import { getCreditConfig } from "../offers/config.js";
 import { checkPaymentStatus, initiateDisbursement, paymentProviderErrorResponse, paymentProviderHttpStatus, UnsupportedNetworkError } from "../payments/service.js";
 import { frozenBody, walletIsFrozen } from "./freeze.js";
 import { creditWallet, debitWallet } from "./service.js";
+import { requireActivePersonalWallet } from "./personal-wallet.js";
 
 type Row = Record<string, unknown>;
 
 export const customerWithdrawalRoutes = new Hono();
+customerWithdrawalRoutes.use("/wallet/*", requireAuth, requireRole("customer"), requireActivePersonalWallet);
 
 const colFor = (env: PlatformEnvironment) => (env === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance");
 

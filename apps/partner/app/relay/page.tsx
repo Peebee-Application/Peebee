@@ -1,7 +1,7 @@
 "use client";
 
 import { Select } from "@peebee/shared/select";
-import { ApiError, type RelayLegStatus, type RelayOperator, type RelayOperatorParcels, type RelayRoute, type RelayTrack } from "@peebee/shared";
+import { ApiError, type RelayLegStatus, type RelayOperator, type RelayOperatorParcels, type RelayOperatorWallet, type RelayRoute, type RelayTrack } from "@peebee/shared";
 import { ArrowLeft, ArrowRight, Bus, ChevronDown, ChevronRight, Clock, MapPin, Package, Phone, PhoneCall, QrCode, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { Accordion } from "../../components/Accordion";
@@ -34,6 +34,10 @@ export default function RelayPage() {
   const [operator, setOperator] = useState<RelayOperator | null>(null);
   const [routes, setRoutes] = useState<RouteOption[]>([]);
   const [enabled, setEnabled] = useState(true);
+  const [relayWallet, setRelayWallet] = useState<RelayOperatorWallet | null>(null);
+  const [transferAmount, setTransferAmount] = useState("");
+  const [walletBusy, setWalletBusy] = useState(false);
+  const [walletNotice, setWalletNotice] = useState("");
   const [error, setError] = useState("");
 
   const loadMe = useCallback(async () => {
@@ -42,6 +46,7 @@ export default function RelayPage() {
       setOperator(res.operator);
       setRoutes(res.routes);
       setEnabled(res.enabled);
+      setRelayWallet(res.operator?.status === "approved" ? await api.getRelayOperatorWallet() : null);
       setError("");
     } catch (err) {
       setError(errorMessage(err));
@@ -53,6 +58,39 @@ export default function RelayPage() {
   useEffect(() => {
     void loadMe();
   }, [loadMe]);
+
+  async function activatePersonalWallet() {
+    setWalletBusy(true);
+    setError("");
+    setWalletNotice("");
+    try {
+      await api.activatePersonalWallet();
+      await loadMe();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setWalletBusy(false);
+    }
+  }
+
+  async function moveToPersonalWallet(e: React.FormEvent) {
+    e.preventDefault();
+    const amount = Number(transferAmount);
+    if (!relayWallet || !Number.isSafeInteger(amount) || amount < 1 || amount > relayWallet.balance) return;
+    setWalletBusy(true);
+    setError("");
+    setWalletNotice("");
+    try {
+      await api.transferProviderWallet({ providerType: "relay", amount }, crypto.randomUUID());
+      setTransferAmount("");
+      setWalletNotice("Funds moved to your personal Peebee wallet.");
+      await loadMe();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setWalletBusy(false);
+    }
+  }
 
   return (
     <div className="space-y-5 px-4 py-5">
@@ -75,7 +113,22 @@ export default function RelayPage() {
       {error && <p className={errorBox}>{error}</p>}
 
       {!loaded ? null : operator?.status === "approved" ? (
-        <OperatorBoard />
+        <>
+          {relayWallet?.personalWalletActivationAvailable && (!relayWallet.personalWalletActive || relayWallet.providerWalletTransfersEnabled) && <section className="home-card space-y-3">
+            <div>
+              <h2 className="text-xl font-bold">Matatu work wallet</h2>
+              <p className="mt-1 text-base text-ink-500">Parcel earnings stay separate from your optional personal wallet.</p>
+              <p className="mt-2 text-xl font-black tabular-nums">{ugx(relayWallet.balance)}</p>
+              {walletNotice && <p role="status" className="mt-2 text-base font-medium text-green">{walletNotice}</p>}
+            </div>
+            {!relayWallet.personalWalletActive
+              ? <button type="button" disabled={walletBusy} onClick={() => void activatePersonalWallet()} className="min-h-14 w-full rounded-full bg-gold text-lg font-bold text-ink-gold disabled:opacity-50">{walletBusy ? "Activating…" : "Activate personal wallet"}</button>
+              : relayWallet.providerWalletTransfersEnabled
+                ? <form onSubmit={moveToPersonalWallet} className="space-y-2"><input required inputMode="numeric" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value.replace(/\D/g, ""))} placeholder={`Available: ${ugx(relayWallet.balance)}`} aria-label="Amount to move to personal wallet" className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-3 text-lg" /><button disabled={walletBusy || !transferAmount || Number(transferAmount) > relayWallet.balance} className="min-h-14 w-full rounded-full bg-gold text-lg font-bold text-ink-gold disabled:opacity-50">{walletBusy ? "Moving funds…" : "Move to personal wallet"}</button></form>
+                : <p className="text-base text-ink-500">Transfers to your personal wallet are temporarily unavailable.</p>}
+          </section>}
+          <OperatorBoard />
+        </>
       ) : operator?.status === "pending" ? (
         <section className="home-card space-y-1">
           <h2 className="flex items-center gap-2 font-bold text-ink">

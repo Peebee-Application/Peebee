@@ -2,7 +2,8 @@ import { db, executeBatch } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { hasTable } from "../lib/schema.js";
 import { notifyUser } from "../lib/webpush.js";
-import { creditWallet, refundToWallet } from "../wallet/service.js";
+import { refundToWallet } from "../wallet/service.js";
+import { creditRiderWorkWallet } from "../wallet/rider-work-wallet.js";
 import { bookingsReady } from "./bookings.js";
 import { openTicketColumnsReady, openTicketOf } from "./open-tickets.js";
 import { cancelTermsFor, collectedFor, feeOf, minutesSince, type CancelTerms } from "./cancel-terms.js";
@@ -87,7 +88,7 @@ async function endBooking(
     await refundToWallet(String(row.passenger_id), refunded, { orderId, environment, note: opts.note, actorId: String(row.passenger_id) });
   }
   if (fee > 0 && settings.feeTo === "driver" && driverId) {
-    await creditWallet(driverId, fee, { type: "adjustment", environment, orderId, note: kind === "no_show" ? "Taxipress no-show fee" : "Taxipress late cancellation fee", actorId: driverId });
+    await creditRiderWorkWallet(driverId, fee, environment);
   }
   await db.execute({
     sql: "INSERT INTO order_events (id, order_id, stage, note, actor_id) VALUES (?, ?, 'Cancelled', ?, ?)",

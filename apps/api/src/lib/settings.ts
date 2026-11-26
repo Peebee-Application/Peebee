@@ -244,6 +244,8 @@ const DEFAULTS = {
   wallet_suggested_names: "Home,Office,Travel,Family Expenses,Personal Savings,Groceries,Emergency Fund",
   /** Peer transfers per customer per hour. */
   wallet_transfer_per_hour: "10",
+  /** Work-to-personal transfers default off until Finance explicitly enables them. */
+  provider_wallet_transfers_enabled: "0",
   /** Recipient name lookups per customer per hour. */
   wallet_lookup_per_hour: "20",
   /** Share invites per customer per hour. */
@@ -1630,7 +1632,7 @@ function clampInt(value: string, fallback: string, min: number, max: number): nu
 /** Every admin-controlled rule for accounts, contacts, requests and sends. */
 export async function getWalletAccountSettings() {
   const [
-    maxAccounts, suggested, transferPerHour, lookupPerHour, sharePerHour, freezeEnabled, sendFromShared,
+    maxAccounts, suggested, transferPerHour, lookupPerHour, sharePerHour, freezeEnabled, sendFromShared, providerTransfersEnabled,
     contactsMax, nicknames, includeFrozen, requestsEnabled, expiryHours, maxOpen, contactsOnly, allowCancel,
     declinesVisible, laterHours, notify, requestPerHour, idempotencyHours,
   ] = await Promise.all([
@@ -1641,6 +1643,7 @@ export async function getWalletAccountSettings() {
     getSetting("wallet_share_invite_per_hour"),
     getSetting("wallet_freeze_enabled"),
     getSetting("wallet_send_from_shared"),
+    getSetting("provider_wallet_transfers_enabled"),
     getSetting("wallet_contacts_max"),
     getSetting("wallet_contacts_nicknames"),
     getSetting("wallet_include_frozen_in_total"),
@@ -1664,6 +1667,7 @@ export async function getWalletAccountSettings() {
     sharePerHour: clampInt(sharePerHour, DEFAULTS.wallet_share_invite_per_hour, 1, 500),
     freezeEnabled: freezeEnabled !== "0",
     sendFromShared: sendFromShared === "1",
+    providerTransfersEnabled: providerTransfersEnabled === "1",
     contactsMax: clampInt(contactsMax, DEFAULTS.wallet_contacts_max, 1, 500),
     nicknames: nicknames !== "0",
     includeFrozenInTotal: includeFrozen !== "0",

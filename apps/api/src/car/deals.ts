@@ -6,7 +6,7 @@ import { newId } from "../lib/ids.js";
 import { hasColumn, hasTable } from "../lib/schema.js";
 import { getCarSettings, getPlatformEnvironment, type CarDealSettings } from "../lib/settings.js";
 import { notifyUser } from "../lib/webpush.js";
-import { creditWallet, debitWallet } from "../wallet/service.js";
+import { creditProviderWorkWallet, debitProviderWorkWallet } from "../wallet/provider-work-wallet.js";
 import { dealOf, endAssignment, rentDue, type DealTerms } from "./service.js";
 import { vehiclePhotoIds } from "./routes.js";
 
@@ -283,7 +283,7 @@ dealRoutes.post("/car/deals/requests/:id/withdraw", async (c) => {
   return c.json({ ok: true });
 });
 
-/** The driver pays rent owed straight from their wallet (otherwise it is taken from ride earnings). */
+/** The driver pays rent from their Car work wallet (or legacy balance before the wallet migration lands). */
 dealRoutes.post("/car/deals/rent/pay", async (c) => {
   const user = c.get("user");
   const parsed = z.object({ assignmentId: z.string().min(1) }).safeParse(await c.req.json().catch(() => ({})));
@@ -297,9 +297,17 @@ dealRoutes.post("/car/deals/rent/pay", async (c) => {
   const owed = deal ? rentDue(deal, fromDb(String(a.assigned_at)), Number(a.rent_paid_total ?? 0)) : 0;
   if (owed <= 0) return c.json({ error: "nothing_owed", message: "No rent is owed right now." }, 409);
   const environment = (await getPlatformEnvironment()) === "sandbox" ? "sandbox" : "live";
-  const balance = await debitWallet(user.sub, owed, { type: "adjustment", environment, actorId: user.sub, note: "Car rent paid" });
+  const balance = await debitProviderWorkWallet({
+    providerType: "car", providerId: user.sub, amount: owed, environment, kind: "transfer_out",
+    referenceType: "car_assignment_rent", referenceId: String(a.id), idempotencyKey: `car-assignment-rent:${a.id}:driver`,
+    legacyUserId: user.sub, actorId: user.sub, note: "Car rent paid",
+  });
   if (balance === null) return c.json({ error: "insufficient_wallet", message: `You need UGX ${owed.toLocaleString("en-UG")} in your wallet. It is also taken from your next ride earnings.` }, 402);
-  await creditWallet(String(a.owner_id), owed, { type: "adjustment", environment, actorId: user.sub, note: "Car rent received" });
+  await creditProviderWorkWallet({
+    providerType: "car", providerId: String(a.owner_id), amount: owed, environment,
+    referenceType: "car_assignment_rent", referenceId: String(a.id), idempotencyKey: `car-assignment-rent:${a.id}:owner`,
+    legacyUserId: String(a.owner_id), actorId: user.sub, note: "Car rent received",
+  });
   await db.execute({ sql: "UPDATE vehicle_assignments SET rent_paid_total = rent_paid_total + ? WHERE id = ?", args: [owed, String(a.id)] });
   return c.json({ ok: true, paid: owed });
 });

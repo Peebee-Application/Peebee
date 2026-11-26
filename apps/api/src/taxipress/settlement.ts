@@ -5,7 +5,7 @@ import { getPlatformEnvironment } from "../lib/settings.js";
 import { computeCheckoutFees, riderPayout } from "../lib/monetization.js";
 import { getMonetizationSettings } from "../lib/settings.js";
 import { notifyUser } from "../lib/webpush.js";
-import { creditWallet, debitWalletAllowNegative } from "../wallet/service.js";
+import { creditRiderWorkWallet, debitRiderWorkWalletAllowNegative } from "../wallet/rider-work-wallet.js";
 import { bookingsReady } from "./bookings.js";
 import { moveOpenTicketOnto, openTicketOf } from "./open-tickets.js";
 import { activeEntry, TaxipressError } from "./queue.js";
@@ -133,9 +133,9 @@ export async function confirmBoarding(driverId: string, rawCode: string): Promis
 
   let driverBalance: number | null = null;
   if (method === "app") {
-    if (driverAmount > 0) driverBalance = await creditWallet(driverId, driverAmount, { type: "adjustment", environment, orderId, actorId: driverId, note: "Taxipress seat — fare released" });
+    if (driverAmount > 0) driverBalance = await creditRiderWorkWallet(driverId, driverAmount, environment);
   } else if (takenFromDriver > 0) {
-    driverBalance = await debitWalletAllowNegative(driverId, takenFromDriver, { type: "adjustment", environment, orderId, actorId: driverId, note: "Taxipress cash seat — Peebee commission" });
+    driverBalance = await debitRiderWorkWalletAllowNegative(driverId, takenFromDriver, environment);
   }
 
   // The seat is done: close the order out the way a settled ride is.
@@ -204,8 +204,8 @@ export async function settlementReport(days: number) {
     refunds = { count: Number(r.n), refunded: Number(r.refunded), fees: Number(r.fees), cancelled: Number(r.cancelled), noShows: Number(r.no_shows), taxiRemoved: Number(r.taxi_removed) };
   }
   const column = env === "sandbox" ? "wallet_balance_sandbox" : "wallet_balance";
-  const owing = (await db.execute(`SELECT u.id, u.name, u.phone, u.${column} AS balance, x.plate FROM taxipress_taxis x JOIN users u ON u.id = x.user_id
-    WHERE u.${column} < 0 ORDER BY u.${column} LIMIT 50`)).rows as Row[];
+  const owing = (await db.execute(`SELECT u.id, u.name, u.phone, r.${column} AS balance, x.plate FROM taxipress_taxis x JOIN users u ON u.id = x.user_id
+    JOIN riders r ON r.user_id=x.user_id WHERE r.${column} < 0 ORDER BY r.${column} LIMIT 50`)).rows as Row[];
   const n = (v: unknown) => Number(v ?? 0);
   return {
     ready: true as const,

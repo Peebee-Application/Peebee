@@ -25,6 +25,14 @@ export default function WalletPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"withdraw" | "history">("withdraw");
+  const [personalWalletActive, setPersonalWalletActive] = useState(false);
+  const [personalWalletActivationAvailable, setPersonalWalletActivationAvailable] = useState(false);
+  const [providerTransfersEnabled, setProviderTransfersEnabled] = useState(false);
+  const [canMoveToPersonal, setCanMoveToPersonal] = useState(false);
+  const [personalTransferAmount, setPersonalTransferAmount] = useState("");
+  const [personalTransferBusy, setPersonalTransferBusy] = useState(false);
+  const [personalWalletActivating, setPersonalWalletActivating] = useState(false);
+  const [personalTransferNotice, setPersonalTransferNotice] = useState("");
 
   const maySettle = merchant?.member_role === "owner" || merchant?.member_role === "finance";
   const load = useCallback(async () => {
@@ -32,6 +40,7 @@ export default function WalletPage() {
     if (!merchant || !maySettle) return;
     const [b, a, s] = await Promise.all([api.merchantBalance(merchant.id), api.merchantSettlementAccounts(merchant.id), api.merchantSettlements(merchant.id)]);
     setBalance(b.balance); setAccounts(a.settlementAccounts); setHistory(s.settlements);
+    setPersonalWalletActive(!!b.personalWalletActive); setPersonalWalletActivationAvailable(!!b.personalWalletActivationAvailable); setProviderTransfersEnabled(!!b.providerWalletTransfersEnabled); setCanMoveToPersonal(!!b.canMoveToPersonal);
   }, [merchant, maySettle]);
   useEffect(() => { load().catch((cause) => setError(errorMessage(cause))); }, [load]);
   useEffect(() => {
@@ -55,6 +64,24 @@ export default function WalletPage() {
     if (!merchant || !quote) return; setBusy(true); setError("");
     try { const result = await api.createMerchantSettlement(merchant.id, quote.id, crypto.randomUUID()); setSettlement(result.settlement); setQuote(null); await load(); } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }
+  async function moveToPersonalWallet() {
+    if (!merchant) return;
+    const numeric = Number(personalTransferAmount);
+    if (!Number.isSafeInteger(numeric) || numeric <= 0 || numeric > Number(balance?.available ?? 0)) return;
+    setPersonalTransferBusy(true); setError(""); setPersonalTransferNotice("");
+    try {
+      await api.transferProviderWallet({ providerType: "merchant", providerId: merchant.id, amount: numeric }, crypto.randomUUID());
+      setPersonalTransferAmount(""); setPersonalTransferNotice("Funds moved to your personal Peebee wallet."); await load();
+    } catch (cause) { setError(errorMessage(cause)); }
+    finally { setPersonalTransferBusy(false); }
+  }
+
+  async function activatePersonalWallet() {
+    setPersonalWalletActivating(true); setError("");
+    try { await api.activatePersonalWallet(); setPersonalWalletActive(true); }
+    catch (cause) { setError(errorMessage(cause)); }
+    finally { setPersonalWalletActivating(false); }
+  }
 
   const input = "min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-4 text-lg";
   const big = "min-h-14 w-full rounded-full bg-gold text-lg font-bold text-ink-gold disabled:opacity-50";
@@ -69,6 +96,14 @@ export default function WalletPage() {
       <p className="mt-2 text-base text-white/70">Held {ugx(balance?.held ?? 0)} · Settling {ugx(balance?.settling ?? 0)}</p>
     </section>
     {error && <p role="alert" className="flex gap-2 rounded-xl bg-red-50 p-3 text-base text-red-700 dark:bg-red-950/40 dark:text-red-300"><AlertTriangle className="h-5 w-5 shrink-0" />{error}</p>}
+    {canMoveToPersonal && ((!personalWalletActive && personalWalletActivationAvailable) || (personalWalletActive && providerTransfersEnabled)) && <section className="home-card space-y-3">
+      <div><h2 className="text-lg font-bold">Move to personal wallet</h2><p className="mt-1 text-sm text-ink-500">Merchant work funds remain separate from your personal balance. Only available funds can move; held and settling amounts stay in the business wallet.</p></div>
+      {!personalWalletActive
+        ? <div className="space-y-2"><p className="rounded-xl bg-[rgb(var(--surface-muted))] px-3 py-2 text-sm text-ink-500">Activate the personal wallet on this Peebee identity when you want to move available business funds into your personal balance. The merchant wallet stays separate.</p><button type="button" disabled={personalWalletActivating} onClick={() => void activatePersonalWallet()} className={`${big} disabled:opacity-50`}>{personalWalletActivating ? "Activating…" : "Activate personal wallet"}</button></div>
+        : <div className="space-y-2"><input aria-label="Amount to move in UGX" inputMode="numeric" value={personalTransferAmount} onChange={(e) => { setPersonalTransferAmount(e.target.value.replace(/\D/g, "")); setPersonalTransferNotice(""); }} placeholder={`Available: ${ugx(balance?.available ?? 0)}`} className="min-h-14 w-full rounded-xl border border-[var(--border-faint)] px-4 text-lg" />
+          {personalTransferNotice && <p role="status" className="text-sm font-semibold text-green">{personalTransferNotice}</p>}
+          <button type="button" disabled={personalTransferBusy || !personalTransferAmount || Number(personalTransferAmount) > Number(balance?.available ?? 0)} onClick={() => void moveToPersonalWallet()} className={`${big} disabled:opacity-50`}>{personalTransferBusy ? "Moving funds…" : "Move to personal wallet"}</button></div>}
+    </section>}
     {settlement && <section className="home-card flex items-center gap-3">{settlement.status === "successful" ? <CheckCircle2 className="h-7 w-7 text-green" /> : <Loader2 className="h-7 w-7 animate-spin text-gold" />}<div><p className="text-lg font-bold capitalize">Withdrawal {settlement.status}</p><p className="text-base text-ink-500">Do not retry a pending transfer.</p></div></section>}
 
     <TabBar label="Wallet" active={tab} onChange={setTab} tabs={[{ id: "withdraw", label: "Withdraw", icon: ArrowDownToLine }, { id: "history", label: "History", icon: History, count: history.length }]} />

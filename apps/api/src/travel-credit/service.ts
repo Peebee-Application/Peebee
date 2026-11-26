@@ -4,9 +4,11 @@ import {getSetting,getPlatformEnvironment,getMonetizationSettings} from '../lib/
 import {computeCheckoutFees} from '../lib/monetization.js';
 import {newId} from '../lib/ids.js';
 import {walletIsFrozen} from '../wallet/freeze.js';
+import {personalWalletIsActive} from '../wallet/personal-wallet.js';
 import {returnGroupForOrder} from '../taxipress/returns.js';
 import {unpaidBundleGroup} from '../orders/bundle-funding.js';
 import {relayPaysBeforeRider} from '../relay/service.js';
+import {hasPeebeeRole} from '../auth/roles.js';
 type Row=Record<string,unknown>;
 export class TravelError extends Error{constructor(public status:400|403|404|409|503,public code:string,message:string){super(message);}}
 export const ready=()=>hasTable('travel_charges');
@@ -36,9 +38,10 @@ export async function statement(id:string,who:string,admin=false){
 }
 export async function issueVoucher(who:string,input:{recipientId:string;amount:number;requestId:string}){
  await need();const s=await config(),env=await getPlatformEnvironment();if(!s.vouchersEnabled||input.amount>s.voucherMax)throw new TravelError(409,'vouchers_off','Vouchers are unavailable or the amount exceeds the staff limit.');
+ if(!(await personalWalletIsActive(who)))throw new TravelError(409,'personal_wallet_not_active','Activate your personal Peebee wallet before issuing a travel voucher.');
  const previous=(await db.execute({sql:'SELECT id,recipient_id,amount FROM travel_vouchers WHERE issuer_id=? AND environment=? AND request_id=?',args:[who,env,input.requestId]})).rows[0];if(previous){if(previous.recipient_id!==input.recipientId||Number(previous.amount)!==input.amount)throw new TravelError(409,'request_changed','This request reference was already used for a different voucher.');return {id:String(previous.id),replayed:true};}
  if(await walletIsFrozen(who))throw new TravelError(409,'wallet_frozen','Unfreeze your wallet to issue a voucher.');
- if(!(await db.execute({sql:"SELECT 1 FROM users WHERE id=? AND role='customer'",args:[input.recipientId]})).rows.length)throw new TravelError(404,'recipient_not_found','Choose a Peebee customer.');
+ if(!(await db.execute({sql:"SELECT 1 FROM users WHERE id=? AND status='active'",args:[input.recipientId]})).rows.length||!(await hasPeebeeRole(input.recipientId,'customer')))throw new TravelError(404,'recipient_not_found','Choose a Peebee customer.');
  const id=newId('tv'),code='PBTV-'+crypto.randomUUID().replace(/-/g,'').slice(0,24).toUpperCase(),hash=await codeHash(code),col=env==='sandbox'?'wallet_balance_sandbox':'wallet_balance';
  try{await executeBatch([
   {sql:`UPDATE users SET ${col}=${col}-? WHERE id=? AND ${col}>=? AND primary_wallet_frozen_at IS NULL`,args:[input.amount,who,input.amount]},requireChangedRow,
@@ -50,6 +53,7 @@ export async function issueVoucher(who:string,input:{recipientId:string;amount:n
 }
 export async function cancelVoucher(id:string,who:string){await need();await db.execute({sql:"UPDATE travel_vouchers SET state='cancelled' WHERE id=? AND issuer_id=? AND environment=? AND state='active'",args:[id,who,await getPlatformEnvironment()]});return overview(who);}
 export async function repay(id:string,who:string,amount:number,requestId:string){
+ if(!(await personalWalletIsActive(who)))throw new TravelError(409,'personal_wallet_not_active','Activate your personal Peebee wallet before making a repayment.');
  await statement(id,who);const env=await getPlatformEnvironment(),col=env==='sandbox'?'wallet_balance_sandbox':'wallet_balance';
  const previous=(await db.execute({sql:"SELECT amount FROM travel_ledger WHERE account_id=? AND kind='repayment' AND reference=?",args:[id,requestId]})).rows[0];
  if(previous){if(Number(previous.amount)!==-amount)throw new TravelError(409,'request_changed','This reference was already used for a different repayment.');return statement(id,who);}
@@ -97,7 +101,9 @@ export async function quote(id:string,who:string,source:Source){
  if(!s.vouchersEnabled)throw new TravelError(409,'vouchers_off','Travel vouchers are switched off.');
  const v=(await db.execute({sql:`SELECT * FROM travel_vouchers WHERE ${source.voucherCode?'code_hash':'id'}=? AND recipient_id=? AND environment=? AND state='active' AND expires_at>datetime('now') AND balance>0`,args:[source.voucherCode?await codeHash(source.voucherCode):source.voucherId||'',who,env]})).rows[0];
  if(!v)throw new TravelError(404,'voucher_unavailable','That voucher is unavailable for your account.');
- const sponsored=Math.min(total,Number(v.balance));return {parts,total,sponsored,walletAmount:total-sponsored,accountId:null,voucherId:String(v.id),label:'Prepaid travel voucher'};
+ const sponsored=Math.min(total,Number(v.balance)),walletAmount=total-sponsored;
+ if(walletAmount>0&&!(await personalWalletIsActive(who)))throw new TravelError(409,'personal_wallet_not_active','Activate your personal Peebee wallet to pay the remaining travel amount.');
+ return {parts,total,sponsored,walletAmount,accountId:null,voucherId:String(v.id),label:'Prepaid travel voucher'};
 }
 export const quoteView=(q:Awaited<ReturnType<typeof quote>>)=>({total:q.total,sponsored:q.sponsored,walletAmount:q.walletAmount,label:q.label,allocations:q.parts.map(p=>({orderId:p.order.id,amount:p.total}))});
 export async function fund(id:string,who:string,source:Source,acceptedAmount:number,acceptedSponsored:number){
