@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
+import { hasTable } from "../lib/schema.js";
 import { consume, tooManyRequests } from "../lib/ratelimit.js";
 import { getPlatformEnvironment, getWalletAccountSettings, getWalletSettings } from "../lib/settings.js";
 import {

@@ -1,5 +1,4 @@
 import type { DbStatement } from "../db/client.js";
-import { hasTable } from "../lib/schema.js";
 import { db } from "../db/client.js";
 import { newId } from "../lib/ids.js";
 import { getOptions } from "../lib/option-settings.js";

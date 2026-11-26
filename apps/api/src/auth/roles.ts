@@ -52,8 +52,9 @@ export async function findActiveUserWithRoleByIdentifier(identifier: string, rol
     args: [value, value],
   });
   const row = result.rows[0];
-  if (!row || !(await hasPeebeeRole(String(row.id), role))) return null;
-  return row as { id: string; name: string; phone: string | null };
+  if (!row || typeof row.id !== "string" || typeof row.name !== "string") return null;
+  if (!(await hasPeebeeRole(row.id, role))) return null;
+  return { id: row.id, name: row.name, phone: typeof row.phone === "string" ? row.phone : null };
 }
 
 export async function findActiveUserWithRoleById(userId: string, role: PeebeeRole) {
@@ -62,7 +63,7 @@ export async function findActiveUserWithRoleById(userId: string, role: PeebeeRol
     args: [userId],
   });
   const row = result.rows[0];
-  if (!row || !(await hasPeebeeRole(userId, role))) return null;
-  return row as { id: string; name: string; phone: string | null };
+  if (!row || typeof row.name !== "string" || !(await hasPeebeeRole(userId, role))) return null;
+  return { id: userId, name: row.name, phone: typeof row.phone === "string" ? row.phone : null };
 }
 

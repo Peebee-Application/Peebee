@@ -516,7 +516,7 @@ export function WalletScreen() {
           </section>
           <ProviderWorkWalletPanel
             wallets={providerWallets}
-            personalWalletActive={wallet.personalWalletActive !== false}
+            personalWalletActive
             onTransferred={() => { setLoading(true); void load(); }}
           />
           <div className="w-tilegrid">

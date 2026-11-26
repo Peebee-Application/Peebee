@@ -12,7 +12,7 @@ import { baseMimeType, extensionForMime } from "../lib/mime.js";
 import { clientIp } from "../lib/ratelimit.js";
 import { decryptSecret, encryptSecret, isCredentialsEncryptionConfigured } from "../lib/crypto.js";
 import { getPlatformEnvironment, getWalletAccountSettings, invalidateSettingsCache } from "../lib/settings.js";
-import { hasColumn } from "../lib/schema.js";
+import { hasColumn, hasTable } from "../lib/schema.js";
 import { getOption } from "../lib/option-settings.js";
 import {
   initiateDisbursement,
