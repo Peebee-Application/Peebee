@@ -62,6 +62,7 @@ test("taxipress: an open ticket works on any taxi on the route", async () => {
     const code = async (res: Response) => (await json<{ error?: string }>(res)).error;
     const setting = (body: object) => call("staff", "admin/taxipress/settings", body, "PUT");
     const balance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance FROM users WHERE id = ?", args: [id] })).rows[0].wallet_balance);
+    const driverBalance = async (id: string) => Number((await client.execute({ sql: "SELECT wallet_balance FROM riders WHERE user_id = ?", args: [id] })).rows[0].wallet_balance);
 
     const relay = await json<{ id: string }>(await call("staff", "admin/relay/routes", {
       name: "Kampala - Entebbe", stageAName: "Kampala Stage", stageALat: KAMPALA.lat, stageALng: KAMPALA.lng,
@@ -125,13 +126,13 @@ test("taxipress: an open ticket works on any taxi on the route", async () => {
 
     // Taxi 2 boards: the driver confirms the code and the ticket moves over and settles.
     assert.equal((await call("d2", "taxipress/driver/boarding", {})).status, 200);
-    const d2Before = await balance("d2");
+    const d2Before = await driverBalance("d2");
     const boarded = await call("d2", "taxipress/driver/board", { code: bought.booking.ticketCode });
     assert.equal(boarded.status, 200, JSON.stringify(await boarded.clone().json()));
     const row = (await client.execute({ sql: "SELECT queue_id, status FROM taxipress_bookings WHERE id = ?", args: [bought.booking.id] })).rows[0];
     assert.equal(row.queue_id, van2.id);
     assert.equal(row.status, "boarded");
-    assert.ok((await balance("d2")) > d2Before, "the driver who took the open ticket is paid");
+    assert.ok((await driverBalance("d2")) > d2Before, "the driver who took the open ticket is paid");
     assert.equal(await code(await call("d2", "taxipress/driver/board", { code: bought.booking.ticketCode })), "already_boarded");
 
     // A ticket of another route cannot be used, and an expired one cannot board.

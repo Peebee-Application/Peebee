@@ -45,6 +45,7 @@ async function setup(skip: string[] = []) {
   const mk = async (id: string) => {
     n += 1;
     await client.execute({ sql: "INSERT INTO users (id, phone, name, role, password_hash, email_verified_at, wallet_balance) VALUES (?, ?, ?, 'customer', 'x', datetime('now'), 0)", args: [id, `+25676000${String(n).padStart(4, "0")}`, `Person ${id}`] });
+    await client.execute({ sql: "INSERT INTO personal_wallets (user_id) VALUES (?)", args: [id] });
     return signToken({ sub: id, role: "customer" });
   };
   const request = async (path: string, o: { method?: string; token?: string; body?: unknown } = {}) => {

@@ -457,7 +457,7 @@ test("work: sweeps expire jobs, pay out unanswered jobs and finish interrupted p
   assert.equal(await earnings("pro_w"), 59500);
 
   // A payment that was recorded but not delivered (a crash) is delivered once, even if two sweeps race.
-  await client.execute({ sql: "INSERT INTO work_money (id, job_id, user_id, kind, amount_ugx, status, note, environment) VALUES ('payout:stuck', ?, 'pro_w', 'payout', 1000, 'pending', 'stuck', 'live')", args: [stale.id] });
+  await client.execute({ sql: "INSERT INTO work_money (id, job_id, user_id, kind, amount_ugx, status, note, environment) VALUES ('payout:stuck', ?, 'pro_w', 'payout', 1000, 'pending', 'stuck', 'live')", args: [finished.id] });
   const [x, y] = await Promise.all([sweepWork(), sweepWork()]);
   assert.equal(x.moneyApplied + y.moneyApplied, 1);
   assert.equal(await earnings("pro_w"), 60500);
