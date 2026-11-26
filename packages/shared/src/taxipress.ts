@@ -74,6 +74,8 @@ export type TaxipressSettings = {
   /** Show a route's stops (the Relay stages along it) to passengers. */
   showStops: boolean;
   scheduledDeparturesEnabled: boolean;
+  /** Percentage added to the route fare for a designated VIP Highroof. */
+  vipFareMarkupPercent: number;
   scheduleMaxAdvanceDays: number;
   scheduleMinLeadMinutes: number;
   scheduleBookingCutoffMinutes: number;
@@ -104,6 +106,7 @@ export const TAXIPRESS_DEFAULT_LANGUAGES: Array<{ code: string; name: string }> 
 
 /** What the customer app needs to decide whether to show Taxipress, and what to say. */
 export type TaxipressConfig = {
+  vipFareMarkupPercent?: number;
   scheduledDeparturesEnabled?: boolean;
   scheduleMaxAdvanceDays?: number;
   returnPackagesEnabled?:boolean;
@@ -179,6 +182,7 @@ export type TaxipressTaxi = {
   routeName: string | null;
   plate: string;
   seatLayout: "14" | "18";
+  serviceClass?: "standard" | "vip";
   seats: number;
   /** The taxi may join the line and take seats. */
   passengersEnabled: boolean;
@@ -188,6 +192,11 @@ export type TaxipressTaxi = {
   driverName?: string | null;
   driverPhone?: string | null;
 };
+
+export const TAXIBEE_VIP_AMENITIES = [
+  "Spacious first-class seating", "Charging ports", "Cup holders",
+  "Complimentary drinking water", "Free Wi-Fi", "Onboard screen",
+] as const;
 
 export type TaxipressLineEntry = {
   /** API path for the driver's face photo (auth needed), or null for an initials avatar. */
@@ -200,6 +209,7 @@ export type TaxipressLineEntry = {
   position: number | null;
   plate: string;
   seatLayout: "14" | "18";
+  serviceClass?: "standard" | "vip";
   seatsTotal: number;
   seatsBooked: number;
   walkUpSeats: number;
@@ -334,7 +344,7 @@ export type TaxipressBooking = {
   /** First name of the person who bought and sent the ticket. */
   sentBy?: string | null;
   route: { id: string; fromName: string; toName: string; directionLabel: string };
-  taxi: { queueId: string; plate: string; seatLayout: "14" | "18"; driverName: string | null; driverPhone: string | null; status: string; position: number | null; seatsLeft: number };
+  taxi: { queueId: string; plate: string; seatLayout: "14" | "18"; serviceClass?: "standard" | "vip"; driverName: string | null; driverPhone: string | null; status: string; position: number | null; seatsLeft: number };
 };
 
 export type TaxipressReturnPackage = {

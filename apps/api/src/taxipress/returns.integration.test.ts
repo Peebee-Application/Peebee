@@ -22,7 +22,7 @@ test('prepaid returns: one payment, two entitlements, redemption and partial ref
   setD1Binding({prepare,async batch(s:ReturnType<typeof prepare>[]){return (await client.batch(s.map(x=>({sql:x.sql,args:x.args as InArgs})),'write')).map(r=>({results:r.rows,success:true,meta:{changes:r.rowsAffected,last_row_id:Number(r.lastInsertRowid??0)}}));}} as unknown as D1Database);resetSchemaCache();
   try{
     const tokens:Record<string,string>={};
-    for(const id of ['staff','d1','d2','d3','a','b']){
+    for(const id of ['staff','d1','d2','d3','d4','a','b']){
       const role=id==='staff'?'admin':'customer';
       await client.execute({sql:"INSERT INTO users(id,name,phone,password_hash,role,admin_role) VALUES(?,?,?,'hash',?,?)",args:[id,id,id,role,id==='staff'?'super_admin':null]});
       tokens[id]=await signToken({sub:id,role} as never);
@@ -177,6 +177,19 @@ test('prepaid returns: one payment, two entitlements, redemption and partial ref
       await setSetting('taxipress_return_packages_enabled','0');
       assert.equal((await call('a','taxipress/return-quotes',{queueId:qOut,adults:1,mode:'open'})).status,409);
       assert.ok((await json(await call('a','taxipress/return-packages'))).packages.length);
+    });
+    await t.test('VIP return packages price both legs as VIP and retain the class for redemption',async()=>{
+      await setSetting('taxipress_return_packages_enabled','1');
+      await setSetting('taxipress_vip_fare_markup_percent','50');
+      assert.equal((await call('d4','taxipress/taxi/apply',{relayRouteId:relay.id,plate:'UBV VIP4',seatLayout:'18'})).status,201);
+      const vipTaxi=(await json(await call('staff','admin/taxipress/taxis'))).taxis.find((x:any)=>x.plate==='UBV VIP4');
+      await call('staff',`admin/taxipress/taxis/${vipTaxi.id}`,{status:'approved'});
+      await call('staff',`admin/taxipress/taxis/${vipTaxi.id}`,{serviceClass:'vip'});
+      const qVipOut=(await json(await call('d4','taxipress/driver/join',{routeId:outRoute.id}))).entry.id;
+      const vip=await quote('a',{queueId:qVipOut});
+      assert.equal(vip.outboundAmount,6750);assert.equal(vip.returnAmount,8100);
+      const snapshot=(await client.execute({sql:'SELECT input_json FROM taxipress_return_packages WHERE id=?',args:[vip.id]})).rows[0];
+      assert.equal(JSON.parse(String(snapshot.input_json)).serviceClass,'vip');
     });
   }finally{setD1Binding(undefined);resetSchemaCache();client.close();if(oldSecret==null)delete process.env.JWT_SECRET;else process.env.JWT_SECRET=oldSecret;}
 });

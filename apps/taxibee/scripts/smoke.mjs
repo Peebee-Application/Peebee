@@ -184,7 +184,8 @@ try {
   await p.route('https://accounts.google.com/gsi/client', r => r.fulfill({ contentType: 'application/javascript', body: `window.google={accounts:{id:{initialize(o){window.googleFixtureCallback=o.callback},renderButton(node){const b=document.createElement('button');b.id='fixture-google-button';b.textContent='Continue with Google';b.onclick=()=>window.googleFixtureCallback({credential:'fixture-google-id-token'});node.append(b)}}}};` }));
   const user = { id: 'existing-peebee-customer', role: 'customer', name: 'Existing Peebee Customer', phone: '+256772000111', email: 'customer@example.test' };
   const routeData = { id: 'shared-route', fromName: 'Entebbe', toName: 'Kampala', directionLabel: 'EBB - KLA', farePerSeat: 5000, stops: ['Entebbe','Kampala'] };
-  const cfg = { enabled: true, routes: [routeData], cashEnabled: true, maxSeatsPerBooking: 4, maxLapChildren: 2, childSeatFarePercent: 100, luggageEnabled: true, luggageTypes: ['personal','standard'], luggagePrices: { personal: 0, standard: 2000 }, languages: [{ code: 'en', name: 'English' }], assistanceEnabled: true, languageEnabled: true, ticketSharingEnabled: true, openTicketsEnabled: true };
+  const cfg = { enabled: true, scheduledDeparturesEnabled: true, scheduleMaxAdvanceDays: 60, routes: [routeData], cashEnabled: true, maxSeatsPerBooking: 4, maxLapChildren: 2, childSeatFarePercent: 100, luggageEnabled: true, luggageTypes: ['personal','standard'], luggagePrices: { personal: 0, standard: 2000 }, languages: [{ code: 'en', name: 'English' }], assistanceEnabled: true, languageEnabled: true, ticketSharingEnabled: true, openTicketsEnabled: true };
+  const vipDeparture = { id: 'vip-future', routeId: routeData.id, departsAt: new Date(Date.now()+24*60*60_000).toISOString(), seatsLeft: 13, farePerSeat: 7500, plate: 'UBV 013V', seatLayout: '18', serviceClass: 'vip', fromName: 'Entebbe', toName: 'Kampala' };
   const booking = { id: 'shared-booking', orderId: 'shared-order', status: 'booked', seats: 1, farePerSeat: 5000, amount: 5000, paymentMethod: 'app', paymentStatus: 'unpaid', ticketCode: null, createdAt: new Date().toISOString(), cancel: { allowed: true, free: true, fee: 0, refund: 0 }, route: routeData, taxi: { queueId: 'shared-queue', plate: 'UBM 123A', seatLayout: '14', driverName: 'Peebee Driver', status: 'in_line', seatsLeft: 10 } };
   const writes = []; let rejectedLogin = true;
   let balance = 70000, transferAttempt = 0, supportText = '', sentChat = '';
@@ -207,11 +208,11 @@ try {
     else if (path === '/v1/taxipress/config' || path === '/v1/taxipress-public/config') data = cfg;
     else if (path === '/v1/taxipress/saved-departures' && method === 'GET') data={ready:true,savedIds:savedDepartureIds};
     else if (path.startsWith('/v1/taxipress/saved-departures/')) { const id=decodeURIComponent(path.split('/').at(-1));if(method==='PUT'){if(!savedDepartureIds.includes(id))savedDepartureIds.push(id);data={saved:true};}else if(method==='DELETE'){savedDepartureIds=savedDepartureIds.filter(x=>x!==id);data={saved:false};}else{status=405;data={message:'Unexpected method'};} }
-    else if (path.endsWith('/queue')) data = { route: routeData, line: [{ id: 'shared-queue', bookable: true, position: 2, seatsLeft: 10, seatLayout: '14', plate: 'UBM 123A', driverName: 'Peebee Driver', departsAt:new Date(Date.now()+60*60_000).toISOString() }], onRoad: [] };
+    else if (path.endsWith('/queue')) data = { route: routeData, line: [{ id: 'shared-queue', bookable: true, position: 2, seatsLeft: 10, seatLayout: '14', plate: 'UBM 123A', driverName: 'Peebee Driver', departsAt:new Date(Date.now()+60*60_000).toISOString() }, { id: 'vip-live-queue', serviceClass:'vip', bookable:true, position:3, seatsLeft:13, seatLayout:'18', plate:'UBV 013V', driverName:'VIP Driver', departsAt:new Date(Date.now()+60*60_000).toISOString() }], onRoad: [] };
     else if (path === '/v1/wallet') data = { balance, credit: 0, ledger: [], verified: true };
     else if (path === '/v1/taxipress/bookings/mine') data = { bookings: bookingCreated ? [booking] : [] };
     else if (path === '/v1/taxipress/departures/mine') data = { tickets: [] };
-    else if (path === '/v1/taxipress-public/departures') data = { departures: [], ready: true };
+    else if (path === '/v1/taxipress-public/departures') data = { departures: [vipDeparture], ready: true };
     else if (path === '/v1/taxipress/bookings' && method === 'POST') { bookingCreated = true; const b = request.postDataJSON(); booking.seats = b.adults + (b.childSeats || 0); booking.amount = booking.seats * 5000 + (b.luggage?.standard || 0) * 2000; data = { booking, order: { id: booking.orderId } }; }
     else if (path === '/v1/orders/shared-order/fund') { booking.paymentStatus = 'paid'; booking.ticketCode = '654321'; data = { order: { id: booking.orderId }, funded: true }; }
     else if (path === '/v1/taxipress/bookings/shared-booking') data = { booking };
@@ -446,6 +447,27 @@ try {
   await p.click('[data-auth-form="signup"] button[type="submit"]');
   await p.waitForFunction(() => document.querySelector('#auth-layer').classList.contains('is-hidden'));
   assert.deepEqual(writes.find(w => w.path === '/v1/auth/register').body, { name: 'New Customer', phone: '+256772123456', password: 'new customer password', role: 'customer' });
+  await p.evaluate(() => window.navigate('book'));
+  await p.getByText('Taxibee VIP', { exact: false }).waitFor();
+  await p.getByText(/Charging ports/).waitFor();
+  assert.match(await p.locator('#main-content').innerText(), /13 passenger seats/);
+  assert.match(await p.locator('#main-content').innerText(), /UGX 7,500\/seat/);
+  await p.screenshot({ path: evidence + '/taxibee-vip-departures-mobile.png', fullPage: true });
+  await p.click('[data-action="taxibee-schedule-choose"][data-id="vip-future"]');
+  await p.waitForFunction(() => window.TaxibeeSource.state.activeTrip.vehicle === 'Taxibee VIP Highroof (13 seats)');
+  assert.match(await p.locator('#main-content').innerText(), /Taxibee VIP Highroof · 13 passenger seats/);
+  assert.doesNotMatch(await p.locator('#main-content').innerText(), /Prototype choice|12 of 18 reserved|Position 04/);
+  await p.screenshot({ path: evidence + '/taxibee-vip-passengers-mobile.png', fullPage: true });
+  const liveVip=await p.evaluate(() => window.getAvailableTrips().find(t => t.serviceClass === 'vip'));
+  assert.equal(liveVip.id,'vip-live-queue');assert.equal(liveVip.fare,7500);assert.equal(liveVip.seats,13);
+  await p.evaluate(() => { const trip=window.getAvailableTrips().find(t=>t.serviceClass==='vip');const choose=document.createElement('button');choose.dataset.action='select-departure-direct';choose.dataset.tripId=trip.id;document.body.append(choose);choose.click();choose.remove(); });
+  await p.waitForFunction(() => window.TaxibeeSource.state.activeTrip?.id === 'vip-live-queue');
+  await p.evaluate(() => window.navigate('passengers'));
+  assert.match(await p.locator('#main-content').innerText(), /Taxibee VIP Highroof · 13 passenger seats/);
+  assert.match(await p.locator('#main-content').innerText(), /Charging ports[\s\S]*Free Wi-Fi/);
+  assert.match(await p.locator('#main-content').innerText(), /UGX 7,500\/seat/);
+  assert.doesNotMatch(await p.locator('#main-content').innerText(), /Prototype choice|12 of 18 reserved|Position 04/);
+  await p.screenshot({ path: evidence + '/taxibee-vip-live-passengers-mobile.png', fullPage: true });
   await p.goto(base + '/?ticket=654321');
   await p.waitForFunction(() => document.body.innerText.includes('Shared traveller'));
   assert.match(await p.locator('#auth-content').innerText(), /booked · paid/);

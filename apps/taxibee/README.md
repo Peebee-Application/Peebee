@@ -127,6 +127,17 @@ when the assigned driver checks in. Apply migration 0172 and configure the
 default-off sale switch and schedule rules in Admin → Taxipress. See
 `docs/TAXIBEE-FUTURE-DEPARTURES.md` for operating and refund behavior.
 
+Taxibee VIP is a service class on the ordinary TaxiPress live queue. An approved
+Highroof designated as VIP has exactly 13 passenger seats and uses the standard
+route selection, passenger, checkout, payment, ticket and tracking flow. The
+fare uplift is configurable in Admin → Taxipress. Customers see first-class
+seating, charging ports, cup holders, complimentary water, free Wi-Fi and the
+onboard screen when choosing and viewing their ticket. VIP vans can also be
+published as future departures where scheduling is enabled. Apply migration
+`0174_taxipress_vip_highroof.sql` after 0172 before designating or publishing a
+VIP van. Existing stage queue, orders, wallet, payment, tickets and database are
+shared with Peebee.
+
 Saved queue departures sync across a customer's Taxibee sessions through the
 shared account API after migration 0173. That migration was applied on
 2026-11-24; inactive queue items are removed from the saved list.

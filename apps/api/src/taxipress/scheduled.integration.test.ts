@@ -30,9 +30,9 @@ test("scheduled TaxiPress booking reserves separate capacity, funds and converts
   resetSchemaCache();
   try {
     const tokens: Record<string, string> = {};
-    for (const id of ["staff", "driver", "driver2", "customer"]) {
+    for (const [index,id] of ["staff", "driver", "driver2", "driver3", "driver4", "customer"].entries()) {
       const role = id === "staff" ? "admin" : "customer";
-      await client.execute({ sql: "INSERT INTO users(id,name,phone,password_hash,role,admin_role,wallet_balance) VALUES(?,?,?,'hash',?,?,?)", args: [id,id,`+2567000000${id.length}`,role,id === "staff" ? "super_admin" : null,id === "customer" ? 100_000 : 0] });
+      await client.execute({ sql: "INSERT INTO users(id,name,phone,password_hash,role,admin_role,wallet_balance) VALUES(?,?,?,'hash',?,?,?)", args: [id,id,`+2567000000${index}`,role,id === "staff" ? "super_admin" : null,id === "customer" ? 100_000 : 0] });
       tokens[id] = await signToken({ sub:id, role } as never);
     }
     const app = new Hono().route("/v1",publicTaxipressRoutes).route("/v1",orderRoutes).route("/v1",relayRoutes).route("/v1",taxipressRoutes);
@@ -92,6 +92,7 @@ test("scheduled TaxiPress booking reserves separate capacity, funds and converts
     assert.equal((await call("driver2","taxipress/taxi/apply",{relayRouteId:relay.id,plate:"UAY 456K",seatLayout:"14"})).status,201);
     const taxi2=(await json(await call("staff","admin/taxipress/taxis"))).taxis.find((t:Record<string,unknown>)=>t.plate==="UAY 456K");
     assert.equal((await call("staff",`admin/taxipress/taxis/${taxi2.id}`,{status:"approved"})).status,200);
+    assert.equal((await call("staff",`admin/taxipress/taxis/${taxi2.id}`,{serviceClass:"vip"})).status,400);
     const secondDeparture=(await json(await call("staff","admin/taxipress/departures",{routeId:route.id,taxiId:taxi2.id,departsAt:new Date(Date.now()+120*60_000).toISOString(),capacity:2}))).id as string;
     const secondBooking=await call("customer","taxipress/departures/book",{departureId:secondDeparture,seats:1,requestId:"32345678-2942-4bf1-9999-9db2d223132f",details:{adults:1,children:0,childSeats:0}});
     assert.equal(secondBooking.status,201,JSON.stringify(await secondBooking.clone().json()));
@@ -110,6 +111,51 @@ test("scheduled TaxiPress booking reserves separate capacity, funds and converts
     const swept=await sweepScheduledDepartures();
     assert.equal(swept.missed,1);assert.equal(swept.cancelled,1);assert.equal(swept.refunded,1);
     assert.equal((await json(await call("customer",`taxipress/departures/tickets/${missedBooking.ticketId}`))).ticket.state,"cancelled");
+
+    await setSetting("taxipress_vip_fare_markup_percent","50");
+    assert.equal((await call("driver3","taxipress/taxi/apply",{relayRouteId:relay.id,plate:"UAV 789K",seatLayout:"18"})).status,201);
+    const vipTaxi=(await json(await call("staff","admin/taxipress/taxis"))).taxis.find((t:Record<string,unknown>)=>t.plate==="UAV 789K");
+    assert.equal((await call("staff",`admin/taxipress/taxis/${vipTaxi.id}`,{status:"approved"})).status,200);
+    const designated=await call("staff",`admin/taxipress/taxis/${vipTaxi.id}`,{serviceClass:"vip"});
+    assert.equal(designated.status,200,JSON.stringify(await designated.clone().json()));
+    assert.equal((await json(designated)).taxi.seats,13);
+    const vipTime=new Date(Date.now()+240*60_000).toISOString();
+    assert.equal((await call("staff","admin/taxipress/departures",{routeId:route.id,taxiId:vipTaxi.id,departsAt:vipTime,capacity:12})).status,400);
+    const vipPublished=await call("staff","admin/taxipress/departures",{routeId:route.id,taxiId:vipTaxi.id,departsAt:vipTime});
+    assert.equal(vipPublished.status,201,JSON.stringify(await vipPublished.clone().json()));
+    const vipDeparture=(await json(vipPublished)).id as string;
+    const vipSnapshot=(await client.execute({sql:"SELECT capacity,fare_per_seat,service_class FROM taxipress_departures WHERE id=?",args:[vipDeparture]})).rows[0];
+    assert.equal(Number(vipSnapshot.capacity),13);assert.equal(Number(vipSnapshot.fare_per_seat),7500);assert.equal(vipSnapshot.service_class,"vip");
+    const vipPublic=(await json(await app.request(`/v1/taxipress-public/departures?routeId=${route.id}`))).departures.find((d:Record<string,unknown>)=>d.id===vipDeparture);
+    assert.equal(vipPublic.serviceClass,"vip");
+    const vipBooked=(await json(await call("customer","taxipress/departures/book",{departureId:vipDeparture,seats:1,requestId:"52345678-2942-4bf1-9999-9db2d223132f",details:{adults:1,children:0,childSeats:0}})));
+    const vipTicket=(await json(await call("customer",`taxipress/departures/tickets/${vipBooked.ticketId}`))).ticket;
+    assert.equal(vipTicket.service_class,"vip");assert.equal(vipTicket.amount,7500);
+    await call("customer",`orders/${vipBooked.orderId}/fund`,{paymentMethod:"wallet",useWallet:true});
+    await client.execute({sql:"UPDATE taxipress_departures SET departs_at=datetime('now','+15 minutes') WHERE id=?",args:[vipDeparture]});
+    assert.equal((await call("driver3",`taxipress/driver/departures/${vipDeparture}/check-in`,{})).status,200);
+    const vipLiveTicket=(await json(await call("customer",`taxipress/departures/tickets/${vipBooked.ticketId}`))).ticket;
+    assert.equal(vipLiveTicket.state,"converted");assert.equal(vipLiveTicket.service_class,"vip");
+
+    assert.equal((await call("driver4","taxipress/taxi/apply",{relayRouteId:relay.id,plate:"UAV 890K",seatLayout:"18"})).status,201);
+    const liveVipTaxi=(await json(await call("staff","admin/taxipress/taxis"))).taxis.find((t:Record<string,unknown>)=>t.plate==="UAV 890K");
+    assert.equal((await call("staff",`admin/taxipress/taxis/${liveVipTaxi.id}`,{status:"approved"})).status,200);
+    assert.equal((await call("staff",`admin/taxipress/taxis/${liveVipTaxi.id}`,{serviceClass:"vip"})).status,200);
+    const liveJoin=await call("driver4","taxipress/driver/join",{routeId:route.id});
+    assert.equal(liveJoin.status,201,JSON.stringify(await liveJoin.clone().json()));
+    const liveQueue=(await json(await app.request(`/v1/taxipress-public/routes/${route.id}/queue`))).line;
+    const vipQueueEntry=liveQueue.find((e:Record<string,unknown>)=>e.plate==="UAV 890K");
+    assert.equal(vipQueueEntry.serviceClass,"vip");
+    assert.equal(vipQueueEntry.seatsLeft,13);
+    const overCapacity=await call("customer","taxipress/bookings",{queueId:vipQueueEntry.id,adults:14,children:0,childSeats:0,payment:"app"});
+    assert.equal(overCapacity.status,400,"VIP booking passenger count must never exceed 13");
+    const vipLiveBooking=await call("customer","taxipress/bookings",{queueId:vipQueueEntry.id,adults:1,children:0,childSeats:0,payment:"app"});
+    assert.equal(vipLiveBooking.status,201,JSON.stringify(await vipLiveBooking.clone().json()));
+    const vipLiveBookingData=(await json(vipLiveBooking)).booking;
+    assert.equal(vipLiveBookingData.amount,7500);
+    assert.equal(vipLiveBookingData.farePerSeat,7500);
+    assert.equal(vipLiveBookingData.taxi.serviceClass,"vip");
+    assert.equal(vipLiveBookingData.taxi.seatsLeft,12);
   } finally {
     setD1Binding(undefined); resetSchemaCache();
     if (oldSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = oldSecret;

@@ -9,6 +9,7 @@ import { getTaxipressSettings, offeredLanguages } from "./settings.js";
 import { joinLine, TaxipressError } from "./queue.js";
 import { taxipressReady } from "./service.js";
 import { seatingReady } from "./seats.js";
+import { hasColumn } from "../lib/schema.js";
 import { priceBooking, saveDetails, type BookingDetailsInput } from "./details.js";
 
 type Row = Record<string, unknown>;
@@ -40,9 +41,10 @@ export async function departuresForCustomers(routeId: string | null, from: strin
   if (routeId) { where.push("d.taxipress_route_id = ?"); args.push(routeId); }
   if (from) { where.push("d.departs_at >= ?"); args.push(from); }
   if (to) { where.push("d.departs_at < ?"); args.push(to); }
+  const hasVip = await hasColumn("taxipress_departures", "service_class");
   const result = await db.execute({
     sql: `SELECT d.id,d.taxipress_route_id AS routeId,d.departs_at AS departsAt,d.capacity,d.seats_reserved AS seatsReserved,
-      d.fare_per_seat AS farePerSeat,t.plate,t.seat_layout AS seatLayout,rr.stage_a_name AS stageA,rr.stage_b_name AS stageB,r.direction
+      d.fare_per_seat AS farePerSeat,${hasVip ? "d.service_class" : "'standard' AS service_class"},t.plate,t.seat_layout AS seatLayout,rr.stage_a_name AS stageA,rr.stage_b_name AS stageB,r.direction
       FROM taxipress_departures d JOIN taxipress_routes r ON r.id=d.taxipress_route_id
       JOIN relay_routes rr ON rr.id=r.relay_route_id JOIN taxipress_taxis t ON t.id=d.taxi_id
       WHERE ${where.join(" AND ")} AND r.active=1 AND rr.active=1 AND t.status='approved' AND t.passengers_enabled=1
@@ -52,6 +54,7 @@ export async function departuresForCustomers(routeId: string | null, from: strin
     id: String(r.id), routeId: String(r.routeId), departsAt: String(r.departsAt),
     seatsLeft: Math.max(0, Number(r.capacity) - Number(r.seatsReserved)),
     farePerSeat: Number(r.farePerSeat), plate: String(r.plate), seatLayout: String(r.seatLayout),
+    serviceClass: r.service_class === "vip" ? "vip" : "standard",
     fromName: r.direction === "a_to_b" ? String(r.stageA) : String(r.stageB),
     toName: r.direction === "a_to_b" ? String(r.stageB) : String(r.stageA),
   }));
@@ -59,13 +62,14 @@ export async function departuresForCustomers(routeId: string | null, from: strin
 
 export async function adminDepartures() {
   if (!(await scheduledDeparturesReady())) return { departures: [], taxis: [], routes: [], ready: false };
+  const taxiHasVip = await hasColumn("taxipress_taxis", "service_class");
   const [departures, taxis, routes] = await Promise.all([
     db.execute(`SELECT d.*,t.plate,r.direction,rr.stage_a_name,rr.stage_b_name,
       (SELECT COUNT(*) FROM taxipress_future_tickets f WHERE f.departure_id=d.id AND f.state='reserved') AS tickets
       FROM taxipress_departures d JOIN taxipress_taxis t ON t.id=d.taxi_id
       JOIN taxipress_routes r ON r.id=d.taxipress_route_id JOIN relay_routes rr ON rr.id=r.relay_route_id
       ORDER BY d.departs_at DESC LIMIT 200`),
-    db.execute("SELECT t.id,t.plate,t.seats,t.seat_layout,t.relay_route_id FROM taxipress_taxis t WHERE t.status='approved' AND t.passengers_enabled=1 ORDER BY t.plate"),
+    db.execute(`SELECT t.id,t.plate,t.seats,t.seat_layout,t.relay_route_id,${taxiHasVip ? "t.service_class" : "'standard' AS service_class"} FROM taxipress_taxis t WHERE t.status='approved' AND t.passengers_enabled=1 ORDER BY t.plate`),
     db.execute("SELECT r.id,r.relay_route_id,r.direction,r.fare_per_seat,rr.stage_a_name,rr.stage_b_name FROM taxipress_routes r JOIN relay_routes rr ON rr.id=r.relay_route_id WHERE r.active=1 AND rr.active=1 ORDER BY rr.name,r.direction"),
   ]);
   return { departures: departures.rows, taxis: taxis.rows, routes: routes.rows, ready: true };
@@ -74,8 +78,9 @@ export async function adminDepartures() {
 export async function driverDepartures(driverId: string) {
   if (!(await scheduledDeparturesReady())) return [];
   const env = (await getPlatformEnvironment()) === "sandbox" ? "sandbox" : "live";
+  const vipColumn = await hasColumn("taxipress_departures", "service_class");
   return (await db.execute({sql:`SELECT d.id,d.departs_at AS departsAt,d.seats_reserved AS seatsReserved,d.capacity,d.state,
-    r.id AS routeId,r.direction,rr.stage_a_name,rr.stage_b_name,t.plate
+    ${vipColumn ? "d.service_class" : "'standard' AS service_class"},r.id AS routeId,r.direction,rr.stage_a_name,rr.stage_b_name,t.plate
     FROM taxipress_departures d JOIN taxipress_taxis t ON t.id=d.taxi_id JOIN taxipress_routes r ON r.id=d.taxipress_route_id
     JOIN relay_routes rr ON rr.id=r.relay_route_id WHERE t.user_id=? AND d.environment=? AND d.state='published' AND d.queue_id IS NULL
     AND datetime(d.departs_at,'+'||d.grace_minutes||' minutes')>datetime('now') ORDER BY d.departs_at LIMIT 30`,args:[driverId,env]})).rows;
@@ -90,21 +95,28 @@ export async function publishDeparture(input: { routeId: string; taxiId: string;
   const lead = (Date.parse(at) - Date.now()) / 60_000;
   if (lead < settings.scheduleMinLeadMinutes || lead > settings.scheduleMaxAdvanceDays * 1440) throw new TaxipressError(400, "departure_window", "Choose a time within the configured advance booking window.");
   const env = await getPlatformEnvironment();
+  const taxiHasVip = await hasColumn("taxipress_taxis", "service_class");
+  const departureHasVip = await hasColumn("taxipress_departures", "service_class");
   const row = (await db.execute({
-    sql: `SELECT t.id AS taxiId,t.seats,t.status,t.passengers_enabled,t.relay_route_id,r.id AS routeId,r.fare_per_seat
+    sql: `SELECT t.id AS taxiId,t.seats,t.seat_layout,t.status,t.passengers_enabled,t.relay_route_id,${taxiHasVip ? "t.service_class" : "'standard' AS service_class"},r.id AS routeId,r.fare_per_seat
       FROM taxipress_taxis t JOIN taxipress_routes r ON r.relay_route_id=t.relay_route_id
       JOIN relay_routes rr ON rr.id=r.relay_route_id WHERE t.id=? AND r.id=? AND t.status='approved'
       AND t.passengers_enabled=1 AND r.active=1 AND rr.active=1`, args: [input.taxiId,input.routeId],
   })).rows[0] as Row | undefined;
   if (!row || Number(row.fare_per_seat) <= 0) throw new TaxipressError(409, "taxi_route_unavailable", "Select an approved passenger taxi and its active route.");
-  const capacity = input.capacity ?? Number(row.seats);
-  if (!Number.isInteger(capacity) || capacity < 1 || capacity > Number(row.seats)) throw new TaxipressError(400, "invalid_capacity", "Capacity must fit this taxi.");
+  const vip = row.service_class === "vip";
+  if (vip && (!departureHasVip || !taxiHasVip)) throw new TaxipressError(503, "migration_pending", "Apply VIP Highroof migration 0174 first.");
+  if (vip && row.seat_layout !== "18") throw new TaxipressError(409, "vip_requires_highroof", "VIP service is only available for a Highroof van.");
+  if (vip && Number(row.seats) !== 13) throw new TaxipressError(409, "vip_capacity_invalid", "A VIP Highroof must be configured with 13 passenger seats.");
+  const capacity = vip ? 13 : input.capacity ?? Number(row.seats);
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > Number(row.seats) || (vip && input.capacity != null && input.capacity !== 13)) throw new TaxipressError(400, "invalid_capacity", "VIP Highroof departures must offer all 13 passenger seats; standard capacity must fit the taxi.");
+  const fare = Math.round(Number(row.fare_per_seat) * (vip ? (100 + settings.vipFareMarkupPercent) / 100 : 1));
   const id = newId("tpd");
   try {
     await db.execute({ sql: `INSERT INTO taxipress_departures
-      (id,taxipress_route_id,taxi_id,environment,departs_at,capacity,fare_per_seat,cutoff_minutes,checkin_minutes,grace_minutes,spacing_minutes,free_cancel_minutes,retention_percent,fee_to,created_by)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      args: [id,input.routeId,input.taxiId,env === "sandbox" ? "sandbox" : "live",at,capacity,Number(row.fare_per_seat),settings.scheduleBookingCutoffMinutes,settings.scheduleCheckinMinutes,settings.scheduleGraceMinutes,settings.scheduleSpacingMinutes,settings.scheduleFreeCancelMinutes,settings.scheduleCancelRetentionPercent,settings.feeTo === "driver" ? "driver" : "platform",actorId] });
+      (id,taxipress_route_id,taxi_id,environment,departs_at,capacity,fare_per_seat,cutoff_minutes,checkin_minutes,grace_minutes,spacing_minutes,free_cancel_minutes,retention_percent,fee_to,created_by${departureHasVip ? ",service_class" : ""})
+      VALUES (${Array.from({length:15+(departureHasVip?1:0)},()=>"?").join(",")})`,
+      args: [id,input.routeId,input.taxiId,env === "sandbox" ? "sandbox" : "live",at,capacity,fare,settings.scheduleBookingCutoffMinutes,settings.scheduleCheckinMinutes,settings.scheduleGraceMinutes,settings.scheduleSpacingMinutes,settings.scheduleFreeCancelMinutes,settings.scheduleCancelRetentionPercent,settings.feeTo === "driver" ? "driver" : "platform",actorId,...(departureHasVip?[vip?"vip":"standard"]:[])] });
   } catch (e) {
     const message = e instanceof Error ? e.message : "";
     if (message.includes("taxipress_schedule_overlap") || message.includes("UNIQUE constraint failed")) throw new TaxipressError(409,"taxi_schedule_conflict","This taxi already has a departure too close to that time.");
@@ -181,9 +193,10 @@ export async function customerFutureTickets(passengerId: string) {
   if (!(await scheduledDeparturesReady())) return [];
   await expireUnpaidFutureTickets();
   const env = (await getPlatformEnvironment()) === "sandbox" ? "sandbox" : "live";
+  const vipColumn = await hasColumn("taxipress_departures", "service_class");
   return (await db.execute({sql:`SELECT f.id,f.order_id AS orderId,f.booking_id AS bookingId,f.seats,f.amount,f.state,f.ticket_code AS ticketCode,f.created_at AS createdAt,
     f.cancel_fee AS cancelFee,d.departs_at AS departsAt,d.state AS departureState,d.taxipress_route_id AS routeId,
-    d.queue_id AS queueId,t.plate,t.seat_layout AS seatLayout,r.direction,
+    d.queue_id AS queueId,${vipColumn ? "d.service_class" : "'standard' AS service_class"},t.plate,t.seat_layout AS seatLayout,r.direction,
     CASE WHEN r.direction='a_to_b' THEN rr.stage_a_name ELSE rr.stage_b_name END AS fromName,
     CASE WHEN r.direction='a_to_b' THEN rr.stage_b_name ELSE rr.stage_a_name END AS toName,o.stage AS orderStage,
     EXISTS(SELECT 1 FROM payments p WHERE p.order_id=f.order_id AND p.type='collection' AND p.status='successful') AS paid
