@@ -44,8 +44,7 @@ AND NOT EXISTS (SELECT 1 FROM channels ch WHERE ch.owner_id=u.id)
 AND NOT EXISTS (SELECT 1 FROM edu_schools es WHERE es.owner_id=u.id)
 AND NOT EXISTS (SELECT 1 FROM service_businesses sb WHERE sb.owner_id=u.id)
 AND NOT EXISTS (SELECT 1 FROM talent_profiles tp WHERE tp.user_id=u.id)
-AND NOT EXISTS (SELECT 1 FROM taxipress_taxis tt WHERE tt.user_id=u.id)
-);
+AND NOT EXISTS (SELECT 1 FROM taxipress_taxis tt WHERE tt.user_id=u.id);
 
 CREATE TABLE IF NOT EXISTS provider_wallets (
   provider_type TEXT NOT NULL CHECK (provider_type IN ('car', 'work', 'relay', 'education', 'service', 'talent')),
@@ -60,36 +59,36 @@ CREATE TABLE IF NOT EXISTS provider_wallets (
 );
 
 INSERT OR IGNORE INTO provider_wallets (provider_type, provider_id, environment)
-SELECT 'car', cp.user_id, environment
+SELECT 'car', cp.user_id, wallet_env.environment
 FROM car_partners cp
-CROSS JOIN (SELECT 'live' AS environment UNION ALL SELECT 'sandbox');
+CROSS JOIN (SELECT 'live' AS environment UNION ALL SELECT 'sandbox') AS wallet_env;
 
 INSERT OR IGNORE INTO provider_wallets (provider_type, provider_id, environment)
-SELECT 'work', wp.id, environment
+SELECT 'work', wp.id, wallet_env.environment
 FROM work_providers wp
-CROSS JOIN (SELECT 'live' AS environment UNION ALL SELECT 'sandbox');
+CROSS JOIN (SELECT 'live' AS environment UNION ALL SELECT 'sandbox') AS wallet_env;
 
 -- Matatu operators use Peebee Car. Their parcel earnings are work funds, not
 -- personal-wallet deposits, and their work wallet exists as soon as they apply.
 INSERT OR IGNORE INTO provider_wallets (provider_type, provider_id, environment)
-SELECT 'relay', ro.user_id, environment
+SELECT 'relay', ro.user_id, wallet_env.environment
 FROM relay_operators ro
-CROSS JOIN (SELECT 'live' AS environment UNION ALL SELECT 'sandbox');
+CROSS JOIN (SELECT 'live' AS environment UNION ALL SELECT 'sandbox') AS wallet_env;
 
 INSERT OR IGNORE INTO provider_wallets (provider_type, provider_id, environment)
-SELECT 'education', s.id, environment
+SELECT 'education', s.id, wallet_env.environment
 FROM edu_schools s
-CROSS JOIN (SELECT 'live' AS environment UNION ALL SELECT 'sandbox');
+CROSS JOIN (SELECT 'live' AS environment UNION ALL SELECT 'sandbox') AS wallet_env;
 
 INSERT OR IGNORE INTO provider_wallets (provider_type, provider_id, environment)
-SELECT 'service', b.id, environment
+SELECT 'service', b.id, wallet_env.environment
 FROM service_businesses b
-CROSS JOIN (SELECT 'live' AS environment UNION ALL SELECT 'sandbox');
+CROSS JOIN (SELECT 'live' AS environment UNION ALL SELECT 'sandbox') AS wallet_env;
 
 INSERT OR IGNORE INTO provider_wallets (provider_type, provider_id, environment)
-SELECT 'talent', p.user_id, environment
+SELECT 'talent', p.user_id, wallet_env.environment
 FROM talent_profiles p
-CROSS JOIN (SELECT 'live' AS environment UNION ALL SELECT 'sandbox');
+CROSS JOIN (SELECT 'live' AS environment UNION ALL SELECT 'sandbox') AS wallet_env;
 
 -- Keep work-wallet records automatic for provider profiles created after the
 -- migration is applied. Their balances start at zero in each environment.
