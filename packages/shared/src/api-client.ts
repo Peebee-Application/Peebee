@@ -820,7 +820,7 @@ export function createApiClient({ baseUrl, fetchImpl, getToken, onUnauthorized, 
       return request<TaxipressConfig>("/v1/taxipress-public/config");
     },
     async getPublicTaxipressQueue(routeId: string) {
-      type Entry = Pick<TaxipressLineEntry, 'id' | 'plate' | 'seatLayout' | 'status' | 'position' | 'seatsLeft' | 'driverName' | 'bookable' | 'departsAt'>;
+      type Entry = Pick<TaxipressLineEntry, 'id' | 'plate' | 'seatLayout' | 'serviceClass' | 'status' | 'position' | 'seatsLeft' | 'driverName' | 'bookable' | 'departsAt'>;
       return request<{ line: Entry[]; onRoad: Entry[]; route: TaxipressQueueView['route'] }>(`/v1/taxipress-public/routes/${encodeURIComponent(routeId)}/queue`);
     },
     async getTaxipressPublicDepartures(input: { routeId?: string; from?: string; to?: string } = {}) {

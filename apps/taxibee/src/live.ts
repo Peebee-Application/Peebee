@@ -44,7 +44,7 @@ let error = '';
 let busy = false;
 let uncertainBooking = false;
 let selectedBooking: TaxipressBooking | null = null;
-let searchFilters:{vehicle:'all'|'14'|'18';minSpaces:number;period:'any'|'morning'|'afternoon'|'evening'}={vehicle:'all',minSpaces:1,period:'any'};
+let searchFilters:{vehicle:'all'|'14'|'18'|'vip';minSpaces:number;period:'any'|'morning'|'afternoon'|'evening'}={vehicle:'all',minSpaces:1,period:'any'};
 let pendingOrder: { booking: TaxipressBooking; order: { id: string } } | null = null;
 let pendingPayment: string | null = null;
 let wallet: CustomerWallet | null = null;
@@ -126,12 +126,13 @@ function restoreSavedDepartures() {
 function restoreSearchFilters() {
   try {
     const raw=JSON.parse(localStorage.getItem(`taxibee-search-filters:${user?.id||'guest'}`)||'{}');
-    searchFilters={vehicle:['all','14','18'].includes(raw.vehicle)?raw.vehicle:'all',minSpaces:[1,2,3,4,5,6,8,10].includes(raw.minSpaces)?raw.minSpaces:1,period:['any','morning','afternoon','evening'].includes(raw.period)?raw.period:'any'};
+    searchFilters={vehicle:['all','14','18','vip'].includes(raw.vehicle)?raw.vehicle:'all',minSpaces:[1,2,3,4,5,6,8,10].includes(raw.minSpaces)?raw.minSpaces:1,period:['any','morning','afternoon','evening'].includes(raw.period)?raw.period:'any'};
   } catch { searchFilters={vehicle:'all',minSpaces:1,period:'any'}; }
 }
 function filteredTrips(source:any[]) {
   return source.filter(t=>{
-    if(searchFilters.vehicle!=='all'&&!String(t.vehicle||'').includes(searchFilters.vehicle)) return false;
+    if(searchFilters.vehicle==='vip'&&t.serviceClass!=='vip')return false;
+    if(searchFilters.vehicle!=='all'&&searchFilters.vehicle!=='vip'&&!String(t.vehicle||'').includes(searchFilters.vehicle)) return false;
     if(Number(t.seats||0)<searchFilters.minSpaces) return false;
     if(searchFilters.period!=='any') {
       if(!t.departsAt) return false;
@@ -145,7 +146,7 @@ function filteredTrips(source:any[]) {
   });
 }
 function openLiveSearchFilters() {
-  ui.openModal('Search filters',`<p class="muted">These filters narrow Peebee’s current live departures. Availability and fares remain controlled by Peebee.</p><div class="form-grid"><div class="field"><label for="taxibee-filter-vehicle">Vehicle type</label><select id="taxibee-filter-vehicle"><option value="all" ${searchFilters.vehicle==='all'?'selected':''}>All vehicles</option><option value="14" ${searchFilters.vehicle==='14'?'selected':''}>Commuter · 14 seats</option><option value="18" ${searchFilters.vehicle==='18'?'selected':''}>Highroof · 18 seats</option></select></div><div class="field"><label for="taxibee-filter-spaces">Minimum available spaces</label><select id="taxibee-filter-spaces">${[1,2,3,4,5,6,8,10].map(n=>`<option value="${n}" ${searchFilters.minSpaces===n?'selected':''}>${n}+ spaces</option>`).join('')}</select></div><div class="field"><label for="taxibee-filter-period">Estimated departure time</label><select id="taxibee-filter-period"><option value="any" ${searchFilters.period==='any'?'selected':''}>Any time</option><option value="morning" ${searchFilters.period==='morning'?'selected':''}>Morning · 05:00–11:59</option><option value="afternoon" ${searchFilters.period==='afternoon'?'selected':''}>Afternoon · 12:00–16:59</option><option value="evening" ${searchFilters.period==='evening'?'selected':''}>Evening · 17:00–23:59</option></select></div></div>`,`<button class="button button--ghost" type="button" data-action="close-modal">Cancel</button><button class="button button--primary" type="button" data-action="taxibee-search-filters-save">Apply filters</button>`);
+  ui.openModal('Search filters',`<p class="muted">These filters narrow Peebee’s current live departures. Availability and fares remain controlled by Peebee.</p><div class="form-grid"><div class="field"><label for="taxibee-filter-vehicle">Vehicle type</label><select id="taxibee-filter-vehicle"><option value="all" ${searchFilters.vehicle==='all'?'selected':''}>All vehicles</option><option value="14" ${searchFilters.vehicle==='14'?'selected':''}>Commuter · 14 seats</option><option value="18" ${searchFilters.vehicle==='18'?'selected':''}>Highroof · 18 seats</option><option value="vip" ${searchFilters.vehicle==='vip'?'selected':''}>VIP Highroof · 13 seats</option></select></div><div class="field"><label for="taxibee-filter-spaces">Minimum available spaces</label><select id="taxibee-filter-spaces">${[1,2,3,4,5,6,8,10].map(n=>`<option value="${n}" ${searchFilters.minSpaces===n?'selected':''}>${n}+ spaces</option>`).join('')}</select></div><div class="field"><label for="taxibee-filter-period">Estimated departure time</label><select id="taxibee-filter-period"><option value="any" ${searchFilters.period==='any'?'selected':''}>Any time</option><option value="morning" ${searchFilters.period==='morning'?'selected':''}>Morning · 05:00–11:59</option><option value="afternoon" ${searchFilters.period==='afternoon'?'selected':''}>Afternoon · 12:00–16:59</option><option value="evening" ${searchFilters.period==='evening'?'selected':''}>Evening · 17:00–23:59</option></select></div></div>`,`<button class="button button--ghost" type="button" data-action="close-modal">Cancel</button><button class="button button--primary" type="button" data-action="taxibee-search-filters-save">Apply filters</button>`);
 }
 function applyUser(next: AuthUser, preservePassenger = false) {
   user = next;
@@ -242,13 +243,13 @@ async function refresh() {
     appData.routeCards = config.routes.map(r => ({ key: r.id, cityA: escape(r.fromName), cityB: escape(r.toName), stageA: escape(r.fromName), stageB: escape(r.toName), via: escape(r.directionLabel), price: money(r.farePerSeat), imageA: routeImage(r.fromName), imageB: routeImage(r.toName), corridor: (r.stops || []).map(escape).join(' • '), coordA: null, coordB: null }));
     appData.routes = [...new Set(config.routes.flatMap(r => [r.fromName, r.toName, ...(r.stops || [])]))];
     trips = queues.flatMap(({ route, queue }) => queue.line.filter(v => v.bookable === true).map(v => ({
-      id: v.id, routeId: route.id, departsAt:v.departsAt||null, depart: v.departsAt ? new Date(v.departsAt).toLocaleTimeString('en-UG', { timeZone: 'Africa/Kampala', hour: 'numeric', minute: '2-digit' }) : 'Stage departure',
-      arrive: 'On arrival', seats: v.seatsLeft, status: v.seatsLeft ? 'Available' : 'Full', vehicle: `${v.seatLayout === '18' ? 'Highroof' : 'Commuter'} (${v.seatLayout})`,
-      plate: escape(v.plate), duration: 'Stage service', fare: route.farePerSeat, boarding: escape(route.fromName), destination: escape(route.toName),
+      id: v.id, routeId: route.id, serviceClass:v.serviceClass||'standard', departsAt:v.departsAt||null, depart: v.departsAt ? new Date(v.departsAt).toLocaleTimeString('en-UG', { timeZone: 'Africa/Kampala', hour: 'numeric', minute: '2-digit' }) : 'Stage departure',
+      arrive: 'On arrival', seats: v.seatsLeft, status: v.seatsLeft ? 'Available' : 'Full', vehicle: v.serviceClass==='vip'?'Taxibee VIP Highroof (13 seats)':`${v.seatLayout === '18' ? 'Highroof' : 'Commuter'} (${v.seatLayout})`,
+      plate: escape(v.plate), duration: 'Stage service', fare: v.serviceClass==='vip'?Math.round(route.farePerSeat*(100+(config?.vipFareMarkupPercent??50))/100):route.farePerSeat, boarding: escape(route.fromName), destination: escape(route.toName),
       currentStage: escape(route.fromName), comingFrom: escape(route.fromName), headingTo: escape(route.toName), markerIndex: 0,
       vansAtStage: queue.line.length, vansApproaching: 0, driverName: escape(v.driverName || 'Driver'), driverPhone: '', driverRating: '—',
       countdown: v.position ? `Queue ${v.position}` : 'Waiting', img: v.seatLayout === '18' ? 'assets/taxibee-highroof-branded.png' : 'assets/taxibee-van.png',
-      destThumb: routeImage(route.toName), price: money(route.farePerSeat), via: escape(route.directionLabel),
+      destThumb: routeImage(route.toName), price: money(v.serviceClass==='vip'?Math.round(route.farePerSeat*(100+(config?.vipFareMarkupPercent??50))/100):route.farePerSeat), via: escape(route.directionLabel),
     })));
     // Never retain a taxi which has left the queue after a refresh.
     state.activeTrip = trips.find(t => t.id === state.activeTrip?.id) || trips[0] || null;
@@ -466,13 +467,12 @@ if (!preview) {
   ui.renderHome = cleanHome;
   ui.renderBook = () => {
     if (!config?.enabled && !scheduledDepartures.length) return empty('No bookable taxis', error || 'There are no taxis accepting bookings right now.');
-    if(config?.scheduledDeparturesEnabled) {
+    const template = document.createElement('template'); template.innerHTML = original.renderBook();
+    if(config?.scheduledDeparturesEnabled && scheduledDepartures.length) {
       if (!scheduleDate) { const next = new Date(); next.setDate(next.getDate()+1); scheduleDate = kampalaDate(next); }
       const slots = scheduledDepartures.filter(d => kampalaDate(new Date(d.departsAt)) === scheduleDate);
-      return `${ui.screenHead('Future departures','Choose a published Peebee TaxiPress trip. Your seats, fare, booking, payment and ticket are managed by Peebee.')}
-        <article class="card"><p>Published departures and current seat availability for your selected date.</p><div class="field"><label for="taxibee-schedule-date">Departure date</label><input id="taxibee-schedule-date" type="date" min="${kampalaDate(new Date())}" max="${kampalaDate(new Date(Date.now()+(config.scheduleMaxAdvanceDays??60)*86400000))}" value="${escape(scheduleDate)}"></div>${slots.map(d=>{const vip=d.serviceClass==='vip';return `<div class="ticket-list-item"><div><strong>${escape(d.fromName)} → ${escape(d.toName)}${vip?' · Taxibee VIP':''}</strong><p>${new Date(d.departsAt).toLocaleTimeString('en-UG',{timeZone:'Africa/Kampala',hour:'numeric',minute:'2-digit'})} · ${escape(d.plate)} · ${vip?'Highroof · 13 passenger seats':`${d.seatsLeft} seats`} · ${money(d.farePerSeat)}/seat</p>${vip?`<p class="muted">${TAXIBEE_VIP_AMENITIES.map(escape).join(' · ')}</p>`:''}</div><button type="button" class="button button--primary" data-action="taxibee-schedule-choose" data-id="${escape(d.id)}">Choose</button></div>`}).join('')||`<p class="muted">No published departures for this date. Try another day.</p>`}</article>`;
+      template.content.append(document.createRange().createContextualFragment(`<article class="card"><h2>Future departures</h2><p>Book ahead with Peebee's existing passenger, checkout and ticket flow.</p><div class="field"><label for="taxibee-schedule-date">Departure date</label><input id="taxibee-schedule-date" type="date" min="${kampalaDate(new Date())}" max="${kampalaDate(new Date(Date.now()+(config.scheduleMaxAdvanceDays??60)*86400000))}" value="${escape(scheduleDate)}"></div>${slots.map(d=>{const vip=d.serviceClass==='vip';return `<div class="ticket-list-item"><div><strong>${escape(d.fromName)} → ${escape(d.toName)}${vip?' · Taxibee VIP':''}</strong><p>${new Date(d.departsAt).toLocaleTimeString('en-UG',{timeZone:'Africa/Kampala',hour:'numeric',minute:'2-digit'})} · ${escape(d.plate)} · ${vip?'Highroof · 13 passenger seats':`${d.seatsLeft} seats`} · ${money(d.farePerSeat)}/seat</p>${vip?`<p class="muted">${TAXIBEE_VIP_AMENITIES.map(escape).join(' · ')}</p>`:''}</div><button type="button" class="button button--primary" data-action="taxibee-schedule-choose" data-id="${escape(d.id)}">Choose</button></div>`}).join('')||`<p class="muted">No published departures for this date. Try another day.</p>`}</article>`));
     }
-    const template = document.createElement('template'); template.innerHTML = original.renderBook();
     // The preview map shows a sample route. Live booking has no reported route map at this step.
     template.content.querySelector('.booking-map-wrapper')?.remove();
     const childFareHint = [...template.content.querySelectorAll('.stepper-card .muted.text-small')].find(el => el.textContent?.includes('Lap travel is free.'));
@@ -485,17 +485,17 @@ if (!preview) {
   };
   ui.renderPassengers = () => {
     const html=original.renderPassengers();
-    if(selectedSchedule?.serviceClass!=='vip')return html;
+    const vip=selectedSchedule?.serviceClass==='vip'||state.activeTrip?.serviceClass==='vip';
+    if(!vip)return html;
     const template=document.createElement('template');template.innerHTML=html;
-    const selectedAt=new Date(selectedSchedule.departsAt).toLocaleString('en-UG',{timeZone:'Africa/Kampala',dateStyle:'medium',timeStyle:'short'});
     const stepHeading=template.content.querySelector('.screen-head p');
-    if(stepHeading)stepHeading.textContent='Enter passenger details for this published VIP departure.';
+    if(stepHeading)stepHeading.textContent='Enter passenger details for your Taxibee VIP Highroof trip.';
     template.content.querySelector('.grid.grid--sidebar > .grid > article.card')?.remove();
     const summaryRows=[...template.content.querySelectorAll('.grid.grid--sidebar > aside .detail-row')];
     if(summaryRows[3]){const label=summaryRows[3].querySelector('span'),value=summaryRows[3].querySelector('strong');if(label)label.textContent='Vehicle';if(value)value.textContent='VIP Highroof · 13 seats';}
     const privacy=template.content.querySelector('.grid.grid--sidebar > aside .card--soft p');
     if(privacy)privacy.textContent='Peebee uses these details to manage your reservation, passenger ticket and trip updates.';
-    template.content.prepend(document.createRange().createContextualFragment(`<article class="card"><h2>Taxibee VIP Highroof · 13 passenger seats</h2><p>${escape(selectedSchedule.fromName)} → ${escape(selectedSchedule.toName)} · ${escape(selectedAt)} · ${money(selectedSchedule.farePerSeat)}/seat</p><p>${TAXIBEE_VIP_AMENITIES.map(escape).join(' · ')}</p></article>`));
+    template.content.prepend(document.createRange().createContextualFragment(`<article class="card"><h2>Taxibee VIP Highroof · 13 passenger seats</h2><p>${escape(state.activeTrip?.boarding||selectedSchedule?.fromName)} → ${escape(state.activeTrip?.destination||selectedSchedule?.toName)} · ${money(state.activeTrip?.fare||selectedSchedule?.farePerSeat||0)}/seat</p><p>${TAXIBEE_VIP_AMENITIES.map(escape).join(' · ')}</p></article>`));
     return template.innerHTML;
   };
   ui.renderCheckout = (() => {
@@ -654,6 +654,7 @@ document.addEventListener('click', async event => {
   if (action === 'open-demo-panel') { block(); account?.rememberBooking(); location.assign('/?preview=1'); return; }
   if (['select-route-card', 'select-route-card-step', 'book-searched-route', 'flip-route-direction', 'swap-home-route', 'swap-route'].includes(action)) {
     block();
+    selectedSchedule=null;
     let route = config?.routes.find(r => r.id === button?.dataset.route) || config?.routes.find(r => r.fromName === state.searchFrom && r.toName === state.searchTo);
     if (['flip-route-direction', 'swap-home-route', 'swap-route'].includes(action)) route = config?.routes.find(r => r.id === route?.reverseId) || config?.routes.find(r => r.fromName === state.searchTo && r.toName === state.searchFrom);
     if (!route) return ui.toast('This route is not running in that direction.', 'info');
@@ -664,6 +665,7 @@ document.addEventListener('click', async event => {
   }
   if (['select-departure', 'select-departure-direct', 'choose-trip'].includes(action)) {
     block();
+    selectedSchedule=null;
     const trip = button?.dataset.tripId ? trips.find(t => t.id === button.dataset.tripId) : trips.find(t => t.depart === button?.dataset.trip && t.boarding === state.searchFrom && t.destination === state.searchTo);
     if (!trip) return ui.toast('This departure is no longer available. Refresh departures.', 'info');
     state.activeTrip = trip; state.searchFrom = trip.boarding; state.searchTo = trip.destination; ui.navigate('trip-details'); return;
@@ -674,7 +676,8 @@ document.addEventListener('click', async event => {
     state[key] = Math.max(key === 'passengerCount' ? 1 : 0, state[key] + delta);
     const minChild = Math.max(0, state.childCount - (config?.maxLapChildren ?? 0));
     if (key === 'reservedChildSeatsCount' && (state[key] < minChild || state[key] > state.childCount)) state[key] = before;
-    if (state.passengerCount + childSeats() > Math.min(config?.maxSeatsPerBooking ?? 0, state.activeTrip?.seats ?? 0) || state.passengerCount + state.childCount > 18) { state[key] = before; ui.toast('This choice exceeds the current Peebee booking limit or available spaces.', 'info'); }
+    const passengerLimit=state.activeTrip?.serviceClass==='vip'?13:18;
+    if (state.passengerCount + childSeats() > Math.min(config?.maxSeatsPerBooking ?? 0, state.activeTrip?.seats ?? 0) || state.passengerCount + state.childCount > passengerLimit) { state[key] = before; ui.toast('This choice exceeds the current Peebee booking limit or available spaces.', 'info'); }
     state.reservedChildSeatsCount = childSeats(); ui.renderCurrentScreen(); return;
   }
   if (action === 'toggle-book-for-someone-else') {
@@ -727,7 +730,7 @@ document.addEventListener('click', async event => {
         if (b && confirm(`Cancel this booking? Fee: ${money(b.cancel.fee)}. Refund: ${money(b.cancel.refund)}.`)) { await api.cancelTaxipressBooking(b.id); await refresh(); selectedBooking = (await api.getTaxipressBooking(b.id)).booking; ui.renderCurrentScreen(); }
       } else if (action === 'taxibee-pay') { const b = bookings.find(b => b.id === button?.dataset.id); if (b) {
         pendingOrder = { booking: b, order: { id: b.orderId } };
-        state.activeTrip = { id: b.taxi.queueId, plate: escape(b.taxi.plate), boarding: escape(b.route.fromName), destination: escape(b.route.toName), depart: 'Stage departure', seats: b.seats, fare: b.farePerSeat, vehicle: `Commuter (${b.taxi.seatLayout})` };
+        state.activeTrip = { id: b.taxi.queueId, serviceClass:b.taxi.serviceClass, plate: escape(b.taxi.plate), boarding: escape(b.route.fromName), destination: escape(b.route.toName), depart: 'Stage departure', seats: b.seats, fare: b.farePerSeat, vehicle: b.taxi.serviceClass==='vip'?'Taxibee VIP Highroof (13 seats)':`${b.taxi.seatLayout==='18'?'Highroof':'Commuter'} (${b.taxi.seatLayout})` };
         state.searchFrom = escape(b.route.fromName); state.searchTo = escape(b.route.toName);
         state.passengerCount = b.seats; state.childCount = 0; state.ticketType = 'oneway'; state.capacityMode = 'capacity';
         ui.navigate('checkout');

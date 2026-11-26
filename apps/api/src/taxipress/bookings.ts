@@ -107,6 +107,9 @@ async function toBooking(row: Row, forPassenger: boolean): Promise<TaxipressBook
   }
   let details: BookingDetails | null = null;
   details = await loadDetails(String(row.bk_id));
+  const taxiClass = await hasColumn("taxipress_taxis", "service_class")
+    ? (await db.execute({ sql: "SELECT x.service_class FROM taxipress_taxis x JOIN taxipress_queue q ON q.taxi_id = x.id WHERE q.id = ?", args: [String(row.queue_id)] })).rows[0] as Row | undefined
+    : undefined;
   const createdMs = Date.parse(`${String(row.bk_created_at).replace(" ", "T")}Z`);
   const packageRow=await hasColumn('taxipress_bookings','return_package_id') ? (await db.execute({sql:'SELECT return_package_id,return_leg FROM taxipress_bookings WHERE id = ?',args:[String(row.bk_id)]})).rows[0] : null;
   return {
@@ -133,6 +136,7 @@ async function toBooking(row: Row, forPassenger: boolean): Promise<TaxipressBook
       queueId: String(row.queue_id),
       plate: String(row.plate),
       seatLayout: row.seat_layout === "18" ? "18" : "14",
+      serviceClass: taxiClass?.service_class === "vip" ? "vip" : "standard",
       driverName: (row.driver_name as string | null) ?? null,
       driverPhone: (row.driver_phone as string | null) ?? null,
       status: queueStatus,
@@ -315,6 +319,11 @@ export async function bookSeats(c: Context, input: BookInput, bundle?: {packageI
     args: [input.queueId],
   })).rows[0] as Row | undefined;
   if (!entry) return c.json({ error: "not_found", message: "That taxi isn't available." }, 404);
+  const taxiClass = await hasColumn("taxipress_taxis", "service_class")
+    ? (await db.execute({ sql: "SELECT service_class FROM taxipress_taxis WHERE id = ?", args: [String(entry.taxi_id)] })).rows[0] as Row | undefined
+    : undefined;
+  const isVip = taxiClass?.service_class === "vip";
+  if (seatCount + (children - preview.childSeats) > (isVip ? 13 : 18)) return c.json({ error: "too_many_passengers", message: `A ${isVip ? "VIP Highroof" : "taxi"} can carry up to ${isVip ? 13 : 18} passengers.` }, 400);
   if (Number(entry.tp_active) !== 1 || Number(entry.relay_active) !== 1) return c.json({ error: "not_available", message: "That route isn't running." }, 409);
   if (entry.status !== "in_line" && entry.status !== "boarding") return c.json({ error: "not_available", message: "That taxi has left. Choose another." }, 409);
   // Only the first few taxis waiting behind the one Boarding Now can be booked (admin: bookable taxis).
@@ -334,7 +343,8 @@ export async function bookSeats(c: Context, input: BookInput, bundle?: {packageI
     }
   }
 
-  const farePerSeat = Number(entry.fare_per_seat);
+  const baseFare = Number(entry.fare_per_seat);
+  const farePerSeat = isVip ? Math.round(baseFare * (100 + settings.vipFareMarkupPercent) / 100) : baseFare;
   const priced = priceBooking({ adults, children, childSeats: input.childSeats, luggage }, farePerSeat, settings);
   let amount = bundle?.amount ?? (withDetails ? priced.amount : farePerSeat * seatCount);
   if (!(amount > 0)) return c.json({ error: "no_fare", message: "This route has no fare set yet." }, 409);

@@ -64,14 +64,17 @@ export async function quoteReturn(who: string,input: BookInput,mode: 'open'|'sam
   if (!s.enabled || !s.returnPackagesEnabled || !(await returnsReady())) throw new ReturnError(409,'returns_off','Return packages are not available right now.');
   if (input.openTicket || input.payment === 'cash') throw new ReturnError(400,'return_prepay','Return packages are prepaid departure tickets.');
   const routes=await listActiveTaxipressRoutes();
-  const q=(await db.execute({sql:"SELECT taxipress_route_id FROM taxipress_queue WHERE id = ? AND status = 'in_line'",args:[input.queueId]})).rows[0];
+  const vipColumnReady=await hasColumn('taxipress_taxis','service_class');
+  const q=(await db.execute({sql:`SELECT q.taxipress_route_id, ${vipColumnReady?'x.service_class':"'standard'"} AS service_class FROM taxipress_queue q JOIN taxipress_taxis x ON x.id=q.taxi_id WHERE q.id = ? AND q.status = 'in_line'`,args:[input.queueId]})).rows[0] as Row|undefined;
   const route=routes.find(r=>r.id===q?.taxipress_route_id),back=routes.find(r=>r.relayRouteId===route?.relayRouteId && r.direction!==route?.direction);
   if (!route || !back || !route.farePerSeat || !back.farePerSeat) throw new ReturnError(409,'return_route_unavailable','Both directions of this route must be running with fares.');
+  const serviceClass=q?.service_class==='vip'?'vip':'standard';
+  const multiplier=serviceClass==='vip'?(100+s.vipFareMarkupPercent)/100:1;
   const adults=input.adults ?? input.seats ?? 1,children=input.children ?? 0;
   const baggage=input.luggage || {};
-  const out=priceBooking({adults,children,childSeats:input.childSeats,luggage:baggage},route.farePerSeat,s);
-  const ret=priceBooking({adults,children,childSeats:input.childSeats,luggage:baggage},back.farePerSeat,s);
-  if (out.error || out.seats>s.maxSeatsPerBooking || adults+children>18) throw new ReturnError(400,'invalid_passengers',out.error || 'The passenger count exceeds the booking limit.');
+  const out=priceBooking({adults,children,childSeats:input.childSeats,luggage:baggage},Math.round(route.farePerSeat*multiplier),s);
+  const ret=priceBooking({adults,children,childSeats:input.childSeats,luggage:baggage},Math.round(back.farePerSeat*multiplier),s);
+  if (out.error || out.seats>s.maxSeatsPerBooking || adults+children>(serviceClass==='vip'?13:18)) throw new ReturnError(400,'invalid_passengers',out.error || `The passenger count exceeds the ${serviceClass==='vip'?'13-seat VIP Highroof':'taxi'} limit.`);
   let seatFee=0;
   if (input.seatHoldId) {
     const h=(await db.execute({sql:"SELECT fee FROM taxipress_seat_reservations WHERE id = ? AND passenger_id = ? AND queue_id = ? AND quantity = ? AND state = 'held' AND expires_at > datetime('now')",args:[input.seatHoldId,who,input.queueId,out.seats]})).rows[0];
@@ -81,7 +84,7 @@ export async function quoteReturn(who: string,input: BookInput,mode: 'open'|'sam
   const outboundAmount=discounted(out.fareAmount)+out.luggageAmount+seatFee,returnAmount=discounted(ret.fareAmount)+ret.luggageAmount;
   const terms=dateTerms(mode,date,s.returnValidityDays),id=newId('tpr');
   const environment=await getPlatformEnvironment();
-  const snapshot={...input,payment:'app',adults,children,childSeats:out.childSeats};
+  const snapshot={...input,payment:'app',adults,children,childSeats:out.childSeats,serviceClass};
   await db.execute({sql:`INSERT INTO taxipress_return_packages(id,passenger_id,environment,outbound_route_id,return_route_id,queue_id,input_json,mode,return_date,valid_until,quote_until,outbound_amount,return_amount,discount_percent,refund_percent)
     VALUES(?,?,?,?,?,?,?,?,?,?,datetime('now',?),?,?,?,?)`,args:[id,who,environment,route.id,back.id,input.queueId,JSON.stringify(snapshot),mode,terms.date,terms.validUntil,`+${s.seatHoldSeconds} seconds`,outboundAmount,returnAmount,s.returnDiscountPercent,s.returnRefundPercent]});
   const fees=await getMonetizationSettings();
@@ -143,10 +146,15 @@ export async function redeemReturn(c:Context,id:string,queueId:string) {
   if (p.return_date && p.return_date!==today) throw new ReturnError(409,'return_date','This return is valid only on its selected travel date.');
   const q=(await db.execute({sql:'SELECT taxipress_route_id FROM taxipress_queue WHERE id = ?',args:[queueId]})).rows[0];
   if (q?.taxipress_route_id!==p.return_route_id) throw new ReturnError(409,'wrong_return_route','Choose a taxi in the return direction of this route.');
+  const input=JSON.parse(String(p.input_json)) as BookInput & {serviceClass?:'standard'|'vip'};
+  if (await hasColumn('taxipress_taxis','service_class')) {
+    const taxi=(await db.execute({sql:'SELECT x.service_class FROM taxipress_queue q JOIN taxipress_taxis x ON x.id=q.taxi_id WHERE q.id=?',args:[queueId]})).rows[0] as Row|undefined;
+    if ((taxi?.service_class==='vip'?'vip':'standard') !== (input.serviceClass ?? 'standard')) throw new ReturnError(409,'return_service_class','Choose a return taxi in the same service class as the outbound ticket.');
+  }
   const redemptionToken=newId('rdr'),lease=`+${(await getTaxipressSettings()).seatHoldSeconds} seconds`;
   const claimed=await db.execute({sql:"UPDATE taxipress_return_packages SET return_state = 'redeeming',redeem_token = ?,redeem_until = datetime('now',?) WHERE id = ? AND state = 'ready' AND return_state = 'pending' AND valid_until > datetime('now') AND (return_date IS NULL OR return_date = ?)",args:[redemptionToken,lease,id,today]});
   if (!claimed.rowsAffected) throw new ReturnError(409,'return_unavailable','This return is expired, cancelled or being redeemed. Refresh before retrying.');
-  const input=JSON.parse(String(p.input_json)); delete input.seatHoldId;
+  delete input.seatHoldId; delete (input as BookInput & {serviceClass?:string}).serviceClass;
   try {
     const res=await bookSeats(c,{...input,queueId,openTicket:false},{packageId:id,leg:'return',amount:Number(p.return_amount),existingOrderId:String(p.return_order_id),redemptionToken});
     if (res.status>=400) { const body=await res.json() as {message?:string}; throw new ReturnError(409,'return_departure_unavailable',body.message || 'That return departure is unavailable.'); }

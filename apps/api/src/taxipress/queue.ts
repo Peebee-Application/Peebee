@@ -173,6 +173,7 @@ export type LineEntry = {
   position: number | null;
   plate: string;
   seatLayout: "14" | "18";
+  serviceClass?: "standard" | "vip";
   seatsTotal: number;
   seatsBooked: number;
   walkUpSeats: number;
@@ -187,10 +188,13 @@ export type LineEntry = {
   driverPhotoUrl?: string | null;
 };
 
-const ENTRY_SQL = `SELECT q.*, x.plate, x.seat_layout, u.name AS driver_name,
+async function entrySql() {
+  const taxiServiceClass = await hasColumn("taxipress_taxis", "service_class") ? "x.service_class" : "'standard'";
+  return `SELECT q.*, x.plate, x.seat_layout, ${taxiServiceClass} AS taxi_service_class, u.name AS driver_name,
   COALESCE(rd.profile_photo_key, u.profile_photo_key) AS driver_photo_key
   FROM taxipress_queue q JOIN taxipress_taxis x ON x.id = q.taxi_id LEFT JOIN users u ON u.id = q.driver_id
   LEFT JOIN riders rd ON rd.user_id = q.driver_id`;
+}
 
 async function toEntry(row: Row, position: number | null): Promise<LineEntry> {
   const total = Number(row.seats_total);
@@ -203,6 +207,7 @@ async function toEntry(row: Row, position: number | null): Promise<LineEntry> {
     position,
     plate: String(row.plate),
     seatLayout: row.seat_layout === "18" ? "18" : "14",
+    serviceClass: row.taxi_service_class === "vip" ? "vip" : "standard",
     seatsTotal: total,
     seatsBooked: Number(row.seats_booked),
     walkUpSeats: Number(row.walk_up_seats),
@@ -221,7 +226,7 @@ async function toEntry(row: Row, position: number | null): Promise<LineEntry> {
 export async function lineOf(taxipressRouteId: string): Promise<LineEntry[]> {
   if (!(await queueReady())) return [];
   const rows = (await db.execute({
-    sql: `${ENTRY_SQL} WHERE q.taxipress_route_id = ? AND q.status IN ('boarding', 'in_line')
+    sql: `${await entrySql()} WHERE q.taxipress_route_id = ? AND q.status IN ('boarding', 'in_line')
           ORDER BY CASE q.status WHEN 'boarding' THEN 0 ELSE 1 END, q.joined_at, q.id`,
     args: [taxipressRouteId],
   })).rows as Row[];
@@ -231,7 +236,7 @@ export async function lineOf(taxipressRouteId: string): Promise<LineEntry[]> {
 export async function onRoadOf(taxipressRouteId: string): Promise<LineEntry[]> {
   if (!(await queueReady())) return [];
   const rows = (await db.execute({
-    sql: `${ENTRY_SQL} WHERE q.taxipress_route_id = ? AND q.status = 'on_road' ORDER BY q.departed_at`,
+    sql: `${await entrySql()} WHERE q.taxipress_route_id = ? AND q.status = 'on_road' ORDER BY q.departed_at`,
     args: [taxipressRouteId],
   })).rows as Row[];
   return Promise.all(rows.map((row) => toEntry(row, null)));
@@ -240,7 +245,7 @@ export async function onRoadOf(taxipressRouteId: string): Promise<LineEntry[]> {
 /** The driver's current trip: in the line, boarding, or on the road. */
 export async function activeEntry(driverId: string): Promise<(LineEntry & { taxipressRouteId: string }) | null> {
   if (!(await queueReady())) return null;
-  const row = (await db.execute({ sql: `${ENTRY_SQL} WHERE q.driver_id = ? AND q.status IN ${ACTIVE} ORDER BY q.joined_at DESC LIMIT 1`, args: [driverId] })).rows[0] as Row | undefined;
+  const row = (await db.execute({ sql: `${await entrySql()} WHERE q.driver_id = ? AND q.status IN ${ACTIVE} ORDER BY q.joined_at DESC LIMIT 1`, args: [driverId] })).rows[0] as Row | undefined;
   if (!row) return null;
   const routeId = String(row.taxipress_route_id);
   const position = row.status === "on_road" ? null : ((await lineOf(routeId)).find((e) => e.id === String(row.id))?.position ?? null);
@@ -276,13 +281,12 @@ async function amountOwed(userId: string): Promise<number> {
 }
 
 /** Join the line at the start stage of a route. */
-export async function joinLine(driverId: string, taxipressRouteId: string, at: { lat?: number; lng?: number }, scheduledVipCheckIn = false): Promise<LineEntry> {
+export async function joinLine(driverId: string, taxipressRouteId: string, at: { lat?: number; lng?: number }): Promise<LineEntry> {
   await requireReady();
   const settings = await getTaxipressSettings();
   if (!settings.enabled) throw new TaxipressError(409, "taxipress_off", "Taxipress isn't running right now.");
   const taxi = await taxiOf(driverId);
   if (!taxi || taxi.status !== "approved") throw new TaxipressError(403, "taxi_not_approved", "Your taxi hasn't been approved yet.");
-  if (taxi.serviceClass === "vip" && !scheduledVipCheckIn) throw new TaxipressError(409, "vip_requires_schedule", "Taxibee VIP Highroof bookings are published as scheduled departures.");
   if (!taxi.passengersEnabled) throw new TaxipressError(403, "passengers_off", "Your taxi isn't set up to take passengers.");
   const stage = await routeStage(taxipressRouteId);
   if (!stage || !stage.active) throw new TaxipressError(404, "route_not_found", "That route isn't running.");
@@ -527,7 +531,7 @@ export async function driverView(driverId: string) {
 /** Every taxi in a line or on the road, for staff. */
 export async function activeQueue() {
   if (!(await queueReady())) return [];
-  const rows = (await db.execute(`${ENTRY_SQL.replace("u.name AS driver_name", "u.name AS driver_name, u.phone AS driver_phone")}
+  const rows = (await db.execute(`${(await entrySql()).replace("u.name AS driver_name", "u.name AS driver_name, u.phone AS driver_phone")}
     WHERE q.status IN ${ACTIVE} ORDER BY q.taxipress_route_id, CASE q.status WHEN 'boarding' THEN 0 WHEN 'in_line' THEN 1 ELSE 2 END, q.joined_at`)).rows as Row[];
   return Promise.all(rows.map(async (row) => ({ ...await toEntry(row, null), taxipressRouteId: String(row.taxipress_route_id), driverPhone: (row.driver_phone as string | null) ?? null })));
 }

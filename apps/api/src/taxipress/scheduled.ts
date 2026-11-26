@@ -267,7 +267,7 @@ export async function checkInForDeparture(driverId: string, id: string, lat?: nu
   if (!d) throw new TaxipressError(404,"departure_not_found","No open departure is assigned to your taxi.");
   const mins = (Date.parse(String(d.departs_at).replace(" ","T") + (String(d.departs_at).endsWith("Z") ? "" : "Z")) - Date.now()) / 60_000;
   if (mins > Number(d.checkin_minutes) || mins < -Number(d.grace_minutes)) throw new TaxipressError(409,"checkin_window","Driver check-in is not open for this departure.");
-  const entry = await joinLine(driverId,String(d.routeId),{lat,lng},d.service_class === "vip");
+  const entry = await joinLine(driverId,String(d.routeId),{lat,lng});
   const tickets = (await db.execute({sql:"SELECT id,order_id,passenger_id,seats,fare_per_seat,amount,ticket_code,environment,details_json FROM taxipress_future_tickets WHERE departure_id=? AND state='reserved' ORDER BY created_at,id",args:[id]})).rows as Row[];
   const seatFeature = await seatingReady();
   const mapRow = seatFeature ? (await db.execute({sql:"SELECT labels FROM taxipress_seat_maps WHERE queue_id=?",args:[entry.id]})).rows[0] as Row | undefined : undefined;

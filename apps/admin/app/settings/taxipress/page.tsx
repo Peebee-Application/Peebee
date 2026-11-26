@@ -357,7 +357,7 @@ function SettingsTab() {
         <label className="flex items-center gap-2 text-sm font-bold text-ink"><Switch checked={s.scheduledDeparturesEnabled} onChange={(e) => set("scheduledDeparturesEnabled", e.target.checked)} />Offer published future departures</label>
         <p className="text-xs text-ink-500">Published slots use approved taxis and route fares. Reserved places stay separate from the stage queue until the assigned driver checks in.</p>
         <Field label="VIP Highroof fare uplift (%)">{field("vipFareMarkupPercent", false)}</Field>
-        <p className="text-xs text-ink-500">Applied to the route fare for VIP Highroof departures.</p>
+        <p className="text-xs text-ink-500">Applied to the route fare whenever a passenger books a VIP Highroof seat, on the live queue or a published departure.</p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Book up to (days ahead)">{field("scheduleMaxAdvanceDays", true)}</Field>
           <Field label="Minimum notice (minutes)">{field("scheduleMinLeadMinutes", true)}</Field>
@@ -551,7 +551,7 @@ function TaxisTab() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-ink-500">Each taxi has one approval and two switches. <b>Passengers</b>: it may join the line and take seats. <b>Parcels</b>: it may carry relay parcels (this switch is used when the relay link is added).</p>
-      <p className="text-xs text-ink-500">Designate VIP only after verifying the Highroof has 13 passenger seats, spacious first-class seating, charging ports, cup holders, complimentary drinking water, working Wi-Fi and an onboard screen. VIP vans sell through scheduled departures and join the ordinary TaxiPress trip flow at check-in.</p>
+      <p className="text-xs text-ink-500">Designate VIP only after verifying the Highroof has 13 passenger seats, spacious first-class seating, charging ports, cup holders, complimentary drinking water, working Wi-Fi and an onboard screen. VIP appears in the ordinary live route queue and follows the same passenger, booking and ticket flow. It can also be published as a future departure.</p>
       <ErrorNote message={error} />
       {taxis.length === 0 && <p className="text-sm text-ink-500">No taxis have applied yet.</p>}
       {taxis.map((t) => (
@@ -561,7 +561,7 @@ function TaxisTab() {
               <p className="text-sm font-bold text-ink">{t.plate} · {t.seats} seats</p>
               <p className="text-xs text-ink-500">{t.seatLayout === "18" ? "Highroof" : "Commuter"}{t.serviceClass === "vip" ? " · Taxibee VIP · 13 passenger seats" : " · Standard service"}</p>
               <label className="mt-2 flex items-center gap-2 text-sm"><Switch checked={!!t.numberedSeatsEnabled} disabled={busy === t.id || t.serviceClass === "vip"} onChange={e => void update(t,{ numberedSeatsEnabled: e.target.checked })} />{t.serviceClass === "vip" ? "Numbered seats unavailable for the 13-seat layout" : `Numbered layout checked: ${t.seatLayout}-seat diagram`}</label>
-              <p className="text-xs text-ink-500">{t.serviceClass === "vip" ? "VIP bookings reserve capacity through the shared scheduled-departure flow." : "Enable only after checking the taxi against the passenger diagram. Takes effect on its next departure."}</p>
+              <p className="text-xs text-ink-500">{t.serviceClass === "vip" ? "VIP bookings use the ordinary live queue with 13 spaces and shared Peebee checkout. Numbered seats are unavailable for this layout." : "Enable only after checking the taxi against the passenger diagram. Takes effect on its next departure."}</p>
               <p className="text-xs text-ink-500">{t.driverName ?? "Driver"}{t.driverPhone ? ` · ${t.driverPhone}` : ""} · {t.routeName ?? "Route"}</p>
             </div>
             <Badge tone={t.status === "approved" ? "good" : t.status === "pending" ? "warn" : "bad"}>{t.status}</Badge>

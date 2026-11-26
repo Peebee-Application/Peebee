@@ -106,6 +106,7 @@ export const TAXIPRESS_DEFAULT_LANGUAGES: Array<{ code: string; name: string }> 
 
 /** What the customer app needs to decide whether to show Taxipress, and what to say. */
 export type TaxipressConfig = {
+  vipFareMarkupPercent?: number;
   scheduledDeparturesEnabled?: boolean;
   scheduleMaxAdvanceDays?: number;
   returnPackagesEnabled?:boolean;
@@ -208,6 +209,7 @@ export type TaxipressLineEntry = {
   position: number | null;
   plate: string;
   seatLayout: "14" | "18";
+  serviceClass?: "standard" | "vip";
   seatsTotal: number;
   seatsBooked: number;
   walkUpSeats: number;
