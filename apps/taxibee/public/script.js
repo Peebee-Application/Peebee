@@ -7303,14 +7303,21 @@ function handleInput(event) {
 }
 
 function handleKeydown(event) {
-  const activeDialog = $('#modal-root [role="dialog"]') || $('#sheet-root [role="dialog"]') || $('#side-drawer:not(.is-hidden)');
-  if (event.key === 'Tab' && activeDialog) {
-    const focusable = $$('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])', activeDialog).filter(element => element.getClientRects().length && !element.closest('[inert]'));
-    if (!focusable.length) { event.preventDefault(); activeDialog.focus(); return; }
+  const activeDialog = $('#modal-root [role="dialog"]') || $('#sheet-root [role="dialog"]');
+  const activeDrawer = !activeDialog && $('#side-drawer:not(.is-hidden)');
+  const focusScope = activeDialog || activeDrawer;
+  if (event.key === 'Tab' && focusScope) {
+    const focusable = $$('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])', focusScope).filter(element => element.getClientRects().length && !element.closest('[inert]'));
+    const drawerToggle = activeDrawer && $('[aria-controls="side-drawer"]');
+    if (drawerToggle?.getClientRects().length && !drawerToggle.closest('[inert]')) focusable.push(drawerToggle);
+    if (!focusable.length) { event.preventDefault(); focusScope.focus(); return; }
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
-    if (event.shiftKey && (document.activeElement === first || !activeDialog.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
-    else if (!event.shiftKey && (document.activeElement === last || !activeDialog.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+    const activeIndex = focusable.indexOf(document.activeElement);
+    if (activeIndex < 0) { event.preventDefault(); (event.shiftKey ? last : first).focus(); }
+    else if (activeDrawer && event.shiftKey && document.activeElement === drawerToggle) { event.preventDefault(); focusable[focusable.length - 2]?.focus(); }
+    else if (event.shiftKey && activeIndex === 0) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && activeIndex === focusable.length - 1) { event.preventDefault(); first.focus(); }
   }
   if (event.key === 'Escape') {
     if ($('#modal-root [role="dialog"]')) closeModal();
@@ -7573,11 +7580,11 @@ let sideDrawerOpener = null;
 function updateBackgroundInert() {
   const sideOpen = document.documentElement.classList.contains('taxibee-customer-chrome')
     && document.body.classList.contains('drawer-open');
-  const active = Boolean($('#modal-root [role="dialog"]') || $('#sheet-root [role="dialog"]') || sideOpen);
+  const modalOpen = Boolean($('#modal-root [role="dialog"]') || $('#sheet-root [role="dialog"]'));
   const shell = $('#app-shell');
   if (shell) {
-    if (active) shell.setAttribute('inert', '');
-    else shell.removeAttribute('inert');
+    shell.toggleAttribute('inert', modalOpen);
+    shell.querySelectorAll(':scope > .sidebar, :scope > .workspace').forEach(element => element.toggleAttribute('inert', sideOpen || modalOpen));
   }
   $('#mobile-nav')?.toggleAttribute('inert', sideOpen);
 }
@@ -7621,6 +7628,15 @@ function closeSheet() {
   sheetOpener = null;
 }
 
+function setSideDrawerToggleState(open) {
+  $$('[aria-controls="side-drawer"]').forEach(button => {
+    button.setAttribute('aria-expanded', String(open));
+    button.setAttribute('aria-label', open
+      ? (button.classList.contains('taxibee-side-toggle') ? 'Close Taxibee menu' : 'Close menu')
+      : (button.classList.contains('taxibee-side-toggle') ? 'Open Taxibee menu' : 'Open menu'));
+  });
+}
+
 function openSideDrawer() {
   const drawer = $('#side-drawer');
   if (!drawer) return;
@@ -7632,10 +7648,10 @@ function openSideDrawer() {
     drawer.classList.remove('is-hidden');
     drawer.inert = false;
     document.body.classList.add('drawer-open');
-    $$('[aria-controls="side-drawer"]').forEach(button => button.setAttribute('aria-expanded', 'true'));
+    setSideDrawerToggleState(true);
     updateBackgroundInert();
     refreshIcons();
-    $('[data-action="close-drawer"]', drawer)?.focus({ preventScroll: true });
+    $('[aria-controls="side-drawer"]')?.focus({ preventScroll: true });
   }
 }
 function closeSideDrawer() {
@@ -7644,7 +7660,7 @@ function closeSideDrawer() {
   drawer.classList.add('is-hidden');
   drawer.inert = true;
   document.body.classList.remove('drawer-open');
-  $$('[aria-controls="side-drawer"]').forEach(button => button.setAttribute('aria-expanded', 'false'));
+  setSideDrawerToggleState(false);
   updateBackgroundInert();
   if (sideDrawerOpener?.isConnected) sideDrawerOpener.focus({ preventScroll: true });
   sideDrawerOpener = null;
