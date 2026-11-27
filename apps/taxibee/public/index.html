@@ -210,11 +210,11 @@
   <div id="sheet-root"></div>
 
   <div id="taxibee-side-dismiss" aria-hidden="true" data-action="close-drawer"></div>
-  <div id="side-drawer" class="side-drawer is-hidden" role="dialog" aria-modal="true" aria-label="Menu drawer" inert>
+  <aside id="side-drawer" class="side-drawer is-hidden" role="dialog" aria-modal="false" aria-label="Taxibee menu" inert>
     <div class="side-drawer__backdrop" data-action="close-drawer"></div>
     <div class="side-drawer__content">
       <div class="side-drawer__header">
-        <div class="drawer-user-info" data-screen="profile" role="button" tabindex="0" style="cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 6px 10px; border-radius: 12px; transition: background-color 0.2s ease; margin-right: 12px;" title="View Profile" onmouseover="this.style.backgroundColor='rgba(0,0,0,0.04)'" onmouseout="this.style.backgroundColor='transparent'">
+        <div class="drawer-user-info" data-screen="profile" role="button" tabindex="0" style="flex: 1; min-width: 0; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 6px 10px; border-radius: 12px; transition: background-color 0.2s ease; margin-right: 0;" title="View Profile" onmouseover="this.style.backgroundColor='rgba(0,0,0,0.04)'" onmouseout="this.style.backgroundColor='transparent'">
           <img src="assets/christo-avatar.jpg" alt="Christo I." class="profile-avatar" style="margin: 0; width: 38px; height: 38px; border-radius: 50%; object-fit: cover;">
           <div style="flex: 1; min-width: 0;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
@@ -224,9 +224,6 @@
             <p class="muted text-small" style="margin: 2px 0 0 0; font-size: 0.78rem; color: rgba(255, 255, 255, 0.7) !important;">+256 772 345 678</p>
           </div>
         </div>
-        <button class="icon-button icon-button--plain" type="button" data-action="close-drawer" aria-label="Close menu">
-          <i data-lucide="x"></i>
-        </button>
       </div>
       <div class="side-drawer__body">
         <div class="drawer-section">
@@ -277,7 +274,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </aside>
 
   <div id="loading-overlay" class="loading-overlay is-hidden" role="status" aria-live="polite">
     <div class="loading-card">

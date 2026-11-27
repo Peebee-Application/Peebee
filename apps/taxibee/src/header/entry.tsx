@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { createPortal, flushSync } from "react-dom";
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ChevronRight, FlaskConical, Menu, Shield } from "lucide-react";
+import { ChevronRight, FlaskConical, Menu, Shield, X } from "lucide-react";
 import { BrandHeader } from "../../../customer/components/BrandHeader";
 import { ChatDrawerShell, useChatDrawer } from "../../../customer/lib/chat-drawer";
 import { HeaderDrawerProvider, useHeaderDrawer } from "../../../customer/lib/header-drawer";
@@ -11,6 +11,16 @@ import { configureHost, host, subscribe, sync } from "./host";
 import { brandDescriptionId, TaxibeeBrand } from "./brand";
 import type { TaxibeeHeader } from "./contracts";
 import "./layout.css";
+
+function subscribeSideDrawer(listener: () => void) {
+  const observer = new MutationObserver(listener);
+  observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  return () => observer.disconnect();
+}
+
+function getSideDrawerOpen() {
+  return document.body.classList.contains("drawer-open");
+}
 
 function AppStage() {
   const stage = useRef<HTMLDivElement>(null);
@@ -27,6 +37,7 @@ function Chrome({ target }: { target: HTMLElement }) {
   const drawer = useHeaderDrawer();
   const chat = useChatDrawer();
   const user = useSyncExternalStore(subscribe, () => host.getUser());
+  const sideDrawerOpen = useSyncExternalStore(subscribeSideDrawer, getSideDrawerOpen, () => false);
   const [panel, setPanel] = useState<Element | null>(null);
   const [headerRow, setHeaderRow] = useState<Element | null>(null);
   useLayoutEffect(() => {
@@ -46,9 +57,11 @@ function Chrome({ target }: { target: HTMLElement }) {
     <BrandHeader brandDescriptionId={brandDescriptionId} renderBrand={details => <TaxibeeBrand {...details} />} />
     {headerRow && createPortal(
       <button type="button" className="customer-header-toggle taxibee-side-toggle"
-        aria-label="Open Taxibee menu" aria-controls="side-drawer" aria-expanded={false}
+        aria-label={sideDrawerOpen ? "Close Taxibee menu" : "Open Taxibee menu"}
+        aria-controls="side-drawer" aria-expanded={sideDrawerOpen}
         data-action="toggle-side-drawer" onClick={() => drawer.close()}>
-        <Menu size={24} aria-hidden />
+        <Menu className="taxibee-side-toggle__open-icon" size={24} aria-hidden />
+        <X className="taxibee-side-toggle__close-icon" size={24} aria-hidden />
       </button>, headerRow)}
     {panel && drawer.section === "profile" && createPortal(user ? <div className="d-card">
       <button type="button" className="d-row" onClick={() => { drawer.close(); host.openLocal("profile"); }}>
