@@ -785,9 +785,10 @@ function mountHeader(options: Omit<TaxibeeHeaderHost, 'openLocal'>) {
 document.addEventListener('DOMContentLoaded', async () => {
   if (preview) {
     document.body.classList.add('taxibee-preview');
-    document.body.insertAdjacentHTML('beforeend', '<div class="taxibee-mode">UI preview · sample data · no real bookings or payments<a href="?preview=1">Restart preview</a><a href="/">Return to live Taxibee</a></div>');
+    document.body.insertAdjacentHTML('beforeend', '<div class="taxibee-mode" role="region" aria-label="Preview mode"><span>Preview Mode</span><a href="/?preview=1">Reset</a><button class="taxibee-mode__close" type="button" aria-label="Exit preview mode" title="Exit preview mode">×</button></div>');
     const banner = document.querySelector<HTMLElement>('.taxibee-mode');
     if (banner) {
+      banner.querySelector<HTMLButtonElement>('.taxibee-mode__close')?.addEventListener('click', () => location.assign('/'));
       const updateBanner = () => document.body.style.setProperty('--taxibee-preview-banner-height', `${banner.offsetHeight}px`);
       updateBanner();
       new ResizeObserver(updateBanner).observe(banner);

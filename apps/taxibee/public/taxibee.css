@@ -14,9 +14,12 @@
 .logo-frame img { object-fit: contain; }
 .input-group { background: #f1eee4; }
 .input-group input { background: transparent; }
-.taxibee-mode { position: fixed; bottom: 0; left: 0; right: 0; z-index: 99999; padding: 7px 14px; background: #c9a227; color: #0a0a0a; text-align: center; font: 600 12px/1.4 system-ui; }
-.taxibee-mode a { color: inherit; text-decoration: underline; margin-left: 10px; }
-body.taxibee-preview { padding-bottom: 32px; }
+.taxibee-mode { position: fixed; inset: auto 0 0; z-index: 99999; display: flex; min-height: 28px; align-items: center; justify-content: center; gap: 14px; box-sizing: border-box; padding: 4px 10px; background: #c9a227; color: #0a0a0a; font: 500 11px/1 system-ui; }
+.taxibee-mode a { color: inherit; text-decoration: underline; }
+.taxibee-mode__close { display: grid; width: 18px; height: 18px; place-items: center; border: 0; border-radius: 50%; padding: 0; background: transparent; color: inherit; font: 500 16px/1 system-ui; cursor: pointer; }
+.taxibee-mode__close:hover { background: rgba(10, 10, 10, .08); }
+.taxibee-mode__close:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+body.taxibee-preview { padding-bottom: 28px; }
 .taxibee-preview-route :is(#splash-screen, #onboarding, #auth-layer) { display: none !important; }
 .taxibee-error { padding: 14px; border-radius: 12px; background: #fff0f1; color: #bf3038; }
 .taxibee-empty { padding: 24px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
