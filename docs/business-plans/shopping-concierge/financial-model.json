@@ -1,0 +1,662 @@
+{
+  "currency": "UGX",
+  "status": "Founder pricing policy with illustrative distance bands and planning assumptions",
+  "inputs": {
+    "ride_minimum": 2000,
+    "shopping_fee": 1000,
+    "illustrative_first_band_km": 2,
+    "illustrative_first_band_ugx_per_km": 1500,
+    "illustrative_later_band_ugx_per_km": 1000,
+    "platform_share_per_side": 0.025,
+    "mobile_money_collection_rate": 0.03,
+    "provider_fee_tax_rate_scenario": 0.15,
+    "standard_vat_rate_sensitivity": 0.18,
+    "illustrative_corporate_income_tax_rate": 0.3,
+    "cash_rider_fee_recovery_rate": 0.95,
+    "variable_operating_cost": 150,
+    "sales_agent_commission_per_verified_first_order": 2000,
+    "agent_first_order_share_of_all_settled_orders": 0.1,
+    "year_one_monthly_fixed_cost_breakdown": {
+      "operations_lead_salary": 1500000,
+      "dispatch_salary": 900000,
+      "customer_support_salary": 750000,
+      "part_time_finance_and_admin_salary": 400000,
+      "employer_nssf": 355000,
+      "sales_agent_allowances": 400000,
+      "office_rent": 1000000,
+      "office_utilities_and_internet": 250000,
+      "allocated_technology_and_admin": 345000
+    },
+    "base_cash_share": 0.8
+  },
+  "example_quotes": [
+    {
+      "goods": 10000,
+      "distance_km": 1,
+      "ride": 2000,
+      "shopping": 1000,
+      "delivery": 3000,
+      "subtotal": 13000,
+      "customer_share": 325.0,
+      "rider_share": 325.0,
+      "customer_total": 13325.0,
+      "rider_delivery_earnings": 2675.0,
+      "platform_fee_assessed": 650.0,
+      "aggregator_collection_fee": 399.75,
+      "mobile_money_payout_fee": 1000,
+      "provider_fee_tax": 209.9625
+    },
+    {
+      "goods": 20000,
+      "distance_km": 2,
+      "ride": 3000,
+      "shopping": 1000,
+      "delivery": 4000,
+      "subtotal": 24000,
+      "customer_share": 600.0,
+      "rider_share": 600.0,
+      "customer_total": 24600.0,
+      "rider_delivery_earnings": 3400.0,
+      "platform_fee_assessed": 1200.0,
+      "aggregator_collection_fee": 738.0,
+      "mobile_money_payout_fee": 1000,
+      "provider_fee_tax": 260.7
+    },
+    {
+      "goods": 40000,
+      "distance_km": 3,
+      "ride": 4000,
+      "shopping": 1000,
+      "delivery": 5000,
+      "subtotal": 45000,
+      "customer_share": 1125.0,
+      "rider_share": 1125.0,
+      "customer_total": 46125.0,
+      "rider_delivery_earnings": 3875.0,
+      "platform_fee_assessed": 2250.0,
+      "aggregator_collection_fee": 1383.75,
+      "mobile_money_payout_fee": 1000,
+      "provider_fee_tax": 357.5625
+    },
+    {
+      "goods": 60000,
+      "distance_km": 1,
+      "ride": 2000,
+      "shopping": 1000,
+      "delivery": 3000,
+      "subtotal": 63000,
+      "customer_share": 1575.0,
+      "rider_share": 1575.0,
+      "customer_total": 64575.0,
+      "rider_delivery_earnings": 1425.0,
+      "platform_fee_assessed": 3150.0,
+      "aggregator_collection_fee": 1937.25,
+      "mobile_money_payout_fee": 1000,
+      "provider_fee_tax": 440.5875
+    },
+    {
+      "goods": 60000,
+      "distance_km": 5,
+      "ride": 6000,
+      "shopping": 1000,
+      "delivery": 7000,
+      "subtotal": 67000,
+      "customer_share": 1675.0,
+      "rider_share": 1675.0,
+      "customer_total": 68675.0,
+      "rider_delivery_earnings": 5325.0,
+      "platform_fee_assessed": 3350.0,
+      "aggregator_collection_fee": 2060.25,
+      "mobile_money_payout_fee": 1000,
+      "provider_fee_tax": 459.0375
+    }
+  ],
+  "reference_quote": {
+    "goods": 60000,
+    "distance_km": 1,
+    "ride": 2000,
+    "shopping": 1000,
+    "delivery": 3000,
+    "subtotal": 63000,
+    "customer_share": 1575.0,
+    "rider_share": 1575.0,
+    "customer_total": 64575.0,
+    "rider_delivery_earnings": 1425.0,
+    "platform_fee_assessed": 3150.0
+  },
+  "base_years": [
+    {
+      "orders": 6000,
+      "goods_value": 360000000,
+      "delivery_charges": 18000000,
+      "customer_order_value": 387450000.0,
+      "customer_fee_assessed": 9450000.0,
+      "rider_fee_assessed": 9450000.0,
+      "platform_fees_assessed": 18900000.0,
+      "platform_fee_income": 18522000.0,
+      "aggregator_collection_cost": 2324700.0,
+      "mobile_money_payout_cost": 1200000.0,
+      "provider_fee_tax": 528705.0,
+      "payment_cost": 4053405.0,
+      "variable_operating_cost": 900000,
+      "sales_agent_commissions": 1200000.0,
+      "contribution": 12368595.0,
+      "fixed_operating_cost": 70800000,
+      "incremental_marketing": 4000000,
+      "operating_result": -62431405.0,
+      "illustrative_corporate_income_tax": 0.0,
+      "result_after_income_tax": -62431405.0,
+      "vat_registered_sensitivity": {
+        "vat_inclusive_output_tax_no_input_credit": 2825389.8305084747,
+        "operating_result": -65256794.83050848,
+        "result_after_income_tax": -65256794.83050848
+      }
+    },
+    {
+      "orders": 18000,
+      "goods_value": 1080000000,
+      "delivery_charges": 54000000,
+      "customer_order_value": 1162350000.0,
+      "customer_fee_assessed": 28350000.0,
+      "rider_fee_assessed": 28350000.0,
+      "platform_fees_assessed": 56700000.0,
+      "platform_fee_income": 55566000.0,
+      "aggregator_collection_cost": 6974100.0,
+      "mobile_money_payout_cost": 3600000.0,
+      "provider_fee_tax": 1586115.0,
+      "payment_cost": 12160215.0,
+      "variable_operating_cost": 2700000,
+      "sales_agent_commissions": 3600000.0,
+      "contribution": 37105785.0,
+      "fixed_operating_cost": 82800000,
+      "incremental_marketing": 0,
+      "operating_result": -45694215.0,
+      "illustrative_corporate_income_tax": 0.0,
+      "result_after_income_tax": -45694215.0,
+      "vat_registered_sensitivity": {
+        "vat_inclusive_output_tax_no_input_credit": 8476169.491525425,
+        "operating_result": -54170384.49152543,
+        "result_after_income_tax": -54170384.49152543
+      }
+    },
+    {
+      "orders": 36000,
+      "goods_value": 2160000000,
+      "delivery_charges": 108000000,
+      "customer_order_value": 2324700000.0,
+      "customer_fee_assessed": 56700000.0,
+      "rider_fee_assessed": 56700000.0,
+      "platform_fees_assessed": 113400000.0,
+      "platform_fee_income": 111132000.0,
+      "aggregator_collection_cost": 13948200.0,
+      "mobile_money_payout_cost": 7200000.0,
+      "provider_fee_tax": 3172230.0,
+      "payment_cost": 24320430.0,
+      "variable_operating_cost": 5400000,
+      "sales_agent_commissions": 7200000.0,
+      "contribution": 74211570.0,
+      "fixed_operating_cost": 94800000,
+      "incremental_marketing": 0,
+      "operating_result": -20588430.0,
+      "illustrative_corporate_income_tax": 0.0,
+      "result_after_income_tax": -20588430.0,
+      "vat_registered_sensitivity": {
+        "vat_inclusive_output_tax_no_input_credit": 16952338.98305085,
+        "operating_result": -37540768.983050846,
+        "result_after_income_tax": -37540768.983050846
+      }
+    }
+  ],
+  "cash_share_sensitivity_percent": {
+    "0": {
+      "per_order": {
+        "aggregator_collection_fee": 1937.25,
+        "mobile_money_payout_fee": 1000.0,
+        "provider_fee_tax": 440.5875,
+        "collected_fees": 3150.0,
+        "payment_cost": 3377.8375,
+        "contribution": -577.8375
+      },
+      "year_three": {
+        "orders": 36000,
+        "goods_value": 2160000000,
+        "delivery_charges": 108000000,
+        "customer_order_value": 2324700000.0,
+        "customer_fee_assessed": 56700000.0,
+        "rider_fee_assessed": 56700000.0,
+        "platform_fees_assessed": 113400000.0,
+        "platform_fee_income": 113400000.0,
+        "aggregator_collection_cost": 69741000.0,
+        "mobile_money_payout_cost": 36000000.0,
+        "provider_fee_tax": 15861150.0,
+        "payment_cost": 121602150.0,
+        "variable_operating_cost": 5400000,
+        "sales_agent_commissions": 7200000.0,
+        "contribution": -20802150.0,
+        "fixed_operating_cost": 94800000,
+        "incremental_marketing": 0,
+        "operating_result": -115602150.0,
+        "illustrative_corporate_income_tax": 0.0,
+        "result_after_income_tax": -115602150.0,
+        "vat_registered_sensitivity": {
+          "vat_inclusive_output_tax_no_input_credit": 17298305.08474576,
+          "operating_result": -132900455.08474576,
+          "result_after_income_tax": -132900455.08474576
+        }
+      }
+    },
+    "50": {
+      "per_order": {
+        "aggregator_collection_fee": 968.625,
+        "mobile_money_payout_fee": 500.0,
+        "provider_fee_tax": 220.29375,
+        "collected_fees": 3110.625,
+        "payment_cost": 1688.91875,
+        "contribution": 1071.70625
+      },
+      "year_three": {
+        "orders": 36000,
+        "goods_value": 2160000000,
+        "delivery_charges": 108000000,
+        "customer_order_value": 2324700000.0,
+        "customer_fee_assessed": 56700000.0,
+        "rider_fee_assessed": 56700000.0,
+        "platform_fees_assessed": 113400000.0,
+        "platform_fee_income": 111982500.0,
+        "aggregator_collection_cost": 34870500.0,
+        "mobile_money_payout_cost": 18000000.0,
+        "provider_fee_tax": 7930575.0,
+        "payment_cost": 60801075.0,
+        "variable_operating_cost": 5400000,
+        "sales_agent_commissions": 7200000.0,
+        "contribution": 38581425.0,
+        "fixed_operating_cost": 94800000,
+        "incremental_marketing": 0,
+        "operating_result": -56218575.0,
+        "illustrative_corporate_income_tax": 0.0,
+        "result_after_income_tax": -56218575.0,
+        "vat_registered_sensitivity": {
+          "vat_inclusive_output_tax_no_input_credit": 17082076.27118644,
+          "operating_result": -73300651.27118644,
+          "result_after_income_tax": -73300651.27118644
+        }
+      }
+    },
+    "80": {
+      "per_order": {
+        "aggregator_collection_fee": 387.45,
+        "mobile_money_payout_fee": 200.0,
+        "provider_fee_tax": 88.1175,
+        "collected_fees": 3087.0,
+        "payment_cost": 675.5675,
+        "contribution": 2061.4325
+      },
+      "year_three": {
+        "orders": 36000,
+        "goods_value": 2160000000,
+        "delivery_charges": 108000000,
+        "customer_order_value": 2324700000.0,
+        "customer_fee_assessed": 56700000.0,
+        "rider_fee_assessed": 56700000.0,
+        "platform_fees_assessed": 113400000.0,
+        "platform_fee_income": 111132000.0,
+        "aggregator_collection_cost": 13948200.0,
+        "mobile_money_payout_cost": 7200000.0,
+        "provider_fee_tax": 3172230.0,
+        "payment_cost": 24320430.0,
+        "variable_operating_cost": 5400000,
+        "sales_agent_commissions": 7200000.0,
+        "contribution": 74211570.0,
+        "fixed_operating_cost": 94800000,
+        "incremental_marketing": 0,
+        "operating_result": -20588430.0,
+        "illustrative_corporate_income_tax": 0.0,
+        "result_after_income_tax": -20588430.0,
+        "vat_registered_sensitivity": {
+          "vat_inclusive_output_tax_no_input_credit": 16952338.98305085,
+          "operating_result": -37540768.983050846,
+          "result_after_income_tax": -37540768.983050846
+        }
+      }
+    },
+    "95": {
+      "per_order": {
+        "aggregator_collection_fee": 96.8625,
+        "mobile_money_payout_fee": 50.0,
+        "provider_fee_tax": 22.029375,
+        "collected_fees": 3075.1875,
+        "payment_cost": 168.891875,
+        "contribution": 2556.295625
+      },
+      "year_three": {
+        "orders": 36000,
+        "goods_value": 2160000000,
+        "delivery_charges": 108000000,
+        "customer_order_value": 2324700000.0,
+        "customer_fee_assessed": 56700000.0,
+        "rider_fee_assessed": 56700000.0,
+        "platform_fees_assessed": 113400000.0,
+        "platform_fee_income": 110706750.0,
+        "aggregator_collection_cost": 3487050.0,
+        "mobile_money_payout_cost": 1800000.0,
+        "provider_fee_tax": 793057.5,
+        "payment_cost": 6080107.5,
+        "variable_operating_cost": 5400000,
+        "sales_agent_commissions": 7200000.0,
+        "contribution": 92026642.5,
+        "fixed_operating_cost": 94800000,
+        "incremental_marketing": 0,
+        "operating_result": -2773357.5,
+        "illustrative_corporate_income_tax": 0.0,
+        "result_after_income_tax": -2773357.5,
+        "vat_registered_sensitivity": {
+          "vat_inclusive_output_tax_no_input_credit": 16887470.33898305,
+          "operating_result": -19660827.83898305,
+          "result_after_income_tax": -19660827.83898305
+        }
+      }
+    },
+    "100": {
+      "per_order": {
+        "aggregator_collection_fee": 0.0,
+        "mobile_money_payout_fee": 0.0,
+        "provider_fee_tax": 0.0,
+        "collected_fees": 3071.25,
+        "payment_cost": 0.0,
+        "contribution": 2721.25
+      },
+      "year_three": {
+        "orders": 36000,
+        "goods_value": 2160000000,
+        "delivery_charges": 108000000,
+        "customer_order_value": 2324700000.0,
+        "customer_fee_assessed": 56700000.0,
+        "rider_fee_assessed": 56700000.0,
+        "platform_fees_assessed": 113400000.0,
+        "platform_fee_income": 110565000.0,
+        "aggregator_collection_cost": 0.0,
+        "mobile_money_payout_cost": 0.0,
+        "provider_fee_tax": 0.0,
+        "payment_cost": 0.0,
+        "variable_operating_cost": 5400000,
+        "sales_agent_commissions": 7200000.0,
+        "contribution": 97965000.0,
+        "fixed_operating_cost": 94800000,
+        "incremental_marketing": 0,
+        "operating_result": 3165000.0,
+        "illustrative_corporate_income_tax": 949500.0,
+        "result_after_income_tax": 2215500.0,
+        "vat_registered_sensitivity": {
+          "vat_inclusive_output_tax_no_input_credit": 16865847.457627118,
+          "operating_result": -13700847.45762712,
+          "result_after_income_tax": -13700847.45762712
+        }
+      }
+    }
+  },
+  "cumulative_base_operating_result": -128714050.0,
+  "funding_ask": {
+    "horizon_months": 12,
+    "total": 94000000,
+    "uses": {
+      "launch_setup": 12000000,
+      "operating_runway": 70000000,
+      "pilot_digital_advertising": 4000000,
+      "working_capital": 4000000,
+      "refundable_office_deposit": 2000000,
+      "contingency": 2000000
+    },
+    "marketing_strategy": {
+      "phase_uses": {
+        "pilot": {
+          "meta": 1500000,
+          "tiktok": 1000000,
+          "google_search_and_app": 1500000
+        },
+        "corridor_expansion": {
+          "meta": 3500000,
+          "tiktok": 2500000,
+          "google_search_and_app": 1500000,
+          "collateral": 1000000,
+          "radio": 5000000,
+          "billboard": 10000000,
+          "creators": 3500000,
+          "sms": 1500000,
+          "creative": 1500000,
+          "marketing_contingency": 500000,
+          "permits": 1000000
+        },
+        "retention": {
+          "meta": 3000000,
+          "tiktok": 2000000,
+          "google_search_and_app": 1500000,
+          "collateral": 1000000,
+          "radio": 2000000,
+          "creators": 1500000,
+          "sms": 1500000,
+          "creative": 500000,
+          "marketing_contingency": 1500000,
+          "permits": 1000000
+        }
+      },
+      "phase_budgets_outside_setup": {
+        "pilot": 4000000,
+        "corridor_expansion": 31500000,
+        "retention": 15500000
+      },
+      "phase_order_targets": {
+        "pilot": 500,
+        "corridor_expansion": 1800,
+        "retention": 3700
+      },
+      "phase_core_operating_results_before_marketing": {
+        "pilot": -16669283.75,
+        "corridor_expansion": -13989421.5,
+        "retention": -27772699.75
+      },
+      "collateral_in_setup": 2000000,
+      "full_marketing_spend_including_setup_collateral": 53000000,
+      "ask_through_corridor_expansion": 125500000,
+      "full_funding_envelope": 141000000,
+      "year_one_with_full_marketing": {
+        "orders": 6000,
+        "goods_value": 360000000,
+        "delivery_charges": 18000000,
+        "customer_order_value": 387450000.0,
+        "customer_fee_assessed": 9450000.0,
+        "rider_fee_assessed": 9450000.0,
+        "platform_fees_assessed": 18900000.0,
+        "platform_fee_income": 18522000.0,
+        "aggregator_collection_cost": 2324700.0,
+        "mobile_money_payout_cost": 1200000.0,
+        "provider_fee_tax": 528705.0,
+        "payment_cost": 4053405.0,
+        "variable_operating_cost": 900000,
+        "sales_agent_commissions": 1200000.0,
+        "contribution": 12368595.0,
+        "fixed_operating_cost": 70800000,
+        "incremental_marketing": 51000000,
+        "operating_result": -109431405.0,
+        "illustrative_corporate_income_tax": 0.0,
+        "result_after_income_tax": -109431405.0,
+        "vat_registered_sensitivity": {
+          "vat_inclusive_output_tax_no_input_credit": 2825389.8305084747,
+          "operating_result": -112256794.83050847,
+          "result_after_income_tax": -112256794.83050847
+        }
+      }
+    },
+    "launch_setup_breakdown": {
+      "checkout_distance_and_fee_work": 6000000,
+      "payment_testing_and_compliance_preparation": 2000000,
+      "rider_recruitment_and_training": 2000000,
+      "pilot_launch_materials_and_community_activation": 2000000
+    },
+    "working_capital_breakdown": {
+      "purchasing_and_settlement_reserve": 3000000,
+      "refunds_and_disputes_reserve": 1000000
+    },
+    "base": {
+      "cash_share": 0.8,
+      "vat_inclusive": false,
+      "contribution_per_order": 2061.4325,
+      "monthly_fixed_cost": 5900000,
+      "months": [
+        {
+          "month": 1,
+          "orders": 100,
+          "operating_cash_result": -5693856.75,
+          "cumulative_operating_cash_result": -5693856.75
+        },
+        {
+          "month": 2,
+          "orders": 150,
+          "operating_cash_result": -5590785.125,
+          "cumulative_operating_cash_result": -11284641.875
+        },
+        {
+          "month": 3,
+          "orders": 250,
+          "operating_cash_result": -5384641.875,
+          "cumulative_operating_cash_result": -16669283.75
+        },
+        {
+          "month": 4,
+          "orders": 550,
+          "operating_cash_result": -4766212.125,
+          "cumulative_operating_cash_result": -21435495.875
+        },
+        {
+          "month": 5,
+          "orders": 600,
+          "operating_cash_result": -4663140.5,
+          "cumulative_operating_cash_result": -26098636.375
+        },
+        {
+          "month": 6,
+          "orders": 650,
+          "operating_cash_result": -4560068.875,
+          "cumulative_operating_cash_result": -30658705.25
+        },
+        {
+          "month": 7,
+          "orders": 600,
+          "operating_cash_result": -4663140.5,
+          "cumulative_operating_cash_result": -35321845.75
+        },
+        {
+          "month": 8,
+          "orders": 600,
+          "operating_cash_result": -4663140.5,
+          "cumulative_operating_cash_result": -39984986.25
+        },
+        {
+          "month": 9,
+          "orders": 600,
+          "operating_cash_result": -4663140.5,
+          "cumulative_operating_cash_result": -44648126.75
+        },
+        {
+          "month": 10,
+          "orders": 600,
+          "operating_cash_result": -4663140.5,
+          "cumulative_operating_cash_result": -49311267.25
+        },
+        {
+          "month": 11,
+          "orders": 650,
+          "operating_cash_result": -4560068.875,
+          "cumulative_operating_cash_result": -53871336.125
+        },
+        {
+          "month": 12,
+          "orders": 650,
+          "operating_cash_result": -4560068.875,
+          "cumulative_operating_cash_result": -58431405.0
+        }
+      ],
+      "peak_operating_cash_deficit": 58431405.0
+    },
+    "downside": {
+      "cash_share": 0.5,
+      "vat_inclusive": true,
+      "contribution_per_order": 597.2041313559322,
+      "monthly_fixed_cost": 5900000,
+      "months": [
+        {
+          "month": 1,
+          "orders": 50,
+          "operating_cash_result": -5870139.793432203,
+          "cumulative_operating_cash_result": -5870139.793432203
+        },
+        {
+          "month": 2,
+          "orders": 75,
+          "operating_cash_result": -5855209.690148305,
+          "cumulative_operating_cash_result": -11725349.48358051
+        },
+        {
+          "month": 3,
+          "orders": 125,
+          "operating_cash_result": -5825349.483580508,
+          "cumulative_operating_cash_result": -17550698.96716102
+        },
+        {
+          "month": 4,
+          "orders": 275,
+          "operating_cash_result": -5735768.863877119,
+          "cumulative_operating_cash_result": -23286467.831038136
+        },
+        {
+          "month": 5,
+          "orders": 300,
+          "operating_cash_result": -5720838.760593221,
+          "cumulative_operating_cash_result": -29007306.591631357
+        },
+        {
+          "month": 6,
+          "orders": 325,
+          "operating_cash_result": -5705908.657309322,
+          "cumulative_operating_cash_result": -34713215.24894068
+        },
+        {
+          "month": 7,
+          "orders": 300,
+          "operating_cash_result": -5720838.760593221,
+          "cumulative_operating_cash_result": -40434054.0095339
+        },
+        {
+          "month": 8,
+          "orders": 300,
+          "operating_cash_result": -5720838.760593221,
+          "cumulative_operating_cash_result": -46154892.77012712
+        },
+        {
+          "month": 9,
+          "orders": 300,
+          "operating_cash_result": -5720838.760593221,
+          "cumulative_operating_cash_result": -51875731.53072034
+        },
+        {
+          "month": 10,
+          "orders": 300,
+          "operating_cash_result": -5720838.760593221,
+          "cumulative_operating_cash_result": -57596570.29131356
+        },
+        {
+          "month": 11,
+          "orders": 325,
+          "operating_cash_result": -5705908.657309322,
+          "cumulative_operating_cash_result": -63302478.94862288
+        },
+        {
+          "month": 12,
+          "orders": 325,
+          "operating_cash_result": -5705908.657309322,
+          "cumulative_operating_cash_result": -69008387.6059322
+        }
+      ],
+      "peak_operating_cash_deficit": 69008387.6059322
+    }
+  }
+}
