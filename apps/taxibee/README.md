@@ -1,5 +1,12 @@
 # Taxibee
 
+Security review and open risks: `../../docs/security/TAXIBEE-2026-11-28.md`.
+The gateway now keeps backend login credentials in a host-only Secure,
+HttpOnly, SameSite=Strict cookie. Browser storage contains only a public
+session marker; legacy bearer sessions migrate after a successful `/auth/me`.
+Cookie-authenticated writes require the exact Taxibee Origin. The backend
+still validates identity, role, ownership, revocation and payment state.
+
 Independent Peebee customer frontend at **https://taxibee.peebee.online**.
 
 ## Source and identity

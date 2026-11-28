@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { handleRequest } from './worker.mjs';
+import { SESSION_MARKER, COOKIE_NAME, markerFor } from './session.mjs';
 
 test('gateway preserves the Peebee token and response but drops cookies and caching', async () => {
   const oldFetch = globalThis.fetch;
@@ -66,4 +67,97 @@ test('support capability is forwarded only to the fixed support-chat endpoint', 
       { url: 'https://api.peebee.online/v1/wallet', secret: null, cookie: null },
     ]);
   } finally { globalThis.fetch = original; }
+});
+
+test('sign-in conceals the backend token in a host-only Secure HttpOnly cookie', async () => {
+  const old = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ token: 'test.backend.secret', user: { id: 'customer-a' } });
+  try {
+    const r = await handleRequest(new Request('https://taxibee.peebee.online/api/v1/auth/login', { method: 'POST', headers: { Origin: 'https://taxibee.peebee.online' } }), {});
+    assert.equal((await r.json()).token, await markerFor('test.backend.secret'));
+    const cookie = r.headers.get('set-cookie');
+    assert.match(cookie, new RegExp(`^${COOKIE_NAME}=`));
+    for (const flag of ['Secure', 'HttpOnly', 'SameSite=Strict', 'Path=/']) assert.ok(cookie.includes(flag));
+    assert.doesNotMatch(cookie, /Domain=/i);
+  } finally { globalThis.fetch = old; }
+});
+
+test('cookie credential is substituted only for the public marker; missing cookie cannot authenticate', async () => {
+  const old = globalThis.fetch, seen = [];
+  globalThis.fetch = async (_u, init) => { seen.push(init.headers.get('authorization')); return Response.json({ ok: true }); };
+  try {
+    for (const headers of [
+      { Authorization: `Bearer ${await markerFor("test.backend.secret")}`, Cookie: `${COOKIE_NAME}=test.backend.secret` },
+      { Authorization: `Bearer ${await markerFor("test.backend.secret")}` },
+      { Cookie: `${COOKIE_NAME}=test.backend.secret` },
+    ]) await handleRequest(new Request('https://taxibee.peebee.online/api/v1/wallet', { headers }), {});
+    assert.deepEqual(seen, ['Bearer test.backend.secret', null, null]);
+  } finally { globalThis.fetch = old; }
+});
+
+test('cross-origin and missing-origin cookie writes never reach Peebee', async () => {
+  const old = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('Upstream must not be called'); };
+  try {
+    for (const origin of [null, 'https://attacker.invalid', 'https://evil.peebee.online']) {
+      const headers = { Cookie: `${COOKIE_NAME}=test.backend.secret`, Authorization: `Bearer ${await markerFor("test.backend.secret")}` };
+      if (origin) headers.Origin = origin;
+      const r = await handleRequest(new Request('https://taxibee.peebee.online/api/v1/wallet/transfer', { method: 'POST', headers }), {});
+      assert.equal(r.status, 403);
+    }
+  } finally { globalThis.fetch = old; }
+});
+
+test('logout clears cookie; authenticated legacy sessions can migrate; upstream origins are restricted', async () => {
+  const old = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ user: { id: 'a' } });
+  try {
+    const migrated = await handleRequest(new Request('https://taxibee.peebee.online/api/v1/auth/me', { headers: { Authorization: 'Bearer legacy.jwt.token' } }), {});
+    assert.match(migrated.headers.get('set-cookie'), /legacy.jwt.token/);
+    const logout = await handleRequest(new Request('https://taxibee.peebee.online/api/v1/auth/logout', { method: 'POST' }), {});
+    assert.match(logout.headers.get('set-cookie'), /Max-Age=0/);
+    const invalid = await handleRequest(new Request('https://taxibee.peebee.online/api/v1/wallet'), { API_ORIGIN: 'https://attacker.invalid' });
+    assert.equal(invalid.status, 503);
+    assert.equal(migrated.headers.get('strict-transport-security'), 'max-age=31536000');
+  } finally { globalThis.fetch = old; }
+});
+
+test('abuse attribution uses the Cloudflare edge field, not a supplied forwarding chain', async () => {
+  const old = globalThis.fetch, seen = [];
+  globalThis.fetch = async (_url, init) => { seen.push(init.headers.get('x-real-ip')); return Response.json({ ok: true }); };
+  try {
+    for (const headers of [
+      { 'CF-Connecting-IP': '2001:db8::1', 'X-Real-IP': '203.0.113.99' },
+      { 'X-Real-IP': '203.0.113.99', 'X-Forwarded-For': '203.0.113.98' },
+    ]) await handleRequest(new Request('https://taxibee.peebee.online/api/v1/auth/me', { headers }), {});
+    assert.deepEqual(seen, ['2001:db8::1', null]);
+  } finally { globalThis.fetch = old; }
+});
+
+test('a stale session marker cannot authorize a write using a newer account cookie', async () => {
+  const old = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('Must reject before forwarding'); };
+  try {
+    const r = await handleRequest(new Request('https://taxibee.peebee.online/api/v1/wallet/transfer', { method: 'POST', headers: {
+      Origin: 'https://taxibee.peebee.online', Cookie: `${COOKIE_NAME}=new.account.token`, Authorization: `Bearer ${await markerFor('old.account.token')}`,
+    } }), {});
+    assert.equal(r.status, 401);
+    assert.equal(r.headers.get('set-cookie'), null, 'Do not erase the newer session');
+  } finally { globalThis.fetch = old; }
+});
+
+test('a GET without the session marker cannot erase a valid browser session', async () => {
+  const old = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ error: 'unauthorized' }, { status: 401 });
+  try {
+    const r = await handleRequest(new Request('https://taxibee.peebee.online/api/v1/wallet', { headers: { Cookie: `${COOKIE_NAME}=existing.jwt.token` } }), {});
+    assert.equal(r.status, 401);
+    assert.equal(r.headers.get('set-cookie'), null);
+  } finally { globalThis.fetch = old; }
+});
+
+test('non-local HTTP traffic redirects to TLS before serving assets or forwarding credentials', async () => {
+  const r = await handleRequest(new Request('http://taxibee.peebee.online/api/v1/auth/login', { method: 'POST' }), {});
+  assert.equal(r.status, 308);
+  assert.equal(r.headers.get('location'), 'https://taxibee.peebee.online/api/v1/auth/login');
 });

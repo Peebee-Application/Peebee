@@ -1,3 +1,4 @@
+import { redirectToCheckout } from './payment-redirect.mjs';
 import type { ApiClient } from '../../../packages/shared/src/api-client';
 import type { AuthUser,OrderDetail,CarBookingInput } from '../../../packages/shared/src/domain';
 import { isFreshLocation } from '@peebee/shared';
@@ -146,7 +147,7 @@ export function installParcelCharter(c:Context){
     if(!c.user()||!detail||detail.order.id!==d.orderId)throw new Error('Sign in and choose a booking first.');
     const id=d.orderId;
     if(name==='cancel'){if(!window.confirm('Ask Peebee to cancel this request under its current rules? Assigned or already-processed requests may require support.'))return;await api.customerCancelOrder(id);return loadOrder();}
-    if(name==='pay'){++orderVersion;if(!(document.getElementById('svc-payment-consent') as HTMLInputElement)?.checked)throw new Error('Review and accept the payment total.');if(['corporate','voucher'].includes(d.payment)&&c.sponsor){await c.sponsor.review(id,d.payment);return;}const fresh=await api.getOrderCheckout(id);const key=d.payment==='wallet'?'wallet':'mobileMoney';if(!checkout||fresh[key]!==checkout[key]){checkout=fresh;redraw();throw new Error('The payment total changed. Review it before paying.');}const result=await api.fundOrder(id,{paymentMethod:d.payment==='wallet'?'wallet':'mobile_money',useWallet:d.payment==='wallet',msisdn:d.payment==='mobile'?d.msisdn:undefined});if(result.redirectUrl){location.assign(result.redirectUrl);return;}await loadOrder();return;}
+    if(name==='pay'){++orderVersion;if(!(document.getElementById('svc-payment-consent') as HTMLInputElement)?.checked)throw new Error('Review and accept the payment total.');if(['corporate','voucher'].includes(d.payment)&&c.sponsor){await c.sponsor.review(id,d.payment);return;}const fresh=await api.getOrderCheckout(id);const key=d.payment==='wallet'?'wallet':'mobileMoney';if(!checkout||fresh[key]!==checkout[key]){checkout=fresh;redraw();throw new Error('The payment total changed. Review it before paying.');}const result=await api.fundOrder(id,{paymentMethod:d.payment==='wallet'?'wallet':'mobile_money',useWallet:d.payment==='wallet',msisdn:d.payment==='mobile'?d.msisdn:undefined});if(result.redirectUrl){redirectToCheckout(result.redirectUrl);return;}await loadOrder();return;}
     if(name==='applicant'){if(!window.confirm('Assign this applicant to your request?'))return;await api.selectApplicant(id,el.dataset.id||'');return loadOrder();}
     if(name==='send-rider'){if(!window.confirm('Send a rider from the station at the displayed wallet fee?'))return;await api.sendRelayRider(id);return loadOrder();}
     if(name==='chat'){messages=(await api.getChat(id)).messages;await api.markChatRead(id);redraw();return;}

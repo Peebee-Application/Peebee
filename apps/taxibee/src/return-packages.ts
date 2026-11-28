@@ -1,3 +1,4 @@
+import { redirectToCheckout } from './payment-redirect.mjs';
 import type {ApiClient,TaxipressBookingInput} from '../../../packages/shared/src/api-client';
 import type {AuthUser} from '../../../packages/shared/src/domain';
 import type {TaxipressConfig,TaxipressReturnPackage,TaxipressBooking} from '../../../packages/shared/src/taxipress';
@@ -113,7 +114,7 @@ export function installReturnPackages(c:Context){
       if(funded.payment?.status==='failed')throw new Error('The package payment failed. Refresh before retrying.');
       paymentId=funded.payment?.id||null;
       sessionStorage.removeItem(key());c.clearDraft();ui.closeModal();
-      if(funded.redirectUrl){location.assign(funded.redirectUrl);return;}
+      if(funded.redirectUrl){redirectToCheckout(funded.redirectUrl);return;}
       await owned(c.refresh());await owned(load());
       const b=(await owned(api.getTaxipressBooking(created.outboundBookingId!))).booking;c.select(b);ui.navigate('ticket');return;
     }

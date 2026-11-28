@@ -1,4 +1,6 @@
+import { redirectToCheckout } from './payment-redirect.mjs';
 import {installAccountTools} from './account-tools';
+import { isSessionMarker } from './session.mjs';
 import { createApiClient,type TaxipressBookingInput } from '../../../packages/shared/src/api-client';
 import type { AuthUser, CustomerWallet } from '../../../packages/shared/src/domain';
 import type { TaxipressBooking, TaxipressConfig } from '../../../packages/shared/src/taxipress';
@@ -76,6 +78,16 @@ const api = createApiClient({
     return response;
   },
 });
+const readCurrentAccount = api.me.bind(api);
+api.me = async () => {
+  const result = await readCurrentAccount();
+  // /auth/me migrated any legacy bearer to the gateway's HttpOnly cookie.
+  for (const storage of [sessionStorage, localStorage]) {
+    const marker = (result as typeof result & { sessionMarker?: string }).sessionMarker;
+    if (storage.getItem(TOKEN) && isSessionMarker(marker)) storage.setItem(TOKEN, marker!);
+  }
+  return result;
+};
 // Compatibility for the source's QR constructor, bundled locally for offline use.
 ui.QRCode = class {
   static CorrectLevel = { M: 'M' };
@@ -374,7 +386,7 @@ async function payScheduled() {
     const result=await api.fundOrder(scheduledPending.orderId,{paymentMethod:method==='mobile'?'mobile_money':'wallet',useWallet:method==='wallet',msisdn:method==='mobile'?$('#taxibee-msisdn')?.value:undefined,offerCode:$('#taxibee-offer-code')?.value.trim()||undefined});
     if(result.payment?.status==='failed') throw new Error('Payment failed. Check your payment details and try again.');
     pendingPayment=result.payment?.id||null;
-    if(result.redirectUrl){location.assign(result.redirectUrl);return;}
+    if(result.redirectUrl){redirectToCheckout(result.redirectUrl);return;}
   }
   const latest=(await api.getTaxipressScheduledTicket(scheduledPending.ticketId)).ticket;
   scheduledTickets=[latest,...scheduledTickets.filter(t=>t.id!==latest.id)];
@@ -393,7 +405,7 @@ async function payPending() {
     const result = await api.fundOrder(pendingOrder.order.id, { paymentMethod: method === 'mobile' ? 'mobile_money' : method, useWallet: method === 'wallet', msisdn: method === 'mobile' ? $('#taxibee-msisdn')?.value : undefined, offerCode: $('#taxibee-offer-code')?.value.trim() || undefined });
     if (result.payment?.status === 'failed') throw new Error('Payment failed. Check your payment details and try again.');
     pendingPayment = result.payment?.id || null;
-    if (result.redirectUrl) { location.assign(result.redirectUrl); return; }
+    if (result.redirectUrl) { redirectToCheckout(result.redirectUrl); return; }
   }
   const result = await api.getTaxipressBooking(pendingOrder.booking.id);
   selectedBooking = result.booking;
@@ -741,7 +753,7 @@ document.addEventListener('click', async event => {
         let result;
         try { result = await api.topUpWallet({ amount: Number($('#taxibee-topup-amount')?.value), msisdn: $('#taxibee-topup-phone')?.value, method: 'mobile_money' }); }
         finally { busy = false; button!.removeAttribute('disabled'); }
-        if (result.redirectUrl) location.assign(result.redirectUrl);
+        if (result.redirectUrl) redirectToCheckout(result.redirectUrl);
         else ui.openModal('Top-up pending', '<p>Approve your provider prompt. Your balance changes only after the payment is confirmed.</p>', `<button class="button button--primary" data-action="taxibee-topup-refresh" data-id="${escape(result.topupId)}">Check payment</button>`);
       } else if (action === 'taxibee-topup-refresh') { const r = await api.refreshTopup(button!.dataset.id!); ui.toast(`Top-up ${r.topup.status}`, 'info'); await refresh(); if (r.topup.status !== 'pending') ui.closeModal(); ui.renderCurrentScreen(); }
       else if (action === 'taxibee-save-name') { await api.updateMyDisplayName($('#taxibee-display-name')?.value.trim() || ''); applyUser((await api.me()).user); ui.renderCurrentScreen(); ui.toast('Your Peebee name is updated.', 'success'); }
