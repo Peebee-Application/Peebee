@@ -393,6 +393,53 @@ export function wrapIndex(index: number, count: number): number {
   return ((index % count) + count) % count;
 }
 
+export type ScreensaverLevel = "cover" | "module";
+
+/**
+ * Level 1 swipes sideways between modules. Level 2 scrolls vertically and wraps
+ * inside the current module, so that gesture never opens the next module.
+ * `dir` 1 is the next module, the next sub-module, or opening the module.
+ */
+export function navigateLevel(
+  level: ScreensaverLevel,
+  moduleIndex: number,
+  entityIndex: number,
+  moduleCount: number,
+  entityCount: number,
+  axis: "x" | "y",
+  dir: 1 | -1,
+): { level: ScreensaverLevel; moduleIndex: number; entityIndex: number } | "open" | "ignore" {
+  if (moduleCount <= 0) return "ignore";
+  if (axis === "x") {
+    if (level !== "cover" || moduleCount < 2) return "ignore";
+    return { level, moduleIndex: wrapIndex(moduleIndex + dir, moduleCount), entityIndex: 0 };
+  }
+  if (level === "cover") return dir > 0 ? "open" : "ignore";
+  if (entityCount < 2) return "ignore";
+  return { level: "module", moduleIndex, entityIndex: wrapIndex(entityIndex + dir, entityCount) };
+}
+
+/** How far a sub-module photo travels. The outgoing frame recedes; the incoming one rises from behind the sheet. */
+export function entityImagePose(role: "out" | "in", progress: number, reduced = false): { yPercent: number; scale: number; opacity: number } {
+  const p = progress < 0 ? 0 : progress > 1 ? 1 : progress;
+  if (reduced) return { yPercent: 0, scale: 1, opacity: role === "out" ? 1 - p : 1 };
+  if (role === "out") return { yPercent: 0, scale: 1 - p * 0.22, opacity: 1 - p ** 1.6 };
+  return { yPercent: (1 - p) * 92, scale: 0.94 + p * 0.06, opacity: 1 };
+}
+
+/** Upward travel of the white sheet, in px. The committed motion peaks early and eases back. */
+export const SHEET_PULL_PX = 32;
+
+export function sheetReleaseOffset(progress: number, reduced = false): number {
+  if (reduced) return 0;
+  const p = progress < 0 ? 0 : progress > 1 ? 1 : progress;
+  const peakAt = 0.22;
+  const offset = p <= peakAt
+    ? -SHEET_PULL_PX * (p / peakAt)
+    : -SHEET_PULL_PX * (1 - (p - peakAt) / (1 - peakAt));
+  return offset === 0 ? 0 : offset;
+}
+
 /**
  * Drops slides and sub-entities the admin has switched off.
  * A slide with nothing left to show is dropped too.
