@@ -7,7 +7,7 @@ Read `COLLABORATION.md` before changing or deploying this repository.
 - Use a separate Git worktree when Codex or another developer has an active worktree.
 - Preserve unrelated uncommitted changes. Never reset, overwrite, or include them in a feature commit.
 - Commit and push completed work. A local deployment is not a durable handoff.
-- Merge through a pull request, then deploy only from a clean `main` that exactly matches `origin/main`.
+- Merge through a pull request. **Merging to `main` deploys automatically**: `.github/workflows/deploy.yml` builds and deploys every changed app to production on GitHub's runners. Check that run (Actions → "Deploy to Cloudflare") instead of deploying by hand. A manual deploy is only a fallback, from a clean `main` that exactly matches `origin/main`.
 - Do not bypass `scripts/preflight-deploy.mjs`.
 
 ## UI rules

@@ -21,7 +21,9 @@ Never let Claude Code and Codex edit the same worktree. Never start new work dir
 3. Push the feature branch.
 4. Merge it into `main` through a pull request.
 5. Update local `main` from `origin/main`.
-6. Deploy from the clean, up-to-date `main` branch.
+6. Confirm the deploy. Merging to `main` starts the "Deploy to Cloudflare" workflow (`.github/workflows/deploy.yml`), which builds and deploys every app the merge changed (all apps when shared code changed) to production. Check that run in GitHub Actions; a green run means it is live.
+
+To redeploy without a new merge, run the same workflow by hand (Actions → "Deploy to Cloudflare" → Run workflow on `main`, choosing apps or `all`). Deploying from a local machine is a last resort: on Windows the build needs the Visual C++ runtime and symlink rights (Administrator or Developer Mode), which is why the workflow is the normal route.
 
 The app deploy scripts run `scripts/preflight-deploy.mjs`. Deployment stops when the branch is not `main`, files are uncommitted, or local `main` differs from `origin/main`.
 
